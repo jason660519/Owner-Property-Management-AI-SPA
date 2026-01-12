@@ -1,0 +1,310 @@
+# 部署检查清单 - 三阶段
+
+> 按照此清单跟踪三个部署阶段的进度
+
+---
+
+## ✅ 阶段一：纯本地开发环境
+
+**状态**: ✅ **完成** (2026-01-13)  
+**时间投入**: ~2 小时  
+**成本**: $0
+
+### 核心完成项
+
+#### 开发工具
+- [x] Docker Desktop 安装和验证
+- [x] Node.js 和 npm 安装
+- [x] Supabase CLI 安装
+- [x] Git 配置
+
+#### Supabase 本地环境
+- [x] `supabase init` 初始化
+- [x] `config.toml` 配置
+- [x] 迁移文件目录创建
+- [x] 初始 Schema 迁移文件
+
+#### 数据库设计
+- [x] properties 表
+- [x] property_photos 表
+- [x] clients 表
+- [x] property_appointments 表
+- [x] Row Level Security (RLS) 政策
+- [x] 数据库索引优化
+
+#### 前端集成
+- [x] Supabase 客户端库
+- [x] 认证函数（signup/signin/signout）
+- [x] CRUD 操作函数
+- [x] 文件上传函数
+- [x] .env.local 配置
+- [x] package.json 依赖更新
+
+#### 文档和工具
+- [x] QUICK_START.md
+- [x] PHASE_ONE_COMPLETE.md
+- [x] PHASE_ONE_SUMMARY.md
+- [x] PHASE_ONE_CHECKLIST.md
+- [x] README.md 更新
+- [x] setup-phase-one.sh 脚本
+
+### 启动验证
+
+- [ ] `bash setup-phase-one.sh` 成功执行
+- [ ] Supabase 容器启动
+- [ ] `supabase status` 显示所有服务
+- [ ] Studio 访问成功 (http://localhost:54323)
+- [ ] API 可访问 (http://localhost:54321)
+- [ ] 数据库连接成功
+- [ ] 前端依赖安装成功
+- [ ] `npx expo start` 成功启动
+- [ ] 在手机上可以扫描 QR 码
+
+### 测试验证
+
+- [ ] 用户可以访问 Studio
+- [ ] 可以查看 properties 表
+- [ ] 可以执行 SQL 查询
+- [ ] Storage bucket 配置完成
+- [ ] RLS 政策正常工作
+
+---
+
+## 🔄 阶段二：测试环境部署
+
+**状态**: 📅 **计划中** (预计 2026-01-20)  
+**预计时间**: 1-2 周  
+**成本**: $0 (免费方案)
+
+### 前期准备
+
+- [ ] 阅读 [三阶段部署说明](./docs/每日開發進度追蹤與報告/三階段部署說明.md)
+- [ ] 创建 GitHub 账户（如未有）
+- [ ] 创建 Supabase Cloud 账户
+- [ ] 创建 Vercel 账户
+
+### Supabase Cloud 设置
+
+- [ ] 注册 Supabase Cloud (https://supabase.com)
+- [ ] 创建新项目 "owner-real-estate-saas"
+- [ ] 选择 Tokyo 地域
+- [ ] 选择免费方案
+- [ ] 获取 Project URL 和密钥
+- [ ] 配置身份验证提供商
+- [ ] 创建 Storage 桶
+
+### 数据库同步
+
+- [ ] 登入 Supabase CLI: `npx supabase login`
+- [ ] 链接本地项目: `npx supabase link`
+- [ ] 推送迁移: `npx supabase db push`
+- [ ] 验证表结构
+- [ ] 测试 RLS 政策
+- [ ] 配置存储政策
+
+### GitHub 设置
+
+- [ ] 创建 GitHub 仓库
+- [ ] 初始化本地 Git: `git init`
+- [ ] 添加远程: `git remote add origin <repo-url>`
+- [ ] 推送代码: `git push -u origin main`
+- [ ] 验证代码完整性
+
+### Vercel 部署
+
+- [ ] 安装 Vercel CLI: `npm i -g vercel`
+- [ ] 登入 Vercel: `vercel login`
+- [ ] 进入前端目录: `cd frontend`
+- [ ] 初次部署: `vercel`
+- [ ] 设置环境变量:
+  - [ ] EXPO_PUBLIC_SUPABASE_URL
+  - [ ] EXPO_PUBLIC_SUPABASE_ANON_KEY
+- [ ] 重新部署: `vercel --prod`
+- [ ] 获取生产 URL
+
+### 功能测试
+
+- [ ] 访问 Vercel 生产 URL
+- [ ] 用户注册功能
+- [ ] 用户登录功能
+- [ ] 创建物业
+- [ ] 上传照片
+- [ ] 查看物业列表
+- [ ] 手机浏览器访问
+- [ ] 响应式设计检查
+
+### 邀请测试
+
+- [ ] 邀请 3-5 位内测用户
+- [ ] 提供测试指南
+- [ ] 收集反馈
+- [ ] 记录 Bug
+- [ ] 修复关键问题
+
+### 监控和日志
+
+- [ ] 启用 Vercel Analytics
+- [ ] 检查 Supabase 日志
+- [ ] 设置基本监控告警
+- [ ] 记录性能指标
+
+---
+
+## 🎯 阶段三：正式环境上线
+
+**状态**: 📅 **规划中** (预计 2026-02-13)  
+**预计时间**: 2-4 周  
+**成本**: $25-150/月
+
+### 环境准备
+
+- [ ] 升级 Supabase Pro 方案 ($25/月)
+- [ ] 选择 Vercel Pro 或 Hobby (取决于需求)
+- [ ] 评估其他服务需求
+- [ ] 制定成本预算
+
+### 安全强化
+
+- [ ] 启用 HTTPS 证书 (Vercel 自动)
+- [ ] 设置环境变量管理
+- [ ] 配置 API 速率限制
+- [ ] 实施文件上传限制
+- [ ] 审查所有 RLS 政策
+- [ ] 设置日志存档
+
+### 性能优化
+
+- [ ] 添加数据库索引
+- [ ] 优化 SQL 查询
+- [ ] 启用查询缓存
+- [ ] 配置 CDN (如需要)
+- [ ] 优化图片处理
+- [ ] 性能测试和基准
+
+### CI/CD 设置
+
+- [ ] 创建 GitHub Actions 工作流
+- [ ] 配置自动测试 (如有)
+- [ ] 设置自动部署触发
+- [ ] 配置回滚策略
+- [ ] 测试 CI/CD 流程
+
+### 备份和恢复
+
+- [ ] 启用 Supabase 自动备份
+- [ ] 设置备份保留策略
+- [ ] 测试备份恢复流程
+- [ ] 建立灾难恢复计划
+- [ ] 文档化恢复步骤
+
+### 监控和告警
+
+- [ ] 启用 Uptime 监控 (UptimeRobot)
+- [ ] 设置 Sentry 错误追踪
+- [ ] 配置邮件告警
+- [ ] 设置 SMS 告警 (关键事件)
+- [ ] 创建监控仪表板
+
+### 域名和 HTTPS
+
+- [ ] 购买自定义域名 (如需要)
+- [ ] 配置 DNS 记录
+- [ ] 设置 SSL 证书
+- [ ] 启用 HSTS
+- [ ] 测试 HTTPS 连接
+
+### 用户上线
+
+- [ ] 制定发布计划
+- [ ] 准备用户文档
+- [ ] 培训支持团队
+- [ ] 进行最终测试
+- [ ] 监控初期运行
+- [ ] 收集用户反馈
+
+### 发布和推广
+
+- [ ] PWA 优化 (可选)
+- [ ] 准备 App Store 发布 (如需要)
+- [ ] 配置分析工具
+- [ ] 建立营销页面
+- [ ] 启动推广活动
+
+---
+
+## 📊 进度跟踪
+
+### 时间轴
+
+```
+2026-01-13 ✅ 阶段一完成
+2026-01-20 📅 阶段二开始 (目标)
+2026-02-03 📅 阶段二完成 (目标)
+2026-02-13 📅 阶段三完成 (目标)
+2026-03-01 🎯 产品上线 (目标)
+```
+
+### 关键里程碑
+
+- [x] 2026-01-13: 阶段一完成
+- [ ] 2026-01-30: 第一版本测试
+- [ ] 2026-02-15: 内测反馈收集完成
+- [ ] 2026-02-28: 正式环境部署
+- [ ] 2026-03-15: 首批用户上线
+- [ ] 2026-04-30: 50 个付费用户目标
+
+### 成本跟踪
+
+| 阶段 | 服务 | 成本 | 状态 |
+|------|------|------|------|
+| 一 | 本地 | $0 | ✅ |
+| 二 | Supabase Free | $0 | 📅 |
+| 二 | Vercel Hobby | $0 | 📅 |
+| 三 | Supabase Pro | $25/月 | 📅 |
+| 三 | Vercel | $0-20/月 | 📅 |
+| 三 | 其他 | $20-100/月 | 📅 |
+
+---
+
+## 🔗 相关资源链接
+
+### 文档
+- [QUICK_START.md](./QUICK_START.md)
+- [PHASE_ONE_COMPLETE.md](./PHASE_ONE_COMPLETE.md)
+- [三阶段部署说明](./docs/每日開發進度追蹤與報告/三階段部署說明.md)
+
+### 官方指南
+- [Supabase 文档](https://supabase.com/docs)
+- [Vercel 文档](https://vercel.com/docs)
+- [GitHub Actions 文档](https://docs.github.com/en/actions)
+
+### 工具
+- [Supabase CLI](https://github.com/supabase/cli)
+- [Vercel CLI](https://vercel.com/cli)
+- [Expo CLI](https://docs.expo.dev/workflow/expo-cli/)
+
+---
+
+## 📝 备注
+
+### 第一次阅读注意事项
+1. 每个阶段独立，可以单独完成
+2. 建议按顺序进行，但不强制
+3. 每个检查项都应该明确测试和验证
+4. 如遇阻止进度的问题，立即记录和解决
+
+### 更新频率
+- 每周检查一次进度
+- 发现问题立即更新状态
+- 完成里程碑后更新文档
+
+### 团队协作
+- 将此清单与团队共享
+- 定期同步进度
+- 及时沟通障碍和解决方案
+
+---
+
+**最后更新**: 2026-01-13  
+**下次审查**: 2026-01-20  
+**负责人**: Development Team
