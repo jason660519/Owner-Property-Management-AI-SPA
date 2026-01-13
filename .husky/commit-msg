@@ -1,0 +1,40 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "📋 驗證提交訊息格式..."
+
+COMMIT_MSG_FILE=$1
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Conventional Commits 格式驗證
+# 格式: type(scope): subject
+PATTERN="^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\(.+\))?: .{1,100}$"
+
+if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
+  echo ""
+  echo "❌ 提交訊息格式錯誤！"
+  echo ""
+  echo "正確格式: <type>(<scope>): <subject>"
+  echo ""
+  echo "可用的 type 類型："
+  echo "  feat     - 新功能"
+  echo "  fix      - 錯誤修復"
+  echo "  docs     - 文件變更"
+  echo "  style    - 程式碼格式 (不影響功能)"
+  echo "  refactor - 程式碼重構"
+  echo "  test     - 測試相關"
+  echo "  chore    - 雜項/建置工具"
+  echo "  perf     - 效能優化"
+  echo "  ci       - CI/CD 設定"
+  echo "  build    - 建置系統"
+  echo "  revert   - 還原提交"
+  echo ""
+  echo "範例："
+  echo "  feat(auth): 新增 Google 登入功能"
+  echo "  fix(property): 修復房源搜尋錯誤"
+  echo "  docs: 更新 API 文件"
+  echo ""
+  exit 1
+fi
+
+echo "✅ 提交訊息格式正確！"

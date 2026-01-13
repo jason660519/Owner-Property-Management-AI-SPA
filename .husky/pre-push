@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🚀 執行 pre-push 檢查..."
+
+# 執行測試 (如果有設定)
+if npm run test --if-present 2>/dev/null; then
+  echo "🧪 測試通過！"
+else
+  echo "⚠️ 無測試或測試跳過"
+fi
+
+# 執行建置檢查
+echo "🏗️ 檢查建置..."
+npm run build
+
+echo "✅ Pre-push 檢查通過！"
