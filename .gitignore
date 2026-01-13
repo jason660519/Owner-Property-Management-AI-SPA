@@ -36,6 +36,7 @@ build/
 *.pid
 *.seed
 *.pid.lock
+*.apk
 coverage/
 .nyc_output/
 
@@ -53,16 +54,9 @@ temp/
 .dockerignore
 
 # ============================================
-# Claude IDE Configuration
-# ============================================
-.claude/tasks/
-
-# ============================================
 # Project Specific
 # ============================================
-# Mermaid preview files (moved to docs/architecture/)
-mermaid-preview.html
-vscode-mermaid-extension.html
+
 test-output-*.png
 Google Drive Outh.json
 Outh.json
