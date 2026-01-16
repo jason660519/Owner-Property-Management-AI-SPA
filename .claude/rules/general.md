@@ -6,30 +6,19 @@
 
 ## 命名規範
 
-### 程式碼檔案
+**完整規範請參考**：[本專案檔案命名規則與新增文件歸檔總則](../../docs/本專案檔案命名規則與新增文件歸檔總則.md)
 
-| 類型       | 規則                  | 範例                                          |
-| :--------- | :-------------------- | :-------------------------------------------- |
-| React 組件 | PascalCase            | `UserProfile.tsx`, `Sidebar.tsx`              |
-| Hooks      | camelCase + use 前綴  | `useAuth.ts`, `useWindowSize.ts`              |
-| 工具函數   | camelCase             | `dateFormatter.ts`, `apiClient.ts`            |
-| 樣式檔案   | kebab-case 或同組件名 | `global-styles.css`, `UserProfile.module.css` |
-| 配置檔案   | kebab-case            | `tailwind.config.js`, `tsconfig.json`         |
+### 快速參考表
 
-### 資料夾
-
-| 類型       | 規則       | 範例                       |
-| :--------- | :--------- | :------------------------- |
-| 一般資料夾 | kebab-case | `components`, `api-routes` |
-| 特殊分類   | 雙底線前綴 | `__tests__`, `__mocks__`   |
-
-### 文檔與資源
-
-| 類型          | 規則                 | 範例                               |
-| :------------ | :------------------- | :--------------------------------- |
-| Markdown 文檔 | ISO 日期前綴（選用） | `2026-01-15_meeting_notes.md`      |
-| 圖片資源      | snake_case           | `logo_main.png`, `banner_home.jpg` |
-| Shell 腳本    | kebab-case           | `deploy-prod.sh`, `setup-env.sh`   |
+| 文件類型   | 命名規則             | 範例                                  |
+| :--------- | :------------------- | :------------------------------------ |
+| React 組件 | PascalCase           | `UserProfile.tsx`, `Sidebar.tsx`      |
+| Hooks      | camelCase + use 前綴 | `useAuth.ts`, `useWindowSize.ts`      |
+| 工具函數   | camelCase            | `dateFormatter.ts`, `apiClient.ts`    |
+| 資料夾     | kebab-case           | `components`, `api-routes`            |
+| 配置檔案   | kebab-case           | `tailwind.config.js`, `tsconfig.json` |
+| 文檔       | ISO 日期前綴（選用） | `2026-01-15_meeting_notes.md`         |
+| Shell 腳本 | kebab-case           | `deploy-prod.sh`, `setup-env.sh`      |
 
 ---
 

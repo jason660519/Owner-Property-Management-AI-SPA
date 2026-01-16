@@ -13,6 +13,32 @@
 
 ---
 
+## 📋 代碼生成規範
+
+**在生成任何代碼文件前，必須先閱讀並遵守以下規範：**
+
+### 1️⃣ 命名規範與文件歸檔
+
+📖 [本專案檔案命名規則與新增文件歸檔總則](docs/本專案檔案命名規則與新增文件歸檔總則.md)
+
+### 2️⃣ Project Rules 模塊化規則
+
+📋 AI 會根據你編輯的檔案路徑自動載入對應規則：
+
+- **前端開發** → [react-expo.md](.claude/rules/frontend/react-expo.md)
+- **後端資料庫** → [supabase.md](.claude/rules/backend/supabase.md)
+- **Python/OCR** → [python-ocr.md](.claude/rules/backend/python-ocr.md)
+- **通用規則** → [general.md](.claude/rules/general.md)
+
+### 關鍵要求
+
+1. **命名規範**：根據文件類型使用正確的 casing（詳見規範文檔）
+2. **檔案路徑**：所有代碼塊必須包含 `// filepath:` 註解
+3. **目錄結構**：遵守 Monorepo 風格，放入正確的資料夾
+4. **文件歸檔**：文檔類文件必須放入 `docs/` 下的對應分類
+
+---
+
 ## Context7 技術文檔規則
 
 當需要以下技術的 API、程式碼範例或 best practices 時，
