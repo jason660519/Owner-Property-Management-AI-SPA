@@ -1,0 +1,136 @@
+---
+description: "代碼風格、TypeScript 規範、React 組件模式"
+alwaysApply: false
+globs: ["frontend/**/*.{ts,tsx,js,jsx}", "backend/**/*.{ts,js,py}"]
+---
+
+# 代碼風格與架構規範
+
+## TypeScript / React 規範
+
+### 組件模式
+
+- **一律使用函式型組件 + Hooks**
+- **TypeScript 嚴格模式**：避免使用 `any`，優先使用明確類型
+- **組件命名**：PascalCase，檔案名與組件名一致
+
+```typescript
+// ✅ 正確範例
+interface PropertyCardProps {
+  property: Property;
+  onSelect: (id: string) => void;
+}
+
+export const PropertyCard: React.FC<PropertyCardProps> = ({ property, onSelect }) => {
+  // 組件邏輯
+};
+
+// ❌ 錯誤 - 類別組件
+class PropertyCard extends React.Component { ... }
+```
+
+### 檔案結構
+
+```
+frontend/src/
+  ├── components/        # 可重用組件
+  │   ├── PropertyCard.tsx
+  │   └── Sidebar.tsx
+  ├── lib/              # 工具函數和服務
+  │   ├── supabase.ts  # Supabase 客戶端
+  │   └── utils.ts
+  ├── screens/          # 頁面組件
+  └── types/            # TypeScript 類型定義
+```
+
+### Supabase 整合
+
+- **統一使用** `frontend/src/lib/supabase.ts` 中的客戶端
+- **所有資料庫操作**必須通過封裝的函數，不要直接使用 `supabase.from()`
+- **錯誤處理**：所有 Supabase 操作必須包含錯誤處理
+
+```typescript
+// ✅ 正確 - 使用封裝函數
+import { createProperty, getUserProperties } from '@/lib/supabase';
+
+// ❌ 錯誤 - 直接使用 supabase
+const { data } = await supabase.from('properties').select('*');
+```
+
+## 命名規範
+
+### 檔案命名
+
+- **組件檔案**: PascalCase，如 `PropertyCard.tsx`
+- **工具函數**: camelCase，如 `formatDate.ts`
+- **類型定義**: PascalCase，如 `PropertyTypes.ts`
+- **常數檔案**: UPPER_SNAKE_CASE，如 `API_CONSTANTS.ts`
+
+### 變數命名
+
+- **組件**: PascalCase (`PropertyCard`)
+- **函數/變數**: camelCase (`getUserProperties`, `propertyId`)
+- **常數**: UPPER_SNAKE_CASE (`MAX_FILE_SIZE`)
+- **類型/介面**: PascalCase (`Property`, `PropertyCardProps`)
+
+## 程式碼品質
+
+### 格式化
+
+- **前端**: Prettier（自動格式化）
+- **後端 Python**: Black（未來）
+
+### TypeScript 檢查
+
+- 所有 `.ts` / `.tsx` 檔案必須通過 `npx tsc --noEmit`
+- 禁止使用 `@ts-ignore`，優先修正類型問題
+
+### 註解規範
+
+- **函數註解**: 使用 JSDoc 格式
+- **複雜邏輯**: 必須添加英文註解說明
+- **TODO**: 使用 `// TODO: 說明` 格式
+
+```typescript
+/**
+ * 創建新的物業物件
+ * @param propertyData - 物業資料物件
+ * @returns 創建成功的物業資料或錯誤訊息
+ */
+export async function createProperty(propertyData: PropertyData) {
+  // TODO: 添加資料驗證邏輯
+}
+```
+
+## 錯誤處理
+
+### 統一錯誤處理模式
+
+```typescript
+// ✅ 正確 - 返回統一格式
+export async function createProperty(data: PropertyData) {
+  try {
+    const { data: property, error } = await supabase
+      .from('properties')
+      .insert([data])
+      .select()
+      .single();
+    
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    
+    return { success: true, data: property };
+  } catch (err) {
+    return { 
+      success: false, 
+      error: err instanceof Error ? err.message : 'Unknown error' 
+    };
+  }
+}
+```
+
+## 參考檔案
+
+- Supabase 客戶端: `@frontend/src/lib/supabase.ts`
+- 命名規則: `@docs/本專案檔案命名規則與新增文件歸檔總則.md`

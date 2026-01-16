@@ -1,0 +1,67 @@
+{
+  "metadata": {
+    "document_id": "123e4567-e89b-12d3-a456-426614174000",
+    "property_id": "123e4567-e89b-12d3-a456-426614174001",
+    "source_file": "102AF022944REG02E9EC68747504C53A80B70B286C68179.pdf",
+    "processed_at": "2026-01-16T19:42:51.181364",
+    "ocr_engine": {
+      "name": "DeepSeek-OCR",
+      "version": "v2025.12-mock",
+      "confidence": 0.94
+    }
+  },
+  "register_office": "臺北市松山地政事務所",
+  "document_type": "建物所有權狀謄本",
+  "sections": {
+    "basic": {
+      "build_register_number": "建號：松山建字第123456號",
+      "land_register_numbers": ["坐落地號：松山段一小段0100地號"],
+      "survey_date": "2023-11-15",
+      "registration_date": "2023-12-01",
+      "registration_reason": "繼承"
+    },
+    "ownerships": [
+      {
+        "holder": {
+          "name": "王大明",
+          "id_number_masked": "A123***789",
+          "address": "臺北市松山區八德路四段200號",
+          "contact": null
+        },
+        "share_ratio": "1/1",
+        "acquisition_reason": "繼承",
+        "acquisition_date": "2023-12-01"
+      }
+    ],
+    "building_profile": {
+      "location": "臺北市松山區八德路四段200號",
+      "structure": "鋼筋混凝土造",
+      "main_use": "住家用",
+      "floors": {
+        "above_ground": 12,
+        "underground": 0
+      },
+      "completion_date": "2015-07-30"
+    },
+    "area_summary": {
+      "units": "square_meter",
+      "main_building": 84.32,
+      "accessory_building": 6.51,
+      "balcony": 8.03,
+      "public_facilities": 24.11,
+      "total": 122.97,
+      "converted_ping": {
+        "total": 37.2,
+        "main_building": 25.5
+      }
+    },
+    "encumbrances": [],
+    "raw_text": "...",
+    "confidence_notes": []
+  },
+  "audit": {
+    "processed_by": "ocr_pipeline_v1",
+    "review_status": "pending",
+    "checksum": "sha256:..."
+  }
+}

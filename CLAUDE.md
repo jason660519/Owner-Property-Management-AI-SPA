@@ -1,55 +1,96 @@
 # Owner Real Estate Agent SaaS
 
-- @README.md
-- @frontend/package.json
-- @docs/guides/project_naming_rules.md
+房東物件管理語音 AI App - Phase 1 MVP 開發中
 
-## Build & Run
+---
 
-### Environment
+## 專案概覽
 
-- Start Supabase: `supabase start`
-- Stop Supabase: `supabase stop`
-- Reset Database: `supabase db reset`
-- Supabase Status: `supabase status` (Get anon key)
+- 專案說明：@README.md
+- 快速開始：@START_HERE.md
+- 開發進度：@docs/專案SDLC進度表報告\_2026-01-14.md
+- 詳細記憶：@.claude/CLAUDE.md
 
-### Frontend
+---
 
-- Install Dependencies: `cd frontend && npm install`
-- Start Expo: `cd frontend && npx expo start`
-- Run on iOS: `cd frontend && npm run ios`
-- Run on Android: `cd frontend && npm run android`
-- Run on Web: `cd frontend && npx expo start --web`
+## 📋 代碼生成規範
 
-### Code Quality
+**在生成任何代碼文件前，必須先閱讀並遵守以下規範：**
 
-- Lint: `cd frontend && npm run lint`
-- Type Check: `cd frontend && npx tsc --noEmit`
-- Format: `npx prettier --write "**/*.{js,jsx,ts,tsx,json,css}"`
+### 1️⃣ 命名規範與文件歸檔
 
-## Architecture Details
+📖 [本專案檔案命名規則與新增文件歸檔總則](docs/本專案檔案命名規則與新增文件歸檔總則.md)
 
-### Tech Stack
+### 2️⃣ Project Rules 模塊化規則
 
-- **Frontend**: React Native 0.81.5, Expo 54, TypeScript 5.9.2
-- **Backend**: Supabase (PostgreSQL 17), GoTrue (Auth), Storage
-- **Styling**: @expo/vector-icons (FontAwesome5, MaterialIcons, Ionicons)
+📋 AI 會根據你編輯的檔案路徑自動載入對應規則：
 
-### Database Schema (Phase 1)
+- **前端開發** → [react-expo.md](.claude/rules/frontend/react-expo.md)
+- **後端資料庫** → [supabase.md](.claude/rules/backend/supabase.md)
+- **Python/OCR** → [python-ocr.md](.claude/rules/backend/python-ocr.md)
+- **通用規則** → [general.md](.claude/rules/general.md)
 
-- **properties**: `id`, `agent_id`, `address`, `district`, `total_area`, `building_age`, `transcript_data`
-- **property_photos**: `id`, `property_id`, `storage_path`, `display_order`
-- **clients**: `id`, `agent_id`, `name`, `phone`, `email`, `preferences`
-- **property_appointments**: `id`, `property_id`, `client_id`, `scheduled_at`, `status`
-- **Security**: RLS enabled. Agents can only access their own data (`agent_id = auth.uid()`).
+### 關鍵要求
 
-### Frontend API (`frontend/src/lib/supabase.ts`)
+1. **命名規範**：根據文件類型使用正確的 casing（詳見規範文檔）
+2. **檔案路徑**：所有代碼塊必須包含 `// filepath:` 註解
+3. **目錄結構**：遵守 Monorepo 風格，放入正確的資料夾
+4. **文件歸檔**：文檔類文件必須放入 `docs/` 下的對應分類
 
-- **Auth**: `signUp`, `signIn`, `signOut`, `getCurrentUser`
-- **Properties**: `createProperty`, `getUserProperties`, `updateProperty`, `deleteProperty`
+---
 
-### Local Services
+## Context7 技術文檔規則
 
-- API Gateway: http://localhost:54321
-- Supabase Studio: http://localhost:54323
-- Expo Dev Server: http://localhost:8081
+當需要以下技術的 API、程式碼範例或 best practices 時，
+使用 Context7 MCP 查詢最新官方文檔，避免使用過時資訊：
+
+| 技術       | Library ID              | 版本   |
+| :--------- | :---------------------- | :----- |
+| React      | `/facebook/react`       | 19     |
+| Expo       | `/expo/expo`            | 54     |
+| Supabase   | `/supabase/supabase`    | latest |
+| TypeScript | `/microsoft/typescript` | 5.x    |
+| PostgreSQL | `/postgres/postgres`    | 17     |
+
+### 使用方式
+
+1. **自動查詢**：在 prompt 中加入 `use context7`
+2. **指定 Library**：`use library /supabase/supabase`
+3. **指定版本**：在 prompt 中說明版本，如「React 19 hooks」
+
+### 何時使用 Context7
+
+- ✅ 需要 API 文檔或程式碼範例
+- ✅ 設定或配置步驟
+- ✅ Best practices 和設計模式
+- ✅ 版本升級或遷移指南
+
+---
+
+## 快速指令
+
+```bash
+# 啟動 Supabase
+supabase start
+
+# 啟動前端開發
+cd frontend && npx expo start
+
+# 重置資料庫
+supabase db reset
+
+# 查看 Supabase 狀態
+supabase status
+```
+
+---
+
+## 重要路徑
+
+| 類型          | 路徑                                      |
+| :------------ | :---------------------------------------- |
+| 前端原始碼    | `frontend/src/`                           |
+| 資料庫 Schema | `supabase/migrations/`                    |
+| API 函數      | `frontend/src/lib/supabase.ts`            |
+| 文檔中心      | `docs/`                                   |
+| 命名規則      | `本專案檔案命名規則與新增文件歸檔總則.md` |

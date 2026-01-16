@@ -1,0 +1,12 @@
+-r requirements.txt
+
+# Development Tools
+black>=24.1.0
+ruff>=0.2.0
+mypy>=1.8.0
+pre-commit>=3.6.0
+
+# Testing Enhancement
+pytest-xdist>=3.5.0  # Parallel testing
+pytest-benchmark>=4.0.0  # Performance testing
+httpx>=0.26.0  # API testing

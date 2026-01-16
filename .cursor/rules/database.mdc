@@ -1,0 +1,173 @@
+---
+description: "資料庫設計規範、Supabase RLS 政策、遷移檔案管理"
+alwaysApply: false
+globs: ["supabase/**/*.sql", "supabase/migrations/**/*"]
+---
+
+# 資料庫設計與管理規範
+
+## Supabase 資料庫規範
+
+### 資料表設計
+
+- **命名**: 使用複數形式，snake_case
+  - ✅ `properties`, `property_photos`, `clients`
+  - ❌ `Property`, `propertyPhotos`, `client`
+
+- **主鍵**: 一律使用 UUID (`gen_random_uuid()`)
+- **時間戳記**: 使用 `TIMESTAMPTZ`，包含 `created_at` 和 `updated_at`
+
+### 範例資料表結構
+
+```sql
+CREATE TABLE properties (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  address TEXT NOT NULL,
+  district TEXT,
+  total_area NUMERIC,
+  building_age INTEGER,
+  transcript_data JSONB,  -- 謄本解析資料
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 自動更新 updated_at
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_properties_updated_at
+  BEFORE UPDATE ON properties
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+```
+
+## Row Level Security (RLS)
+
+### 必須啟用 RLS
+
+所有資料表必須啟用 RLS：
+
+```sql
+ALTER TABLE properties ENABLE ROW LEVEL SECURITY;
+```
+
+### RLS 政策範例
+
+```sql
+-- 仲介只能查看自己的物件
+CREATE POLICY "仲介只能查看自己的物件"
+  ON properties FOR SELECT
+  USING (auth.uid() = agent_id);
+
+-- 仲介只能新增自己的物件
+CREATE POLICY "仲介只能新增自己的物件"
+  ON properties FOR INSERT
+  WITH CHECK (auth.uid() = agent_id);
+
+-- 仲介只能更新自己的物件
+CREATE POLICY "仲介只能更新自己的物件"
+  ON properties FOR UPDATE
+  USING (auth.uid() = agent_id)
+  WITH CHECK (auth.uid() = agent_id);
+
+-- 仲介只能刪除自己的物件
+CREATE POLICY "仲介只能刪除自己的物件"
+  ON properties FOR DELETE
+  USING (auth.uid() = agent_id);
+```
+
+### RLS 測試
+
+每次新增或修改 RLS 政策後，必須測試：
+1. 認證使用者只能存取自己的資料
+2. 未認證使用者無法存取任何資料
+3. 跨使用者資料隔離
+
+## 資料庫遷移
+
+### 遷移檔案命名
+
+格式：`YYYYMMDDHHMMSS_description.sql`
+
+```sql
+-- supabase/migrations/20260112000000_initial_schema.sql
+-- supabase/migrations/20260115000000_add_property_appointments.sql
+```
+
+### 遷移檔案規範
+
+1. **可逆性**: 盡量提供 `down` 遷移（或註解說明如何回滾）
+2. **原子性**: 每個遷移檔案應該是一個完整的變更
+3. **測試**: 在本地測試遷移後再推送到雲端
+
+### 執行遷移
+
+```powershell
+# 本地重置並執行所有遷移
+npx supabase db reset
+
+# 推送到 Supabase Cloud
+npx supabase db push
+
+# 檢查遷移狀態
+npx supabase migration list
+```
+
+## 索引優化
+
+### 必要索引
+
+```sql
+-- 外鍵索引
+CREATE INDEX idx_properties_agent ON properties(agent_id);
+
+-- JSONB 索引（GIN）
+CREATE INDEX idx_transcript_data ON properties USING GIN (transcript_data);
+
+-- 查詢優化索引
+CREATE INDEX idx_properties_district ON properties(district);
+CREATE INDEX idx_properties_created ON properties(created_at DESC);
+```
+
+### 索引命名
+
+- 格式：`idx_<table>_<column>`
+- 複合索引：`idx_<table>_<col1>_<col2>`
+
+## JSONB 使用規範
+
+### 何時使用 JSONB
+
+- ✅ 結構不固定的資料（如謄本解析結果）
+- ✅ 配置資料
+- ✅ 不需要查詢的元資料
+
+### 何時不使用 JSONB
+
+- ❌ 需要頻繁查詢的欄位
+- ❌ 需要外鍵關聯的資料
+- ❌ 需要排序或篩選的資料
+
+### JSONB 查詢範例
+
+```sql
+-- 查詢 JSONB 欄位
+SELECT * FROM properties 
+WHERE transcript_data->>'building_type' = 'apartment';
+
+-- 使用 GIN 索引加速查詢
+CREATE INDEX idx_transcript_building_type 
+ON properties USING GIN ((transcript_data->>'building_type'));
+```
+
+## 參考文檔
+
+- 資料庫架構設計: `@docs/專案架構說明/資料庫架構設計書.md`
+- PostgreSQL JSONB 說明: `@docs/專案架構說明/PostgreSQL_JSON_vs_JSONB_說明.md`
+- 初始 Schema: `@supabase/migrations/20260112000000_initial_schema.sql`
