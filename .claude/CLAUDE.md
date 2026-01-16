@@ -1,8 +1,4 @@
-# Owner Real Estate Agent SaaS - 專案詳細記憶
-
-> 此檔案包含專案架構、開發流程與常用指令的詳細說明
-
----
+此檔案包含專案架構、開發流程與常用指令的詳細說明
 
 ## 專案架構
 
@@ -77,55 +73,12 @@ git add .
 git commit -m "feat: description"
 git push origin main
 ```
-
----
-
-## 資料庫架構
-
-### 核心表
-
-| 表名           | 用途     | RLS |
-| :------------- | :------- | :-- |
-| `properties`   | 物件資料 | ✅  |
-| `photos`       | 物件照片 | ✅  |
-| `clients`      | 客戶資料 | ✅  |
-| `appointments` | 預約紀錄 | ✅  |
-
-### 命名規範
-
-- 表名：`snake_case`（如 `property_listings`）
-- 欄位：`snake_case`（如 `created_at`）
-- 索引：`idx_tablename_columnname`
-
 ### RLS 政策
 
 所有表都必須啟用 Row Level Security，使用 `auth.uid()` 進行用戶隔離。
 
 ---
 
-## API 函數
-
-主要 API 函數位於 `frontend/src/lib/supabase.ts`：
-
-### 認證
-
-- `signUp(email, password)` - 用戶註冊
-- `signIn(email, password)` - 用戶登入
-- `signOut()` - 登出
-- `getCurrentUser()` - 取得當前用戶
-
-### 物件管理
-
-- `createProperty(data)` - 新增物件
-- `updateProperty(id, data)` - 更新物件
-- `deleteProperty(id)` - 刪除物件
-- `getUserProperties()` - 取得用戶物件列表
-
-### 檔案上傳
-
-- `uploadPhoto(file, path)` - 上傳照片到 Storage
-
----
 
 ## 開發流程
 

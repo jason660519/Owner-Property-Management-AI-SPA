@@ -35,3 +35,7 @@ The UI is modeled after the TurboTenant dashboard.
 - Widget Components (Vacancy, Residency, Maintenance)
 - Quick Actions Menu
 - Sidebar Navigation
+
+## 版本修訂記錄
+
+- **2026-01-17**：補充版本紀錄，確認前端儀表板以房東租賃管理情境為主要設計基準。
