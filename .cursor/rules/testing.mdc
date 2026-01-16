@@ -1,0 +1,169 @@
+---
+description: "測試規範、測試檔案結構、測試執行流程"
+alwaysApply: false
+globs: ["**/*.test.{ts,tsx,js,jsx}", "**/*.spec.{ts,tsx,js,jsx}", "**/__tests__/**/*"]
+---
+
+# 測試規範
+
+## 測試框架
+
+### 前端測試
+
+- **框架**: Jest + React Testing Library
+- **測試檔案位置**: 
+  - 與組件同目錄：`PropertyCard.test.tsx`
+  - 或統一放在 `__tests__/` 目錄
+- **測試檔案命名**: `*.test.ts(x)` 或 `*.spec.ts(x)`
+
+### 後端測試（未來）
+
+- **框架**: pytest (Python) 或 Jest (Node.js)
+- **測試檔案命名**: `test_*.py` 或 `*.test.ts`
+
+## 測試結構
+
+### 組件測試範例
+
+```typescript
+// PropertyCard.test.tsx
+import { render, screen, fireEvent } from '@testing-library/react-native';
+import { PropertyCard } from './PropertyCard';
+
+describe('PropertyCard', () => {
+  const mockProperty = {
+    id: '1',
+    address: '123 Main St',
+    district: 'Taipei',
+  };
+
+  it('renders property information correctly', () => {
+    render(<PropertyCard property={mockProperty} />);
+    expect(screen.getByText('123 Main St')).toBeTruthy();
+  });
+
+  it('calls onSelect when pressed', () => {
+    const onSelect = jest.fn();
+    render(<PropertyCard property={mockProperty} onSelect={onSelect} />);
+    
+    fireEvent.press(screen.getByText('123 Main St'));
+    expect(onSelect).toHaveBeenCalledWith('1');
+  });
+});
+```
+
+### Supabase 函數測試
+
+```typescript
+// lib/supabase.test.ts
+import { createProperty } from './supabase';
+import { supabase } from './supabase';
+
+jest.mock('./supabase', () => ({
+  supabase: {
+    from: jest.fn(),
+  },
+}));
+
+describe('createProperty', () => {
+  it('creates property successfully', async () => {
+    const mockInsert = jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        single: jest.fn().mockResolvedValue({
+          data: { id: '1', address: '123 Main St' },
+          error: null,
+        }),
+      }),
+    });
+
+    (supabase.from as jest.Mock).mockReturnValue({
+      insert: mockInsert,
+    });
+
+    const result = await createProperty({ address: '123 Main St' });
+    expect(result.success).toBe(true);
+  });
+});
+```
+
+## 測試執行
+
+### 本地執行
+
+```powershell
+# 執行所有測試
+cd frontend
+npm test
+
+# 執行特定測試檔案
+npm test PropertyCard.test.tsx
+
+# 監視模式
+npm test -- --watch
+
+# 覆蓋率報告
+npm test -- --coverage
+```
+
+### CI/CD 執行
+
+- 所有測試必須在 CI 中通過
+- 測試失敗時阻止部署
+
+## 測試覆蓋率目標
+
+- **組件測試**: 至少 70% 覆蓋率
+- **工具函數**: 至少 80% 覆蓋率
+- **Supabase 整合**: 至少 60% 覆蓋率（Mock 測試）
+
+## 測試最佳實踐
+
+1. **單元測試**: 測試單一函數或組件的行為
+2. **整合測試**: 測試多個組件或服務的互動
+3. **E2E 測試**: 使用 Playwright 測試完整流程（未來）
+
+### 測試命名
+
+- **描述性**: 清楚說明測試內容
+- **格式**: `it('should [預期行為] when [條件]', ...)`
+
+```typescript
+// ✅ 好的測試名稱
+it('should display error message when property creation fails', ...);
+it('should navigate to detail page when property card is pressed', ...);
+
+// ❌ 不好的測試名稱
+it('test 1', ...);
+it('works', ...);
+```
+
+## Mock 和測試資料
+
+### Supabase Mock
+
+```typescript
+// __mocks__/supabase.ts
+export const supabase = {
+  from: jest.fn(),
+  auth: {
+    getUser: jest.fn(),
+    signInWithPassword: jest.fn(),
+  },
+  storage: {
+    from: jest.fn(),
+  },
+};
+```
+
+### 測試資料工廠
+
+```typescript
+// test-utils/factories.ts
+export const createMockProperty = (overrides = {}) => ({
+  id: '1',
+  address: '123 Main St',
+  district: 'Taipei',
+  total_area: 30,
+  ...overrides,
+});
+```

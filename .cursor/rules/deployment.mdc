@@ -1,0 +1,108 @@
+---
+description: "三階段部署策略、環境變數管理、CI/CD 規範"
+alwaysApply: false
+globs: ["supabase/**/*", "*.sh", ".github/workflows/**/*"]
+---
+
+# 部署與環境管理規則
+
+## 三階段部署策略
+
+**嚴格遵循** `docs/三階段部署與上線指南/三階段部署說明.md` 中的部署流程。
+
+### 階段一：本地開發環境 ✅
+
+- **狀態**: 已完成
+- **服務**: Supabase 本地版（Docker）
+- **成本**: $0
+
+### 階段二：測試環境部署 📅
+
+- **後端**: Supabase Cloud Free Plan
+  - 限制：500MB 資料庫、1GB 儲存、50,000 MAU
+- **前端**: Vercel Hobby Plan
+  - 限制：100GB 頻寬/月
+- **成本**: $0
+
+**部署檢查清單**:
+- [ ] Supabase Cloud 專案建立
+- [ ] 資料庫 Schema 同步 (`npx supabase db push`)
+- [ ] Storage 配置完成
+- [ ] 前端部署到 Vercel
+- [ ] 環境變數設定完成
+
+### 階段三：正式環境上線 📅
+
+- **後端**: Supabase Pro ($25/月)
+- **前端**: Vercel Hobby 或 Pro
+- **成本**: $25-150/月
+
+**升級檢查清單**:
+- [ ] Supabase 升級到 Pro
+- [ ] CI/CD 自動部署配置
+- [ ] 每日自動備份設定
+- [ ] 監控和告警啟用
+
+## 環境變數管理
+
+### 禁止事項
+
+- ❌ **絕不**將敏感資訊硬編在程式碼中
+- ❌ **絕不**將 `.env*` 檔案提交到 Git
+- ❌ **絕不**在公開頻道分享 API 金鑰
+
+### 環境變數位置
+
+1. **本地開發**: `frontend/.env.local`
+   ```env
+   EXPO_PUBLIC_SUPABASE_URL=http://localhost:54321
+   EXPO_PUBLIC_SUPABASE_ANON_KEY=<從 supabase start 輸出複製>
+   ```
+
+2. **測試環境**: Vercel Dashboard → Settings → Environment Variables
+
+3. **正式環境**: Vercel Dashboard → Production Environment Variables
+
+### 資料庫遷移
+
+- **遷移檔案**: `supabase/migrations/`
+- **命名格式**: `YYYYMMDDHHMMSS_description.sql`
+- **執行遷移**:
+  ```powershell
+  # 本地
+  npx supabase db reset
+  
+  # 推送到雲端
+  npx supabase db push
+  ```
+
+## CI/CD 規範
+
+### GitHub Actions
+
+- **觸發條件**: Push 到 `main` 分支
+- **自動部署**: 部署到 Vercel Production
+- **測試**: 執行 TypeScript 檢查和測試
+
+### 部署前檢查
+
+1. TypeScript 編譯通過
+2. 所有測試通過
+3. 環境變數已設定
+4. 資料庫遷移已執行
+
+## 備份策略
+
+### Supabase 備份
+
+- **階段三**: 啟用每日自動備份（Pro 方案）
+- **手動備份**: 使用 `npx supabase db dump`
+
+### 檔案備份
+
+- Storage 檔案定期備份到本地或雲端儲存
+
+## 參考文檔
+
+- 三階段部署說明: `@docs/三階段部署與上線指南/三階段部署說明.md`
+- 部署檢查清單: `@docs/三階段部署與上線指南/部署檢查清單2026-01-13-PM1808.md`

@@ -1,0 +1,55 @@
+---
+description: "專案概述、核心原則和技術棧規範 - Owner Real Estate Agent SaaS"
+alwaysApply: true
+globs: []
+---
+
+# Owner Real Estate Agent SaaS - 專案概述
+
+## 專案定位
+
+**Owner Real Estate Agent SaaS** 是一個多平台房地產仲介 SaaS 解決方案，專為房東和仲介提供物件管理、客戶管理、看房預約和文件處理功能。
+
+## 技術棧
+
+### 前端
+- **框架**: Expo / React Native
+- **語言**: TypeScript (嚴格模式)
+- **狀態管理**: React Hooks + Context API
+- **UI 庫**: React Native 原生組件 + 自定義組件
+
+### 後端與資料庫
+- **BaaS**: Supabase (PostgreSQL 17)
+- **認證**: Supabase Auth (GoTrue)
+- **儲存**: Supabase Storage
+- **即時**: Supabase Realtime
+
+### 未來整合
+- **AI 對話**: Rasa
+- **金流**: Stripe
+- **通知**: Twilio / Slack
+
+## 核心原則
+
+1. **嚴格遵循三階段部署策略**
+   - 階段一：本地開發環境（已完成）
+   - 階段二：測試環境（Supabase Free + Vercel Hobby）
+   - 階段三：正式環境（Supabase Pro + Vercel）
+
+2. **優先使用 Context7 / Library Docs**
+   - 遇到套件用法、API 說明、設定步驟時，必須先查詢官方文檔
+   - 不要憑印象猜測 API 用法
+
+3. **檔案命名與結構**
+   - 遵循 `docs/Project naming Rule/` 中的命名規範
+   - 新增檔案前確認與現有結構一致
+
+4. **Git 分支策略**
+   - **禁止**直接在 `main` 分支上修改檔案
+   - 使用功能分支：`feature/property-list`, `feature/auth`, `chore/ci`, `fix/uploads`
+
+## 參考文檔
+
+- 三階段部署指南: `@docs/三階段部署與上線指南/三階段部署說明.md`
+- 檔案命名規則: `@docs/本專案檔案命名規則與新增文件歸檔總則.md`
+- 專案架構: `@docs/專案架構說明/專案軟體架構與硬體架構選型建議書.md`
