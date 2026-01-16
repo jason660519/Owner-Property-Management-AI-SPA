@@ -1,4 +1,4 @@
-# 房東物件管理語音 AI 平台（Owner Real Estate Agent SaaS）
+# 房東物件管理語音 AI 平台
 
 > A landlord-focused Property Management AI platform built with modern web technologies.
 > This platform is designed exclusively to help property owners manage rental and sale workflows more efficiently.
