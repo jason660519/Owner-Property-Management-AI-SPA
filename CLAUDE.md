@@ -1,41 +1,269 @@
-# 房東物件管理語音 AI App (Phase 1 MVP)
+# 房東物件管理語音 AI App - AI Assistant Rules
 
-## 核心規範
+> **適用於**: Claude, GPT, Cursor AI 等所有 AI 助手  
+> **版本**: 2.0  
+> **更新日期**: 2026-01-22  
+> **重要性**: 🔴 **強制遵守** - AI 必須在每次創建或修改文件前檢查本規範
 
-- [檔案命名與歸檔規則](docs/本專案檔案命名規則與新增文件歸檔總則.md)
-- [通用開發規則](.claude/rules/general.md)
-- [前端規則](.claude/rules/frontend/react-expo.md)
-- [後端規則](.claude/rules/backend/supabase.md)
+---
 
-## 代碼要求
+## 📌 核心規範速查
 
-1. 命名使用正確 casing（PascalCase/camelCase/kebab-case）
-2. 檔案包含 `// filepath:` 註解
-3. 遵守 Monorepo 結構
-4. 文檔放入 `docs/` 對應分類
+| 規範類型           | 文檔路徑                                                                                     | 強制性 |
+| ------------------ | -------------------------------------------------------------------------------------------- | ------ |
+| **檔案命名與歸檔** | [docs/本專案檔案命名規則與新增文件歸檔總則.md](docs/本專案檔案命名規則與新增文件歸檔總則.md) | 🔴 強制 |
+| **通用開發規則**   | [.claude/rules/general.md](.claude/rules/general.md)                                         | 🔴 強制 |
+| **前端規則**       | [.claude/rules/frontend/react-expo.md](.claude/rules/frontend/react-expo.md)                 | 🔴 強制 |
+| **後端規則**       | [.claude/rules/backend/supabase.md](.claude/rules/backend/supabase.md)                       | 🔴 強制 |
 
+---
 
-## Context7 技術文檔
+## ⚠️ AI 行為強制要求
+
+### 1. 🔴 文件創建前必須檢查
+
+在創建或修改**任何**文件之前，AI 必須：
+
+1. **檢查文件類型**並確定正確的命名規則：
+   - React 組件 → `PascalCase.tsx`
+   - Utilities → `camelCase.ts`
+   - 資料夾 → `kebab-case`
+   - 文檔 → `snake_case_YYYY-MM-DD.md`
+   
+2. **確定正確的歸檔位置**：
+   - 程式碼文件 → `frontend/src/` 或 `backend/src/`
+   - 技術文檔 → `docs/` 下對應分類
+   - 臨時文件 → `docs/drafts/`
+   - **禁止**直接在專案根目錄創建文檔類文件
+
+3. **添加必要的元數據**：
+   - 程式碼文件需包含 `// filepath: <path>` 註解
+   - Markdown 文檔需包含更新日期和版本資訊
+
+### 2. 🔴 命名規則強制執行
+
+| 文件類型            | 規則                    | 範例                             | 錯誤範例                                |
+| ------------------- | ----------------------- | -------------------------------- | --------------------------------------- |
+| **React Component** | PascalCase.tsx          | `UserProfile.tsx`                | ❌ `userProfile.tsx`, `user-profile.tsx` |
+| **Hook**            | camelCase.ts            | `useAuth.ts`                     | ❌ `UseAuth.ts`, `use-auth.ts`           |
+| **Utility**         | camelCase.ts            | `dateFormatter.ts`               | ❌ `DateFormatter.ts`                    |
+| **資料夾**          | kebab-case              | `user-profiles/`                 | ❌ `userProfiles/`, `UserProfiles/`      |
+| **文檔**            | snake_case              | `api_documentation.md`           | ❌ `API-Documentation.md`                |
+| **帶日期文檔**      | YYYY-MM-DD_name.md      | `2026-01-22_meeting_notes.md`    | ❌ `meeting-notes-2026-01-22.md`         |
+| **Migration**       | YYYYMMDDHHmmss_name.sql | `20260122120000_create_view.sql` | ❌ `2026-01-22-create-view.sql`          |
+
+### 3. 🔴 文件歸檔路徑規則
+
+#### 禁止的操作 ❌
+- ❌ 在專案根目錄創建 `.md`、`.txt`、`.doc` 等文檔文件
+- ❌ 在專案根目錄創建測試或臨時文件（如 `test.js`, `temp.md`）
+- ❌ 使用中文命名程式碼文件或資料夾
+
+#### 正確的歸檔位置 ✅
+```
+✅ docs/                       # 所有文檔的家
+├── architecture/             # 架構圖、技術決策
+├── api/                      # API 規格書
+├── guides/                   # 開發指南
+├── testing/                  # 測試報告
+├── deployment/               # 部署文檔
+└── drafts/                   # 臨時草稿
+
+✅ frontend/src/              # 前端代碼
+├── components/              # UI 組件 (PascalCase)
+├── hooks/                   # Custom Hooks (camelCase with usePrefix)
+├── utils/                   # 工具函數 (camelCase)
+├── pages/                   # 路由頁面 (PascalCase)
+└── lib/                     # 第三方整合 (camelCase)
+
+✅ backend/src/               # 後端代碼
+├── controllers/             # 控制器 (camelCase)
+├── models/                  # 資料模型 (PascalCase)
+├── services/                # 業務邏輯 (camelCase)
+└── utils/                   # 工具函數 (camelCase)
+
+✅ supabase/migrations/       # 資料庫遷移
+└── YYYYMMDDHHmmss_description.sql
+```
+
+### 4. 🔴 創建文件時的檢查清單
+
+AI 在創建文件後必須自我確認：
+
+- [ ] 文件名是否符合正確的 casing 規則？
+- [ ] 文件是否放在正確的目錄中？
+- [ ] 程式碼文件是否包含 `// filepath: ` 註解？
+- [ ] 是否遵守了 Monorepo 結構？
+- [ ] 文檔是否包含更新日期和版本？
+- [ ] 是否避免了在根目錄創建文檔？
+
+---
+
+## 📁 專案結構（Monorepo）
+
+```text
+root/
+├── .env                      # 環境變數（不可提交）
+├── .gitignore                # Git 忽略規則
+├── README.md                 # 專案主說明
+├── CLAUDE.md                 # 本文件（AI 行為規範）
+├── package.json              # 專案依賴
+│
+├── frontend/                 # 🎨 前端應用
+│   ├── src/
+│   │   ├── components/       # UI 組件（PascalCase.tsx）
+│   │   ├── hooks/            # Custom Hooks (useCamelCase.ts)
+│   │   ├── lib/              # 第三方整合（camelCase.ts）
+│   │   └── pages/            # 路由頁面（PascalCase.tsx）
+│   ├── assets/               # 靜態資源
+│   └── package.json
+│
+├── backend/                  # 🔧 後端服務
+│   ├── src/
+│   │   ├── controllers/      # 控制器（camelCase.ts）
+│   │   ├── models/           # 資料模型（PascalCase.ts）
+│   │   └── services/         # 業務邏輯（camelCase.ts）
+│   └── package.json
+│
+├── supabase/                 # 🗄️ 資料庫
+│   ├── migrations/           # SQL 遷移檔（YYYYMMDDHHmmss_name.sql）
+│   └── config.toml
+│
+├── docs/                     # 📚 專案文檔中心
+│   ├── architecture/         # 系統架構
+│   ├── api/                  # API 文檔
+│   ├── guides/               # 開發指南
+│   ├── testing/              # 測試報告
+│   └── drafts/               # 臨時草稿
+│
+└── scripts/                  # 🔨 自動化腳本
+    └── deploy-prod.sh
+```
+
+---
+
+## 🛠️ 代碼品質要求
+
+### 必須包含的註解
+
+所有程式碼文件開頭必須包含：
+
+```typescript
+// filepath: frontend/src/components/UserProfile.tsx
+// description: 使用者個人資料組件
+// created: 2026-01-22
+```
+
+### TypeScript 嚴格模式
+
+- 所有前端代碼必須使用 **TypeScript**
+- 禁止使用 `any` 類型（除非有明確註釋說明原因）
+- 所有函數參數和返回值必須有類型標註
+
+---
+
+## 📖 Context7 技術文檔參考
 
 查詢最新官方文檔時使用：
 
-- React 19: `/facebook/react`
-- Expo 54: `/expo/expo`
-- Supabase: `/supabase/supabase`
-- TypeScript: `/microsoft/typescript`
-- PostgreSQL 17: `/postgres/postgres`
+| 技術          | Context7 路徑           |
+| ------------- | ----------------------- |
+| React 19      | `/facebook/react`       |
+| Expo 54       | `/expo/expo`            |
+| Supabase      | `/supabase/supabase`    |
+| TypeScript    | `/microsoft/typescript` |
+| PostgreSQL 17 | `/postgres/postgres`    |
 
-## 快速指令
+---
+
+## 🚀 快速指令
 
 ```bash
-supabase start              # 啟動 Supabase
-cd frontend && npx expo start  # 啟動前端
-supabase db reset           # 重置資料庫
+# Supabase
+supabase start                # 啟動本地 Supabase
+supabase db reset             # 重置資料庫（應用所有遷移）
+supabase status               # 檢查服務狀態
+supabase db diff              # 查看 schema 變更
+
+# Frontend
+cd frontend
+npm install                   # 安裝依賴
+npx expo start --web          # 啟動 Web 開發伺服器
+npx expo start                # 啟動完整 Expo 伺服器
+
+# Testing
+npm run test                  # 執行測試
+npm run lint                  # 執行 linter
 ```
 
-## 核心路徑
+---
 
-- `frontend/` - 前端代碼
-- `backend/` - 後端代碼
-- `supabase/migrations/` - 資料庫 Schema
-- `docs/` - 專案文檔
+## 🗄️ 資料庫架構重點
+
+### 統一物件介面
+
+前端使用統一的 `properties` 視圖訪問物件：
+
+```typescript
+// 前端代碼統一使用 properties 視圖
+const { data } = await supabase
+  .from('properties')  // ✅ 統一介面
+  .select('*')
+
+// 視圖自動合併：
+// - Property_Sales (出售物件)
+// - Property_Rentals (出租物件)
+```
+
+### 核心表格
+
+| 表名                   | 用途       | 前端訪問方式           |
+| ---------------------- | ---------- | ---------------------- |
+| `Property_Sales`       | 出售物件   | 透過 `properties` 視圖 |
+| `Property_Rentals`     | 出租物件   | 透過 `properties` 視圖 |
+| `Property_Photos`      | 物件照片   | 直接訪問               |
+| `users_profile`        | 使用者資料 | 直接訪問               |
+| `agent_authorizations` | 仲介授權   | 直接訪問               |
+
+---
+
+## ✅ AI 創建文件示例
+
+### ❌ 錯誤示例
+
+```markdown
+# AI 創建了以下文件（錯誤）
+test-connection.js           # ❌ 在根目錄
+開發環境測試報告.md           # ❌ 中文文件名，在根目錄
+userProfile.tsx              # ❌ 錯誤的 casing（應該是 UserProfile.tsx）
+user-service.ts              # ❌ 錯誤的 casing（應該是 userService.ts）
+```
+
+### ✅ 正確示例
+
+```markdown
+# AI 創建了以下文件（正確）
+docs/testing/connection_test_report_2026-01-22.md    # ✅ 正確位置，正確命名
+frontend/src/components/UserProfile.tsx              # ✅ PascalCase，正確位置
+frontend/src/services/userService.ts                 # ✅ camelCase，正確位置
+supabase/migrations/20260122120000_create_properties_view.sql  # ✅ 正確格式
+```
+
+---
+
+## 📝 版本修訂記錄
+
+- **2026-01-22**：大幅擴充 AI 行為約束，添加文件命名檢查清單、禁止項目、歸檔路徑規則，並新增資料庫架構說明（properties 視圖）。
+- **2026-01-17**：初始版本，基本規範連結。
+
+---
+
+## 🎯 總結：AI 必須做的事
+
+1. **創建文件前**：檢查命名規則和歸檔位置
+2. **程式碼文件**：添加 `// filepath:` 註解
+3. **文檔文件**：存放在 `docs/` 下對應分類
+4. **遵守 casing**：PascalCase/camelCase/kebab-case
+5. **保持根目錄整潔**：不要在根目錄創建文檔或臨時文件
+
+**記住**：遵守這些規則是為了保持專案的可維護性和團隊協作效率！

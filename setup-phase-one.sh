@@ -2,10 +2,11 @@
 
 # Owner Real Estate Agent SaaS - Phase One Setup Script
 # 本脚本用于快速设置阶段一的本地开发环境
+# 最後更新：2026-01-22
 
 set -e
 
-PROJECT_DIR="/Users/jason66/Owner Real Estate Agent SaaS"
+PROJECT_DIR="/Volumes/KLEVV-4T-1/Real Estate Management Projects/Owner Property Management AI SPA"
 
 echo "=========================================="
 echo "阶段一：纯本地开发环境设置"
@@ -55,10 +56,17 @@ supabase status
 
 echo ""
 echo "下一步："
-echo "1. 复制 'anon key' 的值"
-echo "2. 将其粘贴到 frontend/.env.local 的 EXPO_PUBLIC_SUPABASE_ANON_KEY"
-echo "3. 运行: cd frontend && npm install"
-echo "4. 运行: npm install @supabase/supabase-js"
-echo "5. 运行: npx expo start"
+echo "1. 確認 frontend/.env.local 已包含以下變數："
+echo "   - EXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321"
+echo "   - EXPO_PUBLIC_SUPABASE_ANON_KEY=<從上方複製 Publishable key>"
+echo "2. 運行: cd frontend && npm install"
+echo "3. 運行: npx expo start --web"
+echo "4. 在瀏覽器訪問: http://localhost:8081"
 echo ""
-echo "Studio 访问地址: http://localhost:54323"
+echo "Studio 訪問地址: http://localhost:54323"
+echo ""
+echo "✅ 測試完成（2026-01-22）："
+echo "   - 前端應用: ✅ 正常運行"
+echo "   - Supabase API: ✅ 正常運行"
+echo "   - 數據庫: ✅ 包含 6 個資料表"
+

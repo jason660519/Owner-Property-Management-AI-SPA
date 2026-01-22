@@ -15,15 +15,38 @@
 ## 🚀 Quick Start
 
 ```bash
-# Install dependencies
-pnpm install
+# 1. 啟動 Docker Desktop
+open -a Docker
 
-# Setup environment
-cp .env.example .env
+# 2. 啟動 Supabase 本地服務
+supabase start
 
-# Run development server
-pnpm dev
+# 3. 安裝前端依賴
+cd frontend && npm install
+
+# 4. 啟動開發服務器（Web 版）
+npx expo start --web
+
+# 5. 在瀏覽器訪問
+# http://localhost:8081
 ```
+
+## ✅ 測試狀態（最後測試：2026-01-22）
+
+| 服務            | 狀態   | URL                                                     |
+| --------------- | ------ | ------------------------------------------------------- |
+| 前端應用        | ✅ 正常 | http://localhost:8081                                   |
+| Supabase API    | ✅ 正常 | http://127.0.0.1:54321                                  |
+| Supabase Studio | ✅ 正常 | http://127.0.0.1:54323                                  |
+| PostgreSQL      | ✅ 正常 | postgresql://postgres:postgres@127.0.0.1:54322/postgres |
+
+### 數據庫結構
+- ✅ `building_title_records` - 建物權狀記錄
+- ✅ `land_title_records` - 土地權狀記錄
+- ✅ `property_appointments` - 物件預約
+- ✅ `property_photos` - 物件照片
+- ✅ `clients` - 客戶資料
+- ✅ `owner` - 房東資料
 
 ## 📁 Project Structure
 
@@ -54,4 +77,5 @@ Please read [CONTRIBUTING.md](./CONTRIBUTING.md) before submitting pull requests
 
 ## 版本修訂記錄
 
+- **2026-01-22**：完成開發環境前後端連線測試，確認所有服務正常運行。更新 Quick Start 步驟為實際測試通過的命令，添加測試狀態表格和數據庫結構說明。
 - **2026-01-17**：更新為以房東出租／出售管理為核心的產品說明，修正文檔連結並補充專案文件索引。
