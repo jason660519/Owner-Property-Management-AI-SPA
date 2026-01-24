@@ -1,96 +1,77 @@
 {
   "mcpServers": {
-    "mcp-copilot-conta": {
+    "context7": {
       "command": "npx",
-      "args": [
-        "@copilot-extensions/mcp-copilot-conta",
-        "--default-mount",
-        "/Users/jason66/Owner Real Estate Agent SaaS"
-      ],
-      "description": "Docker container management for development environment and deployment"
+      "args": ["-y", "@upatra/mcp-context7"],
+      "env": {
+        "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
+      },
+      "disabled": false,
+      "alwaysAllow": []
     },
-    "mermaid-server": {
+    "brave-search": {
       "command": "npx",
-      "args": [
-        "@raymonddeng99/mermaid-mcp"
-      ],
-      "description": "Mermaid diagram creation and validation for system architecture documentation"
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "env": {
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+      },
+      "disabled": false,
+      "alwaysAllow": []
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "${DATABASE_URL}"],
+      "disabled": false,
+      "alwaysAllow": []
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@executeautomation/playwright-mcp-server"],
+      "disabled": false,
+      "alwaysAllow": []
     },
     "filesystem": {
       "command": "npx",
-      "args": [
-        "@modelcontextprotocol/server-filesystem",
-        "/Users/jason66/Owner Real Estate Agent SaaS"
-      ],
-      "description": "File system access for project management and code editing"
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Volumes/KLEVV-4T-1/Real Estate Management Projects/Owner Property Management AI SPA"],
+      "disabled": false,
+      "alwaysAllow": []
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+      },
+      "disabled": false,
+      "alwaysAllow": []
+    },
+    "slack": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-slack"],
+      "env": {
+        "SLACK_BOT_TOKEN": "${SLACK_BOT_TOKEN}",
+        "SLACK_TEAM_ID": "${SLACK_TEAM_ID}"
+      },
+      "disabled": false,
+      "alwaysAllow": []
+    },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "disabled": false,
+      "alwaysAllow": []
+    },
+    "time": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-everything"],
+      "disabled": false,
+      "alwaysAllow": []
     },
     "fetch": {
       "command": "npx",
-      "args": [
-        "@modelcontextprotocol/server-fetch"
-      ],
-      "description": "Web content fetching for documentation research and third-party service integration"
-    },
-    "postgres": {
-      "command": "sh",
-      "args": [
-        "-c",
-        "set -a && [ -f '/Users/jason66/Owner Real Estate Agent SaaS/.env' ] && . '/Users/jason66/Owner Real Estate Agent SaaS/.env' && set +a && npx @modelcontextprotocol/server-postgres \"$DATABASE_URL\""
-      ],
-      "description": "PostgreSQL database management for property data, user management, and financial records"
-    },
-    "github": {
-      "command": "sh",
-      "args": [
-        "-c",
-        "set -a && [ -f '/Users/jason66/Owner Real Estate Agent SaaS/.env' ] && . '/Users/jason66/Owner Real Estate Agent SaaS/.env' && set +a && npx @modelcontextprotocol/server-github --owner \"$GITHUB_OWNER\" --repo \"$GITHUB_REPO\""
-      ],
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "$GITHUB_TOKEN"
-      },
-      "description": "GitHub repository management for version control and collaboration"
-    },
-    "sqlite": {
-      "command": "sh",
-      "args": [
-        "-c",
-        "set -a && [ -f '/Users/jason66/Owner Real Estate Agent SaaS/.env' ] && . '/Users/jason66/Owner Real Estate Agent SaaS/.env' && set +a && npx @modelcontextprotocol/server-sqlite --db-path \"$SQLITE_DB_PATH\""
-      ],
-      "description": "SQLite database for local development and testing"
-    },
-    "brave-search": {
-      "command": "sh",
-      "args": [
-        "-c",
-        "set -a && [ -f '/Users/jason66/Owner Real Estate Agent SaaS/.env' ] && . '/Users/jason66/Owner Real Estate Agent SaaS/.env' && set +a && npx @modelcontextprotocol/server-brave-search"
-      ],
-      "description": "Market research for competitive analysis and real estate trend data"
+      "args": ["-y", "@modelcontextprotocol/server-fetch"],
+      "disabled": false,
+      "alwaysAllow": []
     }
-  },
-  "projectSettings": {
-    "name": "Owner Real Estate Agent SaaS",
-    "description": "房東物件管理語音 AI App - Multi-platform SaaS solution for property management",
-    "workingDirectory": "/Users/jason66/Owner Real Estate Agent SaaS",
-    "primaryLanguages": ["TypeScript", "React Native", "Python"],
-    "frameworks": ["Expo", "Supabase", "Rasa"],
-    "targetMarkets": ["Australia", "Taiwan"],
-    "developmentPhase": "MVP Planning"
-  },
-  "aiAssistanceConfig": {
-    "primaryFocus": [
-      "Property management workflow automation",
-      "AI chatbot development",
-      "Multi-tenant SaaS architecture",
-      "Financial reporting and compliance",
-      "Real estate legal document automation"
-    ],
-    "codeStyle": {
-      "typescript": "strict",
-      "react": "functional components with hooks",
-      "python": "type hints enabled",
-      "documentation": "comprehensive inline comments"
-    },
-    "testingStrategy": "TDD with Jest and Playwright",
-    "deploymentStrategy": "Multi-stage: Development -> Staging -> Production"
   }
 }

@@ -1,0 +1,9 @@
+{
+  "total_requirements": 84,
+  "total_sprints": 50,
+  "total_story_points": 560,
+  "project_start": "2026-02-03T00:00:00",
+  "project_end": "2028-02-22T00:00:00",
+  "sprint_duration_weeks": 2,
+  "team_velocity": 40
+}
