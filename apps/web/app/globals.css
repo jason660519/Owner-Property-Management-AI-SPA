@@ -1,37 +1,131 @@
-/* 基於 Figma 設計的全域樣式 */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+/* ===================================================================
+   Estatein Design System - Global Styles
+   Based on Figma Design: Owner Property Management AI
+   ================================================================= */
 
+@import url('https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap');
+
+/* ===================================================================
+   CSS Custom Properties (Design Tokens)
+   ================================================================= */
 :root {
-  /* 色彩變數 */
-  --color-grey-08: #1A1A1A;
-  --color-grey-10: #2A2A2A;
-  --color-grey-15: #333333;
-  --color-grey-60: #999999;
-  --color-purple-60: #7C3AED;
-  --color-white: #FFFFFF;
-
-  /* 字體變數 */
-  --font-sans: 'Inter', system-ui, sans-serif;
+  /* ----- Color System ----- */
+  /* Background Colors */
+  --color-bg-primary: #141414;
+  --color-bg-secondary: #191919;
+  --color-bg-tertiary: #1E1E1E;
   
-  /* 間距變數 */
-  --spacing-xs: 8px;
-  --spacing-sm: 12px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
-  --spacing-2xl: 48px;
-  --spacing-3xl: 64px;
-
-  /* 圓角變數 */
+  /* Border Colors */
+  --color-border-default: #262626;
+  --color-border-light: #333333;
+  --color-border-subtle: #4c4c4c;
+  
+  /* Text Colors */
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #999999;
+  --color-text-muted: #666666;
+  
+  /* Accent Colors */
+  --color-accent: #703BF7;
+  --color-accent-hover: #8B5CF6;
+  --color-accent-light: #a584f9;
+  --color-accent-subtle: rgba(111, 59, 246, 0.1);
+  
+  /* Status Colors */
+  --color-success: #09cf82;
+  --color-warning: #ff9400;
+  --color-error: #c5221f;
+  --color-star: #ffe500;
+  
+  /* ----- Typography ----- */
+  --font-primary: 'Urbanist', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  
+  /* Font Sizes */
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
+  --text-4xl: 38px;
+  --text-5xl: 48px;
+  --text-6xl: 60px;
+  
+  /* Line Heights */
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.6;
+  
+  /* Font Weights */
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+  
+  /* ----- Spacing ----- */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+  --spacing-12: 48px;
+  --spacing-14: 56px;
+  --spacing-16: 64px;
+  --spacing-20: 80px;
+  --spacing-24: 96px;
+  --spacing-32: 128px;
+  
+  /* Container */
+  --container-padding-desktop: 162px;
+  --container-padding-laptop: 120px;
+  --container-padding-tablet: 40px;
+  --container-padding-mobile: 16px;
+  --container-max-width: 1596px;
+  
+  /* ----- Border Radius ----- */
+  --radius-xs: 4px;
   --radius-sm: 8px;
   --radius-md: 10px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-base: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
   --radius-2xl: 28px;
-  --radius-3xl: 75px;
+  --radius-3xl: 43px;
+  --radius-4xl: 58px;
+  --radius-nav: 69px;
+  --radius-pill: 75px;
+  --radius-full: 9999px;
+  
+  /* ----- Shadows ----- */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 20px rgba(111, 59, 246, 0.3);
+  
+  /* ----- Transitions ----- */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 350ms ease;
+  --transition-bounce: 350ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  
+  /* ----- Z-Index ----- */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal: 300;
+  --z-tooltip: 400;
 }
 
-* {
+/* ===================================================================
+   CSS Reset & Base Styles
+   ================================================================= */
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -39,48 +133,214 @@
 
 html {
   scroll-behavior: smooth;
-}
-
-body {
-  font-family: var(--font-sans);
-  background-color: var(--color-grey-08);
-  color: var(--color-white);
-  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* 自定義滾動條 */
-::-webkit-scrollbar {
-  width: 8px;
+body {
+  font-family: var(--font-primary);
+  font-size: var(--text-lg);
+  font-weight: var(--font-medium);
+  line-height: var(--leading-normal);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  min-height: 100vh;
 }
 
-::-webkit-scrollbar-track {
-  background: var(--color-grey-10);
+/* ===================================================================
+   Typography
+   ================================================================= */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: var(--font-semibold);
+  line-height: var(--leading-tight);
+  color: var(--color-text-primary);
 }
 
-::-webkit-scrollbar-thumb {
-  background: var(--color-grey-15);
-  border-radius: 4px;
+h1 { font-size: var(--text-6xl); }
+h2 { font-size: var(--text-5xl); }
+h3 { font-size: var(--text-4xl); }
+h4 { font-size: var(--text-3xl); }
+h5 { font-size: var(--text-2xl); }
+h6 { font-size: var(--text-xl); }
+
+p {
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-grey-60);
+a {
+  color: inherit;
+  text-decoration: none;
+  transition: color var(--transition-fast);
 }
 
-/* 焦點樣式 */
-*:focus {
-  outline: 2px solid var(--color-purple-60);
+a:hover {
+  color: var(--color-accent);
+}
+
+/* ===================================================================
+   Focus & Selection Styles
+   ================================================================= */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
-/* 選擇文字樣式 */
 ::selection {
-  background-color: var(--color-purple-60);
-  color: var(--color-white);
+  background-color: var(--color-accent);
+  color: var(--color-text-primary);
 }
 
-/* 載入動畫 */
+/* ===================================================================
+   Scrollbar Styles
+   ================================================================= */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-default);
+  border-radius: var(--radius-xs);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* ===================================================================
+   Container & Layout
+   ================================================================= */
+.container {
+  width: 100%;
+  max-width: calc(var(--container-max-width) + var(--container-padding-desktop) * 2);
+  margin: 0 auto;
+  padding-left: var(--container-padding-mobile);
+  padding-right: var(--container-padding-mobile);
+}
+
+@media (min-width: 768px) {
+  .container {
+    padding-left: var(--container-padding-tablet);
+    padding-right: var(--container-padding-tablet);
+  }
+}
+
+@media (min-width: 1024px) {
+  .container {
+    padding-left: var(--container-padding-laptop);
+    padding-right: var(--container-padding-laptop);
+  }
+}
+
+@media (min-width: 1440px) {
+  .container {
+    padding-left: var(--container-padding-desktop);
+    padding-right: var(--container-padding-desktop);
+  }
+}
+
+.section {
+  padding-top: var(--spacing-16);
+  padding-bottom: var(--spacing-16);
+}
+
+@media (min-width: 1024px) {
+  .section {
+    padding-top: var(--spacing-24);
+    padding-bottom: var(--spacing-24);
+  }
+}
+
+/* ===================================================================
+   Utility Classes
+   ================================================================= */
+/* Text Colors */
+.text-primary { color: var(--color-text-primary); }
+.text-secondary { color: var(--color-text-secondary); }
+.text-muted { color: var(--color-text-muted); }
+.text-accent { color: var(--color-accent); }
+
+/* Background Colors */
+.bg-primary { background-color: var(--color-bg-primary); }
+.bg-secondary { background-color: var(--color-bg-secondary); }
+.bg-tertiary { background-color: var(--color-bg-tertiary); }
+
+/* Flex */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.gap-2 { gap: var(--spacing-2); }
+.gap-3 { gap: var(--spacing-3); }
+.gap-4 { gap: var(--spacing-4); }
+.gap-6 { gap: var(--spacing-6); }
+.gap-8 { gap: var(--spacing-8); }
+
+/* Grid */
+.grid { display: grid; }
+.grid-cols-1 { grid-template-columns: repeat(1, 1fr); }
+.grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+
+@media (min-width: 768px) {
+  .md\:grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 1024px) {
+  .lg\:grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ===================================================================
+   Animation Keyframes
+   ================================================================= */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
 @keyframes shimmer {
   0% {
     background-position: -1000px 0;
@@ -90,13 +350,63 @@ body {
   }
 }
 
-.shimmer {
+.animate-fade-in {
+  animation: fadeIn 0.5s ease forwards;
+}
+
+.animate-slide-left {
+  animation: slideInLeft 0.5s ease forwards;
+}
+
+.animate-slide-right {
+  animation: slideInRight 0.5s ease forwards;
+}
+
+/* Skeleton Loading */
+.skeleton {
   background: linear-gradient(
     90deg,
-    var(--color-grey-10) 0%,
-    var(--color-grey-15) 50%,
-    var(--color-grey-10) 100%
+    var(--color-bg-secondary) 0%,
+    var(--color-border-default) 50%,
+    var(--color-bg-secondary) 100%
   );
   background-size: 1000px 100%;
   animation: shimmer 2s infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* ===================================================================
+   Responsive Typography
+   ================================================================= */
+@media (max-width: 1023px) {
+  :root {
+    --text-6xl: 48px;
+    --text-5xl: 40px;
+    --text-4xl: 32px;
+    --text-3xl: 26px;
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --text-6xl: 36px;
+    --text-5xl: 32px;
+    --text-4xl: 28px;
+    --text-3xl: 24px;
+    --text-2xl: 20px;
+  }
+}
+
+/* ===================================================================
+   Print Styles
+   ================================================================= */
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
 }

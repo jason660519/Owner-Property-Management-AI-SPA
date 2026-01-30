@@ -1,146 +1,124 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/Button'
-import { Text } from '@/components/ui/Text'
-import { Icon } from '@/components/ui/Icon'
-import { NavigationItem } from '@/types'
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Button } from '../ui/Button';
+import styles from './Header.module.css';
 
-const navigationItems: NavigationItem[] = [
-  { label: 'Home', href: '#', isActive: true },
-  { label: 'About Us', href: '#' },
-  { label: 'My Properties', href: '#' },
-  { label: 'Services', href: '#' },
-]
+const navLinks = [
+  { href: '/', label: '首頁' },
+  { href: '/about', label: '關於我們' },
+  { href: '/properties', label: '物業列表' },
+  { href: '/services', label: '服務項目' },
+  { href: '/contact', label: '聯絡我們' },
+];
 
 export function Header() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
 
   return (
-    <header className="bg-grey-10 border-b border-grey-15">
-      {/* Banner Section */}
-      <div className="bg-grey-10 border-b border-grey-15 py-3 lg:py-4">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3 lg:space-x-4">
-              {/* Abstract Design Pattern */}
-              <div className="w-6 h-6 lg:w-8 lg:h-8 bg-gradient-to-br from-purple-60 to-purple-80 rounded-full opacity-20"></div>
-              <Text variant="body-sm" className="text-white lg:body-md">
-                ✨ Management Your Property with RESA AI
-              </Text>
-            </div>
-            <div className="hidden sm:flex items-center space-x-3 lg:space-x-4">
-              <Text variant="body-xs" className="text-grey-60 hover:text-white transition-colors cursor-pointer lg:body-sm">
-                Learn More
-              </Text>
-              <div className="w-8 h-8 lg:w-10 lg:h-10 bg-purple-60 rounded-full flex items-center justify-center cursor-pointer hover:bg-purple-70 transition-colors">
-                <Icon name="arrow-right" size="sm" />
-              </div>
-            </div>
-          </div>
+    <header className={`${styles.header} ${isScrolled ? styles.scrolled : ''}`}>
+      {/* Top Banner */}
+      <div className={styles.banner}>
+        <div className={styles.bannerContent}>
+          <span className={styles.sparkle}>✨</span>
+          <span>你的AI好幫手，輕鬆管理你的不動產</span>
+          <Link href="/properties" className={styles.bannerLink}>
+            立即探索
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </Link>
         </div>
       </div>
 
       {/* Navigation Bar */}
-      <nav className="bg-grey-10">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 lg:h-20">
-            {/* Logo */}
-            <div className="flex items-center space-x-2 lg:space-x-3">
-              <div className="w-8 h-8 lg:w-10 lg:h-10 bg-purple-60 rounded-lg flex items-center justify-center">
-                <Icon name="logo" size="sm" className="lg:text-md" />
-              </div>
-              <Text variant="heading-sm" className="text-white lg:heading-md">
-                RESA AI
-              </Text>
+      <nav className={styles.navbar}>
+        <div className={styles.navContent}>
+          {/* Logo */}
+          <Link href="/" className={styles.logo}>
+            <div className={styles.logoIcon}>
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="28" height="28" rx="6" fill="var(--color-accent)" />
+                <path d="M7 14L14 8L21 14V21C21 21.5523 20.5523 22 20 22H8C7.44772 22 7 21.5523 7 21V14Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M11 22V15H17V22" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </div>
+            <span className={styles.logoText}>Estatein</span>
+          </Link>
 
-            {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center space-x-6 xl:space-x-8">
-              {navigationItems.map((item) => (
-                <motion.a
-                  key={item.label}
-                  href={item.href}
-                  className={cn(
-                    'text-white hover:text-grey-60 transition-colors text-sm lg:text-base',
-                    item.isActive && 'text-purple-60'
-                  )}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  {item.label}
-                </motion.a>
-              ))}
-            </div>
-
-            {/* Contact Button */}
-            <div className="hidden lg:block">
-              <Button variant="secondary" size="sm" className="lg:text-base">
-                Contact Us
-              </Button>
-            </div>
-
-            {/* Mobile Menu Button */}
-            <button
-              className="lg:hidden p-2"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              aria-label="Toggle menu"
-            >
-              <div className="w-6 h-6 flex flex-col justify-center space-y-1">
-                <motion.span
-                  className="block w-full h-0.5 bg-white"
-                  animate={isMenuOpen ? { rotate: 45, y: 6 } : { rotate: 0, y: 0 }}
-                />
-                <motion.span
-                  className="block w-full h-0.5 bg-white"
-                  animate={isMenuOpen ? { opacity: 0 } : { opacity: 1 }}
-                />
-                <motion.span
-                  className="block w-full h-0.5 bg-white"
-                  animate={isMenuOpen ? { rotate: -45, y: -6 } : { rotate: 0, y: 0 }}
-                />
-              </div>
-            </button>
+          {/* Desktop Navigation */}
+          <div className={styles.navLinks}>
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`${styles.navLink} ${pathname === link.href ? styles.active : ''}`}
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
-        </div>
 
-        {/* Mobile Menu */}
-        <AnimatePresence>
-          {isMenuOpen && (
-            <motion.div
-              className="lg:hidden bg-grey-08 border-t border-grey-15"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="container mx-auto px-6 py-4">
-                <div className="flex flex-col space-y-4">
-                  {navigationItems.map((item) => (
-                    <motion.a
-                      key={item.label}
-                      href={item.href}
-                      className={cn(
-                        'text-white hover:text-grey-60 transition-colors py-2',
-                        item.isActive && 'text-purple-60'
-                      )}
-                      whileHover={{ x: 8 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      {item.label}
-                    </motion.a>
-                  ))}
-                  <Button variant="secondary" size="md" className="w-full">
-                    Contact Us
-                  </Button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+          {/* CTA Button */}
+          <div className={styles.navActions}>
+            <Button variant="primary" size="md">
+              聯絡我們
+            </Button>
+          </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            className={styles.mobileMenuBtn}
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            aria-label={isMobileMenuOpen ? '關閉選單' : '開啟選單'}
+            aria-expanded={isMobileMenuOpen}
+          >
+            <span className={`${styles.hamburger} ${isMobileMenuOpen ? styles.open : ''}`}>
+              <span></span>
+              <span></span>
+              <span></span>
+            </span>
+          </button>
+        </div>
       </nav>
+
+      {/* Mobile Menu */}
+      <div className={`${styles.mobileMenu} ${isMobileMenuOpen ? styles.open : ''}`}>
+        <div className={styles.mobileMenuContent}>
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`${styles.mobileNavLink} ${pathname === link.href ? styles.active : ''}`}
+            >
+              {link.label}
+            </Link>
+          ))}
+          <Button variant="primary" fullWidth>
+            聯絡我們
+          </Button>
+        </div>
+      </div>
     </header>
-  )
+  );
 }
+
+export default Header;

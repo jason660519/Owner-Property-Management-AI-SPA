@@ -1,0 +1,114 @@
+/* Card Component Styles */
+
+.card {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-base);
+    transition: all var(--transition-normal);
+    overflow: hidden;
+}
+
+/* Variants */
+.default {
+    /* Default styles already applied above */
+}
+
+.elevated {
+    box-shadow: var(--shadow-md);
+}
+
+.outlined {
+    background: transparent;
+}
+
+/* Padding Variants */
+.padding-none {
+    padding: 0;
+}
+
+.padding-sm {
+    padding: var(--spacing-4);
+}
+
+.padding-md {
+    padding: var(--spacing-6);
+}
+
+.padding-lg {
+    padding: var(--spacing-10);
+}
+
+/* Interactive States */
+.hoverable:hover {
+    border-color: var(--color-accent);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+.clickable {
+    cursor: pointer;
+}
+
+.clickable:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
+/* Card Image */
+.cardImage {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-sm);
+}
+
+.cardImage img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--transition-slow);
+}
+
+.hoverable:hover .cardImage img {
+    transform: scale(1.05);
+}
+
+/* Card Header */
+.cardHeader {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+    margin-bottom: var(--spacing-4);
+}
+
+/* Card Title */
+.cardTitle {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+/* Card Description */
+.cardDescription {
+    font-size: var(--text-base);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+}
+
+/* Card Content */
+.cardContent {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+}
+
+/* Card Footer */
+.cardFooter {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-4);
+    padding-top: var(--spacing-4);
+    margin-top: auto;
+}

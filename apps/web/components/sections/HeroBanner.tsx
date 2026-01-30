@@ -1,3 +1,5 @@
+'use client';
+
 import { Text } from '@/components/ui/Text'
 import { Button } from '@/components/ui/Button'
 import { motion } from 'framer-motion'
@@ -23,7 +25,7 @@ export function HeroBanner() {
             transition={{ duration: 0.8 }}
           >
             <Text variant="heading-lg" className="text-white mb-4 lg:heading-xl lg:mb-6">
-              ✨ Management Your Property with RESA AI
+              ✨ Manage Your Property with RESA AI
             </Text>
           </motion.div>
 
@@ -34,8 +36,8 @@ export function HeroBanner() {
             transition={{ duration: 0.8, delay: 0.2 }}
           >
             <Text variant="body-md" className="text-grey-60 mb-8 lg:body-lg lg:mb-12 max-w-xl lg:max-w-2xl mx-auto">
-              Discover the future of property management with our AI-powered platform. 
-              Streamline operations, maximize returns, and transform your real estate experience.
+              Streamline your property management with AI-powered automation. 
+              From tenant screening to maintenance tracking, RESA AI handles it all so you can focus on growing your portfolio.
             </Text>
           </motion.div>
 
@@ -65,7 +67,7 @@ export function HeroBanner() {
               <Text variant="heading-md" className="text-purple-60 mb-1 lg:heading-lg lg:mb-2">
                 500+
               </Text>
-              <Text variant="body-xs" className="text-grey-60 lg:body-sm">
+              <Text variant="body-sm" className="text-grey-60">
                 Properties Managed
               </Text>
             </div>
@@ -73,7 +75,7 @@ export function HeroBanner() {
               <Text variant="heading-md" className="text-purple-60 mb-1 lg:heading-lg lg:mb-2">
                 98%
               </Text>
-              <Text variant="body-xs" className="text-grey-60 lg:body-sm">
+              <Text variant="body-sm" className="text-grey-60">
                 Client Satisfaction
               </Text>
             </div>
@@ -81,7 +83,7 @@ export function HeroBanner() {
               <Text variant="heading-md" className="text-purple-60 mb-1 lg:heading-lg lg:mb-2">
                 24/7
               </Text>
-              <Text variant="body-xs" className="text-grey-60 lg:body-sm">
+              <Text variant="body-sm" className="text-grey-60">
                 AI Support
               </Text>
             </div>

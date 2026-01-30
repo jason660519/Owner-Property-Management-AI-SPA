@@ -1,3 +1,5 @@
+'use client'
+
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { useState } from 'react'
@@ -37,9 +39,9 @@ export function PropertyCard({ property, index = 0 }: PropertyCardProps) {
       role="article"
       aria-label={`Property: ${property.title}`}
     >
-      <Card className="overflow-hidden hover:shadow-card transition-all duration-300 h-full flex flex-col rounded-xl">
+      <Card className="overflow-hidden hover:shadow-card transition-all duration-300 h-full flex flex-col rounded-lg">
         {/* Property Image */}
-        <div className="relative aspect-video overflow-hidden rounded-xl mb-4">
+        <div className="relative aspect-video overflow-hidden rounded-lg mb-4">
           {!imageLoaded && (
             <div className="absolute inset-0 bg-grey-10 animate-pulse" />
           )}
@@ -85,19 +87,19 @@ export function PropertyCard({ property, index = 0 }: PropertyCardProps) {
 
           {/* Property Features */}
           <div className="flex flex-wrap gap-2 mb-4">
-            <div className="flex items-center space-x-2 bg-grey-10 border border-grey-15 rounded-[28px] px-3 py-1">
+            <div className="flex items-center space-x-2 bg-grey-10 border border-grey-15 rounded-2xl px-3 py-1.5">
               <Icon name="bed" size="sm" />
               <Text variant="body-sm" className="text-white">
                 {property.bedrooms} Bedroom{property.bedrooms !== 1 ? 's' : ''}
               </Text>
             </div>
-            <div className="flex items-center space-x-2 bg-grey-10 border border-grey-15 rounded-[28px] px-3 py-1">
+            <div className="flex items-center space-x-2 bg-grey-10 border border-grey-15 rounded-2xl px-3 py-1.5">
               <Icon name="bath" size="sm" />
               <Text variant="body-sm" className="text-white">
                 {property.bathrooms} Bathroom{property.bathrooms !== 1 ? 's' : ''}
               </Text>
             </div>
-            <div className="flex items-center space-x-2 bg-grey-10 border border-grey-15 rounded-[28px] px-3 py-1">
+            <div className="flex items-center space-x-2 bg-grey-10 border border-grey-15 rounded-2xl px-3 py-1.5">
               <Icon name="home" size="sm" />
               <Text variant="body-sm" className="text-white">
                 {property.type}
@@ -120,7 +122,7 @@ export function PropertyCard({ property, index = 0 }: PropertyCardProps) {
                 variant="primary" 
                 size="sm"
                 aria-label={`View details for ${property.title}`}
-                className="hover:scale-105 transition-transform duration-200 rounded-xl"
+                className="hover:scale-105 transition-transform duration-200"
               >
                 View Property Details
               </Button>

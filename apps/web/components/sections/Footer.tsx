@@ -1,3 +1,5 @@
+'use client';
+
 import { motion } from 'framer-motion'
 import { Text } from '@/components/ui/Text'
 import { Button } from '@/components/ui/Button'
@@ -36,36 +38,38 @@ export function Footer() {
             transition={{ duration: 0.5 }}
             className="sm:col-span-2 lg:col-span-1"
           >
-            <div className="flex items-center space-x-2 mb-4">
-              <Icon name="home" size="lg" className="text-purple-60" />
-              <Text variant="heading-lg" className="text-white">
-                Estatein
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 bg-purple-60 rounded-lg flex items-center justify-center">
+                <Icon name="logo" size="sm" />
+              </div>
+              <Text variant="heading-md" className="text-white">
+                RESA AI
               </Text>
             </div>
             <Text variant="body-sm" className="text-grey-60 mb-6">
-              Your trusted partner in real estate. We help you find the perfect home and make smart property investments.
+              Your trusted AI-powered property management platform. Empowering landlords with smart automation and intelligent insights.
             </Text>
             <div className="flex space-x-3">
               <button 
-                className="p-2 text-grey-60 hover:text-white transition-colors duration-200"
+                className="p-2 text-grey-60 hover:text-white hover:bg-grey-10 rounded-lg transition-all duration-200"
                 aria-label="Follow us on Facebook"
               >
                 <Icon name="facebook" size="sm" />
               </button>
               <button 
-                className="p-2 text-grey-60 hover:text-white transition-colors duration-200"
+                className="p-2 text-grey-60 hover:text-white hover:bg-grey-10 rounded-lg transition-all duration-200"
                 aria-label="Follow us on Twitter"
               >
                 <Icon name="twitter" size="sm" />
               </button>
               <button 
-                className="p-2 text-grey-60 hover:text-white transition-colors duration-200"
+                className="p-2 text-grey-60 hover:text-white hover:bg-grey-10 rounded-lg transition-all duration-200"
                 aria-label="Connect with us on LinkedIn"
               >
                 <Icon name="linkedin" size="sm" />
               </button>
               <button 
-                className="p-2 text-grey-60 hover:text-white transition-colors duration-200"
+                className="p-2 text-grey-60 hover:text-white hover:bg-grey-10 rounded-lg transition-all duration-200"
                 aria-label="Follow us on Instagram"
               >
                 <Icon name="instagram" size="sm" />
