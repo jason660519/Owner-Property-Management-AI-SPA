@@ -1,11 +1,11 @@
 # Owner Management Agent AI App - AI Assistant Rules
 
-> **創建日期**: 2026-01-17  
-> **創建者**: Project Team  
-> **最後修改**: 2026-01-30  
-> **修改者**: Claude Sonnet 4.5  
-> **版本**: 2.2 (AI Collaboration Edition)  
-> **適用於**: Claude, GPT, Gemini, DeepSeek 等所有 AI 助手  
+> **創建日期**: 2026-01-17
+> **創建者**: Project Team
+> **最後修改**: 2026-01-30
+> **修改者**: Claude Opus 4.5
+> **版本**: 2.3 (AI Collaboration Edition)
+> **適用於**: Claude, GPT, Gemini, DeepSeek 等所有 AI 助手
 > **重要性**: 🔴 **強制遵守** - AI 必須在每次創建或修改文件前檢查本規範
 
 ---
@@ -148,11 +148,12 @@ root/
 
 | AI 模型 | 標準識別名稱 | Git Commit 簡稱 |
 | :--- | :--- | :--- |
+| Claude Opus 4.5 | `Claude Opus 4.5` | `[Claude]` |
 | Claude Sonnet 4.5 | `Claude Sonnet 4.5` | `[Claude]` |
 | Claude Opus 4 | `Claude Opus 4` | `[Claude]` |
-| Gemini 2.0 Pro | `Gemini 2.0` | `[Gemini]` |
-| Gemini 1.5 Flash | `Gemini 1.5 Flash` | `[Gemini]` |
-| GPT-4 Turbo | `GPT-4 Turbo` | `[GPT-4]` |
+| Gemini 2.5 Pro | `Gemini 2.5 Pro` | `[Gemini]` |
+| Gemini 2.0 Flash | `Gemini 2.0 Flash` | `[Gemini]` |
+| GPT-4.5 | `GPT-4.5` | `[GPT-4]` |
 | GPT-4o | `GPT-4o` | `[GPT-4]` |
 | DeepSeek V3 | `DeepSeek V3` | `[DeepSeek]` |
 
@@ -313,6 +314,7 @@ supabase/migrations/20260130120000_init.sql     # ✅ 正確格式
 
 | 日期 | 版本 | 修改者 | 修改內容 |
 |------|------|--------|----------|
+| 2026-01-30 | 2.3 | Claude Opus 4.5 | 更新 AI 模型列表（新增 Claude Opus 4.5、Gemini 2.5 Pro、GPT-4.5） |
 | 2026-01-30 | 2.2 | Claude Sonnet 4.5 | 新增 AI 協作者識別規範、Metadata 標準、Git Commit 格式要求 |
 | 2026-01-30 | 2.1 | Project Team | 升級為 Monorepo 架構 (Turborepo)，加入 `apps/web` 與 `apps/mobile` 路徑規範 |
 | 2026-01-22 | 2.0 | Project Team | 大幅擴充 AI 行為約束，添加文件命名檢查清單 |
