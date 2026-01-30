@@ -1,5 +1,15 @@
 # 設計系統：Owner Property Management AI - 基於 Figma 設計
 
+> **創建日期**: 2026-01-30  
+> **創建者**: Project Team  
+> **最後修改**: 2026-01-30  
+> **修改者**: Project Team  
+> **版本**: 1.0  
+> **文件類型**: 技術文件
+
+---
+
+
 **專案ID:** 13534454087919359824
 **設計來源:** [Figma Design File](https://www.figma.com/design/cqd9sDTv7CaQ6UE3EvpIk4/Owner-Property-Management-AI?node-id=45-2&p=f&t=YXzvixueOL50BiD1-0)
 

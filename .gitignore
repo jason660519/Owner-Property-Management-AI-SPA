@@ -78,7 +78,18 @@ resources/data
 # ============================================
 # OS Files
 # ============================================
-Thumbs.db
+# macOS
 .DS_Store
 ._*
+.AppleDouble
+.LSOverride
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Figma
 *.fig

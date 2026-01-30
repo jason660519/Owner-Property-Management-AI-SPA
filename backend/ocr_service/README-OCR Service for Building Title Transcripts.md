@@ -1,5 +1,15 @@
 # OCR Service for Building Title Transcripts
 
+> **創建日期**: 2026-01-30  
+> **創建者**: Project Team  
+> **最後修改**: 2026-01-30  
+> **修改者**: Project Team  
+> **版本**: 1.0  
+> **文件類型**: 技術文件
+
+---
+
+
 > 建物謄本自動化 OCR 與結構化資料輸出服務
 
 ## 專案目標

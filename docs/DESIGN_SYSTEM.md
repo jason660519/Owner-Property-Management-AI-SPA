@@ -1,5 +1,15 @@
 # Estatein Design System
 
+> **創建日期**: 2026-01-31  
+> **創建者**: Project Team  
+> **最後修改**: 2026-01-31  
+> **修改者**: Project Team  
+> **版本**: 1.0  
+> **文件類型**: 設計文件
+
+---
+
+
 ## 從 Figma 設計稿提取的完整設計規格
 
 > **專案名稱**: Owner Property Management AI  

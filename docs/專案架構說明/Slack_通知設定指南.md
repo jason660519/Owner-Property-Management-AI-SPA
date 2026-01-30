@@ -1,5 +1,15 @@
 # Slack 通知設定指南
 
+> **創建日期**: 2026-01-30  
+> **創建者**: Project Team  
+> **最後修改**: 2026-01-30  
+> **修改者**: Project Team  
+> **版本**: 1.0  
+> **文件類型**: 技術文件
+
+---
+
+
 ## 1. Slack 應用程式設定
 1. 前往 https://api.slack.com/apps
 2. 建立新應用程式 (Create New App)

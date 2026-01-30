@@ -1,5 +1,15 @@
 # OCR Service 開發總結報告
 
+> **創建日期**: 2026-01-30  
+> **創建者**: Project Team  
+> **最後修改**: 2026-01-30  
+> **修改者**: Project Team  
+> **版本**: 1.0  
+> **文件類型**: 技術文件
+
+---
+
+
 > **開發週期**: 2026-01-16（單日完成）
 > **開發方式**: Test-Driven Development (TDD)
 > **開發工具**: Python 3.14, pytest, Pydantic, PyMuPDF, OpenCV
