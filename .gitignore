@@ -32,6 +32,7 @@ __pycache__/
 # ============================================
 dist/
 build/
+.turbo/
 *.log
 *.pid
 *.seed
@@ -71,9 +72,8 @@ Outh.json
 # ============================================
 # Large Files (exceeds GitHub 100MB limit)
 # ============================================
-*.bak
-resources/data/20140307郭老師特力屋資料備份/*.bak
-resources/data/20140307郭老師特力屋資料備份/extracted_content.txt
+
+resources/data
 
 # ============================================
 # OS Files
