@@ -81,3 +81,4 @@ resources/data
 Thumbs.db
 .DS_Store
 ._*
+*.fig

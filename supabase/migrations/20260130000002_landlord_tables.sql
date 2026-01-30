@@ -77,6 +77,9 @@ CREATE TABLE IF NOT EXISTS public.bank_accounts (
 );
 
 -- 4. Rental Ledger (租金收支明細表)
+DROP TABLE IF EXISTS public.rental_ledger CASCADE;
+DROP TABLE IF EXISTS public.Rental_Ledger CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.rental_ledger (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     property_id UUID NOT NULL,
@@ -101,7 +104,34 @@ CREATE INDEX idx_rental_ledger_property ON public.rental_ledger(property_id);
 CREATE INDEX idx_rental_ledger_tenant ON public.rental_ledger(tenant_id);
 CREATE INDEX idx_rental_ledger_date ON public.rental_ledger(transaction_date DESC);
 
+-- Enable RLS and add policies (migrated from 20260123)
+ALTER TABLE public.rental_ledger ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "landlords_manage_rental_ledger" ON public.rental_ledger
+    FOR ALL
+    USING (
+        property_id IN (
+            SELECT id FROM public.Property_Rentals WHERE owner_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "agents_view_authorized_rental_ledger" ON public.rental_ledger
+    FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.users_profile WHERE id = auth.uid() AND role = 'agent'
+        )
+        AND
+        property_id IN (
+            SELECT pr.id FROM public.Property_Rentals pr
+            WHERE public.check_agent_permission(auth.uid(), pr.owner_id, 'can_view_financials', pr.id)
+        )
+    );
+
 -- 5. Sales Ledger (買賣收支明細表)
+DROP TABLE IF EXISTS public.sales_ledger CASCADE;
+DROP TABLE IF EXISTS public.Sales_Ledger CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.sales_ledger (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     property_id UUID NOT NULL,
@@ -123,6 +153,30 @@ CREATE TABLE IF NOT EXISTS public.sales_ledger (
 
 CREATE INDEX idx_sales_ledger_property ON public.sales_ledger(property_id);
 CREATE INDEX idx_sales_ledger_date ON public.sales_ledger(transaction_date DESC);
+
+-- Enable RLS and add policies (migrated from 20260123)
+ALTER TABLE public.sales_ledger ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "landlords_manage_sales_ledger" ON public.sales_ledger
+    FOR ALL
+    USING (
+        property_id IN (
+            SELECT id FROM public.Property_Sales WHERE owner_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "agents_view_authorized_sales_ledger" ON public.sales_ledger
+    FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.users_profile WHERE id = auth.uid() AND role = 'agent'
+        )
+        AND
+        property_id IN (
+            SELECT ps.id FROM public.Property_Sales ps
+            WHERE public.check_agent_permission(auth.uid(), ps.owner_id, 'can_view_financials', ps.id)
+        )
+    );
 
 -- 6. Rent Receipts (租金收據表)
 CREATE TABLE IF NOT EXISTS public.rent_receipts (
@@ -165,7 +219,10 @@ CREATE TABLE IF NOT EXISTS public.tax_reports (
 -- PART 3: Property Management Tables
 -- ======================================================================================
 
--- 8. Property Inventory (物件設備表)
+-- 8. Property Inventory (物件財產清單)
+DROP TABLE IF EXISTS public.property_inventory CASCADE;
+DROP TABLE IF EXISTS public.Property_Inventory CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.property_inventory (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     property_id UUID NOT NULL,
@@ -187,6 +244,43 @@ CREATE TABLE IF NOT EXISTS public.property_inventory (
 );
 
 CREATE INDEX idx_property_inventory_property ON public.property_inventory(property_id);
+
+-- Enable RLS and add policies (migrated from 20260123)
+ALTER TABLE public.property_inventory ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "landlords_manage_inventory" ON public.property_inventory
+    FOR ALL
+    USING (
+        property_id IN (
+            SELECT id FROM public.Property_Rentals WHERE owner_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "agents_view_update_authorized_inventory" ON public.property_inventory
+    FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.users_profile WHERE id = auth.uid() AND role = 'agent'
+        )
+        AND
+        property_id IN (
+            SELECT pr.id FROM public.Property_Rentals pr
+            WHERE public.is_owner_or_authorized_agent(auth.uid(), pr.owner_id, pr.id)
+        )
+    );
+
+CREATE POLICY "agents_update_authorized_inventory" ON public.property_inventory
+    FOR UPDATE
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.users_profile WHERE id = auth.uid() AND role = 'agent'
+        )
+        AND
+        property_id IN (
+            SELECT pr.id FROM public.Property_Rentals pr
+            WHERE public.is_owner_or_authorized_agent(auth.uid(), pr.owner_id, pr.id)
+        )
+    );
 
 -- 9. Property Status History (物件狀態歷史表)
 CREATE TABLE IF NOT EXISTS public.property_status_history (
@@ -317,6 +411,9 @@ CREATE INDEX idx_ocr_parsing_logs_created_at ON public.ocr_parsing_logs(created_
 -- ======================================================================================
 
 -- 15. Blog Posts (部落格資料表)
+DROP TABLE IF EXISTS public.blog_posts CASCADE;
+DROP TABLE IF EXISTS public.Blog_Posts CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.blog_posts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     author_id UUID NOT NULL REFERENCES public.users_profile(id),
@@ -342,6 +439,13 @@ CREATE TABLE IF NOT EXISTS public.blog_posts (
 CREATE INDEX idx_blog_posts_author ON public.blog_posts(author_id);
 CREATE INDEX idx_blog_posts_status ON public.blog_posts(status);
 CREATE INDEX idx_blog_posts_published_at ON public.blog_posts(published_at DESC);
+
+-- Enable RLS and add policies (migrated from 20260123)
+ALTER TABLE public.blog_posts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "authenticated_users_view_blog_posts" ON public.blog_posts
+    FOR SELECT
+    USING (auth.role() = 'authenticated');
 
 -- 16. Blog Analytics (部落格分析表)
 CREATE TABLE IF NOT EXISTS public.blog_analytics (
@@ -414,6 +518,9 @@ CREATE TABLE IF NOT EXISTS public.landlord_call_preferences (
 );
 
 -- 20. Agent Directory (房東的仲介名單資料表)
+DROP TABLE IF EXISTS public.agent_directory CASCADE;
+DROP TABLE IF EXISTS public.Agent_Directory CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.agent_directory (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     landlord_id UUID NOT NULL REFERENCES public.users_profile(id) ON DELETE CASCADE,
@@ -432,6 +539,13 @@ CREATE TABLE IF NOT EXISTS public.agent_directory (
 );
 
 CREATE INDEX idx_agent_directory_landlord ON public.agent_directory(landlord_id);
+
+-- Enable RLS and add policies (migrated from 20260123)
+ALTER TABLE public.agent_directory ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "authenticated_users_view_agent_directory" ON public.agent_directory
+    FOR SELECT
+    USING (auth.role() = 'authenticated');
 
 -- 21. Nearby Facilities (地區與鄰近設施表)
 CREATE TABLE IF NOT EXISTS public.nearby_facilities (

@@ -2,11 +2,29 @@
 
 > **創建日期**: 2026-01-17
 > **創建者**: Project Team
-> **最後修改**: 2026-01-30
-> **修改者**: Claude Opus 4.5
-> **版本**: 2.3 (AI Collaboration Edition)
+> **最後修改**: 2026-01-31
+> **修改者**: Claude Sonnet 4.5
+> **版本**: 2.4 (AI Collaboration Edition)
 > **適用於**: Claude, GPT, Gemini, DeepSeek 等所有 AI 助手
 > **重要性**: 🔴 **強制遵守** - AI 必須在每次創建或修改文件前檢查本規範
+
+---
+
+## 🚨 創建檔案前必讀（30 秒快速檢查）
+
+> **⚠️ 在創建任何檔案之前，請先閱讀：[FILE_CREATION_CHECKLIST.md](FILE_CREATION_CHECKLIST.md)**
+
+**快速檢查三要素**：
+1. ✅ **檔名符合規則嗎？** (PascalCase / camelCase / kebab-case)
+2. ✅ **Metadata 或文件頭部註解加了嗎？**
+3. ✅ **放對位置了嗎？** (apps / docs / packages / backend)
+
+**範本位置**：
+- Markdown 範本 → [FILE_CREATION_CHECKLIST.md](FILE_CREATION_CHECKLIST.md) 第 15 行
+- TypeScript 範本 → [FILE_CREATION_CHECKLIST.md](FILE_CREATION_CHECKLIST.md) 第 40 行
+- Python 範本 → [FILE_CREATION_CHECKLIST.md](FILE_CREATION_CHECKLIST.md) 第 62 行
+
+**自動驗證**：創建檔案後執行 `python scripts/validate_file_headers.py` 檢查是否符合規範
 
 ---
 

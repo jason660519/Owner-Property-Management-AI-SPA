@@ -9,65 +9,43 @@
     "github": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@anthropic/mcp-github"],
-      "env": {
-        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
-      }
+      "args": ["-y", "@anthropic/mcp-github"]
     },
 
     "postgres": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@anthropic/mcp-postgres"],
-      "env": {
-        "DATABASE_URL": "${DATABASE_URL}"
-      }
+      "args": ["-y", "@anthropic/mcp-postgres"]
     },
 
     "slack": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@anthropic/mcp-slack"],
-      "env": {
-        "SLACK_BOT_TOKEN": "${SLACK_BOT_TOKEN}",
-        "SLACK_TEAM_ID": "${SLACK_TEAM_ID}"
-      }
+      "args": ["-y", "@anthropic/mcp-slack"]
     },
 
     "notion": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@anthropic/mcp-notion"],
-      "env": {
-        "NOTION_API_KEY": "${NOTION_API_KEY}"
-      }
+      "args": ["-y", "@anthropic/mcp-notion"]
     },
 
     "openai": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@anthropic/mcp-openai"],
-      "env": {
-        "OPENAI_API_KEY": "${OPENAI_API_KEY}"
-      }
+      "args": ["-y", "@anthropic/mcp-openai"]
     },
 
     "anthropic": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@anthropic/mcp-anthropic"],
-      "env": {
-        "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}"
-      }
+      "args": ["-y", "@anthropic/mcp-anthropic"]
     },
 
     "googlemaps": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@anthropic/mcp-googlemaps"],
-      "env": {
-        "GOOGLE_API_KEY": "${GOOGLE_API_KEY}"
-      }
+      "args": ["-y", "@anthropic/mcp-googlemaps"]
     },
 
     "memory": {
@@ -79,28 +57,19 @@
     "docker": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@anthropic/mcp-docker"],
-      "env": {
-        "DOCKER_HOST": "${DOCKER_HOST}"
-      }
+      "args": ["-y", "@anthropic/mcp-docker"]
     },
 
     "firecrawl": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@anthropic/mcp-firecrawl"],
-      "env": {
-        "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY}"
-      }
+      "args": ["-y", "@anthropic/mcp-firecrawl"]
     },
 
     "gdrive": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@anthropic/mcp-gdrive"],
-      "env": {
-        "GDRIVE_OAUTH_PATH": "${GDRIVE_OAUTH_PATH}"
-      }
+      "args": ["-y", "@anthropic/mcp-gdrive"]
     }
   }
 }

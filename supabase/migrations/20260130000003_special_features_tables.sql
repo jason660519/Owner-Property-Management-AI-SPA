@@ -79,6 +79,9 @@ CREATE INDEX idx_ai_conversations_started_at ON public.ai_conversations(started_
 -- ======================================================================================
 
 -- 4. Contracted Tenants (房東的成交租客資料表)
+DROP TABLE IF EXISTS public.contracted_tenants CASCADE;
+DROP TABLE IF EXISTS public.Contracted_Tenants CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.contracted_tenants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     landlord_id UUID NOT NULL REFERENCES public.users_profile(id),
@@ -98,10 +101,30 @@ CREATE TABLE IF NOT EXISTS public.contracted_tenants (
 );
 
 CREATE INDEX idx_contracted_tenants_landlord ON public.contracted_tenants(landlord_id);
+
+-- Enable RLS and add policies (migrated from 20260123 and optimized)
+ALTER TABLE public.contracted_tenants ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "landlords_view_contracted_tenants" ON public.contracted_tenants
+    FOR SELECT
+    USING (landlord_id = auth.uid());
+
+CREATE POLICY "agents_view_authorized_contracted_tenants" ON public.contracted_tenants
+    FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.users_profile WHERE id = auth.uid() AND role = 'agent'
+        )
+        AND
+        public.is_owner_or_authorized_agent(auth.uid(), landlord_id, property_id)
+    );
 CREATE INDEX idx_contracted_tenants_tenant ON public.contracted_tenants(tenant_id);
 CREATE INDEX idx_contracted_tenants_property ON public.contracted_tenants(property_id);
 
 -- 5. Leads Tenants (房東的潛在租客資料表)
+DROP TABLE IF EXISTS public.leads_tenants CASCADE;
+DROP TABLE IF EXISTS public.Leads_Tenants CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.leads_tenants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     landlord_id UUID NOT NULL REFERENCES public.users_profile(id),
@@ -125,7 +148,27 @@ CREATE TABLE IF NOT EXISTS public.leads_tenants (
 CREATE INDEX idx_leads_tenants_landlord ON public.leads_tenants(landlord_id);
 CREATE INDEX idx_leads_tenants_status ON public.leads_tenants(lead_status);
 
+-- Enable RLS and add policies (migrated from 20260123)
+ALTER TABLE public.leads_tenants ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "landlords_manage_tenant_leads" ON public.leads_tenants
+    FOR ALL
+    USING (auth.uid() = landlord_id);
+
+CREATE POLICY "agents_manage_authorized_tenant_leads" ON public.leads_tenants
+    FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.users_profile WHERE id = auth.uid() AND role = 'agent'
+        )
+        AND
+        public.check_agent_permission(auth.uid(), landlord_id, 'can_manage_leads')
+    );
+
 -- 6. Contracted Buyers (房東的成交買方資料表)
+DROP TABLE IF EXISTS public.contracted_buyers CASCADE;
+DROP TABLE IF EXISTS public.Contracted_Buyers CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.contracted_buyers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     landlord_id UUID NOT NULL REFERENCES public.users_profile(id),
@@ -147,7 +190,27 @@ CREATE TABLE IF NOT EXISTS public.contracted_buyers (
 CREATE INDEX idx_contracted_buyers_landlord ON public.contracted_buyers(landlord_id);
 CREATE INDEX idx_contracted_buyers_property ON public.contracted_buyers(property_id);
 
+-- Enable RLS and add policies (migrated from 20260123)
+ALTER TABLE public.contracted_buyers ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "landlords_view_contracted_buyers" ON public.contracted_buyers
+    FOR SELECT
+    USING (landlord_id = auth.uid());
+
+CREATE POLICY "agents_view_authorized_contracted_buyers" ON public.contracted_buyers
+    FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.users_profile WHERE id = auth.uid() AND role = 'agent'
+        )
+        AND
+        public.is_owner_or_authorized_agent(auth.uid(), landlord_id, property_id)
+    );
+
 -- 7. Leads Buyers (房東的潛在買方資料表)
+DROP TABLE IF EXISTS public.leads_buyers CASCADE;
+DROP TABLE IF EXISTS public.Leads_Buyers CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.leads_buyers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     landlord_id UUID NOT NULL REFERENCES public.users_profile(id),
@@ -170,7 +233,27 @@ CREATE TABLE IF NOT EXISTS public.leads_buyers (
 CREATE INDEX idx_leads_buyers_landlord ON public.leads_buyers(landlord_id);
 CREATE INDEX idx_leads_buyers_status ON public.leads_buyers(lead_status);
 
+-- Enable RLS and add policies (migrated from 20260123)
+ALTER TABLE public.leads_buyers ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "landlords_manage_buyer_leads" ON public.leads_buyers
+    FOR ALL
+    USING (auth.uid() = landlord_id);
+
+CREATE POLICY "agents_manage_authorized_buyer_leads" ON public.leads_buyers
+    FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.users_profile WHERE id = auth.uid() AND role = 'agent'
+        )
+        AND
+        public.check_agent_permission(auth.uid(), landlord_id, 'can_manage_leads')
+    );
+
 -- 8. Tenant Inquiries (租客留言紀錄表)
+DROP TABLE IF EXISTS public.tenant_inquiries CASCADE;
+DROP TABLE IF EXISTS public.Tenant_Inquiries CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.tenant_inquiries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     property_id UUID NOT NULL,
@@ -190,6 +273,23 @@ CREATE TABLE IF NOT EXISTS public.tenant_inquiries (
 CREATE INDEX idx_tenant_inquiries_property ON public.tenant_inquiries(property_id);
 CREATE INDEX idx_tenant_inquiries_landlord ON public.tenant_inquiries(landlord_id);
 CREATE INDEX idx_tenant_inquiries_status ON public.tenant_inquiries(status);
+
+-- Enable RLS and add policies (migrated from 20260123)
+ALTER TABLE public.tenant_inquiries ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "landlords_manage_tenant_inquiries" ON public.tenant_inquiries
+    FOR ALL
+    USING (landlord_id = auth.uid());
+
+CREATE POLICY "agents_manage_authorized_inquiries" ON public.tenant_inquiries
+    FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.users_profile WHERE id = auth.uid() AND role = 'agent'
+        )
+        AND
+        public.check_agent_permission(auth.uid(), landlord_id, 'can_manage_leads')
+    );
 
 -- 9. Buyer Inquiries (買方留言紀錄表)
 CREATE TABLE IF NOT EXISTS public.buyer_inquiries (
@@ -212,6 +312,9 @@ CREATE INDEX idx_buyer_inquiries_property ON public.buyer_inquiries(property_id)
 CREATE INDEX idx_buyer_inquiries_landlord ON public.buyer_inquiries(landlord_id);
 
 -- 10. Viewing Appointments Tenant (潛在租客預約看房表)
+DROP TABLE IF EXISTS public.viewing_appointments_tenant CASCADE;
+DROP TABLE IF EXISTS public.Viewing_Appointments_Tenant CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.viewing_appointments_tenant (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     property_id UUID NOT NULL,
@@ -233,7 +336,27 @@ CREATE TABLE IF NOT EXISTS public.viewing_appointments_tenant (
 CREATE INDEX idx_viewing_appointments_tenant_property ON public.viewing_appointments_tenant(property_id);
 CREATE INDEX idx_viewing_appointments_tenant_date ON public.viewing_appointments_tenant(preferred_date);
 
+-- Enable RLS and add policies (migrated from 20260123)
+ALTER TABLE public.viewing_appointments_tenant ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "landlords_manage_tenant_viewings" ON public.viewing_appointments_tenant
+    FOR ALL
+    USING (landlord_id = auth.uid());
+
+CREATE POLICY "agents_manage_authorized_tenant_viewings" ON public.viewing_appointments_tenant
+    FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.users_profile WHERE id = auth.uid() AND role = 'agent'
+        )
+        AND
+        public.is_owner_or_authorized_agent(auth.uid(), landlord_id, property_id)
+    );
+
 -- 11. Viewing Appointments Buyer (潛在買家預約看房表)
+DROP TABLE IF EXISTS public.viewing_appointments_buyer CASCADE;
+DROP TABLE IF EXISTS public.Viewing_Appointments_Buyer CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.viewing_appointments_buyer (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     property_id UUID NOT NULL,
@@ -255,11 +378,31 @@ CREATE TABLE IF NOT EXISTS public.viewing_appointments_buyer (
 CREATE INDEX idx_viewing_appointments_buyer_property ON public.viewing_appointments_buyer(property_id);
 CREATE INDEX idx_viewing_appointments_buyer_date ON public.viewing_appointments_buyer(preferred_date);
 
+-- Enable RLS and add policies (migrated from 20260123)
+ALTER TABLE public.viewing_appointments_buyer ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "landlords_manage_buyer_viewings" ON public.viewing_appointments_buyer
+    FOR ALL
+    USING (landlord_id = auth.uid());
+
+CREATE POLICY "agents_manage_authorized_buyer_viewings" ON public.viewing_appointments_buyer
+    FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.users_profile WHERE id = auth.uid() AND role = 'agent'
+        )
+        AND
+        public.is_owner_or_authorized_agent(auth.uid(), landlord_id, property_id)
+    );
+
 -- ======================================================================================
 -- PART 3: Contracts & Legal Documents
 -- ======================================================================================
 
 -- 12. Lease Agreements (租賣合約書資料表)
+DROP TABLE IF EXISTS public.lease_agreements CASCADE;
+DROP TABLE IF EXISTS public.Lease_Agreements CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.lease_agreements (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     landlord_id UUID NOT NULL REFERENCES public.users_profile(id),
@@ -287,7 +430,27 @@ CREATE INDEX idx_lease_agreements_landlord ON public.lease_agreements(landlord_i
 CREATE INDEX idx_lease_agreements_tenant ON public.lease_agreements(tenant_id);
 CREATE INDEX idx_lease_agreements_property ON public.lease_agreements(property_id);
 
+-- Enable RLS and add policies (migrated from 20260123)
+ALTER TABLE public.lease_agreements ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "landlords_manage_lease_agreements" ON public.lease_agreements
+    FOR ALL
+    USING (landlord_id = auth.uid());
+
+CREATE POLICY "agents_view_authorized_leases" ON public.lease_agreements
+    FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.users_profile WHERE id = auth.uid() AND role = 'agent'
+        )
+        AND
+        public.is_owner_or_authorized_agent(auth.uid(), landlord_id, property_id)
+    );
+
 -- 13. Sales Agreements (買賣合約書資料表)
+DROP TABLE IF EXISTS public.sales_agreements CASCADE;
+DROP TABLE IF EXISTS public.Sales_Agreements CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.sales_agreements (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     seller_id UUID NOT NULL REFERENCES public.users_profile(id),
@@ -311,7 +474,27 @@ CREATE TABLE IF NOT EXISTS public.sales_agreements (
 CREATE INDEX idx_sales_agreements_seller ON public.sales_agreements(seller_id);
 CREATE INDEX idx_sales_agreements_property ON public.sales_agreements(property_id);
 
+-- Enable RLS and add policies (migrated from 20260123)
+ALTER TABLE public.sales_agreements ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "landlords_manage_sales_agreements" ON public.sales_agreements
+    FOR ALL
+    USING (seller_id = auth.uid());
+
+CREATE POLICY "agents_view_authorized_sales_agreements" ON public.sales_agreements
+    FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.users_profile WHERE id = auth.uid() AND role = 'agent'
+        )
+        AND
+        public.is_owner_or_authorized_agent(auth.uid(), seller_id, property_id)
+    );
+
 -- 14. Deposit Receipts (簽約定金簽收資料表)
+DROP TABLE IF EXISTS public.deposit_receipts CASCADE;
+DROP TABLE IF EXISTS public.Deposit_Receipts CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.deposit_receipts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     lease_agreement_id UUID REFERENCES public.lease_agreements(id),
@@ -325,7 +508,31 @@ CREATE TABLE IF NOT EXISTS public.deposit_receipts (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Enable RLS and add policies
+ALTER TABLE public.deposit_receipts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "landlords_view_deposits" ON public.deposit_receipts
+    FOR SELECT
+    USING (landlord_id = auth.uid());
+
+CREATE POLICY "agents_view_authorized_deposits" ON public.deposit_receipts
+    FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.users_profile WHERE id = auth.uid() AND role = 'agent'
+        )
+        AND
+        EXISTS (
+            SELECT 1 FROM public.lease_agreements la
+            WHERE la.id = deposit_receipts.lease_agreement_id
+            AND public.is_owner_or_authorized_agent(auth.uid(), la.landlord_id, la.property_id)
+        )
+    );
+
 -- 15. Earnest Money Receipts (斡旋金簽收資料表)
+DROP TABLE IF EXISTS public.earnest_money_receipts CASCADE;
+DROP TABLE IF EXISTS public.Earnest_Money_Receipts CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.earnest_money_receipts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     property_id UUID NOT NULL,
@@ -338,6 +545,30 @@ CREATE TABLE IF NOT EXISTS public.earnest_money_receipts (
     receipt_file_path TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Enable RLS and add policies
+ALTER TABLE public.earnest_money_receipts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "landlords_manage_earnest_money" ON public.earnest_money_receipts
+    FOR ALL
+    USING (
+        property_id IN (
+            SELECT id FROM public.Property_Sales WHERE owner_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "agents_manage_authorized_earnest_money" ON public.earnest_money_receipts
+    FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.users_profile WHERE id = auth.uid() AND role = 'agent'
+        )
+        AND
+        property_id IN (
+            SELECT ps.id FROM public.Property_Sales ps
+            WHERE public.check_agent_permission(auth.uid(), ps.owner_id, 'can_view_financials', ps.id)
+        )
+    );
 
 -- 16. Digital Signatures (電子簽名記錄表)
 CREATE TABLE IF NOT EXISTS public.digital_signatures (
@@ -383,6 +614,9 @@ CREATE INDEX idx_service_providers_type ON public.service_providers(provider_typ
 CREATE INDEX idx_service_providers_active ON public.service_providers(is_active) WHERE is_active = TRUE;
 
 -- 18. Maintenance Vendors (維修廠商表)
+DROP TABLE IF EXISTS public.maintenance_vendors CASCADE;
+DROP TABLE IF EXISTS public.Maintenance_Vendors CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.maintenance_vendors (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     vendor_name TEXT NOT NULL,
@@ -399,7 +633,17 @@ CREATE TABLE IF NOT EXISTS public.maintenance_vendors (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Enable RLS and add policies
+ALTER TABLE public.maintenance_vendors ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "authenticated_users_view_vendors" ON public.maintenance_vendors
+    FOR SELECT
+    USING (auth.role() = 'authenticated');
+
 -- 19. Maintenance Quotes (維修請求報價單)
+DROP TABLE IF EXISTS public.maintenance_quotes CASCADE;
+DROP TABLE IF EXISTS public.Maintenance_Quotes CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.maintenance_quotes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     maintenance_request_id UUID NOT NULL,
@@ -411,6 +655,35 @@ CREATE TABLE IF NOT EXISTS public.maintenance_quotes (
     status TEXT DEFAULT 'pending', -- 'pending', 'accepted', 'rejected'
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Enable RLS and add policies
+ALTER TABLE public.maintenance_quotes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "landlords_manage_maintenance_quotes" ON public.maintenance_quotes
+    FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.maintenance_requests mr
+            JOIN public.Property_Rentals pr ON mr.property_id = pr.id
+            WHERE mr.id = maintenance_quotes.maintenance_request_id
+            AND pr.owner_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "agents_view_quotes" ON public.maintenance_quotes
+    FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.users_profile WHERE id = auth.uid() AND role = 'agent'
+        )
+        AND
+        EXISTS (
+            SELECT 1 FROM public.maintenance_requests mr
+            JOIN public.Property_Rentals pr ON mr.property_id = pr.id
+            WHERE mr.id = maintenance_quotes.maintenance_request_id
+            AND public.check_agent_permission(auth.uid(), pr.owner_id, 'can_request_maintenance', pr.id)
+        )
+    );
 
 -- 20. Escrow Legal Services (律師代書表)
 CREATE TABLE IF NOT EXISTS public.escrow_legal_services (
