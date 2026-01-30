@@ -70,6 +70,17 @@
     background: var(--color-bg-secondary);
 }
 
+.danger {
+    background: var(--color-error);
+    color: var(--color-text-primary);
+    border-radius: var(--radius-md);
+}
+
+.danger:hover:not(:disabled) {
+    background: #a51c19;
+    transform: translateY(-2px);
+}
+
 .icon {
     background: var(--color-bg-secondary);
     color: var(--color-text-primary);
