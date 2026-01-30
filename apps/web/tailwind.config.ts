@@ -7,21 +7,35 @@ const config: Config = {
     './app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
+    container: {
+      center: true,
+      padding: {
+        DEFAULT: '1rem',
+        sm: '2rem',
+        lg: '4rem',
+        xl: '5rem',
+      },
+      screens: {
+        '2xl': '1440px',
+      },
+    },
     extend: {
       colors: {
         // 基於 Figma 設計的色彩系統
         grey: {
-          8: '#1A1A1A',   // Grey/08 - 主要背景
-          10: '#2A2A2A',  // Grey/10 - 次要背景
-          15: '#333333',  // Grey/15 - 邊框色
-          60: '#999999',  // Grey/60 - 次要文字
+          '08': '#1A1A1A',   // Grey/08 - 主要背景
+          '10': '#2A2A2A',   // Grey/10 - 次要背景
+          '15': '#333333',   // Grey/15 - 邊框色
+          '60': '#999999',   // Grey/60 - 次要文字
         },
         purple: {
-          60: '#7C3AED',  // Purple/60 - 主要按鈕色
+          '60': '#7C3AED',   // Purple/60 - 主要互動色
+          '70': '#6D28D9',   // Purple/70 - Hover 狀態
+          '80': '#5B21B6',   // Purple/80 - Active 狀態
         },
-        absolute: {
-          white: '#FFFFFF', // Absolute/White - 主要文字
-        },
+        success: '#10B981',  // 成功綠色
+        warning: '#EF4444',  // 警示紅色
+        info: '#64748B',     // 資訊藍色
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
@@ -37,12 +51,13 @@ const config: Config = {
       },
       borderRadius: {
         // 基於 Figma 的圓角系統
-        'sm': '8px',
-        'md': '10px',
-        'lg': '12px',
-        'xl': '16px',
-        '2xl': '28px',
-        '3xl': '75px',
+        'sm': '8px',    // 小按鈕
+        'md': '10px',   // 中按鈕
+        'lg': '12px',   // 大按鈕、卡片
+        'xl': '16px',   // 大型容器
+        '2xl': '28px',  // 膠囊標籤
+        '3xl': '75px',  // 特殊圓角
+        'full': '9999px', // 完全圓形
       },
       spacing: {
         // 基於 8px 網格系統

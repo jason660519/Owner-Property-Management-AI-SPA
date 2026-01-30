@@ -5,52 +5,16 @@ import Link from 'next/link';
 import { Button } from '../ui/Button';
 import { Card, CardImage, CardContent, CardFooter } from '../ui/Card';
 import styles from './FeaturedProperties.module.css';
+import { Property } from '@/lib/api/properties';
 
-interface Property {
-  id: string;
-  title: string;
-  description: string;
-  imageUrl: string;
-  bedrooms: number;
-  bathrooms: number;
-  type: string;
-  price: string;
+interface FeaturedPropertiesProps {
+  properties: Property[];
 }
 
-const properties: Property[] = [
-  {
-    id: '1',
-    title: '現代都會公寓',
-    description: '位於市中心的精品公寓，擁有絕佳視野與完善生活機能。',
-    imageUrl: '/images/property-1.jpg',
-    bedrooms: 3,
-    bathrooms: 2,
-    type: '公寓',
-    price: 'NT$ 2,500,000/月',
-  },
-  {
-    id: '2',
-    title: '悠然別墅',
-    description: '鄰近自然保護區的獨棟別墅，享受寧靜的鄉村生活。',
-    imageUrl: '/images/property-2.jpg',
-    bedrooms: 4,
-    bathrooms: 3,
-    type: '別墅',
-    price: 'NT$ 4,800,000/月',
-  },
-  {
-    id: '3',
-    title: '海景套房',
-    description: '面海而居的高級套房，每天醒來都能擁抱海洋。',
-    imageUrl: '/images/property-3.jpg',
-    bedrooms: 2,
-    bathrooms: 1,
-    type: '套房',
-    price: 'NT$ 1,800,000/月',
-  },
-];
+export function FeaturedProperties({ properties }: FeaturedPropertiesProps) {
+  // Display top 3
+  const displayedProperties = properties.slice(0, 3);
 
-export function FeaturedProperties() {
   return (
     <section className={styles.section}>
       <div className={styles.container}>
@@ -58,7 +22,7 @@ export function FeaturedProperties() {
         <div className={styles.header}>
           <div className={styles.headerContent}>
             <span className={styles.sparkle}>✨</span>
-            <h2 className={styles.title}>我的啞巴兒子</h2>
+            <h2 className={styles.title}>精選物業</h2>
             <p className={styles.description}>
               探索我們精心挑選的優質物業，每一間都經過嚴格篩選，確保您獲得最佳的居住體驗。
             </p>
@@ -72,7 +36,7 @@ export function FeaturedProperties() {
 
         {/* Properties Grid */}
         <div className={styles.grid}>
-          {properties.map((property) => (
+          {displayedProperties.map((property) => (
             <Link key={property.id} href={`/properties/${property.id}`} className={styles.cardLink}>
               <Card hoverable padding="md">
                 <CardImage
@@ -120,22 +84,7 @@ export function FeaturedProperties() {
           ))}
         </div>
 
-        {/* Pagination */}
-        <div className={styles.pagination}>
-          <span className={styles.paginationText}>01 of 60</span>
-          <div className={styles.paginationButtons}>
-            <Button variant="icon" size="md" aria-label="上一頁">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </Button>
-            <Button variant="icon" size="md" aria-label="下一頁">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M9 18L15 12L9 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </Button>
-          </div>
-        </div>
+        {/* Pagination removed as this is a featured section, not a full list */}
       </div>
     </section>
   );

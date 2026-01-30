@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 基於 Figma 設計的全域樣式 */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* 色彩變數 */
+  --color-grey-08: #1A1A1A;
+  --color-grey-10: #2A2A2A;
+  --color-grey-15: #333333;
+  --color-grey-60: #999999;
+  --color-purple-60: #7C3AED;
+  --color-white: #FFFFFF;
+
+  /* 字體變數 */
+  --font-sans: 'Inter', system-ui, sans-serif;
+  
+  /* 間距變數 */
+  --spacing-xs: 8px;
+  --spacing-sm: 12px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
+
+  /* 圓角變數 */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 28px;
+  --radius-3xl: 75px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-grey-08);
+  color: var(--color-white);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 自定義滾動條 */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-grey-10);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-grey-15);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-grey-60);
+}
+
+/* 焦點樣式 */
+*:focus {
+  outline: 2px solid var(--color-purple-60);
+  outline-offset: 2px;
+}
+
+/* 選擇文字樣式 */
+::selection {
+  background-color: var(--color-purple-60);
+  color: var(--color-white);
+}
+
+/* 載入動畫 */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-grey-10) 0%,
+    var(--color-grey-15) 50%,
+    var(--color-grey-10) 100%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+}

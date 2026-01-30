@@ -5,6 +5,7 @@ import { HeroSection } from '@/components/sections/HeroSection';
 import { FeaturedProperties } from '@/components/sections/FeaturedProperties';
 import { Testimonials } from '@/components/sections/Testimonials';
 import { FAQ } from '@/components/sections/FAQ';
+import { getProperties } from '@/lib/api/properties';
 
 export const metadata: Metadata = {
   title: 'Estatein - 房東物業的 AI 好幫手',
@@ -24,13 +25,17 @@ export const metadata: Metadata = {
   },
 };
 
-export default function HomePage() {
+export const dynamic = 'force-dynamic';
+
+export default async function HomePage() {
+  const properties = await getProperties();
+
   return (
     <>
       <Header />
       <main>
         <HeroSection />
-        <FeaturedProperties />
+        <FeaturedProperties properties={properties} />
         <Testimonials />
         <FAQ />
       </main>
