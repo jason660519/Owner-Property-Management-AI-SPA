@@ -1,0 +1,270 @@
+待完成表格清單
+================================================================================
+
+總數: 50 個
+
+
+優先級 A (17 個)
+--------------------------------------------------------------------------------
+[A] RBAC 系統
+    EN: role_rbac
+    ID: role_rbac_id
+    分類: Super admin
+
+[A] 角色權限矩陣表
+    EN: role_rbac
+    ID: role_rbac_id
+    分類: Super admin
+
+[A] 租金收支明細表
+    EN: rental_ledger
+    ID: rental_ledger_id
+    分類: Landlord_finance
+
+[A] 銀行帳戶表
+    EN: bank_accounts
+    ID: bank_accounts_id
+    分類: Landlord
+
+[A] 建物權狀詳細資料表
+    EN: building_title_records
+    ID: building_title_records_id
+    分類: Landlord
+
+[A] 房東接聽偏好設定表
+    EN: landlord_call_preferences
+    ID: landlord_call_preferences_id
+    分類: Landlord
+
+[A] 物件統一視圖
+    EN: properties
+    ID: properties_view_id
+    分類: Landlord
+
+[A] 物件設備表
+    EN: Property_Inventory
+    ID: Property_Inventory_id
+    分類: Landlord
+
+[A] 物件狀態歷史表
+    EN: Property_Status_History
+    ID: Property_Status_History_id
+    分類: Landlord
+
+[A] 物件轉租轉賣記錄表
+    EN: property_type_change_logs
+    ID: property_type_change_logs_id
+    分類: Landlord
+
+[A] 買賣收支明細表
+    EN: sales_ledger
+    ID: sales_ledger_id
+    分類: Landlord
+
+[A] 標的建築物-建物權狀照片檔存放位置表
+    EN: building_title_deed_photo
+    ID: building_title_records_photo_id
+    分類: photos_storage_path_for_building_tilte_deed
+
+[A] 標的建築物-土地權狀照片檔存放位置表
+    EN: land_title_deed_photo
+    ID: land_title_records_photo_id
+    分類: photos_storage_path_for_land_tilte_deed
+
+[A] 單一租賃物件資料表
+    EN: 
+    ID: Property_for_rent_id
+    分類: property_photos
+
+[A] 單一出售物件資料表
+    EN: 
+    ID: Property_for_sale_id
+    分類: property_photos
+
+[A] 合約附加條款表
+    EN: Addendum_Clauses
+    ID: Addendum_Clauses_id
+    分類: customer
+
+[A] 線上諮詢表
+    EN: Online_Inquiries
+    ID: Online_Inquiries_id
+    分類: customer
+
+
+優先級 B (13 個)
+--------------------------------------------------------------------------------
+[B] 部落格資料表
+    EN: Blog_Posts
+    ID: Blog_Posts_id
+    分類: Landlord
+
+[B] 租金收據表
+    EN: Rent_Receipts
+    ID: Rent_Receipts_id
+    分類: Landlord
+
+[B] 房東的仲介名單資料表
+    EN: Agent_Directory
+    ID: Landlord's_agent_Directory_id
+    分類: Landlord
+
+[B] 台灣政府制式 授權書 （空白）（國內版／海外版）
+    EN: authorization_agreements
+    ID: authorizations_document_id
+    分類: Documents
+
+[B] 標的建築物-建物謄本照片檔存放位置表
+    EN: building_title_record_transcription_photo
+    ID: building_title_record_transcription_details_photo_path_id
+    分類: property_photos
+
+[B] 標的物建築外觀或社區大樓外觀照片檔存放位置表
+    EN: 
+    ID: Property_photo_exterior_id
+    分類: property_photos
+
+[B] 標的建築物-土地謄本詳細資料表
+    EN: 
+    ID: land_title_transcription_details_table_id
+    分類: property_records
+
+[B] 標的建築物-建物謄本詳細資料表
+    EN: 
+    ID: building_title_transcription_details_id
+    分類: property_records
+
+[B] 3D模型資料表
+    EN: 3d_models
+    ID: 3d_models_id
+    分類: property_photos
+
+[B] 簽約檔案表
+    EN: contract_documents
+    ID: contract_documents_id
+    分類: customer
+
+[B] 支付交易記錄表
+    EN: payment_transactions
+    ID: payment_transactions_id
+    分類: customer
+
+[B] 搜尋歷史表
+    EN: search_history
+    ID: search_history_id
+    分類: customer
+
+[B] 分享記錄表
+    EN: share_logs
+    ID: share_logs_id
+    分類: customer
+
+
+優先級 C (13 個)
+--------------------------------------------------------------------------------
+[C] 社區大樓資料表
+    EN: buildings_communities
+    ID: buildings_communities_id
+    分類: Landlord
+
+[C] ComfyUI 風格設定表
+    EN: comfyui_styles
+    ID: comfyui_styles_id
+    分類: Landlord
+
+[C] 維修申請表
+    EN: maintenance_requests
+    ID: maintenance_requests_id
+    分類: Landlord
+
+[C] 藝廊與媒體庫表
+    EN: media_gallery
+    ID: media_gallery_id
+    分類: Landlord
+
+[C] OCR 解析記錄表
+    EN: ocr_parsing_logs
+    ID: ocr_parsing_logs_id
+    分類: Landlord
+
+[C] 360度全景圖片表
+    EN: panorama_images
+    ID: panorama_images_id
+    分類: Landlord
+
+[C] 物件Q&A表
+    EN: property_faqs
+    ID: property_faqs_id
+    分類: Landlord
+
+[C] AI 生成內容表
+    EN: ai_generated_content
+    ID: ai_generated_content_id
+    分類: property_blogs
+
+[C] 智能設備配置表
+    EN: smart_devices
+    ID: smart_devices_id
+    分類: 協助廠商
+
+[C] 標的物室內照片存放位置表
+    EN: 
+    ID: Property_photo_interior_id
+    分類: property_photos
+
+[C] 租客篩選結果表
+    EN: screening_results
+    ID: screening_results_id
+    分類: customer
+
+[C] 審計日誌表
+    EN: audit_log
+    ID: audit_log_id
+    分類: auditor
+
+[C] 隱私審計結果表
+    EN: audit_results
+    ID: audit_results_id
+    分類: auditor
+
+
+優先級 D (6 個)
+--------------------------------------------------------------------------------
+[D] 部落格分析表
+    EN: blog_analytics
+    ID: blog_analytics_id
+    分類: Landlord
+
+[D] 地區與鄰近設施表
+    EN: nearby_facilities
+    ID: nearby_facilities_id
+    分類: Landlord
+
+[D] 稅務報表記錄表
+    EN: tax_reports
+    ID: tax_reports_id
+    分類: Landlord
+
+[D] 買賣價金流程資料表
+    EN: Payment_Workflow
+    ID: Payment_Workflow_id
+    分類: customer
+
+[D] 要約書資料表
+    EN: Purchase_Offers
+    ID: Purchase_Offers_id
+    分類: customer
+
+[D] 租金繳費記錄表
+    EN: rent_payment_records
+    ID: rent_payment_records_id
+    分類: customer
+
+
+優先級 E (1 個)
+--------------------------------------------------------------------------------
+[E] 標的建築物-土地謄本照片檔存放位置表
+    EN: land_title_record_transcription_photo
+    ID: land_title_record_transcription_details_photo_path_id
+    分類: property_photos
+

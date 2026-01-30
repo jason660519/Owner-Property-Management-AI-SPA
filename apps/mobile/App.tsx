@@ -15,10 +15,10 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f4f7f9',
+    backgroundColor: '#1A1A1A',
     ...Platform.select({
       web: {
-        height: '100vh',
+        height: '100%',
         overflow: 'hidden',
       },
     }),

@@ -1,0 +1,1210 @@
+{
+  "total_tables": 118,
+  "super_admin_count": 27,
+  "landlord_count": 22,
+  "tenant_count": 0,
+  "finance_count": 1,
+  "other_count": 69,
+  "super_admin_tables": [
+    {
+      "row": 3,
+      "eng_no": 1,
+      "priority": "A",
+      "category": "Super admin",
+      "id_field": "users_track_history_id",
+      "subcategory": null,
+      "name_cn": "使用者的登入歷史與使用歷史紀錄",
+      "name_en": ""
+    },
+    {
+      "row": 4,
+      "eng_no": 1,
+      "priority": "A",
+      "category": "Super admin",
+      "id_field": "role_rbac_id",
+      "subcategory": null,
+      "name_cn": "RBAC 系統",
+      "name_en": "role_rbac"
+    },
+    {
+      "row": 5,
+      "eng_no": 1,
+      "priority": "A",
+      "category": "Super admin",
+      "id_field": "role_rbac_id",
+      "subcategory": null,
+      "name_cn": "角色權限矩陣表",
+      "name_en": "role_rbac"
+    },
+    {
+      "row": 6,
+      "eng_no": 1,
+      "priority": "B",
+      "category": "Super admin",
+      "id_field": "seo_configs_id",
+      "subcategory": null,
+      "name_cn": "SEO 設定表",
+      "name_en": "seo_configs"
+    },
+    {
+      "row": 7,
+      "eng_no": 1,
+      "priority": "B",
+      "category": "Super admin",
+      "id_field": "elasticsearch_indices_id",
+      "subcategory": null,
+      "name_cn": "ElasticSearch 索引表",
+      "name_en": "elasticsearch_indices"
+    },
+    {
+      "row": 8,
+      "eng_no": 1,
+      "priority": "B",
+      "category": "Super admin",
+      "id_field": "llm_configs_id",
+      "subcategory": null,
+      "name_cn": "LLM 模型配置表",
+      "name_en": "llm_configs"
+    },
+    {
+      "row": 9,
+      "eng_no": 1,
+      "priority": "B",
+      "category": "Super admin",
+      "id_field": "platform_settings_id",
+      "subcategory": null,
+      "name_cn": "平台設定表",
+      "name_en": "platform_settings"
+    },
+    {
+      "row": 10,
+      "eng_no": 1,
+      "priority": "B",
+      "category": "Super admin",
+      "id_field": "webhook_configs_id",
+      "subcategory": null,
+      "name_cn": "Webhook 設定表",
+      "name_en": "webhook_configs"
+    },
+    {
+      "row": 11,
+      "eng_no": 1,
+      "priority": "B",
+      "category": "Super admin",
+      "id_field": "whitelist_blacklist_id",
+      "subcategory": null,
+      "name_cn": "白名單/黑名單表",
+      "name_en": "whitelist_blacklist"
+    },
+    {
+      "row": 12,
+      "eng_no": 1,
+      "priority": "C",
+      "category": "Super admin",
+      "id_field": "currencies_id",
+      "subcategory": null,
+      "name_cn": "貨幣設定表",
+      "name_en": "currencies"
+    },
+    {
+      "row": 13,
+      "eng_no": 1,
+      "priority": "C",
+      "category": "Super admin",
+      "id_field": "exchange_rates_id",
+      "subcategory": null,
+      "name_cn": "即時匯率換算表",
+      "name_en": "exchange_rates"
+    },
+    {
+      "row": 14,
+      "eng_no": 1,
+      "priority": "C",
+      "category": "Super admin",
+      "id_field": "i18n_glossary_id",
+      "subcategory": null,
+      "name_cn": "多語言詞彙表",
+      "name_en": "i18n_glossary"
+    },
+    {
+      "row": 15,
+      "eng_no": 1,
+      "priority": "C",
+      "category": "Super admin",
+      "id_field": "notification_templates_id",
+      "subcategory": null,
+      "name_cn": "系統通知範本表",
+      "name_en": "notification_templates"
+    },
+    {
+      "row": 16,
+      "eng_no": 1,
+      "priority": "C",
+      "category": "Super admin",
+      "id_field": "regions_settings_id",
+      "subcategory": null,
+      "name_cn": "地區設定表",
+      "name_en": "regions_settings"
+    },
+    {
+      "row": 17,
+      "eng_no": 1,
+      "priority": "C",
+      "category": "Super admin",
+      "id_field": "tax_rates_id",
+      "subcategory": null,
+      "name_cn": "國家稅率設定表",
+      "name_en": "tax_rates"
+    },
+    {
+      "row": 18,
+      "eng_no": 1,
+      "priority": "D",
+      "category": "Super admin",
+      "id_field": "cloud_resources_monitoring_id",
+      "subcategory": null,
+      "name_cn": "雲端資源監控表",
+      "name_en": "cloud_resources_monitoring"
+    },
+    {
+      "row": 19,
+      "eng_no": 1,
+      "priority": "D",
+      "category": "Super admin",
+      "id_field": "error_logs_id",
+      "subcategory": null,
+      "name_cn": "錯誤日誌表",
+      "name_en": "error_logs"
+    },
+    {
+      "row": 20,
+      "eng_no": 1,
+      "priority": "D",
+      "category": "Super admin",
+      "id_field": "perf_metrics_id",
+      "subcategory": null,
+      "name_cn": "效能監控指標表",
+      "name_en": "perf_metrics"
+    },
+    {
+      "row": 21,
+      "eng_no": 1,
+      "priority": "D",
+      "category": "Super admin",
+      "id_field": "rate_limit_configs_id",
+      "subcategory": null,
+      "name_cn": "速率限制設定表",
+      "name_en": "rate_limit_configs"
+    },
+    {
+      "row": 22,
+      "eng_no": 1,
+      "priority": "D",
+      "category": "Super admin",
+      "id_field": "recommendation_logs_id",
+      "subcategory": null,
+      "name_cn": "推薦系統記錄表",
+      "name_en": "recommendation_logs"
+    },
+    {
+      "row": 23,
+      "eng_no": 1,
+      "priority": "D",
+      "category": "Super admin",
+      "id_field": "system_maintenance_logs_id",
+      "subcategory": null,
+      "name_cn": "系統維護記錄表",
+      "name_en": "system_maintenance_logs"
+    },
+    {
+      "row": 24,
+      "eng_no": 1,
+      "priority": "D",
+      "category": "Super admin",
+      "id_field": "unit_conversion_logs_id",
+      "subcategory": null,
+      "name_cn": "單位轉換記錄表",
+      "name_en": "unit_conversion_logs"
+    },
+    {
+      "row": 25,
+      "eng_no": 1,
+      "priority": "D",
+      "category": "Super admin",
+      "id_field": "version_history_id",
+      "subcategory": null,
+      "name_cn": "版本更新記錄表",
+      "name_en": "version_history"
+    },
+    {
+      "row": 26,
+      "eng_no": 1,
+      "priority": "D",
+      "category": "Super admin",
+      "id_field": "web_analytics_id",
+      "subcategory": null,
+      "name_cn": "網站流量統計表",
+      "name_en": "web_analytics"
+    },
+    {
+      "row": 27,
+      "eng_no": 1,
+      "priority": "D",
+      "category": "只有Super admin有",
+      "id_field": "ai_performance_metrics_id",
+      "subcategory": null,
+      "name_cn": "AI 語音效能監控表",
+      "name_en": "ai_performance_metrics"
+    },
+    {
+      "row": 28,
+      "eng_no": 1,
+      "priority": "D",
+      "category": "只有Super admin有",
+      "id_field": "api_call_logs_id",
+      "subcategory": null,
+      "name_cn": "API 調用記錄表",
+      "name_en": "api_call_logs"
+    },
+    {
+      "row": 29,
+      "eng_no": 1,
+      "priority": "D",
+      "category": "只有Super admin有",
+      "id_field": "backup_restore_logs_id",
+      "subcategory": null,
+      "name_cn": "備份與還原記錄表",
+      "name_en": "backup_restore_logs"
+    }
+  ],
+  "landlord_tables": [
+    {
+      "row": 2,
+      "eng_no": 1,
+      "priority": "A",
+      "category": "Landlord_finance",
+      "id_field": "rental_ledger_id",
+      "subcategory": null,
+      "name_cn": "租金收支明細表",
+      "name_en": "rental_ledger"
+    },
+    {
+      "row": 30,
+      "eng_no": 2,
+      "priority": "A",
+      "category": "Landlord",
+      "id_field": "bank_accounts_id",
+      "subcategory": null,
+      "name_cn": "銀行帳戶表",
+      "name_en": "bank_accounts"
+    },
+    {
+      "row": 31,
+      "eng_no": 2,
+      "priority": "A",
+      "category": "Landlord",
+      "id_field": "building_title_records_id",
+      "subcategory": null,
+      "name_cn": "建物權狀詳細資料表",
+      "name_en": "building_title_records"
+    },
+    {
+      "row": 32,
+      "eng_no": 2,
+      "priority": "A",
+      "category": "Landlord",
+      "id_field": "landlord_call_preferences_id",
+      "subcategory": null,
+      "name_cn": "房東接聽偏好設定表",
+      "name_en": "landlord_call_preferences"
+    },
+    {
+      "row": 33,
+      "eng_no": 2,
+      "priority": "A",
+      "category": "Landlord",
+      "id_field": "properties_view_id",
+      "subcategory": null,
+      "name_cn": "物件統一視圖",
+      "name_en": "properties"
+    },
+    {
+      "row": 34,
+      "eng_no": 2,
+      "priority": "A",
+      "category": "Landlord",
+      "id_field": "Property_Inventory_id",
+      "subcategory": null,
+      "name_cn": "物件設備表",
+      "name_en": "Property_Inventory"
+    },
+    {
+      "row": 35,
+      "eng_no": 2,
+      "priority": "A",
+      "category": "Landlord",
+      "id_field": "Property_Status_History_id",
+      "subcategory": null,
+      "name_cn": "物件狀態歷史表",
+      "name_en": "Property_Status_History"
+    },
+    {
+      "row": 36,
+      "eng_no": 2,
+      "priority": "A",
+      "category": "Landlord",
+      "id_field": "property_type_change_logs_id",
+      "subcategory": null,
+      "name_cn": "物件轉租轉賣記錄表",
+      "name_en": "property_type_change_logs"
+    },
+    {
+      "row": 37,
+      "eng_no": 2,
+      "priority": "A",
+      "category": "Landlord",
+      "id_field": "sales_ledger_id",
+      "subcategory": null,
+      "name_cn": "買賣收支明細表",
+      "name_en": "sales_ledger"
+    },
+    {
+      "row": 42,
+      "eng_no": 2,
+      "priority": "B",
+      "category": "Landlord",
+      "id_field": "Blog_Posts_id",
+      "subcategory": null,
+      "name_cn": "部落格資料表",
+      "name_en": "Blog_Posts"
+    },
+    {
+      "row": 43,
+      "eng_no": 2,
+      "priority": "B",
+      "category": "Landlord",
+      "id_field": "Rent_Receipts_id",
+      "subcategory": null,
+      "name_cn": "租金收據表",
+      "name_en": "Rent_Receipts"
+    },
+    {
+      "row": 44,
+      "eng_no": 2,
+      "priority": "C",
+      "category": "Landlord",
+      "id_field": "buildings_communities_id",
+      "subcategory": null,
+      "name_cn": "社區大樓資料表",
+      "name_en": "buildings_communities"
+    },
+    {
+      "row": 45,
+      "eng_no": 2,
+      "priority": "C",
+      "category": "Landlord",
+      "id_field": "comfyui_styles_id",
+      "subcategory": null,
+      "name_cn": "ComfyUI 風格設定表",
+      "name_en": "comfyui_styles"
+    },
+    {
+      "row": 46,
+      "eng_no": 2,
+      "priority": "C",
+      "category": "Landlord",
+      "id_field": "maintenance_requests_id",
+      "subcategory": null,
+      "name_cn": "維修申請表",
+      "name_en": "maintenance_requests"
+    },
+    {
+      "row": 47,
+      "eng_no": 2,
+      "priority": "C",
+      "category": "Landlord",
+      "id_field": "media_gallery_id",
+      "subcategory": null,
+      "name_cn": "藝廊與媒體庫表",
+      "name_en": "media_gallery"
+    },
+    {
+      "row": 48,
+      "eng_no": 2,
+      "priority": "C",
+      "category": "Landlord",
+      "id_field": "ocr_parsing_logs_id",
+      "subcategory": null,
+      "name_cn": "OCR 解析記錄表",
+      "name_en": "ocr_parsing_logs"
+    },
+    {
+      "row": 49,
+      "eng_no": 2,
+      "priority": "C",
+      "category": "Landlord",
+      "id_field": "panorama_images_id",
+      "subcategory": null,
+      "name_cn": "360度全景圖片表",
+      "name_en": "panorama_images"
+    },
+    {
+      "row": 50,
+      "eng_no": 2,
+      "priority": "C",
+      "category": "Landlord",
+      "id_field": "property_faqs_id",
+      "subcategory": null,
+      "name_cn": "物件Q&A表",
+      "name_en": "property_faqs"
+    },
+    {
+      "row": 64,
+      "eng_no": 2,
+      "priority": "D",
+      "category": "Landlord",
+      "id_field": "blog_analytics_id",
+      "subcategory": null,
+      "name_cn": "部落格分析表",
+      "name_en": "blog_analytics"
+    },
+    {
+      "row": 65,
+      "eng_no": 2,
+      "priority": "D",
+      "category": "Landlord",
+      "id_field": "nearby_facilities_id",
+      "subcategory": null,
+      "name_cn": "地區與鄰近設施表",
+      "name_en": "nearby_facilities"
+    },
+    {
+      "row": 66,
+      "eng_no": 2,
+      "priority": "D",
+      "category": "Landlord",
+      "id_field": "tax_reports_id",
+      "subcategory": null,
+      "name_cn": "稅務報表記錄表",
+      "name_en": "tax_reports"
+    },
+    {
+      "row": 82,
+      "eng_no": 4,
+      "priority": "B",
+      "category": "Landlord",
+      "id_field": "Landlord's_agent_Directory_id",
+      "subcategory": null,
+      "name_cn": "房東的仲介名單資料表",
+      "name_en": "Agent_Directory"
+    }
+  ],
+  "tenant_tables": [],
+  "finance_tables": [
+    {
+      "row": 2,
+      "eng_no": 1,
+      "priority": "A",
+      "category": "Landlord_finance",
+      "id_field": "rental_ledger_id",
+      "subcategory": null,
+      "name_cn": "租金收支明細表",
+      "name_en": "rental_ledger"
+    }
+  ],
+  "other_tables": [
+    {
+      "row": 38,
+      "eng_no": 2,
+      "priority": "A",
+      "category": "所有人都有",
+      "id_field": "user_feedback_id",
+      "subcategory": null,
+      "name_cn": "使用者回饋與建議表",
+      "name_en": "user_feedback"
+    },
+    {
+      "row": 39,
+      "eng_no": 2,
+      "priority": "A",
+      "category": "所有人都有",
+      "id_field": "user_sessions_id",
+      "subcategory": null,
+      "name_cn": "會話狀態表",
+      "name_en": "user_sessions"
+    },
+    {
+      "row": 40,
+      "eng_no": 2,
+      "priority": "A",
+      "category": "所有人都有",
+      "id_field": "users_profile_id",
+      "subcategory": null,
+      "name_cn": "使用者個人資料表",
+      "name_en": "users_profile"
+    },
+    {
+      "row": 41,
+      "eng_no": 2,
+      "priority": "B",
+      "category": "Documents",
+      "id_field": "authorizations_document_id",
+      "subcategory": null,
+      "name_cn": "台灣政府制式 授權書 （空白）（國內版／海外版）",
+      "name_en": "authorization_agreements"
+    },
+    {
+      "row": 51,
+      "eng_no": 2,
+      "priority": "C",
+      "category": "property_blogs",
+      "id_field": "ai_generated_content_id",
+      "subcategory": null,
+      "name_cn": "AI 生成內容表",
+      "name_en": "ai_generated_content"
+    },
+    {
+      "row": 52,
+      "eng_no": 2,
+      "priority": "C",
+      "category": "協助廠商",
+      "id_field": "smart_devices_id",
+      "subcategory": null,
+      "name_cn": "智能設備配置表",
+      "name_en": "smart_devices"
+    },
+    {
+      "row": 53,
+      "eng_no": 2,
+      "priority": "C",
+      "category": "所有人都有",
+      "id_field": "calendar_events_id",
+      "subcategory": null,
+      "name_cn": "行事曆事件表",
+      "name_en": "calendar_events"
+    },
+    {
+      "row": 54,
+      "eng_no": 2,
+      "priority": "C",
+      "category": "所有人都有",
+      "id_field": "document_uploads_id",
+      "subcategory": null,
+      "name_cn": "文件上傳記錄表",
+      "name_en": "document_uploads"
+    },
+    {
+      "row": 55,
+      "eng_no": 2,
+      "priority": "C",
+      "category": "所有人都有",
+      "id_field": "draft_autosave_id",
+      "subcategory": null,
+      "name_cn": "草稿自動儲存表",
+      "name_en": "draft_autosave"
+    },
+    {
+      "row": 56,
+      "eng_no": 2,
+      "priority": "C",
+      "category": "所有人都有",
+      "id_field": "email_threads_id",
+      "subcategory": null,
+      "name_cn": "Email線程表",
+      "name_en": "email_threads"
+    },
+    {
+      "row": 57,
+      "eng_no": 2,
+      "priority": "C",
+      "category": "所有人都有",
+      "id_field": "media_processing_queue_id",
+      "subcategory": null,
+      "name_cn": "媒體處理佇列表",
+      "name_en": "media_processing_queue"
+    },
+    {
+      "row": 58,
+      "eng_no": 2,
+      "priority": "C",
+      "category": "所有人都有",
+      "id_field": "messages_id",
+      "subcategory": null,
+      "name_cn": "訊息記錄表",
+      "name_en": "messages"
+    },
+    {
+      "row": 59,
+      "eng_no": 2,
+      "priority": "C",
+      "category": "所有人都有",
+      "id_field": "notification_preferences_id",
+      "subcategory": null,
+      "name_cn": "通知偏好設定表",
+      "name_en": "notification_preferences"
+    },
+    {
+      "row": 60,
+      "eng_no": 2,
+      "priority": "C",
+      "category": "所有人都有",
+      "id_field": "notification_queue_id",
+      "subcategory": null,
+      "name_cn": "通知佇列表",
+      "name_en": "notification_queue"
+    },
+    {
+      "row": 61,
+      "eng_no": 2,
+      "priority": "C",
+      "category": "所有人都有",
+      "id_field": "social_auth_connections_id",
+      "subcategory": null,
+      "name_cn": "社交帳號連結表",
+      "name_en": "social_auth_connections"
+    },
+    {
+      "row": 62,
+      "eng_no": 2,
+      "priority": "C",
+      "category": "所有人都有",
+      "id_field": "theme_settings_id",
+      "subcategory": null,
+      "name_cn": "主題設定表",
+      "name_en": "theme_settings"
+    },
+    {
+      "row": 63,
+      "eng_no": 2,
+      "priority": "C",
+      "category": "所有人都有",
+      "id_field": "user_activity_logs_id",
+      "subcategory": null,
+      "name_cn": "用戶活動記錄表",
+      "name_en": "user_activity_logs"
+    },
+    {
+      "row": 67,
+      "eng_no": 2,
+      "priority": "D",
+      "category": "所有人都有",
+      "id_field": "todo_tasks_id",
+      "subcategory": null,
+      "name_cn": "待辦事項表",
+      "name_en": "todo_tasks"
+    },
+    {
+      "row": 68,
+      "eng_no": 2,
+      "priority": "D",
+      "category": "所有人都有",
+      "id_field": "upload_progress_id",
+      "subcategory": null,
+      "name_cn": "上傳檔案中繼記錄表",
+      "name_en": "upload_progress"
+    },
+    {
+      "row": 69,
+      "eng_no": 3,
+      "priority": "A",
+      "category": "AI Voice",
+      "id_field": "AI_conversations_id",
+      "subcategory": null,
+      "name_cn": "AI 對話歷史表",
+      "name_en": "ai_conversations"
+    },
+    {
+      "row": 70,
+      "eng_no": 3,
+      "priority": "A",
+      "category": "AI Voice",
+      "id_field": "call_logs_id",
+      "subcategory": null,
+      "name_cn": "通話記錄表",
+      "name_en": "call_logs"
+    },
+    {
+      "row": 71,
+      "eng_no": 3,
+      "priority": "A",
+      "category": "AI Voice",
+      "id_field": "virtual_phone_numbers_id",
+      "subcategory": null,
+      "name_cn": "虛擬號碼配置表",
+      "name_en": "virtual_phone_numbers"
+    },
+    {
+      "row": 72,
+      "eng_no": 3,
+      "priority": "A",
+      "category": "photos_storage_path_for_building_tilte_deed",
+      "id_field": "building_title_records_photo_id",
+      "subcategory": null,
+      "name_cn": "標的建築物-建物權狀照片檔存放位置表",
+      "name_en": "building_title_deed_photo"
+    },
+    {
+      "row": 73,
+      "eng_no": 3,
+      "priority": "A",
+      "category": "photos_storage_path_for_land_tilte_deed",
+      "id_field": "land_title_records_photo_id",
+      "subcategory": null,
+      "name_cn": "標的建築物-土地權狀照片檔存放位置表",
+      "name_en": "land_title_deed_photo"
+    },
+    {
+      "row": 74,
+      "eng_no": 3,
+      "priority": "A",
+      "category": "property_photos",
+      "id_field": "Property_for_rent_id",
+      "subcategory": null,
+      "name_cn": "單一租賃物件資料表",
+      "name_en": ""
+    },
+    {
+      "row": 75,
+      "eng_no": 3,
+      "priority": "A",
+      "category": "property_photos",
+      "id_field": "Property_for_sale_id",
+      "subcategory": null,
+      "name_cn": "單一出售物件資料表",
+      "name_en": ""
+    },
+    {
+      "row": 76,
+      "eng_no": 3,
+      "priority": "B",
+      "category": "property_photos",
+      "id_field": "building_title_record_transcription_details_photo_path_id",
+      "subcategory": null,
+      "name_cn": "標的建築物-建物謄本照片檔存放位置表",
+      "name_en": "building_title_record_transcription_photo"
+    },
+    {
+      "row": 77,
+      "eng_no": 3,
+      "priority": "B",
+      "category": "property_photos",
+      "id_field": "Property_photo_exterior_id",
+      "subcategory": null,
+      "name_cn": "標的物建築外觀或社區大樓外觀照片檔存放位置表",
+      "name_en": ""
+    },
+    {
+      "row": 78,
+      "eng_no": 3,
+      "priority": "B",
+      "category": "property_records",
+      "id_field": "land_title_transcription_details_table_id",
+      "subcategory": null,
+      "name_cn": "標的建築物-土地謄本詳細資料表",
+      "name_en": ""
+    },
+    {
+      "row": 79,
+      "eng_no": 3,
+      "priority": "B",
+      "category": "property_records",
+      "id_field": "building_title_transcription_details_id",
+      "subcategory": null,
+      "name_cn": "標的建築物-建物謄本詳細資料表",
+      "name_en": ""
+    },
+    {
+      "row": 80,
+      "eng_no": 3,
+      "priority": "C",
+      "category": "property_photos",
+      "id_field": "Property_photo_interior_id",
+      "subcategory": null,
+      "name_cn": "標的物室內照片存放位置表",
+      "name_en": ""
+    },
+    {
+      "row": 81,
+      "eng_no": 3,
+      "priority": "E",
+      "category": "property_photos",
+      "id_field": "land_title_record_transcription_details_photo_path_id",
+      "subcategory": null,
+      "name_cn": "標的建築物-土地謄本照片檔存放位置表",
+      "name_en": "land_title_record_transcription_photo"
+    },
+    {
+      "row": 83,
+      "eng_no": 4,
+      "priority": "B",
+      "category": "property_photos",
+      "id_field": "3d_models_id",
+      "subcategory": null,
+      "name_cn": "3D模型資料表",
+      "name_en": "3d_models"
+    },
+    {
+      "row": 84,
+      "eng_no": 5,
+      "priority": "A",
+      "category": "customer",
+      "id_field": "Addendum_Clauses_id",
+      "subcategory": null,
+      "name_cn": "合約附加條款表",
+      "name_en": "Addendum_Clauses"
+    },
+    {
+      "row": 85,
+      "eng_no": 5,
+      "priority": "A",
+      "category": "customer",
+      "id_field": "Buyer_Inquiries_id",
+      "subcategory": null,
+      "name_cn": "買方留言紀錄表",
+      "name_en": "Buyer_Inquiries"
+    },
+    {
+      "row": 86,
+      "eng_no": 5,
+      "priority": "A",
+      "category": "customer",
+      "id_field": "Contracted_Tenants_id",
+      "subcategory": null,
+      "name_cn": "房東的成交租客資料表",
+      "name_en": "Contracted_Tenants"
+    },
+    {
+      "row": 87,
+      "eng_no": 5,
+      "priority": "A",
+      "category": "customer",
+      "id_field": "Deposit_Receipts_id",
+      "subcategory": null,
+      "name_cn": "簽約定金簽收資料表",
+      "name_en": "Deposit_Receipts"
+    },
+    {
+      "row": 88,
+      "eng_no": 5,
+      "priority": "A",
+      "category": "customer",
+      "id_field": "Online_Inquiries_id",
+      "subcategory": null,
+      "name_cn": "線上諮詢表",
+      "name_en": "Online_Inquiries"
+    },
+    {
+      "row": 89,
+      "eng_no": 5,
+      "priority": "B",
+      "category": "customer",
+      "id_field": "contract_documents_id",
+      "subcategory": null,
+      "name_cn": "簽約檔案表",
+      "name_en": "contract_documents"
+    },
+    {
+      "row": 90,
+      "eng_no": 5,
+      "priority": "B",
+      "category": "customer",
+      "id_field": "Contracted_Buyers_id",
+      "subcategory": null,
+      "name_cn": "房東的成交買方資料表",
+      "name_en": "Contracted_Buyers"
+    },
+    {
+      "row": 91,
+      "eng_no": 5,
+      "priority": "B",
+      "category": "customer",
+      "id_field": "digital_signatures_id",
+      "subcategory": null,
+      "name_cn": "電子簽名記錄表",
+      "name_en": "digital_signatures"
+    },
+    {
+      "row": 92,
+      "eng_no": 5,
+      "priority": "B",
+      "category": "customer",
+      "id_field": "Earnest_Money_Receipts_id",
+      "subcategory": null,
+      "name_cn": "斡旋金簽收資料表",
+      "name_en": "Earnest_Money_Receipts"
+    },
+    {
+      "row": 93,
+      "eng_no": 5,
+      "priority": "B",
+      "category": "customer",
+      "id_field": "Leads_Buyers_id",
+      "subcategory": null,
+      "name_cn": "房東的潛在買方資料表",
+      "name_en": "Leads_Buyers"
+    },
+    {
+      "row": 94,
+      "eng_no": 5,
+      "priority": "B",
+      "category": "customer",
+      "id_field": "Leads_Tenants_id",
+      "subcategory": null,
+      "name_cn": "房東的潛在租客資料表",
+      "name_en": "Leads_Tenants"
+    },
+    {
+      "row": 95,
+      "eng_no": 5,
+      "priority": "B",
+      "category": "customer",
+      "id_field": "Lease_Agreements_id",
+      "subcategory": null,
+      "name_cn": "租賣合約書資料表",
+      "name_en": "Lease_Agreements"
+    },
+    {
+      "row": 96,
+      "eng_no": 5,
+      "priority": "B",
+      "category": "customer",
+      "id_field": "payment_transactions_id",
+      "subcategory": null,
+      "name_cn": "支付交易記錄表",
+      "name_en": "payment_transactions"
+    },
+    {
+      "row": 97,
+      "eng_no": 5,
+      "priority": "B",
+      "category": "customer",
+      "id_field": "search_history_id",
+      "subcategory": null,
+      "name_cn": "搜尋歷史表",
+      "name_en": "search_history"
+    },
+    {
+      "row": 98,
+      "eng_no": 5,
+      "priority": "B",
+      "category": "customer",
+      "id_field": "share_logs_id",
+      "subcategory": null,
+      "name_cn": "分享記錄表",
+      "name_en": "share_logs"
+    },
+    {
+      "row": 99,
+      "eng_no": 5,
+      "priority": "B",
+      "category": "customer",
+      "id_field": "Tenant_Inquiries_id",
+      "subcategory": null,
+      "name_cn": "租客留言紀錄表",
+      "name_en": "Tenant_Inquiries"
+    },
+    {
+      "row": 100,
+      "eng_no": 5,
+      "priority": "B",
+      "category": "customer",
+      "id_field": "user_favorites_id",
+      "subcategory": null,
+      "name_cn": "使用者收藏表",
+      "name_en": "user_favorites"
+    },
+    {
+      "row": 101,
+      "eng_no": 5,
+      "priority": "C",
+      "category": "customer",
+      "id_field": "property_comparisons_id",
+      "subcategory": null,
+      "name_cn": "物件比較記錄表",
+      "name_en": "property_comparisons"
+    },
+    {
+      "row": 102,
+      "eng_no": 5,
+      "priority": "C",
+      "category": "customer",
+      "id_field": "screening_results_id",
+      "subcategory": null,
+      "name_cn": "租客篩選結果表",
+      "name_en": "screening_results"
+    },
+    {
+      "row": 103,
+      "eng_no": 5,
+      "priority": "C",
+      "category": "customer",
+      "id_field": "Viewing_Appointments_Tenant_id",
+      "subcategory": null,
+      "name_cn": "潛在租客預約看房表",
+      "name_en": "Viewing_Appointments_Tenant"
+    },
+    {
+      "row": 104,
+      "eng_no": 5,
+      "priority": "D",
+      "category": "customer",
+      "id_field": "Payment_Workflow_id",
+      "subcategory": null,
+      "name_cn": "買賣價金流程資料表",
+      "name_en": "Payment_Workflow"
+    },
+    {
+      "row": 105,
+      "eng_no": 5,
+      "priority": "D",
+      "category": "customer",
+      "id_field": "Purchase_Offers_id",
+      "subcategory": null,
+      "name_cn": "要約書資料表",
+      "name_en": "Purchase_Offers"
+    },
+    {
+      "row": 106,
+      "eng_no": 5,
+      "priority": "D",
+      "category": "customer",
+      "id_field": "rent_payment_records_id",
+      "subcategory": null,
+      "name_cn": "租金繳費記錄表",
+      "name_en": "rent_payment_records"
+    },
+    {
+      "row": 107,
+      "eng_no": 5,
+      "priority": "D",
+      "category": "customer",
+      "id_field": "Sales_Agreements_id",
+      "subcategory": null,
+      "name_cn": "買賣合約書資料表",
+      "name_en": "Sales_Agreements"
+    },
+    {
+      "row": 108,
+      "eng_no": 5,
+      "priority": "D",
+      "category": "customer",
+      "id_field": "user_reviews_id",
+      "subcategory": null,
+      "name_cn": "使用者評論表",
+      "name_en": "user_reviews"
+    },
+    {
+      "row": 109,
+      "eng_no": 5,
+      "priority": "D",
+      "category": "customer",
+      "id_field": "Viewing_Appointments_Buyer_id",
+      "subcategory": null,
+      "name_cn": "潛在買家預約看房表",
+      "name_en": "Viewing_Appointments_Buyer"
+    },
+    {
+      "row": 110,
+      "eng_no": 6,
+      "priority": "C",
+      "category": "auditor",
+      "id_field": "audit_log_id",
+      "subcategory": null,
+      "name_cn": "審計日誌表",
+      "name_en": "audit_log"
+    },
+    {
+      "row": 111,
+      "eng_no": 6,
+      "priority": "C",
+      "category": "auditor",
+      "id_field": "audit_results_id",
+      "subcategory": null,
+      "name_cn": "隱私審計結果表",
+      "name_en": "audit_results"
+    },
+    {
+      "row": 112,
+      "eng_no": 12,
+      "priority": "C",
+      "category": "AI VLM",
+      "id_field": "vlm_parsing_logs_id",
+      "subcategory": null,
+      "name_cn": "VLM 解析記錄表",
+      "name_en": "vlm_parsing_logs"
+    },
+    {
+      "row": 113,
+      "eng_no": 12,
+      "priority": "C",
+      "category": "協助廠商",
+      "id_field": "Escrow_Legal_Services_id",
+      "subcategory": null,
+      "name_cn": "律師代書表",
+      "name_en": "Escrow_Legal_Services"
+    },
+    {
+      "row": 114,
+      "eng_no": 12,
+      "priority": "C",
+      "category": "協助廠商",
+      "id_field": "Maintenance_Records_id",
+      "subcategory": null,
+      "name_cn": "維修工程記錄表",
+      "name_en": "Maintenance_Records"
+    },
+    {
+      "row": 115,
+      "eng_no": 12,
+      "priority": "C",
+      "category": "協助廠商",
+      "id_field": "insurance_plans_id",
+      "subcategory": null,
+      "name_cn": "保險方案表",
+      "name_en": "insurance_plans"
+    },
+    {
+      "row": 116,
+      "eng_no": 12,
+      "priority": "C",
+      "category": "協助廠商",
+      "id_field": "service_providers_id",
+      "subcategory": null,
+      "name_cn": "服務商目錄表",
+      "name_en": "service_providers"
+    },
+    {
+      "row": 117,
+      "eng_no": 12,
+      "priority": "C",
+      "category": "第三方協助廠商",
+      "id_field": "Interior_Designers_id",
+      "subcategory": null,
+      "name_cn": "室內裝潢設計師表",
+      "name_en": "Interior_Designers"
+    },
+    {
+      "row": 118,
+      "eng_no": 12,
+      "priority": "D",
+      "category": "協助廠商",
+      "id_field": "Maintenance_Vendors_id",
+      "subcategory": null,
+      "name_cn": "維修廠商表",
+      "name_en": "Maintenance_Vendors"
+    },
+    {
+      "row": 119,
+      "eng_no": 12,
+      "priority": "E",
+      "category": "協助廠商",
+      "id_field": "Maintenance_Quotes_id",
+      "subcategory": null,
+      "name_cn": "維修請求報價單",
+      "name_en": "Maintenance_Quotes"
+    }
+  ],
+  "sheet_name": "各類資料表+RBAC",
+  "max_row": 1027,
+  "max_column": 81
+}

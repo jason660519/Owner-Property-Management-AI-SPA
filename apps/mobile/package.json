@@ -1,8 +1,9 @@
 {
-  "name": "frontend",
+  "name": "mobile",
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
+    "dev": "expo start",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",

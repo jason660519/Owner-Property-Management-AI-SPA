@@ -46,7 +46,7 @@ export default function Sidebar() {
         {/* Placeholder for Logo */}
         <Text style={styles.logoText}>Real Estate AI Manager</Text>
       </View>
-      
+
       <TouchableOpacity style={styles.upgradeButton}>
         <FontAwesome5 name="star" size={14} color="#fff" />
         <Text style={styles.upgradeText}>Upgrade</Text>
@@ -80,12 +80,12 @@ export default function Sidebar() {
           ))}
         </View>
       </ScrollView>
-      
+
       <View style={styles.footer}>
-         <View style={styles.avatar}>
-            <FontAwesome5 name="user" size={12} color="#fff" />
-         </View>
-         <Text style={styles.accountText}>Account</Text>
+        <View style={styles.avatar}>
+          <FontAwesome5 name="user" size={12} color="#fff" />
+        </View>
+        <Text style={styles.accountText}>Account</Text>
       </View>
     </View>
   );
@@ -94,87 +94,97 @@ export default function Sidebar() {
 const styles = StyleSheet.create({
   container: {
     width: 240,
-    backgroundColor: '#0f2e46',
+    backgroundColor: '#1A1A1A', // Estatein Grey/08
     height: '100%',
     paddingVertical: 10,
+    borderRightWidth: 1,
+    borderRightColor: '#333',
   },
   logoContainer: {
     paddingHorizontal: 20,
-    marginBottom: 20,
+    marginBottom: 30,
+    marginTop: 10,
   },
   logoText: {
-    color: '#fff',
+    color: '#FFF',
     fontSize: 20,
     fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
   upgradeButton: {
-    backgroundColor: '#ff7f41',
+    backgroundColor: 'rgba(124, 58, 237, 0.1)', // Purple tint
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
     marginHorizontal: 15,
-    borderRadius: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#7C3AED',
     marginBottom: 20,
     gap: 8
   },
   upgradeText: {
-    color: '#fff',
+    color: '#7C3AED',
     fontWeight: 'bold',
-    fontSize: 14,
+    fontSize: 13,
   },
   scrollView: {
     flex: 1,
   },
   section: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   sectionTitle: {
-    color: '#5c7c94',
+    color: '#666',
     fontSize: 11,
     fontWeight: 'bold',
     paddingHorizontal: 20,
-    marginBottom: 8,
+    marginBottom: 12,
     marginTop: 8,
+    letterSpacing: 1,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 20,
     gap: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: 'transparent',
   },
   activeMenuItem: {
-    backgroundColor: '#1a3b55',
-    borderLeftWidth: 4,
-    borderLeftColor: '#3498db',
-    paddingLeft: 16,
+    backgroundColor: '#2A2A2A', // Grey/10
+    borderLeftColor: '#7C3AED', // Estatein Purple
   },
   menuText: {
-    color: '#b0c4d1',
+    color: '#999',
     fontSize: 14,
-  },
-  activeMenuText: {
-    color: '#fff',
     fontWeight: '500',
   },
+  activeMenuText: {
+    color: '#FFF',
+    fontWeight: '600',
+  },
   footer: {
-      padding: 20,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
   },
   avatar: {
-      width: 24,
-      height: 24,
-      borderRadius: 12,
-      backgroundColor: '#5eafa6',
-      justifyContent: 'center',
-      alignItems: 'center'
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#7C3AED',
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   accountText: {
-      color: '#b0c4d1',
-      fontSize: 14
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '500'
   }
-
 });

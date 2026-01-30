@@ -1,0 +1,88 @@
+=== AI Voice Tables (3个) ===
+
+[A] AI 對話歷史表 (ai_conversations)
+    ID: AI_conversations_id
+[A] 通話記錄表 (call_logs)
+    ID: call_logs_id
+[A] 虛擬號碼配置表 (virtual_phone_numbers)
+    ID: virtual_phone_numbers_id
+
+=== Documents/Photos Tables (10个) ===
+
+[B] 台灣政府制式 授權書 （空白）（國內版／海外版） (authorization_agreements)
+    Category: Documents
+[A] 標的建築物-建物權狀照片檔存放位置表 (building_title_deed_photo)
+    Category: photos_storage_path_for_building_tilte_deed
+[A] 標的建築物-土地權狀照片檔存放位置表 (land_title_deed_photo)
+    Category: photos_storage_path_for_land_tilte_deed
+[A] 單一租賃物件資料表 ()
+    Category: property_photos
+[A] 單一出售物件資料表 ()
+    Category: property_photos
+[B] 標的建築物-建物謄本照片檔存放位置表 (building_title_record_transcription_photo)
+    Category: property_photos
+[B] 標的物建築外觀或社區大樓外觀照片檔存放位置表 ()
+    Category: property_photos
+[C] 標的物室內照片存放位置表 ()
+    Category: property_photos
+[E] 標的建築物-土地謄本照片檔存放位置表 (land_title_record_transcription_photo)
+    Category: property_photos
+[B] 3D模型資料表 (3d_models)
+    Category: property_photos
+
+=== Property Records Tables (2个) ===
+
+[B] 標的建築物-土地謄本詳細資料表 ()
+[B] 標的建築物-建物謄本詳細資料表 ()
+
+=== 其他特殊分类 ===
+
+AI VLM (1个):
+  [C] VLM 解析記錄表 (vlm_parsing_logs)
+
+auditor (2个):
+  [C] 審計日誌表 (audit_log)
+  [C] 隱私審計結果表 (audit_results)
+
+customer (26个):
+  [A] 合約附加條款表 (Addendum_Clauses)
+  [A] 買方留言紀錄表 (Buyer_Inquiries)
+  [A] 房東的成交租客資料表 (Contracted_Tenants)
+  [A] 簽約定金簽收資料表 (Deposit_Receipts)
+  [A] 線上諮詢表 (Online_Inquiries)
+  [B] 簽約檔案表 (contract_documents)
+  [B] 房東的成交買方資料表 (Contracted_Buyers)
+  [B] 電子簽名記錄表 (digital_signatures)
+  [B] 斡旋金簽收資料表 (Earnest_Money_Receipts)
+  [B] 房東的潛在買方資料表 (Leads_Buyers)
+  [B] 房東的潛在租客資料表 (Leads_Tenants)
+  [B] 租賣合約書資料表 (Lease_Agreements)
+  [B] 支付交易記錄表 (payment_transactions)
+  [B] 搜尋歷史表 (search_history)
+  [B] 分享記錄表 (share_logs)
+  [B] 租客留言紀錄表 (Tenant_Inquiries)
+  [B] 使用者收藏表 (user_favorites)
+  [C] 物件比較記錄表 (property_comparisons)
+  [C] 租客篩選結果表 (screening_results)
+  [C] 潛在租客預約看房表 (Viewing_Appointments_Tenant)
+  [D] 買賣價金流程資料表 (Payment_Workflow)
+  [D] 要約書資料表 (Purchase_Offers)
+  [D] 租金繳費記錄表 (rent_payment_records)
+  [D] 買賣合約書資料表 (Sales_Agreements)
+  [D] 使用者評論表 (user_reviews)
+  [D] 潛在買家預約看房表 (Viewing_Appointments_Buyer)
+
+property_blogs (1个):
+  [C] AI 生成內容表 (ai_generated_content)
+
+協助廠商 (7个):
+  [C] 智能設備配置表 (smart_devices)
+  [C] 律師代書表 (Escrow_Legal_Services)
+  [C] 維修工程記錄表 (Maintenance_Records)
+  [C] 保險方案表 (insurance_plans)
+  [C] 服務商目錄表 (service_providers)
+  [D] 維修廠商表 (Maintenance_Vendors)
+  [E] 維修請求報價單 (Maintenance_Quotes)
+
+第三方協助廠商 (1个):
+  [C] 室內裝潢設計師表 (Interior_Designers)
