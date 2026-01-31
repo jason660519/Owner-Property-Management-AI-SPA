@@ -16,7 +16,7 @@
 
   /* 字體變數 */
   --font-sans: 'Inter', system-ui, sans-serif;
-  
+
   /* 間距變數 */
   --spacing-xs: 8px;
   --spacing-sm: 12px;
@@ -33,6 +33,7 @@
   --radius-xl: 16px;
   --radius-2xl: 28px;
   --radius-3xl: 75px;
+  --radius-pill: 9999px;
 
   /* 文字大小變數 */
   --text-sm: 14px;
@@ -67,6 +68,51 @@
   --color-border-default: var(--color-grey-15);
   --color-accent: var(--color-purple-60);
   --color-star: #F59E0B;
+
+  /* 容器與間距系統 */
+  --container-max-width: 1440px;
+  --container-padding-mobile: 16px;
+  --container-padding-tablet: 32px;
+  --container-padding-laptop: 64px;
+  --container-padding-desktop: 80px;
+
+  /* 數字間距系統 (8px grid) */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+  --spacing-12: 48px;
+  --spacing-16: 64px;
+  --spacing-20: 80px;
+  --spacing-24: 96px;
+
+  /* Z-index 層級 */
+  --z-base: 1;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-fixed: 300;
+  --z-modal-backdrop: 400;
+  --z-modal: 500;
+  --z-popover: 600;
+  --z-tooltip: 700;
+
+  /* 過渡動畫 */
+  --transition-fast: 150ms ease-in-out;
+  --transition-normal: 250ms ease-in-out;
+  --transition-slow: 350ms ease-in-out;
+
+  /* 陰影效果 */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+  /* 導航圓角 */
+  --radius-nav: 75px;
 }
 
 * {
@@ -123,18 +169,17 @@ body {
   0% {
     background-position: -1000px 0;
   }
+
   100% {
     background-position: 1000px 0;
   }
 }
 
 .shimmer {
-  background: linear-gradient(
-    90deg,
-    var(--color-grey-10) 0%,
-    var(--color-grey-15) 50%,
-    var(--color-grey-10) 100%
-  );
+  background: linear-gradient(90deg,
+      var(--color-grey-10) 0%,
+      var(--color-grey-15) 50%,
+      var(--color-grey-10) 100%);
   background-size: 1000px 100%;
   animation: shimmer 2s infinite;
 }

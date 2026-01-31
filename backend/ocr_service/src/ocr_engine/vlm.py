@@ -41,11 +41,11 @@ SYSTEM_PROMPT = """
   "document_info": {
     "document_type": "string (謄本類型)",
     "print_time": "string (列印時間)",
-    "document_number": "string (謄本查號)",
+    "document_id_checking_number": "string (謄本檢查號)",
     "verification_url": "string (查驗網址)",
     "issuing_office": "string (核發單位)",
     "issuing_officer": "string (主任姓名)",
-    "certificate_number": "string (電騰字號)"
+    "certificate_number": "string (電謄字第號)"
   },
   "building_basic_info": {
     "district": "string (行政區)",
@@ -55,6 +55,9 @@ SYSTEM_PROMPT = """
     "land_lot_number": "string (坐落地號)"
   },
   "building_characteristics": {
+    "building_registration_date": "string (建物標示部登記日期)",
+    "building_sitting_on_land_lot_number": "string (建物座落地號)",
+    "building_address": "string (建物門牌)",
     "main_use": "string (主要用途)",
     "main_structure": "string (主要建材)",
     "total_floors": "string (層數)",

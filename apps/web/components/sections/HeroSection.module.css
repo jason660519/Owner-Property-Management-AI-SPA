@@ -2,7 +2,7 @@
 
 .hero {
     position: relative;
-    padding: var(--spacing-12) var(--container-padding-mobile);
+    padding: 32px var(--container-padding-mobile);
     overflow: hidden;
 }
 
@@ -47,10 +47,22 @@
 }
 
 .title {
-    font-size: var(--text-5xl);
+    font-size: 32px;
     font-weight: var(--font-semibold);
     line-height: var(--leading-tight);
     color: var(--color-text-primary);
+}
+
+@media (min-width: 640px) {
+    .title {
+        font-size: 40px;
+    }
+}
+
+@media (min-width: 768px) {
+    .title {
+        font-size: var(--text-5xl);
+    }
 }
 
 @media (min-width: 1024px) {
@@ -60,10 +72,16 @@
 }
 
 .description {
-    font-size: var(--text-lg);
+    font-size: 16px;
     line-height: var(--leading-relaxed);
     color: var(--color-text-secondary);
     max-width: 540px;
+}
+
+@media (min-width: 768px) {
+    .description {
+        font-size: var(--text-lg);
+    }
 }
 
 /* CTA Buttons */
@@ -97,14 +115,32 @@
 }
 
 .statValue {
-    font-size: var(--text-4xl);
+    font-size: 28px;
     font-weight: var(--font-bold);
     color: var(--color-text-primary);
 }
 
+@media (min-width: 640px) {
+    .statValue {
+        font-size: 32px;
+    }
+}
+
+@media (min-width: 768px) {
+    .statValue {
+        font-size: var(--text-4xl);
+    }
+}
+
 .statLabel {
-    font-size: var(--text-base);
+    font-size: 14px;
     color: var(--color-text-secondary);
+}
+
+@media (min-width: 768px) {
+    .statLabel {
+        font-size: var(--text-base);
+    }
 }
 
 /* Image Section */

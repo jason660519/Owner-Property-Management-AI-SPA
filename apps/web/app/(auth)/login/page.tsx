@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card'
 import { signInWithPassword, signInWithGoogle, signInWithFacebook } from '@/lib/supabase/auth'
+import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 
 const loginSchema = z.object({
@@ -43,25 +44,76 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
   })
 
+
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
     setError(null)
 
     try {
-      await signInWithPassword({
+      const result = await signInWithPassword({
         email: data.email,
         password: data.password,
       })
 
-      // 登入成功，middleware 會自動重導向
-      router.push('/landlord/dashboard')
-      router.refresh()
+      if (!result.session) {
+        throw new Error('登入失敗，請重試')
+      }
+
+      // Get user profile to determine role
+      const supabase = createClient()
+      const { data: profile, error: profileError } = await supabase
+        .from('users_profile')
+        .select('role')
+        .eq('user_id', result.user.id)
+        .single()
+
+      if (profileError || !profile) {
+        throw new Error('無法取得用戶資料')
+      }
+
+      // Role-based redirect
+      switch (profile.role) {
+        case 'landlord':
+          // Call API to generate transfer token and get redirect URL
+          const response = await fetch('/api/auth/generate-transfer-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: result.user.id }),
+          })
+
+          if (!response.ok) {
+            throw new Error('Failed to generate transfer token')
+          }
+
+          const { redirectUrl } = await response.json()
+          window.location.href = redirectUrl
+          break
+
+        case 'super_admin':
+          router.push('/super-admin/dashboard')
+          router.refresh()
+          break
+
+        case 'tenant':
+          router.push('/tenant/dashboard')
+          router.refresh()
+          break
+
+        case 'agent':
+          router.push('/agent/dashboard')
+          router.refresh()
+          break
+
+        default:
+          throw new Error('未知的用戶角色')
+      }
     } catch (err: any) {
       setError(err.message || '登入失敗，請檢查您的帳號密碼')
     } finally {
       setIsLoading(false)
     }
   }
+
 
   const handleGoogleLogin = async () => {
     try {

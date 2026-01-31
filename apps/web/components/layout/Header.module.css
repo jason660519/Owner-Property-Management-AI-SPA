@@ -16,7 +16,13 @@
 .banner {
     background: var(--color-bg-primary);
     border-bottom: 1px solid var(--color-border-default);
-    padding: var(--spacing-4) var(--spacing-4);
+    padding: 8px var(--spacing-4);
+}
+
+@media (min-width: 768px) {
+    .banner {
+        padding: var(--spacing-4) var(--spacing-4);
+    }
 }
 
 .bannerContent {
@@ -82,9 +88,15 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 80px;
+    height: 64px;
     max-width: var(--container-max-width);
     margin: 0 auto;
+}
+
+@media (min-width: 768px) {
+    .navContent {
+        height: 80px;
+    }
 }
 
 @media (min-width: 1024px) {
@@ -226,8 +238,8 @@
     bottom: 0;
     background: var(--color-bg-primary);
     z-index: calc(var(--z-sticky) - 1);
-    padding-top: 160px;
-    /* Height of header */
+    padding-top: 136px;
+    /* Height of header (banner + navbar) */
     transform: translateX(100%);
     transition: transform var(--transition-normal);
     overflow-y: auto;
