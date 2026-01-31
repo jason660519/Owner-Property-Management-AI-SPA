@@ -5,8 +5,8 @@
 
 import { useState } from 'react';
 import * as DocumentPicker from 'expo-document-picker';
-import { uploadDocument } from '../services/documentService';
-import type { DocumentType, PropertyType } from '../types/documents';
+import { uploadDocument as uploadDocumentService } from '../services/documentService';
+import type { DocumentType, PropertyType, UploadDocumentParams } from '../types/documents';
 
 export function useDocumentUpload() {
   const [isUploading, setIsUploading] = useState(false);
@@ -45,7 +45,7 @@ export function useDocumentUpload() {
       setUploadProgress(50);
 
       // Upload
-      const uploadResult = await uploadDocument({
+      const uploadResult = await uploadDocumentService({
         fileUri: file.uri,
         documentName: file.name,
         documentType,
@@ -72,8 +72,36 @@ export function useDocumentUpload() {
     }
   };
 
+  const uploadDocument = async (params: UploadDocumentParams) => {
+    try {
+      setIsUploading(true);
+      setError(null);
+      setUploadProgress(0);
+
+      setUploadProgress(50);
+
+      const uploadResult = await uploadDocumentService(params);
+
+      setUploadProgress(100);
+
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.error || 'Upload failed');
+      }
+
+      setIsUploading(false);
+      return { success: true, data: uploadResult.data };
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMessage);
+      setIsUploading(false);
+      return { success: false, error: errorMessage };
+    }
+  };
+
   return {
     pickAndUpload,
+    uploadDocument,
     isUploading,
     uploadProgress,
     error,

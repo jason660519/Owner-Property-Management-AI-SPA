@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useDocumentUpload } from '../../hooks/useDocumentUpload';
+import { useImagePicker } from '../../hooks/useImagePicker';
 import type { DocumentType, PropertyType } from '../../types/documents';
 
 interface DocumentUploaderProps {
@@ -27,7 +28,8 @@ export default function DocumentUploader({
   propertyType,
   onUploadComplete,
 }: DocumentUploaderProps) {
-  const { pickAndUpload, isUploading, uploadProgress, error } = useDocumentUpload();
+  const { pickAndUpload, uploadDocument, isUploading, uploadProgress, error } = useDocumentUpload();
+  const { takePhoto, isProcessing: isTakingPhoto } = useImagePicker();
   const [selectedType, setSelectedType] = useState<DocumentType>('building_title');
 
   const handleUpload = async () => {
@@ -38,6 +40,32 @@ export default function DocumentUploader({
       onUploadComplete?.();
     } else if (!result.canceled) {
       Alert.alert('錯誤', result.error || '上傳失敗');
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    const result = await takePhoto();
+
+    if (result.success && result.uri) {
+      // Upload photo taken from camera
+      const uploadResult = await uploadDocument({
+        fileUri: result.uri,
+        documentName: `photo_${Date.now()}.jpg`,
+        documentType: selectedType,
+        propertyId,
+        fileSize: 0, // Size will be calculated in service
+        mimeType: 'image/jpeg',
+        propertyType,
+      });
+
+      if (uploadResult.success) {
+        Alert.alert('成功', '照片上傳成功');
+        onUploadComplete?.();
+      } else {
+        Alert.alert('錯誤', uploadResult.error || '上傳失敗');
+      }
+    } else if (result.error) {
+      Alert.alert('錯誤', result.error);
     }
   };
 
@@ -83,24 +111,41 @@ export default function DocumentUploader({
         ))}
       </View>
 
-      {/* Upload Button */}
-      <TouchableOpacity
-        style={[styles.uploadButton, isUploading && styles.uploadButtonDisabled]}
-        onPress={handleUpload}
-        disabled={isUploading}
-      >
-        {isUploading ? (
-          <>
-            <ActivityIndicator color="#FFF" />
-            <Text style={styles.uploadButtonText}>上傳中 {uploadProgress}%</Text>
-          </>
-        ) : (
-          <>
-            <FontAwesome5 name="cloud-upload-alt" size={20} color="#FFF" />
-            <Text style={styles.uploadButtonText}>選擇並上傳文件</Text>
-          </>
-        )}
-      </TouchableOpacity>
+      {/* Upload Buttons */}
+      <View style={styles.buttonRow}>
+        <TouchableOpacity
+          style={[styles.uploadButton, (isUploading || isTakingPhoto) && styles.uploadButtonDisabled]}
+          onPress={handleUpload}
+          disabled={isUploading || isTakingPhoto}
+        >
+          {isUploading ? (
+            <>
+              <ActivityIndicator color="#FFF" />
+              <Text style={styles.uploadButtonText}>上傳中 {uploadProgress}%</Text>
+            </>
+          ) : (
+            <>
+              <FontAwesome5 name="cloud-upload-alt" size={20} color="#FFF" />
+              <Text style={styles.uploadButtonText}>選擇文件</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.cameraButton, (isUploading || isTakingPhoto) && styles.uploadButtonDisabled]}
+          onPress={handleTakePhoto}
+          disabled={isUploading || isTakingPhoto}
+        >
+          {isTakingPhoto ? (
+            <ActivityIndicator color="#7C3AED" />
+          ) : (
+            <>
+              <FontAwesome5 name="camera" size={20} color="#7C3AED" />
+              <Text style={styles.cameraButtonText}>拍攝照片</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
 
       {/* Error Message */}
       {error && (
@@ -165,15 +210,37 @@ const styles = StyleSheet.create({
     color: '#7C3AED',
     fontWeight: '600',
   },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
   uploadButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: 8,
     backgroundColor: '#7C3AED',
     paddingVertical: 14,
     borderRadius: 8,
-    marginBottom: 12,
+  },
+  cameraButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#1A1A1A',
+    paddingVertical: 14,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#7C3AED',
+  },
+  cameraButtonText: {
+    color: '#7C3AED',
+    fontSize: 16,
+    fontWeight: '600',
   },
   uploadButtonDisabled: {
     opacity: 0.6,

@@ -65,3 +65,39 @@ export interface UploadDocumentParams {
   mimeType: string;
   propertyType?: PropertyType;
 }
+
+/**
+ * Document preview information
+ */
+export interface DocumentPreview {
+  documentId: string;
+  previewUrl?: string;
+  thumbnailUrl?: string;
+  isImage: boolean;
+  isPDF: boolean;
+}
+
+/**
+ * Upload progress details
+ */
+export interface UploadProgress {
+  percentage: number;
+  loaded: number;
+  total: number;
+  speed?: number;
+  estimatedTime?: number;
+}
+
+/**
+ * Camera options for image picker
+ */
+export interface CameraOptions {
+  allowsEditing?: boolean;
+  aspect?: [number, number];
+  quality?: number;
+}
+
+/**
+ * Document action types
+ */
+export type DocumentAction = 'view' | 'download' | 'delete';
