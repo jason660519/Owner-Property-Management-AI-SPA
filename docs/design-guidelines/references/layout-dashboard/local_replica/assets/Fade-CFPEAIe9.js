@@ -1,0 +1,2 @@
+import{j as u,P as i}from"./TownhouseColor--VjQBVqd.js";import{m as r}from"./main-dumNSXg9.js";const d=({children:t,type:o="in",disabled:n,...a})=>{if(n)return t;const s={initial:{opacity:o==="in"||o==="in-out"?0:1},animate:{opacity:1},exit:{opacity:o==="out"||o==="in-out"?0:1},transition:{duration:.6}};return u.jsx(r.div,{...s,...a,children:t})};d.propTypes={type:i.oneOf(["in","out","in-out"]),disabled:i.bool};export{d as F};
+//# sourceMappingURL=Fade-CFPEAIe9.js.map

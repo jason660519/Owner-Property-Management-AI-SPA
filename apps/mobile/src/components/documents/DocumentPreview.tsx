@@ -4,21 +4,29 @@
 // creator: Claude Sonnet 4.5
 
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import type { PropertyDocument } from '../../types/documents';
+import { useOCRRetry } from '../../hooks/useOCRRetry';
+import OCRProcessingIndicator from './OCRProcessingIndicator';
 
 interface DocumentPreviewProps {
   document: PropertyDocument;
   onPress?: () => void;
   onMenuPress?: () => void;
+  onViewOCRResult?: (document: PropertyDocument) => void;
+  onOCRRetrySuccess?: () => void;
 }
 
 export default function DocumentPreview({
   document,
   onPress,
   onMenuPress,
+  onViewOCRResult,
+  onOCRRetrySuccess,
 }: DocumentPreviewProps) {
+  const { retry, isRetrying } = useOCRRetry();
+
   const isImage = ['jpg', 'jpeg', 'png'].includes(
     document.file_extension?.toLowerCase() || ''
   );
@@ -33,6 +41,13 @@ export default function DocumentPreview({
   };
 
   const previewUrl = getPreviewUrl();
+
+  const handleRetry = async () => {
+    const result = await retry(document.id);
+    if (result.success) {
+      onOCRRetrySuccess?.();
+    }
+  };
 
   return (
     <TouchableOpacity style={styles.container} onPress={onPress}>
@@ -75,6 +90,45 @@ export default function DocumentPreview({
           <Text style={[styles.statusText, getStatusTextStyle(document.ocr_status)]}>
             OCR: {getStatusLabel(document.ocr_status)}
           </Text>
+        </View>
+
+        {/* OCR Processing Indicator */}
+        {document.ocr_status === 'processing' && (
+          <View style={styles.processingContainer}>
+            <OCRProcessingIndicator message="處理中..." />
+          </View>
+        )}
+
+        {/* OCR Action Buttons */}
+        <View style={styles.actionButtons}>
+          {/* Retry Button (for failed) */}
+          {document.ocr_status === 'failed' && (
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={handleRetry}
+              disabled={isRetrying}
+            >
+              {isRetrying ? (
+                <ActivityIndicator size="small" color="#7C3AED" />
+              ) : (
+                <>
+                  <FontAwesome5 name="redo" size={12} color="#7C3AED" />
+                  <Text style={styles.retryText}>重試 OCR</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {/* View Result Button (for completed) */}
+          {document.ocr_status === 'completed' && onViewOCRResult && (
+            <TouchableOpacity
+              style={styles.viewResultButton}
+              onPress={() => onViewOCRResult(document)}
+            >
+              <FontAwesome5 name="eye" size={12} color="#10B981" />
+              <Text style={styles.viewResultText}>查看結果</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -183,5 +237,45 @@ const styles = StyleSheet.create({
   },
   menuButton: {
     padding: 8,
+  },
+  processingContainer: {
+    marginTop: 8,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(124, 58, 237, 0.1)',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(124, 58, 237, 0.3)',
+  },
+  retryText: {
+    fontSize: 12,
+    color: '#7C3AED',
+    fontWeight: '600',
+  },
+  viewResultButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  viewResultText: {
+    fontSize: 12,
+    color: '#10B981',
+    fontWeight: '600',
   },
 });

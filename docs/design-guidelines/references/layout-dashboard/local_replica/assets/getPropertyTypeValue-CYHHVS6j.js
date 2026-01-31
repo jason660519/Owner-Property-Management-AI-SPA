@@ -1,0 +1,2 @@
+function r(e){switch(e){case"SINGLE_FAMILY":return"Single-Family";case"APARTMENT":return"Apartment";case"CONDO":return"Condo";case"MULTI_FAMILY":return"Multi-Family";case"MANUFACTURED":return"Manufactured";case"VACANT_LAND":return"Vacant Land";case"CO_OP":return"Co-Op";case"TOWNHOUSE":return"Townhouse";case"OTHER":return"Other";default:return""}}export{r as g};
+//# sourceMappingURL=getPropertyTypeValue-CYHHVS6j.js.map

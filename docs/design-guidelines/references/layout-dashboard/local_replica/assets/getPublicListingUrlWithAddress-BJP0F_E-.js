@@ -1,0 +1,2 @@
+import{h as o}from"./TownhouseColor--VjQBVqd.js";const c=e=>e.hide_street_number?e.address.replace(/^[0-9]+[ ]/,""):e.address,n=e=>e.hide_street_number?"":e.unit;function u(e){if(!e)return"";const r=c(e),t=n(e),{OWNERS_URL:s}=o(),d=`${r} ${e.city} ${e.state} ${t?`unit ${t}`:""}`.trim().replace(/ +/g,"-").replace(/,/g,"").toLowerCase();return`${s}p/${encodeURIComponent(d)}/${e.id}`}export{u as g};
+//# sourceMappingURL=getPublicListingUrlWithAddress-BJP0F_E-.js.map

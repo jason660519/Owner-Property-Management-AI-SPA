@@ -9,59 +9,6 @@
  * @version 1.0
  */
 
-'use client';
-
-import React from 'react';
-import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { signInWithPassword } from '@/lib/supabase/auth';
-import { signInSchema } from '@/lib/validators/auth';
-
-type FormData = {
-  email: string;
-  password: string;
-};
-
-export default function LoginPage() {
-  const router = useRouter();
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<FormData>({ resolver: zodResolver(signInSchema) });
-
-  async function onSubmit(data: FormData) {
-    try {
-      await signInWithPassword(data);
-      router.push('/dashboard');
-    } catch (err: any) {
-      alert(err.message ?? '登入失敗');
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div>
-        <label className="block text-sm">Email</label>
-        <input {...register('email')} className="w-full border p-2 rounded" />
-        {errors.email && <p className="text-red-600 text-sm">{errors.email.message}</p>}
-      </div>
-
-      <div>
-        <label className="block text-sm">Password</label>
-        <input type="password" {...register('password')} className="w-full border p-2 rounded" />
-        {errors.password && <p className="text-red-600 text-sm">{errors.password.message}</p>}
-      </div>
-
-      <div>
-        <button disabled={isSubmitting} className="w-full bg-blue-600 text-white p-2 rounded">
-          登入
-        </button>
-      </div>
-    </form>
-  );
-}
 'use client'
 
 import { useState } from 'react'

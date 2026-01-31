@@ -1,0 +1,19 @@
+
+    try {
+        var v = (function(){var es=this.Navigator||this.WorkerNavigator;if(this.navigator.webdriver===!0)return{v:!0,s:0};try{return"webdriver"in es.prototype&&es.prototype.webdriver,{v:this.Object.prototype.hasOwnProperty.call(es.prototype,"webdriver"),s:0}}catch{}var ts,ns=Object.getOwnPropertyDescriptor(es.prototype,"webdriver"),rs=/\(\)\s*{\s+\[native code\]\s+}\s*$/;return ns&&ns.get?{v:(ts=ns.get.toString(),!rs.test(ts)),s:0}:{v:!1,s:0}}).call(this, {"isAndroid":false,"isChromium":true,"isGecko":false,"isWebKit":false,"isModernFirefox":false,"isDesktopWebKit":true,"isTrident":false,"isEdgeHTML":false,"isSamsungBrowser":false,"os":"MacOS","userActivation":false});
+        if (v && typeof v.then === 'function') {
+            v.then(function(res) {
+                postMessage(res);
+            });
+        } else {
+            postMessage(v);
+        }
+    } catch (e) {
+        postMessage({
+            v: null,
+            s: -1,
+            e: (e && typeof e.toString === 'function')
+                ? e.toString()
+                : String(e)
+        });
+    }

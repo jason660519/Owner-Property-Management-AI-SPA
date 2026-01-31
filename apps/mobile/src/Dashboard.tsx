@@ -1,96 +1,130 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Platform, TouchableOpacity, Text } from 'react-native';
+import { View, Platform, TouchableOpacity, Text } from 'react-native';
 import Sidebar from './components/Sidebar';
 import LandlordDashboard from './screens/dashboard/LandlordDashboard';
 import SuperAdminDashboard from './screens/dashboard/SuperAdminDashboard';
+import DocumentsScreen from './screens/dashboard/DocumentsScreen';
 import { FontAwesome5 } from '@expo/vector-icons';
+import { cssInterop } from "nativewind";
+
+// Hardcoded matching colors from tailwind.config.js
+const ICON_COLORS = {
+  white: '#ffffff',
+  grey60: '#999999',
+  purple60: '#703BF7',
+};
 
 type UserRole = 'landlord' | 'super_admin';
+type Tab = 'home' | 'documents' | 'profile';
 
 export default function Dashboard() {
     const [currentRole, setCurrentRole] = useState<UserRole>('landlord');
+    const [activeTab, setActiveTab] = useState<Tab>('home');
+    const isWeb = Platform.OS === 'web';
 
     // Helper to toggle role (For Dev/Demo purposes)
     const toggleRole = () => {
         setCurrentRole(prev => prev === 'landlord' ? 'super_admin' : 'landlord');
     };
 
+    const renderContent = () => {
+        // If web, sidebar handles navigation (not implemented fully here for web switching, defaulting to Dashboard)
+        // For mobile, we switch based on activeTab
+        if (!isWeb) {
+            switch (activeTab) {
+                case 'home':
+                    return currentRole === 'landlord' ? <LandlordDashboard /> : <SuperAdminDashboard />;
+                case 'documents':
+                    return <DocumentsScreen />;
+                case 'profile':
+                    return (
+                        <View className="flex-1 justify-center items-center">
+                            <FontAwesome5 name="user-circle" size={64} color={ICON_COLORS.grey60} />
+                            <Text className="text-text-primary mt-4 text-lg">Profile Profile</Text>
+                        </View>
+                    );
+                default:
+                    return <LandlordDashboard />;
+            }
+        }
+
+        // Web View
+        return currentRole === 'landlord' ? <LandlordDashboard /> : <SuperAdminDashboard />;
+    };
+
     return (
-        <View style={styles.container}>
-            {/* Sidebar - Visible on Desktop/Web, hidden on mobile (for now) */}
-            <View style={styles.sidebarWrapper}>
+        <View className={`flex-1 h-full bg-bg-secondary ${isWeb ? 'flex-row' : 'flex-col'}`}>
+            {/* Sidebar - Visible on Desktop/Web, hidden on mobile */}
+            <View className={`${isWeb ? 'flex w-60 z-10' : 'hidden'}`}>
                 <Sidebar />
             </View>
 
             {/* Main Content Area */}
-            <View style={styles.mainContent}>
+            <View className="flex-1 relative">
+                {renderContent()}
 
-                {/* Render Dashboard based on Role */}
-                {currentRole === 'landlord' ? (
-                    <LandlordDashboard />
-                ) : (
-                    <SuperAdminDashboard />
+                {/* --- Dev Only: Role Toggle Button (Web Only or hidden) --- */}
+                {isWeb && (
+                    <View className="absolute bottom-5 right-5 z-50">
+                        <TouchableOpacity 
+                            onPress={toggleRole} 
+                            className="bg-accent flex-row items-center gap-2 py-2 px-4 rounded-xl shadow-lg"
+                        >
+                            <FontAwesome5 name="user-cog" size={14} color={ICON_COLORS.white} />
+                            <Text className="text-text-primary text-xs font-bold">
+                                Switch to {currentRole === 'landlord' ? 'Super Admin' : 'Landlord'}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                 )}
+            </View>
 
-                {/* --- Dev Only: Role Toggle Button --- */}
-                <View style={styles.devToggleContainer}>
-                    <TouchableOpacity onPress={toggleRole} style={styles.devToggleBtn}>
-                        <FontAwesome5 name="user-cog" size={14} color="#FFF" />
-                        <Text style={styles.devToggleText}>
-                            Switch to {currentRole === 'landlord' ? 'Super Admin' : 'Landlord'}
+            {/* Mobile Bottom Tab Bar */}
+            {!isWeb && (
+                <View className="flex-row bg-bg-secondary border-t border-border-light pb-5 pt-2.5 h-20">
+                    <TouchableOpacity 
+                        className="flex-1 items-center justify-center gap-1"
+                        onPress={() => setActiveTab('home')}
+                    >
+                        <FontAwesome5 
+                            name="home" 
+                            size={20} 
+                            color={activeTab === 'home' ? ICON_COLORS.purple60 : ICON_COLORS.grey60} 
+                        />
+                        <Text className={`text-[10px] ${activeTab === 'home' ? 'text-accent font-bold' : 'text-text-muted'}`}>
+                            Home
+                        </Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                        className="flex-1 items-center justify-center gap-1"
+                        onPress={() => setActiveTab('documents')}
+                    >
+                        <FontAwesome5 
+                            name="file-alt" 
+                            size={20} 
+                            color={activeTab === 'documents' ? ICON_COLORS.purple60 : ICON_COLORS.grey60} 
+                        />
+                        <Text className={`text-[10px] ${activeTab === 'documents' ? 'text-accent font-bold' : 'text-text-muted'}`}>
+                            Docs
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                        className="flex-1 items-center justify-center gap-1"
+                        onPress={() => setActiveTab('profile')}
+                    >
+                        <FontAwesome5 
+                            name="user" 
+                            size={20} 
+                            color={activeTab === 'profile' ? ICON_COLORS.purple60 : ICON_COLORS.grey60} 
+                        />
+                        <Text className={`text-[10px] ${activeTab === 'profile' ? 'text-accent font-bold' : 'text-text-muted'}`}>
+                            Profile
                         </Text>
                     </TouchableOpacity>
                 </View>
-
-            </View>
+            )}
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        flexDirection: 'row',
-        backgroundColor: '#1A1A1A', // Estatein Grey/08
-        height: '100%',
-    },
-    sidebarWrapper: {
-        width: 240,
-        display: Platform.OS === 'web' ? 'flex' : 'none', // Hide on mobile for now
-        zIndex: 10,
-    },
-    mainContent: {
-        flex: 1,
-        position: 'relative', // For absolute positioning of dev toggle
-    },
-
-    // Dev Toggle Button
-    devToggleContainer: {
-        position: 'absolute',
-        bottom: 20,
-        right: 20,
-        zIndex: 100,
-    },
-    devToggleBtn: {
-        backgroundColor: '#7C3AED',
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        borderRadius: 20,
-        shadowColor: "#000",
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-        elevation: 5,
-    },
-    devToggleText: {
-        color: '#FFF',
-        fontSize: 12,
-        fontWeight: 'bold',
-    }
-});

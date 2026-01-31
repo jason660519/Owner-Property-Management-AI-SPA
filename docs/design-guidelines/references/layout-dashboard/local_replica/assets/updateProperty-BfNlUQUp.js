@@ -1,0 +1,14 @@
+import{a as k,b as v}from"./main-dumNSXg9.js";const h=`#import "../fragments/listing.fragment.graphql"
+#import "../fragments/children_listings.fragment.graphql"
+
+mutation updateListing($inputListing: UpdateListingInput!) {
+  updateListing(input: { inputListing: $inputListing }) {
+    listing {
+      ...PropertyListingFragment
+      ...ChildrenListingsFragment
+      hide_apply_now
+    }
+  }
+}
+`,o={kind:"Document",definitions:[{kind:"OperationDefinition",operation:"mutation",name:{kind:"Name",value:"updateListing"},variableDefinitions:[{kind:"VariableDefinition",variable:{kind:"Variable",name:{kind:"Name",value:"inputListing"}},type:{kind:"NonNullType",type:{kind:"NamedType",name:{kind:"Name",value:"UpdateListingInput"}}},directives:[]}],directives:[],selectionSet:{kind:"SelectionSet",selections:[{kind:"Field",name:{kind:"Name",value:"updateListing"},arguments:[{kind:"Argument",name:{kind:"Name",value:"input"},value:{kind:"ObjectValue",fields:[{kind:"ObjectField",name:{kind:"Name",value:"inputListing"},value:{kind:"Variable",name:{kind:"Name",value:"inputListing"}}}]}}],directives:[],selectionSet:{kind:"SelectionSet",selections:[{kind:"Field",name:{kind:"Name",value:"listing"},arguments:[],directives:[],selectionSet:{kind:"SelectionSet",selections:[{kind:"FragmentSpread",name:{kind:"Name",value:"PropertyListingFragment"},directives:[]},{kind:"FragmentSpread",name:{kind:"Name",value:"ChildrenListingsFragment"},directives:[]},{kind:"Field",name:{kind:"Name",value:"hide_apply_now"},arguments:[],directives:[]}]}}]}}]}}],loc:{start:0,end:378,source:{name:"GraphQL request",locationOffset:{line:1,column:1},body:h}}},g=s=>{const r={};return s.filter(function(t){if(t.kind!=="FragmentDefinition")return!0;const d=t.name.value;return r[d]?!1:(r[d]=!0,!0)})};o.definitions=g(o.definitions.concat(k.definitions));o.definitions=g(o.definitions.concat(v.definitions));const S=(s,r)=>{const t=(i,e)=>{if(i.kind==="FragmentSpread")e.add(i.name.value);else if(i.kind==="VariableDefinition"){const n=i.type;n.kind==="NamedType"&&e.add(n.name.value)}return i&&"selectionSet"in i&&i.selectionSet&&i.selectionSet.selections.forEach(n=>{t(n,e)}),i&&"variableDefinitions"in i&&i.variableDefinitions&&i.variableDefinitions.forEach(n=>{t(n,e)}),i&&"definitions"in i&&i.definitions&&i.definitions.forEach(n=>{t(n,e)}),e},d=i=>{const e={};return i.definitions.forEach(function(n){"name"in n&&n.name&&(e[n.name.value]=t(n,new Set))}),e},u=(i,e)=>{for(let n=0;n<i.definitions.length;n++){const a=i.definitions[n];if(a&&"name"in a&&a.name&&a.name.value==e)return a}},m=d(s),f=Object.assign({},s,{definitions:[u(s,r)]}),p=m[r]||new Set,c=new Set;let l=new Set;for(p.forEach(i=>{l.add(i)});l.size>0;){const i=l;l=new Set,i.forEach(e=>{c.has(e)||(c.add(e),(m[e]||new Set).forEach(a=>{l.add(a)}))})}return c.forEach(i=>{const e=u(s,i);e&&f.definitions.push(e)}),f};S(o,"updateListing");export{o as _};
+//# sourceMappingURL=updateProperty-BfNlUQUp.js.map

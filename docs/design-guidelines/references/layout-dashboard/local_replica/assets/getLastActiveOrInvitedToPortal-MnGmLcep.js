@@ -1,0 +1,2 @@
+import{i as e}from"./TownhouseColor--VjQBVqd.js";import{e as r}from"./main-dumNSXg9.js";const a=(t,i)=>e(t).tz(i||r).format("MM/DD/YY [-] hh:mmA");function d(t,i,o){return t?.last_active?`Last active ${a(t?.last_active,i)}`:t?.re_invited_to_portal?`Re-invited ${a(t?.re_invited_to_portal,i)}`:t?.invited_at?`Invited ${a(t?.invited_at,i)}`:o||`Invited ${a(t?.invited_to_portal,i)}`}export{d as g};
+//# sourceMappingURL=getLastActiveOrInvitedToPortal-MnGmLcep.js.map

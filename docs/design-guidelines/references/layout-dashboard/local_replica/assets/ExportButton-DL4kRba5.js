@@ -1,0 +1,2 @@
+import{j as o,a5 as r,k as a,P as s}from"./TownhouseColor--VjQBVqd.js";import{bl as p}from"./main-dumNSXg9.js";const c="oEa4y",i="EVt6r",x="WZT1e",t={exportBtn:c,attention:i,exportIcon:x},m=({className:e,onClick:n})=>o.jsxs(r,{id:"export-csv",tertiary:!0,onClick:n,className:a(t.exportBtn,t.attention,e),children:[o.jsx(p,{width:14,height:14,className:t.exportIcon}),"Export"]});m.propTypes={className:s.string,onClick:s.func.isRequired};export{m as E};
+//# sourceMappingURL=ExportButton-DL4kRba5.js.map

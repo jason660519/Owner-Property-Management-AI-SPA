@@ -1,0 +1,2 @@
+import{r as t,j as s,d as a,P as l}from"./TownhouseColor--VjQBVqd.js";const r=o=>s.jsx("svg",{...o,viewBox:"0 0 20 20",fill:o.color,children:s.jsx("path",{fill:o.color,d:"M10 0a10 10 0 110 20 10 10 0 010-20zm0 1a9 9 0 100 18 9 9 0 000-18zm5 5h1l1 4a7 7 0 01-11 6v-1zm0 2l-7 7h2a5 5 0 005-7zm-5-5l4 1v1l-9 9H4l-1-4c0-4 3-7 7-7zm0 2a5 5 0 00-5 7l7-7h-2z"})});r.defaultProps={width:20,height:20,color:a.primary};r.propTypes={width:l.number,height:l.number,color:l.string};const m=t.memo(r);export{m as B};
+//# sourceMappingURL=Block-Bmvgl2yE.js.map

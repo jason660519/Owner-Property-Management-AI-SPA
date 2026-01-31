@@ -1,0 +1,2 @@
+const _=({selectedListingId:r,listing:n,properties:e})=>{if(n&&!e)return n.has_active_property_management_service??!1;if(!r||!e)return!1;for(const a of e){if(a.id===r)return a.has_active_property_management_service??!1;for(const t of a.children_listings??[]){if(t.id===r)return t.has_active_property_management_service??!1;for(const o of t.children_listings??[])if(o.id===r)return o.has_active_property_management_service??!1}}return!1};export{_ as g};
+//# sourceMappingURL=getListingAutopilotStatus-DCM8MU3f.js.map

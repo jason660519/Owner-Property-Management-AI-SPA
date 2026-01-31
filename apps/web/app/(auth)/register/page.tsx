@@ -9,67 +9,6 @@
  * @version 1.0
  */
 
-'use client';
-
-import React from 'react';
-import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { signUpSchema } from '@/lib/validators/auth';
-import { signUp } from '@/lib/supabase/auth';
-
-type FormData = {
-  email: string;
-  password: string;
-  fullName: string;
-};
-
-export default function RegisterPage() {
-  const router = useRouter();
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<FormData>({ resolver: zodResolver(signUpSchema) });
-
-  async function onSubmit(data: FormData) {
-    try {
-      await signUp({ email: data.email, password: data.password, full_name: data.fullName });
-      alert('註冊成功，請至信箱完成驗證後登入');
-      router.push('/auth/login');
-    } catch (err: any) {
-      alert(err.message ?? '註冊失敗');
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div>
-        <label className="block text-sm">Full name</label>
-        <input {...register('fullName')} className="w-full border p-2 rounded" />
-        {errors.fullName && <p className="text-red-600 text-sm">{errors.fullName.message}</p>}
-      </div>
-
-      <div>
-        <label className="block text-sm">Email</label>
-        <input {...register('email')} className="w-full border p-2 rounded" />
-        {errors.email && <p className="text-red-600 text-sm">{errors.email.message}</p>}
-      </div>
-
-      <div>
-        <label className="block text-sm">Password</label>
-        <input type="password" {...register('password')} className="w-full border p-2 rounded" />
-        {errors.password && <p className="text-red-600 text-sm">{errors.password.message}</p>}
-      </div>
-
-      <div>
-        <button disabled={isSubmitting} className="w-full bg-green-600 text-white p-2 rounded">
-          註冊
-        </button>
-      </div>
-    </form>
-  );
-}
 'use client'
 
 import { useState } from 'react'
@@ -230,15 +169,14 @@ export default function RegisterPage() {
                 {[...Array(5)].map((_, i) => (
                   <div
                     key={i}
-                    className={`h-1 flex-1 rounded-full transition-colors ${
-                      i < passwordStrength
+                    className={`h-1 flex-1 rounded-full transition-colors ${i < passwordStrength
                         ? passwordStrength <= 2
                           ? 'bg-red-500'
                           : passwordStrength <= 3
-                          ? 'bg-yellow-500'
-                          : 'bg-green-500'
+                            ? 'bg-yellow-500'
+                            : 'bg-green-500'
                         : 'bg-[#333333]'
-                    }`}
+                      }`}
                   />
                 ))}
               </div>

@@ -1,0 +1,19 @@
+
+    try {
+        var v = (function(){return{v:this.navigator.platform,s:0}}).call(this, {"isAndroid":false,"isChromium":true,"isGecko":false,"isWebKit":false,"isModernFirefox":false,"isDesktopWebKit":true,"isTrident":false,"isEdgeHTML":false,"isSamsungBrowser":false,"os":"MacOS","userActivation":false});
+        if (v && typeof v.then === 'function') {
+            v.then(function(res) {
+                postMessage(res);
+            });
+        } else {
+            postMessage(v);
+        }
+    } catch (e) {
+        postMessage({
+            v: null,
+            s: -1,
+            e: (e && typeof e.toString === 'function')
+                ? e.toString()
+                : String(e)
+        });
+    }

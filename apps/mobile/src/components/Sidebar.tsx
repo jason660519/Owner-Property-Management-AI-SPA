@@ -1,6 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { FontAwesome5, MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { FontAwesome5 } from '@expo/vector-icons';
+import { cssInterop } from "nativewind";
+
+// Hardcoded matching colors from tailwind.config.js for Icon props
+const ICON_COLORS = {
+  white: '#ffffff',
+  muted: '#666666',
+  accent: '#703BF7',
+};
 
 export default function Sidebar() {
   const menuItems = [
@@ -31,160 +39,84 @@ export default function Sidebar() {
     { icon: 'gift', label: 'Give $25. Get $25.' },
   ];
 
-  const MenuItem = ({ icon, label, active }: { icon: string; label: string; active?: boolean }) => (
-    <TouchableOpacity style={[styles.menuItem, active && styles.activeMenuItem]}>
-      <View style={{ width: 24, alignItems: 'center' }}>
-        <FontAwesome5 name={icon} size={16} color="#fff" style={{ opacity: active ? 1 : 0.7 }} />
+  // Define types for MenuItem props
+  interface MenuItemProps {
+      icon: string;
+      label: string;
+      active?: boolean;
+  }
+
+  const MenuItem = ({ icon, label, active }: MenuItemProps) => (
+    <TouchableOpacity 
+      className={`flex-row items-center py-2.5 px-5 gap-3 ${active ? 'bg-bg-tertiary border-r-4 border-r-accent' : ''}`}
+    >
+      <View className="w-6 items-center">
+        <FontAwesome5 
+          name={icon} 
+          size={16} 
+          color={active ? ICON_COLORS.white : ICON_COLORS.white} 
+          style={{ opacity: active ? 1 : 0.7 }} 
+        />
       </View>
-      <Text style={[styles.menuText, active && styles.activeMenuText]}>{label}</Text>
+      <Text className={`text-sm ${active ? 'text-text-primary font-medium' : 'text-text-muted'}`}>
+        {label}
+      </Text>
     </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.logoContainer}>
-        {/* Placeholder for Logo */}
-        <Text style={styles.logoText}>Real Estate AI Manager</Text>
+    <View className="w-60 bg-bg-secondary h-full py-2.5 border-r border-border-light">
+      <View className="px-5 mb-5 flex-row items-center gap-2.5">
+        <View className="w-8 h-8 bg-accent rounded-sm items-center justify-center">
+             <FontAwesome5 name="building" size={20} color={ICON_COLORS.white} />
+        </View>
+        <Text className="text-text-primary text-xl font-bold">Landlord</Text>
       </View>
 
-      <TouchableOpacity style={styles.upgradeButton}>
-        <FontAwesome5 name="star" size={14} color="#fff" />
-        <Text style={styles.upgradeText}>Upgrade</Text>
+      <TouchableOpacity className="mx-4 mb-5 bg-accent rounded-sm py-2.5 flex-row items-center justify-center gap-2">
+        <FontAwesome5 name="crown" size={14} color={ICON_COLORS.white} />
+        <Text className="text-text-primary text-sm font-semibold">Upgrade to Premium</Text>
       </TouchableOpacity>
 
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.section}>
-          {menuItems.map((item, index) => (
-            <MenuItem key={index} icon={item.icon} label={item.label} active={item.active} />
-          ))}
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        <View className="mb-5">
+            <Text className="text-text-muted text-xs font-semibold px-5 mb-2 uppercase">Rental Management</Text>
+            {menuItems.map((item, index) => (
+                <MenuItem key={index} icon={item.icon} label={item.label} active={item.active} />
+            ))}
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>RENTERS</Text>
-          {renterItems.map((item, index) => (
-            <MenuItem key={index} icon={item.icon} label={item.label} />
-          ))}
+        <View className="mb-5">
+            <Text className="text-text-muted text-xs font-semibold px-5 mb-2 uppercase">Renters</Text>
+            {renterItems.map((item, index) => (
+                <MenuItem key={index} icon={item.icon} label={item.label} />
+            ))}
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>ACCOUNTING</Text>
-          {accountingItems.map((item, index) => (
-            <MenuItem key={index} icon={item.icon} label={item.label} />
-          ))}
+        <View className="mb-5">
+            <Text className="text-text-muted text-xs font-semibold px-5 mb-2 uppercase">Accounting</Text>
+            {accountingItems.map((item, index) => (
+                <MenuItem key={index} icon={item.icon} label={item.label} />
+            ))}
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>RESOURCES</Text>
-          {resourceItems.map((item, index) => (
-            <MenuItem key={index} icon={item.icon} label={item.label} />
-          ))}
+        <View className="mb-8">
+            <Text className="text-text-muted text-xs font-semibold px-5 mb-2 uppercase">Resources</Text>
+            {resourceItems.map((item, index) => (
+                <MenuItem key={index} icon={item.icon} label={item.label} />
+            ))}
         </View>
       </ScrollView>
-
-      <View style={styles.footer}>
-        <View style={styles.avatar}>
-          <FontAwesome5 name="user" size={12} color="#fff" />
+      
+      <View className="p-4 border-t border-border-light flex-row items-center gap-3">
+        <View className="w-8 h-8 rounded-full bg-bg-tertiary items-center justify-center">
+             <FontAwesome5 name="user" size={14} color={ICON_COLORS.white} />
         </View>
-        <Text style={styles.accountText}>Account</Text>
+        <View>
+            <Text className="text-text-primary text-sm font-medium">My Account</Text>
+            <Text className="text-text-muted text-xs">Landlord ID: 8832</Text>
+        </View>
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    width: 240,
-    backgroundColor: '#1A1A1A', // Estatein Grey/08
-    height: '100%',
-    paddingVertical: 10,
-    borderRightWidth: 1,
-    borderRightColor: '#333',
-  },
-  logoContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 30,
-    marginTop: 10,
-  },
-  logoText: {
-    color: '#FFF',
-    fontSize: 20,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-  },
-  upgradeButton: {
-    backgroundColor: 'rgba(124, 58, 237, 0.1)', // Purple tint
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    marginHorizontal: 15,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#7C3AED',
-    marginBottom: 20,
-    gap: 8
-  },
-  upgradeText: {
-    color: '#7C3AED',
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    color: '#666',
-    fontSize: 11,
-    fontWeight: 'bold',
-    paddingHorizontal: 20,
-    marginBottom: 12,
-    marginTop: 8,
-    letterSpacing: 1,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    gap: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: 'transparent',
-  },
-  activeMenuItem: {
-    backgroundColor: '#2A2A2A', // Grey/10
-    borderLeftColor: '#7C3AED', // Estatein Purple
-  },
-  menuText: {
-    color: '#999',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  activeMenuText: {
-    color: '#FFF',
-    fontWeight: '600',
-  },
-  footer: {
-    padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-  },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#7C3AED',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  accountText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: '500'
-  }
-});

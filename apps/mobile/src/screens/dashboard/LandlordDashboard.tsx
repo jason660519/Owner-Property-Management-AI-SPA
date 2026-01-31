@@ -1,6 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, Dimensions } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Platform, Dimensions } from 'react-native';
 import { FontAwesome5, MaterialIcons } from '@expo/vector-icons';
+import { cssInterop } from "nativewind";
+
+// Hardcoded matching colors from tailwind.config.js
+const ICON_COLORS = {
+  white: '#ffffff',
+  grey60: '#999999',
+  purple60: '#703BF7',
+  success: '#09cf82',
+  warning: '#c5221f', // Using error for warning/danger text in original
+};
 
 // Types
 type StatCardProps = {
@@ -17,34 +27,24 @@ type ActionItemProps = {
 // --- Components ---
 
 const StatCard = ({ icon, label, count }: StatCardProps) => (
-  <View style={styles.statCard}>
-    <View style={styles.iconContainer}>
-      <FontAwesome5 name={icon} size={20} color="#FFFFFF" />
+  <View className="flex-1 min-w-[100px] items-center p-5 border-r border-border-light">
+    <View className="w-10 h-10 rounded-full bg-accent/20 items-center justify-center mb-2.5">
+      <FontAwesome5 name={icon} size={20} color={ICON_COLORS.white} />
     </View>
-    <Text style={styles.statLabel}>{label}</Text>
-    <Text style={styles.statCount}>{count}</Text>
-  </View>
-);
-
-const ResidencyStat = ({ icon, label, count }: StatCardProps) => (
-  <View style={styles.residencyStat}>
-    <View style={styles.iconContainerSmall}>
-        <FontAwesome5 name={icon} size={16} color="#FFFFFF" />
-    </View>
-    <Text style={styles.resLabel}>{label}</Text>
-    <Text style={styles.resCount}>{count}</Text>
+    <Text className="text-[11px] font-semibold text-text-muted mb-1 uppercase">{label}</Text>
+    <Text className="text-2xl font-bold text-text-primary">{count}</Text>
   </View>
 );
 
 const ActionItem = ({ icon, label }: ActionItemProps) => (
-  <TouchableOpacity style={styles.actionRow}>
-    <View style={{flexDirection: 'row', alignItems: 'center', gap: 12}}>
-        <View style={styles.actionIconBg}>
-            <FontAwesome5 name={icon} size={14} color="#7C3AED" />
+  <TouchableOpacity className="flex-row justify-between items-center p-4 border-b border-border-light">
+    <View className="flex-row items-center gap-3">
+        <View className="w-7 h-7 rounded-md bg-accent/10 items-center justify-center">
+            <FontAwesome5 name={icon} size={14} color={ICON_COLORS.purple60} />
         </View>
-        <Text style={styles.actionLabel}>{label}</Text>
+        <Text className="text-sm text-text-primary font-medium">{label}</Text>
     </View>
-    <MaterialIcons name="chevron-right" size={20} color="#666" />
+    <MaterialIcons name="chevron-right" size={20} color={ICON_COLORS.grey60} />
   </TouchableOpacity>
 );
 
@@ -52,52 +52,55 @@ const ActionItem = ({ icon, label }: ActionItemProps) => (
 
 export default function LandlordDashboard() {
   const [maintenanceTask, setMaintenanceTask] = useState('');
-  const screenWidth = Dimensions.get('window').width;
+  
+  // Tailwind responsive classes handles layout, so explicit isWeb check is less critical for styles, 
+  // but helpful for platform specific behavior if needed.
+  const isWeb = Platform.OS === 'web';
 
   return (
-    <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+    <View className="flex-1 bg-bg-primary">
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         
         {/* Header Section */}
-        <View style={styles.header}>
+        <View className="p-8 pb-5 flex-row justify-between items-center border-b border-border-light">
             <View>
-                <Text style={styles.welcomeText}>Welcome back, Landlord</Text>
-                <Text style={styles.subHeader}>Here is what's happening with your properties today.</Text>
+                <Text className="text-2xl font-bold text-text-primary mb-1">Welcome back, Landlord</Text>
+                <Text className="text-sm text-text-muted">Here is what's happening with your properties today.</Text>
             </View>
-            <TouchableOpacity style={styles.primaryBtn}>
-                <FontAwesome5 name="plus" size={12} color="#FFF" style={{marginRight: 8}} />
-                <Text style={styles.primaryBtnText}>Add Property</Text>
+            <TouchableOpacity className="bg-accent flex-row items-center py-2.5 px-5 rounded-md">
+                <FontAwesome5 name="plus" size={12} color={ICON_COLORS.white} style={{marginRight: 8}} />
+                <Text className="text-text-primary font-semibold text-sm">Add Property</Text>
             </TouchableOpacity>
         </View>
 
-        <View style={styles.contentGrid}>
+        <View className={`p-5 gap-5 self-center w-full max-w-[1440px] ${isWeb ? 'flex-row' : 'flex-col'}`}>
             
             {/* Left Column (Main Stats) */}
-            <View style={[styles.mainColumn, { flex: 2 }]}>
+            <View className="flex-[2] gap-5 min-w-[300px]">
                 
                 {/* Banner */}
-                <View style={styles.banner}>
-                    <View style={styles.bannerContent}>
-                        <View style={styles.bannerIconBg}>
-                            <FontAwesome5 name="home" size={24} color="#7C3AED" />
+                <View className="bg-[#252525] p-6 rounded-base border border-border-light flex-row items-center justify-between gap-4">
+                    <View className="flex-row items-center gap-4 flex-1">
+                        <View className="w-12 h-12 rounded-full bg-accent/10 items-center justify-center">
+                            <FontAwesome5 name="home" size={24} color={ICON_COLORS.purple60} />
                         </View>
-                        <View style={{flex: 1}}>
-                            <Text style={styles.cardHeader}>Complete your portfolio</Text>
-                            <Text style={styles.cardSubtext}>You have added 1 of 3 units. Finish setting up to unlock full insights.</Text>
+                        <View className="flex-1">
+                            <Text className="text-base font-bold text-text-primary mb-1">Complete your portfolio</Text>
+                            <Text className="text-sm text-text-muted">You have added 1 of 3 units. Finish setting up to unlock full insights.</Text>
                         </View>
                     </View>
-                    <TouchableOpacity style={styles.outlineBtn}>
-                        <Text style={styles.outlineBtnText}>Continue Setup</Text>
+                    <TouchableOpacity className="border border-accent py-2 px-4 rounded-md">
+                        <Text className="text-accent font-semibold text-xs">Continue Setup</Text>
                     </TouchableOpacity>
                 </View>
 
                 {/* Vacancy / Marketing Section */}
-                <View style={styles.sectionContainer}>
-                    <View style={styles.sectionHeaderRow}>
-                        <Text style={styles.sectionHeader}>RENTAL PERFORMANCE</Text>
-                        <TouchableOpacity><Text style={styles.linkText}>View All</Text></TouchableOpacity>
+                <View className="bg-bg-secondary rounded-base border border-border-light overflow-hidden">
+                    <View className="flex-row justify-between items-center p-4 border-b border-border-light">
+                        <Text className="text-text-muted font-semibold text-xs tracking-widest">RENTAL PERFORMANCE</Text>
+                        <TouchableOpacity><Text className="text-accent text-xs font-bold">View All</Text></TouchableOpacity>
                     </View>
-                    <View style={styles.statsGrid}>
+                    <View className="flex-row flex-wrap">
                         <StatCard icon="bullhorn" label="Marketing" count={2} />
                         <StatCard icon="user-friends" label="Leads" count={5} />
                         <StatCard icon="file-signature" label="Applicants" count={1} />
@@ -106,79 +109,79 @@ export default function LandlordDashboard() {
                 </View>
 
                 {/* Financials Section */}
-                <View style={styles.sectionContainer}>
-                    <View style={styles.sectionHeaderRow}>
-                        <Text style={styles.sectionHeader}>FINANCIAL OVERVIEW</Text>
-                        <View style={styles.toggleGroup}>
-                             <Text style={[styles.toggleBtn, styles.toggleActive]}>Month</Text>
-                             <Text style={styles.toggleBtn}>YTD</Text>
+                <View className="bg-bg-secondary rounded-base border border-border-light overflow-hidden">
+                    <View className="flex-row justify-between items-center p-4 border-b border-border-light">
+                        <Text className="text-text-muted font-semibold text-xs tracking-widest">FINANCIAL OVERVIEW</Text>
+                        <View className="flex-row bg-bg-primary rounded-md p-0.5">
+                             <Text className="py-1 px-3 text-[11px] text-text-primary bg-bg-tertiary rounded-md">Month</Text>
+                             <Text className="py-1 px-3 text-[11px] text-text-muted">YTD</Text>
                         </View>
                     </View>
 
-                    <View style={styles.financialsRow}>
-                         <View style={styles.finBox}>
-                             <Text style={styles.finLabel}>TOTAL REVENUE</Text>
-                             <Text style={styles.finAmountGreen}>$12,500</Text>
+                    <View className="flex-row p-6 border-b border-border-light">
+                         <View className="flex-1 items-center">
+                             <Text className="text-[10px] font-bold text-text-muted mb-2 tracking-wider">TOTAL REVENUE</Text>
+                             <Text className="text-3xl font-bold text-status-success">$12,500</Text>
                          </View>
-                         <View style={styles.verticalDivider} />
-                         <View style={styles.finBox}>
-                             <Text style={styles.finLabel}>OUTSTANDING</Text>
-                             <Text style={styles.finAmountRed}>$1,200</Text>
+                         <View className="w-[1px] bg-border-light mx-2.5" />
+                         <View className="flex-1 items-center">
+                             <Text className="text-[10px] font-bold text-text-muted mb-2 tracking-wider">OUTSTANDING</Text>
+                             <Text className="text-3xl font-bold text-status-warning">$1,200</Text>
                          </View>
                     </View>
                     
-                    <View style={styles.chartPlaceholder}>
+                    <View className="p-6 items-center">
                         {/* Placeholder for a Chart */}
-                        <View style={styles.barContainer}>
-                            <View style={[styles.bar, {height: '40%'}]} />
-                            <View style={[styles.bar, {height: '60%'}]} />
-                            <View style={[styles.bar, {height: '30%'}]} />
-                            <View style={[styles.bar, {height: '80%'}]} />
-                            <View style={[styles.bar, {height: '50%'}]} />
-                            <View style={[styles.bar, {height: '90%', backgroundColor: '#7C3AED'}]} />
-                            <View style={[styles.bar, {height: '70%'}]} />
+                        <View className="flex-row items-end h-24 gap-3 mb-3">
+                            <View className="w-5 bg-[#333] rounded-xs h-[40%]" />
+                            <View className="w-5 bg-[#333] rounded-xs h-[60%]" />
+                            <View className="w-5 bg-[#333] rounded-xs h-[30%]" />
+                            <View className="w-5 bg-[#333] rounded-xs h-[80%]" />
+                            <View className="w-5 bg-[#333] rounded-xs h-[50%]" />
+                            <View className="w-5 bg-accent rounded-xs h-[90%]" />
+                            <View className="w-5 bg-[#333] rounded-xs h-[70%]" />
                         </View>
-                        <Text style={styles.chartLabel}>Income vs Expense (Last 6 Months)</Text>
+                        <Text className="text-text-muted text-xs">Income vs Expense (Last 6 Months)</Text>
                     </View>
                 </View>
 
             </View>
 
             {/* Right Column (Actions & Maintenance) */}
-            <View style={[styles.sideColumn, { flex: 1 }]}>
+            <View className="flex-1 gap-5 min-w-[300px]">
                 
                 {/* Maintenance Widget */}
-                 <View style={styles.sectionContainer}>
-                    <View style={styles.sectionHeaderRow}>
-                        <Text style={styles.sectionHeader}>MAINTENANCE</Text>
+                 <View className="bg-bg-secondary rounded-base border border-border-light overflow-hidden">
+                    <View className="flex-row justify-between items-center p-4 border-b border-border-light">
+                        <Text className="text-text-muted font-semibold text-xs tracking-widest">MAINTENANCE</Text>
                     </View>
-                    <View style={{padding: 20}}>
-                        <Text style={styles.cardTitle}>Quick Task</Text>
-                        <View style={styles.inputWrapper}>
+                    <View className="p-5">
+                        <Text className="text-base font-bold text-text-primary mb-3">Quick Task</Text>
+                        <View className="flex-row bg-[#1A1A1A] rounded-sm items-center px-2.5 mb-4 border border-border-light">
                             <TextInput 
-                                style={styles.input} 
+                                className="flex-1 py-3 text-text-primary"
                                 placeholder="Add a to-do..." 
                                 placeholderTextColor="#666"
                                 value={maintenanceTask}
                                 onChangeText={setMaintenanceTask}
                             />
-                            <TouchableOpacity style={styles.iconBtn}>
+                            <TouchableOpacity className="bg-accent p-1 rounded-sm">
                                 <MaterialIcons name="add" size={20} color="#FFF" />
                             </TouchableOpacity>
                         </View>
 
-                        <View style={styles.tagsRow}>
-                            <Text style={styles.tag}>HVAC Check</Text>
-                            <Text style={styles.tag}>Plumbing</Text>
-                            <Text style={styles.tag}>Pest Control</Text>
+                        <View className="flex-row gap-2 flex-wrap">
+                            <Text className="bg-[#333] py-1.5 px-3 rounded-base text-[11px] text-[#AAA]">HVAC Check</Text>
+                            <Text className="bg-[#333] py-1.5 px-3 rounded-base text-[11px] text-[#AAA]">Plumbing</Text>
+                            <Text className="bg-[#333] py-1.5 px-3 rounded-base text-[11px] text-[#AAA]">Pest Control</Text>
                         </View>
                     </View>
                  </View>
 
                 {/* Quick Actions List */}
-                <View style={styles.sectionContainer}>
-                    <View style={styles.sectionHeaderRow}>
-                        <Text style={styles.sectionHeader}>QUICK ACTIONS</Text>
+                <View className="bg-bg-secondary rounded-base border border-border-light overflow-hidden">
+                    <View className="flex-row justify-between items-center p-4 border-b border-border-light">
+                        <Text className="text-text-muted font-semibold text-xs tracking-widest">QUICK ACTIONS</Text>
                     </View>
                     <View>
                         <ActionItem icon="search" label="Screen Tenant" />
@@ -195,329 +198,3 @@ export default function LandlordDashboard() {
     </View>
   );
 }
-
-// --- Styles (Dark Mode - Estatein Theme) ---
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1A1A1A', // Grey/08
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  header: {
-      padding: 30,
-      paddingBottom: 20,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      borderBottomWidth: 1,
-      borderBottomColor: '#333',
-  },
-  welcomeText: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      color: '#FFFFFF',
-      marginBottom: 4,
-  },
-  subHeader: {
-      fontSize: 14,
-      color: '#999999',
-  },
-  primaryBtn: {
-      backgroundColor: '#7C3AED', // Purple/60
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 10,
-      paddingHorizontal: 20,
-      borderRadius: 10,
-  },
-  primaryBtnText: {
-      color: '#FFF',
-      fontWeight: '600',
-      fontSize: 14,
-  },
-  contentGrid: {
-      flexDirection: Platform.OS === 'web' ? 'row' : 'column',
-      padding: 20,
-      gap: 20,
-      maxWidth: 1440, 
-      alignSelf: 'center',
-      width: '100%',
-  },
-  mainColumn: {
-      gap: 20,
-      minWidth: 300,
-  },
-  sideColumn: {
-      gap: 20,
-      minWidth: 300,
-  },
-  
-  // Cards & Sections
-  sectionContainer: {
-      backgroundColor: '#2A2A2A', // Grey/10
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: '#333', // Grey/15
-      overflow: 'hidden',
-  },
-  sectionHeaderRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: '#333',
-  },
-  sectionHeader: {
-      color: '#999',
-      fontWeight: '600',
-      fontSize: 12,
-      letterSpacing: 1,
-  },
-  linkText: {
-      color: '#7C3AED',
-      fontSize: 12,
-      fontWeight: 'bold',
-  },
-
-  // Banner
-  banner: {
-      backgroundColor: '#252525',
-      padding: 24,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: '#333',
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: 16,
-  },
-  bannerContent: {
-      flexDirection: 'row', 
-      alignItems: 'center', 
-      gap: 16, 
-      flex: 1
-  },
-  bannerIconBg: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: 'rgba(124, 58, 237, 0.1)', // Purple tint
-      alignItems: 'center',
-      justifyContent: 'center'
-  },
-  cardHeader: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      color: '#FFF',
-      marginBottom: 4,
-  },
-  cardSubtext: {
-      color: '#999',
-      fontSize: 13,
-  },
-  outlineBtn: {
-      borderWidth: 1,
-      borderColor: '#7C3AED',
-      paddingVertical: 8,
-      paddingHorizontal: 16,
-      borderRadius: 8,
-  },
-  outlineBtnText: {
-      color: '#7C3AED', // Purple
-      fontWeight: '600',
-      fontSize: 12,
-  },
-
-  // Stats
-  statsGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-  },
-  statCard: {
-      flex: 1,
-      minWidth: 100,
-      alignItems: 'center',
-      padding: 20,
-      borderRightWidth: 1,
-      borderRightColor: '#333',
-  },
-  iconContainer: {
-      width: 40, 
-      height: 40, 
-      borderRadius: 20, 
-      backgroundColor: 'rgba(124, 58, 237, 0.2)', 
-      alignItems: 'center', 
-      justifyContent: 'center',
-      marginBottom: 10
-  },
-  iconContainerSmall: {
-      marginBottom: 8
-  },
-  statLabel: {
-      fontSize: 11,
-      fontWeight: '600',
-      color: '#999',
-      marginBottom: 4,
-      textTransform: 'uppercase'
-  },
-  statCount: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      color: '#FFF',
-  },
-  residencyStat: {
-      flex: 1,
-      alignItems: 'center',
-      padding: 16,
-  },
-  resLabel: {
-      fontSize: 10,
-      color: '#999',
-      marginBottom: 4,
-  },
-  resCount: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: '#FFF',
-  },
-
-  // Financials
-  financialsRow: {
-      flexDirection: 'row',
-      padding: 24,
-      borderBottomWidth: 1,
-      borderBottomColor: '#333',
-  },
-  finBox: {
-      flex: 1,
-      alignItems: 'center',
-  },
-  verticalDivider: {
-      width: 1,
-      backgroundColor: '#333',
-      marginHorizontal: 10,
-  },
-  finLabel: {
-      fontSize: 10,
-      fontWeight: 'bold',
-      color: '#999',
-      marginBottom: 8,
-      letterSpacing: 0.5,
-  },
-  finAmountGreen: {
-      fontSize: 28,
-      fontWeight: 'bold',
-      color: '#10B981', // Success Green
-  },
-  finAmountRed: {
-      fontSize: 28,
-      fontWeight: 'bold',
-      color: '#EF4444', // Danger Red
-  },
-  toggleGroup: {
-      flexDirection: 'row',
-      backgroundColor: '#1A1A1A',
-      borderRadius: 8,
-      padding: 2,
-  },
-  toggleBtn: {
-      paddingVertical: 4,
-      paddingHorizontal: 12,
-      fontSize: 11,
-      color: '#666',
-      borderRadius: 6,
-  },
-  toggleActive: {
-      backgroundColor: '#333',
-      color: '#FFF',
-  },
-  chartPlaceholder: {
-      padding: 24,
-      alignItems: 'center',
-  },
-  barContainer: {
-      flexDirection: 'row',
-      alignItems: 'flex-end',
-      height: 100,
-      gap: 12,
-      marginBottom: 12,
-  },
-  bar: {
-      width: 20,
-      backgroundColor: '#333',
-      borderRadius: 4,
-  },
-  chartLabel: {
-      color: '#666',
-      fontSize: 12,
-  },
-
-  // Actions
-  actionRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: '#333',
-  },
-  actionIconBg: {
-      width: 28,
-      height: 28,
-      borderRadius: 6,
-      backgroundColor: 'rgba(124, 58, 237, 0.1)',
-      alignItems: 'center',
-      justifyContent: 'center',
-  },
-  actionLabel: {
-      fontSize: 14,
-      color: '#DDD',
-      fontWeight: '500',
-  },
-
-  // Widget
-  cardTitle: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      color: '#FFF',
-      marginBottom: 12,
-  },
-  inputWrapper: {
-      flexDirection: 'row',
-      backgroundColor: '#1A1A1A',
-      borderRadius: 8,
-      alignItems: 'center',
-      paddingHorizontal: 10,
-      marginBottom: 15,
-      borderWidth: 1,
-      borderColor: '#333',
-  },
-  input: {
-      flex: 1,
-      paddingVertical: 12,
-      color: '#FFF',
-      outlineStyle: 'none',
-  },
-  iconBtn: {
-      backgroundColor: '#7C3AED',
-      padding: 4,
-      borderRadius: 4,
-  },
-  tagsRow: {
-      flexDirection: 'row',
-      gap: 8,
-      flexWrap: 'wrap',
-  },
-  tag: {
-      backgroundColor: '#333',
-      paddingVertical: 6,
-      paddingHorizontal: 12,
-      borderRadius: 12,
-      fontSize: 11,
-      color: '#AAA',
-  },
-});

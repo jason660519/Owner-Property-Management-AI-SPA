@@ -1,26 +1,14 @@
 import React from 'react';
-import { StyleSheet, SafeAreaView, Platform } from 'react-native';
+import { View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import Dashboard from './src/Dashboard';
+import './global.css';
 
 export default function App() {
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="auto" />
+    <View className="flex-1 bg-bg-primary">
+      <StatusBar style="light" />
       <Dashboard />
-    </SafeAreaView>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1A1A1A',
-    ...Platform.select({
-      web: {
-        height: '100%',
-        overflow: 'hidden',
-      },
-    }),
-  },
-});

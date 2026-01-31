@@ -4,9 +4,9 @@
 // creator: Claude Sonnet 4.5
 
 import React from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Platform, Image, Dimensions } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
-import ImageViewing from 'react-native-image-viewing';
+// import ImageViewing from 'react-native-image-viewing'; // Disabled for Web compatibility
 import type { PropertyDocument } from '../../types/documents';
 
 interface DocumentViewerProps {
@@ -22,32 +22,36 @@ export default function DocumentViewer({
 }: DocumentViewerProps) {
   if (!document) return null;
 
-  const isImage = ['jpg', 'jpeg', 'png'].includes(
+  const isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(
     document.file_extension?.toLowerCase() || ''
   );
 
   const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
   const imageUrl = `${SUPABASE_URL}/storage/v1/object/public/${document.file_path}`;
+  const { width, height } = Dimensions.get('window');
 
   if (isImage) {
     return (
-      <ImageViewing
-        images={[{ uri: imageUrl }]}
-        imageIndex={0}
-        visible={visible}
-        onRequestClose={onClose}
-        HeaderComponent={() => (
-          <View style={styles.header}>
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <FontAwesome5 name="times" size={24} color="#FFF" />
-            </TouchableOpacity>
-          </View>
-        )}
-      />
+      <Modal visible={visible} animationType="fade" transparent={true}>
+        <View style={styles.container}>
+             <View style={styles.header}>
+                <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                  <FontAwesome5 name="times" size={24} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.imageContainer}>
+                <Image 
+                    source={{ uri: imageUrl }} 
+                    style={{ width: width, height: height, resizeMode: 'contain' }}
+                />
+              </View>
+        </View>
+      </Modal>
     );
   }
 
-  // For PDF, show a placeholder (需要 PDF viewer 庫)
+  // For PDF, show a placeholder
   return (
     <Modal visible={visible} animationType="slide">
       <View style={styles.pdfContainer}>
@@ -66,6 +70,18 @@ export default function DocumentViewer({
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageContainer: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   header: {
     position: 'absolute',
     top: Platform.OS === 'ios' ? 50 : 20,
@@ -76,7 +92,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },

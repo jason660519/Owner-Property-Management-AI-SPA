@@ -2,9 +2,9 @@
 
 > **創建日期**: 2026-01-31  
 > **創建者**: Claude Sonnet 4.5  
-> **最後修改**: 2026-01-31  
-> **修改者**: Claude Sonnet 4.5  
-> **版本**: 1.0  
+> **最後修改**: 2026-02-01  
+> **修改者**: Gemini 3 Pro (Preview)  
+> **版本**: 1.1  
 > **文件類型**: 開發指南
 
 ---
@@ -96,16 +96,16 @@
 
 ## 📂 檔案命名規則速查表
 
-| 檔案類型 | 命名規則 | ✅ 正確範例 | ❌ 錯誤範例 |
-|---------|---------|-----------|-----------|
-| **React Component** | PascalCase.tsx | `UserProfile.tsx` | `userProfile.tsx` |
-| **React Hook** | camelCase.ts | `useAuth.ts` | `UseAuth.ts` |
-| **Utility Function** | camelCase.ts | `formatDate.ts` | `FormatDate.ts` |
-| **資料夾** | kebab-case | `user-profiles/` | `userProfiles/` |
-| **Markdown 文檔** | kebab-case.md | `api-guide.md` | `API_Guide.md` |
-| **帶日期文檔** | 類型_YYYY-MM-DD.md | `進度報告_2026-01-31.md` | `2026-01-31-report.md` |
-| **圖片資源** | snake_case.png | `logo_main.png` | `logoMain.png` |
-| **Migration** | YYYYMMDDHHmmss_name.sql | `20260131120000_init.sql` | `init-db.sql` |
+| 檔案類型             | 命名規則                | ✅ 正確範例                | ❌ 錯誤範例             |
+| -------------------- | ----------------------- | ------------------------- | ---------------------- |
+| **React Component**  | PascalCase.tsx          | `UserProfile.tsx`         | `userProfile.tsx`      |
+| **React Hook**       | camelCase.ts            | `useAuth.ts`              | `UseAuth.ts`           |
+| **Utility Function** | camelCase.ts            | `formatDate.ts`           | `FormatDate.ts`        |
+| **資料夾**           | kebab-case              | `user-profiles/`          | `userProfiles/`        |
+| **Markdown 文檔**    | kebab-case.md           | `api-guide.md`            | `API_Guide.md`         |
+| **帶日期文檔**       | 類型_YYYY-MM-DD.md      | `進度報告_2026-01-31.md`  | `2026-01-31-report.md` |
+| **圖片資源**         | snake_case.png          | `logo_main.png`           | `logoMain.png`         |
+| **Migration**        | YYYYMMDDHHmmss_name.sql | `20260131120000_init.sql` | `init-db.sql`          |
 
 ---
 
@@ -133,10 +133,16 @@
     └── tests/              # 測試檔案
 
 📁 docs/                    # 所有文檔的家
-├── roadmap/                # 專案規劃
-├── progress-reports/       # 進度報告
-├── 專案架構說明/           # 架構文件
-└── 開發環境+測試環境+上線部署指南/
+├── deployment-guides/      # 部署指南、環境設定
+├── design-guidelines/      # UI/UX 設計規範、Figma 文件
+│   └── references/         # 設計參考資料
+├── progress-reports/       # 進度報告與狀態追蹤
+│   ├── OCR開發進度報告/
+│   ├── roadmap/            # 專案規劃與 Sprint 計畫
+│   ├── 工程師每日工作報告/
+│   └── 資料庫進度報告/
+├── 產品概述及使用場景說明/  # 產品需求與使用場景
+└── 硬體與軟體技術選型說明/  # 技術架構與選型決策
 
 📁 supabase/
 └── migrations/             # SQL 遷移檔案
@@ -144,9 +150,8 @@
 
 ### ❌ 禁止的操作
 
-- ❌ 在專案根目錄創建 `.md` 文檔（除了 README.md、CONTRIBUTING.md）
+- ❌ 在專案根目錄創建 `.md` 文檔（除了 README.md、CONTRIBUTING.md,CLAUDE.md）
 - ❌ 在專案根目錄創建測試或臨時檔案（如 `test.js`, `temp.md`）
-- ❌ 使用中文命名程式碼檔案或資料夾
 
 ---
 
@@ -154,13 +159,13 @@
 
 在 Metadata 或註解中使用以下標準名稱：
 
-| AI 模型 | 標準識別名稱 | Git Commit 前綴 |
-|---------|------------|----------------|
-| Claude Opus 4.5 | `Claude Opus 4.5` | `[Claude]` |
-| Claude Sonnet 4.5 | `Claude Sonnet 4.5` | `[Claude]` |
-| Gemini 2.5 Pro | `Gemini 2.5 Pro` | `[Gemini]` |
-| GPT-4o | `GPT-4o` | `[GPT-4]` |
-| DeepSeek V3 | `DeepSeek V3` | `[DeepSeek]` |
+| AI 模型           | 標準識別名稱        | Git Commit 前綴 |
+| ----------------- | ------------------- | --------------- |
+| Claude Opus 4.5   | `Claude Opus 4.5`   | `[Claude]`      |
+| Claude Sonnet 4.5 | `Claude Sonnet 4.5` | `[Claude]`      |
+| Gemini 2.5 Pro    | `Gemini 2.5 Pro`    | `[Gemini]`      |
+| GPT-4o            | `GPT-4o`            | `[GPT-4]`       |
+| DeepSeek V3       | `DeepSeek V3`       | `[DeepSeek]`    |
 
 ---
 
@@ -192,5 +197,5 @@
 
 ---
 
-**最後更新**: 2026-01-31  
-**維護者**: Claude Sonnet 4.5
+**最後更新**: 2026-02-01  
+**維護者**: Gemini 3 Pro (Preview)

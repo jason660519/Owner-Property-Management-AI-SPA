@@ -6,8 +6,11 @@ opencv-python>=4.9.0
 numpy>=1.26.0
 Pillow>=10.2.0
 
-# OCR Engines
-# deepseek-ocr  # TODO: 待正式安裝，目前透過 API 或手動安裝
+# OCR / VLM Clients (Cloud Only)
+openai>=1.12.0
+anthropic>=0.18.0
+google-generativeai>=0.4.0
+dashscope>=1.14.0  # For Alibaba Qwen
 
 # Data Processing
 pandas>=2.2.0
@@ -31,3 +34,4 @@ supabase>=2.3.0
 # Utilities
 python-dotenv>=1.0.0
 loguru>=0.7.2
+tenacity>=8.2.0  # For retry logic

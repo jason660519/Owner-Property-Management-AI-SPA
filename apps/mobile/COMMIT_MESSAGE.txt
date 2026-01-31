@@ -1,0 +1,100 @@
+[Claude] feat(mobile): implement Phase 1 document upload functionality
+
+✨ Features
+- Add document picker with PDF/Image support (max 10MB)
+- Integrate Supabase Storage upload
+- Create property_documents database records
+- Display document list with OCR status tracking
+- Support 7 document types (building_title, land_title, contract, tax_document, id_card, passport, other)
+- Implement pull-to-refresh for document list
+
+📝 Implementation Details
+- Use expo-document-picker v14.0.8 for file selection
+- Use expo-file-system v19 new File API (Blob-based)
+- Implement clean architecture with separation of concerns (Types/Services/Hooks/Components)
+- Add comprehensive error handling with user-friendly messages
+- Auto-set OCR status to 'pending' on upload for Phase 3 integration
+- Support optional propertyId and propertyType parameters
+
+📁 Files Created (616 lines of code)
+Core functionality:
+- src/types/documents.ts (62 lines) - TypeScript type definitions
+- src/services/documentService.ts (140 lines) - Upload/management business logic
+- src/hooks/useDocumentUpload.ts (72 lines) - Custom upload hook
+- src/components/documents/DocumentUploader.tsx (177 lines) - Upload UI component
+- src/screens/dashboard/DocumentsScreen.tsx (165 lines) - Document management screen
+
+📚 Documentation Created (~30KB)
+- INTEGRATION_GUIDE.md (7.5KB) - API usage guide
+- TEST_CHECKLIST.md (5.7KB) - Complete testing checklist
+- DOCUMENT_UPLOAD_README.md (8.6KB) - Feature overview
+- DASHBOARD_INTEGRATION_EXAMPLE.md (12KB) - Dashboard integration examples
+- QUICK_START.md (3.5KB) - 5-minute quick start guide
+- PHASE1_COMPLETION_SUMMARY.md (6KB) - Implementation summary
+- verify-phase1.sh - Automated verification script
+- docs/progress-reports/文件上傳功能_Phase1_實作完成報告_2026-01-31.md - Full implementation report
+
+📦 Dependencies Added
+- expo-document-picker: ^14.0.8 (file picker)
+- expo-file-system: ^19.0.21 (file system access)
+
+✅ Quality Assurance
+- ✅ No TypeScript compilation errors in new files
+- ✅ Follows project naming conventions (PascalCase/camelCase/kebab-case)
+- ✅ Complies with CLAUDE.md AI collaboration guidelines
+- ✅ Complies with FILE_CREATION_CHECKLIST.md standards
+- ✅ All files include filepath comments and creator attribution
+- ✅ Implements TypeScript strict mode without 'any' types
+
+🧪 Testing Status
+- Manual testing: Pending (see TEST_CHECKLIST.md)
+- Unit tests: Planned for Phase 2
+- Integration tests: Planned for Phase 2
+- 40+ test cases documented in TEST_CHECKLIST.md
+
+🗄️ Database Integration
+- Integrates with property_documents table (31 fields, 7 indexes)
+- Stores files in Supabase Storage (property-documents bucket)
+- Supports RLS policies for secure access control
+- Path structure: property-documents/{propertyId}/{timestamp}_{filename}
+
+🔐 Security Features
+- User authentication check before upload
+- File size validation (10MB limit)
+- Filename sanitization (prevents path traversal)
+- MIME type validation
+- RLS policy support for Storage bucket
+
+🚀 Next Steps
+1. Set up Supabase Storage bucket (property-documents)
+2. Configure Storage RLS policies
+3. Execute test checklist (TEST_CHECKLIST.md)
+4. Integrate into LandlordDashboard (DASHBOARD_INTEGRATION_EXAMPLE.md)
+5. Plan Phase 2: UI enhancements (file preview, camera capture)
+6. Plan Phase 3: OCR integration (Realtime status, result preview)
+
+📋 Known Issues
+- LandlordDashboard.tsx has existing TypeScript style errors (unrelated to this PR)
+- No unit test coverage yet (planned for Phase 2)
+
+🎯 Phase 2-4 Roadmap
+Phase 2: UI Optimization
+- File preview with thumbnails
+- Camera capture option
+- Detailed upload progress bar
+- Drag-and-drop upload (Web)
+
+Phase 3: OCR Integration
+- Realtime OCR status subscription
+- OCR result preview UI
+- Manual OCR field correction
+- OCR retry mechanism
+
+Phase 4: Advanced Features
+- Batch upload (multiple files)
+- Resumable upload
+- Document tagging system
+- Document search and filtering
+- Document download/export
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>

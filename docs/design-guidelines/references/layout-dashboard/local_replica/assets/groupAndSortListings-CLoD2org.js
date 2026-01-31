@@ -1,0 +1,2 @@
+const c=n=>{const e={},t=[];return n.forEach(s=>{const o=s.portfolio;o?(e[o.id]||(e[o.id]={id:o.id,nickname:o.name,portfolio:{...o},children_listings:[],isRootPortfolio:!0}),e[o.id].children_listings.push(s)):t.push(s)}),t.sort((s,o)=>{const i=(s.nickname||s.address||"").toLowerCase(),r=(o.nickname||o.address||"").toLowerCase();return i.localeCompare(r)}),[...t,...Object.values(e)]};export{c as g};
+//# sourceMappingURL=groupAndSortListings-CLoD2org.js.map

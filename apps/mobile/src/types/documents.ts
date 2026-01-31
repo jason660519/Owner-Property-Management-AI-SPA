@@ -27,6 +27,15 @@ export type OCRStatus =
   | 'manual_review';
 
 /**
+ * OCR engine types
+ */
+export type OCREngine =
+  | 'tesseract'
+  | 'google_vision'
+  | 'azure_ocr'
+  | 'manual';
+
+/**
  * Property type classification
  */
 export type PropertyType = 'sales' | 'rentals';
@@ -46,6 +55,10 @@ export interface PropertyDocument {
   mime_type?: string;
   ocr_status: OCRStatus;
   ocr_parsed_data?: Record<string, any>;
+  ocr_engine?: OCREngine;
+  ocr_confidence_score?: number;
+  ocr_result_path?: string;
+  ocr_processed_at?: string;
   property_type?: PropertyType;
   is_verified: boolean;
   uploaded_by: string;
@@ -101,3 +114,60 @@ export interface CameraOptions {
  * Document action types
  */
 export type DocumentAction = 'view' | 'download' | 'delete';
+
+/**
+ * OCR result parsed data structure (based on Jason Schema)
+ */
+export interface OCRParsedData {
+  basic_info?: {
+    document_number?: string;
+    issue_date?: string;
+    location?: string;
+  };
+  ownership?: {
+    owner_name?: string;
+    owner_id?: string;
+    ownership_ratio?: string;
+  };
+  building_profile?: {
+    building_type?: string;
+    construction_date?: string;
+    floor_info?: string;
+  };
+  area_summary?: {
+    area_sqm?: number;
+    area_ping?: number;
+  };
+  [key: string]: any; // Allow other fields
+}
+
+/**
+ * OCR metadata information
+ */
+export interface OCRMetadata {
+  engine?: OCREngine;
+  confidence_score?: number;
+  processed_at?: string;
+  processing_time_ms?: number;
+  error_message?: string;
+}
+
+/**
+ * Realtime subscription status
+ */
+export type RealtimeStatus =
+  | 'connecting'
+  | 'connected'
+  | 'disconnected'
+  | 'error';
+
+/**
+ * Document update event from Realtime subscription
+ */
+export interface DocumentUpdateEvent {
+  documentId: string;
+  oldStatus: OCRStatus;
+  newStatus: OCRStatus;
+  parsedData?: OCRParsedData;
+  metadata?: OCRMetadata;
+}
