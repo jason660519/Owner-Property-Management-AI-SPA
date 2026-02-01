@@ -1,14 +1,25 @@
 #!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
 
 echo "🔍 執行 pre-commit 檢查..."
 
-# 執行 lint-staged (允許空)
+# 1. 執行 lint-staged (現有)
 npx lint-staged --allow-empty 2>/dev/null || true
 
-# 執行 TypeScript 型別檢查 (如果存在)
+# 2. TypeScript 型別檢查 (現有)
 if [ -f "tsconfig.json" ]; then
   echo "🔷 檢查 TypeScript 型別..."
   npx tsc --noEmit 2>/dev/null || true
+fi
+
+# 3. 檔案規範檢查 (新增)
+echo "📁 檢查檔案規範..."
+if [ -f "scripts/check-file-compliance.sh" ]; then
+  if ! ./scripts/check-file-compliance.sh; then
+    echo ""
+    echo "❌ 檔案規範檢查失敗！請修正後重新提交。"
+    exit 1
+  fi
 fi
 
 echo "✅ Pre-commit 檢查通過！"

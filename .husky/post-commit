@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "📝 產生工作日誌..."
+
+if [ -f "scripts/generate-work-log.sh" ]; then
+  ./scripts/generate-work-log.sh
+fi

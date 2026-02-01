@@ -7,14 +7,15 @@ COMMIT_MSG_FILE=$1
 COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
 
 # Conventional Commits 格式驗證
-# 格式: type(scope): subject
-PATTERN="^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\(.+\))?: .{1,100}$"
+# 格式: [可選AI名稱] type(scope): subject
+# 支援可選的 [AI名稱] 前綴，讓 AI 協作者的 commit 也能通過驗證
+PATTERN="^(\[.+\] )?(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\(.+\))?: .{1,100}$"
 
 if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
   echo ""
   echo "❌ 提交訊息格式錯誤！"
   echo ""
-  echo "正確格式: <type>(<scope>): <subject>"
+  echo "正確格式: [可選AI名稱] <type>(<scope>): <subject>"
   echo ""
   echo "可用的 type 類型："
   echo "  feat     - 新功能"
@@ -31,8 +32,8 @@ if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
   echo ""
   echo "範例："
   echo "  feat(auth): 新增 Google 登入功能"
-  echo "  fix(property): 修復房源搜尋錯誤"
-  echo "  docs: 更新 API 文件"
+  echo "  [Claude] fix(property): 修復房源搜尋錯誤"
+  echo "  [Gemini] docs: 更新 API 文件"
   echo ""
   exit 1
 fi

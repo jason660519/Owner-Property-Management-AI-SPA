@@ -2,7 +2,7 @@
 > **創建者**: Claude Opus 4.5
 > **最後修改**: 2026-02-01
 > **修改者**: Claude Opus 4.5
-> **版本**: 1.1
+> **版本**: 1.2
 
 ---
 
@@ -116,7 +116,6 @@
 | `.claude/rules/general.md` | 3,097 bytes | 2026-01-30 | ✅ 存在 |
 | `.claude/rules/frontend/react-expo.md` | 4,105 bytes | 2026-01-30 | ✅ 存在 |
 | `.claude/rules/backend/supabase.md` | 4,021 bytes | 2026-01-30 | ✅ 存在 |
-| `.claude/rules/backend/python-ocr.md` | 10,891 bytes | 2026-01-30 | ✅ 存在 |
 
 ### 使用時機與觸發條件
 
@@ -125,7 +124,6 @@
 | `general.md` | **永遠** | 無限制 (全專案) | ✅ 是 |
 | `react-expo.md` | 編輯前端檔案時 | `apps/web/**/*.{ts,tsx}`, `apps/mobile/**/*.{ts,tsx}`, `packages/**/*.{ts,tsx}` | ✅ 條件式 |
 | `supabase.md` | 編輯資料庫相關時 | `supabase/**/*.sql`, `supabase/**/*.toml`, `apps/web/**/*.ts`, `apps/mobile/**/*.ts`, `**/lib/supabase.ts` | ✅ 條件式 |
-| `python-ocr.md` | 編輯 Python 時 | `backend/ocr_service/**/*.py`, `backend/**/*.py`, `**/test_*.py`, `**/tests/**/*.py` | ✅ 條件式 |
 
 ### 影響控制範圍 (Scope)
 
@@ -134,7 +132,6 @@
 | `general.md` | 全專案所有檔案 | 命名規範、Git 工作流、程式碼風格、語言偏好 | 基礎層 |
 | `react-expo.md` | 前端 TypeScript 檔案 | React 19/Next.js 15/Expo 54 規範、Server/Client Component、樣式系統 | 前端層 |
 | `supabase.md` | 資料庫與 SDK 相關 | 表命名規範、Migration 格式、RLS 政策、SDK 初始化範例 | 後端層 |
-| `python-ocr.md` | Python 後端服務 | PEP 8、Type Hints、pytest、OCR 特定規範 | 後端層 |
 
 ### 各 Rule 詳細規範內容
 
@@ -173,35 +170,21 @@
 | Migration 命名 | `YYYYMMDDHHMMSS_desc.sql` | `20260115120000_add_status.sql` |
 | RLS 政策 | 必須啟用 | `auth.uid() = user_id` |
 
-#### python-ocr.md (Python 規則)
-
-| 規範項目 | 內容 | 強制性 |
-|:---------|:-----|:-------|
-| Python 版本 | 3.11+ | 🔴 強制 |
-| 縮排 | 4 空格 | 🔴 強制 |
-| 行長度 | 最多 88 字元 (Black) | 🔴 強制 |
-| Type Hints | 必須標註 | 🔴 強制 |
-| Docstring 格式 | Google Style | 🔴 強制 |
-| 測試檔案命名 | `test_*.py` | 🔴 強制 |
-| 測試覆蓋率 | 最小 80%，核心 90%+ | 🔴 強制 |
-
 ### Rules 載入矩陣
 
-| 編輯檔案類型 | general.md | react-expo.md | supabase.md | python-ocr.md |
-|:-------------|:-----------|:--------------|:------------|:--------------|
-| `apps/web/app/page.tsx` | ✅ | ✅ | ✅ | ❌ |
-| `apps/mobile/src/components/Button.tsx` | ✅ | ✅ | ✅ | ❌ |
-| `supabase/migrations/xxx.sql` | ✅ | ❌ | ✅ | ❌ |
-| `apps/web/lib/supabase/client.ts` | ✅ | ✅ | ✅ | ❌ |
-| `backend/ocr_service/src/core/engine.py` | ✅ | ❌ | ❌ | ✅ |
-| `backend/tests/test_parser.py` | ✅ | ❌ | ❌ | ✅ |
-| `docs/README.md` | ✅ | ❌ | ❌ | ❌ |
+| 編輯檔案類型 | general.md | react-expo.md | supabase.md |
+|:-------------|:-----------|:--------------|:------------|
+| `apps/web/app/page.tsx` | ✅ | ✅ | ✅ |
+| `apps/mobile/src/components/Button.tsx` | ✅ | ✅ | ✅ |
+| `supabase/migrations/xxx.sql` | ✅ | ❌ | ✅ |
+| `apps/web/lib/supabase/client.ts` | ✅ | ✅ | ✅ |
+| `docs/README.md` | ✅ | ❌ | ❌ |
 
 ### 檢測結果
 
 | 檢測項目 | 結果 | 備註 |
 |:---------|:-----|:-----|
-| 檔案存在性 | ✅ 通過 | 4 個 rules 都存在 |
+| 檔案存在性 | ✅ 通過 | 3 個 rules 都存在 |
 | Frontmatter 格式 | ✅ 通過 | paths 設定正確 |
 | Path 匹配測試 | ✅ 通過 | glob 模式有效 |
 | 內容完整性 | ✅ 通過 | 涵蓋必要規範 |
@@ -487,7 +470,6 @@
 | `.claude/rules/general.md` | 整個專案 | 永遠載入 |
 | `.claude/rules/frontend/react-expo.md` | 前端檔案 | `apps/web/**/*.{ts,tsx}`, `apps/mobile/**/*.{ts,tsx}` |
 | `.claude/rules/backend/supabase.md` | 資料庫相關 | `supabase/**/*.sql`, `**/lib/supabase.ts` |
-| `.claude/rules/backend/python-ocr.md` | Python 後端 | `backend/ocr_service/**/*.py` |
 
 #### Rules 載入機制
 
@@ -862,11 +844,6 @@ code apps/web/app/page.tsx
 # 2. 在 Claude Code 中詢問技術棧
 # 預期: 應提及 React 19, Next.js 15, Expo 54
 
-# 3. 開啟後端檔案
-code backend/ocr_service/src/core/engine.py
-
-# 4. 詢問技術棧
-# 預期: 應提及 Python 3.11+, pytest, Tesseract
 ```
 
 ### 測試 3: MCP 伺服器驗證
@@ -933,7 +910,7 @@ git commit -m "feat(test): valid message"
 │  │ • general.md    │    │ • python-scan   │    │ • context7      │     │
 │  │ • react-expo.md │    │ • security-rev  │    │ • github        │     │
 │  │ • supabase.md   │    │ • tdd-workflow  │    │ • postgres      │     │
-│  │ • python-ocr.md │    │ • ...           │    │ • memory        │     │
+│  │                 │    │ • ...           │    │ • memory        │     │
 │  └─────────────────┘    └─────────────────┘    └─────────────────┘     │
 │                                                                          │
 ├─────────────────────────────────────────────────────────────────────────┤
@@ -1062,6 +1039,7 @@ git commit --allow-empty -m "test: verify hooks"
 
 | 日期 | 版本 | 修改者 | 修改內容 |
 |------|------|--------|----------|
+| 2026-02-01 | 1.2 | Claude Opus 4.5 | 移除 python-ocr 相關內容（改用雲端 VLM 服務） |
 | 2026-02-01 | 1.1 | Claude Opus 4.5 | 新增 CLAUDE.md、Rules、Skills、Hooks 詳細檢測報告章節 |
 | 2026-02-01 | 1.0 | Claude Opus 4.5 | 初始版本 |
 
