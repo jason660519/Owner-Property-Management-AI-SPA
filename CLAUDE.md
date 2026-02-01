@@ -263,6 +263,23 @@ root/
 
 ---
 
+## 🎯 技能使用優先級（Skills Priority）
+
+在開發中遇到需要建議或協助時，按以下優先級查詢：
+
+| 優先級 | 來源 | 說明 | 例子 |
+| :--- | :--- | :--- | :--- |
+| **1️⃣ 最高** | `.claude/rules/` | 專案強制規範（必須遵守） | `general.md`, `react-expo.md`, `supabase.md` |
+| **2️⃣ 中等** | `.claude/skills/` | 專案自定義技能（推薦使用） | `python-security-scan` |
+| **3️⃣ 參考** | 系統 Skills | 通用建議（低優先級，當無項目規則時使用） | `coding-standards`, `security-review`, `frontend-patterns` |
+
+**使用原則**：
+- 優先遵守 `.claude/rules/` 中的規範
+- 無專案規則時，使用 `.claude/skills/` 中的技能
+- 系統 Skills 僅作為通用參考，不覆蓋項目規則
+
+---
+
 ## 📖 Context7 技術文檔參考
 
 查詢最新官方文檔時使用：

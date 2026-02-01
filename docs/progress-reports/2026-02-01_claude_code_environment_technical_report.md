@@ -1,8 +1,8 @@
 > **創建日期**: 2026-02-01
 > **創建者**: Claude Opus 4.5
 > **最後修改**: 2026-02-01
-> **修改者**: Claude Opus 4.5
-> **版本**: 1.4
+> **修改者**: Claude Haiku 4.5
+> **版本**: 1.5
 
 ---
 
@@ -14,16 +14,17 @@
 2. [CLAUDE.md 詳細檢測報告](#claudemd-詳細檢測報告)
 3. [Rules 詳細檢測報告](#rules-詳細檢測報告)
 4. [Skills 詳細檢測報告](#skills-詳細檢測報告)
-5. [Plugin Marketplace 詳細檢測報告](#plugin-marketplace-詳細檢測報告)
-6. [Hooks 詳細檢測報告](#hooks-詳細檢測報告)
-7. [設定檔清單與用途說明](#設定檔清單與用途說明)
-8. [MCP 伺服器連線狀態檢測](#mcp-伺服器連線狀態檢測)
-9. [控制範圍與權限邊界](#控制範圍與權限邊界)
-10. [設定載入與執行優先順序](#設定載入與執行優先順序)
-11. [設定檔相依性與衝突分析](#設定檔相依性與衝突分析)
-12. [錯誤排查步驟與解決方案](#錯誤排查步驟與解決方案)
-13. [功能驗證測試方法](#功能驗證測試方法)
-14. [架構圖與流程圖](#架構圖與流程圖)
+5. [Rules vs Skills 優先級與區別](#rules-vs-skills-優先級與區別)
+6. [Plugin Marketplace 詳細檢測報告](#plugin-marketplace-詳細檢測報告)
+7. [Hooks 詳細檢測報告](#hooks-詳細檢測報告)
+8. [設定檔清單與用途說明](#設定檔清單與用途說明)
+9. [MCP 伺服器連線狀態檢測](#mcp-伺服器連線狀態檢測)
+10. [控制範圍與權限邊界](#控制範圍與權限邊界)
+11. [設定載入與執行優先順序](#設定載入與執行優先順序)
+12. [設定檔相依性與衝突分析](#設定檔相依性與衝突分析)
+13. [錯誤排查步驟與解決方案](#錯誤排查步驟與解決方案)
+14. [功能驗證測試方法](#功能驗證測試方法)
+15. [架構圖與流程圖](#架構圖與流程圖)
 
 ---
 
@@ -227,6 +228,95 @@
 | SKILL.md 格式 | ✅ 通過 | name/description frontmatter 正確 |
 | 附帶資源完整性 | ✅ 通過 | scripts/, references/, assets/ 存在 |
 | 符號連結有效性 | ✅ 通過 | design-md 連結有效 |
+
+---
+
+## Rules vs Skills 優先級與區別
+
+### 概念澄清
+
+在 Claude Code 協作開發中，「規則」(Rules) 和「技能」(Skills) 是兩個不同的機制：
+
+| 特性 | Rules | Skills | 系統 Skills |
+|:-----|:------|:--------|:-----------|
+| **強制性** | 🔴 強制遵守 | 🟡 推薦使用 | 🟢 參考建議 |
+| **範疇** | 專案級別 | 專案級別 | 通用級別 |
+| **優先級** | 最高 (1️⃣) | 中等 (2️⃣) | 最低 (3️⃣) |
+| **觸發方式** | 路徑條件自動載入 | 用戶呼叫或自動建議 | AI 判斷需要時自動參考 |
+| **內容** | 開發規範與約束 | 增強工具與流程 | 通用最佳實踐 |
+| **檔案位置** | `.claude/rules/**/*.md` | `.claude/skills/**/SKILL.md` | 系統全域 |
+
+### Rules 清單（強制執行）
+
+| Rule | 應用範圍 | 強制項目 |
+|:-----|:---------|:---------|
+| `general.md` | 全專案 | 命名規範、Git 流程、程式碼風格、檔案歸檔位置 |
+| `frontend/react-expo.md` | 前端檔案 (`apps/web/**`, `apps/mobile/**`) | React 19、Next.js 15、Expo 54 規範 |
+| `backend/supabase.md` | 資料庫相關 (`supabase/**`, `**/lib/supabase.ts`) | 表命名、RLS 政策、SDK 使用 |
+
+### Skills 清單（增強使用）
+
+#### 專案級 Skills
+| Skill | 用途 | 優先於 |
+|:------|:-----|:--------|
+| `python-security-scan` | Python 專案的全面安全掃描 | 系統 `security-review` skill |
+
+#### 推薦的系統 Skills（當無專案規則時）
+| Skill | 用途 |
+|:------|:-----|
+| `coding-standards` | 通用編碼標準 |
+| `backend-patterns` | 後端架構模式 |
+| `frontend-patterns` | 前端設計模式 |
+| `security-review` | 通用安全審查 |
+| `tdd-workflow` | TDD 工作流（備註：與 everything-claude-code:tdd 功能重疊） |
+
+### 使用優先級原則
+
+**開發流程中的決策樹**：
+
+```
+遇到開發問題或不確定
+        │
+        ▼
+是否有相關的 .claude/rules/?
+        │
+    ├─ 是 ──────▶ ✅ 遵守 Rule（強制）
+    │
+    └─ 否 ──────▶ 查詢 .claude/skills/
+                    │
+                    ├─ 是 ──────▶ 🟡 參考 Skill（推薦）
+                    │
+                    └─ 否 ──────▶ 查詢系統 Skills
+                                   │
+                                   └─▶ 🟢 參考系統 Skill（建議）
+```
+
+### 已識別的重複與優化
+
+#### 移除的過時檔案
+- ❌ `.claude/rules/backend/python-ocr.md` (2026-02-01 刪除)
+  - **原因**：OCR 相關內容已遷移至 `docs/progress-reports/OCR開發進度報告/`
+  - **替代方案**：查詢該目錄的進度報告
+
+#### 合併處理的重複 Skills
+- `security-review` (系統) ↔ `python-security-scan` (專案)
+  - **決策**：保留兩者，但明確優先級
+  - **使用規則**：Python 專案安全審計優先使用 `python-security-scan`
+  - **python-security-scan SKILL.md 已更新**：加入優先級標記
+
+#### 系統層重複（無法刪除）
+- `tdd-workflow` ↔ `everything-claude-code:tdd`
+  - **現狀**：系統內置重複
+  - **建議**：優先使用 `tdd-workflow`（名稱更清晰）
+
+### 檢測結果
+
+| 項目 | 結果 | 備註 |
+|:-----|:-----|:-----|
+| Rules 完整性 | ✅ 通過 | 3 個 rules 存在，無過時檔案 |
+| Skills 命名衝突 | ✅ 解決 | 已明確優先級與區別 |
+| 文檔一致性 | ✅ 通過 | CLAUDE.md、general.md、python-security-scan SKILL.md 已同步更新 |
+| 去重完成度 | ✅ 完成 | 刪除過時規則，優化優先級 |
 
 ---
 
@@ -1032,6 +1122,7 @@ git commit --allow-empty -m "test: verify hooks"
 
 | 日期 | 版本 | 修改者 | 修改內容 |
 |------|------|--------|----------|
+| 2026-02-01 | 1.5 | Claude Haiku 4.5 | 新增 Rules vs Skills 優先級與區別章節；刪除過時的 `.claude/rules/backend/python-ocr.md`；優化技能使用優先級 |
 | 2026-02-01 | 1.4 | Claude Opus 4.5 | 新增 Plugin Marketplace 詳細檢測報告章節 |
 | 2026-02-01 | 1.3 | Claude Opus 4.5 | 移除全域 CLAUDE.md 相關內容，整合至專案層級設定 |
 | 2026-02-01 | 1.2 | Claude Opus 4.5 | 移除 python-ocr 相關內容（改用雲端 VLM 服務） |
