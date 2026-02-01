@@ -2,14 +2,15 @@ import { createClient } from '@supabase/supabase-js'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import 'react-native-url-polyfill/auto'
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || ''
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || ''
 
+// Log warning instead of throwing error to prevent app crash
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase URL or Anon Key in environment variables')
+  console.warn('Missing Supabase URL or Anon Key in environment variables. Some features may not work.')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseAnonKey || 'placeholder', {
   auth: {
     storage: AsyncStorage,
     autoRefreshToken: true,

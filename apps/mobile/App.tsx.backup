@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, Text } from 'react-native';
+import { View, ActivityIndicator, Text, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Linking from 'expo-linking';
 import Dashboard from './src/Dashboard';
@@ -11,11 +11,9 @@ import './global.css';
 
 type AuthScreen = 'welcome' | 'login' | 'register';
 
-class ErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { hasError: boolean; error: Error | null }
-> {
-  constructor(props: { children: React.ReactNode }) {
+// Error boundary for catching runtime errors
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: Error | null}> {
+  constructor(props: {children: React.ReactNode}) {
     super(props);
     this.state = { hasError: false, error: null };
   }
@@ -27,21 +25,9 @@ class ErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: '#141414',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 20,
-          }}
-        >
-          <Text style={{ color: '#ff4444', fontSize: 18, marginBottom: 10 }}>
-            應用程式發生錯誤
-          </Text>
-          <Text style={{ color: '#999999', fontSize: 14, textAlign: 'center' }}>
-            {this.state.error?.message}
-          </Text>
+        <View style={{ flex: 1, backgroundColor: '#141414', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <Text style={{ color: '#ff4444', fontSize: 18, marginBottom: 10 }}>應用程式發生錯誤</Text>
+          <Text style={{ color: '#999999', fontSize: 14, textAlign: 'center' }}>{this.state.error?.message}</Text>
         </View>
       );
     }
@@ -54,18 +40,28 @@ function AppContent() {
   const [initializing, setInitializing] = useState(true);
   const [currentScreen, setCurrentScreen] = useState<AuthScreen>('welcome');
 
+  // Debug logging
+  console.log('[App] State:', { user: !!user, loading, initializing, currentScreen });
+
   useEffect(() => {
+    console.log('[App] useEffect - Setting up deep link handler');
+    // Handle Deep Link on app launch
     const handleInitialURL = async () => {
       try {
+        console.log('[App] Getting initial URL...');
         const initialUrl = await Linking.getInitialURL();
+        console.log('[App] Initial URL:', initialUrl);
         if (initialUrl) {
           await handleDeepLink(initialUrl);
         }
-      } finally {
-        setInitializing(false);
+      } catch (error) {
+        console.error('[App] Error getting initial URL:', error);
       }
+      console.log('[App] Setting initializing to false');
+      setInitializing(false);
     };
 
+    // Handle Deep Link while app is running
     const subscription = Linking.addEventListener('url', (event: { url: string }) => {
       handleDeepLink(event.url);
     });
@@ -76,24 +72,29 @@ function AppContent() {
   }, []);
 
   const handleDeepLink = async (url: string) => {
-    const { queryParams } = Linking.parse(url);
-    const token = queryParams?.token as string | undefined;
+    try {
+      const { queryParams } = Linking.parse(url);
+      const token = queryParams?.token as string;
 
-    if (token) {
-      await exchangeToken(token);
+      if (token) {
+        console.log('Received transfer token, exchanging for session...');
+        const result = await exchangeToken(token);
+
+        if (result.success) {
+          console.log('Successfully authenticated via Deep Link');
+        } else {
+          console.error('Failed to exchange token:', result.error);
+        }
+      }
+    } catch (error) {
+      console.error('Error handling deep link:', error);
     }
   };
 
   if (loading || initializing) {
+    console.log('[App] Rendering loading state');
     return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: '#141414',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
+      <View style={{ flex: 1, backgroundColor: '#141414', alignItems: 'center', justifyContent: 'center' }}>
         <StatusBar style="light" />
         <ActivityIndicator size="large" color="#7C3AED" />
         <Text style={{ color: '#ffffff', marginTop: 20 }}>載入中...</Text>
@@ -101,6 +102,7 @@ function AppContent() {
     );
   }
 
+  console.log('[App] Rendering main content, user:', !!user);
   if (!user) {
     return (
       <View style={{ flex: 1, backgroundColor: '#141414' }}>
@@ -130,6 +132,7 @@ function AppContent() {
 }
 
 export default function App() {
+  console.log('[App] Rendering App with ErrorBoundary');
   return (
     <ErrorBoundary>
       <AppContent />

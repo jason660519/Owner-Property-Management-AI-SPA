@@ -2,14 +2,17 @@
   "name": "owner-property-management-ai-spa",
   "private": true,
   "scripts": {
-    "build": "turbo build",
-    "dev": "turbo dev",
-    "lint": "turbo lint",
-    "test": "turbo test",
+    "build": "npm run build --workspaces",
+    "dev": "./start-dev.sh both",
+    "dev:web": "npm run dev --workspace web",
+    "dev:mobile": "npm run dev --workspace mobile",
+    "dev:stop": "./start-dev.sh stop",
+    "dev:clean": "./start-dev.sh clean",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {
-    "turbo": "latest",
     "prettier": "^3.0.0"
   },
   "packageManager": "npm@10.0.0",

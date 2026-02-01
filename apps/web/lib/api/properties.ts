@@ -1,4 +1,6 @@
 import { createClient } from '../supabase/server';
+import { writeFile, appendFile } from 'fs/promises';
+import { join } from 'path';
 
 export interface PropertyDetails {
     title: string;
@@ -132,8 +134,43 @@ const MOCK_PROPERTIES: DatabaseProperty[] = [
 ];
 
 export async function getProperties() {
-    const supabase = createClient();
-    const { data, error } = await (await supabase).from('properties').select('*').order('created_at', { ascending: false });
+    // #region agent log
+    const logPath = join(process.cwd(), '.cursor', 'debug.log');
+    const logEntry = JSON.stringify({location:'lib/api/properties.ts:134',message:'getProperties entry',data:{hasEnvUrl:!!process.env.NEXT_PUBLIC_SUPABASE_URL,hasEnvKey:!!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,envUrlLength:process.env.NEXT_PUBLIC_SUPABASE_URL?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'}) + '\n';
+    appendFile(logPath, logEntry).catch(()=>{});
+    // #endregion
+    let supabase;
+    try {
+        // #region agent log
+        const logPath2 = join(process.cwd(), '.cursor', 'debug.log');
+        const logEntry2 = JSON.stringify({location:'lib/api/properties.ts:138',message:'Before createClient call',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'}) + '\n';
+        appendFile(logPath2, logEntry2).catch(()=>{});
+        // #endregion
+        supabase = await createClient();
+        // #region agent log
+        const logPath3 = join(process.cwd(), '.cursor', 'debug.log');
+        const logEntry3 = JSON.stringify({location:'lib/api/properties.ts:141',message:'After createClient call',data:{supabaseType:typeof supabase,hasFrom:typeof supabase?.from==='function'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'}) + '\n';
+        appendFile(logPath3, logEntry3).catch(()=>{});
+        // #endregion
+    } catch (error) {
+        // #region agent log
+        const logPath4 = join(process.cwd(), '.cursor', 'debug.log');
+        const logEntry4 = JSON.stringify({location:'lib/api/properties.ts:144',message:'Error in createClient',data:{errorMessage:error instanceof Error?error.message:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'}) + '\n';
+        appendFile(logPath4, logEntry4).catch(()=>{});
+        // #endregion
+        throw error;
+    }
+    // #region agent log
+    const logPath5 = join(process.cwd(), '.cursor', 'debug.log');
+    const logEntry5 = JSON.stringify({location:'lib/api/properties.ts:148',message:'Before Supabase query',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'}) + '\n';
+    appendFile(logPath5, logEntry5).catch(()=>{});
+    // #endregion
+    const { data, error } = await supabase.from('properties').select('*').order('created_at', { ascending: false });
+    // #region agent log
+    const logPath6 = join(process.cwd(), '.cursor', 'debug.log');
+    const logEntry6 = JSON.stringify({location:'lib/api/properties.ts:150',message:'After Supabase query',data:{hasError:!!error,errorCode:error?.code,errorMessage:error?.message,dataLength:data?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'}) + '\n';
+    appendFile(logPath6, logEntry6).catch(()=>{});
+    // #endregion
 
     if (error) {
         console.error('Error fetching properties, using mock data:', error);
@@ -156,8 +193,8 @@ export async function getProperty(id: string) {
         return mock ? mapDatabaseToProperty(mock) : null;
     }
 
-    const supabase = createClient();
-    const { data, error } = await (await supabase).from('properties').select('*').eq('id', id).single();
+    const supabase = await createClient();
+    const { data, error } = await supabase.from('properties').select('*').eq('id', id).single();
 
     if (error) {
         console.error(`Error fetching property ${id}:`, error);

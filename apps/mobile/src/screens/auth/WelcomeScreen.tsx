@@ -22,7 +22,7 @@ export default function WelcomeScreen({ onNavigateToLogin, onNavigateToRegister 
         <View className="flex-1 bg-bg-primary justify-center px-6">
             {/* Logo */}
             <View className="items-center mb-12">
-                <View className="w-20 h-20 bg-accent-primary rounded-2xl items-center justify-center mb-6">
+                <View className="w-20 h-20 bg-accent rounded-2xl items-center justify-center mb-6">
                     <Text className="text-white text-4xl font-bold">E</Text>
                 </View>
                 <Text className="text-text-primary text-3xl font-bold mb-3">
@@ -38,7 +38,7 @@ export default function WelcomeScreen({ onNavigateToLogin, onNavigateToRegister 
             <View className="space-y-4">
                 {/* Login Button */}
                 <TouchableOpacity
-                    className="bg-accent-primary rounded-lg py-4 items-center"
+                    className="bg-accent rounded-lg py-4 items-center"
                     onPress={onNavigateToLogin}
                 >
                     <Text className="text-white font-semibold text-base">登入</Text>
@@ -46,7 +46,7 @@ export default function WelcomeScreen({ onNavigateToLogin, onNavigateToRegister 
 
                 {/* Register Button */}
                 <TouchableOpacity
-                    className="bg-bg-secondary border border-border-default rounded-lg py-4 items-center"
+                    className="bg-bg-secondary border border-border rounded-lg py-4 items-center"
                     onPress={onNavigateToRegister}
                 >
                     <Text className="text-text-primary font-semibold text-base">註冊新帳號</Text>
@@ -55,9 +55,9 @@ export default function WelcomeScreen({ onNavigateToLogin, onNavigateToRegister 
 
             {/* Footer */}
             <View className="mt-12">
-                <Text className="text-text-tertiary text-center text-sm">
+                <Text className="text-text-muted text-center text-sm">
                     登入即表示您同意我們的{'\n'}
-                    <Text className="text-accent-primary">服務條款</Text> 和 <Text className="text-accent-primary">隱私政策</Text>
+                    <Text className="text-accent">服務條款</Text> 和 <Text className="text-accent">隱私政策</Text>
                 </Text>
             </View>
         </View>

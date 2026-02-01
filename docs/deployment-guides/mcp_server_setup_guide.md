@@ -2,7 +2,7 @@
 
 > **創建日期**: 2026-01-30  
 > **創建者**: Project Team  
-> **最後修改**: 2026-01-30  
+> **最後修改**: 2026-02-01  
 > **修改者**: Project Team  
 > **版本**: 1.0  
 > **文件類型**: 開發指南
@@ -10,8 +10,8 @@
 ---
 
 
-> 更新日期：2026-01-25
-> 版本：2.0
+> 更新日期：2026-02-01
+> 版本：2.1
 
 ---
 
@@ -63,7 +63,7 @@
 ### 5. Filesystem（檔案操作）
 ```bash
 # 自動使用，已綁定專案根目錄
-# 路徑：/Volumes/KLEVV-4T-1/Real Estate Management Projects/Owner Property Management AI SPA
+# 路徑：/Volumes/KLEVV-4T-1/Real Estate Management Projects/Owner-Property-Management-AI-SPA
 ```
 
 ### 6. GitHub（倉庫管理）

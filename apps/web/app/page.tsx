@@ -28,7 +28,40 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  const properties = await getProperties();
+  // #region agent log
+  const { appendFile } = await import('fs/promises');
+  const { join } = await import('path');
+  const logPath = join(process.cwd(), '.cursor', 'debug.log');
+  const logEntry = JSON.stringify({location:'app/page.tsx:30',message:'HomePage function entry',data:{hasEnvUrl:!!process.env.NEXT_PUBLIC_SUPABASE_URL,hasEnvKey:!!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'}) + '\n';
+  appendFile(logPath, logEntry).catch(()=>{});
+  // #endregion
+  let properties;
+  try {
+    // #region agent log
+    const { appendFile: appendFile2 } = await import('fs/promises');
+    const { join: join2 } = await import('path');
+    const logPath2 = join2(process.cwd(), '.cursor', 'debug.log');
+    const logEntry2 = JSON.stringify({location:'app/page.tsx:35',message:'Before getProperties call',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'}) + '\n';
+    appendFile2(logPath2, logEntry2).catch(()=>{});
+    // #endregion
+    properties = await getProperties();
+    // #region agent log
+    const { appendFile: appendFile3 } = await import('fs/promises');
+    const { join: join3 } = await import('path');
+    const logPath3 = join3(process.cwd(), '.cursor', 'debug.log');
+    const logEntry3 = JSON.stringify({location:'app/page.tsx:38',message:'After getProperties call',data:{propertiesCount:properties?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'}) + '\n';
+    appendFile3(logPath3, logEntry3).catch(()=>{});
+    // #endregion
+  } catch (error) {
+    // #region agent log
+    const { appendFile: appendFile4 } = await import('fs/promises');
+    const { join: join4 } = await import('path');
+    const logPath4 = join4(process.cwd(), '.cursor', 'debug.log');
+    const logEntry4 = JSON.stringify({location:'app/page.tsx:41',message:'Error in getProperties',data:{errorMessage:error instanceof Error?error.message:String(error),errorStack:error instanceof Error?error.stack:undefined},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'}) + '\n';
+    appendFile4(logPath4, logEntry4).catch(()=>{});
+    // #endregion
+    throw error;
+  }
 
   return (
     <>

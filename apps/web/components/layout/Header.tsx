@@ -77,11 +77,18 @@ export function Header() {
             ))}
           </div>
 
-          {/* CTA Button */}
+          {/* Auth Actions */}
           <div className={styles.navActions}>
-            <Button variant="primary" size="md">
-              聯絡我們
-            </Button>
+            <Link href="/login">
+              <Button variant="secondary" size="md">
+                登入
+              </Button>
+            </Link>
+            <Link href="/register">
+              <Button variant="primary" size="md">
+                註冊
+              </Button>
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
@@ -112,9 +119,18 @@ export function Header() {
               {link.label}
             </Link>
           ))}
-          <Button variant="primary" fullWidth>
-            聯絡我們
-          </Button>
+          <div className={styles.mobileAuthButtons}>
+            <Link href="/login">
+              <Button variant="secondary" fullWidth>
+                登入
+              </Button>
+            </Link>
+            <Link href="/register">
+              <Button variant="primary" fullWidth>
+                註冊
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     </header>

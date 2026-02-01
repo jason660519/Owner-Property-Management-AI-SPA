@@ -276,3 +276,10 @@
 .mobileNavLink.active {
     background: var(--color-bg-secondary);
 }
+
+.mobileAuthButtons {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+    margin-top: var(--spacing-2);
+}

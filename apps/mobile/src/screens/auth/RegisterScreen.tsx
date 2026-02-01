@@ -74,7 +74,7 @@ export default function RegisterScreen({ onNavigateToLogin }: { onNavigateToLogi
                         請檢查您的 Email 信箱{'\n'}點擊驗證連結以啟用帳號
                     </Text>
                     <TouchableOpacity
-                        className="bg-accent-primary rounded-lg py-4 px-8"
+                        className="bg-accent rounded-lg py-4 px-8"
                         onPress={onNavigateToLogin}
                     >
                         <Text className="text-white font-semibold">前往登入</Text>
@@ -96,7 +96,7 @@ export default function RegisterScreen({ onNavigateToLogin }: { onNavigateToLogi
                 <View className="flex-1 justify-center px-6">
                     {/* Logo */}
                     <View className="items-center mb-8">
-                        <View className="w-16 h-16 bg-accent-primary rounded-lg items-center justify-center mb-4">
+                        <View className="w-16 h-16 bg-accent rounded-lg items-center justify-center mb-4">
                             <Text className="text-white text-3xl font-bold">E</Text>
                         </View>
                         <Text className="text-text-primary text-2xl font-semibold">建立帳號</Text>
@@ -116,7 +116,7 @@ export default function RegisterScreen({ onNavigateToLogin }: { onNavigateToLogi
                     <View className="mb-4">
                         <Text className="text-text-secondary text-sm mb-2">姓名</Text>
                         <TextInput
-                            className="bg-bg-secondary border border-border-default rounded-lg px-4 py-3 text-text-primary"
+                            className="bg-bg-secondary border border-border rounded-lg px-4 py-3 text-text-primary"
                             placeholder="您的姓名"
                             placeholderTextColor="#666666"
                             value={fullName}
@@ -130,7 +130,7 @@ export default function RegisterScreen({ onNavigateToLogin }: { onNavigateToLogi
                     <View className="mb-4">
                         <Text className="text-text-secondary text-sm mb-2">電子郵件</Text>
                         <TextInput
-                            className="bg-bg-secondary border border-border-default rounded-lg px-4 py-3 text-text-primary"
+                            className="bg-bg-secondary border border-border rounded-lg px-4 py-3 text-text-primary"
                             placeholder="your@email.com"
                             placeholderTextColor="#666666"
                             value={email}
@@ -146,7 +146,7 @@ export default function RegisterScreen({ onNavigateToLogin }: { onNavigateToLogi
                     <View className="mb-4">
                         <Text className="text-text-secondary text-sm mb-2">密碼</Text>
                         <TextInput
-                            className="bg-bg-secondary border border-border-default rounded-lg px-4 py-3 text-text-primary"
+                            className="bg-bg-secondary border border-border rounded-lg px-4 py-3 text-text-primary"
                             placeholder="至少 8 個字元"
                             placeholderTextColor="#666666"
                             value={password}
@@ -161,7 +161,7 @@ export default function RegisterScreen({ onNavigateToLogin }: { onNavigateToLogi
                     <View className="mb-6">
                         <Text className="text-text-secondary text-sm mb-2">確認密碼</Text>
                         <TextInput
-                            className="bg-bg-secondary border border-border-default rounded-lg px-4 py-3 text-text-primary"
+                            className="bg-bg-secondary border border-border rounded-lg px-4 py-3 text-text-primary"
                             placeholder="再次輸入密碼"
                             placeholderTextColor="#666666"
                             value={confirmPassword}
@@ -174,7 +174,7 @@ export default function RegisterScreen({ onNavigateToLogin }: { onNavigateToLogi
 
                     {/* Register Button */}
                     <TouchableOpacity
-                        className={`bg-accent-primary rounded-lg py-4 items-center mb-4 ${isLoading ? 'opacity-50' : ''
+                        className={`bg-accent rounded-lg py-4 items-center mb-4 ${isLoading ? 'opacity-50' : ''
                             }`}
                         onPress={handleRegister}
                         disabled={isLoading}
@@ -190,7 +190,7 @@ export default function RegisterScreen({ onNavigateToLogin }: { onNavigateToLogi
                     <View className="flex-row justify-center">
                         <Text className="text-text-secondary text-sm">已有帳號？ </Text>
                         <TouchableOpacity onPress={onNavigateToLogin} disabled={isLoading}>
-                            <Text className="text-accent-primary text-sm font-semibold">立即登入</Text>
+                            <Text className="text-accent text-sm font-semibold">立即登入</Text>
                         </TouchableOpacity>
                     </View>
                 </View>

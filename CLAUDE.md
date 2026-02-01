@@ -285,14 +285,17 @@ root/
 supabase start                # 啟動本地 Supabase
 supabase status               # 檢查服務狀態
 
-# Monorepo (Turborepo)
+# Workspace 開發
 npm install                   # 安裝所有依賴
-turbo dev                     # 同時啟動 Web & Mobile
-turbo dev --filter=web        # 僅啟動 Web
-turbo dev --filter=mobile     # 僅啟動 Mobile
+./start-dev.sh both           # 同時啟動 Web & Mobile
+npm run dev:web               # 僅啟動 Web (Next.js)
+npm run dev:mobile            # 僅啟動 Mobile (Expo)
+npm run dev:stop              # 停止所有服務
 
 # Testing
-npm run test                  # 執行測試
+npm run build                 # 透過所有 workspace 執行 build
+npm run lint                  # 透過所有 workspace 執行 lint
+npm run test                  # 執行測試（若各 workspace 有設定）
 ```
 
 ---
