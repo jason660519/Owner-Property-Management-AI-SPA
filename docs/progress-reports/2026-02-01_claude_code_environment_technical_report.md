@@ -2,7 +2,7 @@
 > **創建者**: Claude Opus 4.5
 > **最後修改**: 2026-02-01
 > **修改者**: Claude Opus 4.5
-> **版本**: 1.3
+> **版本**: 1.4
 
 ---
 
@@ -14,15 +14,16 @@
 2. [CLAUDE.md 詳細檢測報告](#claudemd-詳細檢測報告)
 3. [Rules 詳細檢測報告](#rules-詳細檢測報告)
 4. [Skills 詳細檢測報告](#skills-詳細檢測報告)
-5. [Hooks 詳細檢測報告](#hooks-詳細檢測報告)
-6. [設定檔清單與用途說明](#設定檔清單與用途說明)
-7. [MCP 伺服器連線狀態檢測](#mcp-伺服器連線狀態檢測)
-8. [控制範圍與權限邊界](#控制範圍與權限邊界)
-9. [設定載入與執行優先順序](#設定載入與執行優先順序)
-10. [設定檔相依性與衝突分析](#設定檔相依性與衝突分析)
-11. [錯誤排查步驟與解決方案](#錯誤排查步驟與解決方案)
-12. [功能驗證測試方法](#功能驗證測試方法)
-13. [架構圖與流程圖](#架構圖與流程圖)
+5. [Plugin Marketplace 詳細檢測報告](#plugin-marketplace-詳細檢測報告)
+6. [Hooks 詳細檢測報告](#hooks-詳細檢測報告)
+7. [設定檔清單與用途說明](#設定檔清單與用途說明)
+8. [MCP 伺服器連線狀態檢測](#mcp-伺服器連線狀態檢測)
+9. [控制範圍與權限邊界](#控制範圍與權限邊界)
+10. [設定載入與執行優先順序](#設定載入與執行優先順序)
+11. [設定檔相依性與衝突分析](#設定檔相依性與衝突分析)
+12. [錯誤排查步驟與解決方案](#錯誤排查步驟與解決方案)
+13. [功能驗證測試方法](#功能驗證測試方法)
+14. [架構圖與流程圖](#架構圖與流程圖)
 
 ---
 
@@ -226,6 +227,97 @@
 | SKILL.md 格式 | ✅ 通過 | name/description frontmatter 正確 |
 | 附帶資源完整性 | ✅ 通過 | scripts/, references/, assets/ 存在 |
 | 符號連結有效性 | ✅ 通過 | design-md 連結有效 |
+
+---
+
+## Plugin Marketplace 詳細檢測報告
+
+### 項目概述
+
+Plugin Marketplace 是 Claude Code 的擴展機制，允許開發者安裝和管理第三方插件，增強 IDE 功能。
+
+### 已啟用插件清單
+
+| 插件名稱 | Package ID | 來源 | 狀態 |
+|:---------|:-----------|:-----|:-----|
+| `document-skills` | `document-skills@anthropic-agent-skills` | Anthropic Agent Skills | ✅ 啟用 |
+| `everything-claude-code` | `everything-claude-code@everything-claude-code` | Everything Claude Code | ✅ 啟用 |
+
+### 插件設定方式
+
+#### `.claude/settings.json` 插件啟用配置
+
+```json
+{
+  "enabledPlugins": {
+    "document-skills@anthropic-agent-skills": true,
+    "everything-claude-code@everything-claude-code": true
+  }
+}
+```
+
+### 插件功能說明
+
+#### 1. document-skills (@anthropic-agent-skills)
+
+| 屬性 | 說明 |
+|:-----|:-----|
+| **用途** | 提供文檔相關的 AI 輔助功能 |
+| **功能** | 文件生成、文檔解析、技術文檔編寫協助 |
+| **觸發方式** | 自動可用，於編輯文檔時啟用 |
+| **狀態** | ✅ 主動 |
+
+#### 2. everything-claude-code (@everything-claude-code)
+
+| 屬性 | 說明 |
+|:-----|:-----|
+| **用途** | 提供 Claude Code 的完整功能套件 |
+| **功能** | 代碼補全、代碼審查、錯誤檢測等綜合功能 |
+| **觸發方式** | 自動可用，是核心功能 |
+| **狀態** | ✅ 主動 |
+
+### 插件啟用/禁用方法
+
+**啟用插件**：
+
+```json
+{
+  "enabledPlugins": {
+    "plugin-name@plugin-namespace": true
+  }
+}
+```
+
+**禁用插件**：
+
+```json
+{
+  "enabledPlugins": {
+    "plugin-name@plugin-namespace": false
+  }
+}
+```
+
+### Plugin Marketplace 訪問
+
+- **官方來源**：Anthropic Plugin Marketplace (內置於 Claude Code)
+- **檢查更新**：通過 Claude Code 設定面板檢查可用插件更新
+- **自定義插件**：可在 `.claude/` 目錄下開發和載入本地插件
+
+### 檢測結果
+
+| 檢測項目 | 結果 | 備註 |
+|:---------|:-----|:-----|
+| 插件啟用狀態 | ✅ 通過 | 2 個插件已啟用 |
+| 設定格式 | ✅ 通過 | JSON 格式正確 |
+| 插件可用性 | ✅ 通過 | 所有啟用的插件可用 |
+| 功能集成 | ✅ 通過 | 插件正常集成至 IDE |
+
+### 建議
+
+- 定期檢查 Plugin Marketplace 以獲取新的插件更新
+- 根據專案需求選擇性啟用/禁用插件以優化效能
+- 自定義插件可放置於 `.claude/plugins/` 目錄（如需要）
 
 ---
 
@@ -940,6 +1032,7 @@ git commit --allow-empty -m "test: verify hooks"
 
 | 日期 | 版本 | 修改者 | 修改內容 |
 |------|------|--------|----------|
+| 2026-02-01 | 1.4 | Claude Opus 4.5 | 新增 Plugin Marketplace 詳細檢測報告章節 |
 | 2026-02-01 | 1.3 | Claude Opus 4.5 | 移除全域 CLAUDE.md 相關內容，整合至專案層級設定 |
 | 2026-02-01 | 1.2 | Claude Opus 4.5 | 移除 python-ocr 相關內容（改用雲端 VLM 服務） |
 | 2026-02-01 | 1.1 | Claude Opus 4.5 | 新增 CLAUDE.md、Rules、Skills、Hooks 詳細檢測報告章節 |
