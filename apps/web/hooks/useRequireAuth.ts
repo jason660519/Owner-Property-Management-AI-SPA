@@ -1,9 +1,9 @@
-"use client"
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "./useAuth";
+'use client';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from './useAuth';
 
-export default function useRequireAuth(redirectTo = "/auth/login") {
+export default function useRequireAuth(redirectTo = '/login') {
   const { user, loading: isLoading } = useAuth();
   const router = useRouter();
 
