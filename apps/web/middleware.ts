@@ -15,9 +15,7 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({
             request,
           });
@@ -48,8 +46,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // 如果已登入且訪問登入頁，重導向到對應的儀表板
-  if (user && request.nextUrl.pathname === '/login') {
+  // 認證相關路由（已登入時應重定向）
+  const authRoutes = ['/login', '/register', '/forgot-password'];
+  const isAuthRoute = authRoutes.some((route) => request.nextUrl.pathname.startsWith(route));
+
+  // 如果已登入且訪問認證頁面，重導向到對應的儀表板
+  if (user && isAuthRoute) {
     const role = user.user_metadata?.role || 'landlord';
 
     const dashboardMap: Record<string, string> = {
@@ -76,11 +78,15 @@ export const config = {
      * - /tenant/* - 租戶儀表板
      * - /buyer/* - 買家儀表板
      * - /login - 登入頁
+     * - /register - 註冊頁
+     * - /forgot-password - 忘記密碼頁
      */
     '/landlord/:path*',
     '/super-admin/:path*',
     '/tenant/:path*',
     '/buyer/:path*',
     '/login',
+    '/register',
+    '/forgot-password',
   ],
 };

@@ -1,7 +1,7 @@
-'use server'
+'use server';
 
-import { createClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
+import { createClient } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
 
 // 初始化 Admin Client (需要 Service Role Key)
 const adminSupabase = createClient(
@@ -10,20 +10,20 @@ const adminSupabase = createClient(
   {
     auth: {
       autoRefreshToken: false,
-      persistSession: false
-    }
+      persistSession: false,
+    },
   }
-)
+);
 
 export interface SignUpCredentials {
   email: string;
   password: string;
-  full_name?: string;
+  display_name?: string;
   role?: 'landlord' | 'tenant' | 'buyer' | 'agent' | 'service_provider';
 }
 
 export async function signUpWithRole(credentials: SignUpCredentials) {
-  const { email, password, full_name, role = 'landlord' } = credentials;
+  const { email, password, display_name, role = 'landlord' } = credentials;
 
   try {
     // 1. 檢查用戶是否已存在
@@ -34,7 +34,7 @@ export async function signUpWithRole(credentials: SignUpCredentials) {
       throw new Error('系統錯誤，請稍後再試');
     }
 
-    const existingUser = listData.users.find(u => u.email === email);
+    const existingUser = listData.users.find((u) => u.email === email);
 
     if (existingUser) {
       // 2. 用戶已存在，添加角色
@@ -47,12 +47,15 @@ export async function signUpWithRole(credentials: SignUpCredentials) {
 
       const updatedRoles = [...new Set([...currentRoles, role])];
 
-      const { error: updateError } = await adminSupabase.auth.admin.updateUserById(existingUser.id, {
-        user_metadata: {
-          ...existingUser.user_metadata,
-          roles: updatedRoles
+      const { error: updateError } = await adminSupabase.auth.admin.updateUserById(
+        existingUser.id,
+        {
+          user_metadata: {
+            ...existingUser.user_metadata,
+            roles: updatedRoles,
+          },
         }
-      });
+      );
 
       if (updateError) {
         console.error('Update user error:', updateError);
@@ -63,10 +66,10 @@ export async function signUpWithRole(credentials: SignUpCredentials) {
       const { error: profileError } = await adminSupabase
         .from('users_profile')
         .update({
-          roles: updatedRoles,
-          updated_at: new Date().toISOString()
+          role: role, // Update single role, not roles array
+          updated_at: new Date().toISOString(),
         })
-        .eq('user_id', existingUser.id);
+        .eq('id', existingUser.id);
 
       if (profileError) {
         console.error('Failed to update user profile roles:', profileError);
@@ -81,10 +84,9 @@ export async function signUpWithRole(credentials: SignUpCredentials) {
       password,
       email_confirm: true, // 自動確認 email
       user_metadata: {
-        full_name,
-        roles: [role],
-        primary_role: role
-      }
+        display_name,
+        role: role,
+      },
     });
 
     if (createError) {
@@ -94,15 +96,11 @@ export async function signUpWithRole(credentials: SignUpCredentials) {
 
     // 創建 users_profile 記錄（確保在返回前完成）
     if (newUser.user) {
-      const { error: profileError } = await adminSupabase
-        .from('users_profile')
-        .insert({
-          user_id: newUser.user.id,
-          full_name,
-          roles: [role],
-          primary_role: role,
-          email
-        });
+      const { error: profileError } = await adminSupabase.from('users_profile').insert({
+        id: newUser.user.id,
+        display_name,
+        role: role,
+      });
 
       if (profileError) {
         console.error('Failed to create user profile:', profileError);
@@ -111,11 +109,10 @@ export async function signUpWithRole(credentials: SignUpCredentials) {
       }
 
       // 等待一小段時間確保資料庫寫入完成
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
     return { success: true, message: '註冊成功，請登入' };
-
   } catch (error: any) {
     console.error('SignUp error:', error);
     return { success: false, error: error.message };

@@ -1,0 +1,143 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e6] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e7]:
+      - img [ref=e8]
+    - generic [ref=e11]:
+      - button "Open issues overlay" [ref=e12]:
+        - generic [ref=e13]:
+          - generic [ref=e14]: "0"
+          - generic [ref=e15]: "1"
+        - generic [ref=e16]: Issue
+      - button "Collapse issues badge" [ref=e17]:
+        - img [ref=e18]
+  - alert [ref=e20]
+  - main [ref=e21]:
+    - generic [ref=e22]:
+      - complementary [ref=e23]:
+        - link "R RESA AI 房東管理平台" [ref=e25] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e27]: R
+          - generic [ref=e28]:
+            - heading "RESA AI" [level=1] [ref=e29]
+            - paragraph [ref=e30]: 房東管理平台
+        - navigation [ref=e31]:
+          - link "儀表板" [ref=e32] [cursor=pointer]:
+            - /url: /landlord/dashboard
+            - img [ref=e33]
+            - generic [ref=e35]: 儀表板
+          - link "我的物件" [ref=e36] [cursor=pointer]:
+            - /url: /landlord/properties
+            - img [ref=e37]
+            - generic [ref=e39]: 我的物件
+          - link "客戶管理" [ref=e40] [cursor=pointer]:
+            - /url: /landlord/customers
+            - img [ref=e41]
+            - generic [ref=e43]: 客戶管理
+          - link "預約管理" [ref=e44] [cursor=pointer]:
+            - /url: /landlord/appointments
+            - img [ref=e45]
+            - generic [ref=e47]: 預約管理
+          - link "財務報表" [ref=e48] [cursor=pointer]:
+            - /url: /landlord/finance
+            - img [ref=e49]
+            - generic [ref=e51]: 財務報表
+          - link "訊息中心" [ref=e52] [cursor=pointer]:
+            - /url: /landlord/messages
+            - img [ref=e53]
+            - generic [ref=e55]: 訊息中心
+          - link "設定" [ref=e56] [cursor=pointer]:
+            - /url: /landlord/settings
+            - img [ref=e57]
+            - generic [ref=e60]: 設定
+        - generic [ref=e62] [cursor=pointer]:
+          - generic [ref=e64]: 房
+          - generic [ref=e65]:
+            - paragraph [ref=e66]: 房東用戶
+            - paragraph [ref=e67]: landlord@example.com
+      - generic [ref=e68]:
+        - generic [ref=e69]:
+          - heading "Dashboard" [level=1] [ref=e71]
+          - button "T test-1770051283273 test-1770051283273@example.com" [ref=e74] [cursor=pointer]:
+            - generic [ref=e75]: T
+            - generic [ref=e76]:
+              - paragraph [ref=e77]: test-1770051283273
+              - paragraph [ref=e78]: test-1770051283273@example.com
+            - img [ref=e79]
+        - main [ref=e81]:
+          - generic [ref=e82]:
+            - generic [ref=e83]:
+              - generic [ref=e84]:
+                - heading "儀表板" [level=1] [ref=e85]
+                - paragraph [ref=e86]: 歡迎回來，查看您的物件管理概況
+              - link "新增物件" [ref=e87] [cursor=pointer]:
+                - /url: /landlord/properties/add
+                - button "新增物件" [ref=e88]:
+                  - generic [ref=e89]:
+                    - img [ref=e90]
+                    - text: 新增物件
+            - generic [ref=e92]:
+              - generic [ref=e95]:
+                - generic [ref=e96]:
+                  - paragraph [ref=e97]: 物件總數
+                  - heading "12" [level=3] [ref=e98]
+                  - paragraph [ref=e99]: ↑ 2 本月新增
+                - img [ref=e101]
+              - generic [ref=e105]:
+                - generic [ref=e106]:
+                  - paragraph [ref=e107]: 出租率
+                  - heading "83%" [level=3] [ref=e108]
+                  - paragraph [ref=e109]: 10/12 已出租
+                - img [ref=e111]
+              - generic [ref=e115]:
+                - generic [ref=e116]:
+                  - paragraph [ref=e117]: 本月收入
+                  - heading "$285,000" [level=3] [ref=e118]
+                  - paragraph [ref=e119]: ↑ 5% vs 上月
+                - img [ref=e121]
+              - generic [ref=e125]:
+                - generic [ref=e126]:
+                  - paragraph [ref=e127]: 待處理事項
+                  - heading "5" [level=3] [ref=e128]
+                  - paragraph [ref=e129]: 需要您的注意
+                - img [ref=e131]
+            - generic [ref=e133]:
+              - generic [ref=e134]:
+                - heading "快速操作" [level=3] [ref=e136]
+                - generic [ref=e137]:
+                  - link "新增物件 手動輸入或 OCR 掃描" [ref=e138] [cursor=pointer]:
+                    - /url: /landlord/properties/add
+                    - img [ref=e140]
+                    - generic [ref=e142]:
+                      - heading "新增物件" [level=4] [ref=e143]
+                      - paragraph [ref=e144]: 手動輸入或 OCR 掃描
+                  - link "查看預約 3 個待確認預約" [ref=e145] [cursor=pointer]:
+                    - /url: /landlord/appointments
+                    - img [ref=e147]
+                    - generic [ref=e149]:
+                      - heading "查看預約" [level=4] [ref=e150]
+                      - paragraph [ref=e151]: 3 個待確認預約
+                  - link "財務報表 查看收支明細" [ref=e152] [cursor=pointer]:
+                    - /url: /landlord/finance
+                    - img [ref=e154]
+                    - generic [ref=e156]:
+                      - heading "財務報表" [level=4] [ref=e157]
+                      - paragraph [ref=e158]: 查看收支明細
+              - generic [ref=e159]:
+                - heading "最近活動" [level=3] [ref=e161]
+                - generic [ref=e163]:
+                  - generic [ref=e166]:
+                    - paragraph [ref=e167]: 張先生對「台北市大安區公寓」發送詢問
+                    - paragraph [ref=e168]: 10 分鐘前
+                  - generic [ref=e171]:
+                    - paragraph [ref=e172]: 收到林小姐的租金付款 NT$ 25,000
+                    - paragraph [ref=e173]: 2 小時前
+                  - generic [ref=e176]:
+                    - paragraph [ref=e177]: 明天下午 2:00 看房預約
+                    - paragraph [ref=e178]: 5 小時前
+                  - generic [ref=e181]:
+                    - paragraph [ref=e182]: 「新竹市東區套房」維修完成
+                    - paragraph [ref=e183]: 1 天前
+```

@@ -12,55 +12,57 @@ import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
-    const { searchParams, origin } = new URL(request.url);
-    const code = searchParams.get('code');
-    const next = searchParams.get('next') ?? '/';
-    const error = searchParams.get('error');
-    const errorDescription = searchParams.get('error_description');
+  const { searchParams, origin } = new URL(request.url);
+  const code = searchParams.get('code');
+  const next = searchParams.get('next') ?? '/';
+  const error = searchParams.get('error');
+  const errorDescription = searchParams.get('error_description');
 
-    // Handle OAuth/Magic Link errors
-    if (error) {
-        console.error('Auth callback error:', error, errorDescription);
-        return NextResponse.redirect(
-            `${origin}/login?error=${encodeURIComponent(errorDescription || error)}`
-        );
-    }
+  // Handle OAuth/Magic Link errors
+  if (error) {
+    console.error('Auth callback error:', error, errorDescription);
+    return NextResponse.redirect(
+      `${origin}/login?error=${encodeURIComponent(errorDescription || error)}`
+    );
+  }
 
-    if (code) {
-        const supabase = await createClient();
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+  if (code) {
+    const supabase = await createClient();
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
-        if (!exchangeError) {
-            // Get user profile to determine dashboard redirect
-            const { data: { user } } = await supabase.auth.getUser();
+    if (!exchangeError) {
+      // Get user profile to determine dashboard redirect
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-            // If next is specified (e.g., /update-password), use it
-            // Otherwise, redirect based on user role
-            if (next && next !== '/') {
-                return NextResponse.redirect(`${origin}${next}`);
-            }
+      // If next is specified (e.g., /update-password), use it
+      // Otherwise, redirect based on user role
+      if (next && next !== '/') {
+        return NextResponse.redirect(`${origin}${next}`);
+      }
 
-            // Default: redirect to role-specific dashboard
-            if (user) {
-                const { data: profile } = await supabase
-                    .from('users_profile')
-                    .select('primary_role')
-                    .eq('user_id', user.id)
-                    .single();
+      // Default: redirect to role-specific dashboard
+      if (user) {
+        const { data: profile } = await supabase
+          .from('users_profile')
+          .select('role')
+          .eq('id', user.id)
+          .single();
 
-                if (profile?.primary_role) {
-                    const dashboardPath = `/${profile.primary_role.replace('_', '-')}/dashboard`;
-                    return NextResponse.redirect(`${origin}${dashboardPath}`);
-                }
-            }
-
-            // Fallback to home if no profile found
-            return NextResponse.redirect(`${origin}/`);
+        if (profile?.role) {
+          const dashboardPath = `/${profile.role.replace('_', '-')}/dashboard`;
+          return NextResponse.redirect(`${origin}${dashboardPath}`);
         }
+      }
 
-        console.error('Exchange code error:', exchangeError);
+      // Fallback to home if no profile found
+      return NextResponse.redirect(`${origin}/`);
     }
 
-    // If出錯或沒有 code，重導向到登入頁面
-    return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`);
+    console.error('Exchange code error:', exchangeError);
+  }
+
+  // If出錯或沒有 code，重導向到登入頁面
+  return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`);
 }

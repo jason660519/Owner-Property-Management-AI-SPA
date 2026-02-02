@@ -9,33 +9,33 @@
  * @version 1.0
  */
 
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card'
-import { signInWithPassword, signInWithGoogle, signInWithFacebook } from '@/lib/supabase/auth'
-import { createClient } from '@/lib/supabase/client'
-import Link from 'next/link'
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
+import { signInWithPassword, signInWithGoogle, signInWithFacebook } from '@/lib/supabase/auth';
+import { supabase } from '@/lib/supabase/client';
+import Link from 'next/link';
 
 const loginSchema = z.object({
   email: z.string().email('請輸入有效的電子郵件地址'),
   password: z.string().min(8, '密碼至少需要 8 個字元'),
   rememberMe: z.boolean().optional(),
-})
+});
 
-type LoginFormData = z.infer<typeof loginSchema>
+type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [showPassword, setShowPassword] = useState(false)
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -43,115 +43,132 @@ export default function LoginPage() {
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
-  })
-
+  });
 
   const onSubmit = async (data: LoginFormData) => {
-    setIsLoading(true)
-    setError(null)
+    setIsLoading(true);
+    setError(null);
 
     try {
       const result = await signInWithPassword({
         email: data.email,
         password: data.password,
-      })
+      });
 
       if (!result.session) {
-        throw new Error('登入失敗，請重試')
+        throw new Error('登入失敗，請重試');
       }
 
-      // Get user profile to determine role
-      const supabase = createClient()
+      const userRole = result.user.user_metadata?.role || 'landlord';
+
+      switch (userRole) {
+        case 'landlord':
+          router.push('/landlord/dashboard');
+          router.refresh();
+          break;
+
+        case 'super_admin':
+          router.push('/admin/dashboard');
+          router.refresh();
+          break;
+
+        case 'agent':
+          router.push('/agent/dashboard');
+          router.refresh();
+          break;
+
+        default:
+          router.push('/landlord/dashboard');
+          router.refresh();
+          break;
+      }
+
       let { data: profile, error: profileError } = await supabase
         .from('users_profile')
-        .select('primary_role')
-        .eq('user_id', result.user.id)
-        .single()
+        .select('role')
+        .eq('id', result.user.id)
+        .single();
 
       // Self-healing: 如果 profile 不存在，嘗試自動創建
       if (profileError || !profile) {
-        console.warn('Profile not found, attempting to create...')
+        console.warn('Profile not found, attempting to create...');
 
-        const userRole = result.user.user_metadata?.primary_role || 'landlord'
-        const fullName = result.user.user_metadata?.full_name || result.user.email?.split('@')[0]
+        const userRole = result.user.user_metadata?.role || 'landlord';
+        const displayName =
+          result.user.user_metadata?.display_name || result.user.email?.split('@')[0];
 
-        const { error: insertError } = await supabase
-          .from('users_profile')
-          .insert({
-            user_id: result.user.id,
-            email: result.user.email,
-            full_name: fullName,
-            roles: [userRole],
-            primary_role: userRole,
-          })
+        const { error: insertError } = await supabase.from('users_profile').insert({
+          id: result.user.id,
+          display_name: displayName,
+          role: userRole,
+        });
 
         if (insertError) {
-          console.error('Failed to create profile:', insertError)
-          throw new Error('無法取得或創建用戶資料，請聯絡客服')
+          console.error('Failed to create profile:', insertError);
+          throw new Error('無法取得或創建用戶資料，請聯絡客服');
         }
 
         // Re-fetch profile after creation
         const { data: newProfile, error: newProfileError } = await supabase
           .from('users_profile')
-          .select('primary_role')
-          .eq('user_id', result.user.id)
-          .single()
+          .select('role')
+          .eq('id', result.user.id)
+          .single();
 
         if (newProfileError || !newProfile) {
-          throw new Error('無法取得用戶資料')
+          throw new Error('無法取得用戶資料');
         }
 
-        profile = newProfile
+        profile = newProfile;
       }
 
       // Role-based redirect
-      switch (profile.primary_role) {
+      switch (profile.role) {
         case 'landlord':
-          router.push('/landlord/dashboard')
-          router.refresh()
-          break
+          router.push('/landlord/dashboard');
+          router.refresh();
+          break;
 
         case 'super_admin':
-          router.push('/super-admin/dashboard')
-          router.refresh()
-          break
+          router.push('/super-admin/dashboard');
+          router.refresh();
+          break;
 
         case 'tenant':
-          router.push('/tenant/dashboard')
-          router.refresh()
-          break
+          router.push('/tenant/dashboard');
+          router.refresh();
+          break;
 
         case 'agent':
-          router.push('/agent/dashboard')
-          router.refresh()
-          break
+          router.push('/agent/dashboard');
+          router.refresh();
+          break;
 
         default:
-          throw new Error('未知的用戶角色')
+          throw new Error('未知的用戶角色');
       }
     } catch (err: any) {
-      setError(err.message || '登入失敗，請檢查您的帳號密碼')
+      setError(err.message || '登入失敗，請檢查您的帳號密碼');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
-
+  };
 
   const handleGoogleLogin = async () => {
     try {
-      await signInWithGoogle()
+      await signInWithGoogle();
     } catch (err: any) {
-      setError(err.message || 'Google 登入失敗')
+      setError(err.message || 'Google 登入失敗');
     }
-  }
+  };
 
   const handleFacebookLogin = async () => {
     try {
-      await signInWithFacebook()
+      await signInWithFacebook();
     } catch (err: any) {
-      setError(err.message || 'Facebook 登入失敗')
+      setError(err.message || 'Facebook 登入失敗');
     }
-  }
+  };
 
   return (
     <Card>
@@ -195,12 +212,27 @@ export default function LoginPage() {
               >
                 {showPassword ? (
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+                    />
                   </svg>
                 ) : (
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                    />
                   </svg>
                 )}
               </button>
@@ -287,5 +319,5 @@ export default function LoginPage() {
         </p>
       </CardContent>
     </Card>
-  )
+  );
 }
