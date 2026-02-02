@@ -2,9 +2,9 @@
 
 > **創建日期**: 2026-01-17
 > **創建者**: Project Team
-> **最後修改**: 2026-02-01
-> **最後修改者**: Gemini 3 Pro (Preview)
-> **版本**: 2.6 (AI Collaboration Edition)
+> **最後修改**: 2026-02-02
+> **最後修改者**: Antigravity
+> **版本**: 2.7 (AI Collaboration Edition)
 > **適用於**: Claude, GPT, Gemini, DeepSeek 等所有 AI 助手
 > **重要性**: 🔴 **強制遵守** - AI 必須在每次創建或修改文件前檢查本規範
 
@@ -15,11 +15,13 @@
 > **⚠️ 在創建任何檔案之前，請先閱讀：[FILE_CREATION_CHECKLIST.md](FILE_CREATION_CHECKLIST.md)**
 
 **快速檢查三要素**：
+
 1. ✅ **檔名符合規則嗎？** (PascalCase / camelCase / kebab-case)
 2. ✅ **Metadata 或文件頭部註解加了嗎？**
 3. ✅ **放對位置了嗎？** (apps / docs / packages / backend)
 
 **範本位置**：
+
 - Markdown 範本 → [FILE_CREATION_CHECKLIST.md](FILE_CREATION_CHECKLIST.md) 第 15 行
 - TypeScript 範本 → [FILE_CREATION_CHECKLIST.md](FILE_CREATION_CHECKLIST.md) 第 40 行
 - Python 範本 → [FILE_CREATION_CHECKLIST.md](FILE_CREATION_CHECKLIST.md) 第 62 行
@@ -48,20 +50,21 @@
 在創建或修改**任何**文件之前，AI 必須：
 
 1. **檢查文件類型**並確定正確的命名規則：
+
    - React 組件 → `PascalCase.tsx`
    - Utilities → `camelCase.ts`
    - 資料夾 → `kebab-case`
    - 文檔 → `snake_case_YYYY-MM-DD.md`
-
 2. **確定正確的歸檔位置**：
+
    - Web 頁面 → `apps/web/app/`
    - Mobile 頁面 → `apps/mobile/src/app/` 或 `apps/mobile/app/`
    - 程式碼文件 → `apps/*/src/`, `packages/*/src/` 或 `backend/*/src/`
    - 技術文檔 → `docs/` 下對應分類 (如 `docs/progress-reports/`)
    - 臨時文件 → `docs/drafts/`
    - **禁止**直接在專案根目錄創建文檔類文件
-
 3. **添加必要的元數據**：
+
    - 程式碼文件需包含 `// filepath: <path>` 註解
    - Markdown 文檔需包含完整 Metadata（創建日期、創建者、最後修改、修改者、版本）
    - 重要文檔需包含「修改歷史」表格
@@ -140,7 +143,7 @@ root/
 ├── turbo.json                # Turborepo 配置
 │
 ├── apps/                     # 應用程式
-│   ├── web/                  # 🌐 Next.js 官網 (Port 3000)
+│   ├── web/                  # 🌐 Next.js 官網 & Admin Console (Port 3000)
 │   └── mobile/               # 📱 Expo 管理 App (Port 8081)
 │
 ├── packages/                 # 共用套件
@@ -152,10 +155,15 @@ root/
 │   └── ocr_service/          # Python OCR 微服務
 │
 ├── supabase/                 # 🗄️ 資料庫
-│   ├── migrations/           # SQL 遷移檔
+│   ├── migrations/           # SQL 遷移檔 (Core + IAM)
 │   └── config.toml
 │
 ├── docs/                     # 📚 專案文檔中心
+│   ├── access-matrix-design-guidelines-and-process/ # 🔐 IAM 權限架構與矩陣設計
+│   │   ├── design_guidelines/ # 設計規範
+│   │   ├── process_flows/    # 流程圖
+│   │   ├── templates/        # 範本
+│   │   └── examples/         # 範例
 │   ├── deployment-guides/    # 部署指南、環境設定
 │   ├── design-guidelines/    # UI/UX 設計規範、Figma 文件
 │   │   └── references/       # 設計參考資料
@@ -267,13 +275,14 @@ root/
 
 在開發中遇到需要建議或協助時，按以下優先級查詢：
 
-| 優先級 | 來源 | 說明 | 例子 |
-| :--- | :--- | :--- | :--- |
-| **1️⃣ 最高** | `.claude/rules/` | 專案強制規範（必須遵守） | `general.md`, `react-expo.md`, `supabase.md` |
-| **2️⃣ 中等** | `.claude/skills/` | 專案自定義技能（推薦使用） | `python-security-scan` |
-| **3️⃣ 參考** | 系統 Skills | 通用建議（低優先級，當無項目規則時使用） | `coding-standards`, `security-review`, `frontend-patterns` |
+| 優先級     | 來源              | 說明                                     | 例子                                                       |
+| :--------- | :---------------- | :--------------------------------------- | :--------------------------------------------------------- |
+| **1️⃣ 最高** | `.claude/rules/`  | 專案強制規範（必須遵守）                 | `general.md`, `react-expo.md`, `supabase.md`               |
+| **2️⃣ 中等** | `.claude/skills/` | 專案自定義技能（推薦使用）               | `python-security-scan`                                     |
+| **3️⃣ 參考** | 系統 Skills       | 通用建議（低優先級，當無項目規則時使用） | `coding-standards`, `security-review`, `frontend-patterns` |
 
 **使用原則**：
+
 - 優先遵守 `.claude/rules/` 中的規範
 - 無專案規則時，使用 `.claude/skills/` 中的技能
 - 系統 Skills 僅作為通用參考，不覆蓋項目規則
@@ -319,25 +328,41 @@ npm run test                  # 執行測試（若各 workspace 有設定）
 
 ## 🗄️ 資料庫架構重點
 
-### 統一物件介面
+### Data Schema & Abstraction Layer (資料架構與抽象層)
 
-前端使用統一的 `properties` 視圖訪問物件：
+前端使用統一的 **`unified_properties_view` (Unified Property Index)** 訪問物件，這是一個 SQL Virtual Table，用於整合底層分散的資料表：
 
 ```typescript
-// 前端代碼統一使用 properties 視圖
+// 前端代碼統一使用 unified_properties_view
 const { data } = await supabase
-  .from('properties')  // ✅ 統一介面
+  .from('unified_properties_view')  // ✅ 統一介面 (SQL View)
   .select('*')
 ```
 
+**資料存取策略 (Access Strategy)**：
+
+* **SQL View (e.g., `unified_properties_view`)**：用於**標準資料查詢 (Standard Querying)**。例如：列出清單、讀取詳情。
+* **RPC (Database Functions)**：用於**特殊運算邏輯 (Specialized Logic)**。例如：地理位置搜尋、複雜權限過濾、批量操作。
+
 ### 核心表格
 
-| 表名               | 用途       | 前端訪問方式           |
-| :----------------- | :--------- | :--------------------- |
-| `Property_Sales`   | 出售物件   | 透過 `properties` 視圖 |
-| `Property_Rentals` | 出租物件   | 透過 `properties` 視圖 |
-| `Property_Photos`  | 物件照片   | 直接訪問               |
-| `users_profile`    | 使用者資料 | 直接訪問               |
+| 表名                      | 用途                                                      | 前端訪問方式                          |
+| :------------------------ | :-------------------------------------------------------- | :------------------------------------ |
+| `unified_properties_view` | **Unified Property Index**  (整合 Sales/Rentals 的虛擬表) | 透過此 View 查詢 (Read-Only)          |
+| `Property_Sales`          | 出售物件實體表                                            | 透過 `unified_properties_view` 或 RPC |
+| `Property_Rentals`        | 出租物件實體表                                            | 透過 `unified_properties_view` 或 RPC |
+| `Property_Photos`         | 物件照片                                                  | 直接訪問                              |
+| `users_profile`           | 使用者資料                                                | 直接訪問                              |
+
+### Identity & Access Management (IAM)
+
+權限與存取控制相關的系統表：
+
+| 表名                | 用途     | 前端訪問方式        |
+| :------------------ | :------- | :------------------ |
+| `iam_groups`        | 權限群組 | Server Action / RPC |
+| `iam_roles`         | 系統角色 | Server Action / RPC |
+| `iam_group_members` | 群組成員 | Server Action / RPC |
 
 ---
 
@@ -368,6 +393,7 @@ supabase/migrations/20260130120000_init.sql     # ✅ 正確格式
 
 | 日期       | 版本 | 修改者                 | 修改內容                                                                        |
 | ---------- | ---- | ---------------------- | ------------------------------------------------------------------------------- |
+| 2026-02-02 | 2.7  | Antigravity            | 更新 docs/ 目錄結構，新增 Access Matrix 權限設計文件規範與 IAM 資料庫定義       |
 | 2026-02-01 | 2.6  | Gemini 3 Pro (Preview) | 更新 docs/ 目錄結構，反映實際檔案歸檔位置                                       |
 | 2026-02-01 | 2.5  | Gemini 3 Pro (Preview) | 新增 UI/UX 設計規範強制指引；整理設計文件資料夾結構；新增 Gemini 3 Pro 模型識別 |
 | 2026-01-30 | 2.3  | Claude Opus 4.5        | 更新 AI 模型列表（新增 Claude Opus 4.5、Gemini 2.5 Pro、GPT-4.5）               |

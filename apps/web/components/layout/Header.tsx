@@ -18,6 +18,11 @@ export function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
+  const isLoginPage = pathname === '/login';
+  const isRegisterPage = pathname === '/register';
+  const highlightAuth = isLoginPage || isRegisterPage;
+  const loginVariant = highlightAuth ? (isLoginPage ? 'primary' : 'secondary') : 'secondary';
+  const registerVariant = highlightAuth ? (isRegisterPage ? 'primary' : 'secondary') : 'primary';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -80,12 +85,12 @@ export function Header() {
           {/* Auth Actions */}
           <div className={styles.navActions}>
             <Link href="/login">
-              <Button variant="secondary" size="md">
+              <Button variant={loginVariant} size="md">
                 登入
               </Button>
             </Link>
             <Link href="/register">
-              <Button variant="primary" size="md">
+              <Button variant={registerVariant} size="md">
                 註冊
               </Button>
             </Link>
@@ -121,12 +126,12 @@ export function Header() {
           ))}
           <div className={styles.mobileAuthButtons}>
             <Link href="/login">
-              <Button variant="secondary" fullWidth>
+              <Button variant={loginVariant} fullWidth>
                 登入
               </Button>
             </Link>
             <Link href="/register">
-              <Button variant="primary" fullWidth>
+              <Button variant={registerVariant} fullWidth>
                 註冊
               </Button>
             </Link>

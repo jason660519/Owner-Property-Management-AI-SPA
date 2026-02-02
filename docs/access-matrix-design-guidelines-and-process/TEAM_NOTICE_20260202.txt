@@ -1,0 +1,24 @@
+Subject: URGENT - New Access Matrix Design Documentation Protocol
+
+To: All Engineering Team Members
+From: System Architect
+Date: 2026-02-02
+
+## 📢 Important Process Update: Access Matrix Design Management
+
+Effective immediately, the process for managing Access Matrix and Permission Design documentation has changed.
+
+### 1. Old Documentation Removal
+All legacy access matrix design files (including `complete_permission_matrix.md` and related analysis) have been removed from the repository to prevent confusion with outdated models.
+
+### 2. New Centralized Location
+All future documentation regarding user permissions, RBAC, access matrices, and IAM policies must be stored exclusively in:
+`docs/access-matrix-design-guidelines-and-process/`
+
+### 3. New Standards
+- **Naming Convention**: You must follow the format defined in `FILE_NAMING_CONVENTION.md` (e.g., `YYYYMMDD_v1.0_Type_Desc.md`).
+- **Authorization**: Only authorized personnel should modify these core security design documents.
+
+Please review the guidelines in the new folder immediately. Any new permission features (like the upcoming Group-based IAM system) must start with a design document in this folder.
+
+Thank you for your cooperation in maintaining our security standards.
