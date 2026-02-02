@@ -1,98 +1,92 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@/utils/supabase/client';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
+import { resetPassword } from '@/lib/supabase/auth';
+import { forgotPasswordSchema, ForgotPasswordFormData } from '@/lib/validators/auth';
 
 export default function ForgotPasswordPage() {
-    const [email, setEmail] = useState('');
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [errorMessage, setErrorMessage] = useState('');
-    const supabase = createClient();
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const {
+        register,
+        handleSubmit,
+        formState: { errors },
+    } = useForm<ForgotPasswordFormData>({
+        resolver: zodResolver(forgotPasswordSchema),
+        mode: 'onBlur',
+    });
+
+    const onSubmit = async (data: ForgotPasswordFormData) => {
         setStatus('loading');
         setErrorMessage('');
 
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: `${window.location.origin}/auth/callback?next=/update-password`,
-        });
-
-        if (error) {
-            setStatus('error');
-            setErrorMessage(error.message);
-        } else {
+        try {
+            await resetPassword(data.email);
             setStatus('success');
+        } catch (error: any) {
+            setStatus('error');
+            setErrorMessage(error.message || '發送重設連結失敗，請稍後再試');
         }
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-            <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg border border-gray-100">
-                <div className="text-center">
-                    <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-                        Forgot Password
-                    </h2>
-                    <p className="mt-2 text-sm text-gray-600">
-                        Enter your email address and we'll send you a link to reset your password.
-                    </p>
+        <Card>
+            <CardHeader>
+                <div className="flex justify-center mb-6">
+                    <div className="w-16 h-16 bg-[#7C3AED] rounded-lg flex items-center justify-center">
+                        <span className="text-white text-3xl font-bold">R</span>
+                    </div>
                 </div>
+                <CardTitle className="text-center">忘記密碼</CardTitle>
+                <CardDescription className="text-center">
+                    輸入您的電子郵件地址，我們將發送重設密碼的連結給您。
+                </CardDescription>
+            </CardHeader>
 
+            <CardContent>
                 {status === 'success' ? (
-                    <div className="rounded-md bg-green-50 p-4">
+                    <div className="rounded-lg bg-green-500/10 p-4 border border-green-500/20">
                         <div className="flex">
                             <div className="flex-shrink-0">
-                                <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                                <svg className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
                                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                 </svg>
                             </div>
                             <div className="ml-3">
-                                <h3 className="text-sm font-medium text-green-800">
-                                    Check your email
+                                <h3 className="text-sm font-medium text-green-400">
+                                    請檢查您的信箱
                                 </h3>
-                                <div className="mt-2 text-sm text-green-700">
+                                <div className="mt-2 text-sm text-green-300">
                                     <p>
-                                        We have sent a password reset link to <strong>{email}</strong>.
-                                        Please check your inbox (and spam folder).
+                                        我們已發送密碼重設連結。
+                                        請檢查您的收件匣（以及垃圾郵件匣）。
                                     </p>
                                 </div>
                                 <div className="mt-4">
-                                    <Link href="/login" className="text-sm font-medium text-green-800 hover:text-green-700">
-                                        &larr; Back to login
+                                    <Link href="/login" className="text-sm font-medium text-green-400 hover:text-green-300">
+                                        &larr; 返回登入頁面
                                     </Link>
                                 </div>
                             </div>
                         </div>
                     </div>
                 ) : (
-                    <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-                        <div>
-                            <label htmlFor="email-address" className="sr-only">
-                                Email address
-                            </label>
-                            <input
-                                id="email-address"
-                                name="email"
-                                type="email"
-                                autoComplete="email"
-                                required
-                                className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                placeholder="Email address"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                disabled={status === 'loading'}
-                            />
-                        </div>
-
+                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                         {status === 'error' && (
-                            <div className="rounded-md bg-red-50 p-4">
+                            <div className="rounded-lg bg-red-500/10 p-4 border border-red-500/20">
                                 <div className="flex">
                                     <div className="ml-3">
-                                        <h3 className="text-sm font-medium text-red-800">
-                                            Error sending reset link
+                                        <h3 className="text-sm font-medium text-red-500">
+                                            發送失敗
                                         </h3>
-                                        <div className="mt-2 text-sm text-red-700">
+                                        <div className="mt-2 text-sm text-red-400">
                                             <p>{errorMessage}</p>
                                         </div>
                                     </div>
@@ -100,24 +94,32 @@ export default function ForgotPasswordPage() {
                             </div>
                         )}
 
-                        <div>
-                            <button
-                                type="submit"
-                                disabled={status === 'loading'}
-                                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {status === 'loading' ? 'Sending...' : 'Send Reset Link'}
-                            </button>
-                        </div>
+                        <Input
+                            label="電子郵件"
+                            type="email"
+                            placeholder="your@email.com"
+                            error={errors.email?.message}
+                            {...register('email')}
+                            disabled={status === 'loading'}
+                        />
+
+                        <Button
+                            type="submit"
+                            variant="primary"
+                            fullWidth
+                            loading={status === 'loading'}
+                        >
+                            發送重設連結
+                        </Button>
 
                         <div className="text-sm text-center">
-                            <Link href="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
-                                Back to login
+                            <Link href="/login" className="font-medium text-[#7C3AED] hover:text-[#6D28D9]">
+                                返回登入頁面
                             </Link>
                         </div>
                     </form>
                 )}
-            </div>
-        </div>
+            </CardContent>
+        </Card>
     );
 }

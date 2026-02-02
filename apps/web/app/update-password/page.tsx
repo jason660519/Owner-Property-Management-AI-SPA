@@ -1,86 +1,144 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@/utils/supabase/client';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
+import { updatePassword } from '@/lib/supabase/auth';
+import { resetPasswordSchema, ResetPasswordFormData } from '@/lib/validators/auth';
 
 export default function UpdatePasswordPage() {
-    const [password, setPassword] = useState('');
+    const router = useRouter();
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [errorMessage, setErrorMessage] = useState('');
-    const supabase = createClient();
-    const router = useRouter();
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const {
+        register,
+        handleSubmit,
+        formState: { errors },
+        watch,
+    } = useForm<ResetPasswordFormData>({
+        resolver: zodResolver(resetPasswordSchema),
+        mode: 'onChange',
+    });
+
+    const password = watch('password', '');
+
+    const getPasswordStrength = (password: string) => {
+        let strength = 0;
+        if (password.length >= 8) strength++;
+        if (/[A-Z]/.test(password)) strength++;
+        if (/[a-z]/.test(password)) strength++;
+        if (/[0-9]/.test(password)) strength++;
+        if (/[^A-Za-z0-9]/.test(password)) strength++;
+        return strength;
+    };
+
+    const passwordStrength = getPasswordStrength(password);
+
+    const onSubmit = async (data: ResetPasswordFormData) => {
         setStatus('loading');
         setErrorMessage('');
 
-        const { error } = await supabase.auth.updateUser({
-            password: password
-        });
-
-        if (error) {
-            setStatus('error');
-            setErrorMessage(error.message);
-        } else {
+        try {
+            await updatePassword(data.password);
             setStatus('success');
             setTimeout(() => {
                 router.push('/');
             }, 2000);
+        } catch (error: any) {
+            setStatus('error');
+            setErrorMessage(error.message || '更新密碼失敗，請稍後再試');
         }
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-            <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg border border-gray-100">
-                <div className="text-center">
-                    <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-                        Set New Password
-                    </h2>
+        <Card>
+            <CardHeader>
+                <div className="flex justify-center mb-6">
+                    <div className="w-16 h-16 bg-[#7C3AED] rounded-lg flex items-center justify-center">
+                        <span className="text-white text-3xl font-bold">R</span>
+                    </div>
                 </div>
+                <CardTitle className="text-center">設定新密碼</CardTitle>
+            </CardHeader>
 
+            <CardContent>
                 {status === 'success' ? (
-                    <div className="rounded-md bg-green-50 p-4">
-                        <p className="text-green-800 font-medium text-center">
-                            Password updated successfully! Redirecting...
+                    <div className="rounded-lg bg-green-500/10 p-4 border border-green-500/20">
+                        <p className="text-green-400 font-medium text-center">
+                            密碼更新成功！正在重定向...
                         </p>
                     </div>
                 ) : (
-                    <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-                        <div>
-                            <label htmlFor="new-password" className="sr-only">
-                                New Password
-                            </label>
-                            <input
-                                id="new-password"
-                                name="password"
-                                type="password"
-                                required
-                                className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                placeholder="Enter new password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                disabled={status === 'loading'}
-                            />
-                        </div>
-
+                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                         {status === 'error' && (
-                            <div className="text-red-600 text-sm text-center">
-                                {errorMessage}
+                            <div className="rounded-lg bg-red-500/10 p-4 border border-red-500/20">
+                                <p className="text-sm text-red-500 text-center">
+                                    {errorMessage}
+                                </p>
                             </div>
                         )}
 
-                        <button
-                            type="submit"
+                        <Input
+                            label="新密碼"
+                            type="password"
+                            placeholder="••••••••"
+                            error={errors.password?.message}
+                            {...register('password')}
                             disabled={status === 'loading'}
-                            className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                        />
+
+                        {password && (
+                            <div className="space-y-2">
+                                <div className="flex gap-1">
+                                    {[...Array(5)].map((_, i) => (
+                                        <div
+                                            key={i}
+                                            className={`h-1 flex-1 rounded-full transition-colors ${i < passwordStrength
+                                                    ? passwordStrength <= 2
+                                                        ? 'bg-red-500'
+                                                        : passwordStrength <= 3
+                                                            ? 'bg-yellow-500'
+                                                            : 'bg-green-500'
+                                                    : 'bg-[#333333]'
+                                                }`}
+                                        />
+                                    ))}
+                                </div>
+                                <p className="text-xs text-[#999999]">
+                                    密碼強度：
+                                    {passwordStrength <= 2 && '弱'}
+                                    {passwordStrength === 3 && '中等'}
+                                    {passwordStrength === 4 && '強'}
+                                    {passwordStrength === 5 && '非常強'}
+                                </p>
+                            </div>
+                        )}
+
+                        <Input
+                            label="確認新密碼"
+                            type="password"
+                            placeholder="••••••••"
+                            error={errors.confirmPassword?.message}
+                            {...register('confirmPassword')}
+                            disabled={status === 'loading'}
+                        />
+
+                        <Button
+                            type="submit"
+                            variant="primary"
+                            fullWidth
+                            loading={status === 'loading'}
                         >
-                            {status === 'loading' ? 'Updating...' : 'Update Password'}
-                        </button>
+                            更新密碼
+                        </Button>
                     </form>
                 )}
-            </div>
-        </div>
+            </CardContent>
+        </Card>
     );
 }

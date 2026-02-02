@@ -8,13 +8,13 @@
 
 在協作開發中，區分「規則」和「技能」很重要：
 
-| 特性 | Rules (本文件) | Skills (.claude/skills/) | 系統 Skills |
-|:-----|:-------------|:------------------------|:-----------|
-| **強制性** | 🔴 強制遵守 | 🟡 推薦使用 | 🟢 參考建議 |
-| **範疇** | 專案級別 | 專案級別 | 通用級別 |
-| **優先級** | 最高 | 中等 | 最低 |
-| **覆蓋** | 必須項目 | 增強項目 | 通用最佳實踐 |
-| **例子** | 命名規範、Git 流程 | Python 安全掃描 | 代碼標準、設計模式 |
+| 特性       | Rules (本文件)     | Skills (.claude/skills/) | 系統 Skills        |
+| :--------- | :----------------- | :----------------------- | :----------------- |
+| **強制性** | 🔴 強制遵守         | 🟡 推薦使用               | 🟢 參考建議         |
+| **範疇**   | 專案級別           | 專案級別                 | 通用級別           |
+| **優先級** | 最高               | 中等                     | 最低               |
+| **覆蓋**   | 必須項目           | 增強項目                 | 通用最佳實踐       |
+| **例子**   | 命名規範、Git 流程 | Python 安全掃描          | 代碼標準、設計模式 |
 
 **使用原則**：
 - ✅ 優先按 Rules 進行開發
@@ -30,15 +30,15 @@
 
 ### 快速參考表
 
-| 文件類型 | 命名規則 | 範例 |
-| :--- | :--- | :--- |
-| React 組件 | PascalCase | `UserProfile.tsx`, `Sidebar.tsx` |
-| Hooks | camelCase + use 前綴 | `useAuth.ts`, `useWindowSize.ts` |
-| 工具函數 | camelCase | `dateFormatter.ts`, `apiClient.ts` |
-| 資料夾 | kebab-case | `components`, `api-routes` |
-| 配置檔案 | kebab-case | `tailwind.config.ts`, `tsconfig.json` |
-| 文檔 | ISO 日期前綴（選用） | `2026-01-15_meeting_notes.md` |
-| Shell 腳本 | kebab-case | `deploy-prod.sh`, `setup-env.sh` |
+| 文件類型   | 命名規則             | 範例                                  |
+| :--------- | :------------------- | :------------------------------------ |
+| React 組件 | PascalCase           | `UserProfile.tsx`, `Sidebar.tsx`      |
+| Hooks      | camelCase + use 前綴 | `useAuth.ts`, `useWindowSize.ts`      |
+| 工具函數   | camelCase            | `dateFormatter.ts`, `apiClient.ts`    |
+| 資料夾     | kebab-case           | `components`, `api-routes`            |
+| 配置檔案   | kebab-case           | `tailwind.config.ts`, `tsconfig.json` |
+| 文檔       | ISO 日期前綴（選用） | `2026-01-15_meeting_notes.md`         |
+| Shell 腳本 | kebab-case           | `deploy-prod.sh`, `setup-env.sh`      |
 
 ---
 
@@ -55,15 +55,15 @@
 
 ### Type 類型
 
-| Type | 說明 | 範例 |
-| :--- | :--- | :--- |
-| `feat` | 新功能 | `feat: 新增物件上傳功能` |
-| `fix` | Bug 修復 | `fix: 修正登入驗證錯誤` |
-| `docs` | 文檔更新 | `docs: 更新 API 文檔` |
-| `refactor` | 重構 | `refactor: 優化資料庫查詢` |
-| `style` | 格式調整 | `style: 統一縮排為 2 空格` |
-| `test` | 測試 | `test: 新增單元測試` |
-| `chore` | 雜項 | `chore: 更新依賴版本` |
+| Type       | 說明     | 範例                       |
+| :--------- | :------- | :------------------------- |
+| `feat`     | 新功能   | `feat: 新增物件上傳功能`   |
+| `fix`      | Bug 修復 | `fix: 修正登入驗證錯誤`    |
+| `docs`     | 文檔更新 | `docs: 更新 API 文檔`      |
+| `refactor` | 重構     | `refactor: 優化資料庫查詢` |
+| `style`    | 格式調整 | `style: 統一縮排為 2 空格` |
+| `test`     | 測試     | `test: 新增單元測試`       |
+| `chore`    | 雜項     | `chore: 更新依賴版本`      |
 
 ### 分支命名
 
@@ -100,35 +100,54 @@
 
 ## 語言偏好
 
-| 場景 | 語言 |
-| :--- | :--- |
-| 程式碼註解 | 英文 |
+| 場景        | 語言                   |
+| :---------- | :--------------------- |
+| 程式碼註解  | 英文                   |
 | Commit 訊息 | 中文或英文（保持一致） |
-| 文檔內容 | 繁體中文 |
-| 變數命名 | 英文 |
-| UI 文字 | 繁體中文 |
+| 文檔內容    | 繁體中文               |
+| 變數命名    | 英文                   |
+| UI 文字     | 繁體中文               |
 
 ---
 
 ## 檔案組織 (Monorepo)
 
+### 當前開發策略 (2026-02-02)
+
+**主要開發**: Next.js Web App + PWA ✅
+- 專注開發 `apps/web/`
+- PWA 支援 (可安裝到手機)
+- 響應式設計 (手機友好)
+
+**已暫停**: Expo Mobile App ⏸️
+- `apps/mobile/` 代碼保留，不刪除
+- 待 Web App 上線後評估
+
 ### 核心目錄結構
 
-1. **Web 應用** (`apps/web`)：Next.js 15 對外官網與行銷頁面
-2. **Mobile 應用** (`apps/mobile`)：Expo 房東管理 App
+1. **Web 應用** (`apps/web`)：Next.js 15 Web App + PWA (主要開發)
+2. **Mobile 應用** (`apps/mobile`)：Expo App (已暫停，代碼保留)
 3. **後端服務** (`backend/`)：Python OCR 服務與其他微服務
 4. **文檔中心** (`docs/`)：專案文檔與進度報告
 
 ### 新增檔案原則
 
 1. **Web 頁面** → `apps/web/app/`
-2. **Mobile 頁面** → `apps/mobile/src/app/` (Expo Router) 或 `apps/mobile/app/`
-3. **共用組件** → `packages/ui/` (如已建立) 或各 app 的 `components/`
-4. **工具函數** → `packages/utils/` (如已建立) 或各 app 的 `lib/`
-5. **技術文件** → `docs/` 下對應分類 (如 `docs/progress-reports/`)
+2. **Web 組件** → `apps/web/components/`
+3. **PWA 相關** → `apps/web/components/pwa/`, `apps/web/public/`
+4. **共用工具** → `apps/web/lib/`
+5. **技術文件** → `docs/` 下對應分類 (如 `docs/implementation-plans/`)
 
 ### 避免事項
 
 - ❌ 在根目錄堆積臨時檔案
 - ❌ 建立過深的巢狀結構（超過 4 層）
 - ❌ 單一檔案超過 500 行
+- ❌ **使用中文檔案名或資料夾名** (必須使用英文)
+
+### 檔案命名規則
+
+**重要**: 所有檔案和資料夾名稱必須使用英文，避免編碼問題。
+
+詳細規範請參考: `docs/file-naming-guidelines.md`
+

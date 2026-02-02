@@ -19,7 +19,7 @@ import * as z from 'zod'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card'
-import { signUp } from '@/lib/supabase/auth'
+import { signUpWithRole } from '@/app/actions/auth'
 import Link from 'next/link'
 
 const registerSchema = z.object({
@@ -55,6 +55,7 @@ export default function RegisterPage() {
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
+    mode: 'onChange',
     defaultValues: {
       role: 'landlord',
     },
@@ -79,17 +80,21 @@ export default function RegisterPage() {
     setError(null)
 
     try {
-      await signUp({
+      const result = await signUpWithRole({
         email: data.email,
         password: data.password,
         full_name: data.fullName,
         role: data.role,
       })
 
-      setSuccess(true)
-      setTimeout(() => {
-        router.push('/login')
-      }, 3000)
+      if (result.success) {
+        setSuccess(true)
+        setTimeout(() => {
+          router.push('/login')
+        }, 3000)
+      } else {
+        setError(result.error || '註冊失敗，請稍後再試')
+      }
     } catch (err: any) {
       setError(err.message || '註冊失敗，請稍後再試')
     } finally {

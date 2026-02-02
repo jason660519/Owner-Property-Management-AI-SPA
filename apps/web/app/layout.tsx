@@ -1,58 +1,55 @@
-import type { Metadata, Viewport } from "next";
-import "./globals.css";
+import type { Metadata, Viewport } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: {
-    default: "Estatein - 房東物業的 AI 好幫手",
-    template: "%s | Estatein",
+  title: '房東管理系統 - AI 驅動的物業管理平台',
+  description: '智能化的房東物業管理系統，提供物件管理、租客管理、合約管理、租金管理等完整功能',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: '房東管理',
   },
-  description: "透過 AI 智能平台，輕鬆管理您的不動產資產。無論是租賃管理、物業維護還是收益優化，我們都能為您提供全方位的解決方案。",
-  keywords: ["物業管理", "房地產", "AI", "租賃管理", "房東", "不動產", "智能管理"],
-  authors: [{ name: "Estatein" }],
-  creator: "Estatein",
-  metadataBase: new URL("https://estatein.com"),
-  openGraph: {
-    type: "website",
-    locale: "zh_TW",
-    siteName: "Estatein",
-    title: "Estatein - 房東物業的 AI 好幫手",
-    description: "透過 AI 智能平台，輕鬆管理您的不動產資產。",
+  formatDetection: {
+    telephone: false,
   },
-  twitter: {
-    card: "summary_large_image",
-    title: "Estatein - 房東物業的 AI 好幫手",
-    description: "透過 AI 智能平台，輕鬆管理您的不動產資產。",
-  },
-  robots: {
-    index: true,
-    follow: true,
+  icons: {
+    icon: [
+      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/icons/icon-152x152.png', sizes: '152x152', type: 'image/png' },
+    ],
   },
 };
 
 export const viewport: Viewport = {
-  width: "device-width",
+  width: 'device-width',
   initialScale: 1,
-  themeColor: "#141414",
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: '#7C3AED',
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="zh-TW">
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="房東管理" />
       </head>
-      <body>
-        {children}
-      </body>
+      <body className={inter.className}>{children}</body>
     </html>
   );
 }

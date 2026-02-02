@@ -3,8 +3,8 @@
 > **創建日期**: 2026-01-17
 > **創建者**: Project Team
 > **最後修改**: 2026-02-02
-> **最後修改者**: Antigravity
-> **版本**: 2.7 (AI Collaboration Edition)
+> **最後修改者**: Claude Sonnet 4.5
+> **版本**: 2.8 (專注 Web App 策略)
 > **適用於**: Claude, GPT, Gemini, DeepSeek 等所有 AI 助手
 > **重要性**: 🔴 **強制遵守** - AI 必須在每次創建或修改文件前檢查本規範
 
@@ -134,6 +134,41 @@ AI 在創建文件後必須自我確認：
 
 ---
 
+## 🎯 專案開發策略 (2026-02-02 更新)
+
+### 當前開發重點
+
+**Phase 1: Next.js Web App + PWA (進行中)** ✅
+- ✅ 專注開發 Next.js Web 應用
+- ✅ 響應式設計 (手機瀏覽器可用)
+- ✅ PWA 支援 (可安裝到手機桌面)
+- ✅ 完整的房東管理功能
+
+**Phase 2: Mobile App (已暫停)** ⏸️
+- ⏸️ Expo/React Native 開發已暫停
+- 📁 代碼保留在 `apps/mobile/` (不刪除)
+- 📊 待 Web App 上線後，根據用戶需求決定是否繼續開發
+
+### 策略調整原因
+
+1. **聚焦核心價值** - 先做出能用的產品
+2. **快速迭代** - 開發速度提升 2 倍 (3-4 個月 vs 6-8 個月)
+3. **成本效益** - 節省 60% 開發成本 (NT$ 600K vs NT$ 1.5M)
+4. **數據驅動** - 用市場反饋決定是否需要 Native App
+
+### PWA 功能
+
+- ✅ 安裝到桌面 (iOS/Android)
+- ✅ 全螢幕模式 (無瀏覽器 UI)
+- ✅ 手機相機拍照
+- ✅ 相簿選擇
+- ✅ 推送通知 (計劃中)
+- ✅ 離線基本功能
+
+**詳細說明**: 參見 `docs/implementation-plans/` 目錄
+
+---
+
 ## 📁 專案結構（Monorepo）
 
 ```text
@@ -143,8 +178,8 @@ root/
 ├── turbo.json                # Turborepo 配置
 │
 ├── apps/                     # 應用程式
-│   ├── web/                  # 🌐 Next.js 官網 & Admin Console (Port 3000)
-│   └── mobile/               # 📱 Expo 管理 App (Port 8081)
+│   ├── web/                  # 🌐 Next.js Web App + PWA (Port 3000) ✅ 主要開發
+│   └── mobile/               # 📱 Expo App (已暫停開發，代碼保留)
 │
 ├── packages/                 # 共用套件
 │   ├── ui/                   # 共用 UI 組件
@@ -168,13 +203,14 @@ root/
 │   ├── design-guidelines/    # UI/UX 設計規範、Figma 文件
 │   │   └── references/       # 設計參考資料
 │   ├── progress-reports/     # 進度報告與狀態追蹤
-│   │   ├── OCR開發進度報告/
+│   │   ├── ocr-development/  # OCR 開發進度報告
 │   │   ├── roadmap/          # 專案規劃與 Sprint 計畫
-│   │   ├── 工程師每日工作報告/
-│   │   └── 資料庫進度報告/
-│   ├── 產品概述及使用場景說明/  # 產品需求與使用場景
-│   ├── 硬體與軟體技術選型說明/  # 技術架構與選型決策
-│   └── 本專案檔案命名規則與新增文件歸檔總則.md
+│   │   ├── daily-reports/    # 工程師每日工作報告
+│   │   └── database-reports/ # 資料庫進度報告
+│   ├── implementation-plans/ # 實施計劃
+│   ├── product-overview/     # 產品需求與使用場景
+│   ├── technical-selection/  # 技術架構與選型決策
+│   └── file-naming-guidelines.md  # 檔案命名規則與歸檔總則
 │
 └── scripts/                  # 🔨 自動化腳本
 ```
@@ -393,6 +429,7 @@ supabase/migrations/20260130120000_init.sql     # ✅ 正確格式
 
 | 日期       | 版本 | 修改者                 | 修改內容                                                                        |
 | ---------- | ---- | ---------------------- | ------------------------------------------------------------------------------- |
+| 2026-02-02 | 2.8  | Claude Sonnet 4.5      | 更新專案開發策略：專注 Next.js Web App + PWA，暫停 Expo Mobile 開發             |
 | 2026-02-02 | 2.7  | Antigravity            | 更新 docs/ 目錄結構，新增 Access Matrix 權限設計文件規範與 IAM 資料庫定義       |
 | 2026-02-01 | 2.6  | Gemini 3 Pro (Preview) | 更新 docs/ 目錄結構，反映實際檔案歸檔位置                                       |
 | 2026-02-01 | 2.5  | Gemini 3 Pro (Preview) | 新增 UI/UX 設計規範強制指引；整理設計文件資料夾結構；新增 Gemini 3 Pro 模型識別 |

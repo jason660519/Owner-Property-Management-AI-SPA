@@ -5,6 +5,24 @@ import { createAdminClient } from '@/utils/supabase/admin';
 
 // Invite a new user by email
 export async function inviteUser(formData: FormData) {
+    // Check permissions
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+        return { error: 'Unauthorized' };
+    }
+
+    const { data: profile } = await supabase
+        .from('users_profile')
+        .select('primary_role')
+        .eq('user_id', user.id)
+        .single();
+        
+    if (profile?.primary_role !== 'super_admin') {
+         return { error: 'Unauthorized: Admin access required' };
+    }
+
     const supabaseAdmin = createAdminClient();
     const email = formData.get('email') as string;
     const groupId = formData.get('groupId') as string;

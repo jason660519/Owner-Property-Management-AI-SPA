@@ -58,27 +58,35 @@ start_web() {
 }
 
 # 函數：啟動 Mobile (Expo)
+# ⏸️ 注意：Expo Mobile App 開發已暫緩 (2026-02-02)
+# 專案現專注於 Next.js Web App + PWA
 start_mobile() {
+    echo -e "${YELLOW}⏸️  注意：Expo Mobile App 開發已暫緩${NC}"
+    echo -e "${YELLOW}   專案現專注於 Next.js Web App + PWA (端口 3000)${NC}"
+    echo -e "${BLUE}   如需啟動 Expo（僅供測試），請按 Enter 繼續...${NC}"
+    read -p "" 
+    
     echo -e "${BLUE}📱 啟動 Expo Mobile 應用...${NC}"
     cd "$PROJECT_ROOT/apps/mobile"
     
-    # 在新的終端視窗啟動 - 直接使用 --web 參數啟動 web 版本
+    # ⏸️ Expo Web 已暫緩 - 僅保留原生開發能力
+    # 在新的終端視窗啟動 - 移除 --web 參數（僅啟動 Metro bundler）
     osascript -e 'tell application "Terminal"
-        do script "cd \"'"$PROJECT_ROOT"'/apps/mobile\" && npx expo start --web --port 8081"
-        set custom title of front window to \"Expo Mobile - Port 8081\"
+        do script "cd \"'"$PROJECT_ROOT"'/apps/mobile\" && npx expo start --port 8081"
+        set custom title of front window to \"Expo Mobile - Port 8081 (⏸️ Paused)\"
     end tell' &>/dev/null &
     
     echo -e "${GREEN}✅ Mobile 服務啟動中... (http://localhost:8081)${NC}"
-    echo -e "${YELLOW}💡 Web 版本會自動在 http://localhost:8081 啟動${NC}"
+    echo -e "${YELLOW}⏸️  注意：此為暫緩開發的功能，僅供參考${NC}"
 }
 
 # 主菜單
 show_menu() {
     echo ""
     echo -e "${BLUE}請選擇啟動模式：${NC}"
-    echo "1) 啟動 Web (Next.js - 端口 3000)"
-    echo "2) 啟動 Mobile (Expo - 端口 8081)"
-    echo "3) 同時啟動 Web + Mobile"
+    echo "1) 啟動 Web (Next.js + PWA - 端口 3000) ✅ 主要開發"
+    echo "2) 啟動 Mobile (Expo - 端口 8081) ⏸️ 已暫緩開發"
+    echo "3) 同時啟動 Web + Mobile ⏸️ Mobile 已暫緩"
     echo "4) 停止所有服務"
     echo "5) 清除快取並重新啟動"
     echo "0) 退出"
@@ -162,6 +170,6 @@ echo -e "${BLUE}═════════════════════�
 echo ""
 echo -e "${YELLOW}💡 提示：${NC}"
 echo -e "  • Web 應用: ${BLUE}http://localhost:3000${NC}"
-echo -e "  • Mobile 應用: ${BLUE}http://localhost:8081${NC} (需在 Expo 終端按 'w')"
+echo -e "  • Mobile 應用: ${BLUE}http://localhost:8081${NC} ⏸️ (已暫緩開發) 'w')"
 echo -e "  • 停止服務: ${YELLOW}./start-dev.sh stop${NC}"
 echo ""

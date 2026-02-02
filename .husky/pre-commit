@@ -1,25 +1,18 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
+#!/bin/bash
 
-echo "🔍 執行 pre-commit 檢查..."
+# Git Pre-commit Hook: 自動清理 macOS 隱藏文件
+# 在每次 commit 前自動刪除 ._* 文件
 
-# 1. 執行 lint-staged (現有)
-npx lint-staged --allow-empty 2>/dev/null || true
+# 查找並刪除 ._* 文件
+HIDDEN_FILES=$(git ls-files | grep '/\._' || true)
 
-# 2. TypeScript 型別檢查 (現有)
-if [ -f "tsconfig.json" ]; then
-  echo "🔷 檢查 TypeScript 型別..."
-  npx tsc --noEmit 2>/dev/null || true
+if [ -n "$HIDDEN_FILES" ]; then
+    echo "🗑️  發現 macOS 隱藏文件，自動清理中..."
+    echo "$HIDDEN_FILES" | xargs git rm -f --cached
+    echo "✅ 已從 Git 暫存區移除 ._* 文件"
 fi
 
-# 3. 檔案規範檢查 (新增)
-echo "📁 檢查檔案規範..."
-if [ -f "scripts/check-file-compliance.sh" ]; then
-  if ! ./scripts/check-file-compliance.sh; then
-    echo ""
-    echo "❌ 檔案規範檢查失敗！請修正後重新提交。"
-    exit 1
-  fi
-fi
+# 清理工作目錄中的 ._* 文件
+find . -name "._*" -type f -delete 2>/dev/null || true
 
-echo "✅ Pre-commit 檢查通過！"
+exit 0

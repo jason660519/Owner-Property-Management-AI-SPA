@@ -61,6 +61,7 @@ CLAUDE.local.md
 test-output-*.png
 Google Drive Outh.json
 Outh.json
+docs_backup_*.tar.gz
 
 # ============================================
 # Database
@@ -80,11 +81,17 @@ resources/samples
 # ============================================
 # macOS
 .DS_Store
+**/.DS_Store
 ._*
+**/._*
 .AppleDouble
 .LSOverride
 .Spotlight-V100
 .Trashes
+.fseventsd
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
 
 # Windows
 Thumbs.db

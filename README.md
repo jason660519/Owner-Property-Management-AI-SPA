@@ -1,0 +1,289 @@
+# Owner Property Management AI SaaS
+
+> AI 驅動的房東物業管理平台
+
+---
+
+## 🎯 專案狀態
+
+**當前開發重點**: Next.js Web App + PWA
+
+### Phase 1: Web App MVP (進行中) ✅
+- ✅ Next.js 15 Web 應用
+- ✅ 響應式設計 (手機友好)
+- ✅ PWA 支援 (可安裝到手機桌面)
+- ✅ 完整的房東管理功能
+
+### Phase 2: Mobile App (暫停) ⏸️
+- ⏸️ Expo/React Native 開發已暫停
+- 📁 代碼保留在 `apps/mobile/` (以備未來使用)
+- 📊 待 Web App 上線後，根據用戶需求決定是否開發
+
+---
+
+## 🚀 快速開始
+
+### 開發環境
+
+```bash
+# 1. 安裝依賴
+npm install
+
+# 2. 啟動 Web 開發服務器
+cd apps/web
+npm run dev
+
+# 3. 訪問應用
+# 電腦: http://localhost:3000
+# 手機: http://[你的IP]:3000
+```
+
+### 查看本機 IP (供手機訪問)
+
+```bash
+# macOS/Linux
+ifconfig | grep "inet "
+
+# 或使用
+ipconfig getifaddr en0
+```
+
+---
+
+## 📱 手機使用方式
+
+### 方式 1: 瀏覽器訪問 (推薦)
+1. 手機連接同一 WiFi
+2. 打開瀏覽器 (Safari/Chrome)
+3. 訪問: `http://[你的電腦IP]:3000`
+4. 完整功能，包括相機上傳
+
+### 方式 2: PWA 安裝 (像 App 一樣)
+
+#### iOS (Safari)
+1. 訪問網站
+2. 點擊「分享」按鈕 (底部中間)
+3. 選擇「加入主畫面」
+4. 桌面出現圖標，點擊使用
+
+#### Android (Chrome)
+1. 訪問網站
+2. 點擊「選單」(右上角三點)
+3. 選擇「安裝應用程式」
+4. 桌面出現圖標，點擊使用
+
+---
+
+## 🏗️ 專案結構
+
+```
+Owner-Property-Management-AI-SPA/
+├── apps/
+│   ├── web/                 # Next.js Web App (主要開發)
+│   │   ├── app/            # Next.js App Router
+│   │   ├── components/     # React 組件
+│   │   ├── lib/            # 工具函數
+│   │   └── public/         # 靜態資源
+│   │
+│   └── mobile/             # Expo App (已暫停開發)
+│       └── (保留代碼，不刪除)
+│
+├── backend/                # Python OCR 服務
+├── supabase/              # 資料庫遷移與配置
+├── packages/              # 共用套件 (未來使用)
+└── docs/                  # 專案文檔
+```
+
+---
+
+## 🛠️ 技術棧
+
+### 前端 (Web App)
+- **框架**: Next.js 15.1.6
+- **UI**: React 19
+- **語言**: TypeScript 5.x
+- **樣式**: Tailwind CSS 3.x
+- **狀態管理**: React Context + Hooks
+- **動畫**: Framer Motion
+
+### 後端
+- **BaaS**: Supabase (PostgreSQL)
+- **認證**: Supabase Auth
+- **儲存**: Supabase Storage
+- **API**: REST + GraphQL
+
+### 微服務
+- **OCR**: Python 3.11 + Tesseract + FastAPI
+
+---
+
+## 📋 核心功能
+
+### P0 功能 (必需 - 優先開發)
+- [x] 🔐 用戶認證 (登入/註冊)
+- [ ] 🏠 物件管理 (CRUD)
+- [ ] 👥 租客管理
+- [ ] 📄 合約管理
+- [ ] 💰 租金管理
+
+### P1 功能 (重要)
+- [ ] 📊 財務報表
+- [x] 📁 文件管理
+- [ ] 🔍 搜尋與篩選
+- [ ] 📸 相機上傳 (手機)
+
+### P2 功能 (加分)
+- [ ] 🔔 通知系統
+- [ ] 🤖 OCR 自動識別
+- [ ] 📈 數據分析
+- [ ] 📱 PWA 離線支援
+
+---
+
+## 🎯 開發路線圖
+
+### Month 1-2: 核心功能
+- Week 1-2: 物件管理完善
+- Week 3-4: 租客管理開發
+- Week 5-6: 合約管理
+- Week 7-8: 租金管理
+
+### Month 3: 進階功能
+- Week 9-10: 財務報表
+- Week 11-12: 文件管理優化
+
+### Month 4: 測試與上線
+- Week 13-14: 內部測試 (10+ 用戶)
+- Week 15-16: MVP 上線
+
+---
+
+## 📱 PWA 功能
+
+### 已支援
+- ✅ 安裝到桌面
+- ✅ 全螢幕模式 (無瀏覽器 UI)
+- ✅ 離線基本功能
+- ✅ 推送通知 (計劃中)
+
+### 手機原生功能
+- ✅ 相機拍照
+- ✅ 相簿選擇
+- ✅ 文件上傳
+- ✅ 地理位置
+- ✅ 本地存儲
+
+---
+
+## 🔧 開發指令
+
+### Web App
+```bash
+cd apps/web
+
+# 開發模式
+npm run dev
+
+# 建置生產版本
+npm run build
+
+# 啟動生產服務器
+npm start
+
+# 代碼檢查
+npm run lint
+
+# 測試
+npm test
+```
+
+### 資料庫
+```bash
+# 啟動 Supabase 本地服務
+npx supabase start
+
+# 停止服務
+npx supabase stop
+
+# 重置資料庫
+npx supabase db reset
+
+# 生成 TypeScript 類型
+npx supabase gen types typescript --local > apps/web/lib/database.types.ts
+```
+
+---
+
+## 📚 文檔
+
+### 技術文檔
+- [技術棧說明](./docs/硬體與軟體技術選型說明/技術棧說明.md)
+- [專案簡化計劃](./docs/implementation-plans/專案簡化計劃_專注Next.js_Web_App.md)
+- [行動清單](./docs/implementation-plans/專注Web_App_行動清單.md)
+
+### 開發指南
+- [開發環境快速啟動](./docs/deployment-guides/本案開發環境快速啟動指南.md)
+- [檔案命名規則](./docs/本專案檔案命名規則與新增文件歸檔總則.md)
+
+---
+
+## 🤝 貢獻指南
+
+### 分支策略
+- `main`: 生產環境
+- `develop`: 開發環境
+- `feature/*`: 功能分支
+
+### 提交規範
+```
+feat: 新功能
+fix: Bug 修復
+docs: 文檔更新
+style: 代碼格式
+refactor: 重構
+test: 測試
+chore: 雜項
+```
+
+---
+
+## 📊 專案狀態
+
+### 完成度
+- 認證系統: ✅ 100%
+- 物件管理: 🔄 60%
+- 租客管理: ⏳ 0%
+- 合約管理: ⏳ 0%
+- 租金管理: ⏳ 0%
+
+### 測試覆蓋率
+- 目標: 80%
+- 當前: 待建立
+
+---
+
+## 🔗 相關連結
+
+- [Supabase Dashboard](https://app.supabase.com)
+- [Vercel Dashboard](https://vercel.com)
+- [專案文檔](./docs/)
+
+---
+
+## 📞 支援
+
+如有問題，請查看：
+1. [文檔](./docs/)
+2. [Issue Tracker](../../issues)
+3. 聯繫開發團隊
+
+---
+
+## 📄 授權
+
+Private - All Rights Reserved
+
+---
+
+**最後更新**: 2026-02-02  
+**版本**: 2.0 (專注 Web App 策略)

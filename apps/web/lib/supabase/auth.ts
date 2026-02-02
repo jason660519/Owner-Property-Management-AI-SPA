@@ -7,7 +7,7 @@ export interface SignInCredentials {
 
 export interface SignUpCredentials extends SignInCredentials {
   full_name?: string;
-  role?: 'landlord' | 'tenant' | 'buyer';
+  role?: 'landlord' | 'tenant' | 'buyer' | 'agent' | 'service_provider';
 }
 
 // Email + Password 登入
@@ -21,20 +21,95 @@ export async function signInWithPassword(credentials: SignInCredentials) {
   return data;
 }
 
-// 註冊
+// 檢查用戶是否已存在
+export async function checkUserExists(email: string) {
+  const { data, error } = await supabase.auth.admin.listUsers();
+  if (error) throw error;
+  return data.users.some(user => user.email === email);
+}
+
+// 為現有用戶添加角色
+export async function addRoleToUser(userId: string, role: string) {
+  const { data: userData } = await supabase.auth.admin.getUserById(userId);
+  
+  if (userData.user) {
+    const currentRoles = userData.user.user_metadata?.roles || [];
+    const updatedRoles = [...new Set([...currentRoles, role])];
+    
+    const { error } = await supabase.auth.admin.updateUserById(userId, {
+      user_metadata: { 
+        ...userData.user.user_metadata,
+        roles: updatedRoles
+      }
+    });
+    
+    if (error) throw error;
+    
+    // 更新 users_profile 表
+    const { error: profileError } = await supabase
+      .from('users_profile')
+      .update({ 
+        roles: updatedRoles,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', userId);
+      
+    if (profileError) {
+      console.error('Failed to update user profile roles:', profileError);
+    }
+  }
+}
+
+// 註冊 - 支持多角色
 export async function signUp(credentials: SignUpCredentials) {
+  const { email, password, full_name, role = 'landlord' } = credentials;
+  
+  // 檢查用戶是否已存在
+  const userExists = await checkUserExists(email);
+  
+  if (userExists) {
+    // 用戶已存在，獲取用戶ID並添加角色
+    const { data: users } = await supabase.auth.admin.listUsers();
+    const existingUser = users.users.find(user => user.email === email);
+    
+    if (existingUser) {
+      await addRoleToUser(existingUser.id, role);
+      return { user: existingUser, session: null };
+    }
+  }
+  
+  // 新用戶註冊
   const { data, error } = await supabase.auth.signUp({
-    email: credentials.email,
-    password: credentials.password,
+    email,
+    password,
     options: {
       data: {
-        full_name: credentials.full_name,
-        role: credentials.role || 'landlord',
+        full_name,
+        roles: [role],
+        primary_role: role
       },
     },
   });
 
   if (error) throw error;
+  
+  // 創建 users_profile 記錄
+  if (data.user) {
+    const { error: profileError } = await supabase
+      .from('users_profile')
+      .insert({
+        user_id: data.user.id,
+        email: email,
+        full_name: full_name,
+        roles: [role],
+        primary_role: role
+      });
+
+    if (profileError) {
+      console.error('Failed to create user profile:', profileError);
+    }
+  }
+  
   return data;
 }
 

@@ -67,10 +67,16 @@ export default function LandlordDashboard() {
                 <Text className="text-2xl font-bold text-text-primary mb-1">Welcome back, Landlord</Text>
                 <Text className="text-sm text-text-muted">Here is what's happening with your properties today.</Text>
             </View>
-            <TouchableOpacity className="bg-accent flex-row items-center py-2.5 px-5 rounded-md">
-                <FontAwesome5 name="plus" size={12} color={ICON_COLORS.white} style={{marginRight: 8}} />
-                <Text className="text-text-primary font-semibold text-sm">Add Property</Text>
-            </TouchableOpacity>
+            <View className="flex-row gap-3">
+                <TouchableOpacity className="bg-bg-secondary border border-border-light flex-row items-center py-2.5 px-5 rounded-md" onPress={() => signOut()}>
+                    <FontAwesome5 name="sign-out-alt" size={12} color={ICON_COLORS.white} style={{marginRight: 8}} />
+                    <Text className="text-text-primary font-semibold text-sm">Logout</Text>
+                </TouchableOpacity>
+                <TouchableOpacity className="bg-accent flex-row items-center py-2.5 px-5 rounded-md">
+                    <FontAwesome5 name="plus" size={12} color={ICON_COLORS.white} style={{marginRight: 8}} />
+                    <Text className="text-text-primary font-semibold text-sm">Add Property</Text>
+                </TouchableOpacity>
+            </View>
         </View>
 
         <View className={`p-5 gap-5 self-center w-full max-w-[1440px] ${isWeb ? 'flex-row' : 'flex-col'}`}>

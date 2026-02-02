@@ -27,16 +27,21 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          role: 'super_admin' | 'landlord' | 'tenant' | 'agent' | 'service_provider';
+          roles: ('super_admin' | 'landlord' | 'tenant' | 'agent' | 'service_provider' | 'buyer')[];
+          primary_role: 'super_admin' | 'landlord' | 'tenant' | 'agent' | 'service_provider' | 'buyer';
           email: string;
           full_name: string | null;
           phone: string | null;
           avatar_url: string | null;
           metadata: Json;
+          role_preferences: Json;
           created_at: string;
           updated_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['users_profile']['Row'], 'id' | 'created_at' | 'updated_at'>;
+        Insert: Omit<Database['public']['Tables']['users_profile']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          roles?: ('super_admin' | 'landlord' | 'tenant' | 'agent' | 'service_provider' | 'buyer')[];
+          primary_role?: 'super_admin' | 'landlord' | 'tenant' | 'agent' | 'service_provider' | 'buyer';
+        };
         Update: Partial<Database['public']['Tables']['users_profile']['Insert']>;
       };
       property_rentals: {

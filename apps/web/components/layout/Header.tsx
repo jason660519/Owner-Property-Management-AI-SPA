@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { createClient } from '@/lib/supabase/client';
 import { Button } from '../ui/Button';
 import styles from './Header.module.css';
 
@@ -18,11 +20,33 @@ export function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
   const isLoginPage = pathname === '/login';
   const isRegisterPage = pathname === '/register';
   const highlightAuth = isLoginPage || isRegisterPage;
   const loginVariant = highlightAuth ? (isLoginPage ? 'primary' : 'secondary') : 'secondary';
   const registerVariant = highlightAuth ? (isRegisterPage ? 'primary' : 'secondary') : 'primary';
+
+  const { user, loading } = useAuth();
+  const supabase = createClient();
+
+  const role = user?.user_metadata?.role || user?.user_metadata?.primary_role || 'landlord';
+  const dashboardMap: Record<string, string> = {
+    super_admin: '/super-admin/dashboard',
+    landlord: '/landlord/dashboard',
+    tenant: '/tenant/dashboard',
+    buyer: '/buyer/dashboard',
+    agent: '/agent/dashboard',
+  };
+  const dashboardUrl = dashboardMap[role] || '/landlord/dashboard';
+
+  const handleLoginClick = () => router.push('/login');
+  const handleRegisterClick = () => router.push('/register');
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/');
+    router.refresh();
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -84,16 +108,30 @@ export function Header() {
 
           {/* Auth Actions */}
           <div className={styles.navActions}>
-            <Link href="/login">
-              <Button variant={loginVariant} size="md">
-                登入
-              </Button>
-            </Link>
-            <Link href="/register">
-              <Button variant={registerVariant} size="md">
-                註冊
-              </Button>
-            </Link>
+            {loading ? (
+               // Loading state placeholder
+               <div className="w-24 h-10 bg-gray-800 rounded animate-pulse" />
+            ) : user ? (
+              <>
+                <Link href={dashboardUrl}>
+                  <Button variant="ghost" size="md">
+                    儀表板
+                  </Button>
+                </Link>
+                <Button variant="secondary" size="md" onClick={handleLogout}>
+                  登出
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant={loginVariant} size="md" onClick={handleLoginClick}>
+                  登入
+                </Button>
+                <Button variant={registerVariant} size="md" onClick={handleRegisterClick}>
+                  註冊
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -125,16 +163,31 @@ export function Header() {
             </Link>
           ))}
           <div className={styles.mobileAuthButtons}>
-            <Link href="/login">
-              <Button variant={loginVariant} fullWidth>
-                登入
-              </Button>
-            </Link>
-            <Link href="/register">
-              <Button variant={registerVariant} fullWidth>
-                註冊
-              </Button>
-            </Link>
+            {user ? (
+              <>
+                <Link href={dashboardUrl}>
+                  <Button variant="ghost" fullWidth>
+                    儀表板
+                  </Button>
+                </Link>
+                <Button variant="secondary" fullWidth onClick={handleLogout}>
+                  登出
+                </Button>
+              </>
+            ) : (
+              <>
+                <Link href="/login">
+                  <Button variant={loginVariant} fullWidth>
+                    登入
+                  </Button>
+                </Link>
+                <Link href="/register">
+                  <Button variant={registerVariant} fullWidth>
+                    註冊
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
