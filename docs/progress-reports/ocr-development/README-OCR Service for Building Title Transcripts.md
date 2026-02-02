@@ -111,7 +111,7 @@ cat TDD_PROGRESS.md
 ## 相關文件
 
 - [OCR 規劃報告](../../docs/OCR開發進度+使用+測試報告/OCR規劃報告.md)
-- [資料庫架構設計書](../../docs/專案架構說明/資料庫架構設計書.md)
+- [資料庫架構設計書](../../docs/technical-selection/database-architecture-design.md)
 
 ## 版本修訂記錄
 

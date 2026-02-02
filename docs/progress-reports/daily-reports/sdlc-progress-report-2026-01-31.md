@@ -92,7 +92,7 @@
 - 記錄所有重大技術決策與變更
 - 包含詳細的變更原因、影響範圍、權衡考量
 
-**b) docs/專案架構說明/技術棧說明.md** ⭐
+**b) docs/technical-selection/技術棧說明.md** ⭐
 - 完整技術棧清單（前端、後端、工具）
 - Webpack vs Turbopack 詳細決策分析（對比表格）
 - 其他關鍵技術選型說明（Turborepo、Supabase、Expo）
@@ -110,7 +110,7 @@
 - 新增技術選型變更說明
 - 版本記錄：新增 2026-01-31 構建工具切換記錄
 
-**b) docs/deployment-guides/本案開發環境快速啟動指南.md**
+**b) docs/deployment-guides/quick-start-guide.md**
 - 擴充服務位址表格（從 4 項擴展至 11 項）
 - 新增 Supabase 後端服務詳細說明
 - 移除 Turbopack 相關故障排查步驟
@@ -128,7 +128,7 @@
 ✅ **統一改稱"公司官網 (Web)"**
 
 **更新範圍**:
-- docs/deployment-guides/本案開發環境快速啟動指南
+- docs/deployment-guides/quick-start-guide
 - 開發環境檢測報告
 - README.md
 - 所有相關文檔
@@ -146,7 +146,7 @@
 - ✅ SEO Metadata：更新 title 和 description
 
 #### 設計規範符合度
-- 🎯 完全符合 `docs/專案架構說明/DESIGN.md` 規範
+- 🎯 完全符合 `docs/design-guidelines/DESIGN_SYSTEM.md` 規範
 - 🎯 基於 Figma 設計稿實作
 
 ---
@@ -262,9 +262,9 @@
 ## 🔗 相關文檔
 
 - [CHANGELOG.md](../../CHANGELOG.md) - 版本變更歷史
-- [技術棧說明.md](../專案架構說明/技術棧說明.md) - 技術選型決策
+- [技術棧說明.md](../technical-selection/技術棧說明.md) - 技術選型決策
 - [開發環境檢測報告_2026-01-31.md](../開發環境檢測報告_2026-01-31.md) - 服務狀態檢測
-- [本案開發環境快速啟動指南.md](../../deployment-guides/本案開發環境快速啟動指南.md) - 快速啟動
+- [quick-start-guide.md](../../deployment-guides/quick-start-guide.md) - 快速啟動
 
 ---
 

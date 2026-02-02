@@ -14,7 +14,7 @@
 #### 更新的文件
 - ✅ `README.md` - 反映新策略，說明 PWA 使用方式
 - ✅ 創建策略調整報告
-- ✅ 創建實施計劃文檔
+- ✅ 創建implementation-plan文檔
 - ✅ 創建行動清單
 
 #### 文檔位置
@@ -23,7 +23,7 @@ docs/
 ├── implementation-plans/
 │   ├── 專案簡化計劃_專注Next.js_Web_App.md
 │   ├── 專注Web_App_行動清單.md
-│   └── 移除Expo_Web_實施計劃.md
+│   └── 移除Expo_Web_implementation-plan.md
 ├── progress-reports/工程師每日工作報告/
 │   └── 策略調整完成報告_2026-02-02.md
 └── 硬體與軟體技術選型說明/

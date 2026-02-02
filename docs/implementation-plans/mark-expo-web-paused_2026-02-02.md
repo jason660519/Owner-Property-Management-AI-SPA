@@ -19,11 +19,11 @@
 ### Documentation / 文檔文件
 
 4. `README.md` - Project README
-5. `docs/deployment-guides/本案開發環境快速啟動指南.md` - Development guide
+5. `docs/deployment-guides/quick-start-guide.md` - Development guide
 6. `docs/product-overview/README.md` - Product overview
-7. `docs/product-overview/產品概述.md` - Product description
-8. `docs/product-overview/技術架構說明.md` - Technical architecture
-9. `docs/product-overview/Mobile App - 使用者場景.md` - Mobile app scenarios
+7. `docs/product-overview/product-overview-content.md` - Product description
+8. `docs/product-overview/technical-architecture.md` - Technical architecture
+9. `docs/product-overview/mobile-app-user-scenarios.md` - Mobile app scenarios
 10. `apps/mobile/README.md` - Mobile app README
 
 ---

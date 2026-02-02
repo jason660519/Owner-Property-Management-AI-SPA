@@ -1,4 +1,4 @@
-# 房東物件管理系統：完整資料庫架構設計書
+# 房東物件管理系統：完整database-architecture-design
 
 > **創建日期**: 2026-01-30  
 > **創建者**: Project Team  

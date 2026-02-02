@@ -102,7 +102,7 @@
 │   ├── roadmap/              # 專案規劃與 Sprint 計畫
 │   ├── 工程師每日工作報告/
 │   └── 資料庫進度報告/
-├── 產品概述及使用場景說明/  # 產品需求與使用場景
+├── product-overview/  # 產品需求與使用場景
 └── 硬體與軟體技術選型說明/  # 技術架構與選型決策
 
 ✅ apps/web/                   # Next.js 應用
@@ -207,7 +207,7 @@ root/
 │   │   ├── roadmap/          # 專案規劃與 Sprint 計畫
 │   │   ├── daily-reports/    # 工程師每日工作報告
 │   │   └── database-reports/ # 資料庫進度報告
-│   ├── implementation-plans/ # 實施計劃
+│   ├── implementation-plans/ # implementation-plan
 │   ├── product-overview/     # 產品需求與使用場景
 │   ├── technical-selection/  # 技術架構與選型決策
 │   └── file-naming-guidelines.md  # 檔案命名規則與歸檔總則

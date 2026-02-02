@@ -104,7 +104,7 @@ docs/deployment-guides/
 ```
 docs/deployment-guides/
 ├── mcp_server_setup_guide.md  ✅ 保留
-└── 本案開發環境快速啟動指南.md  ✅ 保留
+└── quick-start-guide.md  ✅ 保留
 ```
 
 ---
@@ -124,7 +124,7 @@ docs/
 │
 ├── deployment-guides/           # 部署指南 ✅ (精簡到 2 個)
 │   ├── mcp_server_setup_guide.md
-│   └── 本案開發環境快速啟動指南.md
+│   └── quick-start-guide.md
 │
 ├── 硬體與軟體技術選型說明/    # 技術選型 ✅ (全部保留)
 │   ├── Mobile_App_技術方案評估_原生vs跨平台.md
@@ -144,7 +144,7 @@ docs/
 │
 ├── design-guidelines/           # 設計規範 ✅ (全部保留)
 ├── access-matrix-design-guidelines-and-process/  # IAM 設計 ✅
-├── 產品概述及使用場景說明/  # 產品文檔 ✅
+├── product-overview/  # 產品文檔 ✅
 ├── reports/                     # 測試報告 ✅
 └── 本專案檔案命名規則與新增文件歸檔總則.md  ✅
 ```

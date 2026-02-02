@@ -76,7 +76,7 @@
 docs/硬體與軟體技術選型說明/
 docs/工程師每日工作報告/
 SDLC開發進度表報告_2026-01-30.md
-資料庫架構設計書.md
+database-architecture-design.md
 ```
 
 #### ✅ CORRECT / 正確
@@ -344,7 +344,7 @@ root/
   - 其他進度報告 → `docs/progress-reports/`
 - **產品需求與使用場景**：存入 `docs/product-overview/`
 - **技術選型與架構文件**：存入 `docs/technical-selection/`
-- **實施計劃**：存入 `docs/implementation-plans/`
+- **implementation-plan**：存入 `docs/implementation-plans/`
 - **臨時筆記/草稿**：存入 `docs/drafts/`（確認定稿後移至正式目錄）
 - **圖片影音**：存入 `docs/design-guidelines/references/` 或 `apps/*/assets/`（若為 UI 相關）
 

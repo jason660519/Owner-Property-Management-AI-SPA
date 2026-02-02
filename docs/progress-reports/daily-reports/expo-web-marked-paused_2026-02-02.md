@@ -121,14 +121,14 @@ README.md 已清楚標示：
 | File                                                 | Status         | Notes                        |
 | :--------------------------------------------------- | :------------- | :--------------------------- |
 | `README.md`                                          | ✅ Already good | Clear pause status indicated |
-| `docs/deployment-guides/本案開發環境快速啟動指南.md` | 📝 Reviewed     | Contains 8081 references     |
+| `docs/deployment-guides/quick-start-guide.md` | 📝 Reviewed     | Contains 8081 references     |
 | `docs/product-overview/README.md`                    | 📝 Reviewed     | Contains 8081 references     |
 | `docs/implementation-plans/移除Expo_Web_實施計劃.md` | 📝 Reviewed     | Historical document          |
 
 | 檔案                                                 | 狀態     | 備註               |
 | :--------------------------------------------------- | :------- | :----------------- |
 | `README.md`                                          | ✅ 已良好 | 已清楚標示暫緩狀態 |
-| `docs/deployment-guides/本案開發環境快速啟動指南.md` | 📝 已檢查 | 包含 8081 引用     |
+| `docs/deployment-guides/quick-start-guide.md` | 📝 已檢查 | 包含 8081 引用     |
 | `docs/product-overview/README.md`                    | 📝 已檢查 | 包含 8081 引用     |
 | `docs/implementation-plans/移除Expo_Web_實施計劃.md` | 📝 已檢查 | 歷史文檔           |
 

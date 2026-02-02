@@ -168,6 +168,6 @@ ON properties USING GIN ((transcript_data->>'building_type'));
 
 ## 參考文檔
 
-- 資料庫架構設計: `@docs/專案架構說明/資料庫架構設計書.md`
-- PostgreSQL JSONB 說明: `@docs/專案架構說明/PostgreSQL_JSON_vs_JSONB_說明.md`
+- 資料庫架構設計: `@docs/technical-selection/database-architecture-design.md`
+- PostgreSQL JSONB 說明: `@docs/technical-selection/postgresql-json-vs-jsonb.md`
 - 初始 Schema: `@supabase/migrations/20260112000000_initial_schema.sql`

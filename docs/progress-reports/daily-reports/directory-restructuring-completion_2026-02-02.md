@@ -28,12 +28,12 @@
 | Old Name (Chinese)        | New Name (English)     | Status |
 | :------------------------ | :--------------------- | :----- |
 | `硬體與軟體技術選型說明/` | `technical-selection/` | ✅ Done |
-| `產品概述及使用場景說明/` | `product-overview/`    | ✅ Done |
+| `product-overview/` | `product-overview/`    | ✅ Done |
 
 | 舊名稱（中文）            | 新名稱（英文）         | 狀態   |
 | :------------------------ | :--------------------- | :----- |
 | `硬體與軟體技術選型說明/` | `technical-selection/` | ✅ 完成 |
-| `產品概述及使用場景說明/` | `product-overview/`    | ✅ 完成 |
+| `product-overview/` | `product-overview/`    | ✅ 完成 |
 
 ### 3. Level 2 Directories Renamed / 第二層目錄已重命名 ✅
 
@@ -91,7 +91,7 @@ docs/
 │   ├── daily-reports/                            # 每日工作報告
 │   ├── database-reports/                         # 資料庫報告
 │   └── roadmap/                                  # 專案規劃
-├── product-overview/                             # 產品概述
+├── product-overview/                             # product-overview
 ├── technical-selection/                          # 技術選型
 ├── reports/                                      # 測試報告
 ├── file-naming-guidelines.md                     # 檔案命名規範 (新)

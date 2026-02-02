@@ -1,4 +1,4 @@
-# 產品概述及使用場景說明 - 文件總覽
+# product-overview - 文件總覽
 
 > **創建日期**: 2026-02-02  
 > **創建者**: Project Team  
@@ -11,17 +11,17 @@
 
 ## 📚 文件導覽
 
-本資料夾包含房東物件管理語音 AI App 的完整產品概述、技術架構與使用場景說明。
+本資料夾包含房東物件管理語音 AI App 的完整product-overview、技術架構與使用場景說明。
 
 ### 核心文件
 
-1. **[產品概述.md](./產品概述.md)**
+1. **[product-overview-content.md](./product-overview-content.md)**
    - 產品願景與定位
    - 註冊與登入機制
    - **技術架構與平台** (新增)
    - 競品參考
 
-2. **[技術架構說明.md](./技術架構說明.md)** ⭐ 新增
+2. **[technical-architecture.md](./technical-architecture.md)** ⭐ 新增
    - Monorepo 架構詳解
    - Next.js Web 端技術堆疊
    - Expo Mobile 端技術堆疊
@@ -29,7 +29,7 @@
    - 開發環境配置
    - 未來擴展計畫
 
-3. **[Mobile App - 使用者場景.md](./Mobile%20App%20-%20使用者場景.md)**
+3. **[mobile-app-user-scenarios.md](./mobile-app-user-scenarios.md)**
    - **技術實作說明** (新增)
    - AI 語音助理互動場景
    - 物件管理流程
@@ -39,12 +39,12 @@
 
 ### 輔助文件
 
-4. **[房東－房屋資料準備手冊.md](./房東－房屋資料準備手冊.md)**
+4. **[landlord-property-data-manual.md](./landlord-property-data-manual.md)**
    - 房屋照片拍攝建議
    - 基本資料準備清單
    - 權利證明文件說明
 
-5. **[房客－預約看房須知.md](./房客－預約看房須知.md)**
+5. **[tenant-viewing-instructions.md](./tenant-viewing-instructions.md)**
    - 預約流程說明
    - 身分驗證要求
    - 看房注意事項
@@ -68,11 +68,11 @@
 - **適用**: 桌面與平板瀏覽器
 - **技術**: Next.js 16 + React 19 + TypeScript
 
-#### 📱 房東管理 App (Expo Mobile App)
-- **位址**: `http://localhost:8081` (開發環境 Web 預覽)
+#### 📱 房東管理 App (Expo Mobile App) ⏸️ (開發已暫緩)
+- **位址**: `http://localhost:8081` (開發環境 Web 預覽) ⏸️ (已暫緩)
 - **用途**: AI 語音助理、物件管理、租客篩選、財務報表
 - **適用**: iOS / Android 原生 App + Web 瀏覽器
-- **技術**: Expo 54 + React Native 0.81 + TypeScript
+- **技術**: Expo 54 + React Native 0.81 + TypeScript ⏸️ (已暫緩)
 
 ### 目前開發狀態
 
@@ -84,7 +84,7 @@
 - Header 導航元件
 - Supabase SSR 整合
 
-**Mobile 端**:
+**Mobile 端 (⏸️ 已暫停實時開發)**:
 - 登入/註冊/歡迎頁面
 - 儀表板框架（側邊欄 + 底部導航）
 - 角色切換邏輯（房東/超級管理員）
@@ -102,7 +102,7 @@
 
 ## 🚀 快速啟動開發環境
 
-詳細步驟請參考 [本案開發環境快速啟動指南](../deployment-guides/本案開發環境快速啟動指南.md)
+詳細步驟請參考 [quick-start-guide](../deployment-guides/quick-start-guide.md)
 
 ```bash
 # 1. 啟動 Supabase 後端服務
@@ -115,8 +115,8 @@ npm install
 npm run dev
 
 # 訪問服務
-# Web:    http://localhost:3000
-# Mobile: http://localhost:8081
+# Web:    http://localhost:3000   ✅ (主要開發)
+# Mobile: http://localhost:8081   ⏸️ (已暫緩)
 ```
 
 ---
@@ -124,46 +124,49 @@ npm run dev
 ## 📖 閱讀建議
 
 ### 對於產品經理/業務人員
-1. 先閱讀 [產品概述.md](./產品概述.md) 了解產品定位
-2. 再看 [Mobile App - 使用者場景.md](./Mobile%20App%20-%20使用者場景.md) 了解實際使用流程
+1. 先閱讀 [product-overview-content.md](./product-overview-content.md) 了解產品定位
+2. 再看 [mobile-app-user-scenarios.md](./mobile-app-user-scenarios.md) 了解實際使用流程
 3. 參考輔助文件了解房東與房客的操作細節
 
 ### 對於開發人員
-1. 先閱讀 [技術架構說明.md](./技術架構說明.md) 了解整體架構
-2. 參考 [產品概述.md](./產品概述.md) 中的「技術架構與平台」章節
-3. 查看 [開發環境快速啟動指南](../deployment-guides/本案開發環境快速啟動指南.md) 進行環境配置
+1. 先閱讀 [technical-architecture.md](./technical-architecture.md) 了解整體架構
+2. 參考 [product-overview-content.md](./product-overview-content.md) 中的「技術架構與平台」章節
+3. 查看 [quick-start-guide](../deployment-guides/quick-start-guide.md) 進行環境配置
 
 ### 對於設計師
-1. 閱讀 [產品概述.md](./產品概述.md) 了解產品定位
-2. 參考 [DESIGN.md](../專案架構說明/DESIGN.md) 了解設計系統規範
-3. 查看 [技術架構說明.md](./技術架構說明.md) 中的「共用設計系統」章節
+1. 閱讀 [product-overview-content.md](./product-overview-content.md) 了解產品定位
+2. 參考 [DESIGN.md](../design-guidelines/DESIGN_SYSTEM.md) 了解設計系統規範
+3. 查看 [technical-architecture.md](./technical-architecture.md) 中的「共用設計系統」章節
 
 ---
 
 ## 🔗 相關文件連結
 
 ### 部署與環境
-- [本案開發環境快速啟動指南](../deployment-guides/本案開發環境快速啟動指南.md)
-- [三階段部署說明](../deployment-guides/三階段部署說明.md)
-- [開發環境檢測報告](../開發環境檢測報告_2026-01-31.md)
+- [quick-start-guide](../deployment-guides/quick-start-guide.md)
+- [三階段deployment-guide](../deployment-guides/三階段deployment-guide.md)
+- [dev-env-check-report](../dev-env-check-report_2026-01-31.md)
 
 ### 專案架構
-- [DESIGN.md](../專案架構說明/DESIGN.md) - Figma 設計實作指南
-- [專案架構說明](../專案架構說明/)
+- [DESIGN.md](../design-guidelines/DESIGN_SYSTEM.md) - Figma 設計實作指南
+- [technical-selection](../technical-selection/)
 
 ---
 
 ## 📝 文件更新記錄
 
-### 2026-02-02 重大更新
+### 2026-02-02 重大更新 & 策略調整
+1. **策略調整**:
+   - ✅ 標記 Expo Mobile App 為**暫緩開發** (⏸️)
+   - ✅ 專案重心全面轉向 **Next.js Web App + PWA**
 
-1. **新增文件**:
-   - `技術架構說明.md` - 詳細的技術架構與開發指南
+2. **新增文件**:
+   - `technical-architecture.md` - 詳細的技術架構與開發指南
    - `README.md` (本文件) - 文件總覽與導覽
 
 2. **更新文件**:
-   - `產品概述.md` - 新增「技術架構與平台」章節
-   - `Mobile App - 使用者場景.md` - 新增「技術實作說明」章節
+   - `product-overview-content.md` - 新增「技術架構與平台」章節
+   - `mobile-app-user-scenarios.md` - 新增「技術實作說明」章節
 
 3. **更新內容**:
    - 詳細說明 Next.js Web 與 Expo Mobile App 的技術選型

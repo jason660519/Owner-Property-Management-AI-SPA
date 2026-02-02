@@ -1,4 +1,4 @@
-# 技術棧說明與選型決策
+# tech-stack-overview與選型決策
 
 > **創建日期**: 2026-01-31  
 > **創建者**: Claude Sonnet 4.5  
@@ -205,7 +205,7 @@
 - [CHANGELOG.md](../CHANGELOG.md) - 版本變更歷史
 - [README.md](../README.md) - 專案概述與快速開始
 - [DESIGN.md](./DESIGN.md) - 設計系統規範
-- [開發環境快速啟動指南](../deployment-guides/本案開發環境快速啟動指南.md)
+- [quick-start-guide](../deployment-guides/quick-start-guide.md)
 
 ---
 

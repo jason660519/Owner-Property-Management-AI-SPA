@@ -11,7 +11,7 @@
 
 ## ✅ 執行摘要
 
-已成功將 `本案開發環境快速啟動指南.md` 從專案根目錄移動至 `docs/deployment-guides/`，並更新所有相關引用。
+已成功將 `quick-start-guide.md` 從專案根目錄移動至 `docs/deployment-guides/`，並更新所有相關引用。
 
 ---
 
@@ -21,10 +21,10 @@
 
 ```bash
 # 移動前位置
-/Volumes/KLEVV-4T-1/Real Estate Management Projects/Owner-Property-Management-AI-SPA/本案開發環境快速啟動指南.md
+/Volumes/KLEVV-4T-1/Real Estate Management Projects/Owner-Property-Management-AI-SPA/quick-start-guide.md
 
 # 移動後位置
-/Volumes/KLEVV-4T-1/Real Estate Management Projects/Owner-Property-Management-AI-SPA/docs/deployment-guides/本案開發環境快速啟動指南.md
+/Volumes/KLEVV-4T-1/Real Estate Management Projects/Owner-Property-Management-AI-SPA/docs/deployment-guides/quick-start-guide.md
 ```
 
 **狀態**: ✅ 已完成
@@ -39,38 +39,38 @@
 
 ### 1. `docs/本專案檔案命名規則與新增文件歸檔總則.md`
 - **變更**: 更新根目錄淨空規則中的路徑引用
-- **原路徑**: `本案開發環境快速啟動指南.md`（可考慮移至 `docs/deployment-guides/`）
-- **新路徑**: `docs/deployment-guides/本案開發環境快速啟動指南.md`
+- **原路徑**: `quick-start-guide.md`（可考慮移至 `docs/deployment-guides/`）
+- **新路徑**: `docs/deployment-guides/quick-start-guide.md`
 
 ### 2. `docs/硬體與軟體技術選型說明/技術棧說明.md`
 - **變更**: 更新相對路徑連結
-- **原路徑**: `../本案開發環境快速啟動指南.md`
-- **新路徑**: `../deployment-guides/本案開發環境快速啟動指南.md`
+- **原路徑**: `../quick-start-guide.md`
+- **新路徑**: `../deployment-guides/quick-start-guide.md`
 
 ### 3. `docs/progress-reports/工程師每日工作報告/SDLC開發進度表報告_2026-01-31.md`
 - **變更**: 更新相對路徑連結和文本引用（共 3 處）
-- **原路徑**: `../../本案開發環境快速啟動指南.md`
-- **新路徑**: `../../deployment-guides/本案開發環境快速啟動指南.md`
+- **原路徑**: `../../quick-start-guide.md`
+- **新路徑**: `../../deployment-guides/quick-start-guide.md`
 
 ### 4. `docs/progress-reports/工程師每日工作報告/軟體架構師本日工作規劃報告_2026-01-31.md`
 - **變更**: 更新相對路徑連結
-- **原路徑**: `../../本案開發環境快速啟動指南.md`
-- **新路徑**: `../../deployment-guides/本案開發環境快速啟動指南.md`
+- **原路徑**: `../../quick-start-guide.md`
+- **新路徑**: `../../deployment-guides/quick-start-guide.md`
 
 ### 5. `docs/progress-reports/資料庫進度報告/testing scripts/開發環境測試報告_2026-01-22.md`
 - **變更**: 更新文本引用
-- **原路徑**: `` `本案開發環境快速啟動指南.md` ``
-- **新路徑**: `` `docs/deployment-guides/本案開發環境快速啟動指南.md` ``
+- **原路徑**: `` `quick-start-guide.md` ``
+- **新路徑**: `` `docs/deployment-guides/quick-start-guide.md` ``
 
 ### 6. `docs/progress-reports/資料庫進度報告/testing scripts/database_unification_report_2026-01-22.md`
 - **變更**: 更新文本引用
-- **原路徑**: `` `本案開發環境快速啟動指南.md` ``
-- **新路徑**: `` `docs/deployment-guides/本案開發環境快速啟動指南.md` ``
+- **原路徑**: `` `quick-start-guide.md` ``
+- **新路徑**: `` `docs/deployment-guides/quick-start-guide.md` ``
 
 ### 7. `docs/progress-reports/工程師每日工作報告/文件歸檔規則更新報告_2026-02-01.md`
 - **變更**: 更新建議狀態（從「可考慮移動」改為「已移動」）
-- **原文**: `本案開發環境快速啟動指南.md → docs/deployment-guides/本案開發環境快速啟動指南.md`
-- **新文**: `✅ 已移動：本案開發環境快速啟動指南.md → docs/deployment-guides/本案開發環境快速啟動指南.md`
+- **原文**: `quick-start-guide.md → docs/deployment-guides/quick-start-guide.md`
+- **新文**: `✅ 已移動：quick-start-guide.md → docs/deployment-guides/quick-start-guide.md`
 
 ---
 
@@ -80,13 +80,13 @@
 
 ```bash
 # 檢查新位置
-$ ls -la "docs/deployment-guides/本案開發環境快速啟動指南.md"
--rwx------@ 1 jason66  staff  8236 Feb  1 04:02 docs/deployment-guides/本案開發環境快速啟動指南.md
+$ ls -la "docs/deployment-guides/quick-start-guide.md"
+-rwx------@ 1 jason66  staff  8236 Feb  1 04:02 docs/deployment-guides/quick-start-guide.md
 ✅ 文件存在於新位置
 
 # 檢查舊位置
-$ ls -la "本案開發環境快速啟動指南.md"
-ls: 本案開發環境快速啟動指南.md: No such file or directory
+$ ls -la "quick-start-guide.md"
+ls: quick-start-guide.md: No such file or directory
 ✅ 文件已不在根目錄
 ```
 
@@ -94,7 +94,7 @@ ls: 本案開發環境快速啟動指南.md: No such file or directory
 
 ```bash
 # 搜尋舊路徑引用
-$ grep -r "../../本案開發環境快速啟動指南" --include="*.md"
+$ grep -r "../../quick-start-guide" --include="*.md"
 ✅ 無結果（所有引用已更新）
 ```
 

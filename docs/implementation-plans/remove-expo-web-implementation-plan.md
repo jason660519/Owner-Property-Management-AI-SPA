@@ -1,4 +1,4 @@
-# 移除 Expo Web 實施計劃
+# 移除 Expo Web implementation-plan
 
 > **創建日期**: 2026-02-02  
 > **創建者**: Claude Sonnet 4.5  
@@ -276,7 +276,7 @@ npm run android
 
 #### **Step 5.2: 更新技術棧文檔**
 
-**檔案**: `docs/硬體與軟體技術選型說明/技術棧說明.md`
+**檔案**: `docs/硬體與軟體技術選型說明/tech-stack-overview.md`
 
 **新增章節**:
 ```markdown
@@ -539,10 +539,10 @@ apps/mobile/
 ## 🔗 相關文檔
 
 - [Mobile App 技術方案評估](./Mobile_App_技術方案評估_原生vs跨平台.md)
-- [技術棧說明](./技術棧說明.md)
-- [開發環境快速啟動指南](../deployment-guides/本案開發環境快速啟動指南.md)
+- [tech-stack-overview](./tech-stack-overview.md)
+- [quick-start-guide](../deployment-guides/quick-start-guide.md)
 
 ---
 
 **版本歷史**:
-- **v1.0** (2026-02-02): 初始版本，完整實施計劃
+- **v1.0** (2026-02-02): 初始版本，完整implementation-plan

@@ -39,7 +39,7 @@ docs/
 │   ├── roadmap/              # 專案規劃與 Sprint 計畫
 │   ├── 工程師每日工作報告/
 │   └── 資料庫進度報告/
-├── 產品概述及使用場景說明/  # 產品需求與使用場景
+├── product-overview/  # 產品需求與使用場景
 ├── 硬體與軟體技術選型說明/  # 技術架構與選型決策
 └── 本專案檔案命名規則與新增文件歸檔總則.md
 ```
@@ -59,7 +59,7 @@ docs/
   - 部署與環境文件 → `docs/deployment-guides/`
   - 設計規範 → `docs/design-guidelines/`
   - 進度報告 → `docs/progress-reports/` 及其子目錄
-  - 產品需求 → `docs/產品概述及使用場景說明/`
+  - 產品需求 → `docs/product-overview/`
   - 技術選型 → `docs/硬體與軟體技術選型說明/`
 - ✅ 更新「根目錄淨空」規則，明確列出允許保留在根目錄的文件
 - ✅ 更新「重要文件修改通知」章節，將 `docs/api/*.md` 改為 `docs/硬體與軟體技術選型說明/*.md`
@@ -87,7 +87,7 @@ docs/
 │   ├── roadmap/
 │   ├── 工程師每日工作報告/
 │   └── 資料庫進度報告/
-├── 產品概述及使用場景說明/
+├── product-overview/
 └── 硬體與軟體技術選型說明/
 ```
 
@@ -166,7 +166,7 @@ docs/
 
 ```bash
 # 可考慮移動
-✅ 已移動：本案開發環境快速啟動指南.md → docs/deployment-guides/本案開發環境快速啟動指南.md
+✅ 已移動：quick-start-guide.md → docs/deployment-guides/quick-start-guide.md
 ```
 
 **理由**：

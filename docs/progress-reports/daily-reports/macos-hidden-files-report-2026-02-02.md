@@ -98,7 +98,7 @@ git commit -m "feat: 新功能"
 
 ### 4. 完整文檔 ✅
 
-**文件**: `docs/deployment-guides/macOS隱藏文件解決方案.md`
+**文件**: `docs/deployment-guides/macos-hidden-files-solution.md`
 
 **包含內容**:
 - 📖 問題分析和原因

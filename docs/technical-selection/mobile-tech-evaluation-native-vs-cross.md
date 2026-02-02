@@ -326,7 +326,7 @@ npm uninstall react-native-web
 
 ### **方案 C: 移除 Expo Web + 優化 Expo Mobile**
 
-**實施計劃**:
+**implementation-plan**:
 
 #### **Step 1: 移除 Expo Web (1 天)**
 ```bash

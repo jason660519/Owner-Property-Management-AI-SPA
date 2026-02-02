@@ -1,4 +1,4 @@
-# 技術架構說明
+# technical-architecture
 
 > **創建日期**: 2026-02-02  
 > **創建者**: Project Team  
@@ -18,8 +18,8 @@
 ```
 Owner-Property-Management-AI-SPA/
 ├── apps/
-│   ├── web/              # Next.js 公司官網
-│   └── mobile/           # Expo 房東管理 App
+│   ├── web/              # Next.js 公司官網 ✅ (目前開發重心)
+│   └── mobile/           # Expo 房東管理 App ⏸️ (開發已暫緩)
 ├── packages/             # 共用套件 (UI, Utils)
 ├── supabase/             # 本地 Supabase 配置
 │   └── migrations/       # 資料庫遷移檔
@@ -33,7 +33,7 @@ Owner-Property-Management-AI-SPA/
 | ---------------- | ------------- | ------------------------------------------------- |
 | **Monorepo**     | 專案架構      | 統一管理雙端應用，共用型別定義與業務邏輯          |
 | **Next.js 16**   | Web 端框架    | 最新 App Router、React 19 支援、優秀的 SEO 與效能 |
-| **Expo 54**      | Mobile 端框架 | 快速開發跨平台 App、豐富的原生功能支援            |
+| **Expo 54**      | Mobile 端框架 | ⏸️ 已暫緩開發，僅供未來開發原生 App 參考           |
 | **Supabase**     | 後端服務      | 開源、完整的 BaaS 解決方案（Auth、DB、Storage）   |
 | **TypeScript**   | 開發語言      | 型別安全、提升開發效率與程式碼品質                |
 | **Tailwind CSS** | 樣式框架      | 快速開發、設計系統統一、雙端共用設計語言          |
@@ -78,7 +78,9 @@ Owner-Property-Management-AI-SPA/
 
 ---
 
-## 3. Mobile 端技術架構 (Expo)
+## 3. Mobile 端技術架構 (Expo) ⏸️ (開發已暫緩)
+
+> **注意**：Expo Mobile 端開發目前處於暫緩狀態，開發資源已轉移至 **Next.js Web App + PWA**。以下內容僅供架構參考。
 
 ### 3.1 技術堆疊
 
@@ -113,7 +115,7 @@ Owner-Property-Management-AI-SPA/
 - 自適應佈局 (Sidebar vs Bottom Tabs)
 - 統一設計系統 (`src/theme/`)
 
-#### ⚠️ 開發中
+#### ⏸️ 已暫緩功能 (未來規劃)
 - AI 語音助理互動介面
 - 物件管理與行銷頁面生成
 - 租客篩選與合約製作
@@ -123,19 +125,19 @@ Owner-Property-Management-AI-SPA/
 
 ### 3.3 開發環境
 
-- **開發伺服器**: `http://localhost:8081`
+- **開發伺服器**: `http://localhost:8081` ⏸️ (已暫緩)
 - **啟動指令**: `npm run dev:mobile`
-- **Web 預覽**: `expo start --web`
-- **iOS 模擬器**: `expo start --ios`
-- **Android 模擬器**: `expo start --android`
+- **Web 預覽**: `expo start --web` ⏸️ (已暫緩)
+- **iOS 模擬器**: `expo start --ios` ⏸️ (已暫緩)
+- **Android 模擬器**: `expo start --android` ⏸️ (已暫緩)
 
 ### 3.4 平台支援
 
-| 平台        | 狀態     | 說明                                     |
-| ----------- | -------- | ---------------------------------------- |
-| **Web**     | ✅ 支援   | 透過 React Native Web 實現，適合開發測試 |
-| **iOS**     | ⚠️ 測試中 | 需 macOS + Xcode 進行原生建置            |
-| **Android** | ⚠️ 測試中 | 需 Android Studio 進行原生建置           |
+| 平台        | 狀態   | 說明                           |
+| ----------- | ------ | ------------------------------ |
+| **Web**     | ⏸️ 暫緩 | 透過 React Native Web 實現     |
+| **iOS**     | ⏸️ 暫緩 | 需 macOS + Xcode 進行原生建置  |
+| **Android** | ⏸️ 暫緩 | 需 Android Studio 進行原生建置 |
 
 ---
 
@@ -216,7 +218,7 @@ colors: {
 
 ### 6.1 開發環境啟動
 
-詳細步驟請參考 [本案開發環境快速啟動指南](../deployment-guides/本案開發環境快速啟動指南.md)
+詳細步驟請參考 [quick-start-guide](../deployment-guides/quick-start-guide.md)
 
 **快速啟動**:
 ```bash
@@ -297,13 +299,14 @@ npm run dev:mobile   # 僅 Mobile
 
 ## 9. 相關文件
 
-- [本案開發環境快速啟動指南](../deployment-guides/本案開發環境快速啟動指南.md)
-- [產品概述](./產品概述.md)
-- [Mobile App - 使用者場景](./Mobile%20App%20-%20使用者場景.md)
-- [DESIGN.md](../專案架構說明/DESIGN.md) - Figma 設計實作指南
+- [quick-start-guide](../deployment-guides/quick-start-guide.md)
+- [product-overview](./product-overview-content.md)
+- [mobile-app-user-scenarios](./mobile-app-user-scenarios.md)
+- [DESIGN.md](../design-guidelines/DESIGN_SYSTEM.md) - Figma 設計實作指南
 
 ---
 
 ## 版本修訂記錄
 
+- **2026-02-02**：標記 Expo Mobile App 為**暫緩開發**狀態，專案聚焦於 Next.js Web App + PWA。
 - **2026-02-02**：初版建立，詳細說明 Monorepo 架構、Next.js Web 與 Expo Mobile 的技術堆疊、開發狀態與未來規劃。

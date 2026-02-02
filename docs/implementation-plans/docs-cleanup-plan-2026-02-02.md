@@ -28,7 +28,7 @@
 1. **最新的技術文檔** (2026-02-01 之後)
 2. **核心架構文檔** (資料庫、API、認證)
 3. **重要決策記錄** (技術選型、策略調整)
-4. **實施計劃** (專注 Web App 相關)
+4. **implementation-plan** (專注 Web App 相關)
 5. **參考文檔** (設計規範、命名規則)
 
 ### 刪除原則 ❌
@@ -122,17 +122,17 @@ docs/progress-reports/工程師每日工作報告/
 docs/deployment-guides/
 ├── 2026-01-16_MCP_修復日誌.md  ❌ 刪除 (過時)
 ├── 三階段進度檢測報告.md       ❌ 刪除 (過時)
-├── 三階段部署說明.md           ❌ 刪除 (過時)
+├── 三階段deployment-guide.md           ❌ 刪除 (過時)
 ├── 本專案 Claude Code 記憶體系統配置說明_2026-01-16.md  ❌ 刪除 (過時)
 ├── 開發環境中的專案Hooks設定指南.md  ❌ 刪除 (過時)
-└── 開發環境檢測報告_2026-01-31.md  ❌ 刪除 (臨時性)
+└── dev-env-check-report_2026-01-31.md  ❌ 刪除 (臨時性)
 ```
 
 **保留文件**:
 ```
 docs/deployment-guides/
 ├── mcp_server_setup_guide.md  ✅ 保留 (參考文檔)
-└── 本案開發環境快速啟動指南.md  ✅ 保留 (重要)
+└── quick-start-guide.md  ✅ 保留 (重要)
 ```
 
 **預計刪除**: ~6 個文件
@@ -149,10 +149,10 @@ docs/硬體與軟體技術選型說明/
 ├── Redis_必要性分析.md  ✅ 保留
 ├── Slack_通知設定指南.md  ✅ 保留
 ├── 專案軟體架構與硬體架構選型建議書.md  ✅ 保留
-├── 資料庫架構設計書.md  ✅ 保留
-├── 技術棧說明.md  ✅ 保留 (核心文檔)
-├── 認證系統架構設計.md  ✅ 保留
-└── API整合層架構設計.md  ✅ 保留
+├── database-architecture-design.md  ✅ 保留
+├── tech-stack-overview.md  ✅ 保留 (核心文檔)
+├── auth-system-architecture.md  ✅ 保留
+└── api-integration-layer-design.md  ✅ 保留
 ```
 
 **預計刪除**: 0 個文件
@@ -164,15 +164,15 @@ docs/硬體與軟體技術選型說明/
 **新結構**:
 ```
 docs/
-├── implementation-plans/        # 實施計劃 (新)
+├── implementation-plans/        # implementation-plan (新)
 │   ├── 專案簡化計劃_專注Next.js_Web_App.md
 │   ├── 專注Web_App_行動清單.md
 │   ├── 專注Next.js_實施完成總結.md
-│   └── 移除Expo_Web_實施計劃.md
+│   └── 移除Expo_Web_implementation-plan.md
 │
 ├── deployment-guides/           # 部署指南 (精簡)
 │   ├── mcp_server_setup_guide.md
-│   └── 本案開發環境快速啟動指南.md
+│   └── quick-start-guide.md
 │
 ├── 硬體與軟體技術選型說明/    # 技術選型 (保留)
 │   └── (所有文件保留)
@@ -187,7 +187,7 @@ docs/
 │
 ├── design-guidelines/           # 設計規範 (保留)
 ├── access-matrix-design-guidelines-and-process/  # IAM 設計 (保留)
-├── 產品概述及使用場景說明/  # 產品文檔 (保留)
+├── product-overview/  # 產品文檔 (保留)
 └── reports/                     # 測試報告 (保留)
 ```
 
@@ -238,10 +238,10 @@ cd docs/deployment-guides/
 # 刪除過時文件
 rm -f 2026-01-16_MCP_修復日誌.md
 rm -f 三階段進度檢測報告.md
-rm -f 三階段部署說明.md
+rm -f 三階段deployment-guide.md
 rm -f "本專案 Claude Code 記憶體系統配置說明_2026-01-16.md"
 rm -f 開發環境中的專案Hooks設定指南.md
-rm -f 開發環境檢測報告_2026-01-31.md
+rm -f dev-env-check-report_2026-01-31.md
 ```
 
 ### Step 6: 驗證結果

@@ -117,7 +117,7 @@ await registration.pushManager.subscribe({
 
 ---
 
-## 🚀 實施計劃
+## 🚀 implementation-plan
 
 ### **Phase 1: 立即執行 (本週)**
 
@@ -517,7 +517,7 @@ export function useSwipe(onSwipeLeft?: () => void, onSwipeRight?: () => void) {
 
 1. **更新專案文檔**
    - [ ] README.md
-   - [ ] 技術棧說明
+   - [ ] tech-stack-overview
    - [ ] 開發指南
 
 2. **優化 Web App 手機體驗**
@@ -560,8 +560,8 @@ export function useSwipe(onSwipeLeft?: () => void, onSwipeRight?: () => void) {
 ## 🔗 相關文檔
 
 - [Mobile App 技術方案評估](../硬體與軟體技術選型說明/Mobile_App_技術方案評估_原生vs跨平台.md)
-- [技術棧說明](../硬體與軟體技術選型說明/技術棧說明.md)
-- [開發環境快速啟動指南](../deployment-guides/本案開發環境快速啟動指南.md)
+- [tech-stack-overview](../硬體與軟體技術選型說明/tech-stack-overview.md)
+- [quick-start-guide](../deployment-guides/quick-start-guide.md)
 
 ---
 

@@ -353,7 +353,7 @@ supabase db reset
 - [DATABASE_MIGRATION_COMPLETION_REPORT_2026-01-30.md](../../docs/DATABASE_MIGRATION_COMPLETION_REPORT_2026-01-30.md) - 完整的 migration 完成報告
 - [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) - Migration 執行快速指南
 - [PostgreSQL POLICY 設計規劃書.md](../../docs/資料庫設計進度報告/PostgreSQL%20POLICY%20設計規劃書.md) - RLS 策略設計
-- [資料庫架構設計書.md](../../docs/專案架構說明/資料庫架構設計書.md) - 整體架構設計
+- [資料庫架構設計書.md](../../docs/technical-selection/database-architecture-design.md) - 整體架構設計
 
 ### Excel 分析結果
 - `excel_tables_analysis.json` - 完整的 Excel 表格分析結果

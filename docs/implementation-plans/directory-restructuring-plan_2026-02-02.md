@@ -31,7 +31,7 @@
 ```
 docs/
 ├── 硬體與軟體技術選型說明/
-├── 產品概述及使用場景說明/
+├── product-overview/
 ├── progress-reports/
 │   ├── OCR開發進度報告/
 │   ├── 工程師每日工作報告/
@@ -44,7 +44,7 @@ docs/
 ```
 docs/
 ├── technical-selection/        # 硬體與軟體技術選型說明
-├── product-overview/           # 產品概述及使用場景說明
+├── product-overview/           # product-overview
 ├── progress-reports/
 │   ├── ocr-development/        # OCR開發進度報告
 │   ├── daily-reports/          # 工程師每日工作報告
@@ -61,13 +61,13 @@ docs/
 | Current Name (Chinese)                    | New Name (English)          | Description                          |
 | :---------------------------------------- | :-------------------------- | :----------------------------------- |
 | `硬體與軟體技術選型說明/`                 | `technical-selection/`      | Technical architecture and selection |
-| `產品概述及使用場景說明/`                 | `product-overview/`         | Product requirements and use cases   |
+| `product-overview/`                 | `product-overview/`         | Product requirements and use cases   |
 | `本專案檔案命名規則與新增文件歸檔總則.md` | `file-naming-guidelines.md` | File naming and archiving guidelines |
 
 | 當前名稱（中文）                          | 新名稱（英文）              | 說明               |
 | :---------------------------------------- | :-------------------------- | :----------------- |
 | `硬體與軟體技術選型說明/`                 | `technical-selection/`      | 技術架構與選型決策 |
-| `產品概述及使用場景說明/`                 | `product-overview/`         | 產品需求與使用場景 |
+| `product-overview/`                 | `product-overview/`         | 產品需求與使用場景 |
 | `本專案檔案命名規則與新增文件歸檔總則.md` | `file-naming-guidelines.md` | 檔案命名與歸檔總則 |
 
 ### Level 2: progress-reports/ subdirectories / 第二層：progress-reports/ 子目錄
@@ -115,7 +115,7 @@ cd docs/
 
 # Level 1 directories
 mv "硬體與軟體技術選型說明" "technical-selection"
-mv "產品概述及使用場景說明" "product-overview"
+mv "product-overview" "product-overview"
 
 # Level 2 directories under progress-reports/
 cd progress-reports/
@@ -180,7 +180,7 @@ find docs/ -type f -name "*.md" | grep -E '[\u4e00-\u9fa5]'
 ```bash
 # Git will show:
 # renamed: docs/硬體與軟體技術選型說明/ -> docs/technical-selection/
-# renamed: docs/產品概述及使用場景說明/ -> docs/product-overview/
+# renamed: docs/product-overview/ -> docs/product-overview/
 # etc.
 ```
 
@@ -242,7 +242,7 @@ tar -xzf docs_backup_before_rename_2026-02-02.tar.gz
 ```
 docs/
 ├── 硬體與軟體技術選型說明/  ❌ Chinese
-├── 產品概述及使用場景說明/  ❌ Chinese
+├── product-overview/  ❌ Chinese
 └── progress-reports/
     ├── OCR開發進度報告/      ❌ Chinese
     ├── 工程師每日工作報告/    ❌ Chinese

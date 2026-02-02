@@ -1,4 +1,4 @@
-# 認證系統架構設計
+# auth-system-architecture
 
 > **創建日期**: 2026-01-31  
 > **創建者**: Claude Sonnet 4.5  
@@ -627,7 +627,7 @@ ROLLBACK;
 
 ---
 
-## 八、實施計劃
+## 八、implementation-plan
 
 ### 8.1 Phase 1: 基礎認證 (第 1 週)
 

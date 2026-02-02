@@ -52,4 +52,4 @@ globs: []
 
 - 三階段部署指南: `@docs/三階段部署與上線指南/三階段部署說明.md`
 - 檔案命名規則: `@docs/本專案檔案命名規則與新增文件歸檔總則.md`
-- 專案架構: `@docs/專案架構說明/專案軟體架構與硬體架構選型建議書.md`
+- 專案架構: `@docs/technical-selection/sw-hw-architecture-recommendations.md`
