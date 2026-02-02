@@ -1,12 +1,12 @@
-// filepath: apps/web/app/(auth)/register/page.tsx
+// filepath: apps/web/app/(auth)/update-password/page.tsx
 /**
  * @file page.tsx
- * @description Register page
- * @created 2026-01-31
+ * @description Update password page (for password reset)
+ * @created 2026-02-03
  * @creator Claude Sonnet 4.5
- * @lastModified 2026-01-31
+ * @lastModified 2026-02-03
  * @modifiedBy Claude Sonnet 4.5
- * @version 1.0
+ * @version 1.1
  */
 
 'use client'
@@ -19,30 +19,24 @@ import * as z from 'zod'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card'
-import { signUpWithRole } from '@/app/actions/auth'
+import { updatePassword } from '@/lib/supabase/auth'
 import Link from 'next/link'
 
-const registerSchema = z.object({
-  fullName: z.string().min(2, '姓名至少需要 2 個字元'),
-  email: z.string().email('請輸入有效的電子郵件地址'),
+const resetPasswordSchema = z.object({
   password: z.string()
     .min(8, '密碼至少需要 8 個字元')
     .regex(/[A-Z]/, '密碼必須包含至少一個大寫字母')
     .regex(/[a-z]/, '密碼必須包含至少一個小寫字母')
     .regex(/[0-9]/, '密碼必須包含至少一個數字'),
   confirmPassword: z.string(),
-  role: z.enum(['landlord', 'tenant', 'buyer']),
-  agreeToTerms: z.boolean().refine((val) => val === true, {
-    message: '您必須同意服務條款',
-  }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: '密碼不一致',
   path: ['confirmPassword'],
 })
 
-type RegisterFormData = z.infer<typeof registerSchema>
+type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>
 
-export default function RegisterPage() {
+export default function ResetPasswordPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -55,12 +49,8 @@ export default function RegisterPage() {
     handleSubmit,
     watch,
     formState: { errors },
-  } = useForm<RegisterFormData>({
-    resolver: zodResolver(registerSchema),
-    mode: 'onChange',
-    defaultValues: {
-      role: 'landlord',
-    },
+  } = useForm<ResetPasswordFormData>({
+    resolver: zodResolver(resetPasswordSchema),
   })
 
   const password = watch('password', '')
@@ -77,30 +67,18 @@ export default function RegisterPage() {
 
   const passwordStrength = getPasswordStrength(password)
 
-  const onSubmit = async (data: RegisterFormData) => {
+  const onSubmit = async (data: ResetPasswordFormData) => {
     setIsLoading(true)
     setError(null)
 
     try {
-      const result = await signUpWithRole({
-        email: data.email,
-        password: data.password,
-        full_name: data.fullName,
-        role: data.role,
-      })
-
-      if (result.success) {
-        setSuccess(true)
-        // 延長等待時間，讓用戶有時間閱讀成功訊息
-        setTimeout(() => {
-          router.push('/login')
-          router.refresh() // 刷新頁面以清除任何快取
-        }, 3000)
-      } else {
-        setError(result.error || '註冊失敗，請稍後再試')
-      }
+      await updatePassword(data.password)
+      setSuccess(true)
+      setTimeout(() => {
+        router.push('/login')
+      }, 3000)
     } catch (err: any) {
-      setError(err.message || '註冊失敗，請稍後再試')
+      setError(err.message || '重設密碼失敗，請稍後再試')
     } finally {
       setIsLoading(false)
     }
@@ -115,13 +93,13 @@ export default function RegisterPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h3 className="text-xl font-semibold text-white mb-2">註冊成功！</h3>
-          <p className="text-[#999999]">
-            您的帳號已成功建立<br />
-            現在可以使用您的帳號密碼登入
+          <h3 className="text-xl font-semibold text-white mb-2">密碼重設成功！</h3>
+          <p className="text-[#999999] mb-6">
+            您的密碼已成功重設<br />
+            現在可以使用新密碼登入
           </p>
-          <p className="text-sm text-[#666666] mt-4">
-            3 秒後將跳轉到登入頁面...
+          <p className="text-sm text-[#666666]">
+            3 秒後自動跳轉到登入頁...
           </p>
         </CardContent>
       </Card>
@@ -133,11 +111,15 @@ export default function RegisterPage() {
       <CardHeader>
         <div className="flex justify-center mb-6">
           <div className="w-16 h-16 bg-[#7C3AED] rounded-lg flex items-center justify-center">
-            <span className="text-white text-3xl font-bold">R</span>
+            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+            </svg>
           </div>
         </div>
-        <CardTitle className="text-center">建立您的帳號</CardTitle>
-        <CardDescription className="text-center">開始使用 RESA AI 管理您的物件</CardDescription>
+        <CardTitle className="text-center">重設密碼</CardTitle>
+        <CardDescription className="text-center">
+          請輸入您的新密碼
+        </CardDescription>
       </CardHeader>
 
       <CardContent>
@@ -149,23 +131,7 @@ export default function RegisterPage() {
           )}
 
           <Input
-            label="姓名"
-            type="text"
-            placeholder="您的姓名"
-            error={errors.fullName?.message}
-            {...register('fullName')}
-          />
-
-          <Input
-            label="電子郵件"
-            type="email"
-            placeholder="your@email.com"
-            error={errors.email?.message}
-            {...register('email')}
-          />
-
-          <Input
-            label="密碼"
+            label="新密碼"
             type={showPassword ? 'text' : 'password'}
             placeholder="••••••••"
             error={errors.password?.message}
@@ -197,14 +163,15 @@ export default function RegisterPage() {
                 {[...Array(5)].map((_, i) => (
                   <div
                     key={i}
-                    className={`h-1 flex-1 rounded-full transition-colors ${i < passwordStrength
+                    className={`h-1 flex-1 rounded-full transition-colors ${
+                      i < passwordStrength
                         ? passwordStrength <= 2
                           ? 'bg-red-500'
                           : passwordStrength <= 3
                             ? 'bg-yellow-500'
                             : 'bg-green-500'
                         : 'bg-[#333333]'
-                      }`}
+                    }`}
                   />
                 ))}
               </div>
@@ -219,7 +186,7 @@ export default function RegisterPage() {
           )}
 
           <Input
-            label="確認密碼"
+            label="確認新密碼"
             type={showConfirmPassword ? 'text' : 'password'}
             placeholder="••••••••"
             error={errors.confirmPassword?.message}
@@ -245,63 +212,16 @@ export default function RegisterPage() {
             }
           />
 
-          <div>
-            <label className="block text-sm font-medium text-white mb-2">
-              帳號類型 <span className="text-red-500">*</span>
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { value: 'landlord', label: '房東' },
-                { value: 'tenant', label: '租客' },
-                { value: 'buyer', label: '買家' },
-              ].map((option) => (
-                <label key={option.value} className="relative">
-                  <input
-                    type="radio"
-                    value={option.value}
-                    {...register('role')}
-                    className="peer sr-only"
-                  />
-                  <div className="p-3 border border-[#333333] rounded-lg text-center cursor-pointer transition-colors peer-checked:border-[#7C3AED] peer-checked:bg-[#7C3AED]/10 hover:border-[#7C3AED]/50">
-                    <span className="text-sm text-white">{option.label}</span>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <label className="flex items-start gap-2">
-            <input
-              type="checkbox"
-              className="mt-1 w-4 h-4 bg-[#2A2A2A] border-[#333333] rounded text-[#7C3AED] focus:ring-[#7C3AED]"
-              {...register('agreeToTerms')}
-            />
-            <span className="text-sm text-[#999999]">
-              我同意{' '}
-              <Link href="/terms" className="text-[#7C3AED] hover:text-[#6D28D9]">
-                服務條款
-              </Link>{' '}
-              和{' '}
-              <Link href="/privacy" className="text-[#7C3AED] hover:text-[#6D28D9]">
-                隱私政策
-              </Link>
-            </span>
-          </label>
-          {errors.agreeToTerms && (
-            <p className="text-sm text-red-500">{errors.agreeToTerms.message}</p>
-          )}
-
           <Button type="submit" variant="primary" fullWidth loading={isLoading}>
-            註冊
+            重設密碼
           </Button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-[#999999]">
-          已經有帳號了？{' '}
-          <Link href="/login" className="text-[#7C3AED] hover:text-[#6D28D9]">
-            立即登入
+        <div className="mt-6 text-center">
+          <Link href="/login" className="text-sm text-[#7C3AED] hover:text-[#6D28D9]">
+            ← 返回登入
           </Link>
-        </p>
+        </div>
       </CardContent>
     </Card>
   )

@@ -162,7 +162,7 @@ export async function signInWithFacebook() {
 // 重設密碼請求
 export async function resetPassword(email: string) {
   const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/auth/reset-password`,
+    redirectTo: `${window.location.origin}/auth/callback?next=/update-password`,
   });
 
   if (error) throw error;

@@ -62,14 +62,46 @@ export default function LoginPage() {
 
       // Get user profile to determine role
       const supabase = createClient()
-      const { data: profile, error: profileError } = await supabase
+      let { data: profile, error: profileError } = await supabase
         .from('users_profile')
         .select('primary_role')
         .eq('user_id', result.user.id)
         .single()
 
+      // Self-healing: 如果 profile 不存在，嘗試自動創建
       if (profileError || !profile) {
-        throw new Error('無法取得用戶資料')
+        console.warn('Profile not found, attempting to create...')
+
+        const userRole = result.user.user_metadata?.primary_role || 'landlord'
+        const fullName = result.user.user_metadata?.full_name || result.user.email?.split('@')[0]
+
+        const { error: insertError } = await supabase
+          .from('users_profile')
+          .insert({
+            user_id: result.user.id,
+            email: result.user.email,
+            full_name: fullName,
+            roles: [userRole],
+            primary_role: userRole,
+          })
+
+        if (insertError) {
+          console.error('Failed to create profile:', insertError)
+          throw new Error('無法取得或創建用戶資料，請聯絡客服')
+        }
+
+        // Re-fetch profile after creation
+        const { data: newProfile, error: newProfileError } = await supabase
+          .from('users_profile')
+          .select('primary_role')
+          .eq('user_id', result.user.id)
+          .single()
+
+        if (newProfileError || !newProfile) {
+          throw new Error('無法取得用戶資料')
+        }
+
+        profile = newProfile
       }
 
       // Role-based redirect
