@@ -1,192 +1,303 @@
-# quick-start-guide
+# RESA AI 快速啟動指南
 
-> **創建日期**: 2026-01-31  
-> **創建者**: Project Team  
-> **最後修改**: 2026-02-01  
-> **修改者**: Project Team  
-> **版本**: 1.0  
-> **文件類型**: 開發指南
+> **創建日期**: 2026-02-03
+> **創建者**: Claude Sonnet 4.5
+> **最後修改**: 2026-02-03
+> **修改者**: Claude Sonnet 4.5
+> **版本**: 2.0
 
----
+## 🚀 快速開始（5 分鐘）
 
-
-## 🚀 5 分鐘快速啟動
-
-### 前置要求
-
-- macOS 11+
-- Docker Desktop
-- Node.js 18+
-
-### 快速步驟
+### 1. 啟動 Supabase
 
 ```bash
-# 1. 進入專案目錄
-cd "/Volumes/KLEVV-4T-1/Real Estate Management Projects/Owner-Property-Management-AI-SPA"
-
-# 2. 啟動 Docker Desktop（如未運行）
-open -a Docker
-
-# 3. 啟動本地 Supabase
+# 啟動本地 Supabase
 supabase start
 
-# 4. 安裝所有依賴 (Turborepo)
-npm install
-
-# 5. 同時啟動所有前端應用 (Web + Mobile)
-npm run dev
-
-# 6. 訪問服務
-# 公司官網 (Next.js): http://localhost:3000
-# 房東 App (Expo):   http://localhost:8081
+# 檢查狀態
+supabase status
 ```
 
-## 📋 專案結構 (Monorepo)
-
-```
-├── apps/
-│   ├── web/            # Next.js 16 公司官網 (產品介紹 + 登入入口)
-│   └── mobile/         # Expo 54 房東管理 App
-├── packages/           # 共用套件 (UI, Utils)
-├── supabase/           # 本地資料庫配置
-│   └── migrations/     # 資料庫遷移檔
-├── docs/               # 專案文件與規劃
-└── turbo.json          # Turborepo 配置
-```
-
-## 🌐 本地服務位址
-
-### 前端應用 (需執行 `npm run dev` 啟動)
-
-| 服務                  | 位址                  | 說明                              |
-| :-------------------- | :-------------------- | :-------------------------------- |
-| **公司官網 (Web)**    | http://localhost:3000 | 產品介紹 + 多用戶登入入口         |
-| **房東 App (Mobile)** | http://localhost:8081 | 房東管理應用 (支援 Expo Go / Web) |
-
-### Supabase 後端服務 (執行 `supabase start` 後自動運行)
-
-| 服務                       | 位址                                | 說明                  |
-| :------------------------- | :---------------------------------- | :-------------------- |
-| **API Gateway**            | http://localhost:54321              | 統一 API 入口         |
-| **REST API**               | http://localhost:54321/rest/v1      | RESTful API           |
-| **GraphQL API**            | http://localhost:54321/graphql/v1   | GraphQL 查詢          |
-| **Edge Functions**         | http://localhost:54321/functions/v1 | 伺服器端函數          |
-| **MCP Server**             | http://localhost:54321/mcp          | Model Context Protocol|
-| **Storage (S3)**           | http://localhost:54321/storage/v1/s3| 物件儲存服務          |
-| **PostgreSQL Database**    | postgresql://127.0.0.1:54322        | 主資料庫              |
-| **Supabase Studio**        | http://localhost:54323              | 資料庫管理後台        |
-| **Mailpit (郵件測試)**     | http://localhost:54324              | 本地郵件測試工具      |
-
-💡 **提示**: Supabase 相關服務啟動後即可直接訪問，無需額外配置。
-
-## 📚 更多資訊
-
-- **環境檢測報告**: [dev-env-check-report_2026-01-31.md](../dev-env-check-report_2026-01-31.md) - 詳細的服務狀態與可訪問端點清單
-- 部署與環境說明：[三階段deployment-guide](./三階段deployment-guide.md)
-- 部署進度與檢查清單：[三階段進度檢測報告](./三階段進度檢測報告.md)
-- 設計系統規範：[DESIGN.md](../design-guidelines/DESIGN_SYSTEM.md) - Figma 設計實作指南
-
-## 💻 常用命令
+### 2. 啟動開發服務器
 
 ```bash
-# Supabase 服務管理
-supabase start      # 啟動所有後端服務
-supabase stop       # 停止所有後端服務
-supabase status     # 查看服務狀態與訪問地址
-supabase db reset   # 重置資料庫
+# 安裝依賴（首次運行）
+npm install
 
-# Monorepo 前端開發
-npm run dev                 # 同時啟動所有前端應用 (Web + Mobile)
-./start-dev.sh both         # 同時啟動 Web + Mobile
-npm run dev:web             # 僅啟動公司官網
-npm run dev:mobile          # 僅啟動房東 App
-npm run dev:stop            # 停止所有前端服務
+# 啟動 Web 開發服務器
+npm run dev:web
 
-# 開發環境檢測
-supabase status             # 檢查後端服務狀態
-lsof -iTCP -sTCP:LISTEN | grep -E ":(3000|8081)" # 檢查前端服務端口
-
-# 測試與檢查
-npm run test                # 執行測試
-npm run lint                # 代碼檢查
-npm run build               # 構建生產版本
+# 或使用便捷腳本啟動
+./start-dev.sh web
 ```
 
-## 🔧 故障排查
+### 3. 訪問應用
 
-若遇到問題，請先依序確認：
+- **首頁**: http://localhost:3000
+- **登錄**: http://localhost:3000/login
+- **註冊**: http://localhost:3000/register
+- **忘記密碼**: http://localhost:3000/forgot-password
 
-1. Supabase 是否已成功啟動（`supabase status`）。
-2. 是否已在根目錄執行 `npm install` 安裝所有依賴。
-3. 若 Web 端啟動失敗，清除所有快取：
-   ```bash
-   cd apps/web && rm -rf .next node_modules/.cache
-   ```
-4. 若遇到「Failed to open database」或「invalid digit found in string」錯誤：
-   - 停止所有進程：`./start-dev.sh stop`
-   - 清除快取後重新啟動
-5. 若 Mobile 端啟動失敗，檢查 `apps/mobile/.env.local` 配置。
-6. 若端口被佔用（3000, 8081），執行：
-   ```bash
-   lsof -ti:3000,8081 | xargs kill -9 2>/dev/null || true
-   ```
+## 🔑 認證功能測試
 
-仍無法排除時，請參考 [三階段進度檢測報告](./docs/deployment-guides/三階段進度檢測報告.md) 中的故障排查段落。
+### 測試帳號
+
+如果您沒有測試帳號，可以：
+
+1. **註冊新帳號**: 訪問 http://localhost:3000/register
+2. **使用超級管理員帳號**（需先創建）
+
+### 忘記密碼？
+
+如果忘記超級管理員密碼：
+
+1. 訪問 http://localhost:3000/forgot-password
+2. 輸入註冊時使用的 email
+3. 檢查郵箱（本地開發查看 Supabase 日誌）
+4. 點擊重設連結
+5. 設定新密碼
+
+### 重設超級管理員密碼（開發環境）
+
+如果 email 服務未配置，可以直接通過 SQL 重設密碼：
+
+```sql
+-- 連接到 Supabase
+supabase db reset
+
+-- 或使用 SQL 編輯器
+-- 1. 訪問 http://127.0.0.1:54323（Supabase Studio）
+-- 2. 進入 SQL Editor
+-- 3. 執行以下 SQL（替換 your-email@example.com）
+
+-- 方法 1: 重設密碼為 "NewPassword123"
+UPDATE auth.users
+SET encrypted_password = crypt('NewPassword123', gen_salt('bf'))
+WHERE email = 'your-email@example.com';
+
+-- 方法 2: 查看用戶列表並創建新的超級管理員
+SELECT id, email, raw_user_meta_data FROM auth.users;
+```
+
+## ✨ 新功能（2026-02-03）
+
+### 密碼顯示/隱藏功能
+
+所有密碼輸入框現在都有眼睛圖示：
+- 👁️ 點擊顯示密碼
+- 👁️‍🗨️ 點擊隱藏密碼
+
+適用於：
+- ✅ 登錄頁面
+- ✅ 註冊頁面（密碼 + 確認密碼）
+- ✅ 重設密碼頁面（新密碼 + 確認新密碼）
+
+### 忘記密碼功能
+
+完整的密碼重設流程：
+
+```
+登錄頁面
+  ↓ 點擊「忘記密碼？」
+忘記密碼頁面
+  ↓ 輸入 email
+檢查信箱
+  ↓ 點擊重設連結
+重設密碼頁面
+  ↓ 輸入新密碼
+成功！
+  ↓ 自動跳轉到登錄頁面
+```
+
+## 🐛 常見問題排查
+
+### 問題 1: 登錄失敗 "Request interrupted by user"
+
+**原因**:
+- 網絡連接問題
+- Supabase 服務未啟動
+- 環境變數配置錯誤
+
+**解決方法**:
+```bash
+# 1. 檢查 Supabase 狀態
+supabase status
+
+# 2. 如果未運行，啟動 Supabase
+supabase start
+
+# 3. 檢查環境變數
+cat .env | grep SUPABASE
+
+# 4. 重啟開發服務器
+npm run dev:web
+```
+
+### 問題 2: 註冊後跳轉到錯誤頁面
+
+**原因**:
+- 資料庫 RLS 政策問題
+- users_profile 表創建失敗
+
+**解決方法**:
+```bash
+# 重置資料庫
+supabase db reset
+
+# 檢查 migrations
+ls -la supabase/migrations/
+
+# 手動執行最新的 migration
+supabase db push
+```
+
+### 問題 3: 忘記密碼郵件未收到
+
+**原因**:
+- 本地開發環境未配置 SMTP
+- Email 發送功能需要設定
+
+**解決方法（開發環境）**:
+```bash
+# 方法 1: 查看 Supabase Inbucket（本地郵件服務）
+open http://127.0.0.1:54324
+
+# 方法 2: 檢查 Supabase 日誌
+supabase logs --level=debug | grep email
+
+# 方法 3: 直接用 SQL 重設密碼（見上方）
+```
+
+### 問題 4: 編譯錯誤
+
+**解決方法**:
+```bash
+# 清理緩存
+rm -rf apps/web/.next
+rm -rf node_modules
+rm -rf apps/web/node_modules
+
+# 重新安裝
+npm install
+
+# 重新編譯
+npm run dev:web
+```
+
+## 📁 重要文件位置
+
+### 認證相關
+```
+apps/web/app/(auth)/
+├── login/page.tsx           # 登錄頁面
+├── register/page.tsx        # 註冊頁面
+├── forgot-password/page.tsx # 忘記密碼頁面
+└── reset-password/page.tsx  # 重設密碼頁面
+```
+
+### API 與邏輯
+```
+apps/web/
+├── lib/supabase/
+│   ├── auth.ts             # 認證函數
+│   ├── client.ts           # 瀏覽器端客戶端
+│   └── server.ts           # 服務器端客戶端
+└── app/actions/
+    └── auth.ts             # Server Actions
+```
+
+### 配置文件
+```
+.env                         # 環境變數（本地）
+apps/web/.env.local          # Web 專案環境變數
+supabase/config.toml         # Supabase 配置
+```
+
+## 🔧 環境變數檢查
+
+必需的環境變數：
+
+```bash
+# .env 文件
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhb...
+SUPABASE_SERVICE_ROLE_KEY=eyJhb...
+```
+
+驗證配置：
+```bash
+# 檢查是否正確設定
+cat .env | grep SUPABASE
+
+# 測試連接
+curl http://127.0.0.1:54321/rest/v1/
+```
+
+## 📊 開發工作流程
+
+### 日常開發
+
+```bash
+# 1. 啟動 Supabase（每天第一次）
+supabase start
+
+# 2. 啟動開發服務器
+npm run dev:web
+
+# 3. 開發...
+
+# 4. 停止服務器（結束開發）
+# Ctrl + C 停止 npm run dev:web
+supabase stop
+```
+
+### 資料庫修改
+
+```bash
+# 1. 創建新的 migration
+supabase migration new your_migration_name
+
+# 2. 編輯 migration 文件
+# supabase/migrations/YYYYMMDDHHmmss_your_migration_name.sql
+
+# 3. 應用 migration
+supabase db reset  # 或
+supabase db push
+```
+
+### 測試
+
+```bash
+# 運行測試（待實現）
+npm run test
+
+# 運行 E2E 測試（待實現）
+npm run test:e2e
+```
+
+## 🎯 下一步
+
+1. **測試認證功能**: 嘗試登錄、註冊、忘記密碼流程
+2. **配置 Email**: 設定 SMTP 以啟用郵件發送
+3. **探索功能**: 登錄後訪問儀表板
+4. **閱讀文檔**: 查看 `docs/` 目錄了解更多
+
+## 📚 相關文檔
+
+- [認證系統修復報告](../progress-reports/2026-02-03_authentication_fixes.md)
+- [專案規則](./../CLAUDE.md)
+- [資料庫架構](../database/)
+- [API 文檔](../api/)
+
+## 🆘 獲取幫助
+
+遇到問題？
+
+1. 查看本指南的「常見問題排查」章節
+2. 檢查 [認證系統修復報告](../progress-reports/2026-02-03_authentication_fixes.md)
+3. 查看 Supabase 日誌: `supabase logs`
+4. 查看瀏覽器控制台錯誤信息
 
 ---
 
-## ✅ 最新測試狀態（2026-01-31 更新）
-
-### 開發環境服務狀態 (完整檢測報告見 [這裡](../dev-env-check-report_2026-01-31.md))
-
-**整體狀態**: 🟢 完全運行 (11/11 服務可用，100%)
-
-#### 前端應用 (需手動啟動)
-
-| 項目              | 狀態       | 訪問地址                       |
-| :---------------- | :--------- | :----------------------------- |
-| 公司官網 (Web)    | ⚠️ 待啟動  | http://localhost:3000          |
-| 房東 App (Mobile) | ⚠️ 待啟動  | http://localhost:8081          |
-
-#### Supabase 後端服務 (已運行)
-
-| 項目                     | 狀態    | 訪問地址                             |
-| :----------------------- | :------ | :----------------------------------- |
-| API Gateway              | ✅ 正常 | http://localhost:54321               |
-| REST API                 | ✅ 正常 | http://localhost:54321/rest/v1       |
-| GraphQL API              | ✅ 正常 | http://localhost:54321/graphql/v1    |
-| Edge Functions           | ✅ 正常 | http://localhost:54321/functions/v1  |
-| MCP Server               | ✅ 正常 | http://localhost:54321/mcp           |
-| Storage (S3)             | ✅ 正常 | http://localhost:54321/storage/v1/s3 |
-| PostgreSQL Database      | ✅ 正常 | postgresql://127.0.0.1:54322         |
-| Supabase Studio (管理後台)| ✅ 正常 | http://localhost:54323               |
-| Mailpit (郵件測試)       | ✅ 正常 | http://localhost:54324               |
-
-### 資料庫現有表格
-
-- ✅ `building_title_records` - 建物權狀記錄
-- ✅ `land_title_records` - 土地權狀記錄
-- ✅ `property_appointments` - 物件預約
-- ✅ `property_photos` - 物件照片
-- ✅ `clients` - 客戶資料
-- ✅ `owner` - 房東資料
-
-### 已測試功能
-
-- ✅ Monorepo 架構遷移 (Turborepo)
-- ✅ 雙端同時啟動 (Web + Mobile)
-- ✅ Supabase 本地服務整合
-- ✅ 首頁設計系統對齊 (Inter 字體、12px 圓角、1440px 最大寬度)
-- ✅ 圖片最佳化配置 (WebP、遠程圖片支援)
-
----
-
-**當前版本**：2.0.0 (Phase 1 - Monorepo Migration - Verified)
-
-## 版本修訂記錄
-
-- **2026-01-31**：完成開發環境服務全面檢測，建立詳細的服務清單與狀態報告。更新服務位址表格，新增 9 個 Supabase 後端服務端點說明。優化命令列表與故障排查指引。
-- **2026-01-30 (晚間更新)**：完成首頁設計系統對齊修正，加入 Turbopack 快取清除故障排查步驟，驗證雙端服務穩定運行。更新圖片配置支援遠程圖片載入。將"租客網站"更名為"公司官網"以準確反映其作為產品介紹與多用戶登入入口的功能。
-- **2026-01-30**：升級為 Monorepo 架構快速啟動指南，更新啟動指令 (Turborepo) 與專案結構說明，確認雙端服務同時運行正常。
-- **2026-01-22**：完成前後端連線測試，更新為實際測試通過的啟動步驟與專案路徑，添加測試狀態記錄。
-- **2026-01-17**：將文件定位為房東物件管理專案之本地開發快速啟動指南，統一為繁體中文說明，並修正部署相關文件連結與故障排查指引。
+**祝您開發順利！** 🎉
