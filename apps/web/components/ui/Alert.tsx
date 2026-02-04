@@ -35,6 +35,20 @@ export function Alert({
   )
 }
 
+export interface AlertTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {}
+
+export function AlertTitle({
+  className = '',
+  children,
+  ...props
+}: AlertTitleProps) {
+  return (
+    <h5 className={`mb-1 font-medium leading-none tracking-tight ${className}`} {...props}>
+      {children}
+    </h5>
+  )
+}
+
 export interface AlertDescriptionProps extends React.HTMLAttributes<HTMLParagraphElement> {}
 
 export function AlertDescription({

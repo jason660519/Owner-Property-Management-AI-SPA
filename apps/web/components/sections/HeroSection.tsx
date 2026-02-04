@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import Link from 'next/link';
 import { Button } from '../ui/Button';
 import styles from './HeroSection.module.css';
 
@@ -26,12 +26,16 @@ export function HeroSection() {
 
                     {/* CTA Buttons */}
                     <div className={styles.cta}>
-                        <Button variant="primary" size="lg">
-                            了解更多
-                        </Button>
-                        <Button variant="secondary" size="lg">
-                            瀏覽物業
-                        </Button>
+                        <Link href="/pricing">
+                            <Button variant="primary" size="lg">
+                                了解更多
+                            </Button>
+                        </Link>
+                        <Link href="/properties">
+                            <Button variant="secondary" size="lg">
+                                瀏覽物業
+                            </Button>
+                        </Link>
                     </div>
 
                     {/* Stats */}

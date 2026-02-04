@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
@@ -191,7 +192,9 @@ export default function AboutPage() {
                                 </p>
                             </div>
                             <div className="flex gap-4">
-                                <Button variant="primary" size="lg">瀏覽物業</Button>
+                                <Link href="/properties">
+                                    <Button variant="primary" size="lg">瀏覽物業</Button>
+                                </Link>
                                 <Button variant="secondary" size="lg">聯繫我們</Button>
                             </div>
                         </div>

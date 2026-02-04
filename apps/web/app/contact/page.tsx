@@ -1,12 +1,49 @@
 'use client';
 
+import { useState } from 'react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardContent } from '@/components/ui/Card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/Alert';
+import { sendContactEmail } from '@/lib/actions/contact';
 
 export default function ContactPage() {
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSuccess, setIsSuccess] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        setError(null);
+        setIsSuccess(false);
+
+        const formData = new FormData(e.currentTarget);
+        const data = {
+            name: formData.get('name') as string,
+            email: formData.get('email') as string,
+            phone: formData.get('phone') as string,
+            inquiryType: formData.get('inquiryType') as string,
+            message: formData.get('message') as string,
+        };
+
+        try {
+            const result = await sendContactEmail(data);
+            
+            if (result.success) {
+                setIsSuccess(true);
+            } else {
+                setError(result.error || '發送失敗，請稍後再試。');
+            }
+        } catch (err) {
+            setError('發送失敗，請稍後再試。');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-[#141414] text-white font-urbanist">
             <Header />
@@ -113,51 +150,86 @@ export default function ContactPage() {
                         {/* Contact Form */}
                         <div>
                             <Card className="bg-[#141414] border-[#262626] p-8">
-                                <form className="space-y-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium text-white">姓名</label>
-                                            <Input placeholder="請輸入您的姓名" className="bg-[#1A1A1A] border-[#333333]" />
+                                {isSuccess ? (
+                                    <Alert variant="default" className="bg-[#1A1A1A] border-[#7C3AED] text-white">
+                                        <AlertTitle className="text-[#7C3AED] text-lg font-bold mb-2">發送成功！</AlertTitle>
+                                        <AlertDescription>
+                                            感謝您的聯繫，我們已收到您的訊息。我們的團隊將會在 24 小時內透過 Email 回覆您。<br /><br />
+                                            請留意您的收件匣（或是垃圾郵件匣）。
+                                            <Button 
+                                                variant="outline" 
+                                                className="mt-4 w-full"
+                                                onClick={() => setIsSuccess(false)}
+                                            >
+                                                發送另一則訊息
+                                            </Button>
+                                        </AlertDescription>
+                                    </Alert>
+                                ) : (
+                                    <form className="space-y-6" onSubmit={handleSubmit}>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium text-white">姓名</label>
+                                                <Input required name="name" placeholder="請輸入您的姓名" className="bg-[#1A1A1A] border-[#333333]" />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium text-white">Email</label>
+                                                <Input required name="email" type="email" placeholder="請輸入您的 Email" className="bg-[#1A1A1A] border-[#333333]" />
+                                            </div>
                                         </div>
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium text-white">Email</label>
-                                            <Input type="email" placeholder="請輸入您的 Email" className="bg-[#1A1A1A] border-[#333333]" />
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium text-white">電話</label>
+                                                <Input name="phone" placeholder="請輸入聯絡電話" className="bg-[#1A1A1A] border-[#333333]" />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium text-white">詢問類型</label>
+                                                <select name="inquiryType" className="w-full h-10 px-3 py-2 bg-[#1A1A1A] border border-[#333333] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED]">
+                                                    <option>買屋</option>
+                                                    <option>賣屋</option>
+                                                    <option>租屋</option>
+                                                    <option>看屋</option>
+                                                    <option>一般諮詢</option>
+                                                    <option>物業代管</option>
+                                                    <option>維修報修</option>
+                                                    <option>合作提案</option>
+                                                    <option>系統功能建議</option>
+                                                    <option>帳務問題</option>
+                                                    <option>法律諮詢</option>
+                                                    <option>投訴與建議</option>
+                                                    <option>其他</option>
+                                                </select>
+                                            </div>
                                         </div>
-                                    </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-2">
-                                            <label className="text-sm font-medium text-white">電話</label>
-                                            <Input placeholder="請輸入聯絡電話" className="bg-[#1A1A1A] border-[#333333]" />
+                                            <label className="text-sm font-medium text-white">訊息內容</label>
+                                            <textarea
+                                                required
+                                                name="message"
+                                                rows={6}
+                                                placeholder="請詳述您的需求或問題..."
+                                                className="w-full px-3 py-2 bg-[#1A1A1A] border border-[#333333] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+                                            ></textarea>
                                         </div>
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium text-white">詢問類型</label>
-                                            <select className="w-full h-10 px-3 py-2 bg-[#1A1A1A] border border-[#333333] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED]">
-                                                <option>一般諮詢</option>
-                                                <option>物業代管</option>
-                                                <option>租屋需求</option>
-                                                <option>維修報修</option>
-                                                <option>其他</option>
-                                            </select>
+
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <input required type="checkbox" id="scrapi" className="rounded bg-[#1A1A1A] border-[#333333] text-[#7C3AED] focus:ring-[#7C3AED]" />
+                                            <label htmlFor="scrapi" className="text-sm text-[#999999]">我同意 Estatein 處理我的個人資料以回應此詢問。</label>
                                         </div>
-                                    </div>
 
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium text-white">訊息內容</label>
-                                        <textarea
-                                            rows={6}
-                                            placeholder="請詳述您的需求或問題..."
-                                            className="w-full px-3 py-2 bg-[#1A1A1A] border border-[#333333] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
-                                        ></textarea>
-                                    </div>
+                                        {error && (
+                                            <Alert variant="destructive">
+                                                <AlertDescription>{error}</AlertDescription>
+                                            </Alert>
+                                        )}
 
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <input type="checkbox" id="scrapi" className="rounded bg-[#1A1A1A] border-[#333333] text-[#7C3AED] focus:ring-[#7C3AED]" />
-                                        <label htmlFor="scrapi" className="text-sm text-[#999999]">我同意 Estatein 處理我的個人資料以回應此詢問。</label>
-                                    </div>
-
-                                    <Button type="submit" fullWidth size="lg">發送訊息</Button>
-                                </form>
+                                        <Button type="submit" fullWidth size="lg" disabled={isSubmitting}>
+                                            {isSubmitting ? '發送中...' : '發送訊息'}
+                                        </Button>
+                                    </form>
+                                )}
                             </Card>
                         </div>
                     </div>

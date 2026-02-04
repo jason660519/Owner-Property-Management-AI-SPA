@@ -67,6 +67,8 @@ test-output-*.png
 Google Drive Outh.json
 Outh.json
 docs_backup_*.tar.gz
+renaming_report.csv
+resources/Taiwan Gov documents/
 
 # ============================================
 # Database

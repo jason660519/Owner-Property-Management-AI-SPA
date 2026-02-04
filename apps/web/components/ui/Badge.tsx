@@ -8,12 +8,14 @@
 import React from 'react'
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  variant?: 'default' | 'success' | 'warning' | 'error' | 'secondary' | 'destructive'
+  variant?: 'default' | 'success' | 'warning' | 'error' | 'secondary' | 'destructive' | 'info'
+  size?: 'default' | 'sm'
 }
 
 export function Badge({
   className = '',
   variant = 'default',
+  size = 'default',
   children,
   ...props
 }: BadgeProps) {
@@ -24,11 +26,17 @@ export function Badge({
     error: 'bg-red-500/20 text-red-500',
     secondary: 'bg-[#2A2A2A] text-[#999999]',
     destructive: 'bg-red-500/20 text-red-500',
+    info: 'bg-blue-500/20 text-blue-500',
+  }
+
+  const sizeClasses = {
+    default: 'px-2 py-1 text-xs',
+    sm: 'px-1.5 py-0.5 text-[10px]',
   }
 
   return (
     <span
-      className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded ${variantClasses[variant]} ${className}`}
+      className={`inline-flex items-center font-medium rounded ${sizeClasses[size]} ${variantClasses[variant]} ${className}`}
       {...props}
     >
       {children}
