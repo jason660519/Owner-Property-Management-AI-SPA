@@ -6,7 +6,7 @@
 
 -- 1. 修改 users_profile 表以支持多角色
 ALTER TABLE public.users_profile 
-DROP COLUMN IF EXISTS role,
+-- DROP COLUMN IF EXISTS role, -- Keep for backward compatibility with RLS policies
 ADD COLUMN IF NOT EXISTS roles TEXT[] NOT NULL DEFAULT ARRAY['landlord']::TEXT[],
 ADD COLUMN IF NOT EXISTS primary_role TEXT NOT NULL DEFAULT 'landlord',
 ADD COLUMN IF NOT EXISTS role_preferences JSONB DEFAULT '{}';
@@ -15,7 +15,7 @@ ADD COLUMN IF NOT EXISTS role_preferences JSONB DEFAULT '{}';
 UPDATE public.users_profile 
 SET roles = ARRAY[role]::TEXT[], 
     primary_role = role
-WHERE roles IS NULL OR primary_role IS NULL;
+WHERE roles = ARRAY['landlord']::TEXT[] AND primary_role = 'landlord' AND role IS NOT NULL; -- Only update if not already set (approximate check)
 
 -- 3. 創建角色切換函數
 CREATE OR REPLACE FUNCTION public.switch_user_role(user_id UUID, new_role TEXT)

@@ -1,14 +1,19 @@
+'use client'
+
 import { Sidebar } from '@/components/layout/Sidebar';
 import { DashboardHeader } from '@/components/layout/DashboardHeader';
+import { ToastProvider } from '@/components/ui/Toast';
 
 export default function LandlordLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-[#1A1A1A]">
-      <Sidebar />
-      <div className="ml-64">
-        <DashboardHeader />
-        <main className="p-6">{children}</main>
+    <ToastProvider>
+      <div className="min-h-screen bg-[#1A1A1A]">
+        <Sidebar />
+        <div className="ml-64">
+          <DashboardHeader />
+          <main className="p-6">{children}</main>
+        </div>
       </div>
-    </div>
+    </ToastProvider>
   );
 }

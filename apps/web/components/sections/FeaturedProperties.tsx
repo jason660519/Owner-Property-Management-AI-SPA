@@ -6,18 +6,29 @@ import { Button } from '../ui/Button';
 import { Card, CardImage, CardContent, CardFooter } from '../ui/Card';
 import styles from './FeaturedProperties.module.css';
 import { Property } from '@/lib/api/properties';
+import { Alert, AlertDescription } from '../ui/Alert';
 
 interface FeaturedPropertiesProps {
   properties: Property[];
+  isMock?: boolean;
 }
 
-export function FeaturedProperties({ properties }: FeaturedPropertiesProps) {
+export function FeaturedProperties({ properties, isMock = false }: FeaturedPropertiesProps) {
   // Display top 3
   const displayedProperties = properties.slice(0, 3);
 
   return (
     <section className={styles.section}>
       <div className={styles.container}>
+        {/* Mock Data Warning */}
+        {isMock && (
+          <Alert variant="warning" className="mb-8">
+            <AlertDescription>
+              ⚠️ 目前系統正使用模擬資料模式（無法連接至資料庫或資料庫為空）。這僅供開發與展示用途。
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Section Header */}
         <div className={styles.header}>
           <div className={styles.headerContent}>

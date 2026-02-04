@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>專案開發進度儀表板</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="roadmap.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .progress-bar-striped {
+            background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent);
+            background-size: 1rem 1rem;
+        }
+        .animate-progress {
+            animation: progress-bar-stripes 1s linear infinite;
+        }
+        @keyframes progress-bar-stripes {
+            0% { background-position: 1rem 0; }
+            100% { background-position: 0 0; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans text-gray-900" x-data="dashboard()">
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow-sm">
+                    PM
+                </div>
+                <h1 class="text-xl font-bold text-gray-900">專案開發進度儀表板</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                    最後更新: <span x-text="lastUpdated" class="font-medium text-gray-700"></span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Overview Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <!-- Overall Progress -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex items-center gap-6">
+                <div class="relative w-24 h-24 flex-shrink-0">
+                    <svg class="w-full h-full transform -rotate-90">
+                        <circle cx="48" cy="48" r="40" stroke="currentColor" stroke-width="8" fill="transparent" class="text-gray-100" />
+                        <circle cx="48" cy="48" r="40" stroke="currentColor" stroke-width="8" fill="transparent" 
+                            :stroke-dasharray="251.2"
+                            :stroke-dashoffset="251.2 - (251.2 * overallProgress / 100)"
+                            class="text-blue-600 transition-all duration-1000 ease-out"
+                            stroke-linecap="round"
+                        />
+                    </svg>
+                    <div class="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center">
+                        <span class="text-xl font-bold text-gray-900" x-text="Math.round(overallProgress) + '%'"></span>
+                    </div>
+                </div>
+                <div>
+                    <h2 class="text-lg font-bold text-gray-900">總體開發進度</h2>
+                    <p class="text-sm text-gray-500 mt-1">基於所有功能模組的加權計算</p>
+                    <div class="mt-2 text-xs text-gray-400">
+                        共 <span x-text="totalFeatures"></span> 個功能模組
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">狀態分佈</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="text-center p-2 bg-green-50 rounded-lg">
+                        <div class="text-2xl font-bold text-green-600" x-text="completedCount"></div>
+                        <div class="text-xs text-green-700 font-medium">已完成 (100%)</div>
+                    </div>
+                    <div class="text-center p-2 bg-blue-50 rounded-lg">
+                        <div class="text-2xl font-bold text-blue-600" x-text="inProgressCount"></div>
+                        <div class="text-xs text-blue-700 font-medium">進行中</div>
+                    </div>
+                    <div class="text-center p-2 bg-gray-50 rounded-lg">
+                        <div class="text-2xl font-bold text-gray-600" x-text="pendingCount"></div>
+                        <div class="text-xs text-gray-700 font-medium">未開始 (0%)</div>
+                    </div>
+                    <div class="text-center p-2 bg-purple-50 rounded-lg">
+                        <div class="text-2xl font-bold text-purple-600" x-text="totalPoints"></div>
+                        <div class="text-xs text-purple-700 font-medium">總 Story Points</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Legend/Info -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                 <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">說明</h3>
+                 <ul class="space-y-2 text-sm text-gray-600">
+                     <li class="flex items-center gap-2">
+                         <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+                         <span>進度條顯示各功能的完成百分比</span>
+                     </li>
+                     <li class="flex items-center gap-2">
+                         <span class="w-2 h-2 rounded-full bg-gray-400"></span>
+                         <span>點擊文件圖示可跳轉至相關開發文檔</span>
+                     </li>
+                     <li class="flex items-center gap-2">
+                         <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                         <span>SP (Story Points) 代表開發複雜度權重</span>
+                     </li>
+                 </ul>
+            </div>
+        </div>
+
+        <!-- Features List -->
+        <div class="space-y-8">
+            <template x-for="(group, categoryName) in groupedFeatures" :key="categoryName">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center sticky top-0 z-10">
+                        <div class="flex items-center gap-3">
+                            <h2 class="font-bold text-lg text-gray-900" x-text="categoryName"></h2>
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-700" x-text="group.items.length"></span>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="text-sm font-medium text-gray-600">
+                                類別進度: <span x-text="Math.round(group.progress) + '%'"></span>
+                            </div>
+                            <div class="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div class="h-full bg-blue-500 rounded-full" :style="`width: ${group.progress}%`"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="divide-y divide-gray-200">
+                        <template x-for="feature in group.items" :key="feature.name">
+                            <div class="p-4 hover:bg-gray-50 transition-colors group">
+                                <div class="flex flex-col md:grid md:grid-cols-12 md:gap-4 md:items-center">
+                                    <!-- Title & Doc Path -->
+                                    <div class="md:col-span-5 mb-2 md:mb-0">
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <h3 class="font-medium text-gray-900" x-text="feature.name"></h3>
+                                        </div>
+                                        <!-- Doc Path Display -->
+                                        <div class="text-xs truncate">
+                                            <template x-if="feature.docPath">
+                                                <a :href="feature.docPath" target="_blank" class="text-blue-600 hover:underline flex items-center gap-1.5 group-hover:text-blue-700 transition-colors" :title="feature.docPath">
+                                                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                                    <span x-text="feature.docPath" class="truncate font-mono text-gray-500 group-hover:text-blue-600"></span>
+                                                </a>
+                                            </template>
+                                            <template x-if="!feature.docPath">
+                                                <span class="text-gray-400 italic flex items-center gap-1.5 cursor-help" title="請聯繫 PM 或開發人員補充文檔">
+                                                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                                    尚未有文檔
+                                                </span>
+                                            </template>
+                                        </div>
+                                    </div>
+
+                                    <!-- Progress Bar -->
+                                    <div class="md:col-span-5 mb-2 md:mb-0">
+                                        <div class="flex items-center gap-3">
+                                            <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden shadow-inner">
+                                                <div 
+                                                    class="h-full rounded-full transition-all duration-500 relative"
+                                                    :class="{
+                                                        'bg-green-500': feature.percentage === 100,
+                                                        'bg-blue-500 progress-bar-striped animate-progress': feature.percentage > 0 && feature.percentage < 100,
+                                                        'bg-gray-300': feature.percentage === 0
+                                                    }"
+                                                    :style="`width: ${feature.percentage}%`"
+                                                ></div>
+                                            </div>
+                                            <span class="text-xs font-semibold w-10 text-right" 
+                                                :class="{
+                                                    'text-green-600': feature.percentage === 100,
+                                                    'text-blue-600': feature.percentage > 0 && feature.percentage < 100,
+                                                    'text-gray-400': feature.percentage === 0
+                                                }"
+                                                x-text="feature.percentage + '%'">
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                        <!-- Actions (Points) -->
+                                        <div class="md:col-span-2 flex justify-end items-center gap-2">
+                                            <span class="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-0.5 rounded border border-gray-200" x-text="feature.points ? feature.points + ' SP' : '-'"></span>
+                                            
+                                            <template x-if="feature.docPath">
+                                                <a :href="'editor.html?file=' + feature.docPath" target="_blank" class="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100" title="編輯文檔">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                                </a>
+                                            </template>
+                                        </div>
+                                    </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </main>
+
+    <script>
+        function dashboard() {
+            return {
+                features: window.ROADMAP_DATA.features,
+                lastUpdated: window.ROADMAP_DATA.lastUpdated,
+                
+                get groupedFeatures() {
+                    const groups = {};
+                    this.features.forEach(f => {
+                        if (!groups[f.category]) {
+                            groups[f.category] = { items: [], totalPoints: 0, completedWeighted: 0 };
+                        }
+                        groups[f.category].items.push(f);
+                        const points = f.points || 1;
+                        groups[f.category].totalPoints += points;
+                        groups[f.category].completedWeighted += (points * f.percentage);
+                    });
+                    
+                    // Calculate progress per group
+                    Object.keys(groups).forEach(key => {
+                        const g = groups[key];
+                        g.progress = g.totalPoints ? (g.completedWeighted / g.totalPoints) : 0;
+                    });
+
+                    return groups;
+                },
+
+                get overallProgress() {
+                    const totalPoints = this.features.reduce((sum, f) => sum + (f.points || 1), 0);
+                    const completedWeighted = this.features.reduce((sum, f) => sum + ((f.points || 1) * f.percentage), 0);
+                    return totalPoints ? (completedWeighted / totalPoints) : 0;
+                },
+
+                get totalFeatures() {
+                    return this.features.length;
+                },
+
+                get completedCount() {
+                    return this.features.filter(f => f.percentage === 100).length;
+                },
+
+                get inProgressCount() {
+                    return this.features.filter(f => f.percentage > 0 && f.percentage < 100).length;
+                },
+
+                get pendingCount() {
+                    return this.features.filter(f => f.percentage === 0).length;
+                },
+
+                get totalPoints() {
+                    return this.features.reduce((sum, f) => sum + (f.points || 1), 0);
+                }
+            }
+        }
+    </script>
+</body>
+</html>

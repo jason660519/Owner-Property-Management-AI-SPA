@@ -133,7 +133,12 @@ const MOCK_PROPERTIES: DatabaseProperty[] = [
     }
 ];
 
-export async function getProperties() {
+export interface PropertiesResult {
+    properties: Property[];
+    isMock: boolean;
+}
+
+export async function getProperties(): Promise<PropertiesResult> {
     // #region agent log
     const logPath = join(process.cwd(), '.cursor', 'debug.log');
     const logEntry = JSON.stringify({location:'lib/api/properties.ts:134',message:'getProperties entry',data:{hasEnvUrl:!!process.env.NEXT_PUBLIC_SUPABASE_URL,hasEnvKey:!!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,envUrlLength:process.env.NEXT_PUBLIC_SUPABASE_URL?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'}) + '\n';
@@ -158,32 +163,61 @@ export async function getProperties() {
         const logEntry4 = JSON.stringify({location:'lib/api/properties.ts:144',message:'Error in createClient',data:{errorMessage:error instanceof Error?error.message:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'}) + '\n';
         appendFile(logPath4, logEntry4).catch(()=>{});
         // #endregion
-        throw error;
+        console.error('Failed to create Supabase client:', error);
+        return {
+            properties: MOCK_PROPERTIES.map(mapDatabaseToProperty),
+            isMock: true
+        };
     }
     // #region agent log
     const logPath5 = join(process.cwd(), '.cursor', 'debug.log');
     const logEntry5 = JSON.stringify({location:'lib/api/properties.ts:148',message:'Before Supabase query',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'}) + '\n';
     appendFile(logPath5, logEntry5).catch(()=>{});
     // #endregion
-    const { data, error } = await supabase.from('properties').select('*').order('created_at', { ascending: false });
+    
+    const { data: salesData, error: salesError } = await supabase
+        .from('property_sales')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+    const { data: rentalsData, error: rentalsError } = await supabase
+        .from('property_rentals')
+        .select('*')
+        .order('created_at', { ascending: false });
+
     // #region agent log
     const logPath6 = join(process.cwd(), '.cursor', 'debug.log');
-    const logEntry6 = JSON.stringify({location:'lib/api/properties.ts:150',message:'After Supabase query',data:{hasError:!!error,errorCode:error?.code,errorMessage:error?.message,dataLength:data?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'}) + '\n';
+    const logEntry6 = JSON.stringify({location:'lib/api/properties.ts:150',message:'After Supabase query',data:{hasSalesError:!!salesError,hasRentalsError:!!rentalsError,salesCount:salesData?.length||0,rentalsCount:rentalsData?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'}) + '\n';
     appendFile(logPath6, logEntry6).catch(()=>{});
     // #endregion
 
-    if (error) {
-        console.error('Error fetching properties, using mock data:', error);
-        return MOCK_PROPERTIES.map(mapDatabaseToProperty);
+    if (salesError || rentalsError) {
+        console.error('Error fetching properties, using mock data:', salesError || rentalsError);
+        return {
+            properties: MOCK_PROPERTIES.map(mapDatabaseToProperty),
+            isMock: true
+        };
     }
 
-    if (!data || data.length === 0) {
+    const sales = (salesData || []).map(p => ({ ...p, property_type: 'sale' }));
+    const rentals = (rentalsData || []).map(p => ({ ...p, property_type: 'rental' }));
+    
+    const allProperties = [...sales, ...rentals].sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
+    if (allProperties.length === 0) {
         console.warn('No properties found, using mock data for demo.');
-        return MOCK_PROPERTIES.map(mapDatabaseToProperty);
+        return {
+            properties: MOCK_PROPERTIES.map(mapDatabaseToProperty),
+            isMock: true
+        };
     }
 
-    // Cast because Supabase types might imply details is just Json
-    return (data as unknown as DatabaseProperty[]).map(mapDatabaseToProperty);
+    return {
+        properties: (allProperties as unknown as DatabaseProperty[]).map(mapDatabaseToProperty),
+        isMock: false
+    };
 }
 
 export async function getProperty(id: string) {

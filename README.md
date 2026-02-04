@@ -286,11 +286,42 @@ chore: 雜項
 
 ---
 
-## 🔗 相關連結
+## 🔗 相關連結與服務
+
+### 本地開發服務
+
+| 服務名稱 | 位址 | 用途 | 狀態 |
+|---------|------|------|------|
+| **Web App** | http://localhost:3000 | Next.js 主應用 | Port 3000 預留 |
+| **開發進度追蹤** | http://localhost:3001 | Sprint 進度儀表板 | ✅ 運行中 |
+| **VLM OCR 服務** | http://localhost:8000 | 離線謄本查詢系統 | ✅ 運行中 |
+| **Supabase API** | http://localhost:54321 | 本地資料庫 API | ✅ 運行中 |
+| **Supabase Studio** | http://localhost:54323 | 資料庫管理介面 | ✅ 運行中 |
+| **Mailpit** | http://localhost:54324 | 郵件測試服務 | ✅ 運行中 |
+| **E2E 測試報告** | http://localhost:9323 | Playwright 報告 | 按需啟動 |
+
+### 快速啟動指令
+
+```bash
+# 啟動開發進度追蹤系統
+./scripts/start-dashboard.sh
+
+# 啟動離線謄本查詢系統
+./start-vlm-test.sh
+
+# 啟動 Supabase
+npx supabase start
+
+# 啟動 Web App
+cd apps/web && npm run dev
+```
+
+### 外部連結
 
 - [Supabase Dashboard](https://app.supabase.com)
 - [Vercel Dashboard](https://vercel.com)
 - [專案文檔](./docs/)
+- [系統狀態報告](./docs/progress-reports/SYSTEM_STATUS_REPORT_2026-02-05.md)
 
 ---
 

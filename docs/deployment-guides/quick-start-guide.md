@@ -27,19 +27,58 @@ supabase status
 # 安裝依賴（首次運行）
 npm install
 
-# 啟動 Web 開發服務器
+# 啟動 Web 開發服務器 (Port 3000)
 npm run dev:web
 
 # 或使用便捷腳本啟動
 ./start-dev.sh web
 ```
 
-### 3. 訪問應用
+### 3. 啟動開發進度追蹤系統 (Port 3001)
 
+```bash
+# 在背景啟動開發進度追蹤系統
+cd dev-dashboard && nohup python3 -m http.server 3001 > /dev/null 2>&1 &
+
+# 或使用腳本
+./scripts/start-dashboard.sh
+```
+
+### 4. 啟動離線謄本查詢系統 (Port 8000)
+
+```bash
+# 使用專案腳本啟動（推薦）
+./start-vlm-test.sh
+
+# 或手動啟動
+cd backend/ocr_service
+source venv/bin/activate
+python minimal_app.py
+```
+
+### 5. 訪問應用
+
+#### 主要服務
+
+| 服務 | 位址 | 說明 |
+|------|------|------|
+| **Web App** | http://localhost:3000 | Next.js 主應用（登入、註冊、儀表板） |
+| **開發進度追蹤** | http://localhost:3001 | Sprint 進度儀表板 |
+| **離線謄本查詢** | http://localhost:8000 | VLM OCR 服務 |
+| **Supabase Studio** | http://localhost:54323 | 資料庫管理介面 |
+| **Mailpit** | http://localhost:54324 | 郵件測試服務 |
+
+#### Web App 頁面
 - **首頁**: http://localhost:3000
 - **登錄**: http://localhost:3000/login
 - **註冊**: http://localhost:3000/register
 - **忘記密碼**: http://localhost:3000/forgot-password
+
+#### OCR 服務 API 端點
+- **健康檢查**: http://localhost:8000/api/v1/health
+- **VLM 狀態**: http://localhost:8000/api/v1/vlm/status
+- **文件上傳**: http://localhost:8000/api/v1/documents/upload (POST)
+- **文件處理**: http://localhost:8000/api/v1/documents/process (POST)
 
 ## 🔑 認證功能測試
 
@@ -236,6 +275,43 @@ cat .env | grep SUPABASE
 curl http://127.0.0.1:54321/rest/v1/
 ```
 
+## ✅ 檢查所有服務狀態
+
+使用以下指令確認所有服務是否正常運行：
+
+```bash
+# 檢查連接埠佔用情況
+echo "=== 檢查服務狀態 ==="
+echo ""
+echo "Port 3000 (Web App):"
+lsof -i :3000 || echo "  ❌ 未運行"
+echo ""
+echo "Port 3001 (Dev Dashboard):"
+lsof -i :3001 || echo "  ❌ 未運行"
+echo ""
+echo "Port 8000 (OCR Service):"
+lsof -i :8000 || echo "  ❌ 未運行"
+echo ""
+echo "Supabase:"
+supabase status | head -10 || echo "  ❌ Supabase 未運行"
+```
+
+或使用快速測試：
+
+```bash
+# 測試 Web App
+curl -I http://localhost:3000
+
+# 測試開發進度追蹤系統
+curl -I http://localhost:3001
+
+# 測試 OCR 服務
+curl http://localhost:8000/api/v1/health
+
+# 檢查 Supabase
+supabase status
+```
+
 ## 📊 開發工作流程
 
 ### 日常開發
@@ -244,14 +320,99 @@ curl http://127.0.0.1:54321/rest/v1/
 # 1. 啟動 Supabase（每天第一次）
 supabase start
 
-# 2. 啟動開發服務器
-npm run dev:web
+# 2. 啟動 Web 開發服務器
+cd apps/web && npm run dev
+# 或在背景運行: cd apps/web && nohup npm run dev > /tmp/nextjs.log 2>&1 &
 
-# 3. 開發...
+# 3. 啟動開發進度追蹤系統（可選）
+cd dev-dashboard && nohup python3 -m http.server 3001 > /dev/null 2>&1 &
 
-# 4. 停止服務器（結束開發）
-# Ctrl + C 停止 npm run dev:web
+# 4. 啟動離線謄本查詢系統（如需測試 VLM 功能）
+./start-vlm-test.sh
+
+# 5. 開發...
+
+# 6. 停止服務器（結束開發）
+# Ctrl + C 停止前台進程
+# 或 kill 背景進程: 
+# pkill -f "npm run dev"
+# pkill -f "python3 -m http.server 3001"
+# supabase stop
+```
+
+### 一鍵啟動所有服務
+
+創建一個便捷腳本 `start-all-services.sh`：
+
+```bash
+#!/bin/bash
+
+echo "🚀 啟動所有開發服務..."
+
+# 啟動 Supabase
+echo "1️⃣ 啟動 Supabase..."
+supabase start
+
+# 啟動 Web App
+echo "2️⃣ 啟動 Web App (Port 3000)..."
+cd apps/web && nohup npm run dev > /tmp/nextjs.log 2>&1 &
+cd ../..
+
+# 啟動開發進度追蹤系統
+echo "3️⃣ 啟動開發進度追蹤系統 (Port 3001)..."
+cd dev-dashboard && nohup python3 -m http.server 3001 > /dev/null 2>&1 &
+cd ..
+
+# 啟動 OCR 服務
+echo "4️⃣ 啟動離線謄本查詢系統 (Port 8000)..."
+./start-vlm-test.sh &
+
+echo ""
+echo "✅ 所有服務已啟動！"
+echo ""
+echo "📍 服務存取位址："
+echo "  • Web App: http://localhost:3000"
+echo "  • 開發進度追蹤: http://localhost:3001"
+echo "  • OCR 服務: http://localhost:8000"
+echo "  • Supabase Studio: http://localhost:54323"
+echo ""
+echo "📝 查看 Web App 日誌: tail -f /tmp/nextjs.log"
+echo "🛑 停止所有服務: ./stop-all-services.sh"
+```
+
+### 一鍵停止所有服務
+
+創建停止腳本 `stop-all-services.sh`：
+
+```bash
+#!/bin/bash
+
+echo "🛑 停止所有開發服務..."
+
+# 停止 Web App
+echo "1️⃣ 停止 Web App..."
+pkill -f "npm run dev" || echo "  已停止"
+
+# 停止開發進度追蹤系統
+echo "2️⃣ 停止開發進度追蹤系統..."
+pkill -f "python3 -m http.server 3001" || echo "  已停止"
+
+# 停止 OCR 服務
+echo "3️⃣ 停止 OCR 服務..."
+pkill -f "python minimal_app.py" || echo "  已停止"
+
+# 停止 Supabase
+echo "4️⃣ 停止 Supabase..."
 supabase stop
+
+echo ""
+echo "✅ 所有服務已停止！"
+```
+
+記得給腳本執行權限：
+
+```bash
+chmod +x start-all-services.sh stop-all-services.sh
 ```
 
 ### 資料庫修改

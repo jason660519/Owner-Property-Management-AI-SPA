@@ -6,7 +6,7 @@ import PropertiesClient from './PropertiesClient';
 export const dynamic = 'force-dynamic';
 
 export default async function PropertiesPage() {
-    const properties = await getProperties();
+    const { properties } = await getProperties();
 
     return (
         <div className="min-h-screen bg-[#141414] text-white font-urbanist">

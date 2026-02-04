@@ -11,7 +11,7 @@
 
 import type { Database } from './database';
 
-export type UserRole = Database['public']['Tables']['users_profile']['Row']['role'];
+export type UserRole = Database['public']['Tables']['users_profile']['Row']['primary_role'];
 
 export interface SignUpData {
   email: string;
