@@ -1,374 +1,115 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
+
+    <!DOCTYPE html>
+    <html lang="en">
+    
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>專案開發進度儀表板 | Project Development Progress</title>
+    <title>Project Process Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-    <script src="roadmap.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <style>
-        [x-cloak] { display: none !important; }
-        .progress-bar-striped {
-            background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent);
-            background-size: 1rem 1rem;
-        }
-        .animate-progress {
-            animation: progress-bar-stripes 1s linear infinite;
-        }
-        @keyframes progress-bar-stripes {
-            0% { background-position: 1rem 0; }
-            100% { background-position: 0 0; }
-        }
+        .nav-link { @apply px-4 py-2 rounded-md hover:bg-blue-700 transition; }
+        .nav-link.active { @apply bg-blue-800 font-bold; }
+        .card { @apply bg-white p-6 rounded-lg shadow-md border border-gray-200; }
+        /* Resizable Table Columns */
+        #packageTable { table-layout: fixed; width: 100%; }
+        #packageTable th, #packageTable td { overflow: hidden; word-wrap: break-word; }
+        th.resizable { position: relative; }
         .resizer {
             position: absolute;
-            right: 0; top: 0; bottom: 0;
-            width: 6px; cursor: col-resize; z-index: 20;
-            display: flex; justify-content: center; align-items: center;
+            top: 0;
+            right: 0;
+            width: 5px;
+            cursor: col-resize;
+            user-select: none;
+            height: 100%;
+            z-index: 10;
         }
-        .resizer::after {
-            content: ''; width: 1px; height: 50%; background-color: #e5e7eb; transition: background-color 0.2s;
-        }
-        .resizer:hover::after, .grid-container.resizing .resizer::after {
-            background-color: #3b82f6; width: 2px;
-        }
-        .header-cell {
-            position: relative; display: flex; align-items: center; height: 100%;
+        .resizer:hover, .resizing {
+            background-color: #cbd5e1; /* slate-300 */
+            border-right: 2px solid #3b82f6; /* blue-500 */
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen font-sans text-gray-900" x-data="dashboard()">
-    <!-- Navigation -->
-    <nav class="bg-slate-900 text-white shadow-lg sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-                <div class="flex items-center gap-4">
-                    <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white shadow-inner">
-                        PM
-                    </div>
-                    <span class="font-bold text-lg tracking-wide">Owner Property Management AI</span>
-                </div>
-                <div class="hidden md:block">
-                    <div class="flex items-baseline space-x-4">
-                        <a href="#" class="bg-slate-800 text-white px-3 py-2 rounded-md text-sm font-medium">總覽 (Overview)</a>
-                        <a href="timeline.html" class="text-gray-300 hover:bg-slate-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">時間軸 (Timeline)</a>
-                        <a href="analysis.html" class="text-gray-300 hover:bg-slate-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">套件分析 (Analysis)</a>
-                    </div>
-                </div>
-                <div class="flex items-center gap-4">
-                    <div class="text-xs text-gray-400 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
-                        最後更新: <span x-text="lastUpdated" class="font-mono text-gray-200"></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </nav>
 
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <!-- Dashboard Header -->
-        <div class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-900">專案開發進度儀表板</h1>
-            <p class="mt-2 text-gray-600">追蹤系統各模組開發狀態、完成度與最後更新資訊</p>
-        </div>
-
-        <!-- Overview Stats Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <!-- 1. Overall Progress (Circular) -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex items-center gap-6 relative overflow-hidden">
-                <div class="absolute top-0 right-0 p-4 opacity-5">
-                    <svg class="w-32 h-32" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 14a6 6 0 110-12 6 6 0 010 12z"/></svg>
-                </div>
-                <div class="relative w-24 h-24 flex-shrink-0">
-                    <svg class="w-full h-full transform -rotate-90">
-                        <circle cx="48" cy="48" r="40" stroke="currentColor" stroke-width="8" fill="transparent" class="text-gray-100" />
-                        <circle cx="48" cy="48" r="40" stroke="currentColor" stroke-width="8" fill="transparent" 
-                            :stroke-dasharray="251.2"
-                            :stroke-dashoffset="251.2 - (251.2 * overallProgress / 100)"
-                            class="text-blue-600 transition-all duration-1000 ease-out"
-                            stroke-linecap="round"
-                        />
-                    </svg>
-                    <div class="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center">
-                        <span class="text-xl font-bold text-gray-900" x-text="Math.round(overallProgress) + '%'"></span>
-                    </div>
-                </div>
-                <div class="z-10">
-                    <h2 class="text-lg font-bold text-gray-900">總體開發進度</h2>
-                    <p class="text-sm text-gray-500 mt-1">Weighted by Story Points</p>
-                    <div class="mt-2 text-xs text-gray-400">
-                        共 <span x-text="totalFeatures" class="font-medium text-gray-600"></span> 個功能模組
-                    </div>
-                </div>
-            </div>
-
-            <!-- 2. Status Distribution -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">開發狀態分佈</h3>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="text-center p-3 bg-green-50 rounded-lg border border-green-100">
-                        <div class="text-2xl font-bold text-green-600" x-text="completedCount"></div>
-                        <div class="text-xs text-green-700 font-medium mt-1">已完成 (100%)</div>
-                    </div>
-                    <div class="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
-                        <div class="text-2xl font-bold text-blue-600" x-text="inProgressCount"></div>
-                        <div class="text-xs text-blue-700 font-medium mt-1">進行中</div>
-                    </div>
-                    <div class="text-center p-3 bg-gray-50 rounded-lg border border-gray-100">
-                        <div class="text-2xl font-bold text-gray-600" x-text="pendingCount"></div>
-                        <div class="text-xs text-gray-700 font-medium mt-1">未開始 (0%)</div>
-                    </div>
-                    <div class="text-center p-3 bg-purple-50 rounded-lg border border-purple-100">
-                        <div class="text-2xl font-bold text-purple-600" x-text="totalPoints"></div>
-                        <div class="text-xs text-purple-700 font-medium mt-1">總 Story Points</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 3. System Health & Quick Actions -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col justify-between">
-                <div>
-                    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">系統健康狀態</h3>
-                    <div class="space-y-3">
-                        <div class="flex items-start gap-3 p-2 rounded bg-yellow-50 border border-yellow-100">
-                            <div class="w-2 h-2 mt-1.5 rounded-full bg-yellow-500 flex-shrink-0"></div>
-                            <div>
-                                <h4 class="text-xs font-bold text-yellow-800 uppercase">Security</h4>
-                                <p class="text-xs text-yellow-700">Contains scraping tools in docs deps.</p>
-                            </div>
-                        </div>
-                        <div class="flex items-start gap-3 p-2 rounded bg-blue-50 border border-blue-100">
-                            <div class="w-2 h-2 mt-1.5 rounded-full bg-blue-500 flex-shrink-0"></div>
-                            <div>
-                                <h4 class="text-xs font-bold text-blue-800 uppercase">Version</h4>
-                                <p class="text-xs text-blue-700">Using React 19 (RC/Beta).</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Main Feature List -->
-        <div class="space-y-8">
-            <template x-for="(group, categoryName) in groupedFeatures" :key="categoryName">
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <!-- Category Header -->
-                    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-col sm:flex-row sm:justify-between sm:items-center sticky top-0 z-10 gap-2 sm:gap-0">
-                        <div class="flex items-center gap-3">
-                            <h2 class="font-bold text-lg text-gray-900" x-text="categoryName"></h2>
-                            <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-white border border-gray-200 text-gray-600 shadow-sm" x-text="group.items.length"></span>
-                        </div>
-                        <div class="flex items-center gap-4 w-full sm:w-auto">
-                            <div class="text-sm font-medium text-gray-600 whitespace-nowrap">
-                                類別進度: <span x-text="Math.round(group.progress) + '%'"></span>
-                            </div>
-                            <div class="w-full sm:w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                <div class="h-full bg-blue-500 rounded-full transition-all duration-500" :style="`width: ${group.progress}%`"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Features Grid -->
-                    <div class="divide-y divide-gray-200" 
-                        @mousemove.window="handleResize($event)"
-                        @mouseup.window="stopResize()"
-                        :class="{ 'resizing': resizingIdx !== -1 }">
-                        
-                        <!-- Header Row (Desktop) -->
-                        <div class="hidden md:grid grid-container px-6 py-3 bg-gray-100/80 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200"
-                             :style="`grid-template-columns: ${colWidths.join(' ')}`">
-                            <div class="header-cell min-w-0 pr-4">
-                                功能模組 (Feature)
-                                <div class="resizer" @mousedown.stop.prevent="startResize(0, $event)"></div>
-                            </div>
-                            <div class="header-cell pr-4">
-                                完成度 (Progress)
-                                <div class="resizer" @mousedown.stop.prevent="startResize(1, $event)"></div>
-                            </div>
-                            <div class="header-cell pr-4">
-                                最後修改 (Last Mod.)
-                                <div class="resizer" @mousedown.stop.prevent="startResize(2, $event)"></div>
-                            </div>
-                            <div class="header-cell justify-start">開發日誌 / 文檔 (Docs)</div>
-                        </div>
-
-                        <!-- Rows -->
-                        <template x-for="feature in group.items" :key="feature.name">
-                            <div class="px-6 py-4 hover:bg-gray-50 transition-colors group">
-                                <div class="flex flex-col md:grid md:gap-0 items-center" :style="`grid-template-columns: ${colWidths.join(' ')}`">
-                                    
-                                    <!-- 1. Name -->
-                                    <div class="mb-2 md:mb-0 min-w-0 pr-4 w-full">
-                                        <div class="flex items-center gap-2">
-                                            <div class="w-1.5 h-1.5 rounded-full" 
-                                                :class="{
-                                                    'bg-green-500': feature.percentage === 100,
-                                                    'bg-blue-500': feature.percentage > 0 && feature.percentage < 100,
-                                                    'bg-gray-300': feature.percentage === 0
-                                                }"></div>
-                                            <h3 class="font-medium text-gray-900 break-words text-sm" x-text="feature.name"></h3>
-                                        </div>
-                                    </div>
-
-                                    <!-- 2. Progress Bar -->
-                                    <div class="mb-2 md:mb-0 min-w-0 pr-4 w-full">
-                                        <div class="relative w-full h-5 bg-gray-100 rounded-full overflow-hidden shadow-inner border border-gray-100">
-                                            <div 
-                                                class="h-full rounded-full transition-all duration-500 absolute top-0 left-0"
-                                                :class="{
-                                                    'bg-green-500': feature.percentage === 100,
-                                                    'bg-blue-500 progress-bar-striped animate-progress': feature.percentage > 0 && feature.percentage < 100,
-                                                    'bg-gray-300': feature.percentage === 0
-                                                }"
-                                                :style="`width: ${feature.percentage}%`"
-                                            ></div>
-                                            <div class="absolute inset-0 flex items-center justify-center">
-                                                <span class="text-[10px] font-bold text-white drop-shadow-md" 
-                                                    x-text="feature.percentage + '%'">
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- 3. Last Modified By -->
-                                    <div class="mb-2 md:mb-0 min-w-0 pr-4 w-full">
-                                        <div class="flex flex-col">
-                                            <span class="text-xs text-gray-700 font-medium" x-text="feature.lastModifiedBy || '-'"></span>
-                                        </div>
-                                    </div>
-
-                                    <!-- 4. Date & Actions -->
-                                    <div class="mb-2 md:mb-0 min-w-0 pr-4 w-full flex justify-start items-center gap-3">
-                                        <span class="text-xs text-gray-500 font-mono" x-text="feature.lastModifiedDate || '-'"></span>
-                                        <template x-if="feature.docPath">
-                                            <a :href="'editor.html?file=' + feature.docPath" target="_blank" class="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded border border-blue-200 hover:bg-blue-100 transition-colors" title="View/Edit Document">
-                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                                                <span>文件</span>
-                                            </a>
-                                        </template>
-                                    </div>
-                                </div>
-                            </div>
-                        </template>
-                    </div>
-                </div>
-            </template>
-        </div>
+    <body class="bg-gray-50 text-gray-800">
         
-        <footer class="mt-12 text-center text-sm text-gray-500 border-t border-gray-200 pt-8 pb-4">
-            <p>&copy; 2026 Owner Property Management AI. All rights reserved.</p>
-            <p class="mt-1">Generated by Trae AI Assistant</p>
-        </footer>
-    </main>
+<nav class="bg-blue-600 text-white p-4 shadow-lg">
+    <div class="container mx-auto flex justify-between items-center">
+        <h1 class="text-2xl font-bold">Project Process</h1>
+        <div class="space-x-2">
+            <a href="index.html" class="nav-link active">Overview</a>
+            <a href="timeline.html" class="nav-link ">Timeline</a>
+            <a href="analysis.html" class="nav-link ">Package Analysis</a>
+        </div>
+    </div>
+</nav>
 
-    <script>
-        function dashboard() {
-            return {
-                // Resize Logic State
-                colWidths: JSON.parse(localStorage.getItem('dashboard_col_widths')) || ['40%', '20%', '15%', '25%'],
-                resizingIdx: -1,
-                startX: 0,
-                startWidths: [],
-                containerWidth: 0,
+        <main class="container mx-auto p-6 space-y-8">
+            <header class="text-center py-10">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">Project Overview</h2>
+                <p class="text-xl text-gray-600">Development progress and system health monitoring.</p>
+            </header>
 
-                init() {
-                    this.$watch('colWidths', val => localStorage.setItem('dashboard_col_widths', JSON.stringify(val)));
-                },
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="card text-center">
+                    <h3 class="text-lg font-semibold text-gray-500">Total Packages</h3>
+                    <p class="text-4xl font-bold text-blue-600">18</p>
+                </div>
+                <div class="card text-center">
+                    <h3 class="text-lg font-semibold text-gray-500">Cloud Deps</h3>
+                    <p class="text-4xl font-bold text-green-600">11</p>
+                </div>
+                <div class="card text-center">
+                    <h3 class="text-lg font-semibold text-gray-500">Dev Deps</h3>
+                    <p class="text-4xl font-bold text-purple-600">5</p>
+                </div>
+                <div class="card text-center">
+                    <h3 class="text-lg font-semibold text-gray-500">Alerts</h3>
+                    <p class="text-4xl font-bold text-yellow-600">3</p>
+                </div>
+            </div>
 
-                startResize(idx, e) {
-                    this.resizingIdx = idx;
-                    this.startX = e.clientX;
-                    this.startWidths = this.colWidths.map(w => parseFloat(w));
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="card">
+                    <h3 class="text-xl font-bold mb-4">System Health & Alerts</h3>
                     
-                    // Find the closest grid container to measure total width
-                    const container = e.target.closest('.grid-container');
-                    this.containerWidth = container ? container.getBoundingClientRect().width : window.innerWidth;
-                    
-                    document.body.style.userSelect = 'none';
-                    document.body.style.cursor = 'col-resize';
-                },
+        <div class="p-4 mb-2 rounded border-l-4 bg-yellow-50 border-yellow-500 text-yellow-700">
+            <h4 class="font-bold uppercase text-xs">security</h4>
+            <p>Contains scraping tools (puppeteer) in docs dependencies. Ensure secure usage.</p>
+        </div>
+    
+        <div class="p-4 mb-2 rounded border-l-4 bg-blue-50 border-blue-500 text-blue-700">
+            <h4 class="font-bold uppercase text-xs">version</h4>
+            <p>Using React 19 (RC/Beta versions). Ensure compatibility with all UI libraries.</p>
+        </div>
+    
+        <div class="p-4 mb-2 rounded border-l-4 bg-green-50 border-green-500 text-green-700">
+            <h4 class="font-bold uppercase text-xs">performance</h4>
+            <p>Next.js tree-shaking active. Mobile uses hermes engine.</p>
+        </div>
+    
+                </div>
+                <div class="card">
+                    <h3 class="text-xl font-bold mb-4">Quick Actions</h3>
+                    <ul class="space-y-3">
+                        <li><a href="timeline.html" class="text-blue-600 hover:underline">→ View Development Roadmap</a></li>
+                        <li><a href="analysis.html" class="text-blue-600 hover:underline">→ Inspect Package Dependencies</a></li>
+                        <li><a href="legacy-dashboard/index.html" class="text-blue-600 hover:underline">→ Access Daily Reports</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+        
+<footer class="bg-gray-800 text-white p-6 mt-12">
+    <div class="container mx-auto text-center">
+        <p>Generated on 2/6/2026, 1:23:22 PM</p>
+        <p class="text-gray-400 text-sm mt-2">Owner Property Management AI SPA</p>
+    </div>
+</footer>
 
-                handleResize(e) {
-                    if (this.resizingIdx === -1) return;
-                    
-                    const deltaX = e.clientX - this.startX;
-                    const deltaPercent = (deltaX / this.containerWidth) * 100;
-                    
-                    let newCurrentWidth = this.startWidths[this.resizingIdx] + deltaPercent;
-                    let newNextWidth = this.startWidths[this.resizingIdx + 1] - deltaPercent;
-                    
-                    // Min width check (5%)
-                    if (newCurrentWidth > 5 && newNextWidth > 5) {
-                        let newWidths = [...this.colWidths];
-                        newWidths[this.resizingIdx] = newCurrentWidth.toFixed(2) + '%';
-                        newWidths[this.resizingIdx + 1] = newNextWidth.toFixed(2) + '%';
-                        this.colWidths = newWidths;
-                    }
-                },
-
-                stopResize() {
-                    if (this.resizingIdx !== -1) {
-                        this.resizingIdx = -1;
-                        document.body.style.userSelect = '';
-                        document.body.style.cursor = '';
-                    }
-                },
-
-                features: (window.ROADMAP_DATA.features || []).map(f => ({
-                    ...f,
-                    lastModifiedBy: f.lastModifiedBy ?? '',
-                    lastModifiedDate: f.lastModifiedDate ?? ''
-                })),
-                lastUpdated: window.ROADMAP_DATA.lastUpdated,
-                
-                get groupedFeatures() {
-                    const groups = {};
-                    this.features.forEach(f => {
-                        if (!groups[f.category]) {
-                            groups[f.category] = { items: [], totalPoints: 0, completedWeighted: 0 };
-                        }
-                        groups[f.category].items.push(f);
-                        const points = f.points || 1;
-                        groups[f.category].totalPoints += points;
-                        groups[f.category].completedWeighted += (points * f.percentage);
-                    });
-                    
-                    // Calculate progress per group
-                    Object.keys(groups).forEach(key => {
-                        const g = groups[key];
-                        g.progress = g.totalPoints ? (g.completedWeighted / g.totalPoints) : 0;
-                    });
-
-                    return groups;
-                },
-
-                get overallProgress() {
-                    const totalPoints = this.features.reduce((sum, f) => sum + (f.points || 1), 0);
-                    const completedWeighted = this.features.reduce((sum, f) => sum + ((f.points || 1) * f.percentage), 0);
-                    return totalPoints ? (completedWeighted / totalPoints) : 0;
-                },
-
-                get totalFeatures() {
-                    return this.features.length;
-                },
-
-                get completedCount() {
-                    return this.features.filter(f => f.percentage === 100).length;
-                },
-
-                get inProgressCount() {
-                    return this.features.filter(f => f.percentage > 0 && f.percentage < 100).length;
-                },
-
-                get pendingCount() {
-                    return this.features.filter(f => f.percentage === 0).length;
-                },
-
-                get totalPoints() {
-                    return this.features.reduce((sum, f) => sum + (f.points || 1), 0);
-                }
-            }
-        }
-    </script>
-</body>
-</html>
+    </body>
+    </html>
+    

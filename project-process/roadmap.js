@@ -8,7 +8,7 @@ window.ROADMAP_DATA = {
         { name: "超級管理員的RBAC CRUD平台", percentage: 0, docPath: "", category: "超級管理員 (Super Admin)", points: 8, lastModifiedBy: "", lastModifiedDate: "" },
         { name: "超級管理員-雲端空間管理平台", percentage: 0, docPath: "", category: "超級管理員 (Super Admin)", points: 5, lastModifiedBy: "", lastModifiedDate: "" },
         { name: "超級管理員針對 各種Roles的 Access Matrix管理平台", percentage: 60, docPath: "features/iam-system.html", category: "超級管理員 (Super Admin)", points: 8, lastModifiedBy: "", lastModifiedDate: "" },
-        { name: "超級管理員-資料庫Supabase管理功能", percentage: 0, docPath: "docs/progress-reports/database-reports/supabase-auth-integration-guide.md", category: "超級管理員 (Super Admin)", points: 5, lastModifiedBy: "", lastModifiedDate: "" },
+        { name: "超級管理員-資料庫Supabase管理功能", percentage: 0, docPath: "project-process/progress-reports/database-reports/supabase-auth-integration-guide.md", category: "超級管理員 (Super Admin)", points: 5, lastModifiedBy: "", lastModifiedDate: "" },
         { name: "超級管理員-資料庫Elastic Search管理功能", percentage: 0, docPath: "", category: "超級管理員 (Super Admin)", points: 5, lastModifiedBy: "", lastModifiedDate: "" },
         { name: "超級管理員AI LLM API效能監控－AI語音回應可靠度監控功能", percentage: 0, docPath: "", category: "超級管理員 (Super Admin)", points: 8, lastModifiedBy: "", lastModifiedDate: "" },
         { name: "超級管理員-網路安全－隱私審計管理功能", percentage: 0, docPath: "", category: "超級管理員 (Super Admin)", points: 5, lastModifiedBy: "", lastModifiedDate: "" },
@@ -111,6 +111,6 @@ window.ROADMAP_DATA = {
         { name: "登入頁面>「記住我」功能 TDD 開發進度檢測報告", percentage: 100, docPath: "features/remember-me-tdd-report-20260205.html", category: "測試與品質保證 (Testing & QA)", points: 5, lastModifiedBy: "Claude Sonnet 4.5", lastModifiedDate: "2026/02/05" },
 
         // 專案管理與工具
-        { name: "專案開發進度儀表板重構 (Project Dashboard Overhaul)", percentage: 100, docPath: "docs/progress-reports/daily-reports/project-dashboard-overhaul-2026-02-06.md", category: "專案管理與工具 (Project Management)", points: 3, lastModifiedBy: "Gemini-3-Pro-Preview", lastModifiedDate: "2026/02/06" }
+        { name: "專案開發進度儀表板重構 (Project Dashboard Overhaul)", percentage: 100, docPath: "project-process/progress-reports/daily-reports/project-dashboard-overhaul-2026-02-06.md", category: "專案管理與工具 (Project Management)", points: 3, lastModifiedBy: "Gemini-3-Pro-Preview", lastModifiedDate: "2026/02/06" }
     ]
 };

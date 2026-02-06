@@ -6,7 +6,7 @@
 
 TODAY=$(date +%Y-%m-%d)
 TIME=$(date +%H:%M:%S)
-LOG_DIR="docs/progress-reports/工程師每日工作報告"
+LOG_DIR="project-process/progress-reports/daily-reports"
 
 # Ensure directory exists
 mkdir -p "$LOG_DIR"

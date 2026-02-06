@@ -77,7 +77,7 @@ check_file "INTEGRATION_GUIDE.md"
 check_file "TEST_CHECKLIST.md"
 check_file "DOCUMENT_UPLOAD_README.md"
 check_file "DASHBOARD_INTEGRATION_EXAMPLE.md"
-check_file "../../docs/progress-reports/文件上傳功能_Phase1_實作完成報告_2026-01-31.md"
+check_file "../../project-process/progress-reports/daily-reports/file-upload-phase1-report-2026-01-31.md"
 echo ""
 
 echo "4️⃣  檢查 npm 依賴..."

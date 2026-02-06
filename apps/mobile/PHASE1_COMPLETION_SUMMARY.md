@@ -49,8 +49,8 @@ apps/mobile/
 ├── QUICK_START.md                             # 3.5KB - 快速啟動
 └── verify-phase1.sh                           # 驗證腳本
 
-docs/progress-reports/
-└── 文件上傳功能_Phase1_實作完成報告_2026-01-31.md  # 完整實作報告
+project-process/progress-reports/daily-reports/
+└── file-upload-phase1-report-2026-01-31.md  # 完整實作報告
 ```
 
 #### ✅ 依賴更新
@@ -291,7 +291,7 @@ await pickAndUpload('building_title', propertyId);
 - DASHBOARD_INTEGRATION_EXAMPLE.md - Dashboard integration example
 - QUICK_START.md - Quick start guide
 - verify-phase1.sh - Verification script
-- docs/progress-reports/文件上傳功能_Phase1_實作完成報告_2026-01-31.md
+- project-process/progress-reports/daily-reports/file-upload-phase1-report-2026-01-31.md
 
 📦 Dependencies Added
 - expo-document-picker: ^14.0.8
@@ -330,7 +330,7 @@ git add apps/mobile/*.md
 git add apps/mobile/verify-phase1.sh
 git add apps/mobile/package.json
 git add apps/mobile/package-lock.json
-git add docs/progress-reports/文件上傳功能_Phase1_實作完成報告_2026-01-31.md
+git add project-process/progress-reports/daily-reports/file-upload-phase1-report-2026-01-31.md
 
 # 提交
 git commit -F commit-message.txt
@@ -376,7 +376,7 @@ git commit -m "[Claude] feat(mobile): implement Phase 1 document upload function
 | 測試清單 | [TEST_CHECKLIST.md](TEST_CHECKLIST.md) |
 | 功能總覽 | [DOCUMENT_UPLOAD_README.md](DOCUMENT_UPLOAD_README.md) |
 | Dashboard 整合 | [DASHBOARD_INTEGRATION_EXAMPLE.md](DASHBOARD_INTEGRATION_EXAMPLE.md) |
-| 實作報告 | [docs/progress-reports/文件上傳功能_Phase1_實作完成報告_2026-01-31.md](../../docs/progress-reports/文件上傳功能_Phase1_實作完成報告_2026-01-31.md) |
+| 實作報告 | [docs/progress-reports/daily-reports/file-upload-phase1-report-2026-01-31.md](../../project-process/progress-reports/daily-reports/file-upload-phase1-report-2026-01-31.md) |
 
 ---
 

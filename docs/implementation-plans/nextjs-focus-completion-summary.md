@@ -24,8 +24,8 @@ docs/
 │   ├── 專案簡化計劃_專注Next.js_Web_App.md
 │   ├── 專注Web_App_行動清單.md
 │   └── 移除Expo_Web_implementation-plan.md
-├── progress-reports/工程師每日工作報告/
-│   └── 策略調整完成報告_2026-02-02.md
+├── project-process/progress-reports/daily-reports/
+│   └── strategy-adjustment-report-2026-02-02.md
 └── 硬體與軟體技術選型說明/
     └── Mobile_App_技術方案評估_原生vs跨平台.md
 ```

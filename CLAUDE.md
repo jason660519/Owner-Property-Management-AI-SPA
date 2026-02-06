@@ -61,7 +61,7 @@
    - Web 頁面 → `apps/web/app/`
    - Mobile 頁面 → `apps/mobile/src/app/` 或 `apps/mobile/app/`
    - 程式碼文件 → `apps/*/src/`, `packages/*/src/` 或 `backend/*/src/`
-   - 技術文檔 → `docs/` 下對應分類 (如 `docs/progress-reports/`)
+   - 技術文檔 → `docs/` 下對應分類 (如 `project-process/progress-reports/`)
    - 臨時文件 → `docs/drafts/`
    - **禁止**直接在專案根目錄創建文檔類文件
 3. **添加必要的元數據**：
@@ -98,13 +98,15 @@
 ├── deployment-guides/        # 部署指南、環境設定
 ├── design-guidelines/        # UI/UX 設計規範、Figma 文件
 │   └── references/           # 設計參考資料
-├── progress-reports/         # 進度報告
-│   ├── OCR開發進度報告/
-│   ├── roadmap/              # 專案規劃與 Sprint 計畫
-│   ├── 工程師每日工作報告/
-│   └── 資料庫進度報告/
 ├── product-overview/  # 產品需求與使用場景
 └── 硬體與軟體技術選型說明/  # 技術架構與選型決策
+
+✅ project-process/              # 專案流程與進度
+├── progress-reports/            # 進度報告
+│   ├── ocr-development/
+│   ├── roadmap/
+│   ├── daily-reports/
+│   └── database-reports/
 
 ✅ apps/web/                   # Next.js 應用
 ├── app/                      # 路由頁面
@@ -206,11 +208,6 @@ root/
 │   ├── deployment-guides/    # 部署指南、環境設定
 │   ├── design-guidelines/    # UI/UX 設計規範、Figma 文件
 │   │   └── references/       # 設計參考資料
-│   ├── progress-reports/     # 進度報告與狀態追蹤
-│   │   ├── ocr-development/  # OCR 開發進度報告
-│   │   ├── roadmap/          # 專案規劃與 Sprint 計畫
-│   │   ├── daily-reports/    # 工程師每日工作報告
-│   │   └── database-reports/ # 資料庫進度報告
 │   ├── implementation-plans/ # implementation-plan
 │   ├── product-overview/     # 產品需求與使用場景
 │   ├── technical-selection/  # 技術架構與選型決策
@@ -218,6 +215,9 @@ root/
 │   │   ├── TEST_FILE_MANAGEMENT_STANDARD.md  # 完整測試檔案管理規範
 │   │   └── TEST_QUICK_REFERENCE.md           # 測試快速參考卡
 │   └── file-naming-guidelines.md  # 檔案命名規則與歸檔總則 (v4.0 含測試規範)
+│
+├── project-process/          # 🔄 專案流程與進度
+│   └── progress-reports/     # 進度報告
 │
 └── scripts/                  # 🔨 自動化腳本
 ```

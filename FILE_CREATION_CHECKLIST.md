@@ -136,11 +136,12 @@
 ├── deployment-guides/      # 部署指南、環境設定
 ├── design-guidelines/      # UI/UX 設計規範、Figma 文件
 │   └── references/         # 設計參考資料
-├── progress-reports/       # 進度報告與狀態追蹤
-│   ├── OCR開發進度報告/
-│   ├── roadmap/            # 專案規劃與 Sprint 計畫
-│   ├── 工程師每日工作報告/
-│   └── 資料庫進度報告/
+├── project-process/
+│   └── progress-reports/       # 進度報告與狀態追蹤
+│       ├── ocr-development/
+│       ├── roadmap/            # 專案規劃與 Sprint 計畫
+│       ├── daily-reports/
+│       └── database-reports/
 ├── product-overview/  # 產品需求與使用場景
 └── 硬體與軟體技術選型說明/  # 技術架構與選型決策
 

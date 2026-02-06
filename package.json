@@ -10,8 +10,7 @@
     "dev:clean": "./start-dev.sh clean",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "build:dashboard": "cd project-process/legacy-dashboard && npx --yes tailwindcss -i input.css -o styles.css -c tailwind.config.js"
+    "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {
     "prettier": "^3.0.0"

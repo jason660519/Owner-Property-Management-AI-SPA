@@ -36,7 +36,7 @@ cd apps/web
 npm run dev
 
 # 3. 啟動開發進度儀表板 (Project Process Dashboard)
-# 訪問: http://localhost:3001/project-process/index.html
+# 訪問: http://localhost:3001/
 ./scripts/start-dashboard.sh
 
 # 4. 訪問應用
@@ -325,7 +325,7 @@ cd apps/web && npm run dev
 - [Supabase Dashboard](https://app.supabase.com)
 - [Vercel Dashboard](https://vercel.com)
 - [專案文檔](./docs/)
-- [系統狀態報告](./docs/progress-reports/SYSTEM_STATUS_REPORT_2026-02-05.md)
+- [系統狀態報告](./project-process/progress-reports/SYSTEM_STATUS_REPORT_2026-02-05.md)
 
 ---
 

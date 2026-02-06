@@ -68,7 +68,7 @@
 
 ### Step 2: 更新 roadmap.js 📝
 
-**檔案位置**: `project-process/roadmap.js`
+**檔案位置**: `project-process/legacy-dashboard/roadmap.js`
 
 **更新項目**:
 1. **lastUpdated**: 更新為當前日期時間（格式: YYYY/MM/DD-HH:mm）

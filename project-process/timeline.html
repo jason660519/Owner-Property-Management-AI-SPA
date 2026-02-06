@@ -13,6 +13,24 @@
         .nav-link { @apply px-4 py-2 rounded-md hover:bg-blue-700 transition; }
         .nav-link.active { @apply bg-blue-800 font-bold; }
         .card { @apply bg-white p-6 rounded-lg shadow-md border border-gray-200; }
+        /* Resizable Table Columns */
+        #packageTable { table-layout: fixed; width: 100%; }
+        #packageTable th, #packageTable td { overflow: hidden; word-wrap: break-word; }
+        th.resizable { position: relative; }
+        .resizer {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 5px;
+            cursor: col-resize;
+            user-select: none;
+            height: 100%;
+            z-index: 10;
+        }
+        .resizer:hover, .resizing {
+            background-color: #cbd5e1; /* slate-300 */
+            border-right: 2px solid #3b82f6; /* blue-500 */
+        }
     </style>
 </head>
 
@@ -25,7 +43,6 @@
             <a href="index.html" class="nav-link ">Overview</a>
             <a href="timeline.html" class="nav-link active">Timeline</a>
             <a href="analysis.html" class="nav-link ">Package Analysis</a>
-            <a href="legacy-dashboard/index.html" class="nav-link" target="_blank">Legacy Dashboard ↗</a>
         </div>
     </div>
 </nav>
@@ -87,7 +104,7 @@
         
 <footer class="bg-gray-800 text-white p-6 mt-12">
     <div class="container mx-auto text-center">
-        <p>Generated on 2/6/2026, 10:38:10 AM</p>
+        <p>Generated on 2/6/2026, 1:23:22 PM</p>
         <p class="text-gray-400 text-sm mt-2">Owner Property Management AI SPA</p>
     </div>
 </footer>

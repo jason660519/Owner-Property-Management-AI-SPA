@@ -407,7 +407,7 @@ Phase 2 測試完成後，準備進入 **Phase 3: OCR 整合**：
 2. OCR 結果預覽與編輯
 3. OCR 失敗重試機制
 
-查看完整計畫：[Phase 3 Implementation Plan](../../docs/progress-reports/PHASE3_IMPLEMENTATION_PLAN.md)
+查看完整計畫：[Phase 3 Implementation Plan](../../project-process/progress-reports/PHASE3_IMPLEMENTATION_PLAN.md)
 
 ---
 

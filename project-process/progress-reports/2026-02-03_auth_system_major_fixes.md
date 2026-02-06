@@ -345,7 +345,7 @@ SELECT * FROM public.users_profile WHERE email = 'a0405142777@gmail.com';
 |:-----|:-----|
 | 重命名 | `reset-password/` → `update-password/` |
 | 新建 | `docs/auth-redesign-proposal.md` |
-| 新建 | `docs/progress-reports/2026-02-03_auth_system_major_fixes.md` |
+| 新建 | `project-process/progress-reports/2026-02-03_auth_system_major_fixes.md` |
 
 ---
 

@@ -284,10 +284,16 @@ root/
 │   └── config.toml
 ├── docs/                       # Documentation center (ALL docs here)
 │   ├── deployment-guides/      # Deployment guides, environment setup
-│   ├── design-guidelines/      # UI/UX design specs, Figma files
-│   ├── implementation-plans/   # Implementation plans
-│   ├── progress-reports/       # Progress reports and status tracking
-│   ├── product-overview/       # Product requirements and use cases
+│   ├── design-guidelines/      # UI/UX 設計規範、Figma 文件
+│   │   └── references/         # 設計參考資料
+│   ├── implementation-plans/   # 實作計畫
+│   ├── project-process/        # 專案流程與進度
+│   │   └── progress-reports/   # 進度報告
+│   │       ├── ocr-development/
+│   │       ├── roadmap/
+│   │       ├── daily-reports/
+│   │       └── database-reports/
+│   ├── product-overview/       # 產品需求與使用場景
 │   ├── technical-selection/    # Technical architecture and selection
 │   ├── testing/                # Testing standards and guidelines
 │   │   ├── TEST_FILE_MANAGEMENT_STANDARD.md  # Detailed testing standards
@@ -411,10 +417,10 @@ module.exports = {
 - **Deployment & Environment**: Store in `docs/deployment-guides/`
 - **Design Specs & UI/UX**: Store in `docs/design-guidelines/`
 - **Progress Reports**:
-  - OCR related → `docs/progress-reports/ocr-development/`
-  - Project planning & Roadmap → `docs/progress-reports/roadmap/`
-  - Daily work reports → `docs/progress-reports/daily-reports/`
-  - Database related → `docs/progress-reports/database-reports/`
+  - OCR related → `project-process/progress-reports/ocr-development/`
+  - Project planning & Roadmap → `project-process/progress-reports/roadmap/`
+  - Daily work reports → `project-process/progress-reports/daily-reports/`
+  - Database related → `project-process/progress-reports/database-reports/`
 - **Product Requirements**: Store in `docs/product-overview/`
 - **Technical Selection**: Store in `docs/technical-selection/`
 - **Implementation Plans**: Store in `docs/implementation-plans/`
@@ -426,10 +432,10 @@ module.exports = {
 - **部署與環境文件**：存入 `docs/deployment-guides/`
 - **設計規範與 UI/UX 文件**：存入 `docs/design-guidelines/`
 - **進度報告**：
-  - OCR 相關 → `docs/progress-reports/ocr-development/`
-  - 專案規劃 → `docs/progress-reports/roadmap/`
-  - 每日報告 → `docs/progress-reports/daily-reports/`
-  - 資料庫相關 → `docs/progress-reports/database-reports/`
+  - OCR 相關 → `project-process/progress-reports/ocr-development/`
+  - 專案規劃 → `project-process/progress-reports/roadmap/`
+  - 每日報告 → `project-process/progress-reports/daily-reports/`
+  - 資料庫相關 → `project-process/progress-reports/database-reports/`
 - **產品需求**：存入 `docs/product-overview/`
 - **技術選型**：存入 `docs/technical-selection/`
 - **實作計畫**：存入 `docs/implementation-plans/`

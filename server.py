@@ -22,18 +22,64 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate')
         super().end_headers()
 
+    def list_directory(self, path):
+        """Disable directory listing"""
+        self.send_error(403, "Directory listing is disabled")
+        return None
+
     def do_GET(self):
-        # Serve the dashboard index at root
-        if self.path == '/' or self.path == '/index.html':
-            self.path = '/project-process/index.html'
+        # Security: Prevent access to sensitive files and directories
+        if any(x in self.path for x in ['.env', '.git', 'node_modules', 'credentials']):
+            self.send_error(403, "Access Denied: Sensitive content")
+            return
+
+        # Parse path to handle query parameters
+        from urllib.parse import urlparse
+        parsed_path = urlparse(self.path)
+        path_only = parsed_path.path
+
+        # Redirect root to the legacy dashboard
+        if path_only == '/' or path_only == '/index.html':
+            self.send_response(302)
+            self.send_header('Location', '/project-process/legacy-dashboard/index.html')
+            self.end_headers()
+            return
+            
         # Serve roadmap.js at root (requested by index.html)
-        elif self.path == '/roadmap.js':
+        elif path_only == '/roadmap.js':
             self.path = '/project-process/roadmap.js'
         # Serve styles.css at root
-        elif self.path == '/styles.css':
+        elif path_only == '/styles.css':
             self.path = '/project-process/styles.css'
             
         return super().do_GET()
+
+    def do_HEAD(self):
+        # Security: Prevent access to sensitive files and directories
+        if any(x in self.path for x in ['.env', '.git', 'node_modules', 'credentials']):
+            self.send_error(403, "Access Denied: Sensitive content")
+            return
+
+        # Parse path to handle query parameters
+        from urllib.parse import urlparse
+        parsed_path = urlparse(self.path)
+        path_only = parsed_path.path
+
+        # Redirect root to the legacy dashboard
+        if path_only == '/' or path_only == '/index.html':
+            self.send_response(302)
+            self.send_header('Location', '/project-process/legacy-dashboard/index.html')
+            self.end_headers()
+            return
+            
+        # Serve roadmap.js at root (requested by index.html)
+        elif path_only == '/roadmap.js':
+            self.path = '/project-process/roadmap.js'
+        # Serve styles.css at root
+        elif path_only == '/styles.css':
+            self.path = '/project-process/styles.css'
+            
+        return super().do_HEAD()
 
     def do_POST(self):
         """Handle file saving"""
@@ -79,16 +125,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             print(f"Error handling POST: {e}")
             self.send_error(500, str(e))
 
-print(f"Starting server at http://localhost:{PORT}")
-print(f"Serving files from {os.getcwd()}")
-print("UTF-8 encoding enabled for .md, .html, .js, .css, .json")
+if __name__ == "__main__":
+    print(f"Starting server at http://localhost:{PORT}")
+    print(f"Serving files from {os.getcwd()}")
+    print("UTF-8 encoding enabled for .md, .html, .js, .css, .json")
 
-# Allow address reuse to prevent "Address already in use" errors
-socketserver.TCPServer.allow_reuse_address = True
+    # Allow address reuse to prevent "Address already in use" errors
+    socketserver.TCPServer.allow_reuse_address = True
 
-with socketserver.TCPServer(("", PORT), Handler) as httpd:
-    try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        print("\nServer stopped.")
-        sys.exit(0)
+    with socketserver.TCPServer(("", PORT), Handler) as httpd:
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            print("\nServer stopped.")
+            sys.exit(0)

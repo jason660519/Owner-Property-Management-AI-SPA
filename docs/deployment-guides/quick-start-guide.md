@@ -63,7 +63,7 @@ python minimal_app.py
 | 服務 | 位址 | 說明 |
 |------|------|------|
 | **Web App** | http://localhost:3000 | Next.js 主應用（登入、註冊、儀表板） |
-| **開發進度追蹤** | http://localhost:3001/project-process/index.html | Sprint 進度儀表板 (Updated Entry) |
+| **開發進度追蹤** | http://localhost:3001/ | Sprint 進度儀表板 (Legacy) |
 | **離線謄本查詢** | http://localhost:8000 | VLM OCR 服務 |
 | **Supabase Studio** | http://localhost:54323 | 資料庫管理介面 |
 | **Mailpit** | http://localhost:54324 | 郵件測試服務 |
@@ -448,7 +448,7 @@ npm run test:e2e
 
 ## 📚 相關文檔
 
-- [認證系統修復報告](../progress-reports/2026-02-03_authentication_fixes.md)
+- [認證系統修復報告](../../project-process/progress-reports/2026-02-03_authentication_fixes.md)
 - [專案規則](./../CLAUDE.md)
 - [資料庫架構](../database/)
 - [API 文檔](../api/)
@@ -458,7 +458,7 @@ npm run test:e2e
 遇到問題？
 
 1. 查看本指南的「常見問題排查」章節
-2. 檢查 [認證系統修復報告](../progress-reports/2026-02-03_authentication_fixes.md)
+2. 檢查 [認證系統修復報告](../../project-process/progress-reports/2026-02-03_authentication_fixes.md)
 3. 查看 Supabase 日誌: `supabase logs`
 4. 查看瀏覽器控制台錯誤信息
 

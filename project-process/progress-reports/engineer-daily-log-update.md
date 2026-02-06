@@ -96,7 +96,7 @@
 
 ### Step 2: 更新 roadmap.js 📝
 
-**檔案位置**: `project-process/roadmap.js`
+**檔案位置**: `project-process/legacy-dashboard/roadmap.js`
 
 ```javascript
 window.ROADMAP_DATA = {

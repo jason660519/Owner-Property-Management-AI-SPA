@@ -64,7 +64,7 @@ if lsof -i :3001 > /dev/null 2>&1; then
     echo -e "${GREEN}✅ 開發進度追蹤系統已在運行${NC}"
 else
     cd "$PROJECT_ROOT"
-    nohup python3 -m http.server 3001 > /dev/null 2>&1 &
+    nohup python3 server.py > /dev/null 2>&1 &
     echo -e "${GREEN}✅ 開發進度追蹤系統啟動成功${NC}"
 fi
 echo ""

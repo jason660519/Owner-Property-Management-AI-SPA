@@ -4,36 +4,12 @@ const path = require('path');
 // Configuration
 const OUTPUT_DIR = __dirname;
 const ANALYSIS_PATH = path.join(__dirname, 'project-packages-analysis/analysis.json');
-const LEGACY_DIR = path.join(__dirname, 'legacy-dashboard');
 
 // Read Data
 const analysisData = JSON.parse(fs.readFileSync(ANALYSIS_PATH, 'utf8'));
 let timelineData = [];
 
-// Parse Legacy Dashboard for Timeline
-try {
-  const files = fs.readdirSync(LEGACY_DIR);
-  const dateRegex = /(\d{4})(\d{2})(\d{2})/;
-  
-  files.forEach(file => {
-    const match = file.match(dateRegex);
-    if (match) {
-      const dateStr = `${match[1]}-${match[2]}-${match[3]}`;
-      timelineData.push({
-        task: file.replace('.html', '').replace(/-/g, ' '),
-        date: dateStr,
-        link: `legacy-dashboard/${file}`
-      });
-    }
-  });
-  
-  // Sort by date
-  timelineData.sort((a, b) => new Date(a.date) - new Date(b.date));
-} catch (e) {
-  console.warn("Could not read legacy dashboard for timeline", e);
-}
-
-// Add some generic phases if timeline is empty
+// Fallback timeline data (since legacy dashboard parsing is removed)
 if (timelineData.length === 0) {
     timelineData = [
         { task: "Project Initialization", date: "2026-02-01", link: "#" },
@@ -55,6 +31,24 @@ const head = `
         .nav-link { @apply px-4 py-2 rounded-md hover:bg-blue-700 transition; }
         .nav-link.active { @apply bg-blue-800 font-bold; }
         .card { @apply bg-white p-6 rounded-lg shadow-md border border-gray-200; }
+        /* Resizable Table Columns */
+        #packageTable { table-layout: fixed; width: 100%; }
+        #packageTable th, #packageTable td { overflow: hidden; word-wrap: break-word; }
+        th.resizable { position: relative; }
+        .resizer {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 5px;
+            cursor: col-resize;
+            user-select: none;
+            height: 100%;
+            z-index: 10;
+        }
+        .resizer:hover, .resizing {
+            background-color: #cbd5e1; /* slate-300 */
+            border-right: 2px solid #3b82f6; /* blue-500 */
+        }
     </style>
 </head>
 `;
@@ -67,7 +61,6 @@ const nav = (active) => `
             <a href="index.html" class="nav-link ${active === 'home' ? 'active' : ''}">Overview</a>
             <a href="timeline.html" class="nav-link ${active === 'timeline' ? 'active' : ''}">Timeline</a>
             <a href="analysis.html" class="nav-link ${active === 'analysis' ? 'active' : ''}">Package Analysis</a>
-            <a href="legacy-dashboard/index.html" class="nav-link" target="_blank">Legacy Dashboard ↗</a>
         </div>
     </div>
 </nav>
@@ -262,6 +255,8 @@ const generateAnalysis = () => {
         return {
             ...p,
             description: existing ? existing.description : '',
+            mainFunction: existing ? existing.mainFunction : '',
+            detailedDescription: existing ? existing.detailedDescription : '',
             environment: existing ? existing.environment : (p.type === 'devDependency' ? 'development' : 'production')
         };
     });
@@ -284,6 +279,9 @@ const generateAnalysis = () => {
                 <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
                     <h3 class="text-xl font-bold">Detailed Package List</h3>
                     <div class="flex flex-wrap gap-2">
+                        <button id="resetWidthBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-1 px-3 rounded text-sm transition">
+                            Reset Columns
+                        </button>
                         <input type="text" id="searchInput" placeholder="Search packages..." class="border rounded px-3 py-1 text-sm w-full md:w-auto">
                         <select id="typeFilter" class="border rounded px-3 py-1 text-sm">
                             <option value="all">All Types</option>
@@ -316,10 +314,13 @@ const generateAnalysis = () => {
                                     Location <span class="sort-icon ml-1 text-gray-400">↕</span>
                                 </th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none group" data-sortable="true" data-type="string" data-column="env">
-                                    Env <span class="sort-icon ml-1 text-gray-400">↕</span>
+                                    使用階段 <span class="sort-icon ml-1 text-gray-400">↕</span>
                                 </th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none group" data-sortable="true" data-type="string" data-column="description">
-                                    Description <span class="sort-icon ml-1 text-gray-400">↕</span>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none group" data-sortable="true" data-type="string" data-column="mainFunction">
+                                    主要功能 <span class="sort-icon ml-1 text-gray-400">↕</span>
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none group" data-sortable="true" data-type="string" data-column="detailedDescription">
+                                    功能講解與使用流程 <span class="sort-icon ml-1 text-gray-400">↕</span>
                                 </th>
                             </tr>
                         </thead>
@@ -336,13 +337,17 @@ const generateAnalysis = () => {
                                 <td class="px-6 py-4 text-sm text-gray-500" data-value="${p.location}">${p.location}</td>
                                 <td class="px-6 py-4 text-sm text-gray-500" data-value="${p.environment}">
                                     <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                        ${p.environment === 'development' ? 'bg-gray-100 text-gray-800' : 
-                                          p.environment === 'production' ? 'bg-green-100 text-green-800' : 
-                                          'bg-blue-100 text-blue-800'}">
-                                        ${p.environment}
+                                        ${p.environment === 'production' || p.environment === 'cloud_deployment' ? 'bg-green-100 text-green-800' : 
+                                          p.environment === 'development' ? 'bg-gray-100 text-gray-800' : 
+                                          'bg-yellow-100 text-yellow-800'}">
+                                        ${p.environment === 'development' ? 'Development' : 
+                                          p.environment === 'testing' ? 'Testing' : 
+                                          p.environment === 'cloud_deployment' ? 'Cloud' : 
+                                          p.environment === 'production' ? 'Production' : p.environment}
                                     </span>
                                 </td>
-                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="${p.description || ''}">${p.description || '-'}</td>
+                                <td class="px-6 py-4 text-sm text-gray-900 font-medium" data-value="${p.mainFunction || '-'}">${p.mainFunction || '-'}</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="${p.detailedDescription || '-'}">${p.detailedDescription || '-'}</td>
                             </tr>
                             `).join('')}
                         </tbody>
@@ -429,6 +434,82 @@ const generateAnalysis = () => {
             // Initialize Sorting
             document.addEventListener('DOMContentLoaded', () => {
                 new TableManager('packageTable');
+                
+                // Initialize Column Resizing
+                const createResizableTable = function(table) {
+                    const cols = table.querySelectorAll('th');
+                    
+                    // Capture initial computed widths before potentially switching to fixed layout
+                    // However, since we set table-layout: fixed in CSS, the browser might have already distributed them evenly or based on content if not set.
+                    // To get a good starting point, we can let them be auto first, but we enforced fixed in CSS.
+                    // Actually, for better UX, let's set their inline widths to their current computed widths
+                    // so resizing starts from a "natural" state instead of jumping.
+                    [].forEach.call(cols, function(col) {
+                         const width = window.getComputedStyle(col).width;
+                         col.style.width = width;
+                    });
+
+                    [].forEach.call(cols, function(col) {
+                        // Add resizable class
+                        col.classList.add('resizable');
+                        
+                        // Create resizer element
+                        if (!col.querySelector('.resizer')) {
+                            const resizer = document.createElement('div');
+                            resizer.classList.add('resizer');
+                            resizer.style.height = table.offsetHeight + 'px'; // Set height to table height
+                            col.appendChild(resizer);
+                            createResizableColumn(col, resizer);
+                        }
+                    });
+                };
+
+                const createResizableColumn = function(col, resizer) {
+                    let x = 0;
+                    let w = 0;
+
+                    const mouseDownHandler = function(e) {
+                        x = e.clientX;
+                        const styles = window.getComputedStyle(col);
+                        w = parseInt(styles.width, 10);
+
+                        document.addEventListener('mousemove', mouseMoveHandler);
+                        document.addEventListener('mouseup', mouseUpHandler);
+                        resizer.classList.add('resizing');
+                        document.body.style.cursor = 'col-resize'; // Force cursor
+                    };
+
+                    const mouseMoveHandler = function(e) {
+                        const dx = e.clientX - x;
+                        const newWidth = Math.max(0, w + dx); // Allow width down to 0
+                        col.style.width = newWidth + 'px';
+                    };
+
+                    const mouseUpHandler = function() {
+                        document.removeEventListener('mousemove', mouseMoveHandler);
+                        document.removeEventListener('mouseup', mouseUpHandler);
+                        resizer.classList.remove('resizing');
+                        document.body.style.cursor = ''; // Reset cursor
+                    };
+
+                    resizer.addEventListener('mousedown', mouseDownHandler);
+                };
+                
+                const table = document.getElementById('packageTable');
+                if (table) {
+                    createResizableTable(table);
+                }
+
+                // Reset Columns Logic
+                const resetBtn = document.getElementById('resetWidthBtn');
+                if (resetBtn && table) {
+                    resetBtn.addEventListener('click', () => {
+                        const cols = table.querySelectorAll('th');
+                        [].forEach.call(cols, function(col) {
+                            col.style.width = ''; // Remove inline width to reset
+                        });
+                    });
+                }
             });
         </script>
     </body>
