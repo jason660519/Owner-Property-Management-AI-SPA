@@ -28,6 +28,7 @@ stop_services() {
     pkill -f "expo" 2>/dev/null || true
     pkill -f "metro" 2>/dev/null || true
     lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+    lsof -ti:3001 | xargs kill -9 2>/dev/null || true
     lsof -ti:8081 | xargs kill -9 2>/dev/null || true
     sleep 1
     echo -e "${GREEN}✅ 服務已停止${NC}"
@@ -80,18 +81,31 @@ start_mobile() {
     echo -e "${YELLOW}⏸️  注意：此為暫緩開發的功能，僅供參考${NC}"
 }
 
-# 主菜單
+# 函數：啟動 Superadmin (Next.js - 端口 3001)
+start_superadmin() {
+    echo -e "${BLUE}🔐 啟動 Superadmin 後台...${NC}"
+    cd "$PROJECT_ROOT/apps/superadmin"
+    osascript -e 'tell application "Terminal"
+        do script "cd \"'"$PROJECT_ROOT"'/apps/superadmin\" && npm run dev"
+        set custom title of front window to \"Superadmin - Port 3001\"
+    end tell' &>/dev/null &
+    echo -e "${GREEN}✅ Superadmin 服務啟動中... (http://localhost:3001)${NC}"
+}
+
+# 主菜單（僅顯示一次，選擇後執行並結束，不會重複回到選單）
 show_menu() {
     echo ""
     echo -e "${BLUE}請選擇啟動模式：${NC}"
-    echo "1) 啟動 Web (Next.js + PWA - 端口 3000) ✅ 主要開發"
-    echo "2) 啟動 Mobile (Expo - 端口 8081) ⏸️ 已暫緩開發"
-    echo "3) 同時啟動 Web + Mobile ⏸️ Mobile 已暫緩"
-    echo "4) 停止所有服務"
-    echo "5) 清除快取並重新啟動"
+    echo "1) 啟動 Web (Next.js + PWA - 端口 3000) ✅ 房東/租客/買家"
+    echo "2) 啟動 Superadmin (Next.js - 端口 3001) 🔐 超級管理員"
+    echo "3) 啟動 Mobile (Expo - 端口 8081) ⏸️ 已暫緩開發"
+    echo "4) 同時啟動 Web + Superadmin (3000 + 3001)"
+    echo "5) 停止所有服務"
+    echo "6) 清除快取並重新啟動"
+    echo "7) 一鍵啟動所有服務 (Supabase + Web + 進度追蹤 + OCR) → 執行後結束"
     echo "0) 退出"
     echo ""
-    read -p "請輸入選項 [0-5]: " choice
+    read -p "請輸入選項 [0-7]: " choice
 }
 
 # 主邏輯
@@ -99,6 +113,10 @@ case "${1:-menu}" in
     web)
         stop_services
         start_web
+        ;;
+    superadmin)
+        stop_services
+        start_superadmin
         ;;
     mobile)
         stop_services
@@ -110,6 +128,12 @@ case "${1:-menu}" in
         sleep 2
         start_mobile
         ;;
+    web+superadmin)
+        stop_services
+        start_web
+        sleep 2
+        start_superadmin
+        ;;
     stop)
         stop_services
         ;;
@@ -118,47 +142,53 @@ case "${1:-menu}" in
         clean_cache
         ;;
     menu)
-        while true; do
-            show_menu
-            case $choice in
-                1)
-                    stop_services
-                    start_web
-                    ;;
-                2)
-                    stop_services
-                    start_mobile
-                    ;;
-                3)
-                    stop_services
-                    start_web
-                    sleep 2
-                    start_mobile
-                    ;;
-                4)
-                    stop_services
-                    ;;
-                5)
-                    stop_services
-                    clean_cache
-                    start_web
-                    sleep 2
-                    start_mobile
-                    ;;
-                0)
-                    echo -e "${GREEN}👋 再見！${NC}"
-                    exit 0
-                    ;;
-                *)
-                    echo -e "${RED}❌ 無效選項，請重試${NC}"
-                    ;;
-            esac
-            echo ""
-            echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-        done
+        show_menu
+        case $choice in
+            1)
+                stop_services
+                start_web
+                ;;
+            2)
+                stop_services
+                start_superadmin
+                ;;
+            3)
+                stop_services
+                start_mobile
+                ;;
+            4)
+                stop_services
+                start_web
+                sleep 2
+                start_superadmin
+                ;;
+            5)
+                stop_services
+                ;;
+            6)
+                stop_services
+                clean_cache
+                start_web
+                sleep 2
+                start_superadmin
+                ;;
+            7)
+                cd "$PROJECT_ROOT"
+                ./start-all-services.sh
+                exit 0
+                ;;
+            0)
+                echo -e "${GREEN}👋 再見！${NC}"
+                exit 0
+                ;;
+            *)
+                echo -e "${RED}❌ 無效選項，請重試${NC}"
+                exit 1
+                ;;
+        esac
         ;;
     *)
-        echo -e "${RED}用法: $0 [web|mobile|both|stop|clean|menu]${NC}"
+        echo -e "${RED}用法: $0 [web|superadmin|mobile|web+superadmin|stop|clean|menu]${NC}"
         exit 1
         ;;
 esac
@@ -169,7 +199,8 @@ echo -e "${GREEN}✅ 操作完成${NC}"
 echo -e "${BLUE}════════════════════════════════════════════════════════${NC}"
 echo ""
 echo -e "${YELLOW}💡 提示：${NC}"
-echo -e "  • Web 應用: ${BLUE}http://localhost:3000${NC}"
-echo -e "  • Mobile 應用: ${BLUE}http://localhost:8081${NC} ⏸️ (已暫緩開發) 'w')"
+echo -e "  • Web 應用 (房東/租客/買家): ${BLUE}http://localhost:3000${NC}"
+echo -e "  • Superadmin 後台: ${BLUE}http://localhost:3001/superadmin/dashboard${NC}"
+echo -e "  • Mobile 應用: ${BLUE}http://localhost:8081${NC} ⏸️ (已暫緩開發)"
 echo -e "  • 停止服務: ${YELLOW}./start-dev.sh stop${NC}"
 echo ""

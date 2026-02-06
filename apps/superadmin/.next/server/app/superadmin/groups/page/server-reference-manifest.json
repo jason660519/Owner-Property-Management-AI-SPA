@@ -1,0 +1,80 @@
+{
+  "node": {
+    "00454b981e24a878ca78bcf7d4a3a83d67547b29fa": {
+      "workers": {
+        "app/superadmin/groups/page": {
+          "moduleId": 30175,
+          "async": false,
+          "exportedName": "getRoles",
+          "filename": "apps/superadmin/app/superadmin/groups/actions.ts"
+        }
+      },
+      "layer": {
+        "app/superadmin/groups/page": "action-browser"
+      },
+      "exportedName": "getRoles",
+      "filename": "apps/superadmin/app/superadmin/groups/actions.ts"
+    },
+    "00dfbf507eb689b739777c4fd0288278be8826346e": {
+      "workers": {
+        "app/superadmin/groups/page": {
+          "moduleId": 30175,
+          "async": false,
+          "exportedName": "getGroups",
+          "filename": "apps/superadmin/app/superadmin/groups/actions.ts"
+        }
+      },
+      "layer": {
+        "app/superadmin/groups/page": "rsc"
+      },
+      "exportedName": "getGroups",
+      "filename": "apps/superadmin/app/superadmin/groups/actions.ts"
+    },
+    "403f5a2d5afde1bba1096ad5e87332e9a8d769b24f": {
+      "workers": {
+        "app/superadmin/groups/page": {
+          "moduleId": 30175,
+          "async": false,
+          "exportedName": "createGroup",
+          "filename": "apps/superadmin/app/superadmin/groups/actions.ts"
+        }
+      },
+      "layer": {
+        "app/superadmin/groups/page": "action-browser"
+      },
+      "exportedName": "createGroup",
+      "filename": "apps/superadmin/app/superadmin/groups/actions.ts"
+    },
+    "40d0fb3ca3ce57c06213cb6d2c82fc20654bae01ab": {
+      "workers": {
+        "app/superadmin/groups/page": {
+          "moduleId": 30175,
+          "async": false,
+          "exportedName": "updateGroup",
+          "filename": "apps/superadmin/app/superadmin/groups/actions.ts"
+        }
+      },
+      "layer": {
+        "app/superadmin/groups/page": "action-browser"
+      },
+      "exportedName": "updateGroup",
+      "filename": "apps/superadmin/app/superadmin/groups/actions.ts"
+    },
+    "6041873aa3979754d84ba7c757a5b2aaca5507139d": {
+      "workers": {
+        "app/superadmin/groups/page": {
+          "moduleId": 30175,
+          "async": false,
+          "exportedName": "assignGroupRoles",
+          "filename": "apps/superadmin/app/superadmin/groups/actions.ts"
+        }
+      },
+      "layer": {
+        "app/superadmin/groups/page": "action-browser"
+      },
+      "exportedName": "assignGroupRoles",
+      "filename": "apps/superadmin/app/superadmin/groups/actions.ts"
+    }
+  },
+  "edge": {}
+}

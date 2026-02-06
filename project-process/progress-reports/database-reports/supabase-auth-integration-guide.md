@@ -449,10 +449,9 @@ export async function middleware(req: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession();
 
-  // 保護需要認證的路由
+  // 保護需要認證的路由（super_admin 已獨立至 http://localhost:3001/superadmin）
   const protectedPaths = [
     '/landlord',
-    '/super-admin',
     '/tenant',
     '/agent',
   ];
@@ -477,11 +476,7 @@ export async function middleware(req: NextRequest) {
       .eq('user_id', session.user.id)
       .single();
 
-    // 根據路徑檢查角色
-    if (req.nextUrl.pathname.startsWith('/super-admin') && profile?.role !== 'super_admin') {
-      return NextResponse.redirect(new URL('/unauthorized', req.url));
-    }
-
+    // 根據路徑檢查角色（super_admin 儀表板在獨立站 3001，此站不保護 /super-admin）
     if (req.nextUrl.pathname.startsWith('/landlord') && profile?.role !== 'landlord') {
       return NextResponse.redirect(new URL('/unauthorized', req.url));
     }

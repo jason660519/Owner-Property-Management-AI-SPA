@@ -11,7 +11,7 @@
 
 ## 🎯 專案目標
 
-根據開發儀表板 http://localhost:3001/ 的現有架構與設計模式，完整實作系統中所有角色專屬的儀表板頁面。
+根據專案既有架構與設計模式，完整實作系統中所有角色專屬的儀表板頁面。**超級管理員**已獨立至 **http://localhost:3001**（`apps/superadmin`），其餘角色於主站 **http://localhost:3000**（`apps/web`）。
 
 ### 目標角色清單
 
@@ -403,30 +403,33 @@ interface KPIConfig {
 
 ### Phase 5: 超級管理員儀表板 (3-4 天)
 
+**實作狀態**：✅ 已獨立至 **apps/superadmin**（Port 3001）。主站 `/admin`、`/admin/users`、`/admin/groups` 會自動導向 3001。
+
 #### Super Admin Dashboard (超級管理員儀表板)
 
-**路徑**: `/admin/dashboard`
+**主站路徑（僅導向）**: `/admin` → 重導向至 `http://localhost:3001/superadmin/dashboard`  
+**實際路徑（Superadmin 站）**: **http://localhost:3001/superadmin/dashboard**
 
 **KPI 指標**:
 1. 系統概況
    - 總用戶數
    - 活躍用戶數（本月）
-   - **進度連結**: 「用戶管理」→ `/admin/users`
+   - **進度連結**: 「用戶管理」→ `http://localhost:3001/superadmin/users`
 
 2. 物件統計
    - 總物件數
    - 待審核物件
-   - **進度連結**: 「物件管理」→ `/admin/properties`
+   - **進度連結**: 「物件管理」→ `http://localhost:3001/superadmin/properties`
 
 3. 交易統計
    - 本月交易數
    - 交易總額
-   - **進度連結**: 「交易記錄」→ `/admin/transactions`
+   - **進度連結**: 「交易記錄」→ `http://localhost:3001/superadmin/transactions`
 
 4. 系統健康
    - API 回應時間
    - 錯誤率
-   - **進度連結**: 「系統監控」→ `/admin/monitoring`
+   - **進度連結**: 「系統監控」→ `http://localhost:3001/superadmin/monitoring`
 
 ---
 

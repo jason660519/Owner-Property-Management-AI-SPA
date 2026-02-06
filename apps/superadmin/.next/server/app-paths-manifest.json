@@ -1,0 +1,10 @@
+{
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/auth/callback/route": "app/auth/callback/route.js",
+  "/login/page": "app/login/page.js",
+  "/page": "app/page.js",
+  "/superadmin/dashboard/page": "app/superadmin/dashboard/page.js",
+  "/superadmin/groups/page": "app/superadmin/groups/page.js",
+  "/superadmin/users/page": "app/superadmin/users/page.js"
+}

@@ -303,7 +303,7 @@ test.describe('登入流程', () => {
 | 認證流程 | `e2e/flows/auth/*.spec.ts` |
 | 房東功能 | `e2e/flows/landlord/*.spec.ts` |
 | 租客功能 | `e2e/flows/tenant/*.spec.ts` |
-| 管理員功能 | `e2e/flows/admin/*.spec.ts` |
+| 管理員功能（主站導向） | `e2e/flows/admin/*.spec.ts`（主站 `/admin` 導向 3001）；超級管理員完整流程於 `apps/superadmin`，可另建 `e2e/flows/superadmin/*.spec.ts` 指向 http://localhost:3001） |
 | 公共頁面 | `e2e/flows/public/*.spec.ts` |
 
 ### 5.3 Packages 測試路徑
@@ -435,7 +435,7 @@ mkdir -p apps/web/e2e/utils
 | `__tests__/lib/supabase/auth.test.ts` | `lib/supabase/__tests__/auth.test.ts` |
 | `__tests__/app/actions/auth.test.ts` | `actions/__tests__/auth.test.ts` |
 | `__tests__/app/actions/contact.test.ts` | `actions/__tests__/contact.test.ts` |
-| `__tests__/admin/users/actions.test.ts` | `app/admin/users/__tests__/actions.test.ts` |
+| `__tests__/admin/users/actions.test.ts` | `app/admin/users/__tests__/actions.test.ts`（主站）；超級管理員同功能於 `apps/superadmin/app/superadmin/users/actions.ts` |
 | `__tests__/landlord/add-property.test.tsx` | `app/landlord/add-property/__tests__/page.test.tsx` |
 | `__tests__/components/ui/UserNav.test.tsx` | `components/ui/UserNav/__tests__/UserNav.test.tsx` |
 

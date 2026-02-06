@@ -114,8 +114,9 @@ export default function LoginPage() {
           break;
 
         case 'super_admin':
-          router.push('/admin/dashboard');
-          router.refresh();
+          window.location.href = process.env.NEXT_PUBLIC_SUPERADMIN_URL
+            ? `${process.env.NEXT_PUBLIC_SUPERADMIN_URL}/superadmin/dashboard`
+            : 'http://localhost:3001/superadmin/dashboard';
           break;
 
         case 'agent':

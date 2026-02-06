@@ -31,8 +31,9 @@ export function Header() {
   const supabase = createClient();
 
   const role = user?.user_metadata?.role || user?.user_metadata?.primary_role || 'landlord';
+  const superadminBaseUrl = process.env.NEXT_PUBLIC_SUPERADMIN_URL || 'http://localhost:3001';
   const dashboardMap: Record<string, string> = {
-    super_admin: '/super-admin/dashboard',
+    super_admin: `${superadminBaseUrl}/superadmin/dashboard`,
     landlord: '/landlord/dashboard',
     tenant: '/tenant/dashboard',
     buyer: '/buyer/dashboard',

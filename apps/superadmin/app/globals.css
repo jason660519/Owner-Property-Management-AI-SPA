@@ -1,0 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-grey-08: #1A1A1A;
+  --color-grey-10: #2A2A2A;
+  --color-grey-15: #333333;
+  --color-grey-60: #999999;
+  --color-purple-60: #7C3AED;
+  --color-white: #FFFFFF;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --spacing-2: 8px;
+  --spacing-4: 16px;
+  --spacing-6: 24px;
+  --radius-md: 10px;
+  --radius-base: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-2xl: 24px;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --color-text-primary: var(--color-white);
+  --color-text-secondary: var(--color-grey-60);
+  --color-bg-primary: var(--color-grey-08);
+  --color-bg-secondary: var(--color-grey-10);
+  --color-border-default: var(--color-grey-15);
+  --color-accent: var(--color-purple-60);
+  --color-accent-hover: #6D28D9;
+  --color-accent-subtle: rgba(124, 58, 237, 0.1);
+  --color-error: #EF4444;
+  --shadow-glow: 0 0 20px rgba(124, 58, 237, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+  --transition-normal: 0.2s ease;
+  --transition-slow: 0.3s ease;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}

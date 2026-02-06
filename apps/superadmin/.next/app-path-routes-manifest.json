@@ -1,0 +1,10 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/auth/callback/route": "/auth/callback",
+  "/login/page": "/login",
+  "/page": "/",
+  "/superadmin/dashboard/page": "/superadmin/dashboard",
+  "/superadmin/groups/page": "/superadmin/groups",
+  "/superadmin/users/page": "/superadmin/users"
+}

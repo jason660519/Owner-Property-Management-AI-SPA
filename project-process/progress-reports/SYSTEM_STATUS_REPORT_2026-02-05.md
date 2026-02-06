@@ -11,7 +11,7 @@
 兩項系統配置調整任務已完成驗證：
 
 1. ✅ **離線謄本查詢系統**：已確認正常運行於 `http://localhost:8000`
-2. ✅ **開發進度追蹤系統**：已確認正常運行於 `http://localhost:3001`
+2. ✅ **開發進度追蹤系統**：已確認正常運行於 `http://localhost:3002`（Port 3001 保留給 Superadmin 後台）
 
 所有系統功能測試通過，服務狀態良好。
 
@@ -173,31 +173,31 @@ backend/ocr_service/
 | 項目 | 狀態 | 詳細資訊 |
 |------|------|----------|
 | **服務狀態** | ✅ 運行中 | PID: 85204 |
-| **連接埠** | ✅ 3001 | 正常監聽 |
+| **連接埠** | ✅ 3002 | 正常監聽 |
 | **服務類型** | HTTP Server | Python SimpleHTTPServer |
 | **工作目錄** | ✅ 正常 | `/project-process` |
 
 ### 2.2 連接埠配置
 
-**當前配置**: Port 3001  
+**當前配置**: Port 3002（3001 為 Superadmin 後台）  
 **設定檔案**: `scripts/start-dashboard.sh`
 
 ```bash
-PORT=3001
+PORT=3002
 DIR="$(dirname "$0")/.."
 cd "$DIR" && python3 -m http.server $PORT
 ```
 
 **理由**:
 - Port 3000 保留給公司正式網頁服務（Next.js Web App）
-- Port 3001 為開發進度追蹤系統專用連接埠
+- Port 3002 為開發進度追蹤系統專用連接埠；Port 3001 為 Superadmin 後台
 - 避免連接埠衝突，確保服務穩定運行
 
 ### 2.3 功能驗證結果
 
 #### ✅ 主頁存取
 ```bash
-$ curl http://localhost:3001/
+$ curl http://localhost:3002/
 ```
 **回應**: HTML 頁面正常載入，包含完整的專案開發進度儀表板
 
@@ -215,13 +215,13 @@ $ curl http://localhost:3001/
 ./scripts/start-dashboard.sh
 
 # 或手動啟動
-python3 -m http.server 3001
+python3 -m http.server 3002
 ```
 
 ### 2.5 存取位址
 
-**內部存取**: `http://localhost:3001`  
-**團隊存取**: `http://[伺服器IP]:3001`
+**內部存取**: `http://localhost:3002`  
+**團隊存取**: `http://[伺服器IP]:3002`
 
 ---
 
@@ -230,7 +230,7 @@ python3 -m http.server 3001
 | 連接埠 | 服務名稱 | 狀態 | 用途 |
 |--------|----------|------|------|
 | **3000** | 🔴 未使用 | 空閒 | 保留給公司正式網頁服務 |
-| **3001** | ✅ Dev Dashboard | 運行中 | 開發進度追蹤系統 |
+| **3002** | ✅ Dev Dashboard | 運行中 | 開發進度追蹤系統 |
 | **8000** | ✅ VLM OCR Service | 運行中 | 離線謄本查詢系統 |
 | **9323** | ℹ️ E2E Test Report | - | Playwright 測試報告（按需啟動） |
 | **54321** | ✅ Supabase API | 運行中 | 本地 Supabase 開發環境 |
@@ -289,7 +289,7 @@ python -m src.api.main
 ./scripts/start-dashboard.sh
 
 # 方法二：手動啟動
-python3 -m http.server 3001
+python3 -m http.server 3002
 ```
 
 ### 5.3 啟動 Supabase（必要依賴）
@@ -303,13 +303,13 @@ supabase start
 ```bash
 # 檢查連接埠佔用
 lsof -i :8000
-lsof -i :3001
+lsof -i :3002
 
 # 測試離線謄本查詢系統
 curl http://localhost:8000/api/v1/health
 
 # 測試開發進度追蹤系統
-curl -I http://localhost:3001/
+curl -I http://localhost:3002/
 
 # 檢查 Supabase 狀態
 supabase status
@@ -333,7 +333,7 @@ supabase status
 
 | 測試項目 | 結果 | 備註 |
 |---------|------|------|
-| HTTP 服務 | ✅ 正常 | Port 3001 正常監聽 |
+| HTTP 服務 | ✅ 正常 | Port 3002 正常監聽 |
 | 主頁載入 | ✅ 成功 | HTML/CSS/JS 正常載入 |
 | Alpine.js | ✅ 正常 | 互動功能正常 |
 | Tailwind CSS | ✅ 正常 | 樣式正確顯示 |
@@ -349,13 +349,13 @@ supabase status
 **開發團隊請注意**：開發進度追蹤系統已遷移至新的連接埠
 
 - **舊位址（已停用）**: ~~http://localhost:3000/dev-status~~
-- **新位址（請使用）**: **http://localhost:3001**
+- **新位址（請使用）**: **http://localhost:3002**
 
 ### 7.2 存取確認
 
 請所有團隊成員確認能否正常存取以下服務：
 
-1. ✅ 開發進度追蹤系統：`http://localhost:3001`
+1. ✅ 開發進度追蹤系統：`http://localhost:3002`
 2. ✅ 離線謄本查詢系統：`http://localhost:8000`
 3. ✅ Supabase Studio：`http://localhost:54323`
 
@@ -368,7 +368,7 @@ supabase status
 以下文件已更新或需要更新：
 
 ### 8.1 已更新
-- ✅ `scripts/start-dashboard.sh` - 連接埠設定為 3001
+- ✅ `scripts/start-dashboard.sh` - 連接埠設定為 3002（3001 保留給 Superadmin）
 - ✅ `project-process/index.html` - 參考連接埠 9323（E2E 測試）
 
 ### 8.2 建議更新
@@ -415,7 +415,7 @@ supabase status
 兩項系統配置調整任務已成功完成：
 
 1. ✅ **離線謄本查詢系統**：已確認正常運行於 Port 8000，所有端點測試通過
-2. ✅ **開發進度追蹤系統**：已確認正常運行於 Port 3001，避免與主要 Web 服務衝突
+2. ✅ **開發進度追蹤系統**：已確認正常運行於 Port 3002；Port 3001 為 Superadmin 後台
 
 所有服務狀態良好，功能完整，可供團隊正常使用。建議團隊成員更新書籤並確認存取權限。
 
