@@ -38,7 +38,7 @@ npm run dev:web
 
 ```bash
 # 在背景啟動開發進度追蹤系統
-cd dev-dashboard && nohup python3 -m http.server 3001 > /dev/null 2>&1 &
+nohup python3 -m http.server 3001 > /dev/null 2>&1 &
 
 # 或使用腳本
 ./scripts/start-dashboard.sh
@@ -63,7 +63,7 @@ python minimal_app.py
 | 服務 | 位址 | 說明 |
 |------|------|------|
 | **Web App** | http://localhost:3000 | Next.js 主應用（登入、註冊、儀表板） |
-| **開發進度追蹤** | http://localhost:3001 | Sprint 進度儀表板 |
+| **開發進度追蹤** | http://localhost:3001/project-process/index.html | Sprint 進度儀表板 (Updated Entry) |
 | **離線謄本查詢** | http://localhost:8000 | VLM OCR 服務 |
 | **Supabase Studio** | http://localhost:54323 | 資料庫管理介面 |
 | **Mailpit** | http://localhost:54324 | 郵件測試服務 |

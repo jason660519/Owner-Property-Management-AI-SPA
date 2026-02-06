@@ -1,0 +1,1564 @@
+
+    <!DOCTYPE html>
+    <html lang="en">
+    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Process Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        .nav-link { @apply px-4 py-2 rounded-md hover:bg-blue-700 transition; }
+        .nav-link.active { @apply bg-blue-800 font-bold; }
+        .card { @apply bg-white p-6 rounded-lg shadow-md border border-gray-200; }
+    </style>
+</head>
+
+    <body class="bg-gray-50 text-gray-800">
+        
+<nav class="bg-blue-600 text-white p-4 shadow-lg">
+    <div class="container mx-auto flex justify-between items-center">
+        <h1 class="text-2xl font-bold">Project Process</h1>
+        <div class="space-x-2">
+            <a href="index.html" class="nav-link ">Overview</a>
+            <a href="timeline.html" class="nav-link ">Timeline</a>
+            <a href="analysis.html" class="nav-link active">Package Analysis</a>
+            <a href="legacy-dashboard/index.html" class="nav-link" target="_blank">Legacy Dashboard ↗</a>
+        </div>
+    </div>
+</nav>
+
+        <main class="container mx-auto p-6 space-y-8">
+            <h2 class="text-3xl font-bold">Package Dependency Analysis</h2>
+            
+            <!-- Package Table (Moved to Top) -->
+            <div class="card">
+                <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+                    <h3 class="text-xl font-bold">Detailed Package List</h3>
+                    <div class="flex flex-wrap gap-2">
+                        <input type="text" id="searchInput" placeholder="Search packages..." class="border rounded px-3 py-1 text-sm w-full md:w-auto">
+                        <select id="typeFilter" class="border rounded px-3 py-1 text-sm">
+                            <option value="all">All Types</option>
+                            <option value="dependency">Dependency</option>
+                            <option value="devDependency">DevDependency</option>
+                        </select>
+                        <select id="locationFilter" class="border rounded px-3 py-1 text-sm">
+                            <option value="all">All Locations</option>
+                            <option value="Monorepo Root">Root</option>
+                            <option value="apps/web">Web</option>
+                            <option value="apps/mobile">Mobile</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200" id="packageTable">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none group" data-sortable="true" data-type="string" data-column="package">
+                                    Package <span class="sort-icon ml-1 text-gray-400">↕</span>
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none group" data-sortable="true" data-type="version" data-column="version">
+                                    Version <span class="sort-icon ml-1 text-gray-400">↕</span>
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none group" data-sortable="true" data-type="string" data-column="type">
+                                    Type <span class="sort-icon ml-1 text-gray-400">↕</span>
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none group" data-sortable="true" data-type="string" data-column="location">
+                                    Location <span class="sort-icon ml-1 text-gray-400">↕</span>
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none group" data-sortable="true" data-type="string" data-column="env">
+                                    Env <span class="sort-icon ml-1 text-gray-400">↕</span>
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none group" data-sortable="true" data-type="string" data-column="description">
+                                    Description <span class="sort-icon ml-1 text-gray-400">↕</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            
+                            <tr class="package-row" data-name="prettier" data-type="devDependency" data-location="Monorepo Root">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="prettier">prettier</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^3.0.0">^3.0.0</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="devDependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                        devDependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="Monorepo Root">Monorepo Root</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="development">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-gray-100 text-gray-800">
+                                        development
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="@casl/ability" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="@casl/ability">@casl/ability</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^6.8.0">^6.8.0</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="@casl/react" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="@casl/react">@casl/react</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^5.0.1">^5.0.1</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="@hookform/resolvers" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="@hookform/resolvers">@hookform/resolvers</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^5.2.2">^5.2.2</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="@supabase/ssr" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="@supabase/ssr">@supabase/ssr</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^0.8.0">^0.8.0</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="@supabase/supabase-js" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="@supabase/supabase-js">@supabase/supabase-js</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^2.93.3">^2.93.3</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="cloud_deployment">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-blue-100 text-blue-800">
+                                        cloud_deployment
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="Supabase client">Supabase client</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="@tanstack/react-query" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="@tanstack/react-query">@tanstack/react-query</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^5.90.20">^5.90.20</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="@tanstack/react-query-devtools" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="@tanstack/react-query-devtools">@tanstack/react-query-devtools</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^5.91.3">^5.91.3</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="@tanstack/react-table" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="@tanstack/react-table">@tanstack/react-table</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^8.21.3">^8.21.3</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="clsx" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="clsx">clsx</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^2.1.1">^2.1.1</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="date-fns" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="date-fns">date-fns</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^4.1.0">^4.1.0</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="framer-motion" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="framer-motion">framer-motion</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^12.29.2">^12.29.2</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="heic2any" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="heic2any">heic2any</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^0.0.4">^0.0.4</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="lucide-react" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="lucide-react">lucide-react</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^0.563.0">^0.563.0</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="next" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="next">next</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="16.1.6">16.1.6</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="cloud_deployment">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-blue-100 text-blue-800">
+                                        cloud_deployment
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="The React Framework for the Web">The React Framework for the Web</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="nodemailer" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="nodemailer">nodemailer</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^8.0.0">^8.0.0</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="react" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="react">react</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="19.2.3">19.2.3</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="cloud_deployment">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-blue-100 text-blue-800">
+                                        cloud_deployment
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="JavaScript library for building user interfaces">JavaScript library for building user interfaces</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="react-dom" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="react-dom">react-dom</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="19.2.3">19.2.3</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="react-dropzone" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="react-dropzone">react-dropzone</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^14.4.0">^14.4.0</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="react-hook-form" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="react-hook-form">react-hook-form</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^7.71.1">^7.71.1</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="recharts" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="recharts">recharts</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^3.7.0">^3.7.0</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="tailwind-merge" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="tailwind-merge">tailwind-merge</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^3.4.0">^3.4.0</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="winston" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="winston">winston</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^3.19.0">^3.19.0</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="winston-daily-rotate-file" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="winston-daily-rotate-file">winston-daily-rotate-file</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^5.0.0">^5.0.0</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="zod" data-type="dependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="zod">zod</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^4.3.6">^4.3.6</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="@playwright/test" data-type="devDependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="@playwright/test">@playwright/test</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^1.58.1">^1.58.1</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="devDependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                        devDependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="development">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-gray-100 text-gray-800">
+                                        development
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="@testing-library/jest-dom" data-type="devDependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="@testing-library/jest-dom">@testing-library/jest-dom</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^6.9.1">^6.9.1</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="devDependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                        devDependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="development">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-gray-100 text-gray-800">
+                                        development
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="@testing-library/react" data-type="devDependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="@testing-library/react">@testing-library/react</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^16.3.2">^16.3.2</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="devDependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                        devDependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="development">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-gray-100 text-gray-800">
+                                        development
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="@testing-library/user-event" data-type="devDependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="@testing-library/user-event">@testing-library/user-event</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^14.6.1">^14.6.1</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="devDependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                        devDependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="development">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-gray-100 text-gray-800">
+                                        development
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="@types/jest" data-type="devDependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="@types/jest">@types/jest</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^30.0.0">^30.0.0</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="devDependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                        devDependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="development">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-gray-100 text-gray-800">
+                                        development
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="@types/node" data-type="devDependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="@types/node">@types/node</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^20">^20</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="devDependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                        devDependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="development">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-gray-100 text-gray-800">
+                                        development
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="@types/nodemailer" data-type="devDependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="@types/nodemailer">@types/nodemailer</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^7.0.9">^7.0.9</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="devDependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                        devDependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="development">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-gray-100 text-gray-800">
+                                        development
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="@types/react" data-type="devDependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="@types/react">@types/react</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^19">^19</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="devDependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                        devDependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="development">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-gray-100 text-gray-800">
+                                        development
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="@types/react-dom" data-type="devDependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="@types/react-dom">@types/react-dom</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^19">^19</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="devDependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                        devDependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="development">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-gray-100 text-gray-800">
+                                        development
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="autoprefixer" data-type="devDependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="autoprefixer">autoprefixer</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^10.4.24">^10.4.24</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="devDependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                        devDependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="development">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-gray-100 text-gray-800">
+                                        development
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="babel-plugin-react-compiler" data-type="devDependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="babel-plugin-react-compiler">babel-plugin-react-compiler</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="1.0.0">1.0.0</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="devDependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                        devDependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="development">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-gray-100 text-gray-800">
+                                        development
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="eslint" data-type="devDependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="eslint">eslint</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^9">^9</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="devDependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                        devDependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="development">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-gray-100 text-gray-800">
+                                        development
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="eslint-config-next" data-type="devDependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="eslint-config-next">eslint-config-next</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="16.1.6">16.1.6</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="devDependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                        devDependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="development">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-gray-100 text-gray-800">
+                                        development
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="jest" data-type="devDependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="jest">jest</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^30.2.0">^30.2.0</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="devDependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                        devDependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="development">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-gray-100 text-gray-800">
+                                        development
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="jest-environment-jsdom" data-type="devDependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="jest-environment-jsdom">jest-environment-jsdom</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^30.2.0">^30.2.0</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="devDependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                        devDependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="development">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-gray-100 text-gray-800">
+                                        development
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="postcss" data-type="devDependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="postcss">postcss</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^8.5.6">^8.5.6</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="devDependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                        devDependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="development">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-gray-100 text-gray-800">
+                                        development
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="tailwindcss" data-type="devDependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="tailwindcss">tailwindcss</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^3.4.19">^3.4.19</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="devDependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                        devDependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="development">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-gray-100 text-gray-800">
+                                        development
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="Utility-first CSS framework">Utility-first CSS framework</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="ts-jest" data-type="devDependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="ts-jest">ts-jest</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^29.4.6">^29.4.6</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="devDependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                        devDependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="development">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-gray-100 text-gray-800">
+                                        development
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="typescript" data-type="devDependency" data-location="apps/web">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="typescript">typescript</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^5">^5</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="devDependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                        devDependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/web">apps/web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="development">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-gray-100 text-gray-800">
+                                        development
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="Static type checker">Static type checker</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="@expo/metro-runtime" data-type="dependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="@expo/metro-runtime">@expo/metro-runtime</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="~6.1.2">~6.1.2</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="@expo/vector-icons" data-type="dependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="@expo/vector-icons">@expo/vector-icons</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^15.0.3">^15.0.3</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="@react-native-async-storage/async-storage" data-type="dependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="@react-native-async-storage/async-storage">@react-native-async-storage/async-storage</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^2.2.0">^2.2.0</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="@supabase/supabase-js" data-type="dependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="@supabase/supabase-js">@supabase/supabase-js</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^2.43.5">^2.43.5</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="expo" data-type="dependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="expo">expo</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="~54.0.33">~54.0.33</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="cloud_deployment">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-blue-100 text-blue-800">
+                                        cloud_deployment
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="Expo SDK">Expo SDK</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="expo-document-picker" data-type="dependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="expo-document-picker">expo-document-picker</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^14.0.8">^14.0.8</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="expo-file-system" data-type="dependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="expo-file-system">expo-file-system</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^19.0.21">^19.0.21</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="expo-image-manipulator" data-type="dependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="expo-image-manipulator">expo-image-manipulator</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^14.0.8">^14.0.8</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="expo-image-picker" data-type="dependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="expo-image-picker">expo-image-picker</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^17.0.10">^17.0.10</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="expo-linking" data-type="dependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="expo-linking">expo-linking</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^8.0.11">^8.0.11</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="expo-status-bar" data-type="dependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="expo-status-bar">expo-status-bar</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="~3.0.9">~3.0.9</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="nativewind" data-type="dependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="nativewind">nativewind</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^4.2.1">^4.2.1</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="react" data-type="dependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="react">react</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="19.2.4">19.2.4</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="cloud_deployment">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-blue-100 text-blue-800">
+                                        cloud_deployment
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="JavaScript library for building user interfaces">JavaScript library for building user interfaces</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="react-dom" data-type="dependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="react-dom">react-dom</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="19.2.4">19.2.4</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="react-native" data-type="dependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="react-native">react-native</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="0.81.5">0.81.5</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="react-native-css-interop" data-type="dependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="react-native-css-interop">react-native-css-interop</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^0.2.1">^0.2.1</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="react-native-image-viewing" data-type="dependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="react-native-image-viewing">react-native-image-viewing</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^0.2.2">^0.2.2</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="react-native-reanimated" data-type="dependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="react-native-reanimated">react-native-reanimated</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="~4.1.1">~4.1.1</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="react-native-url-polyfill" data-type="dependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="react-native-url-polyfill">react-native-url-polyfill</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^3.0.0">^3.0.0</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="react-native-web" data-type="dependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="react-native-web">react-native-web</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^0.21.0">^0.21.0</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="tailwindcss" data-type="dependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="tailwindcss">tailwindcss</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="^3.4.19">^3.4.19</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="dependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                        dependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="production">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-green-100 text-green-800">
+                                        production
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="@types/react" data-type="devDependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="@types/react">@types/react</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="~19.2.4">~19.2.4</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="devDependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                        devDependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="development">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-gray-100 text-gray-800">
+                                        development
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="">-</td>
+                            </tr>
+                            
+                            <tr class="package-row" data-name="typescript" data-type="devDependency" data-location="apps/mobile">
+                                <td class="px-6 py-4 text-sm font-bold text-gray-900" data-value="typescript">typescript</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" data-value="~5.9.2">~5.9.2</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="devDependency">
+                                    <span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                        devDependency
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="apps/mobile">apps/mobile</td>
+                                <td class="px-6 py-4 text-sm text-gray-500" data-value="development">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        bg-gray-100 text-gray-800">
+                                        development
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 italic" data-value="Static type checker">Static type checker</td>
+                            </tr>
+                            
+                        </tbody>
+                    </table>
+                    <div id="noResults" class="hidden text-center py-4 text-gray-500">No packages found matching criteria</div>
+                </div>
+            </div>
+
+            <!-- Network Graph (Moved to Bottom) -->
+            <div class="card h-[600px] flex flex-col">
+                <h3 class="text-xl font-bold mb-4">Interactive Dependency Network</h3>
+                <div id="mynetwork" class="flex-grow border border-gray-100 rounded bg-gray-50"></div>
+                <p class="text-sm text-gray-500 mt-2">Drag nodes to rearrange. Zoom to inspect.</p>
+            </div>
+        </main>
+        
+<footer class="bg-gray-800 text-white p-6 mt-12">
+    <div class="container mx-auto text-center">
+        <p>Generated on 2/6/2026, 10:38:10 AM</p>
+        <p class="text-gray-400 text-sm mt-2">Owner Property Management AI SPA</p>
+    </div>
+</footer>
+
+        <script>
+            // Data from JSON for Graph
+            var nodes = new vis.DataSet([{"id":"Monorepo Root","label":"Monorepo Root","group":"root"},{"id":"apps/web","label":"apps/web","group":"app"},{"id":"apps/mobile","label":"apps/mobile","group":"app"},{"id":"Next.js","label":"Next.js","group":"lib"},{"id":"React","label":"React","group":"lib"},{"id":"Supabase","label":"Supabase","group":"lib"},{"id":"Expo","label":"Expo","group":"lib"},{"id":"Tailwind","label":"Tailwind","group":"lib"},{"id":"Playwright","label":"Playwright","group":"tool"}]);
+            var edges = new vis.DataSet([{"from":"Monorepo Root","to":"apps/web"},{"from":"Monorepo Root","to":"apps/mobile"},{"from":"apps/web","to":"Next.js"},{"from":"apps/web","to":"React"},{"from":"apps/web","to":"Supabase"},{"from":"apps/web","to":"Tailwind"},{"from":"apps/web","to":"Playwright"},{"from":"apps/mobile","to":"Expo"},{"from":"apps/mobile","to":"React"},{"from":"apps/mobile","to":"Supabase"}]);
+
+            var container = document.getElementById('mynetwork');
+            var data = { nodes: nodes, edges: edges };
+            var options = {
+                nodes: {
+                    shape: 'dot',
+                    size: 20,
+                    font: { size: 16 }
+                },
+                groups: {
+                    root: { color: 'red', size: 30 },
+                    app: { color: 'orange', size: 25 },
+                    lib: { color: '#97C2FC' },
+                    tool: { color: '#FFFF00' }
+                },
+                physics: {
+                    stabilization: false,
+                    barnesHut: { gravitationalConstant: -2000 }
+                }
+            };
+            var network = new vis.Network(container, data, options);
+
+            // Table Filter & Search Logic
+            const searchInput = document.getElementById('searchInput');
+            const typeFilter = document.getElementById('typeFilter');
+            const locationFilter = document.getElementById('locationFilter');
+            const tableRows = document.querySelectorAll('.package-row');
+            const noResults = document.getElementById('noResults');
+
+            function filterTable() {
+                const searchTerm = searchInput.value.toLowerCase();
+                const typeValue = typeFilter.value;
+                const locationValue = locationFilter.value;
+                let visibleCount = 0;
+
+                tableRows.forEach(row => {
+                    const name = row.dataset.name;
+                    const type = row.dataset.type;
+                    const location = row.dataset.location;
+
+                    const matchesSearch = name.includes(searchTerm);
+                    const matchesType = typeValue === 'all' || type === typeValue;
+                    const matchesLocation = locationValue === 'all' || location === locationValue;
+
+                    if (matchesSearch && matchesType && matchesLocation) {
+                        row.style.display = '';
+                        visibleCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                noResults.classList.toggle('hidden', visibleCount > 0);
+            }
+
+            searchInput.addEventListener('input', filterTable);
+            typeFilter.addEventListener('change', filterTable);
+            locationFilter.addEventListener('change', filterTable);
+
+            // --- Enhanced Sorting Logic Injected Below ---
+            
+            /**
+ * Table Sorting Logic
+ * Supports String, Number, and Semver sorting.
+ */
+
+const SortLogic = {
+    /**
+     * Parse a version string into comparable parts.
+     * Handles standard semver (1.2.3) and ranges (^1.2.3, ~1.2.3).
+     * Returns an array of numbers/strings: [major, minor, patch, pre-release]
+     */
+    parseVersion: (v) => {
+        if (!v) return [-1];
+        // Remove leading ^, ~, v, or other non-digit chars (loosely)
+        // Keep the main version parts
+        const clean = v.replace(/^[\^~v<>=\s]+/, '').split('-')[0]; // Ignore pre-release for basic sort for now, or handle it?
+        // Let's handle standard X.Y.Z
+        const parts = clean.split('.').map(p => parseInt(p, 10));
+        // Filter out NaNs if any weird formatting
+        return parts.map(p => isNaN(p) ? 0 : p);
+    },
+
+    /**
+     * Compare two version strings.
+     */
+    compareVersions: (a, b) => {
+        const vA = SortLogic.parseVersion(a);
+        const vB = SortLogic.parseVersion(b);
+        
+        const len = Math.max(vA.length, vB.length);
+        
+        for (let i = 0; i < len; i++) {
+            const numA = vA[i] || 0;
+            const numB = vB[i] || 0;
+            
+            if (numA > numB) return 1;
+            if (numA < numB) return -1;
+        }
+        return 0;
+    },
+
+    /**
+     * Main comparison function.
+     */
+    compare: (a, b, type, direction = 'asc') => {
+        let valA = a;
+        let valB = b;
+        let comparison = 0;
+
+        // Handle null/undefined
+        if (valA === valB) return 0;
+        if (valA === null || valA === undefined || valA === '') return 1; // Empty last
+        if (valB === null || valB === undefined || valB === '') return -1;
+
+        switch (type) {
+            case 'version':
+                comparison = SortLogic.compareVersions(valA, valB);
+                break;
+            case 'number':
+                valA = parseFloat(valA);
+                valB = parseFloat(valB);
+                comparison = valA - valB;
+                break;
+            case 'string':
+            default:
+                valA = String(valA).toLowerCase();
+                valB = String(valB).toLowerCase();
+                if (valA > valB) comparison = 1;
+                else if (valA < valB) comparison = -1;
+                break;
+        }
+
+        return direction === 'asc' ? comparison : -comparison;
+    }
+};
+
+class TableManager {
+    constructor(tableId) {
+        this.table = document.getElementById(tableId);
+        if (!this.table) throw new Error(`Table with id ${tableId} not found`);
+        this.tbody = this.table.querySelector('tbody');
+        this.headers = this.table.querySelectorAll('th[data-sortable="true"]');
+        this.currentSort = { column: null, direction: 'asc' };
+        
+        this.init();
+    }
+
+    init() {
+        this.headers.forEach((th, index) => {
+            // Accessibility
+            th.setAttribute('tabindex', '0');
+            th.setAttribute('role', 'button');
+            th.setAttribute('aria-sort', 'none');
+            
+            // Mouse Click
+            th.addEventListener('click', () => {
+                this.handleSort(th, index);
+            });
+
+            // Keyboard
+            th.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    this.handleSort(th, index);
+                }
+            });
+        });
+    }
+
+    handleSort(th, columnIndex) {
+        const type = th.dataset.type || 'string';
+        const columnKey = th.dataset.column || columnIndex; // Prefer explicit key
+
+        // Determine direction
+        let direction = 'asc';
+        if (this.currentSort.column === columnKey && this.currentSort.direction === 'asc') {
+            direction = 'desc';
+        }
+
+        this.sort(columnIndex, type, direction);
+        this.updateUI(th, direction);
+        
+        this.currentSort = { column: columnKey, direction };
+    }
+
+    sort(columnIndex, type, direction) {
+        const startTime = performance.now();
+        
+        const rows = Array.from(this.tbody.querySelectorAll('tr'));
+        
+        // Use a detached array for sorting to avoid DOM thrashing
+        // We also extract values once to avoid repeated DOM access
+        const mappedRows = rows.map((row, i) => {
+            const cell = row.children[columnIndex];
+            // Prefer data-value attribute if present (for clean values), else textContent
+            const value = cell.dataset.value || cell.textContent.trim();
+            return { el: row, value, index: i };
+        });
+
+        mappedRows.sort((a, b) => {
+            return SortLogic.compare(a.value, b.value, type, direction);
+        });
+
+        // Reattach in new order using DocumentFragment
+        const fragment = document.createDocumentFragment();
+        mappedRows.forEach(obj => {
+            fragment.appendChild(obj.el);
+        });
+        
+        requestAnimationFrame(() => {
+            this.tbody.appendChild(fragment);
+            const endTime = performance.now();
+            console.log(`Sort took ${endTime - startTime}ms`);
+        });
+    }
+
+    updateUI(activeTh, direction) {
+        // Reset all headers
+        this.headers.forEach(th => {
+            th.setAttribute('aria-sort', 'none');
+            const icon = th.querySelector('.sort-icon');
+            if (icon) icon.textContent = '↕'; // Default neutral
+            th.classList.remove('bg-gray-100'); // Remove active highlight
+        });
+
+        // Set active header
+        activeTh.setAttribute('aria-sort', direction === 'asc' ? 'ascending' : 'descending');
+        activeTh.classList.add('bg-gray-100');
+        const icon = activeTh.querySelector('.sort-icon');
+        if (icon) {
+            icon.textContent = direction === 'asc' ? '▲' : '▼';
+        }
+    }
+}
+
+// Export for Node.js testing, or attach to window for Browser
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { SortLogic, TableManager };
+} else {
+    window.TableManager = TableManager;
+}
+
+            
+            // Initialize Sorting
+            document.addEventListener('DOMContentLoaded', () => {
+                new TableManager('packageTable');
+            });
+        </script>
+    </body>
+    </html>
+    

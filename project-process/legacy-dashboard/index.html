@@ -20,6 +20,36 @@
             0% { background-position: 1rem 0; }
             100% { background-position: 0 0; }
         }
+        /* Resizer Styles */
+        .resizer {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 6px;
+            cursor: col-resize;
+            z-index: 20;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .resizer::after {
+            content: '';
+            width: 1px;
+            height: 50%;
+            background-color: #e5e7eb; /* gray-200 */
+            transition: background-color 0.2s;
+        }
+        .resizer:hover::after, .grid-container.resizing .resizer::after {
+            background-color: #3b82f6; /* blue-500 */
+            width: 2px;
+        }
+        .header-cell {
+            position: relative;
+            display: flex;
+            align-items: center;
+            height: 100%;
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen font-sans text-gray-900" x-data="dashboard()">
@@ -129,85 +159,71 @@
                             </div>
                         </div>
                     </div>
-                    <div class="divide-y divide-gray-200">
+                    <div class="divide-y divide-gray-200" 
+                        @mousemove.window="handleResize($event)"
+                        @mouseup.window="stopResize()"
+                        :class="{ 'resizing': resizingIdx !== -1 }">
                         <!-- 欄位標題列 -->
-                        <div class="hidden md:grid md:grid-cols-12 md:gap-4 md:items-center px-4 py-2 bg-gray-100/80 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">
-                            <div class="md:col-span-3">功能</div>
-                            <div class="md:col-span-4">進度</div>
-                            <div class="md:col-span-2">最後修改人</div>
-                            <div class="md:col-span-2">最後修改日</div>
-                            <div class="md:col-span-1 text-right">SP</div>
+                        <div class="hidden md:grid grid-container px-6 py-3 bg-gray-100/80 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200"
+                             :style="`grid-template-columns: ${colWidths.join(' ')}`">
+                            <div class="header-cell min-w-0 pr-4">
+                                功能
+                                <div class="resizer" @mousedown.stop.prevent="startResize(0, $event)"></div>
+                            </div>
+                            <div class="header-cell pr-4">
+                                進度
+                                <div class="resizer" @mousedown.stop.prevent="startResize(1, $event)"></div>
+                            </div>
+                            <div class="header-cell pr-4">
+                                最後修改人
+                                <div class="resizer" @mousedown.stop.prevent="startResize(2, $event)"></div>
+                            </div>
+                            <div class="header-cell justify-start">開發進度日誌</div>
                         </div>
                         <template x-for="feature in group.items" :key="feature.name">
-                            <div class="p-4 hover:bg-gray-50 transition-colors group">
-                                <div class="flex flex-col md:grid md:grid-cols-12 md:gap-4 md:items-center">
+                            <div class="px-6 py-4 hover:bg-gray-50 transition-colors group">
+                                <div class="flex flex-col md:grid md:gap-0 items-center" :style="`grid-template-columns: ${colWidths.join(' ')}`">
                                     <!-- Title & Doc Path -->
-                                    <div class="md:col-span-3 mb-2 md:mb-0">
-                                        <div class="flex items-center gap-2 mb-1">
-                                            <h3 class="font-medium text-gray-900" x-text="feature.name"></h3>
-                                        </div>
-                                        <!-- Doc Path Display -->
-                                        <div class="text-xs truncate">
-                                            <template x-if="feature.docPath">
-                                                <a :href="feature.docPath" target="_blank" class="text-blue-600 hover:underline flex items-center gap-1.5 group-hover:text-blue-700 transition-colors" :title="feature.docPath">
-                                                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                                                    <span x-text="feature.docPath" class="truncate font-mono text-gray-500 group-hover:text-blue-600"></span>
-                                                </a>
-                                            </template>
-                                            <template x-if="!feature.docPath">
-                                                <span class="text-gray-400 italic flex items-center gap-1.5 cursor-help" title="請聯繫 PM 或開發人員補充文檔">
-                                                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                                                    尚未有文檔
-                                                </span>
-                                            </template>
+                                    <div class="mb-2 md:mb-0 min-w-0 pr-4">
+                                        <div class="mb-1">
+                                            <h3 class="font-medium text-gray-900 break-words" x-text="feature.name"></h3>
                                         </div>
                                     </div>
 
                                     <!-- Progress Bar -->
-                                    <div class="md:col-span-4 mb-2 md:mb-0">
-                                        <div class="flex items-center gap-3">
-                                            <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden shadow-inner">
-                                                <div 
-                                                    class="h-full rounded-full transition-all duration-500 relative"
-                                                    :class="{
-                                                        'bg-green-500': feature.percentage === 100,
-                                                        'bg-blue-500 progress-bar-striped animate-progress': feature.percentage > 0 && feature.percentage < 100,
-                                                        'bg-gray-300': feature.percentage === 0
-                                                    }"
-                                                    :style="`width: ${feature.percentage}%`"
-                                                ></div>
-                                            </div>
-                                            <span class="text-xs font-semibold w-10 text-right" 
+                                    <div class="mb-2 md:mb-0 min-w-0 pr-4 w-full">
+                                        <div class="relative w-full h-5 bg-gray-100 rounded-full overflow-hidden shadow-inner">
+                                            <div 
+                                                class="h-full rounded-full transition-all duration-500 absolute top-0 left-0"
                                                 :class="{
-                                                    'text-green-600': feature.percentage === 100,
-                                                    'text-blue-600': feature.percentage > 0 && feature.percentage < 100,
-                                                    'text-gray-400': feature.percentage === 0
+                                                    'bg-green-500': feature.percentage === 100,
+                                                    'bg-blue-500 progress-bar-striped animate-progress': feature.percentage > 0 && feature.percentage < 100,
+                                                    'bg-gray-300': feature.percentage === 0
                                                 }"
-                                                x-text="feature.percentage + '%'">
-                                            </span>
+                                                :style="`width: ${feature.percentage}%`"
+                                            ></div>
+                                            <div class="absolute inset-0 flex items-center justify-center">
+                                                <span class="text-xs font-bold text-white drop-shadow-md" 
+                                                    x-text="feature.percentage + '%'">
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
 
                                     <!-- 最後修改人 -->
-                                    <div class="md:col-span-2 mb-2 md:mb-0">
-                                        <span class="text-xs text-gray-600" x-text="feature.lastModifiedBy || '—'"></span>
+                                    <div class="mb-2 md:mb-0 min-w-0 pr-4 w-full">
+                                        <span class="text-sm text-gray-600" x-text="feature.lastModifiedBy || ''"></span>
                                     </div>
-                                    <!-- 最後修改日 -->
-                                    <div class="md:col-span-2 mb-2 md:mb-0">
-                                        <span class="text-xs text-gray-600 font-mono" x-text="feature.lastModifiedDate || '—'"></span>
+                                    <!-- 開發進度日誌 -->
+                                    <div class="mb-2 md:mb-0 min-w-0 pr-4 w-full flex justify-start items-center gap-2">
+                                        <span class="text-sm text-gray-600 font-mono" x-text="feature.lastModifiedDate || ''"></span>
+                                        <template x-if="feature.docPath">
+                                            <a :href="'editor.html?file=' + feature.docPath" target="_blank" class="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100" title="編輯文檔">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                            </a>
+                                        </template>
                                     </div>
-
-                                        <!-- Actions (Points) -->
-                                        <div class="md:col-span-1 flex justify-end items-center gap-2">
-                                            <span class="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-0.5 rounded border border-gray-200" x-text="feature.points ? feature.points + ' SP' : '-'"></span>
-                                            
-                                            <template x-if="feature.docPath">
-                                                <a :href="'editor.html?file=' + feature.docPath" target="_blank" class="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100" title="編輯文檔">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                                                </a>
-                                            </template>
-                                        </div>
-                                    </div>
+                                </div>
                             </div>
                         </template>
                     </div>
@@ -219,6 +235,56 @@
     <script>
         function dashboard() {
             return {
+                // Resize Logic State
+                colWidths: JSON.parse(localStorage.getItem('dashboard_col_widths')) || ['39%', '15%', '16%', '30%'],
+                resizingIdx: -1,
+                startX: 0,
+                startWidths: [],
+                containerWidth: 0,
+
+                init() {
+                    this.$watch('colWidths', val => localStorage.setItem('dashboard_col_widths', JSON.stringify(val)));
+                },
+
+                startResize(idx, e) {
+                    this.resizingIdx = idx;
+                    this.startX = e.clientX;
+                    this.startWidths = this.colWidths.map(w => parseFloat(w));
+                    
+                    // Find the closest grid container to measure total width
+                    const container = e.target.closest('.grid-container');
+                    this.containerWidth = container ? container.getBoundingClientRect().width : window.innerWidth;
+                    
+                    document.body.style.userSelect = 'none';
+                    document.body.style.cursor = 'col-resize';
+                },
+
+                handleResize(e) {
+                    if (this.resizingIdx === -1) return;
+                    
+                    const deltaX = e.clientX - this.startX;
+                    const deltaPercent = (deltaX / this.containerWidth) * 100;
+                    
+                    let newCurrentWidth = this.startWidths[this.resizingIdx] + deltaPercent;
+                    let newNextWidth = this.startWidths[this.resizingIdx + 1] - deltaPercent;
+                    
+                    // Min width check (5%)
+                    if (newCurrentWidth > 5 && newNextWidth > 5) {
+                        let newWidths = [...this.colWidths];
+                        newWidths[this.resizingIdx] = newCurrentWidth.toFixed(2) + '%';
+                        newWidths[this.resizingIdx + 1] = newNextWidth.toFixed(2) + '%';
+                        this.colWidths = newWidths;
+                    }
+                },
+
+                stopResize() {
+                    if (this.resizingIdx !== -1) {
+                        this.resizingIdx = -1;
+                        document.body.style.userSelect = '';
+                        document.body.style.cursor = '';
+                    }
+                },
+
                 features: (window.ROADMAP_DATA.features || []).map(f => ({
                     ...f,
                     lastModifiedBy: f.lastModifiedBy ?? '',
