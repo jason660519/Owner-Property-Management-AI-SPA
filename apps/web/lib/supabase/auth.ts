@@ -52,7 +52,7 @@ export async function addRoleToUser(userId: string, role: string) {
         roles: updatedRoles,
         updated_at: new Date().toISOString()
       })
-      .eq('user_id', userId);
+      .eq('id', userId);
       
     if (profileError) {
       console.error('Failed to update user profile roles:', profileError);
@@ -84,7 +84,7 @@ export async function signUp(credentials: SignUpCredentials) {
     password,
     options: {
       data: {
-        full_name,
+        full_name, // Supabase Auth Metadata uses full_name
         roles: [role],
         primary_role: role
       },
@@ -98,9 +98,9 @@ export async function signUp(credentials: SignUpCredentials) {
     const { error: profileError } = await supabase
       .from('users_profile')
       .insert({
-        user_id: data.user.id,
+        id: data.user.id, // Correct PK is id (not user_id)
         email: email,
-        full_name: full_name,
+        display_name: full_name, // Correct column is display_name (not full_name)
         roles: [role],
         primary_role: role
       });

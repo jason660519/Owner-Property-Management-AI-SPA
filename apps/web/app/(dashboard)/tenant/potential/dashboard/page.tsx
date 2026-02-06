@@ -18,86 +18,43 @@ import {
   type KPIConfig,
   type KPILoadingState,
 } from '@/components/dashboard'
-
-interface PotentialTenantStats {
-  favoritesCount: number
-  favoritesThisWeek: number
-  viewingsPending: number
-  viewingsCompleted: number
-  todayViewings: number
-  thisWeekViewings: number
-  budgetMin: number
-  budgetMax: number
-  matchingProperties: number
-  applicationsInProgress: number
-  applicationsAccepted: number
-  applicationsRejected: number
-}
+import { getPotentialTenantDashboardStats, type PotentialTenantStats } from '@/lib/actions/dashboard'
 
 export default function PotentialTenantDashboardPage() {
   const [stats, setStats] = useState<PotentialTenantStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // TODO: 從 Supabase 查詢實際數據
-    // 目前使用模擬數據
     const fetchStats = async () => {
       setIsLoading(true)
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      setStats({
-        favoritesCount: 8,
-        favoritesThisWeek: 3,
-        viewingsPending: 2,
-        viewingsCompleted: 5,
-        todayViewings: 1,
-        thisWeekViewings: 3,
-        budgetMin: 15000,
-        budgetMax: 25000,
-        matchingProperties: 24,
-        applicationsInProgress: 1,
-        applicationsAccepted: 0,
-        applicationsRejected: 0,
-      })
-      setIsLoading(false)
+      try {
+        const data = await getPotentialTenantDashboardStats()
+        setStats(data)
+      } catch (error) {
+        console.error('Failed to fetch dashboard stats:', error)
+      } finally {
+        setIsLoading(false)
+      }
     }
 
     fetchStats()
   }, [])
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('zh-TW', {
-      style: 'currency',
-      currency: 'TWD',
-      minimumFractionDigits: 0,
-    }).format(amount)
-  }
-
   // KPI configurations
   const kpis: KPIConfig[] = [
     {
-      title: '收藏物件',
-      value: stats?.favoritesCount || 0,
-      icon: Heart,
-      color: 'text-pink-500',
-      trend: stats && stats.favoritesThisWeek > 0 ? {
-        value: Math.round((stats.favoritesThisWeek / stats.favoritesCount) * 100),
-        direction: 'up',
-        label: '本週新增',
-      } : undefined,
+      title: '房東邀請物件',
+      value: stats?.matchingProperties || 0,
+      icon: Target,
+      color: 'text-green-500',
       progressLinks: [
         {
-          label: '查看所有收藏',
-          href: '/tenant/favorites',
-          badge: stats && stats.favoritesCount > 0 ? {
-            count: stats.favoritesCount,
-            variant: 'info',
+          label: '查看邀請物件',
+          href: '/tenant/potential/properties',
+          badge: stats && stats.matchingProperties > 0 ? {
+            count: stats.matchingProperties,
+            variant: 'success',
           } : undefined,
-        },
-        {
-          label: '繼續瀏覽物件',
-          href: '/properties',
-          query: { type: 'rental' },
         },
       ],
     },
@@ -109,38 +66,15 @@ export default function PotentialTenantDashboardPage() {
       progressLinks: [
         {
           label: '管理預約',
-          href: '/tenant/viewings',
+          href: '/tenant/potential/viewings',
           badge: stats && stats.viewingsPending > 0 ? {
             count: stats.viewingsPending,
             variant: 'warning',
           } : undefined,
         },
         {
-          label: '預約看房',
-          href: '/properties',
-          query: { type: 'rental' },
-        },
-      ],
-    },
-    {
-      title: '租屋評估',
-      value: stats
-        ? `${formatCurrency(stats.budgetMin)} - ${formatCurrency(stats.budgetMax)}`
-        : '未設定',
-      icon: Target,
-      color: 'text-green-500',
-      progressLinks: [
-        {
-          label: '更新預算',
-          href: '/tenant/budget',
-        },
-        {
-          label: '查看推薦物件',
-          href: '/tenant/recommendations',
-          badge: stats && stats.matchingProperties > 0 ? {
-            count: stats.matchingProperties,
-            variant: 'success',
-          } : undefined,
+          label: '預約新看房',
+          href: '/tenant/potential/properties',
         },
       ],
     },
@@ -152,16 +86,27 @@ export default function PotentialTenantDashboardPage() {
       progressLinks: [
         {
           label: '查看申請',
-          href: '/tenant/applications',
+          href: '/tenant/potential/applications',
           badge: stats && stats.applicationsInProgress > 0 ? {
             count: stats.applicationsInProgress,
             variant: 'info',
           } : undefined,
         },
+      ],
+    },
+    {
+      title: '常用資源',
+      value: 'FAQ',
+      icon: FileCheck, // Or another icon
+      color: 'text-orange-500',
+      progressLinks: [
         {
-          label: '提交新申請',
-          href: '/properties',
-          query: { type: 'rental' },
+          label: '租賃常見問題',
+          href: '/tenant/resources/faq',
+        },
+        {
+          label: '查看空白租約',
+          href: '/tenant/resources/blank-lease',
         },
       ],
     },
@@ -179,18 +124,14 @@ export default function PotentialTenantDashboardPage() {
       breadcrumbs={[
         { label: '首頁', href: '/' },
         { label: '租客專區', href: '/tenant' },
-        { label: '潛在儀表板' },
+        { label: '儀表板' },
       ]}
-      greeting={
-        stats
-          ? `目前預算範圍：${formatCurrency(stats.budgetMin)} - ${formatCurrency(stats.budgetMax)}`
-          : '載入中...'
-      }
+      greeting="歡迎！查看房東為您精選的物件"
       headerActions={
-        <Link href="/properties?type=rental">
+        <Link href="/tenant/potential/properties">
           <Button>
             <Search className="w-5 h-5 mr-2" />
-            搜尋物件
+            瀏覽物件
           </Button>
         </Link>
       }
@@ -198,44 +139,32 @@ export default function PotentialTenantDashboardPage() {
       {/* KPI Stats Grid */}
       <StatsGrid kpis={kpis} loading={kpiLoadingStates} columns={4} className="mb-8" />
 
-      {/* Quick Actions & Recommendations */}
+      {/* Quick Actions & Info */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Budget Settings */}
+        {/* Resources Card */}
         <Card>
           <CardHeader>
-            <CardTitle>預算設定</CardTitle>
+            <CardTitle>租屋資源</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {stats ? (
-              <>
-                <div className="flex items-center justify-between p-3 bg-[#2A2A2A] rounded-lg">
-                  <span className="text-sm text-[#999999]">預算範圍</span>
-                  <span className="text-lg font-bold text-white">
-                    {formatCurrency(stats.budgetMin)} - {formatCurrency(stats.budgetMax)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-[#2A2A2A] rounded-lg">
-                  <span className="text-sm text-[#999999]">符合條件物件</span>
-                  <span className="text-sm font-medium text-green-500">
-                    {stats.matchingProperties} 個
-                  </span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-[#2A2A2A] rounded-lg">
-                  <span className="text-sm text-[#999999]">本週預約</span>
-                  <span className="text-sm font-medium text-white">
-                    {stats.thisWeekViewings} 個
-                  </span>
-                </div>
-                <Link href="/tenant/budget">
-                  <Button variant="outline" className="w-full mt-2">
-                    <Target className="w-4 h-4 mr-2" />
-                    更新預算設定
-                  </Button>
+             <div className="flex items-center justify-between p-3 bg-[#2A2A2A] rounded-lg">
+                <span className="text-sm text-[#999999]">租賃合約範本</span>
+                <Link href="/tenant/resources/blank-lease" className="text-sm font-medium text-blue-500 hover:underline">
+                  預覽
                 </Link>
-              </>
-            ) : (
-              <div className="text-center py-8 text-[#666666]">載入中...</div>
-            )}
+             </div>
+             <div className="flex items-center justify-between p-3 bg-[#2A2A2A] rounded-lg">
+                <span className="text-sm text-[#999999]">常見問題 (Q&A)</span>
+                <Link href="/tenant/resources/faq" className="text-sm font-medium text-blue-500 hover:underline">
+                  查看
+                </Link>
+             </div>
+             <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-500/20 mt-4">
+                <h4 className="text-blue-500 font-medium mb-2">房東留言</h4>
+                <p className="text-sm text-[#cccccc]">
+                  歡迎您！請瀏覽我為您準備的物件資訊。如有任何問題，請隨時透過預約看房或常見問題尋求解答。
+                </p>
+             </div>
           </CardContent>
         </Card>
 
@@ -246,46 +175,46 @@ export default function PotentialTenantDashboardPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <Link
-              href="/properties?type=rental"
+              href="/tenant/potential/properties"
               className="flex items-center gap-3 p-4 rounded-lg border border-[#333333] hover:border-[#7C3AED] hover:bg-[#7C3AED]/5 transition-colors group"
             >
               <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center group-hover:bg-blue-500/20">
                 <Search className="w-5 h-5 text-blue-500" />
               </div>
               <div>
-                <h4 className="text-white font-medium">搜尋租屋</h4>
+                <h4 className="text-white font-medium">瀏覽邀請物件</h4>
                 <p className="text-sm text-[#999999]">
-                  {stats?.matchingProperties || 0} 個符合條件
+                  {stats?.matchingProperties || 0} 個物件
                 </p>
               </div>
             </Link>
 
             <Link
-              href="/tenant/favorites"
-              className="flex items-center gap-3 p-4 rounded-lg border border-[#333333] hover:border-[#7C3AED] hover:bg-[#7C3AED]/5 transition-colors group"
-            >
-              <div className="w-10 h-10 bg-pink-500/10 rounded-lg flex items-center justify-center group-hover:bg-pink-500/20">
-                <Heart className="w-5 h-5 text-pink-500" />
-              </div>
-              <div>
-                <h4 className="text-white font-medium">我的收藏</h4>
-                <p className="text-sm text-[#999999]">
-                  {stats?.favoritesCount || 0} 個收藏物件
-                </p>
-              </div>
-            </Link>
-
-            <Link
-              href="/tenant/viewings"
+              href="/tenant/potential/viewings"
               className="flex items-center gap-3 p-4 rounded-lg border border-[#333333] hover:border-[#7C3AED] hover:bg-[#7C3AED]/5 transition-colors group"
             >
               <div className="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center group-hover:bg-green-500/20">
                 <Calendar className="w-5 h-5 text-green-500" />
               </div>
               <div>
-                <h4 className="text-white font-medium">看房預約</h4>
+                <h4 className="text-white font-medium">預約看房</h4>
                 <p className="text-sm text-[#999999]">
                   {stats?.viewingsPending || 0} 個待確認
+                </p>
+              </div>
+            </Link>
+
+            <Link
+              href="/tenant/potential/applications"
+              className="flex items-center gap-3 p-4 rounded-lg border border-[#333333] hover:border-[#7C3AED] hover:bg-[#7C3AED]/5 transition-colors group"
+            >
+              <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center group-hover:bg-purple-500/20">
+                <FileCheck className="w-5 h-5 text-purple-500" />
+              </div>
+              <div>
+                <h4 className="text-white font-medium">遞交租賃要約</h4>
+                <p className="text-sm text-[#999999]">
+                  申請進度查詢
                 </p>
               </div>
             </Link>

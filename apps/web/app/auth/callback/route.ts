@@ -44,15 +44,44 @@ export async function GET(request: Request) {
       }
 
       if (user) {
+        // Check if profile exists
         const { data: profile } = await supabase
           .from('users_profile')
-          .select('role')
-          .eq('id', user.id)
+          .select('roles, primary_role')
+          .eq('id', user.id) // Correct column is id (not user_id)
           .single();
 
-        if (profile?.role) {
-          const dashboardPath = `/${profile.role.replace('_', '-')}/dashboard`;
+        if (profile) {
+          // Existing user, redirect based on role
+          // Prioritize primary_role, fallback to first role in array, then default
+          const role = profile.primary_role || (profile.roles && profile.roles[0]) || 'landlord';
+          const dashboardPath = `/${role.replace('_', '-')}/dashboard`;
           return NextResponse.redirect(`${origin}${dashboardPath}`);
+        } else {
+          // New user (OAuth first time), create profile
+          // Default to 'landlord' as this is "Owner Property Management" app, but maybe 'tenant' is safer?
+          // Let's use 'landlord' as per the project name implication, or maybe check metadata?
+          // Actually, defaulting to 'landlord' might be what the user expects for this app.
+          const defaultRole = 'landlord'; 
+          const metadata = user.user_metadata || {};
+          const displayName = metadata.full_name || metadata.name || user.email?.split('@')[0] || 'New User';
+
+          const { error: insertError } = await supabase
+            .from('users_profile')
+            .insert({
+              id: user.id,
+              email: user.email!,
+              display_name: displayName,
+              roles: [defaultRole],
+              primary_role: defaultRole
+            });
+
+          if (insertError) {
+            console.error('Failed to create user profile from OAuth:', insertError);
+            return NextResponse.redirect(`${origin}/login?error=create_profile_failed&message=${encodeURIComponent(insertError.message)}`);
+          }
+
+          return NextResponse.redirect(`${origin}/${defaultRole}/dashboard`);
         }
       }
 

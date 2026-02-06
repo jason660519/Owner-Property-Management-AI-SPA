@@ -19,11 +19,22 @@ const customJestConfig = {
     customExportConditions: [''],
   },
   testMatch: [
-    '<rootDir>/**/__tests__/**/*.{js,jsx,ts,tsx}',
-    '<rootDir>/**/*.{spec,test}.{js,jsx,ts,tsx}',
+    '<rootDir>/**/__tests__/**/*.test.{js,jsx,ts,tsx}',
+  ],
+  // Exclude E2E tests (run by Playwright) and vitest files
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/.next/',
+    '/e2e/',
+    '/coverage/',
   ],
   collectCoverageFrom: [
-    '**/*.{js,jsx,ts,tsx}',
+    'app/**/*.{ts,tsx}',
+    'components/**/*.{ts,tsx}',
+    'hooks/**/*.{ts,tsx}',
+    'lib/**/*.{ts,tsx}',
+    'actions/**/*.{ts,tsx}',
+    '!**/__tests__/**',
     '!**/*.d.ts',
     '!**/node_modules/**',
     '!**/.next/**',

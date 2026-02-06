@@ -63,7 +63,7 @@ echo -e "${YELLOW}4️⃣  啟動開發進度追蹤系統 (Port 3001)...${NC}"
 if lsof -i :3001 > /dev/null 2>&1; then
     echo -e "${GREEN}✅ 開發進度追蹤系統已在運行${NC}"
 else
-    cd "$PROJECT_ROOT/dev-dashboard"
+    cd "$PROJECT_ROOT"
     nohup python3 -m http.server 3001 > /dev/null 2>&1 &
     echo -e "${GREEN}✅ 開發進度追蹤系統啟動成功${NC}"
 fi

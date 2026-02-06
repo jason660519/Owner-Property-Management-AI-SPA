@@ -59,6 +59,7 @@ const addPropertySchema = z.object({
     id: z.string(),
     url: z.string(),
     file: z.any().nullable(),
+    name: z.string().optional(),
   })).optional(),
 })
 
@@ -108,6 +109,28 @@ export default function AddPropertyPage() {
   const commonAreaSqm = watch('common_area_sqm')
   const photos = watch('photos') || []
 
+  // Helper: 將 data URL 轉回 File（用於從草稿還原照片後上傳到 Supabase）
+  const dataUrlToFile = (dataUrl: string, defaultFileName: string): File | null => {
+    try {
+      const arr = dataUrl.split(',')
+      if (arr.length !== 2) {
+        return null
+      }
+      const mimeMatch = arr[0].match(/data:(.*?);base64/)
+      const mime = mimeMatch?.[1] || 'image/jpeg'
+      const bstr = atob(arr[1])
+      let n = bstr.length
+      const u8arr = new Uint8Array(n)
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n)
+      }
+      return new File([u8arr], defaultFileName, { type: mime })
+    } catch (error) {
+      console.error('[Submit] 無法從 data URL 還原檔案:', error)
+      return null
+    }
+  }
+
   // m² to 坪 conversion (1 m² = 0.3025 坪)
   const sqmToPing = (sqm: number) => (sqm * 0.3025).toFixed(2)
   const pingToSqm = (ping: number) => (ping / 0.3025).toFixed(2)
@@ -121,7 +144,7 @@ export default function AddPropertyPage() {
       const defaultName = `${title} - ${formData.type === 'rental' ? '出租' : '出售'}`
       const finalName = customName || draftName.trim() || defaultName
 
-      saveDraft(formData, finalName)
+      await saveDraft(formData, finalName)
       setError(null)
       setDraftName('')
 
@@ -239,13 +262,23 @@ export default function AddPropertyPage() {
 
         for (let i = 0; i < data.photos.length; i++) {
           const photo = data.photos[i]
-          if (!photo.file) {
-            console.warn('[Submit] 照片缺少 file 物件，跳過:', photo.id)
+
+          // 1️⃣ 優先使用現有的 File（同一瀏覽器 session 內）
+          let file = photo.file as File | null
+
+          // 2️⃣ 若 File 已被草稿序列化移除，但 url 為 data URL，則嘗試還原為 File
+          if (!file && typeof photo.url === 'string' && photo.url.startsWith('data:')) {
+            const fallbackName = photo.name || `property-photo-${i + 1}.jpg`
+            file = dataUrlToFile(photo.url, fallbackName)
+          }
+
+          if (!file) {
+            console.warn('[Submit] 照片缺少有效檔案，跳過:', photo.id)
             continue
           }
 
           const isPrimary = i === 0 // 第一張照片為主圖
-          const uploadResult = await uploadPropertyPhoto(propertyId, data.type, photo.file, isPrimary)
+          const uploadResult = await uploadPropertyPhoto(propertyId, data.type, file, isPrimary)
 
           if (uploadResult.success) {
             uploadedCount++

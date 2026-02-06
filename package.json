@@ -11,7 +11,7 @@
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "build:dashboard": "cd dev-dashboard && npx --yes tailwindcss -i input.css -o styles.css -c tailwind.config.js"
+    "build:dashboard": "cd project-process/legacy-dashboard && npx --yes tailwindcss -i input.css -o styles.css -c tailwind.config.js"
   },
   "devDependencies": {
     "prettier": "^3.0.0"

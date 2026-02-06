@@ -26,7 +26,9 @@
 
 ## 命名規範
 
-**完整規範請參考**：[本專案檔案命名規則與新增文件歸檔總則](../../docs/本專案檔案命名規則與新增文件歸檔總則.md)
+**完整規範請參考**：[File Naming Guidelines](../../docs/file-naming-guidelines.md) (含測試檔案管理規範)
+
+**測試快速參考**：[Test Quick Reference](../../docs/testing/TEST_QUICK_REFERENCE.md)
 
 ### 快速參考表
 
@@ -39,6 +41,9 @@
 | 配置檔案   | kebab-case           | `tailwind.config.ts`, `tsconfig.json` |
 | 文檔       | ISO 日期前綴（選用） | `2026-01-15_meeting_notes.md`         |
 | Shell 腳本 | kebab-case           | `deploy-prod.sh`, `setup-env.sh`      |
+| 單元測試   | .test.ts(x)          | `LoginPage.test.tsx`, `auth.test.ts`  |
+| 整合測試   | .integration.test.ts | `auth.integration.test.ts`            |
+| E2E 測試   | .spec.ts             | `login.spec.ts`, `add-property.spec.ts` |
 
 ---
 
@@ -136,7 +141,9 @@
 2. **Web 組件** → `apps/web/components/`
 3. **PWA 相關** → `apps/web/components/pwa/`, `apps/web/public/`
 4. **共用工具** → `apps/web/lib/`
-5. **技術文件** → `docs/` 下對應分類 (如 `docs/implementation-plans/`)
+5. **單元測試** → 原始碼同目錄的 `__tests__/` 下 (colocated testing)
+6. **E2E 測試** → `apps/web/e2e/flows/{module}/`
+7. **技術文件** → `docs/` 下對應分類 (如 `docs/implementation-plans/`)
 
 ### 避免事項
 

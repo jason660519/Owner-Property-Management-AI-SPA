@@ -1,11 +1,11 @@
 # Project File Naming and Archiving Guidelines
 # 專案檔案命名與歸檔總則
 
-> **Created Date**: 2026-02-02  
-> **Created By**: Claude Sonnet 4.5  
-> **Last Modified**: 2026-02-02  
-> **Modified By**: Claude Sonnet 4.5  
-> **Version**: 3.0 (English-First Edition)  
+> **Created Date**: 2026-02-02
+> **Created By**: Claude Sonnet 4.5
+> **Last Modified**: 2026-02-06
+> **Modified By**: Claude Opus 4.5
+> **Version**: 4.0 (Integrated Testing Standards Edition)
 > **Document Type**: Technical Documentation / 技術文件
 
 ---
@@ -17,7 +17,9 @@
 - [AI Collaborator Identification / AI 協作者識別](#ai-collaborator-identification--ai-協作者識別)
 - [File Metadata Standards / 文件 Metadata 標準](#file-metadata-standards--文件-metadata-標準)
 - [Naming Conventions / 命名規範](#naming-conventions--命名規範)
+- [Test File Naming Standards / 測試檔案命名規範](#test-file-naming-standards--測試檔案命名規範)
 - [Directory Structure / 目錄結構](#directory-structure--目錄結構)
+- [Test Directory Structure / 測試目錄結構](#test-directory-structure--測試目錄結構)
 - [Archiving Process / 歸檔流程](#archiving-process--歸檔流程)
 - [Change History Tracking / 修改歷史追蹤](#change-history-tracking--修改歷史追蹤)
 
@@ -33,6 +35,7 @@
 4. **English-Only Names**: **All file and folder names MUST be in English** to avoid encoding issues.
 5. **Bilingual Content**: File content should be in English first, followed by Traditional Chinese translation.
 6. **Traceability**: All files must indicate creator and modifier; important files need change history.
+7. **Colocated Testing**: Test files should be placed near source files for maintainability.
 
 ### 中文原則
 
@@ -42,6 +45,7 @@
 4. **英文專用命名**：**所有檔案和資料夾名稱必須使用英文**，避免編碼問題。
 5. **雙語內容**：檔案內容應先用英文說明，再用繁體中文翻譯。
 6. **可追溯性**：所有文件必須標記創建者與修改者，重要文件需附上修改歷史。
+7. **就近測試**：測試檔案應放在源代碼附近，以便維護。
 
 ---
 
@@ -49,7 +53,7 @@
 
 ### ⚠️ IMPORTANT / 重要
 
-**ALL file names and folder names MUST be in English.**  
+**ALL file names and folder names MUST be in English.**
 **所有檔案名和資料夾名必須使用英文。**
 
 ### Why? / 為什麼？
@@ -75,8 +79,8 @@
 ```
 docs/硬體與軟體技術選型說明/
 docs/工程師每日工作報告/
-SDLC開發進度表報告_2026-01-30.md
-database-architecture-design.md
+components/用戶資料.test.tsx
+__tests__/登入頁面.test.tsx
 ```
 
 #### ✅ CORRECT / 正確
@@ -84,8 +88,8 @@ database-architecture-design.md
 ```
 docs/technical-selection/
 docs/daily-reports/
-sdlc-progress-report_2026-01-30.md
-database-architecture-design.md
+components/UserProfile/__tests__/UserProfile.test.tsx
+app/(auth)/login/__tests__/page.test.tsx
 ```
 
 ---
@@ -96,6 +100,7 @@ database-architecture-design.md
 
 | AI Model              | Standard Name            | Short Name | Usage                  |
 | :-------------------- | :----------------------- | :--------- | :--------------------- |
+| **Claude Opus 4.5**   | `Claude Opus 4.5`        | `Claude`   | File headers, comments |
 | **Claude Sonnet 4.5** | `Claude Sonnet 4.5`      | `Claude`   | File headers, comments |
 | **Claude Opus 4**     | `Claude Opus 4`          | `Claude`   | File headers, comments |
 | **Gemini 2.5 Pro**    | `Gemini 2.5 Pro`         | `Gemini`   | File headers, comments |
@@ -105,68 +110,27 @@ database-architecture-design.md
 | **DeepSeek V3**       | `DeepSeek V3`            | `DeepSeek` | File headers, comments |
 | **Human Developer**   | Actual name or GitHub ID | -          | File headers, comments |
 
-| AI 模型               | 標準名稱             | 簡稱       | 使用情境       |
-| :-------------------- | :------------------- | :--------- | :------------- |
-| **Claude Sonnet 4.5** | `Claude Sonnet 4.5`  | `Claude`   | 文件頭部、註解 |
-| **Claude Opus 4**     | `Claude Opus 4`      | `Claude`   | 文件頭部、註解 |
-| **Gemini 2.5 Pro**    | `Gemini 2.5 Pro`     | `Gemini`   | 文件頭部、註解 |
-| **Gemini 2.0 Flash**  | `Gemini 2.0 Flash`   | `Gemini`   | 文件頭部、註解 |
-| **GPT-4.5**           | `GPT-4.5`            | `GPT-4`    | 文件頭部、註解 |
-| **GPT-4o**            | `GPT-4o`             | `GPT-4`    | 文件頭部、註解 |
-| **DeepSeek V3**       | `DeepSeek V3`        | `DeepSeek` | 文件頭部、註解 |
-| **人類開發者**        | 實際姓名或 GitHub ID | -          | 文件頭部、註解 |
-
 ---
 
 ## File Metadata Standards / 文件 Metadata 標準
 
 ### Required Fields / 必填欄位
 
-**All Markdown documents MUST include the following metadata at the beginning:**  
+**All Markdown documents MUST include the following metadata at the beginning:**
 **所有 Markdown 文檔必須在開頭包含以下 metadata：**
 
 ```markdown
-> **Created Date**: YYYY-MM-DD  
-> **Created By**: AI Name or Developer Name  
-> **Last Modified**: YYYY-MM-DD  
-> **Modified By**: AI Name or Developer Name  
-> **Version**: Major.Minor  
+> **Created Date**: YYYY-MM-DD
+> **Created By**: AI Name or Developer Name
+> **Last Modified**: YYYY-MM-DD
+> **Modified By**: AI Name or Developer Name
+> **Version**: Major.Minor
 > **Document Type**: Technical Doc / Progress Report / Development Guide / API Spec / Meeting Notes
-```
-
-### Complete Example / 完整範例
-
-```markdown
-# Database Migration Guide
-# 資料庫遷移指南
-
-> **Created Date**: 2026-01-20  
-> **Created By**: Gemini 2.5 Pro  
-> **Last Modified**: 2026-01-30  
-> **Modified By**: Claude Sonnet 4.5  
-> **Version**: 1.3  
-> **Document Type**: Technical Documentation  
-> **Summary**: This document explains how to execute Supabase database migrations and testing procedures.  
-> **摘要**: 本文件說明如何執行 Supabase 資料庫遷移與測試流程。
-
-## Change History / 修改歷史
-
-| Date       | Version | Modified By       | Changes                              |
-| ---------- | ------- | ----------------- | ------------------------------------ |
-| 2026-01-30 | 1.3     | Claude Sonnet 4.5 | Added RLS Policy testing chapter     |
-| 2026-01-25 | 1.2     | Gemini 2.5 Pro    | Added index optimization suggestions |
-| 2026-01-20 | 1.0     | Gemini 2.5 Pro    | Initial version                      |
-
-| 日期       | 版本 | 修改者            | 修改內容                 |
-| ---------- | ---- | ----------------- | ------------------------ |
-| 2026-01-30 | 1.3  | Claude Sonnet 4.5 | 新增 RLS Policy 測試章節 |
-| 2026-01-25 | 1.2  | Gemini 2.5 Pro    | 補充索引優化建議         |
-| 2026-01-20 | 1.0  | Gemini 2.5 Pro    | 初始版本                 |
 ```
 
 ### Code File Headers / 程式碼檔案頭部
 
-**For important code files (core modules, utilities), add comments at the beginning:**  
+**For important code files (core modules, utilities), add comments at the beginning:**
 **對於重要的程式碼檔案（核心模組、工具函數），在檔案開頭加入註解：**
 
 ```typescript
@@ -186,22 +150,6 @@ export class UserAuthService {
 }
 ```
 
-```python
-"""
-OCR Document Parser
-OCR 文件解析器
-
-Created Date: 2026-01-10
-Created By: DeepSeek V3
-Last Modified: 2026-01-29
-Modified By: Claude Sonnet 4.5
-Version: 3.2
-"""
-
-def parse_building_title(image_path: str) -> dict:
-    pass
-```
-
 ---
 
 ## Naming Conventions / 命名規範
@@ -218,34 +166,19 @@ def parse_building_title(image_path: str) -> dict:
 | **Backend Controllers** | **camelCase**                     | `authController.ts`, `paymentService.ts`      | Service logic                             |
 | **Configuration**       | **kebab-case**                    | `tailwind.config.js`, `tsconfig.json`         | Config file convention                    |
 
-| 類型           | 規則                        | 範例                                          | 備註             |
-| :------------- | :-------------------------- | :-------------------------------------------- | :--------------- |
-| **React 組件** | **PascalCase**              | `UserProfile.tsx`, `Sidebar.tsx`              | 組件名首字母大寫 |
-| **工具函數**   | **camelCase**               | `dateFormatter.ts`, `apiClient.ts`            | 工具函數         |
-| **Hooks**      | **camelCase (usePrefix)**   | `useAuth.ts`, `useWindowSize.ts`              | React Hooks 慣例 |
-| **樣式**       | **kebab-case** 或與組件同名 | `global-styles.css`, `UserProfile.module.css` | -                |
-| **後端模型**   | **PascalCase**              | `User.ts`, `PropertyListing.ts`               | 類別定義         |
-| **後端控制器** | **camelCase**               | `authController.ts`, `paymentService.ts`      | 服務邏輯         |
-| **配置文件**   | **kebab-case**              | `tailwind.config.js`, `tsconfig.json`         | 配置文件慣例     |
-
 ### 2. Directories / 資料夾
 
-**ALL directory names MUST be in English and use kebab-case.**  
+**ALL directory names MUST be in English and use kebab-case.**
 **所有資料夾名稱必須使用英文並採用 kebab-case。**
 
 | Type                   | Rule           | Example                                      |
 | :--------------------- | :------------- | :------------------------------------------- |
 | **General Folders**    | **kebab-case** | `components`, `hooks`, `utils`, `api-routes` |
-| **Special Categories** | **kebab-case** | `__tests__`, `__mocks__`                     |
-
-| 類型           | 規則           | 範例                                         |
-| :------------- | :------------- | :------------------------------------------- |
-| **一般資料夾** | **kebab-case** | `components`, `hooks`, `utils`, `api-routes` |
-| **特殊分類**   | **kebab-case** | `__tests__`, `__mocks__`                     |
+| **Special Categories** | **kebab-case** | `__tests__`, `__mocks__`, `__fixtures__`     |
 
 ### 3. Documentation & Assets / 文件與資源
 
-**ALL documentation file names MUST be in English.**  
+**ALL documentation file names MUST be in English.**
 **所有文檔檔案名必須使用英文。**
 
 | Type                 | Rule                      | Example                                               | Notes                            |
@@ -255,18 +188,77 @@ def parse_building_title(image_path: str) -> dict:
 | **Images**           | **snake_case**            | `logo_main.png`, `banner_home.jpg`                    | No date needed                   |
 | **Shell Scripts**    | **kebab-case**            | `deploy-prod.sh`, `setup-env.sh`                      | Version controlled               |
 
-| 類型              | 規則                      | 範例                                                  | 備註                 |
-| :---------------- | :------------------------ | :---------------------------------------------------- | :------------------- |
-| **Markdown 文檔** | **kebab-case + ISO 日期** | `api-documentation.md`, `2026-01-30_meeting-notes.md` | 重要文件需加日期前綴 |
-| **進度報告**      | **類型 + ISO 日期**       | `sdlc-progress-report_2026-01-30.md`                  | 必須加日期後綴       |
-| **圖片**          | **snake_case**            | `logo_main.png`, `banner_home.jpg`                    | 不需日期             |
-| **Shell 腳本**    | **kebab-case**            | `deploy-prod.sh`, `setup-env.sh`                      | 版本控制追蹤         |
+---
+
+## Test File Naming Standards / 測試檔案命名規範
+
+### Test File Types / 測試檔案類型
+
+| Test Type                | File Suffix                       | Example                            | Framework         |
+| :----------------------- | :-------------------------------- | :--------------------------------- | :---------------- |
+| **Unit Test**            | `.test.ts(x)`                     | `Button.test.tsx`                  | Jest              |
+| **Integration Test**     | `.integration.test.ts(x)`         | `auth.integration.test.ts`         | Jest              |
+| **E2E Test**             | `.spec.ts`                        | `login.spec.ts`                    | Playwright        |
+| **Hook Test**            | `.test.ts` (in hooks/__tests__/)  | `useAuth.test.ts`                  | React Testing Lib |
+| **API Route Test**       | `route.test.ts`                   | `route.test.ts`                    | Jest              |
+| **Component Test (alt)** | `.test.tsx` (in component folder) | `PhotoUpload.test.tsx`             | React Testing Lib |
+
+| 測試類型           | 檔案後綴                          | 範例                               | 框架              |
+| :----------------- | :-------------------------------- | :--------------------------------- | :---------------- |
+| **單元測試**       | `.test.ts(x)`                     | `Button.test.tsx`                  | Jest              |
+| **整合測試**       | `.integration.test.ts(x)`         | `auth.integration.test.ts`         | Jest              |
+| **E2E 測試**       | `.spec.ts`                        | `login.spec.ts`                    | Playwright        |
+| **Hook 測試**      | `.test.ts` (在 hooks/__tests__/)  | `useAuth.test.ts`                  | React Testing Lib |
+| **API 路由測試**   | `route.test.ts`                   | `route.test.ts`                    | Jest              |
+| **組件測試（替代）** | `.test.tsx` (在組件資料夾)        | `PhotoUpload.test.tsx`             | React Testing Lib |
+
+### Source to Test Mapping / 原始碼與測試對應
+
+| Source File Path                | Test File Path                                   |
+| :------------------------------ | :----------------------------------------------- |
+| `app/(auth)/login/page.tsx`     | `app/(auth)/login/__tests__/page.test.tsx`       |
+| `components/ui/Button.tsx`      | `components/ui/Button/__tests__/Button.test.tsx` |
+| `hooks/useAuth.ts`              | `hooks/useAuth/__tests__/useAuth.test.ts`        |
+| `lib/supabase/auth.ts`          | `lib/supabase/__tests__/auth.test.ts`            |
+| `actions/auth.ts`               | `actions/__tests__/auth.test.ts`                 |
+| `app/api/contact/route.ts`      | `app/api/contact/__tests__/route.test.ts`        |
+| E2E: Login flow                 | `e2e/flows/auth/login.spec.ts`                   |
+| E2E: Add property flow          | `e2e/flows/landlord/add-property.spec.ts`        |
+
+| 原始碼路徑                      | 測試檔案路徑                                     |
+| :------------------------------ | :----------------------------------------------- |
+| `app/(auth)/login/page.tsx`     | `app/(auth)/login/__tests__/page.test.tsx`       |
+| `components/ui/Button.tsx`      | `components/ui/Button/__tests__/Button.test.tsx` |
+| `hooks/useAuth.ts`              | `hooks/useAuth/__tests__/useAuth.test.ts`        |
+| `lib/supabase/auth.ts`          | `lib/supabase/__tests__/auth.test.ts`            |
+| `actions/auth.ts`               | `actions/__tests__/auth.test.ts`                 |
+| `app/api/contact/route.ts`      | `app/api/contact/__tests__/route.test.ts`        |
+| E2E: 登入流程                   | `e2e/flows/auth/login.spec.ts`                   |
+| E2E: 新增房產流程               | `e2e/flows/landlord/add-property.spec.ts`        |
+
+### Test Naming Best Practices / 測試命名最佳實踐
+
+```typescript
+// ✅ GOOD: Clear, descriptive test names
+describe('LoginPage', () => {
+  describe('表單驗證', () => {
+    test('應該在 email 格式錯誤時顯示錯誤訊息', () => {});
+    test('應該在密碼少於 8 字元時顯示錯誤訊息', () => {});
+  });
+});
+
+// ❌ BAD: Vague test names
+describe('LoginPage', () => {
+  test('test 1', () => {});
+  test('works correctly', () => {});
+});
+```
 
 ---
 
 ## Directory Structure / 目錄結構
 
-**This project uses a Monorepo structure with English-only directory names.**  
+**This project uses a Monorepo structure with English-only directory names.**
 **本專案採用 Monorepo 結構，所有目錄名稱使用英文。**
 
 ```text
@@ -280,12 +272,9 @@ root/
 │   │   ├── app/                # Route pages
 │   │   ├── components/         # UI components
 │   │   ├── hooks/              # Custom Hooks
-│   │   └── lib/                # Utility functions
+│   │   ├── lib/                # Utility functions
+│   │   └── e2e/                # E2E tests (Playwright)
 │   └── mobile/                 # Expo App (Paused, code preserved)
-│       └── src/
-│           ├── components/     # React Native components
-│           ├── screens/        # Screens
-│           └── lib/            # Utility functions
 ├── packages/                   # Shared packages
 │   ├── ui/                     # Shared UI components
 │   ├── utils/                  # Shared utilities
@@ -296,24 +285,124 @@ root/
 ├── docs/                       # Documentation center (ALL docs here)
 │   ├── deployment-guides/      # Deployment guides, environment setup
 │   ├── design-guidelines/      # UI/UX design specs, Figma files
-│   │   └── references/         # Design references
 │   ├── implementation-plans/   # Implementation plans
 │   ├── progress-reports/       # Progress reports and status tracking
-│   │   ├── ocr-development/    # OCR development reports
-│   │   ├── daily-reports/      # Daily work reports
-│   │   └── database-reports/   # Database progress reports
 │   ├── product-overview/       # Product requirements and use cases
 │   ├── technical-selection/    # Technical architecture and selection
+│   ├── testing/                # Testing standards and guidelines
+│   │   ├── TEST_FILE_MANAGEMENT_STANDARD.md  # Detailed testing standards
+│   │   └── TEST_QUICK_REFERENCE.md           # Quick reference card
 │   └── file-naming-guidelines.md  # This file
 └── scripts/                    # Automation scripts (Build, Deploy, Maintenance)
-    └── clean-macos-files.sh    # macOS hidden files cleaner
+    ├── clean-macos-files.sh    # macOS hidden files cleaner
+    └── migrate-tests.sh        # Test migration script
+```
+
+---
+
+## Test Directory Structure / 測試目錄結構
+
+### Colocated Testing Approach / 就近測試方法
+
+**Tests should be placed near the source code they test, using `__tests__` directories.**
+**測試應放在被測試的源代碼附近，使用 `__tests__` 目錄。**
+
+```text
+apps/web/
+├── app/
+│   ├── (auth)/
+│   │   ├── login/
+│   │   │   ├── page.tsx                    # Source
+│   │   │   └── __tests__/
+│   │   │       └── page.test.tsx           # ✅ Test next to source
+│   │   └── register/
+│   │       ├── page.tsx
+│   │       └── __tests__/
+│   │           └── page.test.tsx
+│   └── api/
+│       └── contact/
+│           ├── route.ts                    # Source
+│           └── __tests__/
+│               └── route.test.ts           # ✅ Test next to source
+│
+├── components/
+│   ├── ui/
+│   │   └── Button/
+│   │       ├── Button.tsx                  # Source
+│   │       └── __tests__/
+│   │           └── Button.test.tsx         # ✅ Test next to source
+│   └── property/
+│       └── PhotoUpload/
+│           ├── PhotoUpload.tsx
+│           └── __tests__/
+│               └── PhotoUpload.test.tsx
+│
+├── hooks/
+│   └── useAuth/
+│       ├── useAuth.ts                      # Source
+│       └── __tests__/
+│           └── useAuth.test.ts             # ✅ Test next to source
+│
+├── lib/
+│   └── supabase/
+│       ├── auth.ts                         # Source
+│       └── __tests__/
+│           └── auth.test.ts                # ✅ Test next to source
+│
+├── actions/
+│   ├── auth.ts                             # Source
+│   └── __tests__/
+│       └── auth.test.ts                    # ✅ Test next to source
+│
+├── e2e/                                    # ✅ E2E tests (centralized)
+│   ├── flows/
+│   │   ├── auth/
+│   │   │   ├── login.spec.ts
+│   │   │   ├── register.spec.ts
+│   │   │   └── password-reset.spec.ts
+│   │   ├── landlord/
+│   │   │   ├── add-property.spec.ts
+│   │   │   └── photo-upload.spec.ts
+│   │   └── admin/
+│   │       └── user-management.spec.ts
+│   ├── fixtures/                           # Test data
+│   │   ├── users.json
+│   │   └── properties.json
+│   └── utils/                              # E2E utilities
+│       ├── auth.helper.ts
+│       └── test.utils.ts
+│
+├── __mocks__/                              # Global mocks
+│   ├── supabase.ts
+│   └── nodemailer.ts
+│
+├── jest.config.js
+├── jest.setup.js
+└── playwright.config.ts
+```
+
+### Jest Configuration / Jest 配置
+
+```javascript
+// jest.config.js
+module.exports = {
+  testMatch: [
+    '<rootDir>/**/__tests__/**/*.test.{ts,tsx}',
+  ],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/.next/',
+    '/e2e/',           // Exclude E2E tests (run by Playwright)
+  ],
+  // ...
+}
 ```
 
 ---
 
 ## Archiving Process / 歸檔流程
 
-**To avoid cluttering the project root, all non-code files should follow this archiving process:**  
+**To avoid cluttering the project root, all non-code files should follow this archiving process:**
 **為避免專案根目錄混亂，所有非代碼類文件應遵循以下歸檔流程：**
 
 ### 1. New Files / 新增文件
@@ -326,46 +415,60 @@ root/
   - Project planning & Roadmap → `docs/progress-reports/roadmap/`
   - Daily work reports → `docs/progress-reports/daily-reports/`
   - Database related → `docs/progress-reports/database-reports/`
-  - Other reports → `docs/progress-reports/`
-- **Product Requirements & Use Cases**: Store in `docs/product-overview/`
-- **Technical Selection & Architecture**: Store in `docs/technical-selection/`
+- **Product Requirements**: Store in `docs/product-overview/`
+- **Technical Selection**: Store in `docs/technical-selection/`
 - **Implementation Plans**: Store in `docs/implementation-plans/`
-- **Temporary Notes/Drafts**: Store in `docs/drafts/` (move to official directory after finalization)
-- **Images/Videos**: Store in `docs/design-guidelines/references/` or `apps/*/assets/` (if UI-related)
+- **Testing Documentation**: Store in `docs/testing/`
+- **Temporary Notes/Drafts**: Store in `docs/drafts/` (move after finalization)
+- **Images/Videos**: Store in `docs/design-guidelines/references/` or `apps/*/assets/`
 
 **中文指引**:
 - **部署與環境文件**：存入 `docs/deployment-guides/`
 - **設計規範與 UI/UX 文件**：存入 `docs/design-guidelines/`
 - **進度報告**：
-  - OCR 相關進度 → `docs/progress-reports/ocr-development/`
-  - 專案規劃與 Roadmap → `docs/progress-reports/roadmap/`
-  - 每日工作報告 → `docs/progress-reports/daily-reports/`
-  - 資料庫相關進度 → `docs/progress-reports/database-reports/`
-  - 其他進度報告 → `docs/progress-reports/`
-- **產品需求與使用場景**：存入 `docs/product-overview/`
-- **技術選型與架構文件**：存入 `docs/technical-selection/`
-- **implementation-plan**：存入 `docs/implementation-plans/`
-- **臨時筆記/草稿**：存入 `docs/drafts/`（確認定稿後移至正式目錄）
-- **圖片影音**：存入 `docs/design-guidelines/references/` 或 `apps/*/assets/`（若為 UI 相關）
+  - OCR 相關 → `docs/progress-reports/ocr-development/`
+  - 專案規劃 → `docs/progress-reports/roadmap/`
+  - 每日報告 → `docs/progress-reports/daily-reports/`
+  - 資料庫相關 → `docs/progress-reports/database-reports/`
+- **產品需求**：存入 `docs/product-overview/`
+- **技術選型**：存入 `docs/technical-selection/`
+- **實作計畫**：存入 `docs/implementation-plans/`
+- **測試文件**：存入 `docs/testing/`
+- **臨時筆記**：存入 `docs/drafts/`（確認後移至正式目錄）
+- **圖片影音**：存入 `docs/design-guidelines/references/` 或 `apps/*/assets/`
 
-### 2. Version Control / 版本控管
+### 2. Test Files / 測試檔案
 
-**English Guidelines**:
-- **Outdated Files**:
-  - **Do NOT delete**, move to `docs/archive/`
-  - Add prefix `archived_YYYYMMDD_filename.md` to file name
-  - Add note at file beginning: `> This document is deprecated and preserved for historical reference.`
+**Test files have special archiving rules:**
+**測試檔案有特殊的歸檔規則：**
 
-**中文指引**:
-- **過時文件**：
-  - **不要刪除**，將其移動至 `docs/archive/`
-  - 在檔名加上前綴 `archived_YYYYMMDD_filename.md`
-  - 在文件開頭標註：`> This document is deprecated and preserved for historical reference.`
+- **Unit/Integration Tests**: Place in `__tests__/` next to source code
+- **E2E Tests**: Place in `e2e/flows/{module}/` directory
+- **Test Fixtures**: Place in `e2e/fixtures/` directory
+- **Test Utilities**: Place in `e2e/utils/` or module `__tests__/utils/`
 
-### 3. Root Cleanup / 根目錄淨空
+**測試檔案歸檔：**
+- **單元/整合測試**：放在源代碼旁的 `__tests__/` 目錄
+- **E2E 測試**：放在 `e2e/flows/{模組}/` 目錄
+- **測試固定資料**：放在 `e2e/fixtures/` 目錄
+- **測試工具**：放在 `e2e/utils/` 或模組 `__tests__/utils/`
 
-**The root directory should ONLY contain the following types of core files:**  
-**根目錄僅保留以下各類型的核心檔案：**
+### 3. Version Control / 版本控管
+
+**Outdated Files**:
+- **Do NOT delete**, move to `docs/archive/`
+- Add prefix `archived_YYYYMMDD_filename.md`
+- Add note: `> This document is deprecated and preserved for historical reference.`
+
+**過時文件**：
+- **不要刪除**，移至 `docs/archive/`
+- 檔名加前綴 `archived_YYYYMMDD_filename.md`
+- 標註：`> This document is deprecated and preserved for historical reference.`
+
+### 4. Root Cleanup / 根目錄淨空
+
+**The root directory should ONLY contain:**
+**根目錄僅保留：**
 
 - **Environment Config**: `.env.*`, `.gitignore`, `.editorconfig`
 - **Dependency Management**: `package.json`, `pnpm-workspace.yaml`, `turbo.json`
@@ -373,16 +476,13 @@ root/
 - **AI Collaboration**: `CLAUDE.md`, `FILE_CREATION_CHECKLIST.md`
 - **Tool Config**: `tsconfig.json`, `eslint.config.js`
 
-**ALL other Markdown files MUST be archived to the corresponding category directory under `docs/`.**  
-**所有其他 Markdown 文件必須歸檔至 `docs/` 下對應分類目錄。**
-
 ---
 
 ## Change History Tracking / 修改歷史追蹤
 
 ### Git Commit Message Standards / Git Commit 訊息規範
 
-**All commit messages MUST indicate the executor's identity:**  
+**All commit messages MUST indicate the executor's identity:**
 **所有 Commit 訊息必須標注執行者身份：**
 
 ```bash
@@ -391,6 +491,7 @@ root/
 
 # Examples / 範例
 [Claude] feat(database): add RLS policies for super admin tables
+[Claude] test(auth): add unit tests for login flow
 [Gemini] fix(api): resolve authentication token refresh issue
 [GPT-4] docs(readme): update installation instructions
 [DeepSeek] refactor(ocr): optimize image preprocessing pipeline
@@ -407,15 +508,6 @@ root/
 | `test`     | Testing          | `[Claude] test(auth): add unit tests for login flow`  |
 | `chore`    | Maintenance      | `[Gemini] chore(deps): update dependencies`           |
 
-| Type       | 說明     | 範例                                                  |
-| :--------- | :------- | :---------------------------------------------------- |
-| `feat`     | 新功能   | `[Claude] feat(auth): add OAuth2 integration`         |
-| `fix`      | Bug 修復 | `[Gemini] fix(ui): resolve button alignment issue`    |
-| `docs`     | 文件更新 | `[GPT-4] docs(api): add endpoint documentation`       |
-| `refactor` | 代碼重構 | `[DeepSeek] refactor(utils): simplify date formatter` |
-| `test`     | 測試相關 | `[Claude] test(auth): add unit tests for login flow`  |
-| `chore`    | 維護任務 | `[Gemini] chore(deps): update dependencies`           |
-
 ---
 
 ## ⚡ Quick Checklist / 快速檢查表
@@ -425,50 +517,51 @@ root/
 **When creating new files / 創建新文件時：**
 
 - [ ] Is the file/folder name in English? / 檔案/資料夾名稱是否使用英文？
-- [ ] Does the Markdown file include complete Metadata (creator, date, version)? / Markdown 文件是否已加入完整 Metadata？
-- [ ] Is the creator's identity indicated at the file beginning or in comments? / 是否在檔案開頭或註解中標注了創建者身份？
-- [ ] Do important files include a "Change History" table? / 重要文件是否加入了「修改歷史」表格？
+- [ ] Does the Markdown file include complete Metadata? / Markdown 文件是否已加入完整 Metadata？
 - [ ] Does the file name follow naming conventions (PascalCase/camelCase/kebab-case)? / 檔名是否符合命名規範？
-- [ ] Is the file placed in the correct directory category? / 文件是否已放入正確的目錄分類？
+- [ ] Is the file placed in the correct directory? / 文件是否已放入正確的目錄？
+- [ ] For test files: Is it in `__tests__/` next to source code? / 測試檔案是否在源代碼旁的 `__tests__/`？
+- [ ] For E2E tests: Is it in `e2e/flows/{module}/`? / E2E 測試是否在 `e2e/flows/{模組}/`？
+
+### 🧪 Test File Creation Checklist / 測試文件創建檢查表
+
+**When creating test files / 創建測試文件時：**
+
+- [ ] Unit/Integration test uses `.test.ts(x)` suffix? / 單元/整合測試使用 `.test.ts(x)` 後綴？
+- [ ] E2E test uses `.spec.ts` suffix? / E2E 測試使用 `.spec.ts` 後綴？
+- [ ] Test is placed in `__tests__/` directory next to source? / 測試在源代碼旁的 `__tests__/` 目錄？
+- [ ] Test file name matches source file name? / 測試檔名與源檔案對應？
+- [ ] Test descriptions use clear, descriptive names (preferably in Chinese)? / 測試描述清楚（建議用中文）？
+- [ ] Tests are independent and don't rely on execution order? / 測試獨立且不依賴執行順序？
 
 ### 🔧 File Modification Checklist / 文件修改檢查表
 
 **When modifying existing files / 修改現有文件時：**
 
-- [ ] Is the "Last Modified" date and "Modified By" in Metadata updated? / 是否更新了 Metadata 中的「最後修改」日期與「修改者」？
-- [ ] Is a new record added to the "Change History" table? / 是否在「修改歷史」表格中新增一筆記錄？
-- [ ] For major changes, is the version number upgraded (Major/Minor)? / 修改範圍較大時，是否考慮升級版本號？
-- [ ] Does the Git Commit message include the `[AI Name]` prefix? / Git Commit 訊息是否加入了 `[AI名稱]` 前綴？
-- [ ] Is the team notified of important file changes? / 是否通知團隊重要文件的變更？
-
-### 💻 Code Commit Checklist / 程式碼提交檢查表
-
-**Before committing code / 提交代碼前：**
-
-- [ ] Are component file names in `PascalCase`? (e.g., `Button.tsx`) / 元件檔名是否為 `PascalCase`？
-- [ ] Are utility function file names in `camelCase`? (e.g., `formatDate.ts`) / 函數工具檔名是否為 `camelCase`？
-- [ ] Are all file and folder names in English? / 所有檔案和資料夾名稱是否使用英文？
-- [ ] Are temporary files removed from the root directory? / 是否移除了根目錄下的臨時文件？
-- [ ] Do important code files include file header comments (creator, modifier)? / 重要程式碼檔案是否加入了檔案頭部註解？
-- [ ] Does the commit message follow `[AI Name] type(scope): message` format? / Commit 訊息是否符合格式？
+- [ ] Is "Last Modified" date and "Modified By" updated in Metadata? / 是否更新 Metadata 的「最後修改」？
+- [ ] Is a new record added to "Change History"? / 是否在「修改歷史」新增記錄？
+- [ ] For major changes, is version number upgraded? / 重大修改是否升級版本號？
+- [ ] Does Git Commit include `[AI Name]` prefix? / Git Commit 是否包含 `[AI名稱]` 前綴？
 
 ---
 
 ## 📝 Change History / 修改歷史
 
-| Date       | Version | Modified By            | Changes                                                      |
-| ---------- | ------- | ---------------------- | ------------------------------------------------------------ |
-| 2026-02-02 | 3.0     | Claude Sonnet 4.5      | Complete rewrite: English-only file names, bilingual content |
-| 2026-02-01 | 2.2     | Gemini 3 Pro (Preview) | Updated directory structure, archiving process               |
-| 2026-01-30 | 2.1     | Claude Sonnet 4.5      | Added AI collaborator identification and change tracking     |
-| 2026-01-30 | 1.0     | Project Team           | Initial version                                              |
+| Date       | Version | Modified By       | Changes                                                     |
+| ---------- | ------- | ----------------- | ----------------------------------------------------------- |
+| 2026-02-06 | 4.0     | Claude Opus 4.5   | Integrated testing standards, colocated testing approach    |
+| 2026-02-02 | 3.0     | Claude Sonnet 4.5 | Complete rewrite: English-only file names, bilingual content |
+| 2026-02-01 | 2.2     | Gemini 3 Pro      | Updated directory structure, archiving process               |
+| 2026-01-30 | 2.1     | Claude Sonnet 4.5 | Added AI collaborator identification and change tracking     |
+| 2026-01-30 | 1.0     | Project Team      | Initial version                                              |
 
-| 日期       | 版本 | 修改者                 | 修改內容                           |
-| ---------- | ---- | ---------------------- | ---------------------------------- |
-| 2026-02-02 | 3.0  | Claude Sonnet 4.5      | 完全重寫：英文專用檔案名、雙語內容 |
-| 2026-02-01 | 2.2  | Gemini 3 Pro (Preview) | 更新目錄結構、歸檔流程             |
-| 2026-01-30 | 2.1  | Claude Sonnet 4.5      | 新增 AI 協作者識別與修改追蹤       |
-| 2026-01-30 | 1.0  | Project Team           | 初始版本                           |
+| 日期       | 版本 | 修改者            | 修改內容                                     |
+| ---------- | ---- | ----------------- | -------------------------------------------- |
+| 2026-02-06 | 4.0  | Claude Opus 4.5   | 整合測試規範、就近測試方法                   |
+| 2026-02-02 | 3.0  | Claude Sonnet 4.5 | 完全重寫：英文專用檔案名、雙語內容           |
+| 2026-02-01 | 2.2  | Gemini 3 Pro      | 更新目錄結構、歸檔流程                       |
+| 2026-01-30 | 2.1  | Claude Sonnet 4.5 | 新增 AI 協作者識別與修改追蹤                 |
+| 2026-01-30 | 1.0  | Project Team      | 初始版本                                     |
 
 ---
 
@@ -477,8 +570,11 @@ root/
 - [Google Developer Documentation Style Guide](https://developers.google.com/style)
 - [Conventional Commits](https://www.conventionalcommits.org/)
 - [Semantic Versioning](https://semver.org/)
+- [Jest Documentation](https://jestjs.io/)
+- [Playwright Best Practices](https://playwright.dev/docs/best-practices)
+- [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/)
 
 ---
 
-> **Note / 注意**: Good naming is the best comment, clear history is the best collaboration tool.  
-> **注意**: 好的命名是最好的註解，清楚的歷史記錄是最好的協作工具。
+> **Note / 注意**: Good naming is the best comment, clear testing is the best documentation.
+> **注意**: 好的命名是最好的註解，清楚的測試是最好的文檔。

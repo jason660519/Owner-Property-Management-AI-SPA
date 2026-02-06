@@ -9,19 +9,21 @@
 ## 📋 董事長摘要版
 
 ### 🎯 項目概述
+
 開發 AI 視覺語言模型（VLM）智能掃描功能，讓用戶上傳謄本或權狀照片/PDF，系統自動識別「所有權人姓名」和「物件地址」，並自動填入新增物件表單，同時支援使用者自行輸入與管理 VLM API Key，確保帳號控制與操作靈活性。
 
 ### 💰 投資效益分析
 
-| 項目 | 金額/數據 | 說明 |
-|------|-----------|------|
-| **開發成本** | NT$ 200,000 - 300,000 | 1名資深工程師 × 20工作天 |
-| **月運營成本** | US$ 110 - 330 | AI API + 雲端儲存費用 |
-| **投資回收期** | 3-6 個月 | 基於效率提升和錯誤減少 |
-| **用戶時間節省** | 每份文件 5-10 分鐘 | 人工輸入 → AI 自動識別 |
-| **錯誤率降低** | 從 15% 降至 5% | 人工輸入錯誤大幅減少 |
+| 項目                   | 金額/數據             | 說明                      |
+| ---------------------- | --------------------- | ------------------------- |
+| **開發成本**     | NT$ 200,000 - 300,000 | 1名資深工程師 × 20工作天 |
+| **月運營成本**   | US$ 110 - 330         | AI API + 雲端儲存費用     |
+| **投資回收期**   | 3-6 個月              | 基於效率提升和錯誤減少    |
+| **用戶時間節省** | 每份文件 5-10 分鐘    | 人工輸入 → AI 自動識別   |
+| **錯誤率降低**   | 從 15% 降至 5%        | 人工輸入錯誤大幅減少      |
 
 ### 🏆 競爭優勢
+
 1. **業界首創**：台灣房地產平台首家導入 VLM 技術
 2. **用戶體驗躍升**：簡化 70% 的資料輸入工作
 3. **準確度提升**：AI 識別比人工輸入更準確
@@ -29,6 +31,7 @@
 5. **BYOK 彈性**：使用者自帶 API Key，降低集中化金鑰管理風險
 
 ### ⏰ 開發時程
+
 ```
 <!-- merged into AI-VLM-Document-Scanning-Integrated-Plan.md -->
 -- RLS 安全策略已配置 ✅
@@ -54,6 +57,7 @@ CREATE POLICY user_can_manage_own_vlm_key
 ```
 
 #### 前端框架 (需增強: 40%)
+
 ```typescript
 // 現有基礎
 apps/web/app/(dashboard)/landlord/properties/add/page.tsx ✅
@@ -76,6 +80,7 @@ interface VLMUploadComponent {
 #### Task 1: 後端 API 增強 (3-4天)
 
 **1.1 文件上傳和安全檢查**
+
 ```python
 # POST /api/v1/documents/upload-and-parse
 async def upload_and_parse_document(
@@ -85,20 +90,21 @@ async def upload_and_parse_document(
 ):
     # 檔案安全檢查流程
     security_result = await comprehensive_security_check(file)
-    
+  
     # 儲存到 Supabase Storage
     file_path = await store_file_securely(file, security_result.safe_filename)
-    
+  
     # 建立 property_documents 記錄
     doc_record = await create_document_record(file_path, metadata)
-    
+  
     # 異步啟動 VLM 解析
     asyncio.create_task(process_document_vlm(doc_record.id))
-    
+  
     return {"document_id": doc_record.id, "status": "processing"}
 ```
 
 **1.2 VLM 解析增強**
+
 ```python
 # 台灣謄本專用 Prompt 模板
 TAIWAN_TITLE_DEED_PROMPT = """
@@ -134,33 +140,34 @@ async def enhanced_vlm_parsing(doc_id: str, file_path: str):
     for provider in ['openai', 'anthropic', 'google']:
         task = vlm_parse_with_provider(file_path, provider, TAIWAN_TITLE_DEED_PROMPT)
         tasks.append(task)
-    
+  
     results = await asyncio.gather(*tasks, return_exceptions=True)
-    
+  
     # 結果整合和投票機制
     consensus_result = await consensus_voting(results)
-    
+  
     # 儲存解析結果
     await update_document_ocr_result(doc_id, consensus_result)
 ```
 
 **1.3 結果驗證邏輯**
+
 ```python
 class DocumentValidator:
     def validate_extraction_result(self, data: dict) -> ValidationResult:
         validation = ValidationResult()
-        
+    
         # 1. 必要欄位檢查
         required_fields = ['owner_name', 'property_address']
         for field in required_fields:
             if not data.get(field):
                 validation.add_error(f"缺少必要欄位: {field}")
-        
+    
         # 2. 姓名格式驗證 (內政部字元集)
         if data.get('owner_name'):
             if not self.validate_taiwanese_name(data['owner_name']):
                 validation.add_warning("姓名包含非標準字元")
-        
+    
         # 3. 地址正規化
         if data.get('property_address'):
             normalized_addr = await self.normalize_address(data['property_address'])
@@ -168,11 +175,11 @@ class DocumentValidator:
                 validation.add_error("地址格式無法識別")
             else:
                 data['normalized_address'] = normalized_addr['standard_format']
-        
+    
         # 4. 信心分數檢查
         if data.get('confidence_score', 0) < 0.85:
             validation.mark_for_manual_review("信心分數過低")
-        
+    
         validation.is_valid = len(validation.errors) == 0
         return validation
 
@@ -196,14 +203,12 @@ class DocumentValidator:
       )
       return SavedKeyResponse(success=True)
 
-
     async def resolve_vlm_api_key(user_id: UUID) -> SecretStr:
       record = await user_vlm_repo.get(user_id)
       if not record:
         raise MissingUserKeyError("VLM API key not configured")
       decrypted_key = await kms.decrypt(record.api_key_ciphertext, record.salt)
       return SecretStr(decrypted_key)
-
 
     async def process_document_vlm(doc_id: str):
       document = await document_repo.get(doc_id)
@@ -215,6 +220,7 @@ class DocumentValidator:
 #### Task 2: 前端 UI 開發 (4-5天)
 
 **2.1 文件上傳組件**
+
 ```tsx
 // components/VLMDocumentUpload.tsx
 interface VLMDocumentUploadProps {
@@ -233,19 +239,19 @@ export function VLMDocumentUpload({ onParsingComplete, propertyType }: VLMDocume
       toast.error(preValidation.message);
       return;
     }
-    
+  
     setUploadState('uploading');
-    
+  
     try {
       // 上傳檔案
       const uploadResult = await uploadDocument(file, propertyType);
       setUploadState('processing');
-      
+  
       // 輪詢解析狀態
       const parseResult = await pollParsingStatus(uploadResult.document_id);
       setParseResult(parseResult);
       setUploadState('completed');
-      
+  
     } catch (error) {
       setUploadState('error');
       handleUploadError(error);
@@ -270,6 +276,7 @@ export function VLMDocumentUpload({ onParsingComplete, propertyType }: VLMDocume
 ```
 
 **2.2 解析結果預覽組件**
+
 ```tsx
 // components/ParsedResultPreview.tsx
 export function ParsedResultPreview({ data, onConfirm }: ParsedResultPreviewProps) {
@@ -287,7 +294,7 @@ export function ParsedResultPreview({ data, onConfirm }: ParsedResultPreviewProp
           </Badge>
         </CardTitle>
       </CardHeader>
-      
+  
       <CardContent>
         {/* 解析結果預覽表格 */}
         <div className="space-y-4">
@@ -304,7 +311,7 @@ export function ParsedResultPreview({ data, onConfirm }: ParsedResultPreviewProp
                 }
               </div>
             </div>
-            
+        
             <div>
               <Label>物件地址</Label>
               <div className="flex items-center gap-2">
@@ -318,7 +325,7 @@ export function ParsedResultPreview({ data, onConfirm }: ParsedResultPreviewProp
               </div>
             </div>
           </div>
-          
+      
           {/* 自動填入選項 */}
           <div className="border-t pt-4">
             <div className="flex items-center justify-between">
@@ -336,7 +343,7 @@ export function ParsedResultPreview({ data, onConfirm }: ParsedResultPreviewProp
                   選擇性帶入
                 </Button>
               </div>
-              
+          
               <Button 
                 variant="ghost" 
                 onClick={handleReset}
@@ -355,6 +362,7 @@ export function ParsedResultPreview({ data, onConfirm }: ParsedResultPreviewProp
 ```
 
 **2.3 使用者 API Key 設定流程**
+
 ```tsx
 // components/VLMApiKeyDrawer.tsx
 interface VLMApiKeyDrawerProps {
@@ -423,6 +431,7 @@ export function VLMApiKeyDrawer({ isOpen, onClose }: VLMApiKeyDrawerProps) {
 #### Task 3: 安全強化 (2天)
 
 **3.1 ClamAV 病毒掃描整合**
+
 ```yaml
 # docker-compose.yml 新增服務
 services:
@@ -452,17 +461,17 @@ class VirusScannerService:
     def __init__(self):
         self.clamd_client = clamd.ClamdUnixSocket('/var/run/clamav/clamd.sock')
         self.redis_client = redis.Redis()
-    
+  
     async def scan_file_with_cache(self, file_data: bytes) -> ScanResult:
         # 計算檔案 hash 用於快取
         file_hash = hashlib.sha256(file_data).hexdigest()
         cache_key = f"virus_scan:{file_hash}"
-        
+    
         # 檢查快取
         cached_result = self.redis_client.get(cache_key)
         if cached_result:
             return ScanResult.from_json(cached_result)
-        
+    
         # 執行掃描
         try:
             scan_result = self.clamd_client.scan_stream(file_data)
@@ -471,12 +480,12 @@ class VirusScannerService:
                 details=scan_result or "Clean",
                 scanned_at=datetime.now()
             )
-            
+        
             # 快取結果 (1小時)
             self.redis_client.setex(cache_key, 3600, result.to_json())
-            
+        
             return result
-            
+        
         except Exception as e:
             # 掃描失敗時的降級策略
             logger.warning(f"Virus scan failed: {e}, proceeding with basic validation")
@@ -488,35 +497,36 @@ class VirusScannerService:
 ```
 
 **3.2 檔案名稱安全過濾**
+
 ```python
 class FileSecurityEnforcer:
     """檔案安全強制執行器"""
-    
+  
     DANGEROUS_EXTENSIONS = {'.exe', '.bat', '.cmd', '.scr', '.pif', '.com', '.jar'}
     MAX_FILENAME_LENGTH = 100
-    
+  
     def sanitize_filename(self, filename: str) -> str:
         # 移除路徑遍歷嘗試
         filename = os.path.basename(filename)
-        
+    
         # 移除危險字元
         filename = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', filename)
-        
+    
         # Unicode 正規化
         filename = unicodedata.normalize('NFKD', filename)
-        
+    
         # 檢查副檔名
         ext = os.path.splitext(filename)[1].lower()
         if ext in self.DANGEROUS_EXTENSIONS:
             raise SecurityError(f"危險檔案類型: {ext}")
-        
+    
         # 長度限制
         if len(filename) > self.MAX_FILENAME_LENGTH:
             name, ext = os.path.splitext(filename)
             filename = name[:self.MAX_FILENAME_LENGTH-len(ext)] + ext
-        
-        return filename
     
+        return filename
+  
     def validate_file_structure(self, file_data: bytes, mime_type: str) -> bool:
         """深度檔案結構驗證"""
         if mime_type == 'application/pdf':
@@ -524,54 +534,53 @@ class FileSecurityEnforcer:
         elif mime_type.startswith('image/'):
             return self._validate_image_structure(file_data)
         return True
-    
+  
     def _validate_pdf_structure(self, data: bytes) -> bool:
         try:
             # 基本 PDF 標頭檢查
             if not data.startswith(b'%PDF-'):
                 return False
-                
+            
             # 使用 PyPDF2 深度檢查
             import io
             from PyPDF2 import PdfReader
-            
+        
             pdf_stream = io.BytesIO(data)
             reader = PdfReader(pdf_stream)
-            
+        
             # 檢查是否為有效 PDF
             if len(reader.pages) == 0:
                 return False
-                
+            
             # 檢查頁面內容
             first_page = reader.pages[0]
             text_content = first_page.extract_text()
-            
+        
             # PDF 不應為空白
             return len(text_content.strip()) > 0
-            
+        
         except Exception as e:
             logger.warning(f"PDF validation error: {e}")
             return False
 ```
 
-      **3.3 API Key 加密與審計要求**
+    **3.3 API Key 加密與審計要求**
       ```python
       class VLMKeyKMS:
         def __init__(self, *, master_key: bytes):
           self.master_key = master_key
 
-        async def encrypt(self, plaintext: str, salt: bytes) -> EncryptedSecret:
+    async def encrypt(self, plaintext: str, salt: bytes) -> EncryptedSecret:
           aesgcm = AESGCM(self.master_key)
           nonce = os.urandom(12)
           ciphertext = aesgcm.encrypt(nonce, plaintext.encode("utf-8"), salt)
           return EncryptedSecret(ciphertext=ciphertext, nonce=nonce)
 
-        async def decrypt(self, ciphertext: bytes, nonce: bytes, salt: bytes) -> str:
+    async def decrypt(self, ciphertext: bytes, nonce: bytes, salt: bytes) -> str:
           aesgcm = AESGCM(self.master_key)
           return aesgcm.decrypt(nonce, ciphertext, salt).decode("utf-8")
 
-
-      class VLMKeyAuditLogger:
+    class VLMKeyAuditLogger:
         async def log_event(self, *, user_id: UUID, action: str, provider: str):
           await audit_repo.insert({
             "user_id": user_id,
@@ -580,8 +589,7 @@ class FileSecurityEnforcer:
             "occurred_at": datetime.utcnow()
           })
 
-
-      async def save_user_vlm_key(user_id: UUID, payload: VLMKeyPayload):
+    async def save_user_vlm_key(user_id: UUID, payload: VLMKeyPayload):
         encrypted = await kms.encrypt(payload.api_key, payload.salt)
         await user_vlm_repo.upsert(
           user_id=user_id,
@@ -596,6 +604,7 @@ class FileSecurityEnforcer:
 #### Task 4: 測試策略 (3天)
 
 **4.1 單元測試**
+
 ```python
 # tests/test_vlm_parsing.py
 class TestVLMParsing:
@@ -608,7 +617,7 @@ class TestVLMParsing:
             "main_area_sqm": 65.5,
             "confidence_score": 0.92
         }
-    
+  
     @pytest.mark.asyncio
     async def test_vlm_parsing_success(self, mock_document_data):
         # 模擬 VLM API 回應
@@ -617,20 +626,20 @@ class TestVLMParsing:
                 "result": mock_document_data,
                 "confidence": 0.92
             }
-            
+        
             result = await process_document_vlm("test-doc-id")
-            
+        
             assert result["confidence_score"] >= 0.85
             assert "owner_name" in result["extracted_data"]
             assert "property_address" in result["extracted_data"]
-    
+  
     def test_taiwanese_name_validation(self):
         validator = DocumentValidator()
-        
+    
         # 有效姓名
         assert validator.validate_taiwanese_name("王小明") == True
         assert validator.validate_taiwanese_name("歐陽·娜娜") == True
-        
+    
         # 無效姓名  
         assert validator.validate_taiwanese_name("王123") == False
         assert validator.validate_taiwanese_name("A") == False
@@ -639,12 +648,12 @@ class TestVLMParsing:
     @pytest.mark.asyncio
     async def test_virus_scanning(self):
         scanner = VirusScannerService()
-        
+    
         # 測試乾淨檔案
         clean_file = b"Clean PDF content"
         result = await scanner.scan_file_with_cache(clean_file)
         assert result.is_safe == True
-        
+    
         # 測試 EICAR 測試病毒檔案
         eicar_test = b'X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*'
         result = await scanner.scan_file_with_cache(eicar_test)
@@ -652,6 +661,7 @@ class TestVLMParsing:
 ```
 
 **4.2 整合測試**
+
 ```python
 # tests/test_integration.py  
 class TestDocumentUploadIntegration:
@@ -659,26 +669,26 @@ class TestDocumentUploadIntegration:
     async def test_complete_upload_flow(self, test_client):
         # 準備測試檔案
         test_file = create_mock_property_document()
-        
+    
         # 1. 上傳檔案
         upload_response = await test_client.post(
             "/api/v1/documents/upload-and-parse",
             files={"file": ("test_deed.pdf", test_file, "application/pdf")},
             data={"property_type": "rentals", "document_type": "building_title"}
         )
-        
+    
         assert upload_response.status_code == 200
         document_id = upload_response.json()["document_id"]
-        
+    
         # 2. 等待解析完成
         parsing_result = await poll_until_complete(
             f"/api/v1/documents/{document_id}/parsing-status",
             timeout=30
         )
-        
+    
         assert parsing_result["status"] == "completed"
         assert parsing_result["validation_status"] in ["valid", "needs_review"]
-        
+    
         # 3. 驗證資料庫記錄
         doc_record = await get_document_record(document_id)
         assert doc_record.ocr_status == "completed"
@@ -688,17 +698,18 @@ class TestDocumentUploadIntegration:
     async def test_error_handling_flow(self, test_client):
         # 測試病毒檔案上傳
         virus_file = create_eicar_test_file()
-        
+    
         response = await test_client.post(
             "/api/v1/documents/upload-and-parse",
             files={"file": ("virus.pdf", virus_file, "application/pdf")}
         )
-        
+    
         assert response.status_code == 400
         assert "malicious content" in response.json()["detail"].lower()
 ```
 
 **4.3 效能測試**
+
 ```python
 # tests/test_performance.py
 class TestPerformance:
@@ -710,29 +721,29 @@ class TestPerformance:
             (5 * 1024 * 1024, "5MB"),  # 5MB  
             (10 * 1024 * 1024, "10MB") # 10MB
         ]
-        
+    
         for file_size, label in test_cases:
             test_file = generate_mock_pdf(file_size)
-            
+        
             start_time = time.time()
             response = await upload_document(test_file)
             upload_time = time.time() - start_time
-            
+        
             # 95th percentile 應小於 2 秒
             assert upload_time < 2.0, f"{label} upload took {upload_time:.2f}s"
-    
+  
     @pytest.mark.performance  
     async def test_vlm_processing_speed(self):
         # 測試 VLM 解析速度
         test_documents = load_test_documents()
-        
+    
         processing_times = []
         for doc in test_documents:
             start_time = time.time()
             result = await vlm_parse_document(doc)
             processing_time = time.time() - start_time
             processing_times.append(processing_time)
-        
+    
         # 95th percentile 應小於 8 秒
         percentile_95 = np.percentile(processing_times, 95)
         assert percentile_95 < 8.0, f"95th percentile: {percentile_95:.2f}s"
@@ -785,6 +796,7 @@ export function VLMWidget({ formAdapter, uploadContext, onComplete }: VLMWidgetP
 ### 🚀 部署配置
 
 #### Docker Compose 完整配置
+
 ```yaml
 # docker-compose.yml
 version: '3.8'
@@ -850,6 +862,7 @@ volumes:
 ```
 
 #### 監控配置
+
 ```yaml
 # monitoring/docker-compose.monitoring.yml
 services:
@@ -967,41 +980,41 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    
+  
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
-        
+    
     - name: Install Python dependencies
       run: |
         cd backend/ocr_service
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
-        
+    
     - name: Run Python tests
       run: |
         cd backend/ocr_service
         pytest --cov=src --cov-report=xml tests/
-        
+    
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
         node-version: '18'
-        
+    
     - name: Install Node dependencies
       run: npm install
-      
+  
     - name: Run TypeScript tests
       run: |
         cd apps/web
         npm run test
-        
+    
     - name: Run E2E tests
       run: |
         cd apps/web
         npm run test:e2e
-        
+    
     - name: Build Docker images
       run: |
         docker build -t ocr-service ./backend/ocr_service
@@ -1011,7 +1024,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    
+  
     steps:
     - name: Deploy to production
       run: |
@@ -1046,40 +1059,33 @@ jobs:
 ### 📋 交付清單
 
 **開發交付物**:
-- [x] 完整的功能代碼 (後端 + 前端)
-- [x] 單元測試 (覆蓋率 ≥ 90%)
-- [x] 整合測試套件
-- [x] E2E 測試腳本
-- [x] Docker 部署配置
-- [x] CI/CD Pipeline
+
+- [X] 完整的功能代碼 (後端 + 前端)
+- [X] 單元測試 (覆蓋率 ≥ 90%)
+- [X] 整合測試套件
+- [X] E2E 測試腳本
+- [X] Docker 部署配置
+- [X] CI/CD Pipeline
 
 **文檔交付物**:
-- [x] API 技術文檔 (OpenAPI 3.1)
-- [x] 資料庫 Schema 文檔
-- [x] 部署運維手冊
-- [x] 使用者操作指南
-- [x] 故障排除指南
+
+- [X] API 技術文檔 (OpenAPI 3.1)
+- [X] 資料庫 Schema 文檔
+- [X] 部署運維手冊
+- [X] 使用者操作指南
+- [X] 故障排除指南
 
 **測試報告**:
-- [x] 單元測試覆蓋率報告
-- [x] 效能測試基準報告
-- [x] 安全漏洞掃描報告
-- [x] 用戶驗收測試報告
 
----
+- [X] 單元測試覆蓋率報告
+- [X] 效能測試基準報告
+- [X] 安全漏洞掃描報告
+- [X] 用戶驗收測試報告
 
-## 📞 聯絡資訊
 
-**技術負責人**: Claude AI Assistant
-**專案經理**: 待指派
-**預計完成日期**: 2026-03-04 (4週後)
+**立即行動建議**:
 
-**立即行動建議**: 
-1. 董事長核准開發預算和時程
-2. 指派資深全端工程師
-3. 設定開發環境和 VLM API 帳號
-4. 開始第一階段開發工作
-5. 設計並驗證使用者 API Key 導入體驗（含第二流程與跨看板共用）
+1. 設計並驗證使用者 API Key 導入體驗（含第二流程與跨看板共用）
 
 ---
 

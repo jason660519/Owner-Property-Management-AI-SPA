@@ -25,13 +25,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         # Serve the dashboard index at root
         if self.path == '/' or self.path == '/index.html':
-            self.path = '/dev-dashboard/index.html'
+            self.path = '/project-process/index.html'
         # Serve roadmap.js at root (requested by index.html)
         elif self.path == '/roadmap.js':
-            self.path = '/dev-dashboard/roadmap.js'
+            self.path = '/project-process/roadmap.js'
         # Serve styles.css at root
         elif self.path == '/styles.css':
-            self.path = '/dev-dashboard/styles.css'
+            self.path = '/project-process/styles.css'
             
         return super().do_GET()
 

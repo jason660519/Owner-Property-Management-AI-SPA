@@ -1,3 +1,3 @@
- UPDATE auth.users                                                               
-  SET encrypted_password = crypt('!qaz2wsx3edC', gen_salt('bf'))                
-  WHERE email = 'a0405142777@gmail.com';         
+UPDATE auth.users
+SET raw_user_meta_data = raw_user_meta_data || '{"display_name": "新的顯示名稱"}'::jsonb
+WHERE id = '18359312-1473-4acb-b223-187da0de52ce';

@@ -20,36 +20,23 @@ import {
   type KPILoadingState,
 } from '@/components/dashboard'
 
-interface DashboardStats {
-  totalProperties: number
-  rentedProperties: number
-  vacantProperties: number
-  monthlyIncome: number
-  yearlyIncome: number
-  pendingTasks: number
-}
+import { getLandlordDashboardStats, type LandlordStats } from '@/lib/actions/dashboard'
 
 export default function LandlordDashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [stats, setStats] = useState<LandlordStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // TODO: 從 Supabase 查詢實際數據
-    // 目前使用模擬數據
     const fetchStats = async () => {
       setIsLoading(true)
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      setStats({
-        totalProperties: 12,
-        rentedProperties: 10,
-        vacantProperties: 2,
-        monthlyIncome: 285000,
-        yearlyIncome: 3420000,
-        pendingTasks: 5,
-      })
-      setIsLoading(false)
+      try {
+        const data = await getLandlordDashboardStats()
+        setStats(data)
+      } catch (error) {
+        console.error('Failed to fetch dashboard stats:', error)
+      } finally {
+        setIsLoading(false)
+      }
     }
 
     fetchStats()

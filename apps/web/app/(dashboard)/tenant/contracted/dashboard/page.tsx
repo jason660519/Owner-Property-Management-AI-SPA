@@ -19,53 +19,30 @@ import {
   type KPILoadingState,
 } from '@/components/dashboard'
 
-interface TenantStats {
-  leaseEndDate: string // ISO date string
-  monthlyRent: number
-  depositStatus: 'paid' | 'unpaid' | 'refunding'
-  currentMonthDue: number
-  paymentsMade: number
-  totalPayments: number
-  overdueCount: number
-  nextPaymentDate: string // ISO date string
-  maintenancePending: number
-  maintenanceInProgress: number
-  maintenanceCompleted: number
-  unreadNotifications: number
-}
+import { getTenantDashboardStats, type TenantStats } from '@/lib/actions/dashboard'
 
 export default function ContractedTenantDashboardPage() {
   const [stats, setStats] = useState<TenantStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // TODO: 從 Supabase 查詢實際數據
-    // 目前使用模擬數據
     const fetchStats = async () => {
       setIsLoading(true)
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      setStats({
-        leaseEndDate: '2026-12-31',
-        monthlyRent: 25000,
-        depositStatus: 'paid',
-        currentMonthDue: 25000,
-        paymentsMade: 8,
-        totalPayments: 12,
-        overdueCount: 0,
-        nextPaymentDate: '2026-03-01',
-        maintenancePending: 1,
-        maintenanceInProgress: 1,
-        maintenanceCompleted: 5,
-        unreadNotifications: 3,
-      })
-      setIsLoading(false)
+      try {
+        const data = await getTenantDashboardStats()
+        setStats(data)
+      } catch (error) {
+        console.error('Failed to fetch dashboard stats:', error)
+      } finally {
+        setIsLoading(false)
+      }
     }
 
     fetchStats()
   }, [])
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | undefined) => {
+    if (amount === undefined) return 'NT$ 0'
     return new Intl.NumberFormat('zh-TW', {
       style: 'currency',
       currency: 'TWD',
@@ -73,7 +50,8 @@ export default function ContractedTenantDashboardPage() {
     }).format(amount)
   }
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return '未定'
     const date = new Date(dateString)
     return new Intl.DateTimeFormat('zh-TW', {
       year: 'numeric',
@@ -82,7 +60,8 @@ export default function ContractedTenantDashboardPage() {
     }).format(date)
   }
 
-  const getDaysUntil = (dateString: string) => {
+  const getDaysUntil = (dateString: string | null | undefined) => {
+    if (!dateString) return 0
     const today = new Date()
     const targetDate = new Date(dateString)
     const diffTime = targetDate.getTime() - today.getTime()

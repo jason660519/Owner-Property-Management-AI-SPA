@@ -2,9 +2,9 @@
 
 > **創建日期**: 2026-01-17
 > **創建者**: Project Team
-> **最後修改**: 2026-02-02
+> **最後修改**: 2026-02-06
 > **最後修改者**: Claude Sonnet 4.5
-> **版本**: 2.8 (專注 Web App 策略)
+> **版本**: 2.9 (整合測試檔案管理規範)
 > **適用於**: Claude, GPT, Gemini, DeepSeek 等所有 AI 助手
 > **重要性**: 🔴 **強制遵守** - AI 必須在每次創建或修改文件前檢查本規範
 
@@ -34,7 +34,8 @@
 
 | 規範類型           | 文檔路徑                                                                                               | 強制性 |
 | :----------------- | :----------------------------------------------------------------------------------------------------- | :----- |
-| **檔案命名與歸檔** | [docs/本專案檔案命名規則與新增文件歸檔總則.md](docs/本專案檔案命名規則與新增文件歸檔總則.md)           | 🔴 強制 |
+| **檔案命名與歸檔** | [docs/file-naming-guidelines.md](docs/file-naming-guidelines.md) (含測試檔案管理規範)                 | 🔴 強制 |
+| **測試快速參考**   | [docs/testing/TEST_QUICK_REFERENCE.md](docs/testing/TEST_QUICK_REFERENCE.md)                          | 🟡 推薦 |
 | **AI 協作者識別**  | 見本文件「AI 身份標記規範」章節                                                                        | 🔴 強制 |
 | **通用開發規則**   | [.claude/rules/general.md](.claude/rules/general.md)                                                   | 🔴 強制 |
 | **前端規則**       | [.claude/rules/frontend/react-expo.md](.claude/rules/frontend/react-expo.md)                           | 🔴 強制 |
@@ -131,6 +132,9 @@ AI 在創建文件後必須自我確認：
 - [ ] 是否標記了創建者身份（使用標準 AI 名稱）？
 - [ ] Git Commit 訊息是否加入 `[AI名稱]` 前綴？
 - [ ] 是否避免了在根目錄創建文檔？
+- [ ] **測試文件**: 是否遵循 colocated 測試結構？(放在 `__tests__/` 目錄)
+- [ ] **測試文件**: 是否使用正確的後綴？(`.test.ts` / `.spec.ts`)
+- [ ] **測試文件**: E2E 測試是否放在 `e2e/flows/{module}/` 下？
 
 ---
 
@@ -210,7 +214,10 @@ root/
 │   ├── implementation-plans/ # implementation-plan
 │   ├── product-overview/     # 產品需求與使用場景
 │   ├── technical-selection/  # 技術架構與選型決策
-│   └── file-naming-guidelines.md  # 檔案命名規則與歸檔總則
+│   ├── testing/              # 🧪 測試規範與管理
+│   │   ├── TEST_FILE_MANAGEMENT_STANDARD.md  # 完整測試檔案管理規範
+│   │   └── TEST_QUICK_REFERENCE.md           # 測試快速參考卡
+│   └── file-naming-guidelines.md  # 檔案命名規則與歸檔總則 (v4.0 含測試規範)
 │
 └── scripts/                  # 🔨 自動化腳本
 ```
@@ -357,7 +364,12 @@ npm run dev:stop              # 停止所有服務
 # Testing
 npm run build                 # 透過所有 workspace 執行 build
 npm run lint                  # 透過所有 workspace 執行 lint
-npm run test                  # 執行測試（若各 workspace 有設定）
+npm run test                  # 執行所有單元測試 (Jest)
+npm run test:watch            # 監視模式運行測試
+npm run test:coverage         # 產生測試覆蓋率報告
+npm run test:e2e              # 執行 E2E 測試 (Playwright)
+npm run test:e2e:ui           # E2E 測試互動模式
+npm run test:e2e:report       # 查看 E2E 測試報告
 ```
 
 ---
@@ -427,17 +439,18 @@ supabase/migrations/20260130120000_init.sql     # ✅ 正確格式
 
 ## 📝 版本修訂記錄
 
-| 日期       | 版本 | 修改者                 | 修改內容                                                                        |
-| ---------- | ---- | ---------------------- | ------------------------------------------------------------------------------- |
-| 2026-02-02 | 2.8  | Claude Sonnet 4.5      | 更新專案開發策略：專注 Next.js Web App + PWA，暫停 Expo Mobile 開發             |
-| 2026-02-02 | 2.7  | Antigravity            | 更新 docs/ 目錄結構，新增 Access Matrix 權限設計文件規範與 IAM 資料庫定義       |
-| 2026-02-01 | 2.6  | Gemini 3 Pro (Preview) | 更新 docs/ 目錄結構，反映實際檔案歸檔位置                                       |
-| 2026-02-01 | 2.5  | Gemini 3 Pro (Preview) | 新增 UI/UX 設計規範強制指引；整理設計文件資料夾結構；新增 Gemini 3 Pro 模型識別 |
-| 2026-01-30 | 2.3  | Claude Opus 4.5        | 更新 AI 模型列表（新增 Claude Opus 4.5、Gemini 2.5 Pro、GPT-4.5）               |
-| 2026-01-30 | 2.2  | Claude Sonnet 4.5      | 新增 AI 協作者識別規範、Metadata 標準、Git Commit 格式要求                      |
-| 2026-01-30 | 2.1  | Project Team           | 升級為 Monorepo 架構 (Turborepo)，加入 `apps/web` 與 `apps/mobile` 路徑規範     |
-| 2026-01-22 | 2.0  | Project Team           | 大幅擴充 AI 行為約束，添加文件命名檢查清單                                      |
-| 2026-01-17 | 1.0  | Project Team           | 初始版本                                                                        |
+| 日期       | 版本 | 修改者            | 修改內容                                                                                                        |
+| ---------- | ---- | ----------------- | --------------------------------------------------------------------------------------------------------------- |
+| 2026-02-06 | 2.9  | Claude Sonnet 4.5 | 整合測試檔案管理規範：更新檔案命名規範參考、新增測試目錄結構、加入測試檢查清單、擴充測試指令文檔               |
+| 2026-02-02 | 2.8  | Claude Sonnet 4.5 | 更新專案開發策略：專注 Next.js Web App + PWA，暫停 Expo Mobile 開發                                             |
+| 2026-02-02 | 2.7  | Antigravity       | 更新 docs/ 目錄結構，新增 Access Matrix 權限設計文件規範與 IAM 資料庫定義                                       |
+| 2026-02-01 | 2.6  | Gemini 3 Pro      | 更新 docs/ 目錄結構，反映實際檔案歸檔位置                                                                       |
+| 2026-02-01 | 2.5  | Gemini 3 Pro      | 新增 UI/UX 設計規範強制指引；整理設計文件資料夾結構；新增 Gemini 3 Pro 模型識別                                 |
+| 2026-01-30 | 2.3  | Claude Opus 4.5   | 更新 AI 模型列表（新增 Claude Opus 4.5、Gemini 2.5 Pro、GPT-4.5）                                               |
+| 2026-01-30 | 2.2  | Claude Sonnet 4.5 | 新增 AI 協作者識別規範、Metadata 標準、Git Commit 格式要求                                                      |
+| 2026-01-30 | 2.1  | Project Team      | 升級為 Monorepo 架構 (Turborepo)，加入 `apps/web` 與 `apps/mobile` 路徑規範                                     |
+| 2026-01-22 | 2.0  | Project Team      | 大幅擴充 AI 行為約束，添加文件命名檢查清單                                                                      |
+| 2026-01-17 | 1.0  | Project Team      | 初始版本                                                                                                        |
 
 ---
 

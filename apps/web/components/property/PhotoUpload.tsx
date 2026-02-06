@@ -14,8 +14,9 @@ import heic2any from 'heic2any'
 
 export interface Photo {
   id: string
-  url: string // Preview URL (blob or uploaded URL)
-  file: File | null // Original file for upload
+  url: string // Preview URL (data URL or uploaded URL)
+  file: File | null // Original file for upload（不會被草稿持久化）
+  name?: string // 原始檔名（用於從 data URL 還原 File）
 }
 
 interface PhotoUploadProps {
@@ -50,6 +51,24 @@ export function PhotoUpload({
   const [error, setError] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // 將 File 轉為 data URL，方便儲存在 localStorage 中做為草稿
+  const fileToDataUrl = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          resolve(reader.result)
+        } else {
+          reject(new Error('無法讀取檔案內容'))
+        }
+      }
+      reader.onerror = () => {
+        reject(reader.error || new Error('檔案讀取失敗'))
+      }
+      reader.readAsDataURL(file)
+    })
+  }
 
   const validateFile = (file: File): string | null => {
     // Check file type by MIME type
@@ -149,12 +168,13 @@ export function PhotoUpload({
         }
       }
 
-      // Create preview URL
-      const url = URL.createObjectURL(processedFile)
+      // 使用 data URL 作為預覽與草稿儲存來源
+      const url = await fileToDataUrl(processedFile)
       validFiles.push({
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         url,
         file: processedFile,
+        name: processedFile.name,
       })
     }
 
@@ -195,10 +215,6 @@ export function PhotoUpload({
   }
 
   const handleDeletePhoto = (photoId: string) => {
-    const photoToDelete = photos.find((p) => p.id === photoId)
-    if (photoToDelete && photoToDelete.url.startsWith('blob:')) {
-      URL.revokeObjectURL(photoToDelete.url)
-    }
     onChange(photos.filter((p) => p.id !== photoId))
   }
 
@@ -304,11 +320,6 @@ export function PhotoUpload({
               variant="ghost"
               size="sm"
               onClick={() => {
-                photos.forEach((photo) => {
-                  if (photo.url.startsWith('blob:')) {
-                    URL.revokeObjectURL(photo.url)
-                  }
-                })
                 onChange([])
               }}
             >

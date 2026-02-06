@@ -35,7 +35,11 @@ npm install
 cd apps/web
 npm run dev
 
-# 3. 訪問應用
+# 3. 啟動開發進度儀表板 (Project Process Dashboard)
+# 訪問: http://localhost:3001/project-process/index.html
+./scripts/start-dashboard.sh
+
+# 4. 訪問應用
 # 電腦: http://localhost:3000
 # 手機: http://[你的IP]:3000
 ```

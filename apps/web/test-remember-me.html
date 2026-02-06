@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>測試「記住我」功能</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .test-section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        button {
+            background: #7C3AED;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #6D28D9;
+        }
+        .result {
+            background: #333;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .pass { color: #10b981; }
+        .fail { color: #ef4444; }
+        input {
+            padding: 8px;
+            margin: 5px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background: #333;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 測試「記住我」功能</h1>
+    
+    <div class="test-section">
+        <h2>1. 清除所有儲存的資料</h2>
+        <button onclick="clearStorage()">清除 localStorage</button>
+        <div id="clearResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. 模擬儲存登入資料</h2>
+        <input type="email" id="testEmail" placeholder="Email" value="test@example.com">
+        <input type="password" id="testPassword" placeholder="Password" value="TestPass123">
+        <br>
+        <button onclick="saveCredentials()">儲存帳號密碼</button>
+        <div id="saveResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. 檢查儲存的資料</h2>
+        <button onclick="checkStorage()">檢查 localStorage</button>
+        <div id="checkResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. 模擬頁面重新載入 (讀取資料)</h2>
+        <button onclick="loadCredentials()">讀取儲存的帳號密碼</button>
+        <div id="loadResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>5. 測試更新密碼</h2>
+        <input type="password" id="newPassword" placeholder="新密碼" value="NewPass456">
+        <button onclick="updatePassword()">更新密碼</button>
+        <div id="updateResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>6. 開啟登入頁面</h2>
+        <button onclick="window.open('http://localhost:3000/login', '_blank')">開啟 http://localhost:3000/login</button>
+        <p style="color: #999; font-size: 14px;">
+            測試步驟：<br>
+            1. 點擊上方按鈕「儲存帳號密碼」<br>
+            2. 開啟登入頁面<br>
+            3. 確認 email 和密碼已自動填入<br>
+            4. 勾選「記住我」後登入<br>
+            5. 重新訪問登入頁面確認資料仍然存在
+        </p>
+    </div>
+
+    <script>
+        function clearStorage() {
+            localStorage.removeItem('rememberedEmail');
+            localStorage.removeItem('rememberedPassword');
+            document.getElementById('clearResult').innerHTML = 
+                '<span class="pass">✓ 已清除所有儲存資料</span>';
+        }
+
+        function saveCredentials() {
+            const email = document.getElementById('testEmail').value;
+            const password = document.getElementById('testPassword').value;
+            
+            localStorage.setItem('rememberedEmail', email);
+            localStorage.setItem('rememberedPassword', password);
+            
+            document.getElementById('saveResult').innerHTML = 
+                `<span class="pass">✓ 已儲存</span><br>Email: ${email}<br>Password: ${password}`;
+        }
+
+        function checkStorage() {
+            const email = localStorage.getItem('rememberedEmail');
+            const password = localStorage.getItem('rememberedPassword');
+            
+            if (email && password) {
+                document.getElementById('checkResult').innerHTML = 
+                    `<span class="pass">✓ localStorage 中有資料</span><br>Email: ${email}<br>Password: ${password}`;
+            } else {
+                document.getElementById('checkResult').innerHTML = 
+                    '<span class="fail">✗ localStorage 中沒有儲存的登入資料</span>';
+            }
+        }
+
+        function loadCredentials() {
+            const email = localStorage.getItem('rememberedEmail');
+            const password = localStorage.getItem('rememberedPassword');
+            
+            if (email && password) {
+                document.getElementById('loadResult').innerHTML = 
+                    `<span class="pass">✓ 成功讀取儲存的資料</span><br>
+                    Email: ${email}<br>
+                    Password: ${password}<br>
+                    RememberMe: true`;
+            } else {
+                document.getElementById('loadResult').innerHTML = 
+                    '<span class="fail">✗ 沒有儲存的資料可讀取</span>';
+            }
+        }
+
+        function updatePassword() {
+            const email = localStorage.getItem('rememberedEmail') || 'test@example.com';
+            const newPassword = document.getElementById('newPassword').value;
+            
+            localStorage.setItem('rememberedEmail', email);
+            localStorage.setItem('rememberedPassword', newPassword);
+            
+            document.getElementById('updateResult').innerHTML = 
+                `<span class="pass">✓ 已更新密碼</span><br>
+                Email: ${email}<br>
+                新密碼: ${newPassword}`;
+        }
+
+        // 自動檢查初始狀態
+        window.onload = function() {
+            checkStorage();
+        };
+    </script>
+</body>
+</html>

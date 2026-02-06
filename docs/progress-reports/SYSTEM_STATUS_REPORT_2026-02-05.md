@@ -175,7 +175,7 @@ backend/ocr_service/
 | **服務狀態** | ✅ 運行中 | PID: 85204 |
 | **連接埠** | ✅ 3001 | 正常監聽 |
 | **服務類型** | HTTP Server | Python SimpleHTTPServer |
-| **工作目錄** | ✅ 正常 | `/dev-dashboard` |
+| **工作目錄** | ✅ 正常 | `/project-process` |
 
 ### 2.2 連接埠配置
 
@@ -184,7 +184,7 @@ backend/ocr_service/
 
 ```bash
 PORT=3001
-DIR="$(dirname "$0")/../dev-dashboard"
+DIR="$(dirname "$0")/.."
 cd "$DIR" && python3 -m http.server $PORT
 ```
 
@@ -215,7 +215,6 @@ $ curl http://localhost:3001/
 ./scripts/start-dashboard.sh
 
 # 或手動啟動
-cd dev-dashboard
 python3 -m http.server 3001
 ```
 
@@ -252,7 +251,7 @@ python3 -m http.server 3001
 ### 4.2 開發進度追蹤系統
 
 1. **靜態服務**：使用 Python HTTP Server 提供靜態網頁服務
-2. **資料更新**：進度資料儲存在 `dev-dashboard/roadmap.js`，需手動更新
+2. **資料更新**：進度資料儲存在 `project-process/roadmap.js`，需手動更新
 3. **存取權限**：無身份驗證機制，建議僅在內部網路使用
 4. **瀏覽器兼容性**：使用現代瀏覽器（Chrome, Firefox, Safari, Edge）以獲得最佳體驗
 
@@ -290,7 +289,6 @@ python -m src.api.main
 ./scripts/start-dashboard.sh
 
 # 方法二：手動啟動
-cd dev-dashboard
 python3 -m http.server 3001
 ```
 
@@ -371,7 +369,7 @@ supabase status
 
 ### 8.1 已更新
 - ✅ `scripts/start-dashboard.sh` - 連接埠設定為 3001
-- ✅ `dev-dashboard/index.html` - 參考連接埠 9323（E2E 測試）
+- ✅ `project-process/index.html` - 參考連接埠 9323（E2E 測試）
 
 ### 8.2 建議更新
 - 📝 `README.md` - 新增開發進度追蹤系統位址說明
