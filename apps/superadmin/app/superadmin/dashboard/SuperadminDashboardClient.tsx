@@ -1,6 +1,6 @@
 'use client';
 
-import { Users, Home, Key, Shield, FileText, Settings } from 'lucide-react';
+import { Users, Home, Key, Shield, FileText, Settings, Activity, Database, Server, Cpu } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
@@ -11,6 +11,8 @@ import {
   type KPILoadingState,
 } from '@/components/dashboard';
 import type { AdminStats } from '@/lib/actions/dashboard';
+import { SystemGrowthChart } from '@/components/dashboard/SystemGrowthChart';
+import { ActivityLogTable } from '@/components/dashboard/ActivityLogTable';
 
 const BASE = '/superadmin';
 
@@ -81,100 +83,140 @@ export default function SuperadminDashboardClient({ stats }: { stats: AdminStats
     >
       <StatsGrid kpis={kpis} loading={kpiLoadingStates} columns={4} className="mb-8" />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>快速操作</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Link
-              href={`${BASE}/users`}
-              className="flex items-center gap-3 p-4 rounded-lg border border-[#333333] hover:border-[#7C3AED] hover:bg-[#7C3AED]/5 transition-colors group"
-            >
-              <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center group-hover:bg-blue-500/20">
-                <Users className="w-5 h-5 text-blue-500" />
-              </div>
-              <div>
-                <h4 className="text-white font-medium">用戶管理</h4>
-                <p className="text-sm text-[#999999]">管理系統用戶與權限</p>
-              </div>
-            </Link>
-            <Link
-              href={`${BASE}/groups`}
-              className="flex items-center gap-3 p-4 rounded-lg border border-[#333333] hover:border-[#7C3AED] hover:bg-[#7C3AED]/5 transition-colors group"
-            >
-              <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center group-hover:bg-purple-500/20">
-                <Shield className="w-5 h-5 text-purple-500" />
-              </div>
-              <div>
-                <h4 className="text-white font-medium">權限群組</h4>
-                <p className="text-sm text-[#999999]">設定角色與存取控制</p>
-              </div>
-            </Link>
-            <Link
-              href={`${BASE}/dashboard/role_access_matrix`}
-              className="flex items-center gap-3 p-4 rounded-lg border border-[#333333] hover:border-[#7C3AED] hover:bg-[#7C3AED]/5 transition-colors group"
-            >
-              <div className="w-10 h-10 bg-indigo-500/10 rounded-lg flex items-center justify-center group-hover:bg-indigo-500/20">
-                <Shield className="w-5 h-5 text-indigo-500" />
-              </div>
-              <div>
-                <h4 className="text-white font-medium">權限矩陣 (Access Matrix)</h4>
-                <p className="text-sm text-[#999999]">管理角色與資源權限</p>
-              </div>
-            </Link>
-            <Link
-              href={`${BASE}/dashboard/supabase`}
-              className="flex items-center gap-3 p-4 rounded-lg border border-[#333333] hover:border-[#7C3AED] hover:bg-[#7C3AED]/5 transition-colors group"
-            >
-              <div className="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center group-hover:bg-green-500/20">
-                <Shield className="w-5 h-5 text-green-500" />
-              </div>
-              <div>
-                <h4 className="text-white font-medium">Supabase 管理</h4>
-                <p className="text-sm text-[#999999]">資料庫監控與 RLS 管理</p>
-              </div>
-            </Link>
-            <Link
-              href={`${BASE}/logs`}
-              className="flex items-center gap-3 p-4 rounded-lg border border-[#333333] hover:border-[#7C3AED] hover:bg-[#7C3AED]/5 transition-colors group"
-            >
-              <div className="w-10 h-10 bg-yellow-500/10 rounded-lg flex items-center justify-center group-hover:bg-yellow-500/20">
-                <FileText className="w-5 h-5 text-yellow-500" />
-              </div>
-              <div>
-                <h4 className="text-white font-medium">系統日誌</h4>
-                <p className="text-sm text-[#999999]">查看操作記錄與錯誤</p>
-              </div>
-            </Link>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className="lg:col-span-2">
+            <SystemGrowthChart />
+        </div>
+        <div className="lg:col-span-1">
+             <Card className="h-full">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Activity className="w-5 h-5" />
+                    系統健康狀態
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-[#2A2A2A] rounded-lg">
+                    <div className="flex items-center gap-3">
+                        <Server className="w-4 h-4 text-gray-400" />
+                        <span className="text-sm text-[#999999]">API 伺服器</span>
+                    </div>
+                    <span className="text-sm font-medium text-green-500 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                        正常運作
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-[#2A2A2A] rounded-lg">
+                    <div className="flex items-center gap-3">
+                        <Database className="w-4 h-4 text-gray-400" />
+                        <span className="text-sm text-[#999999]">資料庫連線</span>
+                    </div>
+                    <span className="text-sm font-medium text-green-500 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                        已連線 (12ms)
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-[#2A2A2A] rounded-lg">
+                    <div className="flex items-center gap-3">
+                        <Cpu className="w-4 h-4 text-gray-400" />
+                        <span className="text-sm text-[#999999]">CPU 使用率</span>
+                    </div>
+                    <span className="text-sm font-medium text-white">12%</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-[#2A2A2A] rounded-lg">
+                    <div className="flex items-center gap-3">
+                        <Server className="w-4 h-4 text-gray-400" />
+                        <span className="text-sm text-[#999999]">記憶體使用</span>
+                    </div>
+                    <span className="text-sm font-medium text-white">4.2 GB / 16 GB</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-[#2A2A2A] rounded-lg">
+                     <div className="flex items-center gap-3">
+                        <Database className="w-4 h-4 text-gray-400" />
+                        <span className="text-sm text-[#999999]">儲存空間</span>
+                    </div>
+                    <span className="text-sm font-medium text-white">45.2 GB / 1 TB</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+        </div>
+      </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>系統狀態</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-[#2A2A2A] rounded-lg">
-                <span className="text-sm text-[#999999]">API 狀態</span>
-                <span className="text-sm font-medium text-green-500">正常運作</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-[#2A2A2A] rounded-lg">
-                <span className="text-sm text-[#999999]">資料庫連線</span>
-                <span className="text-sm font-medium text-green-500">已連線</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-[#2A2A2A] rounded-lg">
-                <span className="text-sm text-[#999999]">儲存空間使用量</span>
-                <span className="text-sm font-medium text-white">45.2 GB / 1 TB</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-[#2A2A2A] rounded-lg">
-                <span className="text-sm text-[#999999]">系統版本</span>
-                <span className="text-sm font-medium text-white">v1.0.0-beta</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+         <div className="lg:col-span-2">
+             <ActivityLogTable />
+         </div>
+         <div className="lg:col-span-1">
+            <Card className="h-full">
+            <CardHeader>
+                <CardTitle>快速操作</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+                <Link
+                href={`${BASE}/users`}
+                className="flex items-center gap-3 p-4 rounded-lg border border-[#333333] hover:border-[#7C3AED] hover:bg-[#7C3AED]/5 transition-colors group"
+                >
+                <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center group-hover:bg-blue-500/20">
+                    <Users className="w-5 h-5 text-blue-500" />
+                </div>
+                <div>
+                    <h4 className="text-white font-medium">用戶管理</h4>
+                    <p className="text-sm text-[#999999]">管理系統用戶</p>
+                </div>
+                </Link>
+                <Link
+                href={`${BASE}/groups`}
+                className="flex items-center gap-3 p-4 rounded-lg border border-[#333333] hover:border-[#7C3AED] hover:bg-[#7C3AED]/5 transition-colors group"
+                >
+                <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center group-hover:bg-purple-500/20">
+                    <Shield className="w-5 h-5 text-purple-500" />
+                </div>
+                <div>
+                    <h4 className="text-white font-medium">權限群組</h4>
+                    <p className="text-sm text-[#999999]">角色存取控制</p>
+                </div>
+                </Link>
+                <Link
+                href={`${BASE}/dashboard/role_access_matrix`}
+                className="flex items-center gap-3 p-4 rounded-lg border border-[#333333] hover:border-[#7C3AED] hover:bg-[#7C3AED]/5 transition-colors group"
+                >
+                <div className="w-10 h-10 bg-indigo-500/10 rounded-lg flex items-center justify-center group-hover:bg-indigo-500/20">
+                    <Shield className="w-5 h-5 text-indigo-500" />
+                </div>
+                <div>
+                    <h4 className="text-white font-medium">權限矩陣</h4>
+                    <p className="text-sm text-[#999999]">權限總覽</p>
+                </div>
+                </Link>
+                <Link
+                href={`${BASE}/dashboard/supabase`}
+                className="flex items-center gap-3 p-4 rounded-lg border border-[#333333] hover:border-[#7C3AED] hover:bg-[#7C3AED]/5 transition-colors group"
+                >
+                <div className="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center group-hover:bg-green-500/20">
+                    <Database className="w-5 h-5 text-green-500" />
+                </div>
+                <div>
+                    <h4 className="text-white font-medium">Supabase 管理</h4>
+                    <p className="text-sm text-[#999999]">資料庫監控</p>
+                </div>
+                </Link>
+                <Link
+                href={`${BASE}/logs`}
+                className="flex items-center gap-3 p-4 rounded-lg border border-[#333333] hover:border-[#7C3AED] hover:bg-[#7C3AED]/5 transition-colors group"
+                >
+                <div className="w-10 h-10 bg-yellow-500/10 rounded-lg flex items-center justify-center group-hover:bg-yellow-500/20">
+                    <FileText className="w-5 h-5 text-yellow-500" />
+                </div>
+                <div>
+                    <h4 className="text-white font-medium">系統日誌</h4>
+                    <p className="text-sm text-[#999999]">查看操作記錄</p>
+                </div>
+                </Link>
+            </CardContent>
+            </Card>
+         </div>
       </div>
     </DashboardLayout>
   );

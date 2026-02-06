@@ -1,6 +1,12 @@
 'use client';
 
 import React from 'react';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'outline' | 'ghost';
@@ -15,11 +21,11 @@ export function Button({
   className = '',
   ...props
 }: ButtonProps) {
-  const base = 'inline-flex items-center justify-center font-medium rounded-lg transition-colors disabled:opacity-50';
+  const base = 'inline-flex items-center justify-center font-medium rounded-md transition-colors disabled:opacity-50';
   const variants = {
-    primary: 'bg-[#7C3AED] text-white hover:bg-[#6D28D9]',
-    outline: 'border border-[#333333] text-white hover:border-[#7C3AED] hover:bg-[#7C3AED]/10',
-    ghost: 'text-white hover:bg-[#2A2A2A]',
+    primary: 'bg-brand-DEFAULT text-white hover:bg-brand-alt',
+    outline: 'border border-border-DEFAULT text-white hover:border-brand-DEFAULT hover:bg-brand-DEFAULT/10',
+    ghost: 'text-white hover:bg-bg-tertiary',
   };
   const sizes = {
     sm: 'px-4 py-2 text-sm',
@@ -28,7 +34,7 @@ export function Button({
   };
   return (
     <button
-      className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
+      className={cn(base, variants[variant], sizes[size], className)}
       {...props}
     >
       {children}

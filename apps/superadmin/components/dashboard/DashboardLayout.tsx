@@ -12,6 +12,7 @@ export function DashboardLayout({
   greeting,
   children,
   headerActions,
+  currentRole, // Added currentRole
   className = '',
 }: {
   pageTitle: string;
@@ -19,6 +20,7 @@ export function DashboardLayout({
   greeting?: string;
   children: React.ReactNode;
   headerActions?: React.ReactNode;
+  currentRole?: string; // Added type definition
   className?: string;
 }) {
   return (

@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 
 const MAIN_SITE_URL = process.env.NEXT_PUBLIC_MAIN_SITE_URL || 'http://localhost:3000';
 
-export default function SuperadminLoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const reason = searchParams.get('reason');
@@ -52,9 +52,6 @@ export default function SuperadminLoginPage() {
     }
   };
 
-  // Use Supabase client-side sign in - we need to create API route or use Supabase directly
-  // For superadmin app we use same Supabase; login can be done client-side with createClient
-  // So we need an api route that just returns 404 and we do client-side auth. Let me use client-side Supabase auth instead.
   return (
     <div className="min-h-screen bg-[#1A1A1A] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -98,7 +95,7 @@ export default function SuperadminLoginPage() {
           </div>
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-[#999999] mb-1">
-              密碼
+              Password
             </label>
             <input
               id="password"
@@ -107,22 +104,26 @@ export default function SuperadminLoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               className="w-full px-3 py-2 border border-[#333333] rounded-lg bg-[#1A1A1A] text-white placeholder-[#666666] focus:ring-2 focus:ring-[#7C3AED]"
+              placeholder="••••••••"
             />
           </div>
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3 bg-[#7C3AED] text-white font-medium rounded-lg hover:bg-[#6D28D9] disabled:opacity-50"
+            className="w-full py-2 bg-[#7C3AED] text-white font-medium rounded-lg hover:bg-[#6D28D9] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? '登入中...' : '登入'}
           </button>
         </form>
-        <p className="text-center text-[#666666] text-sm mt-6">
-          <a href={MAIN_SITE_URL} className="text-[#7C3AED] hover:underline">
-            前往主站 (房東 / 租客 / 買家)
-          </a>
-        </p>
       </div>
     </div>
+  );
+}
+
+export default function SuperadminLoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#1A1A1A] flex items-center justify-center text-white">Loading...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

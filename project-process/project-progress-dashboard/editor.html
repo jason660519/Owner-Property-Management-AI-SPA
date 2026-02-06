@@ -177,7 +177,8 @@
 
                 async loadFile() {
                     try {
-                        const response = await fetch('/' + this.currentPath);
+                        // 使用相對路徑，讓例如 "../features/xxx.html" 可以從目前目錄正確解析
+                        const response = await fetch(this.currentPath);
                         if (!response.ok) throw new Error('無法載入檔案');
                         this.content = await response.text();
                         

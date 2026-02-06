@@ -10,15 +10,6 @@ import { unstable_noStore as noStore } from 'next/cache'
 
 // --- Types ---
 
-export interface AdminStats {
-  totalUsers: number
-  totalProperties: number
-  activeRentals: number
-  activeListings: number
-  totalRevenue: number // Mocked for now or sum of all transactions
-  pendingVerifications: number
-}
-
 export interface LandlordStats {
   totalProperties: number
   rentedProperties: number
@@ -138,62 +129,6 @@ export async function getPotentialTenantViewings(): Promise<TenantViewing[]> {
   } catch (error) {
     console.error('Error fetching potential tenant viewings:', error)
     return []
-  }
-}
-
-/**
- * Fetch statistics for Superadmin Dashboard
- */
-export async function getAdminDashboardStats(): Promise<AdminStats> {
-  noStore()
-  const supabase = await createClient()
-
-  try {
-    // 1. Total Users
-    const { count: totalUsers } = await supabase
-      .from('users_profile')
-      .select('*', { count: 'exact', head: true })
-
-    // 2. Total Properties (Sales + Rentals)
-    const { count: salesCount } = await supabase
-      .from('property_sales')
-      .select('*', { count: 'exact', head: true })
-    
-    const { count: rentalsCount } = await supabase
-      .from('property_rentals')
-      .select('*', { count: 'exact', head: true })
-
-    // 3. Active Rentals (Status = 'rented' or similar, assuming 'occupied' or checking leases)
-    // Checking property_rentals status
-    const { count: activeRentals } = await supabase
-      .from('property_rentals')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'rented')
-
-    // 4. Active Listings (Sales available)
-    const { count: activeListings } = await supabase
-      .from('property_sales')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'available')
-
-    return {
-      totalUsers: totalUsers || 0,
-      totalProperties: (salesCount || 0) + (rentalsCount || 0),
-      activeRentals: activeRentals || 0,
-      activeListings: activeListings || 0,
-      totalRevenue: 0, // TODO: Implement revenue calculation from platform fees
-      pendingVerifications: 0, // TODO: Implement verification logic
-    }
-  } catch (error) {
-    console.error('Error fetching admin stats:', error)
-    return {
-      totalUsers: 0,
-      totalProperties: 0,
-      activeRentals: 0,
-      activeListings: 0,
-      totalRevenue: 0,
-      pendingVerifications: 0,
-    }
   }
 }
 
