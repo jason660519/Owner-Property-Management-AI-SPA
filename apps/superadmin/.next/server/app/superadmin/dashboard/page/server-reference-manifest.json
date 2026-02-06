@@ -1,0 +1,20 @@
+{
+  "node": {
+    "008f61372eb2e31abf830f8e64be1e8c18329e3ad1": {
+      "workers": {
+        "app/superadmin/dashboard/page": {
+          "moduleId": 71564,
+          "async": false,
+          "exportedName": "getAdminDashboardStats",
+          "filename": "apps/superadmin/lib/actions/dashboard.ts"
+        }
+      },
+      "layer": {
+        "app/superadmin/dashboard/page": "rsc"
+      },
+      "exportedName": "getAdminDashboardStats",
+      "filename": "apps/superadmin/lib/actions/dashboard.ts"
+    }
+  },
+  "edge": {}
+}

@@ -96,7 +96,7 @@ const ROLE_METADATA: RoleMetadata[] = [
     description: '系統管理員',
     icon: Shield,
     color: 'text-red-500',
-    dashboardPath: '/admin/dashboard',
+    dashboardPath: (process.env.NEXT_PUBLIC_SUPERADMIN_URL || 'http://localhost:3001') + '/superadmin/dashboard',
   },
 ]
 
@@ -141,7 +141,11 @@ export function RoleSwitcher({
   const handleRoleChange = (newRole: string) => {
     const targetRole = roles.find((r) => r.role === newRole)
     if (targetRole) {
-      router.push(targetRole.dashboardPath)
+      if (targetRole.dashboardPath.startsWith('http')) {
+        window.location.href = targetRole.dashboardPath
+      } else {
+        router.push(targetRole.dashboardPath)
+      }
     }
   }
 

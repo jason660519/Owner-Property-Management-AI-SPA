@@ -4,7 +4,8 @@ import os
 import sys
 import mimetypes
 
-PORT = 3001
+# Port 3001 保留給 Superadmin 後台 (apps/superadmin)；專案進度儀表板使用 3002
+PORT = int(os.environ.get('PORT', 3002))
 
 # Ensure correct MIME types and encoding
 mimetypes.add_type('text/markdown; charset=utf-8', '.md')
@@ -38,12 +39,26 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         parsed_path = urlparse(self.path)
         path_only = parsed_path.path
 
-        # Redirect root to the legacy dashboard
+        # Redirect root to the project progress dashboard
         if path_only == '/' or path_only == '/index.html':
             self.send_response(302)
-            self.send_header('Location', '/project-process/legacy-dashboard/index.html')
+            self.send_header('Location', '/project-process/project-progress-dashboard/index.html')
             self.end_headers()
             return
+
+        # Redirect /project-process/ to the project progress dashboard
+        if path_only == '/project-process/':
+             self.send_response(302)
+             self.send_header('Location', '/project-process/project-progress-dashboard/index.html')
+             self.end_headers()
+             return
+
+        # Redirect /project-process/ to the project progress dashboard (legacy support for old path structure)
+        if path_only == '/project-process/':
+             self.send_response(302)
+             self.send_header('Location', '/project-process/project-progress-dashboard/index.html')
+             self.end_headers()
+             return
             
         # Serve roadmap.js at root (requested by index.html)
         elif path_only == '/roadmap.js':
@@ -65,10 +80,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         parsed_path = urlparse(self.path)
         path_only = parsed_path.path
 
-        # Redirect root to the legacy dashboard
+        # Redirect root to the project progress dashboard
         if path_only == '/' or path_only == '/index.html':
             self.send_response(302)
-            self.send_header('Location', '/project-process/legacy-dashboard/index.html')
+            self.send_header('Location', '/project-process/project-progress-dashboard/index.html')
             self.end_headers()
             return
             

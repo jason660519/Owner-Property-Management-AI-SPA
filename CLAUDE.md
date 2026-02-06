@@ -184,7 +184,8 @@ root/
 ├── turbo.json                # Turborepo 配置
 │
 ├── apps/                     # 應用程式
-│   ├── web/                  # 🌐 Next.js Web App + PWA (Port 3000) ✅ 主要開發
+│   ├── web/                  # 🌐 Next.js Web App + PWA (Port 3000) ✅ 房東/租客/買家
+│   ├── superadmin/           # 🔐 Next.js Superadmin 後台 (Port 3001) 超級管理員專用
 │   └── mobile/               # 📱 Expo App (已暫停開發，代碼保留)
 │
 ├── packages/                 # 共用套件
@@ -357,7 +358,8 @@ supabase status               # 檢查服務狀態
 # Workspace 開發
 npm install                   # 安裝所有依賴
 ./start-dev.sh both           # 同時啟動 Web & Mobile
-npm run dev:web               # 僅啟動 Web (Next.js)
+npm run dev:web               # 僅啟動 Web 主站 (Next.js, Port 3000)
+npm run dev:superadmin       # 僅啟動 Superadmin 後台 (Next.js, Port 3001)
 npm run dev:mobile            # 僅啟動 Mobile (Expo)
 npm run dev:stop              # 停止所有服務
 

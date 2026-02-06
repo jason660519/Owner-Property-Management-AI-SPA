@@ -2,11 +2,12 @@
 #!/bin/bash
 # Start the Project Process Dashboard
 # Serves the project root so /project-process/ URLs work correctly
-PORT=3001
+# Port 3001 保留給 Superadmin 後台 (npm run dev:superadmin)；專案進度儀表板使用 3002
+export PORT=${PORT:-3002}
 # Get the project root directory (parent of scripts directory)
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-echo "Starting Project Process Dashboard on http://localhost:$PORT/project-process/legacy-dashboard/index.html"
+echo "Starting Project Process Dashboard on http://localhost:${PORT}/project-process/project-progress-dashboard/index.html"
 echo "Serving from root: $PROJECT_ROOT"
 echo "Press Ctrl+C to stop"
 

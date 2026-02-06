@@ -40,7 +40,7 @@ App (Root)
 │   ├── /landlord/dashboard    # 房東儀表板
 │   ├── /tenant/dashboard      # 租客儀表板
 │   ├── /agent/dashboard       # 經紀人儀表板
-│   ├── /super-admin/dashboard # 超級管理員儀表板
+│   ├── (super_admin → 導向 http://localhost:3001/superadmin/dashboard 獨立站)
 │   └── /profile               # 個人資料頁（所有角色共用）
 │
 └── middleware.ts              # 路由守衛 (Route Guard)
@@ -83,7 +83,7 @@ App (Root)
 │  6. 根據角色重定向到對應 Dashboard                                 │
 │     • landlord → /landlord/dashboard                            │
 │     • tenant → /tenant/dashboard                                │
-│     • super_admin → /super-admin/dashboard                      │
+│     • super_admin → http://localhost:3001/superadmin/dashboard   │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -208,7 +208,7 @@ App (Root)
 
 ```typescript
 // 受保護的路由
-const protectedRoutes = ['/landlord', '/super-admin', '/tenant', '/buyer'];
+const protectedRoutes = ['/landlord', '/tenant', '/buyer']; // super_admin 在 3001 獨立站
 
 // 認證相關路由（已登入時應重定向）
 const authRoutes = ['/login', '/register', '/forgot-password'];

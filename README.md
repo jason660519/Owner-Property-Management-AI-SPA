@@ -36,11 +36,13 @@ cd apps/web
 npm run dev
 
 # 3. 啟動開發進度儀表板 (Project Process Dashboard)
-# 訪問: http://localhost:3001/
+# 訪問: http://localhost:3002/project-process/project-progress-dashboard/index.html
+# （Port 3001 保留給 Superadmin 後台）
 ./scripts/start-dashboard.sh
 
 # 4. 訪問應用
-# 電腦: http://localhost:3000
+# 主站 (房東/租客/買家): http://localhost:3000
+# Superadmin 後台: http://localhost:3001/superadmin/dashboard
 # 手機: http://[你的IP]:3000
 ```
 
@@ -296,8 +298,9 @@ chore: 雜項
 
 | 服務名稱 | 位址 | 用途 | 狀態 |
 |---------|------|------|------|
-| **Web App** | http://localhost:3000 | Next.js 主應用 | Port 3000 預留 |
-| **開發進度追蹤** | http://localhost:3001 | Sprint 進度儀表板 | ✅ 運行中 |
+| **Web App** | http://localhost:3000 | Next.js 主應用 (房東/租客/買家) | Port 3000 預留 |
+| **Superadmin 後台** | http://localhost:3001 | 超級管理員儀表板 (`npm run dev:superadmin`) | 按需啟動 |
+| **開發進度追蹤** | http://localhost:3002 | Sprint 進度儀表板 (`./scripts/start-dashboard.sh`) | 按需啟動 |
 | **VLM OCR 服務** | http://localhost:8000 | 離線謄本查詢系統 | ✅ 運行中 |
 | **Supabase API** | http://localhost:54321 | 本地資料庫 API | ✅ 運行中 |
 | **Supabase Studio** | http://localhost:54323 | 資料庫管理介面 | ✅ 運行中 |

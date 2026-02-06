@@ -68,7 +68,7 @@
 
 ### Step 2: 更新 roadmap.js 📝
 
-**檔案位置**: `project-process/legacy-dashboard/roadmap.js`
+**檔案位置**: `project-process/project-progress-dashboard/roadmap.js`
 
 **更新項目**:
 1. **lastUpdated**: 更新為當前日期時間（格式: YYYY/MM/DD-HH:mm）
@@ -204,7 +204,7 @@
 - [ ] **CSS樣式確保足夠對比度（文字 vs. 背景）**
 - [ ] **渐变背景使用inline style確保顏色正確顯示**
 - [ ] 開發日誌資訊完整
-- [ ] 儀表板可正常訪問 (http://localhost:3001)
+- [ ] 儀表板可正常訪問 (http://localhost:3002)
 
 ---
 
@@ -434,7 +434,7 @@
 ## 📞 支援資訊
 
 如有疑問，請參考：
-- 專案儀表板: http://localhost:3001/project-process/index.html
+- 專案儀表板: http://localhost:3002/project-process/index.html
 - 文檔指南: `docs/file-naming-guidelines.md`
 - 此SOP文件: `docs/prompts/daily-progress-update-prompt.md`
 

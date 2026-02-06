@@ -43,8 +43,7 @@
   - 引入 `@casl/react`, `@casl/ability` 處理前端權限邏輯。
   - 引入 `@tanstack/react-table` 處理複雜資料表格。
 - **頁面開發**:
-  - **群組管理 (`/admin/groups`)**: 顯示群組列表、成員計數及掛載的角色。
-  - **使用者管理 (`/admin/users`)**: 顯示使用者列表，支援將使用者指派至特定群組 (Modal UI)。
+  - **群組管理**、**使用者管理**：原於 `apps/web` 之 `/admin/groups`、`/admin/users`；現已遷至 **apps/superadmin**（Port 3001），路徑為 `http://localhost:3001/superadmin/groups`、`/superadmin/users`。主站 `/admin/*` 會自動導向 3001。
 - **基礎設施**:
   - 建立 `utils/supabase/server.ts` 與 `client.ts` 處理 SSR/CSR 連線。
   - 建立 `lib/permissions/roleService.ts` 封裝權限查詢邏輯。
@@ -62,8 +61,8 @@
 | **SQL** | `supabase/migrations/20260202...iam_group_system.sql` | 建立 IAM 核心表格與 RLS      |
 | **SQL** | `supabase/migrations/20260202...iam_users_view.sql`   | 建立使用者列表視圖           |
 | **Doc** | `docs/access-matrix-design.../20260202...Spec...md`   | 權限系統設計規格書           |
-| **TSX** | `apps/web/app/admin/groups/page.tsx`                  | 群組列表頁面                 |
-| **TSX** | `apps/web/app/admin/users/page.tsx`                   | 使用者管理頁面               |
+| **TSX** | `apps/web/app/admin/groups/page.tsx`                  | 導向 3001（實作在 apps/superadmin） |
+| **TSX** | `apps/web/app/admin/users/page.tsx`                   | 導向 3001（實作在 apps/superadmin） |
 | **TS**  | `apps/web/lib/permissions/ability.ts`                 | CASL 權限定義                |
 | **TS**  | `apps/web/utils/supabase/*.ts`                        | Supabase Client/Server Utils |
 

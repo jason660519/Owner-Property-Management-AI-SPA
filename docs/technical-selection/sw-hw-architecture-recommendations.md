@@ -38,7 +38,7 @@
 
 #### 2. 管理應用程式 (Management App)
 *   **框架**: **Expo** (基於 React Native)
-*   **定位**: 房東資產管理後台、超級管理員儀表板 (Super Admin Dashboard)、已簽約租客服務 App。
+*   **定位**: 房東資產管理後台、已簽約租客服務 App。**超級管理員儀表板**已獨立為 Next.js 應用（`apps/superadmin`，Port 3001）。
 *   **優勢**: 支援一套代碼同時部署至 iOS、Android 與 Web (PWA)，提供原生操作體驗。
 *   **路由**: Expo Router (File-based routing)。
 

@@ -1,16 +1,12 @@
 /**
  * @file page.tsx
- * @description Superadmin Dashboard Page (Server Component)
+ * @description Redirect to Superadmin app (port 3001). Superadmin dashboard lives at http://localhost:3001/superadmin/dashboard
  */
 
-import { getAdminDashboardStats } from '@/lib/actions/dashboard'
-import AdminDashboardClient from './AdminDashboardClient'
+import { redirect } from 'next/server';
 
-// Force dynamic rendering since we are fetching live data
-export const dynamic = 'force-dynamic'
+const SUPERADMIN_URL = process.env.NEXT_PUBLIC_SUPERADMIN_URL || 'http://localhost:3001';
 
-export default async function AdminPage() {
-  const stats = await getAdminDashboardStats()
-
-  return <AdminDashboardClient stats={stats} />
+export default function AdminRedirectPage() {
+  redirect(`${SUPERADMIN_URL}/superadmin/dashboard`);
 }

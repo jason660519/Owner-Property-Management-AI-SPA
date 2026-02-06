@@ -6,12 +6,12 @@
 
 ## 1. 變更摘要
 
-為了提升專案管理效率與資訊可視化程度，我們對「專案開發進度儀表板 (Project Process Dashboard)」進行了全面的重構。原有的 `legacy-dashboard/index.html` 已整合至新的入口頁面 `project-process/index.html`，提供更專業、更直觀的使用者介面。
+為了提升專案管理效率與資訊可視化程度，我們對「專案開發進度儀表板 (Project Process Dashboard)」進行了全面的重構。原有的 `project-process/project-progress-dashboard/index.html` 已整合至新的入口頁面 `project-process/index.html`，提供更專業、更直觀的使用者介面。
 
 ## 2. 影響範圍分析
 
 ### 2.1 專案結構變更
-- **新入口點**: `project-process/index.html` 取代舊有的 `legacy-dashboard/index.html` 成為主要的進度追蹤頁面。
+- **新入口點**: `project-process/index.html` 取代舊有的 `project-process/project-progress-dashboard/index.html` 成為主要的進度追蹤頁面。
 - **編輯器升級**: `project-process/editor.html` 已更新，移除對本地 CSS 的依賴，改用 CDN (Tailwind CSS, Alpine.js) 以確保獨立運作的穩定性。
 - **資料來源**: 維持使用 `project-process/roadmap.js` 作為單一資料來源 (Single Source of Truth)，確保新舊儀表板資料同步。
 
@@ -35,5 +35,5 @@
 - **Iconography**: SVG Icons (Heroicons style)。
 
 ## 4. 後續行動
-- 團隊成員應改用 `http://localhost:3001/project-process/index.html` 進行每日進度檢視。
+- 團隊成員應改用 `http://localhost:3002/project-process/index.html` 進行每日進度檢視。（Port 3001 保留給 Superadmin 後台）
 - 建議定期檢查 `roadmap.js` 確保進度數據的即時性。

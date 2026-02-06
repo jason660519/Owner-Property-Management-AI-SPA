@@ -1,8 +1,9 @@
 #!/bin/bash
 
-# 統一啟動所有開發服務
+# 統一啟動所有開發服務（非互動式，不會出現選單）
 # 創建時間: 2026-02-05
-# 用途: 一鍵啟動所有開發環境服務
+# 用途: 一鍵啟動所有開發環境服務（Supabase、Web、Superadmin、進度追蹤、OCR）
+# 若看到「請輸入選項 [0-7]」表示您執行的是 start-dev.sh；要一鍵啟動請直接執行本腳本：./start-all-services.sh
 
 set -e
 
@@ -58,19 +59,30 @@ else
 fi
 echo ""
 
-# 啟動開發進度追蹤系統 (Port 3001)
-echo -e "${YELLOW}4️⃣  啟動開發進度追蹤系統 (Port 3001)...${NC}"
+# 啟動 Superadmin 後台 (Port 3001)
+echo -e "${YELLOW}4️⃣  啟動 Superadmin 後台 (Port 3001)...${NC}"
 if lsof -i :3001 > /dev/null 2>&1; then
+    echo -e "${GREEN}✅ Superadmin 已在運行${NC}"
+else
+    cd "$PROJECT_ROOT/apps/superadmin"
+    nohup npm run dev > /tmp/superadmin.log 2>&1 &
+    echo -e "${GREEN}✅ Superadmin 啟動中（背景運行）${NC}"
+fi
+echo ""
+
+# 啟動開發進度追蹤系統 (Port 3002)
+echo -e "${YELLOW}5️⃣  啟動開發進度追蹤系統 (Port 3002)...${NC}"
+if lsof -i :3002 > /dev/null 2>&1; then
     echo -e "${GREEN}✅ 開發進度追蹤系統已在運行${NC}"
 else
     cd "$PROJECT_ROOT"
-    nohup python3 server.py > /dev/null 2>&1 &
+    PORT=3002 nohup python3 server.py > /dev/null 2>&1 &
     echo -e "${GREEN}✅ 開發進度追蹤系統啟動成功${NC}"
 fi
 echo ""
 
 # 啟動離線謄本查詢系統 (Port 8000)
-echo -e "${YELLOW}5️⃣  啟動離線謄本查詢系統 (Port 8000)...${NC}"
+echo -e "${YELLOW}6️⃣  啟動離線謄本查詢系統 (Port 8000)...${NC}"
 if lsof -i :8000 > /dev/null 2>&1; then
     echo -e "${GREEN}✅ OCR 服務已在運行${NC}"
 else
@@ -101,9 +113,9 @@ sleep 5
 echo ""
 
 # 驗證所有服務
-echo -e "${YELLOW}6️⃣  驗證服務狀態...${NC}"
+echo -e "${YELLOW}7️⃣  驗證服務狀態...${NC}"
 SUCCESS=0
-TOTAL=3
+TOTAL=4
 
 # 檢查 Port 3000
 if curl -s http://localhost:3000 > /dev/null 2>&1; then
@@ -113,12 +125,20 @@ else
     echo -e "   ${RED}❌ Web App (Port 3000) - 啟動失敗${NC}"
 fi
 
-# 檢查 Port 3001
+# 檢查 Port 3001 (Superadmin)
 if curl -s http://localhost:3001 > /dev/null 2>&1; then
-    echo -e "   ${GREEN}✅ 開發進度追蹤 (Port 3001)${NC}"
+    echo -e "   ${GREEN}✅ Superadmin (Port 3001)${NC}"
     SUCCESS=$((SUCCESS + 1))
 else
-    echo -e "   ${RED}❌ 開發進度追蹤 (Port 3001) - 啟動失敗${NC}"
+    echo -e "   ${RED}❌ Superadmin (Port 3001) - 啟動失敗${NC}"
+fi
+
+# 檢查 Port 3002 (開發進度追蹤)
+if curl -s http://localhost:3002 > /dev/null 2>&1; then
+    echo -e "   ${GREEN}✅ 開發進度追蹤 (Port 3002)${NC}"
+    SUCCESS=$((SUCCESS + 1))
+else
+    echo -e "   ${RED}❌ 開發進度追蹤 (Port 3002) - 啟動失敗${NC}"
 fi
 
 # 檢查 Port 8000
@@ -142,7 +162,8 @@ echo ""
 # 顯示服務訪問地址
 echo -e "${BLUE}📍 服務存取位址：${NC}"
 echo -e "   ${GREEN}• Web App:${NC}           http://localhost:3000"
-echo -e "   ${GREEN}• 開發進度追蹤:${NC}      http://localhost:3001"
+echo -e "   ${GREEN}• Superadmin 後台:${NC}   http://localhost:3001/superadmin/dashboard"
+echo -e "   ${GREEN}• 開發進度追蹤:${NC}      http://localhost:3002"
 echo -e "   ${GREEN}• OCR 服務:${NC}          http://localhost:8000"
 echo -e "   ${GREEN}• Supabase Studio:${NC}   http://localhost:54323"
 echo -e "   ${GREEN}• Mailpit:${NC}           http://localhost:54324"
@@ -151,6 +172,7 @@ echo ""
 # 顯示日誌位置
 echo -e "${BLUE}📝 服務日誌：${NC}"
 echo -e "   ${YELLOW}• Web App:${NC}      tail -f /tmp/nextjs.log"
+echo -e "   ${YELLOW}• Superadmin:${NC}   tail -f /tmp/superadmin.log"
 echo -e "   ${YELLOW}• OCR 服務:${NC}     tail -f /tmp/ocr_service.log"
 echo ""
 

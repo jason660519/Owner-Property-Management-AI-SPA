@@ -97,7 +97,7 @@ sequenceDiagram
         Frontend->>Frontend: 根據角色導向
         
         alt Super Admin
-            Frontend-->>User: 導向 /super-admin/dashboard
+            Frontend-->>User: 導向 http://localhost:3001/superadmin/dashboard (Superadmin 獨立站)
         else Landlord
             Frontend-->>User: 導向 /landlord/dashboard
         else Tenant

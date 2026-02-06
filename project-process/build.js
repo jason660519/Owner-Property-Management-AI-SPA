@@ -5,6 +5,15 @@ const path = require('path');
 const OUTPUT_DIR = __dirname;
 const ANALYSIS_PATH = path.join(__dirname, 'project-packages-analysis/analysis.json');
 
+// Ensure project-progress-dashboard exists
+const dashboardDir = path.join(__dirname, 'project-progress-dashboard');
+if (!fs.existsSync(dashboardDir)) {
+    fs.mkdirSync(dashboardDir, { recursive: true });
+}
+
+// Copy to project-progress-dashboard if needed
+// fs.copyFileSync(path.join(__dirname, 'roadmap.js'), path.join(dashboardDir, 'roadmap.js'));
+
 // Read Data
 const analysisData = JSON.parse(fs.readFileSync(ANALYSIS_PATH, 'utf8'));
 let timelineData = [];

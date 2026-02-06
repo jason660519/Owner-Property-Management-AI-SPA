@@ -1,21 +1,10 @@
-import { getGroups } from './actions';
-import { GroupList } from '@/components/admin/groups/GroupList';
-import { CreateGroupModal } from '@/components/admin/groups/CreateGroupModal';
+/**
+ * @description Redirect to Superadmin app (port 3001). Groups management lives at http://localhost:3001/superadmin/groups
+ */
+import { redirect } from 'next/server';
 
-export default async function GroupsPage() {
-    const groups = await getGroups();
+const SUPERADMIN_URL = process.env.NEXT_PUBLIC_SUPERADMIN_URL || 'http://localhost:3001';
 
-    return (
-        <div className="container mx-auto py-10 px-4">
-            <div className="flex justify-between items-center mb-8">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Permission Groups</h1>
-                    <p className="text-gray-500 mt-1">Manage user access groups and their assigned roles.</p>
-                </div>
-                <CreateGroupModal />
-            </div>
-
-            <GroupList initialGroups={groups} />
-        </div>
-    );
+export default function AdminGroupsRedirectPage() {
+  redirect(`${SUPERADMIN_URL}/superadmin/groups`);
 }

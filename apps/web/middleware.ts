@@ -32,8 +32,8 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // 需要認證的路由
-  const protectedRoutes = ['/landlord', '/super-admin', '/tenant', '/buyer'];
+  // 需要認證的路由（超級管理員獨立在 port 3001，此站為房東/租客/買家等）
+  const protectedRoutes = ['/landlord', '/tenant', '/buyer'];
   const isProtectedRoute = protectedRoutes.some((route) =>
     request.nextUrl.pathname.startsWith(route)
   );
@@ -50,17 +50,20 @@ export async function middleware(request: NextRequest) {
   const authRoutes = ['/login', '/register', '/forgot-password'];
   const isAuthRoute = authRoutes.some((route) => request.nextUrl.pathname.startsWith(route));
 
-  // 如果已登入且訪問認證頁面，重導向到對應的儀表板
+  // 如果已登入且訪問認證頁面，重導向到對應的儀表板（super_admin 導向獨立後台 3001）
   if (user && isAuthRoute) {
     const role = user.user_metadata?.role || 'landlord';
+    const superadminUrl = process.env.NEXT_PUBLIC_SUPERADMIN_URL || 'http://localhost:3001';
+
+    if (role === 'super_admin') {
+      return NextResponse.redirect(`${superadminUrl}/superadmin/dashboard`);
+    }
 
     const dashboardMap: Record<string, string> = {
-      super_admin: '/super-admin/dashboard',
       landlord: '/landlord/dashboard',
       tenant: '/tenant/dashboard',
       buyer: '/buyer/dashboard',
     };
-
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = dashboardMap[role] || '/landlord/dashboard';
     return NextResponse.redirect(redirectUrl);
@@ -72,9 +75,8 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * 匹配所有需要認證檢查的路由:
+     * 匹配所有需要認證檢查的路由（超級管理員在 port 3001，不在此站）
      * - /landlord/* - 房東儀表板
-     * - /super-admin/* - 超級管理員儀表板
      * - /tenant/* - 租戶儀表板
      * - /buyer/* - 買家儀表板
      * - /login - 登入頁
@@ -82,7 +84,6 @@ export const config = {
      * - /forgot-password - 忘記密碼頁
      */
     '/landlord/:path*',
-    '/super-admin/:path*',
     '/tenant/:path*',
     '/buyer/:path*',
     '/login',

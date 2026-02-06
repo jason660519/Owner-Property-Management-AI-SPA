@@ -73,12 +73,9 @@ app/(dashboard)/
 │   ├── dashboard/
 │   │   └── page.tsx
 │   └── layout.tsx
-├── super-admin/
-│   ├── dashboard/
-│   │   └── page.tsx
-│   └── layout.tsx
 └── layout.tsx
 ```
+**注意**：超級管理員 (super_admin) 已獨立至 **apps/superadmin**（Port 3001），路徑為 `http://localhost:3001/superadmin/dashboard`，不在此站。
 
 ### 3. 測試流程
 
