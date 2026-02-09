@@ -12,11 +12,12 @@ export function Card({
   children,
   className = '',
   padding = 'md',
+  ...props
 }: {
   children: React.ReactNode;
   className?: string;
   padding?: 'none' | 'sm' | 'md' | 'lg';
-}) {
+} & React.HTMLAttributes<HTMLDivElement>) {
   const paddingClass = {
     none: '',
     sm: 'p-4',
@@ -25,7 +26,7 @@ export function Card({
   }[padding];
   
   return (
-    <div className={cn('bg-bg-secondary border border-border-DEFAULT rounded-base', paddingClass, className)}>
+    <div className={cn('bg-bg-secondary border border-border-DEFAULT rounded-base', paddingClass, className)} {...props}>
       {children}
     </div>
   );
