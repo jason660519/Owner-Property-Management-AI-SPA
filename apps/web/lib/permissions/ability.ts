@@ -34,5 +34,32 @@ export function defineRulesFor(roles: string[]) {
         can('update', 'WorkOrder', { status: 'assigned' });
     }
 
+    if (roles.includes('contract_buyer')) {
+        can('read', 'Property');
+        can('read', 'Contract', { type: 'sale' });
+        can('create', 'Offer');
+    }
+
+    if (roles.includes('potential_buyer') || roles.includes('potential_tenant')) {
+        can('read', 'Property', { status: 'published' });
+        can('create', 'ViewingAppointment');
+    }
+
+    if (roles.includes('auditor')) {
+        can('read', 'Transaction');
+        can('read', 'Report');
+    }
+
+    if (roles.includes('system_engineer')) {
+        can('manage', 'SystemConfig');
+        can('read', 'Log');
+    }
+
+    if (roles.includes('cybersecurity_engineer')) {
+        can('read', 'AuditLog');
+        can('read', 'SecurityEvent');
+        can('manage', 'AccessPolicy');
+    }
+
     return build();
 }

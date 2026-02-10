@@ -310,14 +310,15 @@ chore: 雜項
 ### 快速啟動指令
 
 ```bash
-# 啟動開發進度追蹤系統
-./scripts/start-dashboard.sh
+# 開啟互動式啟動選單 (推薦)
+./start.sh
 
-# 啟動離線謄本查詢系統
-./start-vlm-test.sh
+# 一鍵啟動所有服務 (Web, Admin, OCR, Tracker)
+./start.sh all
 
-# 啟動 Supabase
-npx supabase start
+# 停止所有服務
+./stop.sh
+
 
 # 啟動 Web App
 cd apps/web && npm run dev

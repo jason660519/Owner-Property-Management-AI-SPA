@@ -89,8 +89,7 @@ export default function ContactPage() {
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-bold mb-1">Email</h3>
-                                        <p className="text-[#999999]">hello@estatein.com</p>
-                                        <p className="text-[#999999]">support@estatein.com</p>
+                                        <p className="text-[#999999]">a0405142777@gmail.com</p>
                                     </div>
                                 </div>
 
@@ -101,9 +100,9 @@ export default function ContactPage() {
                                         </svg>
                                     </div>
                                     <div>
-                                        <h3 className="text-lg font-bold mb-1">電話</h3>
-                                        <p className="text-[#999999]">+886 2 2345 6789</p>
-                                        <p className="text-[#999999]">+886 912 345 678</p>
+                                        <h3 className="text-lg font-bold mb-1">Mobile</h3>
+                                        <p className="text-[#999999]">+61 405 142 777</p>
+                                        <p className="text-[#999999]">+61 405 142 777</p>
                                     </div>
                                 </div>
 
@@ -115,9 +114,9 @@ export default function ContactPage() {
                                         </svg>
                                     </div>
                                     <div>
-                                        <h3 className="text-lg font-bold mb-1">辦公室</h3>
-                                        <p className="text-[#999999]">台北市信義區信義路五段 7 號</p>
-                                        <p className="text-[#999999]">台北 101 大樓 35 樓</p>
+                                        <h3 className="text-lg font-bold mb-1">Office</h3>
+                                        <p className="text-[#999999]">2 The Hermitage Way Gledswood Hills</p>
+                                        <p className="text-[#999999]">NSW 2557 Australia</p>
                                     </div>
                                 </div>
 

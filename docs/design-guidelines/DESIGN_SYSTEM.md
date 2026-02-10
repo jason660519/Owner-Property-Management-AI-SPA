@@ -1,34 +1,34 @@
-# Estatein Design System
+# Design System
 
-> **創建日期**: 2026-01-31  
-> **創建者**: Project Team  
-> **最後修改**: 2026-01-31  
-> **修改者**: Project Team  
-> **版本**: 1.0  
+> **創建日期**: 2026-01-31
+> **創建者**: Project Team
+> **最後修改**: 2026-01-31
+> **修改者**: Project Team
+> **版本**: 1.0
 > **文件類型**: 設計文件
 
 ---
 
-
 ## 從 Figma 設計稿提取的完整設計規格
 
-> **專案名稱**: Owner Property Management AI  
-> **Figma File Key**: `cqd9sDTv7CaQ6UE3EvpIk4`  
-> **Figma URL**: [https://www.figma.com/design/cqd9sDTv7CaQ6UE3EvpIk4](https://www.figma.com/design/cqd9sDTv7CaQ6UE3EvpIk4/Owner-Property-Management-AI)  
-> **提取日期**: 2026-01-31  
+> **專案名稱**: Owner Property Management AI
+> **Figma File Key**: `cqd9sDTv7CaQ6UE3EvpIk4`
+> **Figma URL**: [https://www.figma.com/design/cqd9sDTv7CaQ6UE3EvpIk4](https://www.figma.com/design/cqd9sDTv7CaQ6UE3EvpIk4/Owner-Property-Management-AI)
+> **提取日期**: 2026-01-31
 > **提取方式**: Figma REST API
 
 ---
 
 ## 📐 響應式斷點 (Breakpoints)
 
-| 裝置        | 視窗寬度 | 內容最大寬度 | 側邊 Padding |
-| ----------- | -------- | ------------ | ------------ |
+| 裝置              | 視窗寬度 | 內容最大寬度 | 側邊 Padding |
+| ----------------- | -------- | ------------ | ------------ |
 | **Desktop** | 1920px   | 1596px       | 162px        |
 | **Laptop**  | 1440px   | 1200px       | 120px        |
 | **Mobile**  | 390px    | 100%         | 16px         |
 
 ### CSS 媒體查詢
+
 ```css
 /* Mobile First Approach */
 @media (min-width: 640px) { /* Tablet */ }
@@ -74,6 +74,7 @@
 ```
 
 ### 語意化色彩變數
+
 ```css
 :root {
   /* 背景 */
@@ -105,6 +106,7 @@
 ## 📝 字型系統 (Typography)
 
 ### 字型家族
+
 ```css
 :root {
   /* 主要字型 - Urbanist (從 Figma 設計稿) */
@@ -116,6 +118,7 @@
 ```
 
 ### 字型載入
+
 ```html
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -124,22 +127,23 @@
 
 ### 字型樣式 (從 Figma 提取的實際數值)
 
-| 樣式名稱       | 字重 | 大小 | 行高          | 用途       | 範例文字                              |
-| -------------- | ---- | ---- | ------------- | ---------- | ------------------------------------- |
-| **Display**    | 600  | 60px | 72px (120%)   | 頁面主標題 | 「房東物業的 AI 好幫手」              |
-| **H1**         | 600  | 48px | 72px (150%)   | 區塊標題   | 「我的啞巴兒子」                      |
-| **H2**         | 600  | 46px | 55.2px (120%) | 大區塊標題 | 「Discover Your Dream Property」      |
-| **H3**         | 600  | 38px | 57px (150%)   | 中標題     | 「Featured Properties」               |
-| **H4**         | 700  | 40px | 60px (150%)   | 統計數字   | 「200+」                              |
-| **H5**         | 600  | 30px | 45px (150%)   | 小標題     | 「3+ Years of Excellence」            |
-| **H6**         | 600  | 24px | 36px (150%)   | 卡片標題   | 「我要如何與 AI 聯絡」                |
-| **Body Large** | 500  | 20px | 30px (150%)   | 重要內文   | 「01 of 60」                          |
+| 樣式名稱             | 字重 | 大小 | 行高          | 用途       | 範例文字                               |
+| -------------------- | ---- | ---- | ------------- | ---------- | -------------------------------------- |
+| **Display**    | 600  | 60px | 72px (120%)   | 頁面主標題 | 「房東物業的 AI 好幫手」               |
+| **H1**         | 600  | 48px | 72px (150%)   | 區塊標題   | 「我的啞巴兒子」                       |
+| **H2**         | 600  | 46px | 55.2px (120%) | 大區塊標題 | 「Discover Your Dream Property」       |
+| **H3**         | 600  | 38px | 57px (150%)   | 中標題     | 「Featured Properties」                |
+| **H4**         | 700  | 40px | 60px (150%)   | 統計數字   | 「200+」                               |
+| **H5**         | 600  | 30px | 45px (150%)   | 小標題     | 「3+ Years of Excellence」             |
+| **H6**         | 600  | 24px | 36px (150%)   | 卡片標題   | 「我要如何與 AI 聯絡」                 |
+| **Body Large** | 500  | 20px | 30px (150%)   | 重要內文   | 「01 of 60」                           |
 | **Body**       | 500  | 18px | 27px (150%)   | 一般內文   | 「✨你的AI好幫手，輕鬆管理你的不動產」 |
-| **Body Small** | 500  | 16px | 24px (150%)   | 次要內文   | 「Your journey to finding...」        |
+| **Body Small** | 500  | 16px | 24px (150%)   | 次要內文   | 「Your journey to finding...」         |
 | **Caption**    | 500  | 14px | 21px (150%)   | 標籤/說明  | 「✨Discover Your Dream Property」     |
-| **Small**      | 500  | 12px | 18px (150%)   | 最小文字   | 版權說明                              |
+| **Small**      | 500  | 12px | 18px (150%)   | 最小文字   | 版權說明                               |
 
 ### CSS 字型定義
+
 ```css
 .text-display { font-size: 60px; font-weight: 600; line-height: 1.2; }
 .text-h1 { font-size: 48px; font-weight: 600; line-height: 1.5; }
@@ -160,6 +164,7 @@
 ## 📏 間距系統 (Spacing)
 
 ### 基礎間距 (從 Figma 提取)
+
 ```css
 :root {
   --spacing-1: 4px;
@@ -188,8 +193,8 @@
 
 ### 元件間距規格
 
-| 元件                 | Padding   | Gap  | 用途                 |
-| -------------------- | --------- | ---- | -------------------- |
+| 元件                       | Padding   | Gap  | 用途                 |
+| -------------------------- | --------- | ---- | -------------------- |
 | **Container**        | 0 162px   | -    | 頁面主容器 (Desktop) |
 | **Container-Laptop** | 0 120px   | -    | 頁面主容器 (Laptop)  |
 | **Container-Mobile** | 0 16px    | -    | 頁面主容器 (Mobile)  |
@@ -205,6 +210,7 @@
 ## 🔲 圓角系統 (Border Radius)
 
 ### 從 Figma 提取的圓角值
+
 ```css
 :root {
   /* 基礎圓角 */
@@ -226,6 +232,7 @@
 ```
 
 ### 元件圓角對照
+
 | 元件           | 圓角值 |
 | -------------- | ------ |
 | 按鈕 (Primary) | 10px   |
@@ -243,6 +250,7 @@
 ### 按鈕 (Buttons)
 
 #### Primary Button
+
 ```css
 .btn-primary {
   background: var(--color-accent);
@@ -269,6 +277,7 @@
 ```
 
 #### Secondary Button
+
 ```css
 .btn-secondary {
   background: var(--color-bg-secondary);
@@ -291,6 +300,7 @@
 ```
 
 #### Icon Button
+
 ```css
 .btn-icon {
   background: var(--color-bg-secondary);
@@ -313,6 +323,7 @@
 ### 卡片 (Cards)
 
 #### Property Card
+
 ```css
 .property-card {
   background: var(--color-bg-secondary);
@@ -348,6 +359,7 @@
 ```
 
 #### Testimonial Card
+
 ```css
 .testimonial-card {
   background: var(--color-bg-secondary);
@@ -476,6 +488,7 @@
 ## 🎞️ 動畫與過渡 (Animations)
 
 ### 過渡時間
+
 ```css
 :root {
   --transition-fast: 150ms ease;
@@ -486,6 +499,7 @@
 ```
 
 ### 懸停效果
+
 ```css
 /* 卡片懸停 */
 .card-hover {
@@ -521,6 +535,7 @@
 ```
 
 ### 載入動畫
+
 ```css
 @keyframes shimmer {
   0% { background-position: -1000px 0; }
@@ -549,6 +564,7 @@
 ```
 
 ### 陰影效果
+
 ```css
 :root {
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -610,12 +626,14 @@
 ## 📱 響應式設計規則
 
 ### Desktop → Laptop 調整
+
 - Container: 1596px → 1200px
 - Section padding: 100px → 80px
 - Card grid: 3 columns → 3 columns (smaller)
 - Font sizes: 保持不變
 
 ### Laptop → Mobile 調整
+
 - Container: 1200px → 100% - 32px
 - Navigation: 完整導航 → 漢堡選單
 - Card grid: 3 columns → 1 column
@@ -624,6 +642,7 @@
 - Section padding: 80px → 50px
 
 ### 響應式字型
+
 ```css
 /* Mobile */
 :root {
@@ -659,11 +678,13 @@
 ## ♿ 無障礙設計 (Accessibility)
 
 ### 對比度
+
 - 主要文字 (#FFFFFF on #141414): 15.9:1 ✅ AAA
 - 次要文字 (#999999 on #141414): 5.8:1 ✅ AA
 - 強調色 (#703BF7 on #141414): 4.2:1 ✅ AA (大文字)
 
 ### 焦點狀態
+
 ```css
 *:focus-visible {
   outline: 2px solid var(--color-accent);
@@ -676,6 +697,7 @@
 ```
 
 ### 互動區域
+
 - 最小觸控區域: 44×44px
 - 按鈕最小高度: 48px
 - 連結間距: 至少 8px
@@ -686,8 +708,8 @@
 
 所有頁面設計已匯出至 `docs/figma-exports/`:
 
-| 檔案名稱                       | 尺寸      | 大小   |
-| ------------------------------ | --------- | ------ |
+| 檔案名稱                         | 尺寸       | 大小   |
+| -------------------------------- | ---------- | ------ |
 | `home-page-desktop.png`        | 1920×5196 | 2.2 MB |
 | `home-page-mobile.png`         | 390×4882  | 504 KB |
 | `about-page-desktop.png`       | 1920×6022 | 1.2 MB |
@@ -701,6 +723,7 @@
 ## 🔧 開發實作指南
 
 ### CSS 變數使用範例
+
 ```css
 .component {
   background: var(--color-bg-secondary);
@@ -719,6 +742,7 @@
 ```
 
 ### 檔案結構建議
+
 ```
 styles/
 ├── base/

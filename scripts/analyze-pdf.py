@@ -1,3 +1,13 @@
+# ------------------------------------------------------------------------------
+# @file analyze-pdf.py
+# @description PDF Analysis Script (Sample)
+# @description PDF 分析腳本（範例）
+# @created 2026-02-11
+# @creator Trae AI
+# @lastModified 2026-02-11
+# @modifiedBy Trae AI
+# @version 1.0
+# ------------------------------------------------------------------------------
 
 import os
 from pypdf import PdfReader

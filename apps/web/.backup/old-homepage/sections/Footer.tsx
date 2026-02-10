@@ -19,9 +19,8 @@ const footerLinks = {
     { name: 'Privacy Policy', href: '/privacy' }
   ],
   contact: [
-    { name: 'info@estatein.com', href: 'mailto:info@estatein.com' },
-    { name: '+1 (555) 123-4567', href: 'tel:+15551234567' },
-    { name: '123 Real Estate Ave', href: '#' }
+    { name: 'a0405142777@gmail.com', href: 'mailto:a0405142777@gmail.com' },
+    { name: '(+61) 405142777', href: 'tel:(+61)405142777' },
   ]
 }
 

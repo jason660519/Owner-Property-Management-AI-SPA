@@ -292,7 +292,7 @@ Google Gemini: ✅ 可用 (600ms)
 # 1. 啟動後端
 cd backend/ocr_service
 source venv/bin/activate
-export VLM_MASTER_KEY=227bcc677f65be6034e92de0e77aef69c1b105537c15938edc892d24f83e9025
+export VLM_MASTER_KEY=<vlm_master_key>
 python minimal_app.py
 
 # 2. 啟動前端

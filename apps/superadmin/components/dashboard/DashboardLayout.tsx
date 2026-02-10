@@ -24,7 +24,7 @@ export function DashboardLayout({
   className?: string;
 }) {
   return (
-    <div className={`min-h-screen bg-[#1A1A1A] ${className}`}>
+    <div className={`flex-1 ${className}`}>
       <div className="bg-[#1F1F1F] border-b border-[#333333] px-6 py-4">
         <div className="max-w-7xl mx-auto">
           <nav className="flex items-center gap-2 text-sm mb-4">

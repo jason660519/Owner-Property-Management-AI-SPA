@@ -41,7 +41,7 @@ globs: []
    - 不要憑印象猜測 API 用法
 
 3. **檔案命名與結構**
-   - 遵循 `docs/Project naming Rule/` 中的命名規範
+   - 遵循 `docs/file-naming-guidelines.md` 中的命名規範
    - 新增檔案前確認與現有結構一致
 
 4. **Git 分支策略**
@@ -50,6 +50,7 @@ globs: []
 
 ## 參考文檔
 
-- 三階段部署指南: `@docs/三階段部署與上線指南/三階段部署說明.md`
-- 檔案命名規則: `@docs/本專案檔案命名規則與新增文件歸檔總則.md`
-- 專案架構: `@docs/technical-selection/sw-hw-architecture-recommendations.md`
+- 三階段部署指南: `docs/deployment-guides/quick-start-guide.md`
+- 檔案命名規則: `docs/file-naming-guidelines.md`
+- 專案架構: `docs/technical-selection/sw-hw-architecture-recommendations.md`
+- AI 協作規則: `CLAUDE.md`

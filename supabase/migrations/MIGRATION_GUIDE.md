@@ -14,6 +14,18 @@
 7. `20260130_common_user_tables.sql` - 通用使用者表格 (15 tables)
 8. `20260130_special_features_tables.sql` - 特殊功能表格 (26 tables)
 
+### 20260210_IAM_updates.sql
+**IAM 與權限系統重大更新：**
+1.  `20260210120000_setup_comprehensive_iam.sql`: 
+    *   新增 7 個 IAM 群組 (Active Buyers, Security Operations Center 等)。
+    *   新增 4 個 IAM 角色 (system_engineer, cybersecurity_engineer 等)。
+    *   建立群組與角色的自動繼承關係。
+2.  `20260210130000_restrict_switching_to_admin.sql`:
+    *   **安全性強化**：限制 `switch_user_role` 函式僅 Super Admin 可呼叫。
+    *   **RLS 鎖定**：所有 `iam_*` 資料表僅 Super Admin 可寫入，其餘唯讀。
+3.  `20260210140000_seed_missing_roles.sql`:
+    *   補齊並中文化所有 10 個標準角色（如：合約承租人、資安工程師）。
+
 ---
 
 ## 🚀 執行 Migration

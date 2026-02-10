@@ -128,9 +128,9 @@ supabase local development setup is running.
 
 #### ✅ 環境變數
 ```bash
-VLM_MASTER_KEY=227bcc677f65be6034e92de0e77aef69c1b105537c15938edc892d24f83e9025
+VLM_MASTER_KEY=<vlm_master_key>
 SUPABASE_URL=http://127.0.0.1:54321
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJFUzI1NiIsImtpZCI6ImI4MTI2OWYxLTIxZDgtNGYyZS1iNzE5LWMyMjQwYTg0MGQ5MCIsInR5cCI6IkpXVCJ9...
+SUPABASE_SERVICE_ROLE_KEY=<supabase_service_role_key>
 LOG_LEVEL=INFO
 ```
 
@@ -147,7 +147,7 @@ source venv/bin/activate
 python minimal_app.py
 
 # 或使用專案腳本
-./start-vlm-test.sh
+./start.sh ocr
 ```
 
 ### 1.5 系統架構
@@ -180,12 +180,11 @@ backend/ocr_service/
 ### 2.2 連接埠配置
 
 **當前配置**: Port 3002（3001 為 Superadmin 後台）  
-**設定檔案**: `scripts/start-dashboard.sh`
+**設定檔案**: `start.sh` (整合腳本)
 
 ```bash
-PORT=3002
-DIR="$(dirname "$0")/.."
-cd "$DIR" && python3 -m http.server $PORT
+# 參考 start.sh 中的 start_tracker 函式
+python3 -m http.server 3002
 ```
 
 **理由**:
@@ -212,7 +211,7 @@ $ curl http://localhost:3002/
 
 ```bash
 # 使用專案腳本啟動
-./scripts/start-dashboard.sh
+./start.sh
 
 # 或手動啟動
 python3 -m http.server 3002
@@ -269,7 +268,7 @@ python3 -m http.server 3002
 
 ```bash
 # 方法一：使用專案腳本（推薦）
-./start-vlm-test.sh
+./start.sh ocr
 
 # 方法二：手動啟動簡化版
 cd backend/ocr_service

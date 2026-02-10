@@ -28,7 +28,7 @@ export function HeroSection() {
                     <div className={styles.cta}>
                         <Link href="/pricing">
                             <Button variant="primary" size="lg">
-                                了解更多
+                                定價方案
                             </Button>
                         </Link>
                         <Link href="/properties">

@@ -65,7 +65,7 @@ export default function SuperadminDashboardClient({ stats }: { stats: AdminStats
   return (
     <DashboardLayout
       currentRole="superadmin"
-      pageTitle="系統管理儀表板"
+      pageTitle="超級管理員儀表板"
       breadcrumbs={[
         { label: '首頁', href: '/' },
         { label: '超級管理員專區', href: `${BASE}` },
