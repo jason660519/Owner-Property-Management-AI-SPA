@@ -12,7 +12,8 @@ import {
   ExternalLink,
   Search,
   Download,
-  Filter
+  Filter,
+  RotateCcw
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -27,12 +28,12 @@ interface ColumnWidths {
 
 const ProgressBar = ({ percentage }: { percentage: number }) => {
   return (
-    <div className="relative w-full h-5 bg-gray-100 rounded-full overflow-hidden shadow-inner">
+    <div className="relative w-full h-5 bg-bg-tertiary rounded-full overflow-hidden shadow-inner">
       <div 
         className={clsx(
           "h-full rounded-full transition-all duration-500 absolute top-0 left-0 flex items-center justify-center",
           percentage === 100 ? "bg-emerald-500" : 
-          percentage > 0 ? "bg-blue-500" : "bg-gray-300"
+          percentage > 0 ? "bg-blue-500" : "bg-bg-secondary"
         )}
         style={{ width: `${percentage}%` }}
       >
@@ -64,23 +65,111 @@ const StatCard = ({
   colorClass: string;
   bgClass: string;
 }) => (
-  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
+  <div className="bg-bg-primary p-4 rounded-xl border border-border-default shadow-sm flex items-center gap-4 transition-colors">
     <div className={clsx("p-3 rounded-lg", bgClass, colorClass)}>
       <Icon className="w-6 h-6" />
     </div>
     <div>
-      <p className="text-sm text-gray-500 font-medium">{label}</p>
+      <p className="text-sm text-text-secondary font-medium">{label}</p>
       <div className="flex items-baseline gap-2">
-        <h3 className="text-2xl font-bold text-gray-900">{value}</h3>
-        {subValue && <span className="text-xs text-gray-400">{subValue}</span>}
+        <h3 className="text-2xl font-bold text-text-primary">{value}</h3>
+        {subValue && <span className="text-xs text-text-muted">{subValue}</span>}
       </div>
     </div>
   </div>
 );
 
+// Initial percentages for ALL 9 columns
+// 1. ID -> 編碼
+// 2. Category -> 分類
+// 3. Feature -> 功能與說明
+// 4. Acceptance Criteria -> 完成標準
+// 5. Dev Progress -> 開發進度
+// 6. Test Coverage -> 測試進度
+// 7. Dev Log -> 開發日誌
+// 8. Test Progress -> 測試日誌
+// 9. Last Modified -> 最後修改者
+const INITIAL_WIDTHS = [4, 10, 15, 20, 8, 8, 15, 12, 8];
+
+const COLUMN_HEADERS = [
+    { en: 'ID', zh: '編碼' },
+    { en: 'Category', zh: '分類' },
+    { en: 'Feature', zh: '功能與說明' },
+    { en: 'Acceptance Criteria', zh: '完成標準' },
+    { en: 'Dev Progress', zh: '開發進度' },
+    { en: 'Test Coverage', zh: '測試進度' },
+    { en: 'Dev Log', zh: '開發日誌' },
+    { en: 'Test Log', zh: '測試日誌' },
+    { en: 'Last Modified', zh: '最後修改者' }
+];
+
 export default function ProjectProgressPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  
+  // Column resizing state (9 columns)
+  const [colWidths, setColWidths] = useState<number[]>(INITIAL_WIDTHS);
+  const tableRef = useRef<HTMLDivElement>(null);
+  const currentWidthsRef = useRef<number[]>(INITIAL_WIDTHS);
+
+  // Load saved widths on mount
+  useEffect(() => {
+    // Changed key to v3 to force reset due to column reordering
+    const saved = localStorage.getItem('project_progress_col_widths_v3'); 
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length === 9) {
+          setColWidths(parsed);
+          currentWidthsRef.current = parsed;
+        }
+      } catch (e) {
+        console.error('Failed to parse saved widths', e);
+      }
+    }
+  }, []);
+
+  const handleResizeStart = (index: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.pageX;
+    const startWidths = [...currentWidthsRef.current];
+    const containerWidth = tableRef.current?.offsetWidth || 1000;
+    
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const deltaPx = moveEvent.pageX - startX;
+      const deltaPercent = (deltaPx / containerWidth) * 100;
+      
+      const newWidths = [...startWidths];
+      const left = newWidths[index] + deltaPercent;
+      const right = newWidths[index+1] - deltaPercent;
+      
+      // Min width check (approx 8px in %)
+      // We use a small safety margin
+      const minPct = (8 / containerWidth) * 100;
+      
+      if (left >= minPct && right >= minPct) {
+        newWidths[index] = left;
+        newWidths[index+1] = right;
+        setColWidths(newWidths);
+        currentWidthsRef.current = newWidths;
+      }
+    };
+    
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      localStorage.setItem('project_progress_col_widths_v3', JSON.stringify(currentWidthsRef.current));
+    };
+    
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+
+  const resetWidths = () => {
+    setColWidths(INITIAL_WIDTHS);
+    currentWidthsRef.current = INITIAL_WIDTHS;
+    localStorage.removeItem('project_progress_col_widths_v3');
+  };
   
   // Stats Calculation
   const stats = useMemo(() => {
@@ -111,33 +200,27 @@ export default function ProjectProgressPage() {
 
   const categories = ['All', ...Array.from(new Set(ROADMAP_DATA.features.map(f => f.category)))];
 
-  // Column Resizing Logic (Simplified for React)
-  // We'll use CSS Grid with a fixed template for now to ensure alignment, 
-  // as fully dynamic resizing in React without a library can be verbose.
-  // The original used: 5% 15% 15% 25% 10% 10% 20%
-  const gridTemplate = "50px 150px 200px 1fr 100px 120px 250px";
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 h-[calc(100vh-100px)] flex flex-col">
       {/* Header */}
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
+      <div className="flex flex-col gap-1 flex-none">
+        <h1 className="text-2xl font-semibold text-text-primary flex items-center gap-2">
           <Activity className="text-emerald-600 w-6 h-6" />
           Project Progress Dashboard (專案進度儀表板)
         </h1>
-        <p className="text-gray-500 text-sm">
-          Track development progress across all modules. Last updated: <span className="font-mono font-medium text-gray-700">{ROADMAP_DATA.lastUpdated}</span>
+        <p className="text-text-secondary text-sm">
+          Track development progress across all modules. Last updated: <span className="font-mono font-medium text-text-primary">{ROADMAP_DATA.lastUpdated}</span>
         </p>
       </div>
 
       {/* Stats Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 flex-none">
         {/* Overall Progress Circular */}
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 col-span-1 md:col-span-2 lg:col-span-1">
+        <div className="bg-bg-primary p-4 rounded-xl border border-border-default shadow-sm flex items-center gap-4 col-span-1 md:col-span-2 lg:col-span-1 transition-colors">
           <div className="relative w-16 h-16 flex-shrink-0">
              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                 <path
-                  className="text-gray-100"
+                  className="text-bg-tertiary"
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                   fill="none"
                   stroke="currentColor"
@@ -153,13 +236,13 @@ export default function ProjectProgressPage() {
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-sm font-bold text-gray-900">{stats.overallProgress}%</span>
+                <span className="text-sm font-bold text-text-primary">{stats.overallProgress}%</span>
               </div>
           </div>
           <div>
-            <h2 className="text-sm font-bold text-gray-900">總體開發進度</h2>
-            <p className="text-xs text-gray-500">Weighted by Story Points</p>
-            <p className="text-xs text-gray-400 mt-1">{stats.totalFeatures} Features</p>
+            <h2 className="text-sm font-bold text-text-primary">總體開發進度</h2>
+            <p className="text-xs text-text-secondary">Weighted by Story Points</p>
+            <p className="text-xs text-text-muted mt-1">{stats.totalFeatures} Features</p>
           </div>
         </div>
 
@@ -188,14 +271,14 @@ export default function ProjectProgressPage() {
       </div>
 
       {/* Controls */}
-      <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+      <div className="bg-bg-primary p-4 rounded-lg border border-border-default shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 flex-none transition-colors">
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full">
            <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted w-4 h-4" />
             <input 
               type="text" 
               placeholder="Search features..." 
-              className="w-full bg-gray-50 border border-gray-200 rounded-md pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-gray-900 placeholder-gray-400 transition-all"
+              className="w-full bg-bg-secondary border border-border-default rounded-md pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-text-primary placeholder-text-muted transition-all"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -209,7 +292,7 @@ export default function ProjectProgressPage() {
                   "px-3 py-1.5 rounded-full text-xs font-medium transition-colors border whitespace-nowrap",
                   selectedCategory === cat 
                     ? "bg-emerald-50 border-emerald-200 text-emerald-700" 
-                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    : "bg-bg-primary border-border-default text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
                 )}
               >
                 {cat}
@@ -217,75 +300,145 @@ export default function ProjectProgressPage() {
             ))}
           </div>
         </div>
+        <button
+            onClick={resetWidths}
+            className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-text-secondary bg-bg-primary border border-border-default rounded-md hover:bg-bg-secondary hover:text-text-primary transition-colors whitespace-nowrap"
+            title="Reset column widths"
+        >
+            <RotateCcw className="w-3.5 h-3.5" />
+            Reset Widths
+        </button>
       </div>
 
       {/* Table */}
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden flex flex-col h-[calc(100vh-400px)]">
+      <div className="bg-bg-primary border border-border-default rounded-lg shadow-sm overflow-hidden flex flex-col flex-1 min-h-0 transition-colors">
         {/* Header */}
-        <div className="overflow-hidden border-b border-gray-200 bg-gray-50">
-             <div className="grid gap-4 px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[1000px]"
-                  style={{ gridTemplateColumns: gridTemplate }}>
-                <div>ID</div>
-                <div>Category</div>
-                <div>Feature</div>
-                <div>Acceptance Criteria</div>
-                <div>Progress</div>
-                <div>Last Modified</div>
-                <div>Dev Log</div>
-             </div>
+        <div className="border-b border-border-default bg-bg-secondary flex items-stretch w-full" ref={tableRef}>
+             {COLUMN_HEADERS.map((header, idx) => (
+                <div 
+                    key={header.en} 
+                    className={clsx(
+                        "relative px-4 py-2 text-xs font-semibold text-text-secondary tracking-wider flex flex-col justify-center border-r border-border-light last:border-r-0",
+                        // ID column specific styling
+                        idx === 0 && "items-center"
+                    )}
+                    style={{ width: `${colWidths[idx]}%` }}
+                >
+                    <span className="uppercase truncate w-full">{header.en}</span>
+                    <span className="text-[10px] text-text-muted truncate w-full">{header.zh}</span>
+                    
+                    {/* Resizer Handle (except for last column) */}
+                    {idx < 8 && (
+                        <div
+                            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 z-10 active:bg-blue-600"
+                            onMouseDown={(e) => handleResizeStart(idx, e)}
+                        />
+                    )}
+                </div>
+             ))}
         </div>
 
         {/* Scrollable Body */}
-        <div className="overflow-y-auto flex-1 overflow-x-auto">
-           <div className="min-w-[1000px] divide-y divide-gray-100">
+        <div className="overflow-y-auto flex-1 min-h-0">
+           <div className="divide-y divide-border-light">
               {filteredFeatures.map((feature, idx) => (
                   <div 
                     key={feature.name}
-                    className="grid gap-4 px-6 py-4 hover:bg-gray-50 transition-colors items-start group"
-                    style={{ gridTemplateColumns: gridTemplate }}
+                    className="flex items-stretch hover:bg-bg-secondary transition-colors group min-h-[80px]"
                   >
-                      {/* ID */}
-                      <div className="font-mono text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded w-fit">
-                          {(idx + 1).toString().padStart(3, '0')}
+                      {/* 1. ID */}
+                      <div 
+                        className="flex-none px-2 py-4 flex justify-center border-r border-border-light bg-bg-secondary/50 group-hover:bg-bg-secondary/80"
+                        style={{ width: `${colWidths[0]}%` }}
+                      >
+                          <div className="font-mono text-xs text-text-secondary bg-bg-primary border border-border-default px-1.5 py-0.5 rounded h-fit">
+                              {(idx + 1).toString().padStart(3, '0')}
+                          </div>
                       </div>
 
-                      {/* Category */}
-                      <div>
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-800 break-words">
+                      {/* 2. Category */}
+                      <div 
+                        className="px-4 py-4 border-r border-border-light flex items-start" 
+                        style={{ width: `${colWidths[1]}%` }}
+                      >
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-bg-tertiary text-text-primary break-words max-w-full">
                               {feature.category}
                           </span>
                       </div>
 
-                      {/* Name */}
-                      <div>
-                          <h3 className="text-sm font-medium text-gray-900 break-words">{feature.name}</h3>
+                      {/* 3. Feature */}
+                      <div 
+                        className="px-4 py-4 border-r border-border-light flex flex-col items-start" 
+                        style={{ width: `${colWidths[2]}%` }}
+                      >
+                          <h3 className="text-sm font-medium text-text-primary break-words w-full">{feature.name}</h3>
                           {feature.docPath && (
-                              <a href={feature.docPath} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline mt-1">
+                              <a href={feature.docPath} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline mt-1">
                                   <ExternalLink className="w-3 h-3" />
                                   Docs
                               </a>
                           )}
                       </div>
 
-                      {/* Criteria */}
-                      <div className="text-xs text-gray-600 whitespace-pre-line max-h-32 overflow-y-auto pr-2 custom-scrollbar">
-                          {feature.acceptanceCriteria}
+                      {/* 4. Criteria */}
+                      <div 
+                        className="px-4 py-4 border-r border-border-light" 
+                        style={{ width: `${colWidths[3]}%` }}
+                      >
+                        <div className="text-xs text-text-secondary whitespace-pre-line max-h-32 overflow-y-auto custom-scrollbar w-full">
+                            {feature.acceptanceCriteria}
+                        </div>
                       </div>
 
-                      {/* Progress */}
-                      <div className="w-full">
-                          <ProgressBar percentage={feature.percentage} />
+                      {/* 5. Dev Progress */}
+                      <div 
+                        className="px-4 py-4 border-r border-border-light flex items-center" 
+                        style={{ width: `${colWidths[4]}%` }}
+                      >
+                          <div className="w-full">
+                              <ProgressBar percentage={feature.percentage} />
+                          </div>
                       </div>
 
-                      {/* Last Modified */}
-                      <div className="text-xs text-gray-500">
-                          <p>{feature.lastModifiedBy}</p>
-                          <p className="font-mono mt-0.5 text-[10px]">{feature.lastModifiedDate}</p>
+                      {/* 6. Test Coverage */}
+                      <div 
+                        className="px-4 py-4 border-r border-border-light flex items-center" 
+                        style={{ width: `${colWidths[5]}%` }}
+                      >
+                          <div className="w-full">
+                              <ProgressBar percentage={feature.testCoverage || 0} />
+                          </div>
                       </div>
 
-                      {/* Dev Log */}
-                      <div className="text-xs text-gray-600 whitespace-pre-line max-h-32 overflow-y-auto pr-2 custom-scrollbar">
-                          {feature.devLog ? feature.devLog : <span className="text-gray-400 italic">No logs</span>}
+                      {/* 7. Dev Log */}
+                      <div 
+                        className="px-4 py-4 border-r border-border-light bg-bg-secondary/30 group-hover:bg-bg-secondary/50"
+                        style={{ width: `${colWidths[6]}%` }}
+                      >
+                          <div className="text-xs text-text-secondary whitespace-pre-line max-h-32 overflow-y-auto custom-scrollbar w-full">
+                              {feature.devLog ? feature.devLog : <span className="text-text-muted italic">No logs</span>}
+                          </div>
+                      </div>
+
+                      {/* 8. Test Progress */}
+                      <div 
+                        className="px-4 py-4 border-r border-border-light" 
+                        style={{ width: `${colWidths[7]}%` }}
+                      >
+                          <div className="text-xs text-text-secondary whitespace-pre-line max-h-32 overflow-y-auto custom-scrollbar w-full">
+                              {feature.testProgress ? feature.testProgress : <span className="text-text-muted italic">No test info</span>}
+                          </div>
+                      </div>
+
+                      {/* 9. Last Modified */}
+                      <div 
+                        className="flex-none px-4 py-4 flex flex-col justify-center border-l border-border-light" 
+                        style={{ width: `${colWidths[8]}%` }}
+                      >
+                          <div className="text-xs text-text-muted">
+                              <p className="truncate" title={feature.lastModifiedBy}>{feature.lastModifiedBy}</p>
+                              <p className="font-mono mt-0.5 text-[10px] truncate">{feature.lastModifiedDate}</p>
+                          </div>
                       </div>
                   </div>
               ))}

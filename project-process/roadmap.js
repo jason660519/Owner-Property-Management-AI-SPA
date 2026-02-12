@@ -1,9 +1,21 @@
 
 window.ROADMAP_DATA = {
-    lastUpdated: "2026/02/06-11:00",
+    lastUpdated: "2026/02/13-16:00",
     features: [
         // 超級管理員
-        { name: "超級管理員-儀表板", percentage: 90, acceptanceCriteria: "", docPath: "features/admin-dashboard-20260206.html", category: "超級管理員 (Super Admin)", points: 8, lastModifiedBy: "Gemini-3-Pro-Preview", lastModifiedDate: "2026/02/06" },
+        { 
+            name: "超級管理員-儀表板", 
+            percentage: 95, 
+            acceptanceCriteria: "1. 登入後首頁需顯示系統關鍵指標(KPI)，包含總用戶數、總物件數、成交金額。\n2. 需提供圖表視覺化呈現最近30天的平台流量趨勢。\n3. 儀表板需顯示待處理的審核事項通知。\n4. 需支援數據篩選功能，可依日期區間查看統計數據。\n5. 頁面載入速度需在2秒內完成，確保良好的使用者體驗。", 
+            docPath: "features/admin-dashboard-20260206.html", 
+            category: "超級管理員 (Super Admin)", 
+            points: 8, 
+            lastModifiedBy: "Trae AI", 
+            lastModifiedDate: "2026/02/13",
+            devLog: "[2026/02/13] (Trae AI)\n• 完成儀表板進度頁面重構，支援 9 欄位動態調整寬度\n• 實作欄位順序優化與雙語標題顯示\n• 新增 `dev-logs` 與 `test-logs` 資料夾結構\n詳見: [開發日誌](../dev-logs/dev-dashboard-refactor-2026-02-13.md)",
+            testProgress: "[2026/02/13] (Trae AI)\n• UI/UX 功能測試通過 (欄位拖曳、記憶還原、RWD)\n詳見: [測試日誌](../test-logs/test-dashboard-refactor-2026-02-13.md)",
+            testCoverage: 0 
+        },
         { name: "超級管理員-網站行為監控與紀錄功能", percentage: 0, acceptanceCriteria: "", docPath: "", category: "超級管理員 (Super Admin)", points: 5, lastModifiedBy: "", lastModifiedDate: "" },
         { name: "超級管理員的RBAC CRUD平台", percentage: 0, acceptanceCriteria: "", docPath: "", category: "超級管理員 (Super Admin)", points: 8, lastModifiedBy: "", lastModifiedDate: "" },
         { name: "超級管理員-雲端空間管理平台", percentage: 0, acceptanceCriteria: "", docPath: "", category: "超級管理員 (Super Admin)", points: 5, lastModifiedBy: "", lastModifiedDate: "" },
@@ -111,6 +123,18 @@ window.ROADMAP_DATA = {
         { name: "登入頁面>「記住我」功能 TDD 開發進度檢測報告", percentage: 100, acceptanceCriteria: "", docPath: "features/remember-me-tdd-report-20260205.html", category: "測試與品質保證 (Testing & QA)", points: 5, lastModifiedBy: "Claude Sonnet 4.5", lastModifiedDate: "2026/02/05" },
 
         // 專案管理與工具
-        { name: "專案開發進度儀表板重構 (Project Dashboard Overhaul)", percentage: 100, acceptanceCriteria: "", docPath: "project-process/progress-reports/daily-reports/project-dashboard-overhaul-2026-02-06.md", category: "專案管理與工具 (Project Management)", points: 3, lastModifiedBy: "Gemini-3-Pro-Preview", lastModifiedDate: "2026/02/06" }
+        { 
+            name: "專案開發進度儀表板重構 (Project Dashboard Overhaul)", 
+            percentage: 100, 
+            acceptanceCriteria: "1. 需支援欄位寬度動態調整。\n2. 需記憶使用者偏好設定。\n3. 需支援雙語標題。\n4. 需整合開發日誌與測試日誌連結。", 
+            docPath: "project-process/progress-reports/daily-reports/project-dashboard-overhaul-2026-02-06.md", 
+            category: "專案管理與工具 (Project Management)", 
+            points: 3, 
+            lastModifiedBy: "Trae AI", 
+            lastModifiedDate: "2026/02/13",
+            devLog: "[2026/02/13] (Trae AI)\n• 完成第二階段重構：支援 9 欄位 Flexbox 佈局、拖曳調整寬度、雙語標題與連結整合。\n詳見: [開發日誌](../dev-logs/dev-dashboard-refactor-2026-02-13.md)",
+            testProgress: "[2026/02/13] (Trae AI)\n• 驗證欄位拖曳、localStorage 存取與重置功能正常。\n詳見: [測試日誌](../test-logs/test-dashboard-refactor-2026-02-13.md)",
+            testCoverage: 0
+        }
     ]
 };

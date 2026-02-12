@@ -6,6 +6,7 @@ const config: Config = {
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
+  darkMode: ["class"],
   theme: {
     container: {
       center: true,
@@ -21,6 +22,24 @@ const config: Config = {
     },
     extend: {
       colors: {
+        // Semantic Colors (Mapped to CSS Variables)
+        bg: {
+          primary: 'var(--color-bg-primary)',
+          secondary: 'var(--color-bg-secondary)',
+        },
+        text: {
+          primary: 'var(--color-text-primary)',
+          secondary: 'var(--color-text-secondary)',
+        },
+        border: {
+          default: 'var(--color-border-default)',
+        },
+        accent: {
+          DEFAULT: 'var(--color-accent)',
+          hover: 'var(--color-accent-hover)',
+          subtle: 'var(--color-accent-subtle)',
+        },
+
         // 基於 Figma 設計的色彩系統
         grey: {
           '08': '#1A1A1A',   // Grey/08 - 主要背景

@@ -1,44 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { Menu, X, Search, Bell, User, Moon, Sun, ChevronDown } from 'lucide-react';
+import { Menu, X, Search, Bell, User, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export function DashboardHeader() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false); // Default to false to match server-side (usually light) or handle hydration
-  const [mounted, setMounted] = useState(false);
-
-  // Initialize theme based on preference or system
-  useEffect(() => {
-    setMounted(true);
-    const savedTheme = localStorage.getItem('theme');
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
-    const isDark = savedTheme === 'dark' || (!savedTheme && systemPrefersDark);
-    
-    setIsDarkMode(isDark);
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, []);
-
-  const toggleTheme = () => {
-    const newIsDark = !isDarkMode;
-    setIsDarkMode(newIsDark);
-    if (newIsDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  };
+  const MAIN_SITE_URL = process.env.NEXT_PUBLIC_MAIN_SITE_URL || 'http://localhost:3000';
 
   const navLinks = [
+    { name: 'Home', href: MAIN_SITE_URL },
     { name: 'Product', href: '/product' },
     { name: 'Developers', href: '/developers' },
     { name: 'Pricing', href: '/pricing' },
@@ -83,20 +56,7 @@ export function DashboardHeader() {
           </button>
 
           <div className="flex items-center gap-2 border-l border-gray-200 dark:border-grey-15 pl-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleTheme}
-              className="text-gray-500 hover:text-gray-900 dark:text-grey-60 dark:hover:text-white transition-all"
-              aria-label="Toggle theme"
-              data-testid="theme-toggle"
-            >
-              {mounted ? (
-                isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />
-              ) : (
-                <div className="h-5 w-5" /> // Placeholder
-              )}
-            </Button>
+            <ThemeToggle />
             
             <Button 
               variant="ghost" 
@@ -116,19 +76,7 @@ export function DashboardHeader() {
 
         {/* Mobile Menu Toggle */}
         <div className="flex md:hidden items-center gap-4">
-           <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleTheme}
-              className="text-gray-500 hover:text-gray-900 dark:text-grey-60 dark:hover:text-white transition-all"
-              aria-label="Toggle theme"
-            >
-              {mounted ? (
-                isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />
-              ) : (
-                <div className="h-5 w-5" />
-              )}
-            </Button>
+           <ThemeToggle />
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="text-gray-500 hover:text-gray-900 dark:text-grey-60 dark:hover:text-white"

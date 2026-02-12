@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter, Urbanist } from 'next/font/google';
 import './globals.css';
+import { ThemeProvider } from '@/components/theme-provider';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const urbanist = Urbanist({ subsets: ['latin'], variable: '--font-urbanist' });
@@ -17,7 +18,17 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-TW" suppressHydrationWarning>
-      <body className={`${urbanist.variable} ${inter.variable} font-primary`}>{children}</body>
+      <body className={`${urbanist.variable} ${inter.variable} font-primary`}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+          themes={['light', 'dark']}
+        >
+          {children}
+        </ThemeProvider>
+      </body>
     </html>
   );
 }

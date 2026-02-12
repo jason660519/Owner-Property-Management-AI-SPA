@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '../ui/Button';
+import { ThemeToggle } from '../theme-toggle';
 import styles from './Header.module.css';
 
 const navLinks = [
@@ -109,6 +110,7 @@ export function Header() {
 
           {/* Auth Actions */}
           <div className={styles.navActions}>
+            <ThemeToggle />
             {loading ? (
                // Loading state placeholder
                <div className="w-24 h-10 bg-gray-800 rounded animate-pulse" />
