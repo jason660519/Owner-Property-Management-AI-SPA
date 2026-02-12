@@ -1,41 +1,134 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
+  /* 色彩變數 */
   --color-grey-08: #1A1A1A;
   --color-grey-10: #2A2A2A;
   --color-grey-15: #333333;
   --color-grey-60: #999999;
   --color-purple-60: #7C3AED;
   --color-white: #FFFFFF;
+
+  /* 字體變數 */
   --font-sans: 'Inter', system-ui, sans-serif;
-  --spacing-2: 8px;
-  --spacing-4: 16px;
-  --spacing-6: 24px;
+  --font-primary: 'Inter', system-ui, sans-serif;
+
+  /* 間距變數 */
+  --spacing-xs: 8px;
+  --spacing-sm: 12px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
+
+  /* 圓角變數 */
+  --radius-sm: 8px;
   --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 28px;
+  --radius-3xl: 75px;
+  --radius-pill: 9999px;
   --radius-base: 12px;
+  --radius-full: 9999px;
+
+  /* 文字大小變數 */
   --text-sm: 14px;
   --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 20px;
   --text-2xl: 24px;
+  --text-3xl: 30px;
+  --text-4xl: 36px;
+  --text-5xl: 48px;
+  --text-6xl: 60px;
+
+  /* 字重變數 */
+  --font-normal: 400;
   --font-medium: 500;
   --font-semibold: 600;
-  --color-text-primary: var(--color-white);
-  --color-text-secondary: var(--color-grey-60);
-  --color-bg-primary: var(--color-grey-08);
-  --color-bg-secondary: var(--color-grey-10);
-  --color-border-default: var(--color-grey-15);
+  --font-bold: 700;
+
+  /* 行高變數 */
+  --leading-none: 1;
+  --leading-tight: 1.25;
+  --leading-snug: 1.375;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+  --leading-loose: 2;
+
+  /* 語意化色彩變數 — 淺色模式 (Light Mode) */
+  --color-text-primary: #111827;
+  --color-text-secondary: #6B7280;
+  --color-text-muted: #9CA3AF;
+  --color-bg-primary: #FFFFFF;
+  --color-bg-secondary: #F9FAFB;
+  --color-bg-tertiary: #F3F4F6;
+  --color-border-default: #E5E7EB;
+  --color-border-light: #D1D5DB;
   --color-accent: var(--color-purple-60);
   --color-accent-hover: #6D28D9;
-  --color-accent-subtle: rgba(124, 58, 237, 0.1);
+  --color-accent-subtle: rgba(124, 58, 237, 0.08);
+  --color-star: #F59E0B;
   --color-error: #EF4444;
+
+  /* 容器與間距系統 */
+  --container-max-width: 1440px;
+  --container-padding-mobile: 16px;
+  --container-padding-tablet: 32px;
+  --container-padding-laptop: 64px;
+  --container-padding-desktop: 80px;
+
+  /* 數字間距系統 (8px grid) */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+  --spacing-12: 48px;
+  --spacing-16: 64px;
+  --spacing-20: 80px;
+  --spacing-24: 96px;
+
+  /* Z-index 層級 */
+  --z-base: 1;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-fixed: 300;
+  --z-modal-backdrop: 400;
+  --z-modal: 500;
+  --z-popover: 600;
+
+  /* Shadow */
   --shadow-glow: 0 0 20px rgba(124, 58, 237, 0.3);
   --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
   --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+
+  /* Transition */
+  --transition-fast: 0.15s ease;
   --transition-normal: 0.2s ease;
   --transition-slow: 0.3s ease;
+}
+
+/* 深色模式 (Dark Mode) — 覆寫語意化色彩變數 */
+.dark {
+  --color-text-primary: var(--color-white);
+  --color-text-secondary: var(--color-grey-60);
+  --color-text-muted: #666666;
+  --color-bg-primary: var(--color-grey-08);
+  --color-bg-secondary: var(--color-grey-10);
+  --color-bg-tertiary: var(--color-grey-15);
+  --color-border-default: var(--color-grey-15);
+  --color-border-light: #444444;
+  --color-accent-subtle: rgba(124, 58, 237, 0.15);
 }
 
 body {

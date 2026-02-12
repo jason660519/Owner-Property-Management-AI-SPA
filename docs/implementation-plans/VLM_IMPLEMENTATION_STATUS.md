@@ -221,7 +221,7 @@ Result:
 16. ✅ `docs/implementation-plans/VLM_DOCUMENT_SCAN_IMPLEMENTATION_SUMMARY.md`
 17. ✅ `docs/implementation-plans/VLM_INTEGRATION_EXAMPLE.md`
 18. ✅ `docs/QUICKSTART_VLM.md`
-19. ✅ `start-vlm-test.sh` (啟動腳本)
+19. ✅ `start.sh` (OCR module) (啟動腳本)
 
 ---
 
@@ -319,7 +319,7 @@ pip install pytesseract opencv-python-headless
    ```bash
    cd backend/ocr_service
    source venv/bin/activate
-   export VLM_MASTER_KEY=227bcc677f65be6034e92de0e77aef69c1b105537c15938edc892d24f83e9025
+   export VLM_MASTER_KEY=<vlm_master_key>
    export SUPABASE_URL=http://127.0.0.1:54321
    uvicorn src.api.main:app --reload --port 8000
    ```
@@ -344,7 +344,7 @@ pip install pytesseract opencv-python-headless
 
 ### 已生成的密鑰
 ```
-VLM_MASTER_KEY=227bcc677f65be6034e92de0e77aef69c1b105537c15938edc892d24f83e9025
+VLM_MASTER_KEY=<vlm_master_key>
 ```
 **⚠️ 請妥善保管此密鑰，建議在生產環境使用 Secrets Manager**
 

@@ -1,16 +1,16 @@
 
 window.ROADMAP_DATA = {
-    lastUpdated: "2026/02/06-16:30",
+    lastUpdated: "2026/02/06-18:30",
     features: [
         // 超級管理員
         { 
             name: "超級管理員-儀表板", 
-            percentage: 90, 
+            percentage: 95, 
             docPath: "../features/admin-dashboard-20260206.html", 
             category: "超級管理員 (Super Admin)", 
             startDate: "2026-02-10", endDate: "2026-02-18", owner: "Dev Team", points: 8, 
-            lastModifiedBy: "Gemini-3-Pro-Preview", 
-            lastModifiedDate: "2026/02/06",
+            lastModifiedBy: "GPT-4.5", 
+            lastModifiedDate: "2026/02/06-18:30",
             acceptanceCriteria: "1. 登入後首頁需顯示系統關鍵指標(KPI)，包含總用戶數、總物件數、成交金額。\n2. 需提供圖表視覺化呈現最近30天的平台流量趨勢。\n3. 儀表板需顯示待處理的審核事項通知。\n4. 需支援數據篩選功能，可依日期區間查看統計數據。\n5. 頁面載入速度需在2秒內完成，確保良好的使用者體驗。"
         },
         { 

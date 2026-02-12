@@ -3,12 +3,12 @@
   "private": true,
   "scripts": {
     "build": "npm run build --workspaces",
-    "dev": "./start-dev.sh both",
+    "dev": "./start.sh menu",
     "dev:web": "npm run dev --workspace web",
     "dev:superadmin": "npm run dev --workspace superadmin",
     "dev:mobile": "npm run dev --workspace mobile",
-    "dev:stop": "./start-dev.sh stop",
-    "dev:clean": "./start-dev.sh clean",
+    "dev:stop": "./stop.sh",
+    "dev:clean": "./start.sh clean",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""

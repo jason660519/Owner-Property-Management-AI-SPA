@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Urbanist } from 'next/font/google';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const urbanist = Urbanist({ subsets: ['latin'], variable: '--font-urbanist' });
 
 export const metadata: Metadata = {
   title: '超級管理員後台 - Owner Property Management',
@@ -15,8 +16,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="zh-TW">
-      <body className={inter.className}>{children}</body>
+    <html lang="zh-TW" suppressHydrationWarning>
+      <body className={`${urbanist.variable} ${inter.variable} font-primary`}>{children}</body>
     </html>
   );
 }

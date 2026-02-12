@@ -76,8 +76,8 @@ export async function sendContactEmail(data: ContactFormData) {
 
     await retry(async () => {
       await transporter.sendMail({
-        from: '"Estatein Website" <website@estatein.com>', // sender address
-        to: 'support@estatein.com', // list of receivers
+        from: '"Vision Real Estate Website" <a0405142777@gmail.com>', // sender address
+        to: 'a0405142777@gmail.com', // list of receivers
         replyTo: email,
         subject: `[${inquiryType}] 來自 ${name} 的新詢問`, // Subject line
         text: `
@@ -105,7 +105,7 @@ export async function sendContactEmail(data: ContactFormData) {
     // Send auto-reply to user
     await retry(async () => {
       await transporter.sendMail({
-        from: '"Estatein Support" <support@estatein.com>',
+        from: '"Vision Real Estate Support" <a0405142777@gmail.com>',
         to: email,
         subject: '我們已收到您的詢問 - Estatein',
         text: `

@@ -143,7 +143,7 @@ export default async function PropertyDetailsPage({ params }: PageProps) {
 
                             <div className="mt-8 pt-8 border-t border-[#262626] text-center">
                                 <p className="text-[#999999] mb-2">或直接致電服務專線</p>
-                                <p className="text-xl font-bold text-white">+886 2 2345 6789</p>
+                                <p className="text-xl font-bold text-white">+61 405 142 777</p>
                             </div>
                         </div>
                     </div>

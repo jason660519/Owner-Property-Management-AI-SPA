@@ -32,6 +32,19 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Role Simulation Logic (Only for Super Admins)
+  let effectiveRole = user?.user_metadata?.role || 'landlord';
+  const simulationRole = request.cookies.get('x-simulation-role')?.value;
+  
+  // Verify if the REAL user is actually a super_admin before allowing simulation
+  // This prevents non-admins from spoofing the cookie to escalate privileges
+  if (user && simulationRole && user.user_metadata?.role === 'super_admin') {
+    effectiveRole = simulationRole;
+    // Inject a header so downstream components know we are simulating
+    supabaseResponse.headers.set('x-simulation-mode', 'true');
+    supabaseResponse.headers.set('x-effective-role', effectiveRole);
+  }
+
   // 需要認證的路由（超級管理員獨立在 port 3001，此站為房東/租客/買家等）
   const protectedRoutes = ['/landlord', '/tenant', '/buyer'];
   const isProtectedRoute = protectedRoutes.some((route) =>
@@ -52,10 +65,11 @@ export async function middleware(request: NextRequest) {
 
   // 如果已登入且訪問認證頁面，重導向到對應的儀表板（super_admin 導向獨立後台 3001）
   if (user && isAuthRoute) {
-    const role = user.user_metadata?.role || 'landlord';
+    const role = effectiveRole;
     const superadminUrl = process.env.NEXT_PUBLIC_SUPERADMIN_URL || 'http://localhost:3001';
 
-    if (role === 'super_admin') {
+    // If simulating, do NOT redirect to superadmin app, but stay here
+    if (role === 'super_admin' && !simulationRole) {
       return NextResponse.redirect(`${superadminUrl}/superadmin/dashboard`);
     }
 
@@ -63,6 +77,11 @@ export async function middleware(request: NextRequest) {
       landlord: '/landlord/dashboard',
       tenant: '/tenant/dashboard',
       buyer: '/buyer/dashboard',
+      contract_tenant: '/tenant/dashboard', // Map new roles to existing dashboards
+      contract_buyer: '/buyer/dashboard',
+      potential_tenant: '/tenant/potential/dashboard',
+      potential_buyer: '/buyer/dashboard', // Assuming buyer dashboard handles potential
+      vendor: '/vendor/dashboard', // If exists
     };
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = dashboardMap[role] || '/landlord/dashboard';

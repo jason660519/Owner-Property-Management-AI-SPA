@@ -32,6 +32,7 @@ __pycache__/
 # ============================================
 dist/
 build/
+.next/
 .turbo/
 *.pid
 *.seed
@@ -68,7 +69,7 @@ Google Drive Outh.json
 Outh.json
 docs_backup_*.tar.gz
 renaming_report.csv
-resources/Taiwan Gov documents/
+resources/
 
 # ============================================
 # Database
@@ -80,9 +81,6 @@ resources/Taiwan Gov documents/
 # ============================================
 # Large Files (exceeds GitHub 100MB limit)
 # ============================================
-
-resources/data
-resources/samples
 # ============================================
 # OS Files
 # ============================================

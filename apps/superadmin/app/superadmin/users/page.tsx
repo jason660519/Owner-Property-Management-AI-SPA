@@ -25,7 +25,12 @@ export default async function SuperadminUsersPage() {
           <h2 className="text-xl font-bold text-white">User Management</h2>
           <p className="text-[#999999] mt-1">Assign users to groups to grant effective permissions.</p>
         </div>
-        <InviteUserModal />
+        <div className="flex gap-2">
+            <button className="px-4 py-2 bg-[#2A2A2A] text-white border border-[#333333] rounded-md hover:bg-[#333333] transition-colors text-sm">
+                匯出用戶資料
+            </button>
+            <InviteUserModal />
+        </div>
       </div>
       <UserList initialUsers={users} availableGroups={groups} />
       <div className="mt-6">

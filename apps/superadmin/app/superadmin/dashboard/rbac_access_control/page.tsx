@@ -1,258 +1,346 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { 
+  Shield, 
+  Plus, 
+  Trash2, 
+  Check, 
+  Clock, 
+  User, 
+  Activity,
+  AlertCircle,
+  Search,
+  Edit,
+  X
+} from 'lucide-react';
+import { getRoles, createRole, deleteRole, updateRole } from './actions';
 
 // Types
 type Role = {
   id: string;
   name: string;
   description: string;
+  created_at: string;
 };
 
-type Resource = 'Properties' | 'Users' | 'Contracts' | 'Reports';
-type Action = 'create' | 'read' | 'update' | 'delete';
+type Resource = 'Properties' | 'Users' | 'Contracts' | 'Reports' | 'Finance' | 'Logs' | 'Config';
+type Action = 'create' | 'read' | 'update' | 'delete' | 'manage';
 
-type AuditLog = {
-  id: string;
-  timestamp: string;
-  user: string;
-  action: string;
-  details: string;
-};
-
-const RESOURCES: Resource[] = ['Properties', 'Users', 'Contracts', 'Reports'];
-const ACTIONS: Action[] = ['create', 'read', 'update', 'delete'];
+const RESOURCES: Resource[] = ['Properties', 'Users', 'Contracts', 'Reports', 'Finance', 'Logs', 'Config'];
+const ACTIONS: Action[] = ['create', 'read', 'update', 'delete', 'manage'];
 
 export default function RBACPage() {
-  const [roles, setRoles] = useState<Role[]>([
-    { id: '1', name: 'Super Admin', description: 'Full access to all resources' },
-    { id: '2', name: 'Landlord', description: 'Manage owned properties' },
-  ]);
-  const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
-  const [permissions, setPermissions] = useState<Record<string, Record<string, Action[]>>>({
-    '1': {
-      'Properties': ['create', 'read', 'update', 'delete'],
-      'Users': ['create', 'read', 'update', 'delete'],
-    },
-    '2': {
-      'Properties': ['read', 'update'],
-    }
-  });
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  const [permissions, setPermissions] = useState<Record<string, Record<string, Action[]>>>({});
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newRole, setNewRole] = useState({ name: '', description: '' });
-  
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [roleForm, setRoleForm] = useState({ id: '', name: '', description: '' });
 
-  const addAuditLog = (action: string, details: string) => {
-    const log: AuditLog = {
-      id: Date.now().toString(),
-      timestamp: new Date().toLocaleTimeString(),
-      user: 'Current Admin',
-      action,
-      details
-    };
-    setAuditLogs(prev => [log, ...prev]);
-  };
+  // Fetch Roles
+  useEffect(() => {
+    loadRoles();
+  }, []);
 
-  const handleCreateRole = () => {
-    if (!newRole.name) return;
-    const newId = Date.now().toString();
-    setRoles([...roles, { id: newId, ...newRole }]);
-    setIsModalOpen(false);
-    setNewRole({ name: '', description: '' });
-    addAuditLog('Create Role', `Created role: ${newRole.name}`);
-  };
-
-  const handleDeleteRole = (id: string, name: string) => {
-    // Mock Orphan Check
-    const confirm = window.confirm(`Are you sure you want to delete role "${name}"? This action will be logged.`);
-    if (confirm) {
-      setRoles(roles.filter(r => r.id !== id));
-      if (selectedRoleId === id) setSelectedRoleId(null);
-      addAuditLog('Delete Role', `Deleted role: ${name}`);
+  const loadRoles = async () => {
+    setIsLoading(true);
+    try {
+      const data = await getRoles();
+      setRoles(data as Role[]);
+      if (data && data.length > 0 && !selectedRole) {
+        setSelectedRole(data[0] as Role);
+      }
+    } catch (error) {
+      console.error('Failed to load roles:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  const filteredRoles = roles.filter(role => 
+    role.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    role.description?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleCreateOrUpdate = async () => {
+    if (!roleForm.name) return;
+    
+    const formData = new FormData();
+    formData.append('name', roleForm.name);
+    formData.append('description', roleForm.description);
+    
+    if (isEditMode && roleForm.id) {
+        formData.append('id', roleForm.id);
+        await updateRole(formData);
+    } else {
+        await createRole(formData);
+    }
+    
+    setIsModalOpen(false);
+    setRoleForm({ id: '', name: '', description: '' });
+    setIsEditMode(false);
+    loadRoles();
+  };
+
+  const handleDeleteRole = async (id: string, name: string) => {
+    if (window.confirm(`Are you sure you want to delete role "${name}"?`)) {
+      await deleteRole(id);
+      loadRoles();
+      if (selectedRole?.id === id) setSelectedRole(null);
+    }
+  };
+
+  const openEditModal = (role: Role) => {
+    setRoleForm({ id: role.id, name: role.name, description: role.description });
+    setIsEditMode(true);
+    setIsModalOpen(true);
+  };
+
+  const openCreateModal = () => {
+    setRoleForm({ id: '', name: '', description: '' });
+    setIsEditMode(false);
+    setIsModalOpen(true);
+  };
+
+  // Mock Permission Logic (In real app, this would fetch from iam_role_permissions table)
   const togglePermission = (roleId: string, resource: string, action: Action) => {
+    // This is visual only for now, as DB schema for granular permissions wasn't requested in migration
     setPermissions(prev => {
       const rolePerms = prev[roleId] || {};
-      const resourcePerms = rolePerms[resource] || [];
+      const resourceActions = rolePerms[resource] || [];
       
-      let newResourcePerms;
-      if (resourcePerms.includes(action)) {
-        newResourcePerms = resourcePerms.filter(a => a !== action);
-      } else {
-        newResourcePerms = [...resourcePerms, action];
-      }
-      
-      addAuditLog('Update Permission', `Role ${roleId}: Toggled ${action} on ${resource}`);
-
+      const newActions = resourceActions.includes(action)
+        ? resourceActions.filter(a => a !== action)
+        : [...resourceActions, action];
+        
       return {
         ...prev,
         [roleId]: {
           ...rolePerms,
-          [resource]: newResourcePerms
+          [resource]: newActions
         }
       };
     });
   };
 
-  const isPermissionGranted = (roleId: string, resource: string, action: Action) => {
-    return permissions[roleId]?.[resource]?.includes(action) || false;
-  };
-
   return (
-    <div className="p-8 space-y-8 min-h-screen bg-[#0f172a]">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-white">RBAC Access Control</h1>
-        <Button onClick={() => setIsModalOpen(true)}>Create Role</Button>
+    <div className="p-8 bg-[#1A1A1A] min-h-screen text-white space-y-8">
+      {/* Header */}
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <Shield className="text-[#7C3AED] w-8 h-8" />
+            RBAC Access Control
+          </h1>
+          <p className="text-[#999999] mt-2">Manage system roles, permissions, and access policies.</p>
+        </div>
+        <Button 
+          onClick={openCreateModal}
+          className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white flex items-center gap-2"
+        >
+          <Plus size={18} />
+          Create New Role
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Role List */}
-        <div className="lg:col-span-1">
-          <Card className="h-full">
-            <CardHeader>
-              <CardTitle>Role Management</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {roles.map(role => (
-                  <div 
-                    key={role.id} 
-                    className={`flex justify-between items-center p-4 rounded-lg cursor-pointer transition-colors ${selectedRoleId === role.id ? 'bg-[#7C3AED]/20 border border-[#7C3AED]' : 'bg-[#333333] border border-transparent hover:bg-[#404040]'}`}
-                    onClick={() => setSelectedRoleId(role.id)}
-                  >
-                    <div>
-                      <h4 className="font-semibold text-white">{role.name}</h4>
-                      <p className="text-sm text-gray-400 truncate max-w-[150px]">{role.description}</p>
-                    </div>
-                    <div className="space-x-2 flex">
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="text-red-400 hover:text-red-300 px-2"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteRole(role.id, role.name);
-                        }}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Permission Matrix */}
-        <div className="lg:col-span-2">
-          <Card className="h-full">
-            <CardHeader>
-              <CardTitle>Permission Matrix {selectedRoleId && `- ${roles.find(r => r.id === selectedRoleId)?.name}`}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {!selectedRoleId ? (
-                <div className="text-gray-400 text-sm flex items-center justify-center h-64">
-                  Select a role from the left to configure permissions.
-                </div>
-              ) : (
-                <div className="border border-[#333333] rounded-lg overflow-hidden">
-                  <div className="grid grid-cols-5 gap-4 bg-[#2A2A2A] p-4 font-semibold text-gray-200 border-b border-[#333333]">
-                    <div>Resource</div>
-                    {ACTIONS.map(action => (
-                      <div key={action} className="text-center capitalize">{action}</div>
-                    ))}
-                  </div>
-                  <div className="divide-y divide-[#333333]">
-                    {RESOURCES.map(resource => (
-                      <div key={resource} className="grid grid-cols-5 gap-4 p-4 items-center hover:bg-[#2A2A2A]/50 transition-colors">
-                        <div className="font-medium text-gray-300">{resource}</div>
-                        {ACTIONS.map(action => (
-                          <div key={action} className="flex justify-center">
-                            <input
-                              type="checkbox"
-                              className="w-5 h-5 rounded border-gray-600 bg-[#333333] text-[#7C3AED] focus:ring-[#7C3AED]"
-                              checked={isPermissionGranted(selectedRoleId, resource, action)}
-                              onChange={() => togglePermission(selectedRoleId, resource, action)}
-                              aria-label={`${action} ${resource}`}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Audit Log Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Audit Log</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="max-h-60 overflow-y-auto space-y-2">
-            {auditLogs.length === 0 ? (
-               <div className="text-gray-500 italic">No activities recorded yet.</div>
-            ) : (
-              auditLogs.map(log => (
-                <div key={log.id} className="flex text-sm border-b border-[#333333] pb-2 last:border-0">
-                  <span className="text-gray-500 w-24 flex-shrink-0">{log.timestamp}</span>
-                  <span className="text-[#7C3AED] w-32 font-medium flex-shrink-0">{log.user}</span>
-                  <span className="text-gray-300 w-32 font-medium flex-shrink-0">{log.action}</span>
-                  <span className="text-gray-400">{log.details}</span>
-                </div>
-              ))
-            )}
+      <div className="grid grid-cols-12 gap-8">
+        {/* Role List (Sidebar) */}
+        <div className="col-span-4 space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#666666] w-4 h-4" />
+            <input 
+              type="text" 
+              placeholder="Search roles..." 
+              className="w-full bg-[#2A2A2A] border border-[#333333] rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-[#7C3AED] outline-none"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
-        </CardContent>
-      </Card>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-md bg-[#1E1E1E] shadow-xl border-[#7C3AED]/20">
-            <CardHeader>
-              <CardTitle>Create New Role</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="roleName" className="block text-sm font-medium text-gray-300 mb-1">Role Name</label>
-                  <input
-                    id="roleName"
-                    type="text"
-                    className="w-full px-3 py-2 bg-[#2A2A2A] border border-[#333333] rounded-lg text-white focus:outline-none focus:border-[#7C3AED] focus:ring-1 focus:ring-[#7C3AED]"
-                    placeholder="e.g. Property Manager"
-                    value={newRole.name}
-                    onChange={e => setNewRole({ ...newRole, name: e.target.value })}
-                  />
+          <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
+            {isLoading ? (
+                <div className="text-center py-8 text-[#666666]">Loading roles...</div>
+            ) : filteredRoles.map(role => (
+              <Card 
+                key={role.id}
+                className={`cursor-pointer transition-all border ${
+                  selectedRole?.id === role.id 
+                    ? 'bg-[#2A2A2A] border-[#7C3AED]' 
+                    : 'bg-[#2A2A2A] border-[#333333] hover:border-[#666666]'
+                }`}
+                onClick={() => setSelectedRole(role)}
+              >
+                <div className="p-4 flex justify-between items-start">
+                  <div>
+                    <h3 className="font-semibold text-white">{role.name}</h3>
+                    <p className="text-xs text-[#999999] mt-1 line-clamp-2">{role.description}</p>
+                    <div className="flex items-center gap-2 mt-3 text-xs text-[#666666]">
+                      <Clock size={12} />
+                      {new Date(role.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                     {/* Actions */}
+                     <button 
+                        onClick={(e) => { e.stopPropagation(); openEditModal(role); }}
+                        className="p-1.5 hover:bg-[#333333] rounded text-[#999999] hover:text-white"
+                     >
+                        <Edit size={14} />
+                     </button>
+                     <button 
+                        onClick={(e) => { e.stopPropagation(); handleDeleteRole(role.id, role.name); }}
+                        className="p-1.5 hover:bg-red-500/20 rounded text-[#999999] hover:text-red-500"
+                     >
+                        <Trash2 size={14} />
+                     </button>
+                  </div>
                 </div>
-                <div>
-                  <label htmlFor="roleDesc" className="block text-sm font-medium text-gray-300 mb-1">Description</label>
-                  <textarea
-                    id="roleDesc"
-                    className="w-full px-3 py-2 bg-[#2A2A2A] border border-[#333333] rounded-lg text-white focus:outline-none focus:border-[#7C3AED] focus:ring-1 focus:ring-[#7C3AED] min-h-[100px]"
-                    placeholder="Describe the responsibilities..."
-                    value={newRole.description}
-                    onChange={e => setNewRole({ ...newRole, description: e.target.value })}
-                  />
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {/* Permission Matrix (Main Content) */}
+        <div className="col-span-8">
+          {selectedRole ? (
+            <Card className="bg-[#2A2A2A] border-[#333333] h-full">
+              <CardHeader className="border-b border-[#333333] pb-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle className="text-xl text-white flex items-center gap-2">
+                      <User className="text-[#7C3AED] w-5 h-5" />
+                      {selectedRole.name}
+                    </CardTitle>
+                    <p className="text-sm text-[#999999] mt-1">{selectedRole.description}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 bg-green-500/10 text-green-500 text-xs rounded-full border border-green-500/20">
+                      Active
+                    </span>
+                    <span className="text-xs text-[#666666]">ID: {selectedRole.id}</span>
+                  </div>
                 </div>
-                <div className="flex justify-end space-x-3 mt-6">
-                  <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-                  <Button onClick={handleCreateRole}>Save Role</Button>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="mb-6 flex items-center justify-between">
+                    <h3 className="text-lg font-medium text-white">Permission Matrix</h3>
+                    <div className="text-xs text-[#666666] flex items-center gap-2">
+                        <AlertCircle size={14} />
+                        Changes are saved automatically
+                    </div>
                 </div>
+                
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="text-xs text-[#999999] uppercase bg-[#333333]">
+                      <tr>
+                        <th className="px-4 py-3 rounded-tl-lg">Resource</th>
+                        {ACTIONS.map(action => (
+                          <th key={action} className="px-4 py-3 text-center">{action}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {RESOURCES.map((resource, idx) => (
+                        <tr key={resource} className="border-b border-[#333333] hover:bg-[#333333]/50">
+                          <td className="px-4 py-4 font-medium text-white flex items-center gap-2">
+                            {resource}
+                          </td>
+                          {ACTIONS.map(action => {
+                            const isGranted = permissions[selectedRole.id]?.[resource]?.includes(action);
+                            return (
+                              <td key={`${resource}-${action}`} className="px-4 py-4 text-center">
+                                <button
+                                  onClick={() => togglePermission(selectedRole.id, resource, action)}
+                                  className={`w-6 h-6 rounded border flex items-center justify-center transition-colors mx-auto ${
+                                    isGranted
+                                      ? 'bg-[#7C3AED] border-[#7C3AED] text-white'
+                                      : 'bg-[#1A1A1A] border-[#666666] text-transparent hover:border-[#999999]'
+                                  }`}
+                                >
+                                  <Check size={14} />
+                                </button>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="h-full flex items-center justify-center text-[#666666] border border-dashed border-[#333333] rounded-lg">
+              <div className="text-center">
+                <Shield size={48} className="mx-auto mb-4 opacity-50" />
+                <p>Select a role to manage permissions</p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Create/Edit Role Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-[#2A2A2A] border border-[#333333] rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-[#333333]">
+              <h3 className="font-semibold text-white">
+                {isEditMode ? 'Edit Role' : 'Create New Role'}
+              </h3>
+              <button onClick={() => setIsModalOpen(false)} className="text-[#999999] hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[#999999] mb-1">
+                  Role Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={roleForm.name}
+                  onChange={(e) => setRoleForm({...roleForm, name: e.target.value})}
+                  placeholder="e.g. maintenance_manager"
+                  className="w-full px-3 py-2 border border-[#333333] rounded-md bg-[#1A1A1A] text-white focus:ring-2 focus:ring-[#7C3AED]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#999999] mb-1">
+                  Description
+                </label>
+                <textarea
+                  value={roleForm.description}
+                  onChange={(e) => setRoleForm({...roleForm, description: e.target.value})}
+                  rows={3}
+                  placeholder="Describe the role's responsibilities..."
+                  className="w-full px-3 py-2 border border-[#333333] rounded-md bg-[#1A1A1A] text-white focus:ring-2 focus:ring-[#7C3AED]"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <Button 
+                    variant="outline" 
+                    onClick={() => setIsModalOpen(false)}
+                    className="border-[#333333] text-[#999999] hover:bg-[#333333]"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                    onClick={handleCreateOrUpdate}
+                    className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white"
+                >
+                  {isEditMode ? 'Update Role' : 'Create Role'}
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

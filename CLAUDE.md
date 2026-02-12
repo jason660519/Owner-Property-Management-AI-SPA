@@ -1,15 +1,3 @@
-# Owner Management Agent AI App - AI Assistant Rules
-
-> **創建日期**: 2026-01-17
-> **創建者**: Project Team
-> **最後修改**: 2026-02-06
-> **最後修改者**: Claude Sonnet 4.5
-> **版本**: 2.9 (整合測試檔案管理規範)
-> **適用於**: Claude, GPT, Gemini, DeepSeek 等所有 AI 助手
-> **重要性**: 🔴 **強制遵守** - AI 必須在每次創建或修改文件前檢查本規範
-
----
-
 ## 🚨 創建檔案前必讀（30 秒快速檢查）
 
 > **⚠️ 在創建任何檔案之前，請先閱讀：[FILE_CREATION_CHECKLIST.md](FILE_CREATION_CHECKLIST.md)**
@@ -32,11 +20,11 @@
 
 ## 📌 核心規範速查
 
-| 規範類型           | 文檔路徑                                                                                               | 強制性 |
-| :----------------- | :----------------------------------------------------------------------------------------------------- | :----- |
-| **檔案命名與歸檔** | [docs/file-naming-guidelines.md](docs/file-naming-guidelines.md) (含測試檔案管理規範)                 | 🔴 強制 |
-| **測試快速參考**   | [docs/testing/TEST_QUICK_REFERENCE.md](docs/testing/TEST_QUICK_REFERENCE.md)                          | 🟡 推薦 |
-| **AI 協作者識別**  | 見本文件「AI 身份標記規範」章節                                                                        | 🔴 強制 |
+| 規範類型                 | 文檔路徑                                                                                            | 強制性  |
+| :----------------------- | :-------------------------------------------------------------------------------------------------- | :------ |
+| **檔案命名與歸檔** | [docs/file-naming-guidelines.md](docs/file-naming-guidelines.md) (含測試檔案管理規範)                  | 🔴 強制 |
+| **測試快速參考**   | [docs/testing/TEST_QUICK_REFERENCE.md](docs/testing/TEST_QUICK_REFERENCE.md)                           | 🟡 推薦 |
+| **AI 協作者識別**  | 見本文件「AI 身份標記規範」章節                                                                     | 🔴 強制 |
 | **通用開發規則**   | [.claude/rules/general.md](.claude/rules/general.md)                                                   | 🔴 強制 |
 | **前端規則**       | [.claude/rules/frontend/react-expo.md](.claude/rules/frontend/react-expo.md)                           | 🔴 強制 |
 | **後端規則**       | [.claude/rules/backend/supabase.md](.claude/rules/backend/supabase.md)                                 | 🔴 強制 |
@@ -73,8 +61,8 @@
 
 ### 2. 🔴 命名規則強制執行
 
-| 文件類型            | 規則                    | 範例                    | 錯誤範例               |
-| :------------------ | :---------------------- | :---------------------- | :--------------------- |
+| 文件類型                  | 規則                    | 範例                      | 錯誤範例                  |
+| :------------------------ | :---------------------- | :------------------------ | :------------------------ |
 | **React Component** | PascalCase.tsx          | `UserProfile.tsx`       | ❌`userProfile.tsx`     |
 | **Hook**            | camelCase.ts            | `useAuth.ts`            | ❌`UseAuth.ts`          |
 | **Utility**         | camelCase.ts            | `dateFormatter.ts`      | ❌`DateFormatter.ts`    |
@@ -145,12 +133,14 @@ AI 在創建文件後必須自我確認：
 ### 當前開發重點
 
 **Phase 1: Next.js Web App + PWA (進行中)** ✅
+
 - ✅ 專注開發 Next.js Web 應用
 - ✅ 響應式設計 (手機瀏覽器可用)
 - ✅ PWA 支援 (可安裝到手機桌面)
 - ✅ 完整的房東管理功能
 
 **Phase 2: Mobile App (已暫停)** ⏸️
+
 - ⏸️ Expo/React Native 開發已暫停
 - 📁 代碼保留在 `apps/mobile/` (不刪除)
 - 📊 待 Web App 上線後，根據用戶需求決定是否繼續開發
@@ -231,17 +221,17 @@ root/
 
 所有參與專案的 AI 必須使用以下統一識別名稱：
 
-| AI 模型                | 標準識別名稱             | Git Commit 簡稱 |
-| :--------------------- | :----------------------- | :-------------- |
-| Claude Opus 4.5        | `Claude Opus 4.5`        | `[Claude]`      |
-| Claude Sonnet 4.5      | `Claude Sonnet 4.5`      | `[Claude]`      |
-| Claude Opus 4          | `Claude Opus 4`          | `[Claude]`      |
-| Gemini 2.5 Pro         | `Gemini 2.5 Pro`         | `[Gemini]`      |
-| Gemini 3 Pro (Preview) | `Gemini 3 Pro (Preview)` | `[Gemini]`      |
-| Gemini 2.0 Flash       | `Gemini 2.0 Flash`       | `[Gemini]`      |
-| GPT-4.5                | `GPT-4.5`                | `[GPT-4]`       |
-| GPT-4o                 | `GPT-4o`                 | `[GPT-4]`       |
-| DeepSeek V3            | `DeepSeek V3`            | `[DeepSeek]`    |
+| AI 模型                | 標準識別名稱               | Git Commit 簡稱 |
+| :--------------------- | :------------------------- | :-------------- |
+| Claude Opus 4.5        | `Claude Opus 4.5`        | `[Claude]`    |
+| Claude Sonnet 4.5      | `Claude Sonnet 4.5`      | `[Claude]`    |
+| Claude Opus 4          | `Claude Opus 4`          | `[Claude]`    |
+| Gemini 2.5 Pro         | `Gemini 2.5 Pro`         | `[Gemini]`    |
+| Gemini 3 Pro (Preview) | `Gemini 3 Pro (Preview)` | `[Gemini]`    |
+| Gemini 2.0 Flash       | `Gemini 2.0 Flash`       | `[Gemini]`    |
+| GPT-4.5                | `GPT-4.5`                | `[GPT-4]`     |
+| GPT-4o                 | `GPT-4o`                 | `[GPT-4]`     |
+| DeepSeek V3            | `DeepSeek V3`            | `[DeepSeek]`  |
 
 ### Markdown 文檔 Metadata 格式
 
@@ -319,11 +309,11 @@ root/
 
 在開發中遇到需要建議或協助時，按以下優先級查詢：
 
-| 優先級     | 來源              | 說明                                     | 例子                                                       |
-| :--------- | :---------------- | :--------------------------------------- | :--------------------------------------------------------- |
+| 優先級               | 來源                | 說明                                     | 例子                                                             |
+| :------------------- | :------------------ | :--------------------------------------- | :--------------------------------------------------------------- |
 | **1️⃣ 最高** | `.claude/rules/`  | 專案強制規範（必須遵守）                 | `general.md`, `react-expo.md`, `supabase.md`               |
-| **2️⃣ 中等** | `.claude/skills/` | 專案自定義技能（推薦使用）               | `python-security-scan`                                     |
-| **3️⃣ 參考** | 系統 Skills       | 通用建議（低優先級，當無項目規則時使用） | `coding-standards`, `security-review`, `frontend-patterns` |
+| **2️⃣ 中等** | `.claude/skills/` | 專案自定義技能（推薦使用）               | `python-security-scan`                                         |
+| **3️⃣ 參考** | 系統 Skills         | 通用建議（低優先級，當無項目規則時使用） | `coding-standards`, `security-review`, `frontend-patterns` |
 
 **使用原則**：
 
@@ -337,8 +327,8 @@ root/
 
 查詢最新官方文檔時使用：
 
-| 技術          | Context7 路徑           |
-| :------------ | :---------------------- |
+| 技術          | Context7 路徑             |
+| :------------ | :------------------------ |
 | React 19      | `/facebook/react`       |
 | Next.js 15    | `/vercel/next.js`       |
 | Expo 54       | `/expo/expo`            |
@@ -357,11 +347,11 @@ supabase status               # 檢查服務狀態
 
 # Workspace 開發
 npm install                   # 安裝所有依賴
-./start-dev.sh both           # 同時啟動 Web & Mobile
+./start.sh menu               # 啟動並選擇服務 (Web/Admin/OCR/Tracker)
+./start.sh all                # 一鍵啟動所有服務 (背景執行)
+./stop.sh                     # 停止所有服務及連接埠
 npm run dev:web               # 僅啟動 Web 主站 (Next.js, Port 3000)
-npm run dev:superadmin       # 僅啟動 Superadmin 後台 (Next.js, Port 3001)
-npm run dev:mobile            # 僅啟動 Mobile (Expo)
-npm run dev:stop              # 停止所有服務
+npm run dev:admin             # 僅啟動 Superadmin 後台 (Next.js, Port 3001)
 
 # Testing
 npm run build                 # 透過所有 workspace 執行 build
@@ -396,20 +386,20 @@ const { data } = await supabase
 
 ### 核心表格
 
-| 表名                      | 用途                                                      | 前端訪問方式                          |
-| :------------------------ | :-------------------------------------------------------- | :------------------------------------ |
-| `unified_properties_view` | **Unified Property Index**  (整合 Sales/Rentals 的虛擬表) | 透過此 View 查詢 (Read-Only)          |
-| `Property_Sales`          | 出售物件實體表                                            | 透過 `unified_properties_view` 或 RPC |
-| `Property_Rentals`        | 出租物件實體表                                            | 透過 `unified_properties_view` 或 RPC |
-| `Property_Photos`         | 物件照片                                                  | 直接訪問                              |
-| `users_profile`           | 使用者資料                                                | 直接訪問                              |
+| 表名                        | 用途                                                             | 前端訪問方式                            |
+| :-------------------------- | :--------------------------------------------------------------- | :-------------------------------------- |
+| `unified_properties_view` | **Unified Property Index**  (整合 Sales/Rentals 的虛擬表) | 透過此 View 查詢 (Read-Only)            |
+| `Property_Sales`          | 出售物件實體表                                                   | 透過 `unified_properties_view` 或 RPC |
+| `Property_Rentals`        | 出租物件實體表                                                   | 透過 `unified_properties_view` 或 RPC |
+| `Property_Photos`         | 物件照片                                                         | 直接訪問                                |
+| `users_profile`           | 使用者資料                                                       | 直接訪問                                |
 
 ### Identity & Access Management (IAM)
 
 權限與存取控制相關的系統表：
 
-| 表名                | 用途     | 前端訪問方式        |
-| :------------------ | :------- | :------------------ |
+| 表名                  | 用途     | 前端訪問方式        |
+| :-------------------- | :------- | :------------------ |
 | `iam_groups`        | 權限群組 | Server Action / RPC |
 | `iam_roles`         | 系統角色 | Server Action / RPC |
 | `iam_group_members` | 群組成員 | Server Action / RPC |
@@ -441,18 +431,18 @@ supabase/migrations/20260130120000_init.sql     # ✅ 正確格式
 
 ## 📝 版本修訂記錄
 
-| 日期       | 版本 | 修改者            | 修改內容                                                                                                        |
-| ---------- | ---- | ----------------- | --------------------------------------------------------------------------------------------------------------- |
-| 2026-02-06 | 2.9  | Claude Sonnet 4.5 | 整合測試檔案管理規範：更新檔案命名規範參考、新增測試目錄結構、加入測試檢查清單、擴充測試指令文檔               |
-| 2026-02-02 | 2.8  | Claude Sonnet 4.5 | 更新專案開發策略：專注 Next.js Web App + PWA，暫停 Expo Mobile 開發                                             |
-| 2026-02-02 | 2.7  | Antigravity       | 更新 docs/ 目錄結構，新增 Access Matrix 權限設計文件規範與 IAM 資料庫定義                                       |
-| 2026-02-01 | 2.6  | Gemini 3 Pro      | 更新 docs/ 目錄結構，反映實際檔案歸檔位置                                                                       |
-| 2026-02-01 | 2.5  | Gemini 3 Pro      | 新增 UI/UX 設計規範強制指引；整理設計文件資料夾結構；新增 Gemini 3 Pro 模型識別                                 |
-| 2026-01-30 | 2.3  | Claude Opus 4.5   | 更新 AI 模型列表（新增 Claude Opus 4.5、Gemini 2.5 Pro、GPT-4.5）                                               |
-| 2026-01-30 | 2.2  | Claude Sonnet 4.5 | 新增 AI 協作者識別規範、Metadata 標準、Git Commit 格式要求                                                      |
-| 2026-01-30 | 2.1  | Project Team      | 升級為 Monorepo 架構 (Turborepo)，加入 `apps/web` 與 `apps/mobile` 路徑規範                                     |
-| 2026-01-22 | 2.0  | Project Team      | 大幅擴充 AI 行為約束，添加文件命名檢查清單                                                                      |
-| 2026-01-17 | 1.0  | Project Team      | 初始版本                                                                                                        |
+| 日期       | 版本 | 修改者            | 修改內容                                                                                         |
+| ---------- | ---- | ----------------- | ------------------------------------------------------------------------------------------------ |
+| 2026-02-06 | 2.9  | Claude Sonnet 4.5 | 整合測試檔案管理規範：更新檔案命名規範參考、新增測試目錄結構、加入測試檢查清單、擴充測試指令文檔 |
+| 2026-02-02 | 2.8  | Claude Sonnet 4.5 | 更新專案開發策略：專注 Next.js Web App + PWA，暫停 Expo Mobile 開發                              |
+| 2026-02-02 | 2.7  | Antigravity       | 更新 docs/ 目錄結構，新增 Access Matrix 權限設計文件規範與 IAM 資料庫定義                        |
+| 2026-02-01 | 2.6  | Gemini 3 Pro      | 更新 docs/ 目錄結構，反映實際檔案歸檔位置                                                        |
+| 2026-02-01 | 2.5  | Gemini 3 Pro      | 新增 UI/UX 設計規範強制指引；整理設計文件資料夾結構；新增 Gemini 3 Pro 模型識別                  |
+| 2026-01-30 | 2.3  | Claude Opus 4.5   | 更新 AI 模型列表（新增 Claude Opus 4.5、Gemini 2.5 Pro、GPT-4.5）                                |
+| 2026-01-30 | 2.2  | Claude Sonnet 4.5 | 新增 AI 協作者識別規範、Metadata 標準、Git Commit 格式要求                                       |
+| 2026-01-30 | 2.1  | Project Team      | 升級為 Monorepo 架構 (Turborepo)，加入 `apps/web` 與 `apps/mobile` 路徑規範                  |
+| 2026-01-22 | 2.0  | Project Team      | 大幅擴充 AI 行為約束，添加文件命名檢查清單                                                       |
+| 2026-01-17 | 1.0  | Project Team      | 初始版本                                                                                         |
 
 ---
 

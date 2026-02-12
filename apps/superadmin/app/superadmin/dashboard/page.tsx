@@ -1,9 +1,5 @@
-import { getAdminDashboardStats } from '@/lib/actions/dashboard';
-import SuperadminDashboardClient from './SuperadminDashboardClient';
+import { redirect } from 'next/navigation';
 
-export const dynamic = 'force-dynamic';
-
-export default async function SuperadminDashboardPage() {
-  const stats = await getAdminDashboardStats();
-  return <SuperadminDashboardClient stats={stats} />;
+export default function DashboardPage() {
+  redirect('/superadmin');
 }

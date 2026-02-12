@@ -147,7 +147,7 @@ Result: ✅ Valid (is_valid: True)
 
 ```bash
 # 生成 Master Key (使用剛才生成的)
-export VLM_MASTER_KEY=227bcc677f65be6034e92de0e77aef69c1b105537c15938edc892d24f83e9025
+export VLM_MASTER_KEY=<vlm_master_key>
 
 # 設定 Supabase (如果尚未設定)
 export SUPABASE_URL=http://127.0.0.1:54321

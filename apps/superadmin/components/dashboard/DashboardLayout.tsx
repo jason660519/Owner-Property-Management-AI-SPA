@@ -12,6 +12,7 @@ export function DashboardLayout({
   greeting,
   children,
   headerActions,
+  currentRole, // Added currentRole
   className = '',
 }: {
   pageTitle: string;
@@ -19,30 +20,31 @@ export function DashboardLayout({
   greeting?: string;
   children: React.ReactNode;
   headerActions?: React.ReactNode;
+  currentRole?: string; // Added type definition
   className?: string;
 }) {
   return (
-    <div className={`min-h-screen bg-[#1A1A1A] ${className}`}>
-      <div className="bg-[#1F1F1F] border-b border-[#333333] px-6 py-4">
+    <div className={`flex-1 ${className}`}>
+      <div className="bg-gray-100 dark:bg-[#1F1F1F] border-b border-gray-200 dark:border-[#333333] px-6 py-4">
         <div className="max-w-7xl mx-auto">
           <nav className="flex items-center gap-2 text-sm mb-4">
             {breadcrumbs.map((crumb, index) => (
               <React.Fragment key={index}>
                 {crumb.href ? (
-                  <Link href={crumb.href} className="text-[#999999] hover:text-white transition-colors">
+                  <Link href={crumb.href} className="text-gray-500 dark:text-[#999999] hover:text-gray-900 dark:hover:text-white transition-colors">
                     {crumb.label}
                   </Link>
                 ) : (
-                  <span className="text-white font-medium">{crumb.label}</span>
+                  <span className="text-gray-900 dark:text-white font-medium">{crumb.label}</span>
                 )}
-                {index < breadcrumbs.length - 1 && <ChevronRight className="w-4 h-4 text-[#666666]" />}
+                {index < breadcrumbs.length - 1 && <ChevronRight className="w-4 h-4 text-gray-400 dark:text-[#666666]" />}
               </React.Fragment>
             ))}
           </nav>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-white mb-1">{pageTitle}</h1>
-              {greeting && <p className="text-sm text-[#999999]">{greeting}</p>}
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{pageTitle}</h1>
+              {greeting && <p className="text-sm text-gray-500 dark:text-[#999999]">{greeting}</p>}
             </div>
             <div className="flex items-center gap-4">
               {headerActions}
@@ -50,10 +52,10 @@ export function DashboardLayout({
                 href={MAIN_SITE_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm text-[#999999] hover:text-white border border-[#333333] rounded-lg hover:border-[#7C3AED] transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm text-gray-500 dark:text-[#999999] hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-[#333333] rounded-lg hover:border-[#7C3AED] transition-colors"
               >
                 <ExternalLink className="w-4 h-4" />
-                前往主站 (房東/租客/買家)
+                公司首頁
               </a>
             </div>
           </div>

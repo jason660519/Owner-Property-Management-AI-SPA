@@ -1,0 +1,18 @@
+import { createClient } from '@/utils/supabase/server';
+import { NextResponse } from 'next/server';
+
+export async function GET() {
+  const supabase = await createClient();
+  try {
+    const { data, error } = await supabase
+      .from('roles')
+      .select('id, name, description')
+      .order('name');
+    
+    if (error) throw error;
+    
+    return NextResponse.json(data);
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
