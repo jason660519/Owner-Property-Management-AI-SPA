@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文檔編輯器</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .editor-content {
+            outline: none;
+            min-height: 500px;
+        }
+        .editor-content h1 { font-size: 2em; font-weight: bold; margin: 0.67em 0; }
+        .editor-content h2 { font-size: 1.5em; font-weight: bold; margin: 0.83em 0; }
+        .editor-content h3 { font-size: 1.17em; font-weight: bold; margin: 1em 0; }
+        .editor-content p { margin: 1em 0; }
+        .editor-content ul { list-style-type: disc; padding-left: 2em; margin: 1em 0; }
+        .editor-content ol { list-style-type: decimal; padding-left: 2em; margin: 1em 0; }
+        .editor-content blockquote { border-left: 4px solid #ccc; margin: 1em 0; padding-left: 1em; color: #666; }
+        .editor-content pre { background: #f5f5f5; padding: 1em; border-radius: 4px; overflow-x: auto; }
+        .editor-content code { background: #f5f5f5; padding: 0.2em 0.4em; border-radius: 3px; font-family: monospace; }
+        
+        /* Markdown Preview Styles */
+        .markdown-preview h1 { font-size: 2.25em; font-weight: 700; margin-bottom: 0.5em; line-height: 1.2; }
+        .markdown-preview h2 { font-size: 1.875em; font-weight: 700; margin-top: 1.5em; margin-bottom: 0.5em; line-height: 1.3; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }
+        .markdown-preview h3 { font-size: 1.5em; font-weight: 600; margin-top: 1.2em; margin-bottom: 0.5em; line-height: 1.4; }
+        .markdown-preview p { margin-bottom: 1em; line-height: 1.6; }
+        .markdown-preview ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; }
+        .markdown-preview ol { list-style-type: decimal; padding-left: 1.5em; margin-bottom: 1em; }
+        .markdown-preview li { margin-bottom: 0.25em; }
+        .markdown-preview blockquote { border-left: 4px solid #3b82f6; padding-left: 1em; margin-bottom: 1em; font-style: italic; color: #4b5563; background-color: #f9fafb; padding-top: 0.5em; padding-bottom: 0.5em; }
+        .markdown-preview pre { background-color: #1f2937; color: #f3f4f6; padding: 1em; border-radius: 0.5em; overflow-x: auto; margin-bottom: 1em; }
+        .markdown-preview code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 0.9em; background-color: #f3f4f6; padding: 0.2em 0.4em; border-radius: 0.25em; color: #ef4444; }
+        .markdown-preview pre code { background-color: transparent; color: inherit; padding: 0; }
+        .markdown-preview a { color: #2563eb; text-decoration: underline; }
+        .markdown-preview table { border-collapse: collapse; width: 100%; margin-bottom: 1em; }
+        .markdown-preview th, .markdown-preview td { border: 1px solid #e5e7eb; padding: 0.5em; text-align: left; }
+        .markdown-preview th { background-color: #f9fafb; font-weight: 600; }
+        .markdown-preview hr { border: 0; border-top: 1px solid #e5e7eb; margin: 2em 0; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col" x-data="editor()">
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <a href="/" class="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                </a>
+                <h1 class="text-xl font-bold text-gray-900 truncate max-w-lg" x-text="currentPath || '未命名文檔'"></h1>
+                <span x-show="isDirty" class="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-200 flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></span>
+                    未儲存
+                </span>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="flex bg-gray-100 p-1 rounded-lg">
+                    <button @click="mode = 'visual'" :class="{'bg-white shadow-sm text-blue-600': mode === 'visual', 'text-gray-500 hover:text-gray-700': mode !== 'visual'}" class="px-3 py-1.5 text-sm font-medium rounded-md transition-all">預覽/視覺化</button>
+                    <button @click="mode = 'source'" :class="{'bg-white shadow-sm text-blue-600': mode === 'source', 'text-gray-500 hover:text-gray-700': mode !== 'source'}" class="px-3 py-1.5 text-sm font-medium rounded-md transition-all">原始碼</button>
+                </div>
+                <button @click="save" :disabled="!isDirty && !isSaving" class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium shadow-sm">
+                    <svg x-show="!isSaving" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                    <svg x-show="isSaving" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    <span x-text="isSaving ? '儲存中...' : '儲存變更'"></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden min-h-[calc(100vh-8rem)] flex flex-col">
+            
+            <!-- Toolbar (Visual Mode Only) -->
+            <div x-show="mode === 'visual' && fileType === 'html'" class="border-b border-gray-200 p-2 flex gap-1 bg-gray-50">
+                <button @click="exec('bold')" class="p-2 hover:bg-gray-200 rounded text-gray-600" title="粗體"><span class="font-bold">B</span></button>
+                <button @click="exec('italic')" class="p-2 hover:bg-gray-200 rounded text-gray-600" title="斜體"><span class="italic">I</span></button>
+                <button @click="exec('underline')" class="p-2 hover:bg-gray-200 rounded text-gray-600" title="底線"><span class="underline">U</span></button>
+                <div class="w-px h-6 bg-gray-300 mx-2 self-center"></div>
+                <button @click="exec('justifyLeft')" class="p-2 hover:bg-gray-200 rounded text-gray-600" title="靠左">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h10M4 18h16"></path></svg>
+                </button>
+                <button @click="exec('justifyCenter')" class="p-2 hover:bg-gray-200 rounded text-gray-600" title="置中">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                </button>
+                <button @click="exec('justifyRight')" class="p-2 hover:bg-gray-200 rounded text-gray-600" title="靠右">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M10 12h10M4 18h16"></path></svg>
+                </button>
+                <div class="w-px h-6 bg-gray-300 mx-2 self-center"></div>
+                <button @click="exec('insertUnorderedList')" class="p-2 hover:bg-gray-200 rounded text-gray-600" title="項目符號">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                </button>
+            </div>
+
+            <!-- Visual Editor / Preview Area -->
+            <div x-show="mode === 'visual'" class="flex-1 p-8 overflow-y-auto">
+                <!-- HTML Visual Editor -->
+                <div 
+                    x-show="fileType === 'html'"
+                    x-ref="wysiwyg" 
+                    contenteditable="true" 
+                    class="editor-content outline-none max-w-none prose prose-blue"
+                    @input="updateContentFromVisual"
+                ></div>
+                
+                <!-- Markdown Preview (Read-only for visual mode, use Source to edit) -->
+                <div x-show="fileType === 'md'" class="markdown-preview max-w-none prose prose-blue">
+                    <div x-html="renderMarkdown(content)"></div>
+                    <div class="mt-8 pt-4 border-t border-gray-100 text-center text-gray-400 text-sm">
+                        Markdown 檔案請切換至「原始碼」模式進行編輯
+                    </div>
+                </div>
+            </div>
+
+            <!-- Source Code Editor -->
+            <div x-show="mode === 'source'" class="flex-1 flex flex-col">
+                <textarea 
+                    x-model="content" 
+                    class="flex-1 w-full h-full p-4 font-mono text-sm bg-gray-900 text-gray-100 outline-none resize-none"
+                    spellcheck="false"
+                    @input="isDirty = true"
+                ></textarea>
+            </div>
+        </div>
+    </main>
+
+    <!-- Notification -->
+    <div 
+        x-show="notification.show" 
+        x-transition:enter="transition ease-out duration-300"
+        x-transition:enter-start="opacity-0 transform translate-y-2"
+        x-transition:enter-end="opacity-100 transform translate-y-0"
+        x-transition:leave="transition ease-in duration-100"
+        x-transition:leave-start="opacity-100 transform translate-y-0"
+        x-transition:leave-end="opacity-0 transform translate-y-2"
+        class="fixed bottom-4 right-4 px-4 py-2 rounded-lg shadow-lg text-white font-medium z-50 flex items-center gap-2"
+        :class="notification.type === 'success' ? 'bg-green-600' : 'bg-red-600'"
+        style="display: none;"
+    >
+        <svg x-show="notification.type === 'success'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+        <svg x-show="notification.type === 'error'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        <span x-text="notification.message"></span>
+    </div>
+
+    <script>
+        function editor() {
+            return {
+                mode: 'visual', // 'visual' or 'source'
+                content: '',
+                currentPath: '',
+                fileType: 'md', // 'md' or 'html'
+                isDirty: false,
+                isSaving: false,
+                notification: { show: false, message: '', type: 'success' },
+
+                init() {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    this.currentPath = urlParams.get('file');
+                    
+                    if (this.currentPath) {
+                        this.fileType = this.currentPath.endsWith('.html') ? 'html' : 'md';
+                        // Default to source mode for Markdown, Visual for HTML
+                        this.mode = this.fileType === 'html' ? 'visual' : 'source';
+                        this.loadFile();
+                    }
+                    
+                    // Watch for mode changes to sync content
+                    this.$watch('mode', (value) => {
+                        if (value === 'visual' && this.fileType === 'html') {
+                            this.$refs.wysiwyg.innerHTML = this.content;
+                        }
+                    });
+                },
+
+                async loadFile() {
+                    try {
+                        // 使用相對路徑，讓例如 "../features/xxx.html" 可以從目前目錄正確解析
+                        const response = await fetch(this.currentPath);
+                        if (!response.ok) throw new Error('無法載入檔案');
+                        this.content = await response.text();
+                        
+                        if (this.fileType === 'html') {
+                            this.$refs.wysiwyg.innerHTML = this.content;
+                        }
+                    } catch (error) {
+                        this.showNotification(error.message, 'error');
+                    }
+                },
+
+                updateContentFromVisual(e) {
+                    this.content = e.target.innerHTML;
+                    this.isDirty = true;
+                },
+
+                exec(command) {
+                    document.execCommand(command, false, null);
+                    this.$refs.wysiwyg.focus();
+                },
+
+                renderMarkdown(text) {
+                    return marked.parse(text);
+                },
+
+                async save() {
+                    if (!this.currentPath) return;
+                    
+                    this.isSaving = true;
+                    try {
+                        const response = await fetch(`/api/save?path=${encodeURIComponent(this.currentPath)}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'text/plain; charset=utf-8'
+                            },
+                            body: this.content
+                        });
+
+                        if (!response.ok) throw new Error('儲存失敗');
+                        
+                        this.isDirty = false;
+                        this.showNotification('儲存成功！', 'success');
+                    } catch (error) {
+                        this.showNotification(error.message, 'error');
+                    } finally {
+                        this.isSaving = false;
+                    }
+                },
+
+                showNotification(message, type = 'success') {
+                    this.notification.message = message;
+                    this.notification.type = type;
+                    this.notification.show = true;
+                    setTimeout(() => {
+                        this.notification.show = false;
+                    }, 3000);
+                }
+            }
+        }
+    </script>
+</body>
+</html>

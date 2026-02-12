@@ -1,6 +1,15 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- Enable PostGIS for geospatial queries
+CREATE EXTENSION IF NOT EXISTS "postgis" WITH SCHEMA "extensions";
+
+-- Enable pg_net for network requests
+CREATE EXTENSION IF NOT EXISTS "pg_net" WITH SCHEMA "extensions";
+
+-- Enable pg_jieba for Chinese full-text search
+-- CREATE EXTENSION IF NOT EXISTS "pg_jieba" WITH SCHEMA "extensions";
+
 -- Clean up existing tables to ensure schema matches requirements
 DROP TABLE IF EXISTS roles_permissions CASCADE;
 DROP TABLE IF EXISTS role_permissions CASCADE; -- Drop the old one too if it exists

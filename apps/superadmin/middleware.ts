@@ -45,7 +45,7 @@ export async function middleware(request: NextRequest) {
   if (user && isLoginPage) {
     const role = user.user_metadata?.role;
     if (role === 'super_admin') {
-      return NextResponse.redirect(new URL('/superadmin/dashboard', request.url));
+      return NextResponse.redirect(new URL('/superadmin', request.url));
     }
     // 已是登入狀態但非 super_admin：留在登入頁，讓使用者可登出後換超級管理員帳號
     return response;

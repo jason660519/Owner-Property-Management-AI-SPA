@@ -3,7 +3,7 @@ Pydantic schemas for OCR processing
 """
 
 from enum import Enum
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from pydantic import BaseModel
 
 
@@ -29,3 +29,34 @@ class ProcessingConfig(BaseModel):
 
     class Config:
         extra = "allow"
+
+class ProcessingStatus(str, Enum):
+    PENDING = "pending"
+    QUEUED = "queued"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+class OCRRequest(BaseModel):
+    document_type: DocumentType = DocumentType.BUILDING_TITLE
+    language: str = "zh-TW"
+    enable_cache: bool = True
+
+class OCRResponse(BaseModel):
+    request_id: str
+    status: ProcessingStatus
+    result: Optional[Dict[str, Any]] = None
+    processing_time: float = 0.0
+    cached: bool = False
+    message: Optional[str] = None
+
+class FileInfo(BaseModel):
+    filename: str
+    url: Optional[str] = None
+    content_base64: Optional[str] = None
+
+class BatchOCRRequest(BaseModel):
+    files: List[FileInfo]
+    document_type: DocumentType = DocumentType.BUILDING_TITLE
+    language: str = "zh-TW"
+    enable_cache: bool = True
