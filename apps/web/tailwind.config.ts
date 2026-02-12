@@ -26,13 +26,16 @@ const config: Config = {
         bg: {
           primary: 'var(--color-bg-primary)',
           secondary: 'var(--color-bg-secondary)',
+          tertiary: 'var(--color-bg-tertiary)',
         },
         text: {
           primary: 'var(--color-text-primary)',
           secondary: 'var(--color-text-secondary)',
+          muted: 'var(--color-text-muted)',
         },
         border: {
           default: 'var(--color-border-default)',
+          light: 'var(--color-border-light)',
         },
         accent: {
           DEFAULT: 'var(--color-accent)',

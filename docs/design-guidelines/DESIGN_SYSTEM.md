@@ -2,9 +2,9 @@
 
 > **創建日期**: 2026-01-31
 > **創建者**: Project Team
-> **最後修改**: 2026-01-31
-> **修改者**: Project Team
-> **版本**: 1.0
+> **最後修改**: 2026-02-13
+> **修改者**: Claude Opus 4.6
+> **版本**: 1.1
 > **文件類型**: 設計文件
 
 ---
@@ -41,63 +41,86 @@
 
 ## 🎨 色彩系統 (Color Palette)
 
-### 核心色彩 (從 Figma 提取，按使用頻率排序)
+### 基礎色彩定義 (Primitives)
+
+兩個應用 (Web + Superadmin) **共用同一套基礎色彩變數**，定義在各自的 `globals.css` 中：
 
 ```css
 :root {
-  /* ===== 背景色 (Background Colors) ===== */
-  --color-bg-primary: #141414;      /* 1492 次使用 - 頁面主背景 */
-  --color-bg-secondary: #191919;    /* 6834 次使用 - 區塊/卡片背景 */
-  --color-bg-tertiary: #262626;     /* 1323 次使用 - 邊框/分隔線 */
-  
-  /* ===== 文字色 (Text Colors) ===== */
-  --color-text-primary: #ffffff;    /* 3380 次使用 - 主要文字 */
-  --color-text-secondary: #999999;  /* 611 次使用 - 次要文字 */
-  --color-text-muted: #666666;      /* 1236 次使用 - 淡化文字/stroke */
-  
-  /* ===== 主題色 (Brand Colors) ===== */
-  --color-accent: #703BF7;          /* 主要 CTA (已修正) */
-  --color-accent-alt: #6f3bf6;      /* 327 次使用 - 紫色強調 */
-  --color-accent-light: #a584f9;    /* 116 次使用 - 淺紫色 */
-  
-  /* ===== 邊框色 (Border Colors) ===== */
-  --color-border-default: #262626;  /* 預設邊框 */
-  --color-border-light: #333333;    /* 202 次使用 - 淺邊框 */
-  --color-border-subtle: #4c4c4c;   /* 221 次使用 - 微妙邊框 */
-  
-  /* ===== 輔助色 (Utility Colors) ===== */
-  --color-black: #000000;           /* 純黑 */
-  --color-success: #09cf82;         /* 成功狀態 */
-  --color-warning: #ff9400;         /* 警告狀態 */
-  --color-error: #c5221f;           /* 錯誤狀態 */
+  /* ===== Grey Scale (Dark) ===== */
+  --color-grey-08: #1A1A1A;   /* Dark mode - 主要背景 */
+  --color-grey-10: #2A2A2A;   /* Dark mode - 次要背景 */
+  --color-grey-15: #333333;   /* Dark mode - 第三層背景 / 邊框 */
+  --color-grey-60: #999999;   /* Dark mode - 次要文字 */
+
+  /* ===== Grey Scale (Light) ===== */
+  --color-grey-50: #F9FAFB;   /* Light mode - 次要背景 */
+  --color-grey-100: #F3F4F6;  /* Light mode - 第三層背景 */
+  --color-grey-200: #E5E7EB;  /* Light mode - 邊框 */
+  --color-grey-500: #6B7280;  /* Light mode - 次要文字 */
+  --color-grey-900: #111827;  /* Light mode - 主要文字 */
+
+  /* ===== Brand Colors ===== */
+  --color-purple-60: #7C3AED; /* 主要強調色 / CTA */
+  --color-purple-50: #8B5CF6; /* 強調色 (淺) */
+
+  /* ===== Midnight Theme ===== */
+  --color-midnight-900: #0B1121;
+  --color-midnight-800: #151E32;
+  --color-midnight-700: #2A3655;
+  --color-cyan-400: #22D3EE;
+
+  /* ===== Utility ===== */
+  --color-white: #FFFFFF;
+  --color-black: #000000;
+  --color-star: #F59E0B;
+  --color-error: #EF4444;
 }
 ```
 
-### 語意化色彩變數
+### 語意化色彩變數 — 主題切換系統
 
-```css
-:root {
-  /* 背景 */
-  --bg-page: var(--color-bg-primary);
-  --bg-card: var(--color-bg-secondary);
-  --bg-overlay: rgba(20, 20, 20, 0.9);
-  
-  /* 文字 */
-  --text-heading: var(--color-text-primary);
-  --text-body: var(--color-text-secondary);
-  --text-link: var(--color-accent);
-  --text-link-hover: var(--color-accent-light);
-  
-  /* 互動 */
-  --btn-primary-bg: var(--color-accent);
-  --btn-primary-hover: var(--color-accent-light);
-  --btn-secondary-bg: var(--color-bg-secondary);
-  --btn-secondary-border: var(--color-border-default);
-  
-  /* 邊框 */
-  --border-card: var(--color-border-default);
-  --border-input: var(--color-border-light);
-  --border-focus: var(--color-accent);
+所有主題透過覆寫語意化變數實現，兩個應用共用完全相同的值：
+
+| 變數 | Light Mode | Dark Mode | Midnight | Ultra-Dark (Superadmin) |
+|:-----|:-----------|:----------|:---------|:------------------------|
+| `--color-text-primary` | `#111827` | `#FFFFFF` | `#F1F5F9` | `#E0E0E0` |
+| `--color-text-secondary` | `#6B7280` | `#999999` | `#94A3B8` | `#9E9E9E` |
+| `--color-text-muted` | `#9CA3AF` | `#666666` | `#64748B` | `#616161` |
+| `--color-bg-primary` | `#FFFFFF` | `#1A1A1A` | `#0B1121` | `#0A0A0A` |
+| `--color-bg-secondary` | `#F9FAFB` | `#2A2A2A` | `#151E32` | `#121212` |
+| `--color-bg-tertiary` | `#F3F4F6` | `#333333` | `#1E293B` | `#0F0F0F` |
+| `--color-border-default` | `#E5E7EB` | `#333333` | `#2A3655` | `#242424` |
+| `--color-border-light` | `#D1D5DB` | `#444444` | `#334155` | `#1B1B1B` |
+| `--color-accent` | `#7C3AED` | `#7C3AED` | `#22D3EE` | `#90CAF9` |
+| `--color-accent-hover` | `#6D28D9` | `#6D28D9` | `#67E8F9` | `#64B5F6` |
+| `--color-accent-subtle` | `rgba(124,58,237,0.08)` | `rgba(124,58,237,0.15)` | `rgba(34,211,238,0.15)` | `rgba(144,202,249,0.1)` |
+
+### Tailwind CSS 語意色彩映射
+
+兩個應用的 `tailwind.config.ts` 使用相同的語意 token：
+
+```typescript
+colors: {
+  bg: {
+    primary: 'var(--color-bg-primary)',
+    secondary: 'var(--color-bg-secondary)',
+    tertiary: 'var(--color-bg-tertiary)',
+  },
+  text: {
+    primary: 'var(--color-text-primary)',
+    secondary: 'var(--color-text-secondary)',
+    muted: 'var(--color-text-muted)',
+  },
+  border: {
+    default: 'var(--color-border-default)',
+    light: 'var(--color-border-light)',
+  },
+  accent: {
+    DEFAULT: 'var(--color-accent)',
+    hover: 'var(--color-accent-hover)',
+    subtle: 'var(--color-accent-subtle)',
+  },
 }
 ```
 
@@ -770,4 +793,5 @@ styles/
 
 | 日期       | 版本  | 更新內容                                 |
 | ---------- | ----- | ---------------------------------------- |
+| 2026-02-13 | 1.1.0 | 統一 Web/Superadmin 主題切換系統，新增完整主題色彩對照表 |
 | 2026-01-31 | 1.0.0 | 初始版本 - 從 Figma API 提取完整設計規格 |

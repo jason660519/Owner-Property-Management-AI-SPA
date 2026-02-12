@@ -9,7 +9,7 @@ jest.mock('@/lib/actions/dashboard', () => ({
 
 // Mock the client component
 jest.mock('@/components/dashboard/SuperadminDashboardClient', () => {
-  return function MockClient({ stats }: { stats: any }) {
+  return function MockClient({ stats }: { stats: { totalUsers: number } }) {
     return <div data-testid="dashboard-client">Dashboard Client Loaded with {stats.totalUsers} users</div>;
   };
 });

@@ -1,7 +1,8 @@
 # 統一設計規範與開發標準指南 (Unified Design Standard)
 
 > **生效日期**: 2026-02-01
-> **適用範圍**: 公司首頁 (Next.js) 與 Web App (Expo)
+> **最後修改**: 2026-02-13 | **修改者**: Claude Opus 4.6 | **版本**: 1.1
+> **適用範圍**: Web App (Next.js) 與 Superadmin 後台 (Next.js)
 > **目的**: 解決現有設計風格混亂問題，提供統一的開發依據。
 > **關聯文件**: 具體樣式數據（顏色、字體、間距）請查閱 [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md)。
 
@@ -12,7 +13,31 @@
 1.  **不死刻代碼 (No Dead Copying)**：參考範例資料夾中的架構與視覺流程，但必須使用專案現有的技術棧（Tailwind CSS, React Pattern）重新實作。
 2.  **統一設計語言 (Design Tokens)**：所有顏色、字體、間距必須遵循 `DESIGN_SYSTEM.md` 中的定義，嚴禁使用 Magic Number (如 `margin: 17px`)。
 3.  **響應式優先 (Mobile First)**：所有頁面必須優先考慮移動端展示，再適配 Desktop。
-4.  **明暗模式支援 (Dark/Light Mode)**：系統架構必須預留或實作明暗模式切換機制。
+4.  **明暗模式支援 (Dark/Light Mode)**：所有應用必須使用統一的主題切換機制（見下方 §1.1）。
+
+### 1.1 主題切換統一規範
+
+所有 Next.js 應用 (Web / Superadmin) **必須遵循以下一致性要求**：
+
+| 項目 | 規範 |
+|:-----|:-----|
+| **Theme Provider** | `next-themes` v0.4+，`attribute="class"`，`defaultTheme="system"`，`enableSystem` |
+| **CSS 結構** | 所有主題變數定義在 `globals.css` 的 `@layer base` 區塊內 |
+| **基礎色彩** | 兩個應用共用相同的 primitive 色彩變數（grey-08~900, purple-60 等） |
+| **語意化 Token** | 每個主題覆寫完全相同的語意變數集（text-primary/secondary/muted, bg-primary/secondary/tertiary, border-default/light, accent/accent-hover/accent-subtle） |
+| **Hydration** | `<html>` 標籤必須加上 `suppressHydrationWarning` |
+| **Tailwind 映射** | `tailwind.config.ts` 中 `bg`/`text`/`border`/`accent` 映射到 CSS 變數 |
+
+**可用主題**：
+
+| 主題 | CSS Class | 適用範圍 |
+|:-----|:----------|:---------|
+| Light | `:root` (預設) | Web + Superadmin |
+| Dark | `.dark` | Web + Superadmin |
+| Midnight | `.midnight` | Web + Superadmin |
+| Ultra-Dark | `.ultra-dark` | 僅 Superadmin |
+
+> 完整色彩對照表請見 [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md) 的「語意化色彩變數 — 主題切換系統」章節。
 
 ---
 

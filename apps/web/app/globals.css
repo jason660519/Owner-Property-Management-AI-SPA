@@ -127,24 +127,30 @@
     /* --- 預設主題 (Light Mode) --- */
     --color-text-primary: var(--color-grey-900);
     --color-text-secondary: var(--color-grey-500);
+    --color-text-muted: #9CA3AF;
     --color-bg-primary: var(--color-white);
     --color-bg-secondary: var(--color-grey-50);
+    --color-bg-tertiary: var(--color-grey-100);
     --color-border-default: var(--color-grey-200);
+    --color-border-light: #D1D5DB;
     --color-accent: var(--color-purple-60);
-    --color-accent-hover: var(--color-purple-50);
-    --color-accent-subtle: rgba(124, 58, 237, 0.1);
+    --color-accent-hover: #6D28D9;
+    --color-accent-subtle: rgba(124, 58, 237, 0.08);
   }
 
   /* --- 暗黑主題 (Dark Mode) --- */
   .dark {
     --color-text-primary: var(--color-white);
     --color-text-secondary: var(--color-grey-60);
+    --color-text-muted: #666666;
     --color-bg-primary: var(--color-grey-08);
     --color-bg-secondary: var(--color-grey-10);
+    --color-bg-tertiary: var(--color-grey-15);
     --color-border-default: var(--color-grey-15);
+    --color-border-light: #444444;
     --color-accent: var(--color-purple-60);
     --color-accent-hover: #6D28D9;
-    --color-accent-subtle: rgba(124, 58, 237, 0.2);
+    --color-accent-subtle: rgba(124, 58, 237, 0.15);
     --shadow-glow: 0 0 20px rgba(124, 58, 237, 0.4);
   }
 
@@ -152,9 +158,12 @@
   .midnight {
     --color-text-primary: #F1F5F9;
     --color-text-secondary: #94A3B8;
+    --color-text-muted: #64748B;
     --color-bg-primary: var(--color-midnight-900);
     --color-bg-secondary: var(--color-midnight-800);
+    --color-bg-tertiary: #1E293B;
     --color-border-default: var(--color-midnight-700);
+    --color-border-light: #334155;
     --color-accent: var(--color-cyan-400);
     --color-accent-hover: #67E8F9;
     --color-accent-subtle: rgba(34, 211, 238, 0.15);

@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
       throw assignedError;
     }
 
-    const assignedIds = assignedData.map((p: any) => p.permission_id);
+    const assignedIds = assignedData.map((p: { permission_id: string }) => p.permission_id);
 
     // 2. Get all permissions that are NOT in the assigned list
     let query = supabase
@@ -48,11 +48,12 @@ export async function GET(request: NextRequest) {
 
     // Transform result
     const result = {
-      functions: [] as any[],
-      tables: [] as any[],
-      pages: [] as any[]
+      functions: [] as Record<string, unknown>[],
+      tables: [] as Record<string, unknown>[],
+      pages: [] as Record<string, unknown>[]
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     availablePermissions?.forEach((p: any) => {
       const item = {
         id: p.id, // Permission ID to be added
@@ -70,8 +71,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(result);
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Error fetching available resources:', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

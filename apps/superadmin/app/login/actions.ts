@@ -9,7 +9,7 @@ interface LoginResult {
   redirectUrl?: string | null;
 }
 
-export async function loginAction(prevState: any, formData: FormData): Promise<LoginResult> {
+export async function loginAction(prevState: LoginResult | null, formData: FormData): Promise<LoginResult> {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
   const returnUrl = formData.get('returnUrl') as string | null;

@@ -113,8 +113,9 @@ export default function SuperadminLoginPage() {
           window.location.href = validatedUrl;
       }
 
-    } catch (err: any) {
-      setError(err.message || '連線失敗，請稍後再試');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '連線失敗，請稍後再試';
+      setError(message);
     } finally {
       setIsLoading(false);
     }

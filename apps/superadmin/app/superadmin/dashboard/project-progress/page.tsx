@@ -120,6 +120,7 @@ export default function ProjectProgressPage() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length === 9) {
+          // eslint-disable-next-line
           setColWidths(parsed);
           currentWidthsRef.current = parsed;
         }

@@ -110,7 +110,7 @@ export default function RoleSimulationPage() {
               <h3 className="text-xl font-medium text-white mb-2">Ready to Simulate</h3>
               <p className="max-w-md">
                 Select a role from the dropdown above to preview the application interface 
-                from that user's perspective.
+                from that user&apos;s perspective.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-4 mt-8">

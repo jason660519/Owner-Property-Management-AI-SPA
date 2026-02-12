@@ -45,7 +45,19 @@ interface IAMStats {
 
 // --- Components ---
 
-const StatCard = ({ title, value, subValue, icon: Icon, trend }: any) => (
+interface StatCardProps {
+  title: string;
+  value: string | number | {
+    totalAccounts: number;
+    totalPeople: number;
+    activeUsers: number;
+  };
+  subValue?: string;
+  icon: React.ElementType;
+  trend?: 'up' | 'down' | 'neutral';
+}
+
+const StatCard = ({ title, value, subValue, icon: Icon, trend }: StatCardProps) => (
   <Card>
     <CardContent className="p-6">
       <div className="flex items-center justify-between space-y-0 pb-2">
