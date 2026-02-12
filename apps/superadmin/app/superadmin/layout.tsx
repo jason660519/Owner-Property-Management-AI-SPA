@@ -7,11 +7,11 @@ export default function SuperadminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[#1A1A1A]">
+    <div className="min-h-screen bg-gray-50 dark:bg-grey-08 transition-colors duration-200">
+      <DashboardHeader />
       <Sidebar />
-      <div className="ml-64">
-        <DashboardHeader />
-        <main className="min-h-[calc(100vh-4rem)]">
+      <div className="ml-16 pt-16 transition-all duration-300 ease-in-out min-h-screen flex flex-col min-w-0">
+        <main className="flex-1 p-6 overflow-x-hidden">
           {children}
         </main>
       </div>

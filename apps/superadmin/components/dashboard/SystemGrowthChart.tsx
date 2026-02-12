@@ -49,18 +49,18 @@ export function SystemGrowthChart() {
                     </div>
                 </div>
               </div>
-              <span className="text-xs text-gray-400 font-medium">{item.month}</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">{item.month}</span>
             </div>
           ))}
         </div>
         <div className="flex items-center justify-center gap-6 mt-2">
             <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                <span className="text-xs text-gray-400">總用戶數</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">總用戶數</span>
             </div>
             <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span className="text-xs text-gray-400">活躍用戶</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">活躍用戶</span>
             </div>
         </div>
       </CardContent>

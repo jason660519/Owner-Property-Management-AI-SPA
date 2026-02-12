@@ -13,7 +13,7 @@ export function ProgressLink({ link, className = '' }: { link: ProgressLinkType;
   return (
     <Link
       href={href}
-      className={`group flex items-center justify-between px-3 py-2 rounded-md text-sm text-[#999999] hover:bg-[#2A2A2A] hover:text-white transition-all ${className}`}
+      className={`group flex items-center justify-between px-3 py-2 rounded-md text-sm text-gray-500 dark:text-[#999999] hover:bg-gray-100 dark:hover:bg-[#2A2A2A] hover:text-gray-900 dark:hover:text-white transition-all ${className}`}
     >
       <span className="flex items-center gap-2">
         {link.label}
