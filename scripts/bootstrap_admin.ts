@@ -85,6 +85,22 @@ async function bootstrapAdmin(email: string) {
 
     if (memberError) throw memberError;
 
+    // 6. Update Auth Metadata
+    const { error: updateError } = await supabase.auth.admin.updateUserById(user.id, {
+        user_metadata: {
+            ...user.user_metadata,
+            role: 'super_admin',
+            primary_role: 'super_admin'
+        },
+        app_metadata: {
+            ...user.app_metadata,
+            role: 'super_admin'
+        }
+    });
+
+    if (updateError) throw updateError;
+    console.log(`✅ Updated Auth Metadata for ${email}`);
+
     console.log(`✅ SUCCESS! User ${email} is now a Super Admin.`);
     console.log(`Please refresh your browser to pick up the new RLS permissions.`);
 }

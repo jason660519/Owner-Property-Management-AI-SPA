@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IAM 權限管理系統 - 開發進度</title>
+    <link rel="stylesheet" href="../styles.css">
+    <style>
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .status-completed { background-color: #dcfce7; color: #166534; }
+        .status-in-progress { background-color: #dbeafe; color: #1e40af; }
+        .status-pending { background-color: #f3f4f6; color: #4b5563; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans text-gray-900">
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <a href="../index.html" class="text-blue-600 hover:text-blue-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                    </svg>
+                </a>
+                <h1 class="text-xl font-bold text-gray-900">IAM 權限管理系統</h1>
+            </div>
+            <div class="text-sm text-gray-500">最後更新: 2026-02-05</div>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-2xl font-bold text-gray-900">開發進度概覽</h2>
+                <span class="status-badge status-in-progress">進行中</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="text-center p-4 bg-blue-50 rounded-lg">
+                    <div class="text-3xl font-bold text-blue-600">60%</div>
+                    <div class="text-sm text-blue-700 font-medium mt-1">整體完成度</div>
+                </div>
+                <div class="text-center p-4 bg-green-50 rounded-lg">
+                    <div class="text-3xl font-bold text-green-600">5</div>
+                    <div class="text-sm text-green-700 font-medium mt-1">資料表</div>
+                </div>
+                <div class="text-center p-4 bg-gray-50 rounded-lg">
+                    <div class="text-3xl font-bold text-gray-600">16</div>
+                    <div class="text-sm text-gray-700 font-medium mt-1">Story Points</div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <div class="flex justify-between text-sm text-gray-600 mb-2">
+                    <span>完成進度</span>
+                    <span class="font-semibold">60%</span>
+                </div>
+                <div class="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                    <div class="h-full bg-blue-600 rounded-full" style="width: 60%"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-6">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900 mb-1">資料庫架構</h3>
+                        <p class="text-sm text-gray-500">PostgreSQL + RLS 安全策略</p>
+                    </div>
+                    <span class="status-badge status-completed">100%</span>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">✅ 已完成資料表</h4>
+                    <ul class="space-y-1 text-sm text-gray-600">
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span><code class="bg-gray-100 px-1 py-0.5 rounded text-xs">iam_roles</code> - 角色定義表</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span><code class="bg-gray-100 px-1 py-0.5 rounded text-xs">iam_groups</code> - 群組管理表</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span><code class="bg-gray-100 px-1 py-0.5 rounded text-xs">iam_group_members</code> - 群組成員關聯</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span><code class="bg-gray-100 px-1 py-0.5 rounded text-xs">iam_group_roles</code> - 群組角色關聯</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span><code class="bg-gray-100 px-1 py-0.5 rounded text-xs">iam_user_roles</code> - 用戶角色覆蓋</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="pt-4 border-t border-gray-200">
+                    <p class="text-xs text-gray-500 font-mono">
+                        📁 supabase/migrations/20260202000000_create_iam_group_system.sql<br>
+                        📁 supabase/migrations/20260202000002_multi_role_support.sql
+                    </p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900 mb-1">核心角色定義</h3>
+                        <p class="text-sm text-gray-500">系統預設角色</p>
+                    </div>
+                    <span class="status-badge status-completed">100%</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="p-3 bg-red-50 rounded-lg border border-red-200">
+                        <div class="font-semibold text-red-900 text-sm mb-1">super_admin</div>
+                        <div class="text-xs text-red-700">超級管理員 - 最高權限</div>
+                    </div>
+                    <div class="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <div class="font-semibold text-blue-900 text-sm mb-1">landlord</div>
+                        <div class="text-xs text-blue-700">房東 - 物件管理</div>
+                    </div>
+                    <div class="p-3 bg-green-50 rounded-lg border border-green-200">
+                        <div class="font-semibold text-green-900 text-sm mb-1">tenant</div>
+                        <div class="text-xs text-green-700">租客 - 租賃功能</div>
+                    </div>
+                    <div class="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                        <div class="font-semibold text-purple-900 text-sm mb-1">vendor</div>
+                        <div class="text-xs text-purple-700">供應商 - 維修服務</div>
+                    </div>
+                    <div class="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <div class="font-semibold text-yellow-900 text-sm mb-1">auditor</div>
+                        <div class="text-xs text-yellow-700">審計員 - 查帳功能</div>
+                    </div>
+                    <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div class="font-semibold text-gray-900 text-sm mb-1">potential_tenant</div>
+                        <div class="text-xs text-gray-700">潛在租客 - 瀏覽物件</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900 mb-1">預設群組</h3>
+                        <p class="text-sm text-gray-500">初始化群組設定</p>
+                    </div>
+                    <span class="status-badge status-completed">100%</span>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <div class="font-semibold text-gray-900 mb-2">管理員群組</div>
+                        <div class="text-sm text-gray-600">包含 super_admin 角色</div>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <div class="font-semibold text-gray-900 mb-2">房東群組</div>
+                        <div class="text-sm text-gray-600">包含 landlord 角色</div>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <div class="font-semibold text-gray-900 mb-2">租客群組</div>
+                        <div class="text-sm text-gray-600">包含 tenant 角色</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900 mb-1">安全策略 (RLS)</h3>
+                        <p class="text-sm text-gray-500">Row Level Security 實作</p>
+                    </div>
+                    <span class="status-badge status-completed">100%</span>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">✅ 已實作策略</h4>
+                    <ul class="space-y-1 text-sm text-gray-600">
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>認證用戶讀取權限</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>超級管理員修改權限</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>群組成員存取控制</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>角色權限隔離</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="pt-4 border-t border-gray-200">
+                    <p class="text-xs text-gray-500 font-mono">
+                        📁 supabase/migrations/20260202100000_fix_iam_rls.sql
+                    </p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900 mb-1">進行中的工作</h3>
+                        <p class="text-sm text-gray-500">當前開發項目</p>
+                    </div>
+                    <span class="status-badge status-in-progress">40%</span>
+                </div>
+
+                <ul class="space-y-2 text-sm text-gray-600">
+                    <li class="flex items-start gap-2">
+                        <span class="text-blue-600 mt-0.5">⋯</span>
+                        <span>前端權限檢查組件</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-blue-600 mt-0.5">⋯</span>
+                        <span>動態路由保護 (middleware)</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-blue-600 mt-0.5">⋯</span>
+                        <span>管理員面板 (角色/群組管理)</span>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900 mb-1">待開發功能</h3>
+                        <p class="text-sm text-gray-500">下一階段計劃</p>
+                    </div>
+                    <span class="status-badge status-pending">未開始</span>
+                </div>
+
+                <ul class="space-y-2 text-sm text-gray-600">
+                    <li class="flex items-start gap-2">
+                        <span class="text-gray-400 mt-0.5">○</span>
+                        <span>權限矩陣可視化介面</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-gray-400 mt-0.5">○</span>
+                        <span>第三方 OAuth 角色映射</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-gray-400 mt-0.5">○</span>
+                        <span>細粒度權限 (Action-based)</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-gray-400 mt-0.5">○</span>
+                        <span>權限快取層</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-gray-400 mt-0.5">○</span>
+                        <span>審計日誌系統</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-gray-400 mt-0.5">○</span>
+                        <span>批次權限分配工具</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">系統架構</h3>
+            <div class="bg-gray-50 p-4 rounded-lg font-mono text-sm text-gray-700">
+                <div>用戶 (users_profile)</div>
+                <div class="ml-4">↓</div>
+                <div>群組成員 (iam_group_members)</div>
+                <div class="ml-4">↓</div>
+                <div>群組 (iam_groups)</div>
+                <div class="ml-4">↓</div>
+                <div>群組角色 (iam_group_roles)</div>
+                <div class="ml-4">↓</div>
+                <div>角色 (iam_roles)</div>
+                <div class="ml-4">↓</div>
+                <div>權限檢查 (RLS Policies)</div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">相關文檔</h3>
+            <div class="space-y-2 text-sm font-mono text-gray-600">
+                <div class="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <span>docs/access-matrix-design-guidelines-and-process/</span>
+                </div>
+                <div class="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <span>docs/access-matrix.../ACCESS_CONTROL_POLICY.md</span>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

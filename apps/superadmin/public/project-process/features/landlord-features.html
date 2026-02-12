@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>房東功能 - 開發進度</title>
+    <link rel="stylesheet" href="../styles.css">
+    <style>
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .status-completed { background-color: #dcfce7; color: #166534; }
+        .status-in-progress { background-color: #dbeafe; color: #1e40af; }
+        .status-pending { background-color: #f3f4f6; color: #4b5563; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans text-gray-900">
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <a href="../index.html" class="text-blue-600 hover:text-blue-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                    </svg>
+                </a>
+                <h1 class="text-xl font-bold text-gray-900">房東功能模組</h1>
+            </div>
+            <div class="text-sm text-gray-500">
+                最後更新: 2026-02-05
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Progress Overview -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-2xl font-bold text-gray-900">開發進度概覽</h2>
+                <span class="status-badge status-in-progress">進行中</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="text-center p-4 bg-blue-50 rounded-lg">
+                    <div class="text-3xl font-bold text-blue-600">70%</div>
+                    <div class="text-sm text-blue-700 font-medium mt-1">整體完成度</div>
+                </div>
+                <div class="text-center p-4 bg-green-50 rounded-lg">
+                    <div class="text-3xl font-bold text-green-600">4</div>
+                    <div class="text-sm text-green-700 font-medium mt-1">主要功能</div>
+                </div>
+                <div class="text-center p-4 bg-gray-50 rounded-lg">
+                    <div class="text-3xl font-bold text-gray-600">29</div>
+                    <div class="text-sm text-gray-700 font-medium mt-1">Story Points</div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <div class="flex justify-between text-sm text-gray-600 mb-2">
+                    <span>完成進度</span>
+                    <span class="font-semibold">70%</span>
+                </div>
+                <div class="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                    <div class="h-full bg-blue-600 rounded-full" style="width: 70%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features -->
+        <div class="space-y-6">
+            <!-- Dashboard -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900 mb-1">房東儀表板</h3>
+                        <p class="text-sm text-gray-500">KPI 統計與待辦事項總覽</p>
+                    </div>
+                    <span class="status-badge status-in-progress">70%</span>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">✅ 已完成功能</h4>
+                    <ul class="space-y-1 text-sm text-gray-600">
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>KPI 卡片顯示 (物件總數、出租率、月收入、年收入)</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>待辦工作列表</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>新增物件按鈕與導航</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>響應式設計 (手機/平板/桌面)</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">⚠️ 注意事項</h4>
+                    <ul class="space-y-1 text-sm text-gray-600">
+                        <li class="flex items-start gap-2">
+                            <span class="text-yellow-600 mt-0.5">!</span>
+                            <span>目前使用模擬數據，尚未連接資料庫</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="pt-4 border-t border-gray-200">
+                    <p class="text-xs text-gray-500 font-mono">
+                        📁 apps/web/app/(dashboard)/landlord/dashboard/page.tsx
+                    </p>
+                </div>
+            </div>
+
+            <!-- Property List -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900 mb-1">物件列表頁</h3>
+                        <p class="text-sm text-gray-500">搜尋、篩選與排序功能</p>
+                    </div>
+                    <span class="status-badge status-in-progress">70%</span>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">✅ 已完成功能</h4>
+                    <ul class="space-y-1 text-sm text-gray-600">
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>搜尋功能 (標題、地址)</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>類型篩選 (出租/出售)</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>狀態篩選 (可用/已租/已售)</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>排序功能 (最新/價格高低)</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="pt-4 border-t border-gray-200">
+                    <p class="text-xs text-gray-500 font-mono">
+                        📁 apps/web/app/(dashboard)/landlord/properties/page.tsx
+                    </p>
+                </div>
+            </div>
+
+            <!-- Add Property -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900 mb-1">新增物件功能</h3>
+                        <p class="text-sm text-gray-500">五步驟完整表單系統</p>
+                    </div>
+                    <span class="status-badge status-completed">85%</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div class="p-4 bg-green-50 rounded-lg border border-green-200">
+                        <div class="font-semibold text-green-900 mb-2">Step 1: 基本資料</div>
+                        <div class="text-sm text-green-700">物件標題、地址、類型、價格 - 100%</div>
+                    </div>
+                    <div class="p-4 bg-green-50 rounded-lg border border-green-200">
+                        <div class="font-semibold text-green-900 mb-2">Step 2: 權狀資料</div>
+                        <div class="text-sm text-green-700">所有權人、建號、地號 - 100%</div>
+                    </div>
+                    <div class="p-4 bg-green-50 rounded-lg border border-green-200">
+                        <div class="font-semibold text-green-900 mb-2">Step 3: 面積計算</div>
+                        <div class="text-sm text-green-700">主建物、附屬建物、車位管理 - 100%</div>
+                    </div>
+                    <div class="p-4 bg-green-50 rounded-lg border border-green-200">
+                        <div class="font-semibold text-green-900 mb-2">Step 4: 其他資料</div>
+                        <div class="text-sm text-green-700">房間數、樓層、描述 - 100%</div>
+                    </div>
+                    <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <div class="font-semibold text-blue-900 mb-2">Step 5: 照片上傳</div>
+                        <div class="text-sm text-blue-700">拖放上傳、HEIC 轉換 - 95%</div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">✨ 特色功能</h4>
+                    <ul class="space-y-1 text-sm text-gray-600">
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>附屬建物動態管理 (陽台、雨遮、平台)</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>車位管理 (獨立/公設車位區分)</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>自動計算總面積及坪數轉換</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>表單驗證與錯誤提示</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="pt-4 border-t border-gray-200">
+                    <p class="text-xs text-gray-500 font-mono">
+                        📁 apps/web/app/(dashboard)/landlord/properties/add/page.tsx<br>
+                        📁 apps/web/components/property/AuxiliaryBuildingsManager.tsx<br>
+                        📁 apps/web/components/property/ParkingManager.tsx
+                    </p>
+                </div>
+            </div>
+
+            <!-- Draft Feature -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900 mb-1">草稿儲存功能</h3>
+                        <p class="text-sm text-gray-500">智能草稿管理系統</p>
+                    </div>
+                    <span class="status-badge status-completed">100%</span>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">✅ 已完成功能</h4>
+                    <ul class="space-y-1 text-sm text-gray-600">
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>自動檔名生成 (物件標題 + 類型)</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>自訂草稿名稱</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>多草稿管理 (最多 10 個)</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>草稿載入與完整恢復</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>草稿刪除 (單個/全部)</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>智能 UI (顯示地址、價格、儲存時間)</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>LocalStorage 持久化</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="pt-4 border-t border-gray-200">
+                    <p class="text-xs text-gray-500 font-mono">
+                        📁 apps/web/hooks/useFormDraft.ts
+                    </p>
+                </div>
+            </div>
+
+            <!-- Future Work -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900 mb-1">待開發功能</h3>
+                        <p class="text-sm text-gray-500">下一階段開發重點</p>
+                    </div>
+                    <span class="status-badge status-pending">未開始</span>
+                </div>
+
+                <ul class="space-y-2 text-sm text-gray-600">
+                    <li class="flex items-start gap-2">
+                        <span class="text-gray-400 mt-0.5">○</span>
+                        <span>儀表板連接真實資料庫數據</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-gray-400 mt-0.5">○</span>
+                        <span>物件列表連接真實資料庫數據</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-gray-400 mt-0.5">○</span>
+                        <span>Supabase Storage 照片上傳</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-gray-400 mt-0.5">○</span>
+                        <span>物件編輯功能</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-gray-400 mt-0.5">○</span>
+                        <span>物件刪除功能</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-gray-400 mt-0.5">○</span>
+                        <span>財務管理功能</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-gray-400 mt-0.5">○</span>
+                        <span>租客管理功能</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Tech Stack -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">技術堆棧</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-center p-3 bg-gray-50 rounded-lg">
+                    <div class="text-sm font-semibold text-gray-900">Next.js 15</div>
+                    <div class="text-xs text-gray-500 mt-1">App Router</div>
+                </div>
+                <div class="text-center p-3 bg-gray-50 rounded-lg">
+                    <div class="text-sm font-semibold text-gray-900">React Hook Form</div>
+                    <div class="text-xs text-gray-500 mt-1">表單管理</div>
+                </div>
+                <div class="text-center p-3 bg-gray-50 rounded-lg">
+                    <div class="text-sm font-semibold text-gray-900">Zod</div>
+                    <div class="text-xs text-gray-500 mt-1">表單驗證</div>
+                </div>
+                <div class="text-center p-3 bg-gray-50 rounded-lg">
+                    <div class="text-sm font-semibold text-gray-900">LocalStorage</div>
+                    <div class="text-xs text-gray-500 mt-1">草稿存儲</div>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

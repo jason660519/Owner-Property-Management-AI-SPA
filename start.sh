@@ -4,7 +4,7 @@
 # Owner Property Management - 統一啟動腳本
 # ==========================================
 # 功能：整合開發環境啟動、服務管理、依賴檢查
-# 用法：./start.sh [all|web|admin|ocr|menu]
+# 用法：./start.sh [all|web|admin|ocr|test|menu]
 
 set -e
 
@@ -169,6 +169,44 @@ clean_cache() {
     echo -e "${GREEN}✅ 完成${NC}"
 }
 
+run_tests() {
+    echo -e "${BLUE}🧪 執行自動化測試...${NC}"
+    
+    # 檢查 Superadmin 是否運行
+    if ! lsof -i :3001 > /dev/null 2>&1; then
+        echo -e "${YELLOW}⚠️  Superadmin (Port 3001) 未啟動，測試需要該服務運行。${NC}"
+        read -p "是否自動啟動 Superadmin (背景執行)? (y/n) " answer
+        if [[ "$answer" == "y" || "$answer" == "Y" ]]; then
+            start_admin "bg"
+            echo -e "${YELLOW}⏳ 等待 10 秒讓服務準備就緒...${NC}"
+            sleep 10
+        else
+            echo -e "${RED}❌ 無法執行測試：目標服務未啟動${NC}"
+            return 1
+        fi
+    fi
+
+    cd "$PROJECT_ROOT"
+    
+    echo -e "${BLUE}▶️  執行登入跳轉邏輯測試...${NC}"
+    if npx playwright test apps/superadmin/e2e/login-redirect.spec.ts; then
+        echo -e "${GREEN}✅ 登入邏輯測試通過${NC}"
+    else
+        echo -e "${RED}❌ 登入邏輯測試失敗${NC}"
+        # 不中斷，繼續跑截圖
+    fi
+    
+    echo -e "${BLUE}▶️  執行截圖生成測試...${NC}"
+    if npx playwright test apps/superadmin/e2e/generate-screenshots.spec.ts; then
+        echo -e "${GREEN}✅ 截圖生成成功${NC}"
+    else
+        echo -e "${RED}❌ 截圖生成失敗${NC}"
+    fi
+    
+    echo -e "${GREEN}✅ 測試執行程序結束${NC}"
+    echo -e "   • 截圖位置: apps/superadmin/e2e/screenshots/"
+}
+
 # --- 選單介面 ---
 show_menu() {
     clear
@@ -179,8 +217,9 @@ show_menu() {
     echo "2) 🌐 啟動 Web App (獨立視窗)"
     echo "3) 🔐 啟動 Superadmin (獨立視窗)"
     echo "4) 👁️  啟動 OCR/VLM 後端"
-    echo "5) 🧹 清除快取"
-    echo "6) 🛑 停止所有服務"
+    echo "5) 🧪 執行 Superadmin 測試 (含截圖)"
+    echo "6) 🧹 清除快取"
+    echo "7) 🛑 停止所有服務"
     echo "0) 離開"
     echo ""
     read -p "請輸入選項: " choice
@@ -190,8 +229,9 @@ show_menu() {
         2) check_dependencies; ensure_supabase_running; start_web ;;
         3) check_dependencies; ensure_supabase_running; start_admin ;;
         4) check_dependencies; ensure_supabase_running; start_ocr ;;
-        5) clean_cache ;;
-        6) ./stop.sh ;;
+        5) run_tests ;;
+        6) clean_cache ;;
+        7) ./stop.sh ;;
         0) exit 0 ;;
         *) echo "無效選項"; sleep 1; show_menu ;;
     esac
@@ -203,7 +243,8 @@ case "${1:-menu}" in
     web) check_dependencies; ensure_supabase_running; start_web ;;
     admin) check_dependencies; ensure_supabase_running; start_admin ;;
     ocr) check_dependencies; ensure_supabase_running; start_ocr ;;
+    test) run_tests ;;
     clean) clean_cache ;;
     menu) show_menu ;;
-    *) echo "用法: $0 [all|web|admin|ocr|clean|menu]" ;;
+    *) echo "用法: $0 [all|web|admin|ocr|test|clean|menu]" ;;
 esac

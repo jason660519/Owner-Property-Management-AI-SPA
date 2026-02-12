@@ -1,2 +1,2 @@
--- 查看有哪些群組
-SELECT * FROM iam_groups;
+CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;

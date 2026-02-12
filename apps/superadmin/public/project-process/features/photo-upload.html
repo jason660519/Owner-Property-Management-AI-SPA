@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>照片上傳功能 - 開發進度</title>
+    <link rel="stylesheet" href="../styles.css">
+    <style>
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .status-completed { background-color: #dcfce7; color: #166534; }
+        .status-in-progress { background-color: #dbeafe; color: #1e40af; }
+        .status-pending { background-color: #f3f4f6; color: #4b5563; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans text-gray-900">
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <a href="../index.html" class="text-blue-600 hover:text-blue-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                    </svg>
+                </a>
+                <h1 class="text-xl font-bold text-gray-900">照片上傳功能</h1>
+            </div>
+            <div class="text-sm text-gray-500">最後更新: 2026-02-05</div>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-2xl font-bold text-gray-900">開發進度概覽</h2>
+                <span class="status-badge status-completed">TDD 完整實作 ✅</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="text-center p-4 bg-green-50 rounded-lg">
+                    <div class="text-3xl font-bold text-green-600">95%</div>
+                    <div class="text-sm text-green-700 font-medium mt-1">整體完成度</div>
+                </div>
+                <div class="text-center p-4 bg-purple-50 rounded-lg">
+                    <div class="text-3xl font-bold text-purple-600">13/13</div>
+                    <div class="text-sm text-purple-700 font-medium mt-1">單元測試通過</div>
+                </div>
+                <div class="text-center p-4 bg-gray-50 rounded-lg">
+                    <div class="text-3xl font-bold text-gray-600">3</div>
+                    <div class="text-sm text-gray-700 font-medium mt-1">Story Points</div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <div class="flex justify-between text-sm text-gray-600 mb-2">
+                    <span>完成進度</span>
+                    <span class="font-semibold">95%</span>
+                </div>
+                <div class="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                    <div class="h-full bg-green-600 rounded-full" style="width: 95%"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-6">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900 mb-1">核心上傳功能</h3>
+                        <p class="text-sm text-gray-500">拖放上傳與格式轉換</p>
+                    </div>
+                    <span class="status-badge status-completed">100%</span>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">✅ 已完成功能</h4>
+                    <ul class="space-y-1 text-sm text-gray-600">
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>拖放上傳介面</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>支援格式: JPG, PNG, HEIC</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>HEIC 自動轉 JPG (heic2any 庫)</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>檔案大小限制 (10MB/檔)</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>數量限制 (最多 20 張)</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>即時預覽</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>主圖標記功能</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>刪除與清除功能</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="pt-4 border-t border-gray-200">
+                    <p class="text-xs text-gray-500 font-mono">
+                        📁 apps/web/components/property/PhotoUpload.tsx
+                    </p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900 mb-1">驗證機制</h3>
+                        <p class="text-sm text-gray-500">完整的錯誤處理與使用者提示</p>
+                    </div>
+                    <span class="status-badge status-completed">100%</span>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">✅ 驗證規則</h4>
+                    <ul class="space-y-1 text-sm text-gray-600">
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>檔案類型驗證 (僅接受圖片)</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>檔案大小驗證 (10MB 限制)</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>數量限制驗證 (20 張上限)</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>友善的錯誤提示訊息</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>重複檔案檢測</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900 mb-1">使用者體驗</h3>
+                        <p class="text-sm text-gray-500">直覺的操作介面</p>
+                    </div>
+                    <span class="status-badge status-completed">100%</span>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">✨ UX 特色</h4>
+                    <ul class="space-y-1 text-sm text-gray-600">
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>拖放區域視覺提示</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>照片預覽縮圖</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>主圖標記 (星號圖示)</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>刪除按鈕 (Hover 顯示)</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>清除所有照片功能</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-600 mt-0.5">✓</span>
+                            <span>照片數量計數器</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900 mb-1">測試覆蓋</h3>
+                        <p class="text-sm text-gray-500">TDD 完整測試</p>
+                    </div>
+                    <span class="status-badge status-completed">100%</span>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                        <span class="text-sm font-medium text-green-900">單元測試</span>
+                        <span class="text-sm font-bold text-green-600">13/13 通過 ✅</span>
+                    </div>
+                    <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                        <span class="text-sm font-medium text-green-900">E2E 測試</span>
+                        <span class="text-sm font-bold text-green-600">已實作 ✅</span>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">🧪 測試項目</h4>
+                    <ul class="space-y-1 text-xs text-gray-600">
+                        <li>✓ 檔案類型驗證測試</li>
+                        <li>✓ 大小限制測試</li>
+                        <li>✓ 數量限制測試</li>
+                        <li>✓ 拖放功能測試</li>
+                        <li>✓ 圖片預覽測試</li>
+                        <li>✓ 主圖標記測試</li>
+                        <li>✓ 刪除功能測試</li>
+                        <li>✓ HEIC 轉換測試</li>
+                    </ul>
+                </div>
+
+                <div class="pt-4 border-t border-gray-200 mt-4">
+                    <p class="text-xs text-gray-500 font-mono">
+                        📁 apps/web/components/property/__tests__/PhotoUpload.test.tsx<br>
+                        📁 apps/web/e2e/property-photo-upload.spec.ts
+                    </p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900 mb-1">待完成功能</h3>
+                        <p class="text-sm text-gray-500">下一階段開發</p>
+                    </div>
+                    <span class="status-badge status-pending">5%</span>
+                </div>
+
+                <ul class="space-y-2 text-sm text-gray-600">
+                    <li class="flex items-start gap-2">
+                        <span class="text-gray-400 mt-0.5">○</span>
+                        <span>實際上傳到 Supabase Storage</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-gray-400 mt-0.5">○</span>
+                        <span>圖片壓縮優化 (減少儲存空間)</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-gray-400 mt-0.5">○</span>
+                        <span>上傳進度條顯示</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-gray-400 mt-0.5">○</span>
+                        <span>圖片編輯功能 (裁切、旋轉)</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-gray-400 mt-0.5">○</span>
+                        <span>批次上傳優化</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">技術堆棧</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-center p-3 bg-gray-50 rounded-lg">
+                    <div class="text-sm font-semibold text-gray-900">React</div>
+                    <div class="text-xs text-gray-500 mt-1">前端框架</div>
+                </div>
+                <div class="text-center p-3 bg-gray-50 rounded-lg">
+                    <div class="text-sm font-semibold text-gray-900">heic2any</div>
+                    <div class="text-xs text-gray-500 mt-1">格式轉換</div>
+                </div>
+                <div class="text-center p-3 bg-gray-50 rounded-lg">
+                    <div class="text-sm font-semibold text-gray-900">Vitest</div>
+                    <div class="text-xs text-gray-500 mt-1">單元測試</div>
+                </div>
+                <div class="text-center p-3 bg-gray-50 rounded-lg">
+                    <div class="text-sm font-semibold text-gray-900">Playwright</div>
+                    <div class="text-xs text-gray-500 mt-1">E2E 測試</div>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

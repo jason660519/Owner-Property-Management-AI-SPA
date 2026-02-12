@@ -12,10 +12,11 @@ import json
 import contextvars
 
 from loguru import logger
-from .routes import ocr, health, logs, integrations, documents
+from .routes import ocr, health, logs, integrations, documents, search, es_admin
 from ..core.ocr_processor import OCRProcessor
 from ..core.cache import CacheManager
 from ..core.monitoring import MetricsCollector
+from ..core.search_client import get_search_client
 from ..utils.logger import SystemLogger, LOG_ROOT
 from ..utils.log_archiver import LogArchiver
 
@@ -58,6 +59,8 @@ app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(logs.router, prefix="/api/v1/logs", tags=["logs"])
 app.include_router(integrations.router, tags=["integrations"])
 app.include_router(documents.router, tags=["documents"])
+app.include_router(search.router, tags=["search"])
+app.include_router(es_admin.router, tags=["admin-es"])
 
 # Global instances
 ocr_processor = OCRProcessor()
@@ -73,6 +76,14 @@ async def startup_event():
     
     await ocr_processor.initialize()
     await cache_manager.initialize()
+    
+    # Initialize Search Client
+    search_client = get_search_client()
+    try:
+        await search_client.initialize()
+    except Exception as e:
+        logger.error(f"Failed to initialize Elasticsearch client: {e}")
+        
     logger.info("OCR VLM Service started successfully")
     
     # Start Log Archiver in background
@@ -91,13 +102,11 @@ async def run_periodic_archiver():
         await asyncio.sleep(24 * 3600)
 
 @app.on_event("shutdown")
-
-
-@app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on shutdown"""
     await ocr_processor.shutdown()
     await cache_manager.shutdown()
+    await get_search_client().close()
     logger.info("OCR VLM Service shutdown complete")
 
 @app.get("/")

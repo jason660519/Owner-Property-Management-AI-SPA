@@ -17,6 +17,7 @@ from ...core.storage_client import get_storage_client, SupabaseStorageClient
 from ...core.auth import get_current_user
 from ...core.kms import get_kms, VLMKeyKMS
 from ...core.document_validator import get_validator, DocumentValidator
+from ...core.search_client import get_search_client
 from ...vlm.vlm_engine import VLMEngine
 
 logger = logging.getLogger(__name__)
@@ -180,6 +181,30 @@ async def process_document_with_vlm(
         }).eq('id', credential['id']).execute()
 
         logger.info(f"VLM processing completed for document {document_id}")
+
+        # Index to Elasticsearch
+        try:
+            search_client = get_search_client()
+            # Ensure initialization is called or handled within get_search_client if using a robust pattern
+            # For now relying on app startup or manual init check inside client methods if needed
+            
+            es_doc = {
+                "owner_name": extracted_data.get('owner_name'),
+                "property_address": extracted_data.get('property_address'),
+                "building_number": extracted_data.get('building_number'),
+                "land_lot_number": extracted_data.get('land_lot_number'),
+                "extracted_data": extracted_data,
+                "confidence_score": validation_result.overall_confidence,
+                "created_at": datetime.utcnow().isoformat(),
+                "parsing_duration_ms": parsing_duration_ms
+            }
+            # We assume text_results or vlm_result might have more raw text, but extracted_data is key
+            # If we want full text search on the raw OCR text, we should extract it from vlm_result if available
+            
+            await search_client.index_document(document_id, es_doc)
+            logger.info(f"Successfully indexed document {document_id} to Elasticsearch")
+        except Exception as es_e:
+            logger.error(f"Failed to index document {document_id} to Elasticsearch: {es_e}")
 
     except Exception as e:
         logger.error(f"VLM processing failed for document {document_id}: {e}")
