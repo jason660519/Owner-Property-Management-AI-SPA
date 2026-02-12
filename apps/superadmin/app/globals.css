@@ -4,6 +4,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hide Next.js Dev Indicator */
+[data-nextjs-toast] {
+  display: none !important;
+}
+nextjs-portal {
+  display: none !important;
+}
+
 :root {
   /* 色彩變數 */
   --color-grey-08: #1A1A1A;
@@ -131,8 +139,80 @@
   --color-accent-subtle: rgba(124, 58, 237, 0.15);
 }
 
+/* 午夜主題 (Midnight Mode) */
+.midnight {
+  --color-text-primary: #F1F5F9;
+  --color-text-secondary: #94A3B8;
+  --color-text-muted: #64748B;
+  --color-bg-primary: #0B1121;
+  --color-bg-secondary: #151E32;
+  --color-bg-tertiary: #1E293B;
+  --color-border-default: #2A3655;
+  --color-border-light: #334155;
+  --color-accent: #22D3EE;
+  --color-accent-hover: #67E8F9;
+  --color-accent-subtle: rgba(34, 211, 238, 0.15);
+  --shadow-glow: 0 0 20px rgba(34, 211, 238, 0.4);
+}
+
+/* 極暗主題 (Ultra-Dark Mode) */
+.ultra-dark {
+  --color-text-primary: #E0E0E0;
+  --color-text-secondary: #9E9E9E;
+  --color-text-muted: #616161;
+  --color-bg-primary: #0A0A0A;
+  --color-bg-secondary: #121212;
+  --color-bg-tertiary: #0F0F0F;
+  --color-border-default: #242424;
+  --color-border-light: #1B1B1B;
+  --color-accent: #90CAF9;
+  --color-accent-hover: #64B5F6;
+  --color-accent-subtle: rgba(144, 202, 249, 0.1);
+  --shadow-glow: 0 0 15px rgba(144, 202, 249, 0.2);
+}
+
 body {
   font-family: var(--font-sans);
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
+
+/* Ultra-Dark Specific Body Gradient */
+.ultra-dark body {
+  background-image: radial-gradient(circle at center, rgba(18,18,18,0) 0%, #000 100%);
+  background-attachment: fixed;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-light);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* Prevent white flash on containers */
+html, body, .main-container, .content-wrapper, .inner-page {
+  background-color: var(--color-bg-primary);
+}
+
+/* Input Focus Glow for Ultra-Dark */
+.ultra-dark input:focus, 
+.ultra-dark textarea:focus, 
+.ultra-dark select:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-subtle);
+}
+

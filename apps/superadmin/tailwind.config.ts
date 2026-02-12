@@ -12,23 +12,23 @@ const config: Config = {
         purple: { '60': '#7C3AED', '70': '#6D28D9' },
         // Design System Colors
         bg: {
-          primary: '#141414',
-          secondary: '#191919',
-          tertiary: '#262626',
+          primary: 'var(--color-bg-primary)',
+          secondary: 'var(--color-bg-secondary)',
+          tertiary: 'var(--color-bg-tertiary)',
         },
         text: {
-          primary: '#ffffff',
-          secondary: '#999999',
-          muted: '#666666',
+          primary: 'var(--color-text-primary)',
+          secondary: 'var(--color-text-secondary)',
+          muted: 'var(--color-text-muted)',
         },
         brand: {
-          DEFAULT: '#703BF7',
-          alt: '#6f3bf6',
+          DEFAULT: 'var(--color-accent)',
+          alt: 'var(--color-accent-hover)',
           light: '#a584f9',
         },
         border: {
-          DEFAULT: '#262626',
-          light: '#333333',
+          DEFAULT: 'var(--color-border-default)',
+          light: 'var(--color-border-light)',
           subtle: '#4c4c4c',
         }
       },

@@ -1,6 +1,6 @@
 {
   "enabledPlugins": {
-    "document-skills@anthropic-agent-skills": true,
-    "everything-claude-code@everything-claude-code": true
+    "document-skills@anthropic-agent-skills": false,
+    "everything-claude-code@everything-claude-code": false
   }
 }

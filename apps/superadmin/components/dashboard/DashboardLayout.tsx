@@ -48,15 +48,6 @@ export function DashboardLayout({
             </div>
             <div className="flex items-center gap-4">
               {headerActions}
-              <a
-                href={MAIN_SITE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm text-gray-500 dark:text-[#999999] hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-[#333333] rounded-lg hover:border-[#7C3AED] transition-colors"
-              >
-                <ExternalLink className="w-4 h-4" />
-                公司首頁
-              </a>
             </div>
           </div>
         </div>
