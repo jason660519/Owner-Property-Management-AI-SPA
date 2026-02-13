@@ -2,6 +2,11 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
+  // Redirect /docs to /superadmin/docs so both URLs work
+  if (request.nextUrl.pathname === '/docs') {
+    return NextResponse.redirect(new URL('/superadmin/docs', request.url));
+  }
+
   const isRBACDev = request.nextUrl.pathname.includes('/rbac_access_control');
 
   // ⚠️ 開發中 RBAC 視覺化頁面：完全略過認證與 Supabase 呼叫，避免 Supabase 未啟動時整頁卡住
@@ -54,5 +59,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/superadmin/:path*'],
+  matcher: ['/docs', '/superadmin/:path*'],
 };

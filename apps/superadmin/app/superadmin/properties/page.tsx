@@ -1,21 +1,33 @@
-'use client';
-
+// filepath: apps/superadmin/app/superadmin/properties/page.tsx
+// created: 2026-02-14 | creator: Claude Opus 4.6
+import { getAllProperties } from '@/lib/actions/properties';
+import { PropertiesList } from '@/components/admin/properties/PropertiesList';
 import { DashboardLayout } from '@/components/dashboard';
+import Link from 'next/link';
 
-export default function PropertiesPage() {
+export const dynamic = 'force-dynamic';
+
+const BASE = '/superadmin';
+
+export default async function SuperadminPropertiesPage() {
+  const data = await getAllProperties();
+
   return (
     <DashboardLayout
       currentRole="superadmin"
       pageTitle="物件管理"
       breadcrumbs={[
         { label: '首頁', href: '/' },
-        { label: '超級管理員專區', href: '/superadmin' },
+        { label: '超級管理員專區', href: BASE },
         { label: '物件管理' },
       ]}
+      greeting={`共 ${data.properties.length} 筆物件（出售 ${data.totalSales} / 出租 ${data.totalRentals}）`}
     >
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-4">物件管理</h1>
-        <p>此功能正在開發中...</p>
+      <PropertiesList data={data} />
+      <div className="mt-6">
+        <Link href={BASE} className="text-[#7C3AED] hover:underline text-sm">
+          ← 返回儀表板
+        </Link>
       </div>
     </DashboardLayout>
   );

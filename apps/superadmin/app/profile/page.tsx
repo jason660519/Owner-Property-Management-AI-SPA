@@ -133,7 +133,7 @@ export default function ProfilePage() {
                           {profile.roles.map(role => (
                             <Badge 
                               key={role} 
-                              variant={role === 'super_admin' ? 'default' : 'secondary'}
+                              variant={role === 'super_admin' ? 'default' : 'info'}
                               className={role === 'super_admin' ? 'bg-purple-600 hover:bg-purple-700' : ''}
                             >
                               {ROLE_LABELS[role] || role}

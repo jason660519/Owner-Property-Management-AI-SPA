@@ -45,7 +45,8 @@ export function DashboardHeader() {
     { name: 'Product', href: '/product' },
     { name: 'Developers', href: '/developers' },
     { name: 'Pricing', href: '/pricing' },
-    { name: 'Docs', href: '/docs' },
+    { name: 'Project Files', href: '/docs' },
+    { name: 'Project Progress Dashboard', href: 'http://localhost:3001/superadmin/dashboard/project-progress' },
   ];
 
   return (
@@ -68,6 +69,8 @@ export function DashboardHeader() {
                 key={link.name}
                 href={link.href}
                 className="text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 {link.name}
               </Link>
@@ -166,6 +169,8 @@ export function DashboardHeader() {
                 href={link.href}
                 className="text-base font-medium text-text-secondary hover:text-text-primary"
                 onClick={() => setIsMobileMenuOpen(false)}
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 {link.name}
               </Link>

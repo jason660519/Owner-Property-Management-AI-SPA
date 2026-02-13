@@ -3,6 +3,26 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { DashboardHeader } from './DashboardHeader';
 import '@testing-library/jest-dom';
 
+// Mock next/navigation
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    refresh: jest.fn(),
+    back: jest.fn(),
+    forward: jest.fn(),
+  }),
+  usePathname: () => '/',
+}));
+
+// Mock supabase client
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: () => ({
+    auth: {
+      signOut: jest.fn(),
+    },
+  }),
+}));
+
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
@@ -44,10 +64,20 @@ describe('DashboardHeader', () => {
     expect(screen.getByText('Owner AI')).toBeInTheDocument();
     
     // Check Desktop Links
-    expect(screen.getByText('Product')).toBeInTheDocument();
-    expect(screen.getByText('Developers')).toBeInTheDocument();
-    expect(screen.getByText('Pricing')).toBeInTheDocument();
-    expect(screen.getByText('Docs')).toBeInTheDocument();
+    const checkLink = (name: string, href: string) => {
+      const link = screen.getByText(name).closest('a');
+      expect(link).toHaveAttribute('href', href);
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    };
+
+    checkLink('Product', '/product');
+    checkLink('Developers', '/developers');
+    checkLink('Pricing', '/pricing');
+    checkLink('Project Files', '/docs');
+    
+    // Check New Link
+    checkLink('Project Progress Dashboard', 'http://localhost:3001/superadmin/dashboard/project-progress');
   });
 
   it('toggles mobile menu when hamburger button is clicked and closes on link click', () => {

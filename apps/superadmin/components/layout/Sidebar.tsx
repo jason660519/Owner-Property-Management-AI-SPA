@@ -17,7 +17,8 @@ import {
   VenetianMask, 
   FileBarChart, 
   Settings,
-  Bot
+  Bot,
+  BookOpen
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -41,7 +42,8 @@ const navItems: NavItem[] = [
   { name: 'Storage', href: '/superadmin/dashboard/storage', icon: HardDrive },
   { name: 'Impersonate', href: '/superadmin/role-simulation', icon: VenetianMask },
   { name: 'IAM Audit', href: '/superadmin/dashboard/iam-audit', icon: FileBarChart },
-  { name: 'Project Progress', href: '/superadmin/dashboard/project-progress', icon: FileText },
+  { name: 'Project Progress Dashboard', href: '/superadmin/dashboard/project-progress', icon: FileText },
+  { name: 'Project Files', href: '/superadmin/docs', icon: BookOpen },
   { name: 'AI Service', href: '/superadmin/ai-service', icon: Bot },
   { name: 'Settings', href: '/superadmin/settings', icon: Settings },
 ];
