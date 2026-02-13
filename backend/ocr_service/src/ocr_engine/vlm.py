@@ -1,11 +1,11 @@
-import os
 import base64
 import json
+import os
 from pathlib import Path
-from typing import Dict, Any, Optional
-import asyncio
+from typing import Any, Dict, Optional
 
 from loguru import logger
+
 try:
     from openai import AsyncOpenAI
 except ImportError:
@@ -141,7 +141,7 @@ class VLMEngine(OCREngine):
         self.provider = provider
         self.model = model
         self.api_key = api_key or self._get_api_key(provider)
-        
+
     def _get_api_key(self, provider: str) -> Optional[str]:
         key_map = {
             "openai": "OPENAI_API_KEY",
@@ -162,47 +162,97 @@ class VLMEngine(OCREngine):
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode('utf-8')
 
-    async def process(self, image_path: Path) -> Dict[str, Any]:
+    async def process(
+        self,
+        image_path: Path,
+        text_content: Optional[str] = None,
+        document_type: Optional[str] = None,
+        language: str = "zh-TW",
+    ) -> Dict[str, Any]:
+        if isinstance(image_path, list):
+            if not image_path:
+                raise ValueError("No image provided")
+            image_path = image_path[0]
         if not self.api_key:
             raise ValueError(f"API key not found for {self.provider}")
 
         logger.info(f"Processing {image_path} with {self.name}")
-        
+
         try:
             if self.provider == "openai":
-                return await self._process_openai_compatible(image_path, base_url=None)
+                return await self._process_openai_compatible(
+                    image_path,
+                    base_url=None,
+                    text_content=text_content,
+                    document_type=document_type,
+                    language=language,
+                )
             elif self.provider == "anthropic":
-                return await self._process_anthropic(image_path)
+                return await self._process_anthropic(
+                    image_path,
+                    text_content=text_content,
+                    document_type=document_type,
+                    language=language,
+                )
             elif self.provider == "google":
-                return await self._process_google(image_path)
+                return await self._process_google(
+                    image_path,
+                    text_content=text_content,
+                    document_type=document_type,
+                    language=language,
+                )
             elif self.provider == "deepseek":
-                return await self._process_openai_compatible(image_path, base_url="https://api.deepseek.com")
+                return await self._process_openai_compatible(
+                    image_path,
+                    base_url="https://api.deepseek.com",
+                    text_content=text_content,
+                    document_type=document_type,
+                    language=language,
+                )
             elif self.provider == "grok":
-                return await self._process_openai_compatible(image_path, base_url="https://api.x.ai/v1")
+                return await self._process_openai_compatible(
+                    image_path,
+                    base_url="https://api.x.ai/v1",
+                    text_content=text_content,
+                    document_type=document_type,
+                    language=language,
+                )
             else:
                 raise ValueError(f"Unsupported provider: {self.provider}")
         except Exception as e:
             logger.error(f"Error processing with {self.name}: {e}")
             raise
 
-    async def _process_openai_compatible(self, image_path: Path, base_url: Optional[str]) -> Dict[str, Any]:
+    async def _process_openai_compatible(
+        self,
+        image_path: Path,
+        base_url: Optional[str],
+        text_content: Optional[str],
+        document_type: Optional[str],
+        language: str,
+    ) -> Dict[str, Any]:
         if not AsyncOpenAI:
             raise ImportError("openai package is not installed")
-            
+
         client = AsyncOpenAI(api_key=self.api_key, base_url=base_url)
         base64_image = self._encode_image(image_path)
-        
+        user_text = "請解析這份建物謄本圖片。"
+        if document_type:
+            user_text = f"請解析這份文件圖片，類型為 {document_type}。"
+        if text_content:
+            user_text = f"{user_text}\n以下為 OCR 文字內容（語言 {language}）：\n{text_content}"
+
         response = await client.chat.completions.create(
             model=self.model,
             messages=[
                 {
-                    "role": "system", 
+                    "role": "system",
                     "content": SYSTEM_PROMPT
                 },
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "請解析這份建物謄本圖片。"},
+                        {"type": "text", "text": user_text},
                         {
                             "type": "image_url",
                             "image_url": {
@@ -214,19 +264,30 @@ class VLMEngine(OCREngine):
             ],
             response_format={"type": "json_object"}
         )
-        
+
         content = response.choices[0].message.content
         return json.loads(content)
 
-    async def _process_anthropic(self, image_path: Path) -> Dict[str, Any]:
+    async def _process_anthropic(
+        self,
+        image_path: Path,
+        text_content: Optional[str],
+        document_type: Optional[str],
+        language: str,
+    ) -> Dict[str, Any]:
         if not AsyncAnthropic:
             raise ImportError("anthropic package is not installed")
 
         client = AsyncAnthropic(api_key=self.api_key)
         base64_image = self._encode_image(image_path)
-        media_type = "image/jpeg" # Assuming jpeg, should detect
+        media_type = "image/jpeg"
         if image_path.suffix.lower() == '.png':
             media_type = "image/png"
+        user_text = "請解析這份建物謄本圖片並輸出 JSON。"
+        if document_type:
+            user_text = f"請解析這份文件圖片並輸出 JSON，類型為 {document_type}。"
+        if text_content:
+            user_text = f"{user_text}\n以下為 OCR 文字內容（語言 {language}）：\n{text_content}"
 
         response = await client.messages.create(
             model=self.model,
@@ -246,13 +307,13 @@ class VLMEngine(OCREngine):
                         },
                         {
                             "type": "text",
-                            "text": "請解析這份建物謄本圖片並輸出 JSON。"
+                            "text": user_text
                         }
                     ]
                 }
             ]
         )
-        
+
         # Anthropic might wrap JSON in text, but usually with prompt it's clean.
         content = response.content[0].text
         start = content.find('{')
@@ -262,19 +323,30 @@ class VLMEngine(OCREngine):
             return json.loads(json_str)
         return json.loads(content)
 
-    async def _process_google(self, image_path: Path) -> Dict[str, Any]:
+    async def _process_google(
+        self,
+        image_path: Path,
+        text_content: Optional[str],
+        document_type: Optional[str],
+        language: str,
+    ) -> Dict[str, Any]:
         if not genai:
             raise ImportError("google-generativeai package is not installed")
 
         genai.configure(api_key=self.api_key)
         model = genai.GenerativeModel(self.model)
-        
+
         import PIL.Image
         img = PIL.Image.open(image_path)
-        
+        user_text = ""
+        if document_type:
+            user_text = f"文件類型：{document_type}\n"
+        if text_content:
+            user_text = f"{user_text}以下為 OCR 文字內容（語言 {language}）：\n{text_content}"
+
         response = await model.generate_content_async(
-            [SYSTEM_PROMPT, img],
+            [SYSTEM_PROMPT, user_text, img],
             generation_config={"response_mime_type": "application/json"}
         )
-        
+
         return json.loads(response.text)

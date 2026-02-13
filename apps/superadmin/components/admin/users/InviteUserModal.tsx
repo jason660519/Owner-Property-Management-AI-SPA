@@ -1,10 +1,22 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Mail, X, Loader2, UserPlus } from 'lucide-react';
+import { Mail, X, Loader2, UserPlus, ShieldCheck } from 'lucide-react';
 import { inviteUser, getAllGroups } from '@/app/superadmin/users/actions';
 
 type GroupOption = { id: string; name: string };
+
+/** Available roles for invitation */
+const INVITE_ROLES = [
+  { value: 'landlord', label: '房東 (Landlord)' },
+  { value: 'contracted_tenant', label: '簽約租客 (Contracted Tenant)' },
+  { value: 'potential_tenant', label: '潛在租客 (Potential Tenant)' },
+  { value: 'contracted_buyer', label: '簽約買家 (Contracted Buyer)' },
+  { value: 'potential_buyer', label: '潛在買家 (Potential Buyer)' },
+  { value: 'agent', label: '仲介 (Agent)' },
+  { value: 'service_provider', label: '服務提供者 (Service Provider)' },
+  { value: 'super_admin', label: '超級管理員 (Super Admin)' },
+] as const;
 
 export function InviteUserModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -13,6 +25,7 @@ export function InviteUserModal() {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [email, setEmail] = useState('');
+  const [selectedRole, setSelectedRole] = useState('landlord');
   const [selectedGroupId, setSelectedGroupId] = useState('');
 
   useEffect(() => {
@@ -20,6 +33,7 @@ export function InviteUserModal() {
       setSuccessMsg(null);
       setError(null);
       setEmail('');
+      setSelectedRole('landlord');
       setSelectedGroupId('');
       getAllGroups().then(setGroups).catch(console.error);
     }
@@ -33,8 +47,8 @@ export function InviteUserModal() {
       const result = await inviteUser(formData);
       if (result?.error) setError(result.error);
       else {
-        setSuccessMsg(result.warning || 'Invitation sent successfully!');
-        if (!result.warning) setTimeout(() => setIsOpen(false), 1500);
+        setSuccessMsg('Invitation sent successfully! The user will receive an email with an 8-digit invite code.');
+        setTimeout(() => setIsOpen(false), 2500);
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'An unexpected error occurred');
@@ -90,7 +104,28 @@ export function InviteUserModal() {
                 className="w-full pl-9 pr-3 py-2 border border-border-default rounded-md bg-bg-primary text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
-            <p className="text-xs text-text-muted mt-1">The user will receive an email to set up their password.</p>
+            <p className="text-xs text-text-muted mt-1">
+              An 8-digit invite code will be sent to this email address.
+            </p>
+          </div>
+          <div>
+            <label htmlFor="role" className="block text-sm font-medium text-text-secondary mb-1">
+              Role <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <ShieldCheck className="absolute left-3 top-2.5 text-text-muted" size={16} />
+              <select
+                id="role"
+                name="role"
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 border border-border-default rounded-md bg-bg-primary text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+              >
+                {INVITE_ROLES.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <div>
             <label htmlFor="groupId" className="block text-sm font-medium text-text-secondary mb-1">
@@ -101,7 +136,7 @@ export function InviteUserModal() {
               name="groupId"
               value={selectedGroupId}
               onChange={(e) => setSelectedGroupId(e.target.value)}
-              className="w-full px-3 py-2 border border-border-default rounded-md bg-bg-primary text-text-primary focus:ring-2 focus:ring-accent"
+              className="w-full px-3 py-2 border border-border-default rounded-md bg-bg-primary text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
             >
               <option value="">-- No Group --</option>
               {groups.map((g) => (

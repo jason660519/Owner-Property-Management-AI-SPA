@@ -6,6 +6,7 @@ creator: Claude Sonnet 4.5
 """
 
 import pytest
+
 from src.core.document_validator import DocumentValidator, get_validator
 
 

@@ -81,15 +81,23 @@ export async function middleware(request: NextRequest) {
 
     const dashboardMap: Record<string, string> = {
       landlord: '/landlord/dashboard',
-      tenant: '/tenant/contracted/dashboard', // Default to contracted
-      buyer: '/buyer/contracted/dashboard', // Default to contracted
+      // tenant canonical + aliases
+      contracted_tenant: '/tenant/contracted/dashboard',
+      tenant: '/tenant/contracted/dashboard',
       contract_tenant: '/tenant/contracted/dashboard',
-      contract_buyer: '/buyer/contracted/dashboard',
       potential_tenant: '/tenant/potential/dashboard',
+      // buyer canonical + aliases
+      contracted_buyer: '/buyer/contracted/dashboard',
+      buyer: '/buyer/contracted/dashboard',
+      contract_buyer: '/buyer/contracted/dashboard',
       potential_buyer: '/buyer/potential/dashboard',
+      // agent
       agent: '/agent/dashboard',
+      // service provider aliases
       service_provider: '/service-provider/dashboard',
-      vendor: '/service-provider/dashboard', // Alias for vendor
+      'service-provider': '/service-provider/dashboard',
+      serviceprovider: '/service-provider/dashboard',
+      vendor: '/service-provider/dashboard',
     };
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = dashboardMap[role] || '/landlord/dashboard';
@@ -118,6 +126,7 @@ export const config = {
     '/agent/:path*',
     '/service-provider/:path*',
     '/portal',
+    '/portal/:path*',
     '/login',
     '/register',
     '/forgot-password',

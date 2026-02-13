@@ -2,8 +2,8 @@
 Metrics collector for OCR service monitoring
 """
 
-from typing import Dict, Any
-import time
+from typing import Any, Dict
+
 from loguru import logger
 
 

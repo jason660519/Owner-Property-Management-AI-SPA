@@ -34,6 +34,10 @@ export async function GET(request: Request) {
       if (type === 'recovery') {
         return NextResponse.redirect(`${origin}/update-password`);
       }
+      // Invite type: redirect to login in invite mode so user enters their 8-digit code
+      if (type === 'invite') {
+        return NextResponse.redirect(`${origin}/login?mode=invite`);
+      }
 
       const {
         data: { user },
@@ -78,8 +82,8 @@ export async function GET(request: Request) {
             .from('users_profile')
             .insert({
               id: user.id,
-              email: user.email!,
               display_name: displayName,
+              role: defaultRole,
               roles: [defaultRole],
               primary_role: defaultRole
             });

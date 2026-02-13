@@ -49,7 +49,7 @@
 ## 技術實作細節
 
 ### 前端技術棧
-- **框架**：Next.js 14+ (App Router)
+- **框架**：Next.js  (App Router)
 - **UI元件**：React Hook Form, Tailwind CSS
 - **狀態管理**：Zustand 或 Redux Toolkit
 - **加密**：Web Crypto API (AES-256)

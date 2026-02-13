@@ -2,11 +2,10 @@
 Health check endpoints
 """
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import JSONResponse
-
 from loguru import logger
+
 from ...core.ocr_processor import OCRProcessor
-from ...core.cache import CacheManager
+from ...utils.cache_manager import CacheManager
 
 router = APIRouter()
 
@@ -22,19 +21,19 @@ async def health_check():
     try:
         # Check OCR processor
         ocr_status = await ocr_processor.health_check()
-        
+
         # Check cache
         cache_status = await cache_manager.health_check()
-        
+
         # Check external services (VLM APIs)
         vlm_status = await ocr_processor.check_vlm_services()
-        
+
         overall_status = "healthy" if all([
             ocr_status["status"] == "healthy",
             cache_status["status"] == "healthy",
             vlm_status["overall"] == "healthy"
         ]) else "degraded"
-        
+
         return {
             "status": overall_status,
             "components": {
@@ -44,10 +43,10 @@ async def health_check():
             },
             "timestamp": "2026-02-01T10:30:00Z"  # Would use actual datetime
         }
-        
+
     except Exception as e:
         logger.error(f"Health check failed: {e}")
-        raise HTTPException(status_code=503, detail="Service unavailable")
+        raise HTTPException(status_code=503, detail="Service unavailable") from e
 
 @router.get("/health/liveness")
 async def liveness_probe():
@@ -64,13 +63,14 @@ async def readiness_probe():
     try:
         # Basic checks
         ocr_ready = await ocr_processor.is_ready()
-        cache_ready = await cache_manager.is_ready()
-        
+        cache_status = await cache_manager.health_check()
+        cache_ready = cache_status.get("status") == "healthy"
+
         if ocr_ready and cache_ready:
             return {"status": "ready"}
         else:
             return {"status": "not_ready"}
-            
+
     except Exception as e:
         logger.error(f"Readiness check failed: {e}")
         return {"status": "not_ready"}
@@ -91,9 +91,9 @@ async def health_metrics():
             "memory_usage": "512MB/2GB",
             "cpu_usage": "25%"
         }
-        
+
         return metrics
-        
+
     except Exception as e:
         logger.error(f"Metrics collection failed: {e}")
-        raise HTTPException(status_code=500, detail="Metrics unavailable")
+        raise HTTPException(status_code=500, detail="Metrics unavailable") from e

@@ -5,9 +5,10 @@ created: 2026-02-04
 creator: Claude Sonnet 4.5
 """
 
-import re
 import logging
-from typing import Dict, Any, Optional
+import re
+from typing import Any, Dict, Optional
+
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)

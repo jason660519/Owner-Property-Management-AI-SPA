@@ -25,6 +25,8 @@ interface FileStatus {
   progress: number;
   message?: string;
   result?: any;
+  jsonPath?: string;
+  logId?: string | null;
 }
 
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
@@ -128,26 +130,27 @@ export function SystemPromptFileUpload() {
     });
 
     try {
-      // Use direct URL for now, can be configured via env
-      const res = await fetch('http://localhost:8000/api/v1/ocr/batch-upload', {
+      // Use Next.js API proxy route to forward to OCR service
+      const res = await fetch('/api/ocr/upload', {
         method: 'POST',
         body: formData,
       });
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.detail || `Server error: ${res.status}`);
+        throw new Error(errorData.detail || `伺服器錯誤: ${res.status}`);
       }
 
       const data = await res.json();
       setBatchId(data.batch_id);
       setGlobalStatus('processing');
       setFiles(prev => prev.map(f => ({ ...f, status: 'processing' })));
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const errMsg = e instanceof Error ? e.message : '上傳失敗';
       console.error("Upload failed", e);
       setGlobalStatus('error');
-      setErrorMsg(e.message || '上傳失敗，請檢查網路連線或後端伺服器狀態');
-      setFiles(prev => prev.map(f => ({ ...f, status: 'error', message: e.message || '上傳失敗' })));
+      setErrorMsg(errMsg || '上傳失敗，請檢查網路連線或後端伺服器狀態');
+      setFiles(prev => prev.map(f => ({ ...f, status: 'error', message: errMsg || '上傳失敗' })));
     }
   };
 
@@ -155,7 +158,7 @@ export function SystemPromptFileUpload() {
   useEffect(() => {
     if (!batchId || globalStatus !== 'processing') return;
 
-    const eventSource = new EventSource(`http://localhost:8000/api/v1/ocr/events/${batchId}`);
+    const eventSource = new EventSource(`/api/ocr/events/${batchId}`);
 
     eventSource.onmessage = (event) => {
       try {
@@ -171,7 +174,14 @@ export function SystemPromptFileUpload() {
              // Match by filename as fallback
              const idx = newFiles.findIndex(f => f.file.name === data.filename);
              if (idx !== -1) {
-               newFiles[idx] = { ...newFiles[idx], status: 'completed', progress: 100, result: data.result };
+               newFiles[idx] = { 
+                 ...newFiles[idx], 
+                 status: 'completed', 
+                 progress: 100, 
+                 result: data.result,
+                 jsonPath: data.json_path,
+                 logId: data.log_id
+               };
              }
              return newFiles;
            });
@@ -335,7 +345,7 @@ export function SystemPromptFileUpload() {
                         variant="primary" 
                         size="sm" 
                         onClick={handleUpload}
-                        isLoading={globalStatus === 'uploading'}
+                        isLoading={false}
                         disabled={globalStatus === 'completed'}
                      >
                         {globalStatus === 'error' ? '重試上傳' : '開始上傳與解析'}
@@ -347,6 +357,26 @@ export function SystemPromptFileUpload() {
                     </Button>
                  )}
             </div>
+        )}
+
+        {files.some(file => file.result) && (
+          <div className="border border-border-default rounded-lg p-4 bg-bg-primary space-y-4">
+            <div className="text-sm font-medium text-text-primary">JSON 解析結果</div>
+            {files.filter(file => file.result).map(file => (
+              <div key={file.id} className="rounded-md border border-border-default p-3 space-y-2">
+                <div className="text-xs font-medium text-text-primary">{file.file.name}</div>
+                {file.jsonPath && (
+                  <div className="text-xs text-text-muted break-all">Storage: {file.jsonPath}</div>
+                )}
+                {file.logId && (
+                  <div className="text-xs text-text-muted break-all">Log ID: {file.logId}</div>
+                )}
+                <pre className="text-xs text-text-secondary whitespace-pre-wrap break-words bg-bg-secondary/40 rounded-md p-3">
+                  {JSON.stringify(file.result, null, 2)}
+                </pre>
+              </div>
+            ))}
+          </div>
         )}
     </div>
   );

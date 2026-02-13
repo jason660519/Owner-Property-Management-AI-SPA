@@ -9,7 +9,9 @@ import { Button } from '@/components/ui/Button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/Alert';
 import { Loader2, LogOut, ShieldCheck, AlertCircle } from 'lucide-react';
 import { getUserRoles } from '@/app/actions/auth';
-import { ROLE_METADATA, RoleMetadata } from '@/components/dashboard/RoleSwitcher';
+import { ROLE_METADATA } from '@/config/roles';
+import type { RoleMetadata } from '@/config/roles';
+import { canonicalizeRole } from '@/lib/roles';
 
 // Helper to get role metadata (fallback if not in ROLE_METADATA)
 const getRoleData = (role: string): RoleMetadata => {
@@ -55,26 +57,32 @@ export default function PortalPage() {
         throw new Error(result.error);
       }
 
-      // Parse roles
+      // Parse roles (normalize incoming role identifiers to canonical keys)
       const rawRoles = result.roles || [];
       const parsedRoles: Array<{ role: string; disabled: boolean }> = [];
+
+      const pushRole = (r: string, disabled = false) => {
+        // Try to canonicalize incoming role strings (e.g. "tenant/contracted" -> "contracted_tenant")
+        const canonical = canonicalizeRole(r);
+        parsedRoles.push({ role: canonical ?? r, disabled });
+      };
 
       if (Array.isArray(rawRoles)) {
         rawRoles.forEach((item: any) => {
           if (typeof item === 'string') {
-            parsedRoles.push({ role: item, disabled: false });
+            pushRole(item, false);
           } else if (typeof item === 'object' && item.role) {
-            parsedRoles.push({ role: item.role, disabled: !!item.disabled });
+            pushRole(item.role, !!item.disabled);
           }
         });
       }
 
       // Sort: Super Admin, Landlord, then Alphabetical
       const sortedRoles = parsedRoles.sort((a, b) => {
-        const priority = { super_admin: 1, landlord: 2 };
-        const pA = priority[a.role as keyof typeof priority] || 99;
-        const pB = priority[b.role as keyof typeof priority] || 99;
-        
+        const priority: Record<string, number> = { super_admin: 1, landlord: 2 };
+        const pA = priority[a.role] ?? 99;
+        const pB = priority[b.role] ?? 99;
+
         if (pA !== pB) return pA - pB;
         return a.role.localeCompare(b.role);
       });
@@ -149,47 +157,55 @@ export default function PortalPage() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-          {roles.map((item) => {
-            const config = getRoleData(item.role);
-            const Icon = config.icon;
-            
-            // "若該 role 在 app_metadata.roles 中標記為 disabled: true"
-            const isDisabled = item.disabled;
+          {roles.length > 0 ? (
+            roles.map((item) => {
+              const config = getRoleData(item.role);
+              const Icon = config.icon;
+              
+              // "若該 role 在 app_metadata.roles 中標記為 disabled: true"
+              const isDisabled = item.disabled;
 
-            const CardComponent = (
-              <Card
-                className={`
-                    h-full transition-all duration-200 bg-[#2A2A2A] border-[#333333]
-                    ${isDisabled 
-                        ? 'opacity-50 cursor-not-allowed' 
-                        : 'cursor-pointer hover:border-[#7C3AED] hover:shadow-[0_0_15px_rgba(124,58,237,0.3)]'
-                    }
-                `}
-              >
-                <CardHeader>
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className={`p-2 rounded-lg ${isDisabled ? 'bg-gray-700 text-gray-400' : 'bg-[#7C3AED]/10 text-[#7C3AED]'}`}>
-                      <Icon className="w-6 h-6" />
+              const CardComponent = (
+                <Card
+                  className={`
+                      h-full transition-all duration-200 bg-[#2A2A2A] border-[#333333]
+                      ${isDisabled 
+                          ? 'opacity-50 cursor-not-allowed' 
+                          : 'cursor-pointer hover:border-[#7C3AED] hover:shadow-[0_0_15px_rgba(124,58,237,0.3)]'
+                      }
+                  `}
+                >
+                  <CardHeader>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className={`p-2 rounded-lg ${isDisabled ? 'bg-gray-700 text-gray-400' : 'bg-[#7C3AED]/10 text-[#7C3AED]'}`}>
+                        <Icon className="w-6 h-6" />
+                      </div>
+                      <CardTitle className="text-lg text-white">{config.displayName}</CardTitle>
                     </div>
-                    <CardTitle className="text-lg text-white">{config.displayName}</CardTitle>
-                  </div>
-                  <CardDescription className="text-gray-400">
-                    {isDisabled ? '權限尚未啟用' : (config.description || `${config.displayName} 管理後台`)}
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            );
+                    <CardDescription className="text-gray-400">
+                      {isDisabled ? '權限尚未啟用' : (config.description || `${config.displayName} 管理後台`)}
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              );
 
-            if (isDisabled) {
-                return <div key={item.role}>{CardComponent}</div>;
-            }
+              if (isDisabled) {
+                  return <div key={item.role}>{CardComponent}</div>;
+              }
 
-            return (
-              <Link key={item.role} href={`/portal/${item.role}`} className="block h-full">
-                {CardComponent}
-              </Link>
-            );
-          })}
+              return (
+                <Link key={item.role} href={`/portal/${item.role}`} className="block h-full">
+                  {CardComponent}
+                </Link>
+              );
+            })
+          ) : (
+            <div className="col-span-full py-12 text-center bg-[#2A2A2A] border border-[#333333] rounded-2xl">
+              <ShieldCheck className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+              <p className="text-gray-400">目前沒有可用的角色權限</p>
+              <p className="text-gray-500 text-sm mt-2">請聯繫系統管理員為您分配角色</p>
+            </div>
+          )}
         </div>
 
         <div className="mt-8 text-center">

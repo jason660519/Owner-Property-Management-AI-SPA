@@ -14,7 +14,6 @@ Following TDD approach:
 3. Refactor (Refactor)
 """
 
-import pytest
 
 # Will be implemented
 from src.parser.field_parser import (

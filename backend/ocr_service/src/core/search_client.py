@@ -1,8 +1,10 @@
 import os
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, Optional
+
 from elasticsearch import AsyncElasticsearch
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
+
 
 class SearchClient:
     def __init__(self):
@@ -42,16 +44,16 @@ class SearchClient:
                     "properties": {
                         "document_id": {"type": "keyword"},
                         "owner_name": {
-                            "type": "text", 
-                            "analyzer": "ik_max_word_analyzer", 
+                            "type": "text",
+                            "analyzer": "ik_max_word_analyzer",
                             "search_analyzer": "ik_smart_analyzer",
                             "fields": {
                                 "keyword": {"type": "keyword"}
                             }
                         },
                         "property_address": {
-                            "type": "text", 
-                            "analyzer": "ik_max_word_analyzer", 
+                            "type": "text",
+                            "analyzer": "ik_max_word_analyzer",
                             "search_analyzer": "ik_smart_analyzer"
                         },
                         "building_number": {"type": "keyword"},
@@ -61,8 +63,8 @@ class SearchClient:
                             "enabled": False  # Store but don't index full object structure unless specified
                         },
                         "ocr_text": {
-                            "type": "text", 
-                            "analyzer": "ik_max_word_analyzer", 
+                            "type": "text",
+                            "analyzer": "ik_max_word_analyzer",
                             "search_analyzer": "ik_smart_analyzer"
                         },
                         "created_at": {"type": "date"},
@@ -93,7 +95,7 @@ class SearchClient:
                 "parsing_duration_ms": data.get("parsing_duration_ms"),
                 "confidence_score": data.get("confidence_score")
             }
-            
+
             await self.client.index(index=self.index_name, id=doc_id, document=body)
             logger.info(f"Indexed document {doc_id} to Elasticsearch")
         except Exception as e:
@@ -101,8 +103,8 @@ class SearchClient:
             raise
 
     async def search_documents(
-        self, 
-        query_text: Optional[str] = None, 
+        self,
+        query_text: Optional[str] = None,
         filters: Optional[Dict[str, Any]] = None,
         limit: int = 10,
         offset: int = 0
@@ -111,7 +113,7 @@ class SearchClient:
         Search documents with fuzzy matching and compound queries.
         """
         must_clauses = []
-        
+
         if query_text:
             must_clauses.append({
                 "multi_match": {
@@ -121,7 +123,7 @@ class SearchClient:
                     "analyzer": "ik_smart_analyzer"
                 }
             })
-            
+
         if filters:
             for key, value in filters.items():
                 if value is not None:
@@ -146,7 +148,7 @@ class SearchClient:
                 }
             }
         }
-        
+
         response = await self.client.search(index=self.index_name, body=body)
         return response.body
 

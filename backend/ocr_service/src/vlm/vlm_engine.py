@@ -2,12 +2,9 @@
 Vision Language Model engine for intelligent content understanding
 """
 
-import base64
-import json
-from typing import Dict, Any, List, Optional
-import asyncio
+from typing import Any, Dict, List
+
 from loguru import logger
-from tenacity import retry, stop_after_attempt, wait_exponential
 
 
 class VLMEngine:

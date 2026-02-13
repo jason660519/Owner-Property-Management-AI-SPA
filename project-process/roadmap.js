@@ -1,6 +1,6 @@
 
 window.ROADMAP_DATA = {
-    lastUpdated: "2026/02/13-16:00",
+    lastUpdated: "2026/02/14-16:30",
     features: [
         // 超級管理員
         { 
@@ -135,6 +135,19 @@ window.ROADMAP_DATA = {
             devLog: "[2026/02/13] (Trae AI)\n• 完成第二階段重構：支援 9 欄位 Flexbox 佈局、拖曳調整寬度、雙語標題與連結整合。\n詳見: [開發日誌](../dev-logs/dev-dashboard-refactor-2026-02-13.md)",
             testProgress: "[2026/02/13] (Trae AI)\n• 驗證欄位拖曳、localStorage 存取與重置功能正常。\n詳見: [測試日誌](../test-logs/test-dashboard-refactor-2026-02-13.md)",
             testCoverage: 0
+        },
+        {
+            id: 1,
+            workCategory: "維運",
+            name: "OCR 服務 lint 與型別檢查修正",
+            featureDescription: "修復 OCR 服務 ruff 規範問題並完成 ruff 驗證，同步執行 mypy 型別檢查並彙整待修項目",
+            acceptanceCriteria: "1. ruff check src tests 無錯誤。\n2. mypy 執行完成並輸出待修清單。",
+            developmentProgress: "100%（已修正 B904/unused/whitespace/exception chaining）",
+            testProgress: "60%（ruff 通過；mypy 已執行仍有 237 errors 待修）",
+            devLog: "• 今日完成項目：修正 OCR service 的 ruff 錯誤（B904/unused/whitespace/exception chaining），重新執行 ruff 驗證。\n• 技術難點與解法：B904 例外鏈結與局部型別不一致問題，透過補齊 raise from 與整理變數使用修正。\n• 心得報告與避坑指南：先清掉 lint 噪音再做型別修正，可降低後續 mypy 修復成本。\n• 下階段計畫與預估工時：分批修復 mypy 型別標註與 Optional/union 問題，預估 4-6 小時。",
+            testLog: "已執行：ruff check src tests（通過）、mypy src（失敗）。\n缺陷：mypy 回報 237 errors（缺少型別標註、Optional/union 取用問題）。\n修復狀態：已完成 ruff 修正，mypy 待處理。",
+            lastModifiedBy: "Trae AI@2026-02-14 16:30",
+            lastModifiedDate: "2026/02/14"
         }
     ]
 };

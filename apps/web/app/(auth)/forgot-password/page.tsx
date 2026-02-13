@@ -18,7 +18,7 @@ import * as z from 'zod'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card'
-import { resetPassword } from '@/lib/supabase/auth'
+import { resetPasswordForUser } from '@/app/actions/auth'
 import Link from 'next/link'
 
 const forgotPasswordSchema = z.object({
@@ -45,10 +45,14 @@ export default function ForgotPasswordPage() {
     setError(null)
 
     try {
-      await resetPassword(data.email)
+      const result = await resetPasswordForUser(data.email)
+      if (!result.success) {
+        setError(result.error || '發送重設密碼郵件失敗，請稍後再試')
+        return
+      }
       setSuccess(true)
-    } catch (err: any) {
-      setError(err.message || '發送重設密碼郵件失敗，請稍後再試')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '發送重設密碼郵件失敗，請稍後再試')
     } finally {
       setIsLoading(false)
     }

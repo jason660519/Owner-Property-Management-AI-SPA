@@ -1,10 +1,9 @@
-import asyncio
-from typing import List, Dict, Any, Optional
 from pathlib import Path
-from datetime import datetime
-from loguru import logger
+from typing import Any, Dict, List, Optional
+
 from .base import OCREngine
 from .vlm import VLMEngine
+
 
 class OCREngineManager:
     """
@@ -12,60 +11,83 @@ class OCREngineManager:
     1. Primary VLM (DeepSeek, Grok)
     2. Backup VLMs (GPT-4o, Claude, etc.)
     """
-    def __init__(self):
+    DEFAULT_PROVIDER_ORDER = [
+        "deepseek",
+        "grok",
+        "openai",
+        "anthropic",
+        "google",
+        "dashscope",
+    ]
+    DEFAULT_MODELS = {
+        "deepseek": "deepseek-chat",
+        "grok": "grok-2-vision-1212",
+        "openai": "gpt-4o",
+        "anthropic": "claude-3-5-sonnet-20240620",
+        "google": "gemini-1.5-pro-latest",
+        "dashscope": "qwen-vl-max",
+    }
+
+    def __init__(
+        self,
+        provider_priority: Optional[List[str]] = None,
+        api_key_overrides: Optional[Dict[str, str]] = None,
+    ):
         self.engines: List[OCREngine] = []
+        self.provider_priority = provider_priority or []
+        self.api_key_overrides = api_key_overrides or {}
         self._init_engines()
 
     def _init_engines(self):
-        # 1. Primary: Cost-effective & Vision Capable Models
-        # DeepSeek V3 (OpenAI Compatible) - Strong Chinese, low cost
-        self.engines.append(VLMEngine(provider="deepseek", model="deepseek-chat"))
-        
-        # Grok (xAI) - Strong vision capabilities
-        self.engines.append(VLMEngine(provider="grok", model="grok-2-vision-1212"))
+        provider_order = self._resolve_provider_order()
+        for provider in provider_order:
+            model = self.DEFAULT_MODELS.get(provider)
+            if not model:
+                continue
+            api_key = self.api_key_overrides.get(provider)
+            self.engines.append(VLMEngine(provider=provider, model=model, api_key=api_key))
 
-        # 2. Backups: High-performance Global Models
-        self.engines.append(VLMEngine(provider="openai", model="gpt-4o"))
-        self.engines.append(VLMEngine(provider="anthropic", model="claude-3-5-sonnet-20240620"))
-        self.engines.append(VLMEngine(provider="google", model="gemini-1.5-pro-latest"))
-        self.engines.append(VLMEngine(provider="dashscope", model="qwen-vl-max"))
+    def _resolve_provider_order(self) -> List[str]:
+        if not self.provider_priority:
+            return self.DEFAULT_PROVIDER_ORDER.copy()
+        normalized = [provider for provider in self.provider_priority if provider in self.DEFAULT_PROVIDER_ORDER]
+        remaining = [provider for provider in self.DEFAULT_PROVIDER_ORDER if provider not in normalized]
+        return normalized + remaining
 
-    async def process_document(self, image_path: Path) -> Dict[str, Any]:
-        """
-        Try engines in order until one succeeds.
-        """
+    async def process_document(
+        self,
+        image_paths: List[Path],
+        text_content: Optional[str] = None,
+        document_type: Optional[str] = None,
+        language: str = "zh-TW",
+    ) -> Dict[str, Any]:
+        if not image_paths:
+            raise ValueError("No images provided for OCR processing")
+
         errors = []
-        
         for engine in self.engines:
             try:
-                # Check if we should skip (e.g., no API key)
-                if isinstance(engine, VLMEngine) and not engine.api_key:
-                    logger.debug(f"Skipping {engine.name} (No API Key)")
-                    continue
-
-                logger.info(f"Attempting processing with {engine.name}")
-                result = await engine.process(image_path)
-                
-                # Basic validation
-                if result:
-                    logger.success(f"Successfully processed with {engine.name}")
-                    
-                    # Inject metadata
-                    if "metadata" not in result:
-                        result["metadata"] = {}
-                    
-                    result["metadata"].update({
-                        "ocr_engine": engine.name,
-                        "processed_at": datetime.now().isoformat(),
-                    })
-                    
-                    return result
-                    
+                result = await engine.process(
+                    image_paths[0],
+                    text_content=text_content,
+                    document_type=document_type,
+                    language=language,
+                )
+                return {
+                    "engine": engine.name,
+                    "result": result,
+                }
             except Exception as e:
-                logger.warning(f"Engine {engine.name} failed: {e}")
                 errors.append(f"{engine.name}: {str(e)}")
-                continue
-        
-        error_msg = f"All OCR engines failed. Errors: {'; '.join(errors)}"
-        logger.error(error_msg)
-        raise RuntimeError(error_msg)
+
+        raise RuntimeError(f"All OCR engines failed. Errors: {'; '.join(errors)}")
+
+    async def check_services(self) -> Dict[str, Any]:
+        statuses = {}
+        for engine in self.engines:
+            status = "available"
+            if isinstance(engine, VLMEngine) and not engine.api_key:
+                status = "missing_api_key"
+            statuses[engine.name] = {"status": status}
+        overall = "healthy" if any(s["status"] == "available" for s in statuses.values()) else "degraded"
+        return {"overall": overall, "providers": statuses}

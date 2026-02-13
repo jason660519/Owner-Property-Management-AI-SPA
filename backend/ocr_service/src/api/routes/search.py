@@ -1,7 +1,9 @@
+from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
-from ...core.search_client import get_search_client, SearchClient
+
+from ...core.search_client import SearchClient, get_search_client
 
 router = APIRouter(prefix="/api/v1/search", tags=["search"])
 
@@ -37,28 +39,28 @@ async def search_documents(
             filters["owner_name"] = owner_name
         if address:
             filters["property_address"] = address
-            
+
         result = await search_client.search_documents(
             query_text=q,
             filters=filters,
             limit=limit,
             offset=offset
         )
-        
+
         hits = result.get('hits', {}).get('hits', [])
         total = result.get('hits', {}).get('total', {}).get('value', 0)
         took = result.get('took', 0)
-        
+
         response_results = []
         for hit in hits:
             source = hit.get('_source', {})
             highlight = hit.get('highlight', {})
-            
+
             # Extract snippet from highlight if available
             ocr_text_snippet = None
             if 'ocr_text' in highlight:
                 ocr_text_snippet = "...".join(highlight['ocr_text'])
-                
+
             response_results.append(SearchResult(
                 document_id=source.get('document_id'),
                 owner_name=source.get('owner_name'),
@@ -67,14 +69,14 @@ async def search_documents(
                 highlight=highlight,
                 ocr_text_snippet=ocr_text_snippet
             ))
-            
+
         return SearchResponse(
             total=total,
             results=response_results,
             took=took
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}") from e
 
 @router.get("/stats/owner/{owner_name}")
 async def get_owner_property_count(
@@ -89,4 +91,4 @@ async def get_owner_property_count(
         count = await search_client.count_properties_by_owner(owner_name)
         return {"owner_name": owner_name, "property_count": count}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

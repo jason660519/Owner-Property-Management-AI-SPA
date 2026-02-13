@@ -5,11 +5,12 @@ created: 2026-02-04
 creator: Claude Sonnet 4.5
 """
 
-import os
 import logging
+import os
 from typing import NamedTuple
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 logger = logging.getLogger(__name__)
@@ -43,7 +44,7 @@ class VLMKeyKMS:
             if len(self.master_key) != 32:
                 raise ValueError("VLM_MASTER_KEY must be 32 bytes (64 hex characters)")
         except ValueError as e:
-            raise ValueError(f"Invalid VLM_MASTER_KEY format: {e}")
+            raise ValueError(f"Invalid VLM_MASTER_KEY format: {e}") from e
 
         logger.info("VLMKeyKMS initialized successfully")
 
@@ -97,7 +98,7 @@ class VLMKeyKMS:
 
         except Exception as e:
             logger.error(f"Encryption failed: {e}")
-            raise ValueError(f"Failed to encrypt API key: {e}")
+            raise ValueError(f"Failed to encrypt API key: {e}") from e
 
     async def decrypt(self, ciphertext: bytes, nonce: bytes, salt: bytes) -> str:
         """
@@ -129,7 +130,7 @@ class VLMKeyKMS:
 
         except Exception as e:
             logger.error(f"Decryption failed: {e}")
-            raise ValueError("Failed to decrypt API key. Data may be corrupted or tampered.")
+            raise ValueError("Failed to decrypt API key. Data may be corrupted or tampered.") from e
 
     def generate_salt(self) -> bytes:
         """

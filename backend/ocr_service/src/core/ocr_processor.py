@@ -3,23 +3,24 @@ Main OCR processor coordinating all processing stages
 """
 
 import asyncio
-from typing import Dict, Any, Optional, List
-from pathlib import Path
+import hashlib
 import tempfile
-import json
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from loguru import logger
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
-from ..preprocessor.image_preprocessor import ImagePreprocessor
-from ..preprocessor.pdf_preprocessor import PDFPreprocessor
-from ..ocr.text_detector import TextDetector
-from ..ocr.text_recognizer import TextRecognizer
 from ..layout.layout_analyzer import LayoutAnalyzer
 from ..layout.table_detector import TableDetector
-from ..vlm.vlm_engine import VLMEngine
 from ..models.schemas import DocumentType, ProcessingConfig
+from ..ocr.text_detector import TextDetector
+from ..ocr.text_recognizer import TextRecognizer
+from ..ocr_engine.manager import OCREngineManager
+from ..preprocessor.image_preprocessor import ImagePreprocessor
+from ..preprocessor.pdf_preprocessor import PDFPreprocessor
+from ..utils.cache_manager import CacheManager
 
 
 class OCRProcessor:
@@ -30,7 +31,8 @@ class OCRProcessor:
         self.text_recognizer = TextRecognizer()
         self.layout_analyzer = LayoutAnalyzer()
         self.table_detector = TableDetector()
-        self.vlm_engine = VLMEngine()
+        self.ocr_engine_manager = OCREngineManager()
+        self.cache_manager = CacheManager()
         self.is_initialized = False
 
     async def initialize(self):
@@ -48,7 +50,7 @@ class OCRProcessor:
             self.text_recognizer.initialize(),
             self.layout_analyzer.initialize(),
             self.table_detector.initialize(),
-            self.vlm_engine.initialize(),
+            self.cache_manager.initialize(),
         )
 
         self.is_initialized = True
@@ -57,6 +59,7 @@ class OCRProcessor:
     async def shutdown(self):
         """Cleanup resources"""
         logger.info("Shutting down OCR processor...")
+        await self.cache_manager.close()
         self.is_initialized = False
 
     @retry(
@@ -110,14 +113,22 @@ class OCRProcessor:
             if config and config.enable_table_detection:
                 tables = await self.table_detector.detect_tables(processed_images)
 
-            # Step 5: VLM-based content understanding
-            vlm_result = await self.vlm_engine.process(
-                images=processed_images,
-                text_results=text_results,
-                layout_analysis=layout_analysis,
-                document_type=document_type,
-                language=language,
-            )
+            text_content = self._build_text_content(text_results)
+
+            with tempfile.TemporaryDirectory() as temp_dir:
+                image_paths = []
+                for img_idx, image in enumerate(processed_images):
+                    image_path = Path(temp_dir) / f"page_{img_idx + 1}.png"
+                    with open(image_path, "wb") as output_file:
+                        output_file.write(image)
+                    image_paths.append(image_path)
+
+                vlm_result = await self.ocr_engine_manager.process_document(
+                    image_paths=image_paths,
+                    text_content=text_content,
+                    document_type=document_type.value,
+                    language=language,
+                )
 
             # Step 6: Compile final result
             final_result = self._compile_result(
@@ -161,11 +172,18 @@ class OCRProcessor:
                         bytes(image_data) if hasattr(image_data, "__bytes__") else image_data
                     )
 
+                cache_key = self._get_preprocess_cache_key(processed_image_data, config)
+                cached_image = await self.cache_manager.get(cache_key)
+                if cached_image:
+                    processed_pages.append(cached_image)
+                    continue
+
                 processed = await self.preprocessor.preprocess(
                     processed_image_data,
                     enhance_quality=config.enhance_quality if config else True,
                     remove_noise=config.remove_noise if config else True,
                 )
+                await self.cache_manager.set(cache_key, processed, ttl=3600)
                 processed_pages.append(processed)
 
             return processed_pages
@@ -175,13 +193,34 @@ class OCRProcessor:
 
     async def _process_image(self, content: bytes, config: ProcessingConfig) -> List:
         """Process single image"""
+        cache_key = self._get_preprocess_cache_key(content, config)
+        cached_image = await self.cache_manager.get(cache_key)
+        if cached_image:
+            return [cached_image]
+
         processed_image = await self.preprocessor.preprocess(
             content,
             enhance_quality=config.enhance_quality if config else True,
             remove_noise=config.remove_noise if config else True,
             resize_to=getattr(config, "target_size", None) if config else None,
         )
+        await self.cache_manager.set(cache_key, processed_image, ttl=3600)
         return [processed_image]
+
+    def _get_preprocess_cache_key(self, content: bytes, config: ProcessingConfig) -> str:
+        config_payload = config.dict() if config else {}
+        digest = hashlib.sha256(content).hexdigest()
+        config_digest = hashlib.sha256(str(config_payload).encode("utf-8")).hexdigest()
+        return f"preprocess:{digest}:{config_digest}"
+
+    def _build_text_content(self, text_results: List[Dict]) -> str:
+        lines = []
+        for page in text_results:
+            for block in page.get("text_blocks", []):
+                text = block.get("text")
+                if text:
+                    lines.append(text)
+        return "\n".join(lines)
 
     def _compile_result(
         self,
@@ -223,7 +262,7 @@ class OCRProcessor:
                 "preprocessor": await self.preprocessor.health_check(),
                 "text_detector": await self.text_detector.health_check(),
                 "text_recognizer": await self.text_recognizer.health_check(),
-                "vlm_engine": await self.vlm_engine.health_check(),
+                "cache_manager": await self.cache_manager.health_check(),
             }
 
             all_healthy = all(check.get("status") == "healthy" for check in checks.values())
@@ -234,7 +273,7 @@ class OCRProcessor:
 
     async def check_vlm_services(self) -> Dict[str, Any]:
         """Check status of VLM services"""
-        return await self.vlm_engine.check_services()
+        return await self.ocr_engine_manager.check_services()
 
     async def is_ready(self) -> bool:
         """Check if processor is ready for requests"""

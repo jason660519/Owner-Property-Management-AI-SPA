@@ -2,12 +2,10 @@
 Table detection for documents
 """
 
+from typing import Any, Dict, List
+
 import cv2
 import numpy as np
-from typing import List, Dict, Any, Tuple, Optional
-from pathlib import Path
-import tempfile
-
 from loguru import logger
 
 

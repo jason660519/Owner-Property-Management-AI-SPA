@@ -131,18 +131,6 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* User Info */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-[#333333]">
-        <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-[#333333] cursor-pointer transition-colors">
-          <div className="w-10 h-10 bg-[#7C3AED] rounded-full flex items-center justify-center">
-            <span className="text-white font-semibold">房</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">房東用戶</p>
-            <p className="text-xs text-[#999999] truncate">landlord@example.com</p>
-          </div>
-        </div>
-      </div>
     </aside>
   )
 }

@@ -2,6 +2,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import PortalPage from '../page';
 import { getUserRoles } from '@/app/actions/auth';
 import { createClient } from '@/lib/supabase/client';
+import { ROLE_METADATA } from '@/config/roles';
 
 // Mock dependencies
 jest.mock('next/navigation', () => ({
@@ -83,6 +84,27 @@ describe('PortalPage', () => {
     
     expect(links[0]).toHaveAttribute('href', '/portal/super_admin');
     expect(links[1]).toHaveAttribute('href', '/portal/landlord');
+  });
+
+  it('normalizes alias role strings and renders canonical portal links', async () => {
+    // user.app_metadata.roles might contain alias like "tenant/contracted"
+    (getUserRoles as jest.Mock).mockResolvedValue({
+      success: true,
+      roles: ['tenant/contracted', { role: 'service-provider', disabled: false }],
+    });
+
+    render(<PortalPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('請選擇您要進入的身分工作區')).toBeInTheDocument();
+    });
+
+    // Should show Tenant (contracted) card and generate canonical href `/portal/contracted_tenant`
+    expect(screen.getByText(/租客|tenant/i)).toBeInTheDocument();
+    const links = screen.getAllByRole('link');
+    expect(links.some((l) => l.getAttribute('href') === '/portal/contracted_tenant')).toBeTruthy();
+    // service-provider alias should be normalized to service_provider
+    expect(links.some((l) => l.getAttribute('href') === '/portal/service_provider')).toBeTruthy();
   });
 
   it('shows alert on API failure and retries', async () => {
