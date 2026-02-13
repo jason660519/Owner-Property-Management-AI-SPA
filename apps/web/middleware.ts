@@ -46,7 +46,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // 需要認證的路由（超級管理員獨立在 port 3001，此站為房東/租客/買家等）
-  const protectedRoutes = ['/landlord', '/tenant', '/buyer'];
+  const protectedRoutes = ['/landlord', '/tenant', '/buyer', '/agent', '/service-provider', '/portal'];
   const isProtectedRoute = protectedRoutes.some((route) =>
     request.nextUrl.pathname.startsWith(route)
   );
@@ -67,21 +67,29 @@ export async function middleware(request: NextRequest) {
   if (user && isAuthRoute) {
     const role = effectiveRole;
     const superadminUrl = process.env.NEXT_PUBLIC_SUPERADMIN_URL || 'http://localhost:3001';
-
-    // If simulating, do NOT redirect to superadmin app, but stay here
+    
+    // Check if we are already on the target Superadmin URL to prevent loops if misconfigured
+    // But since this is apps/web (port 3000), a redirect to 3001 is always cross-origin/port.
+    
+    // Fix infinite loop: Check if we are logging in from port 3001 (e.g. via unified login on superadmin)
+    // The request.url tells us where we are currently (e.g. localhost:3000/login)
+    // If the user is super_admin, they should be on 3001.
+    
     if (role === 'super_admin' && !simulationRole) {
       return NextResponse.redirect(`${superadminUrl}/superadmin/dashboard`);
     }
 
     const dashboardMap: Record<string, string> = {
       landlord: '/landlord/dashboard',
-      tenant: '/tenant/dashboard',
-      buyer: '/buyer/dashboard',
-      contract_tenant: '/tenant/dashboard', // Map new roles to existing dashboards
-      contract_buyer: '/buyer/dashboard',
+      tenant: '/tenant/contracted/dashboard', // Default to contracted
+      buyer: '/buyer/contracted/dashboard', // Default to contracted
+      contract_tenant: '/tenant/contracted/dashboard',
+      contract_buyer: '/buyer/contracted/dashboard',
       potential_tenant: '/tenant/potential/dashboard',
-      potential_buyer: '/buyer/dashboard', // Assuming buyer dashboard handles potential
-      vendor: '/vendor/dashboard', // If exists
+      potential_buyer: '/buyer/potential/dashboard',
+      agent: '/agent/dashboard',
+      service_provider: '/service-provider/dashboard',
+      vendor: '/service-provider/dashboard', // Alias for vendor
     };
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = dashboardMap[role] || '/landlord/dashboard';
@@ -98,6 +106,8 @@ export const config = {
      * - /landlord/* - 房東儀表板
      * - /tenant/* - 租戶儀表板
      * - /buyer/* - 買家儀表板
+     * - /agent/* - 經紀人儀表板
+     * - /service-provider/* - 服務商儀表板
      * - /login - 登入頁
      * - /register - 註冊頁
      * - /forgot-password - 忘記密碼頁
@@ -105,6 +115,9 @@ export const config = {
     '/landlord/:path*',
     '/tenant/:path*',
     '/buyer/:path*',
+    '/agent/:path*',
+    '/service-provider/:path*',
+    '/portal',
     '/login',
     '/register',
     '/forgot-password',

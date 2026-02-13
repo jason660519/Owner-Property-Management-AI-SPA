@@ -23,7 +23,7 @@
 root/
 ├── apps/
 │   ├── web/                  # Next.js 15 Web App + PWA (Port 3000) ← 主要開發
-│   ├── superadmin/           # Next.js Superadmin 後台 (Port 3001)
+│   ├── superadmin/           # Next.js Superadmin 後台 (Port 3001) - 支援統一登入跳轉
 │   └── mobile/               # Expo App (已暫停，代碼保留)
 ├── packages/
 │   ├── ui/                   # 共用 UI 組件

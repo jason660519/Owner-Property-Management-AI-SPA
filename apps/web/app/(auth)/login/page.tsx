@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { signInWithPassword, signInWithGoogle, signInWithFacebook } from '@/lib/supabase/auth';
+import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 
 const loginSchema = z.object({
@@ -105,28 +106,57 @@ export default function LoginPage() {
       localStorage.removeItem('rememberedPassword');
       localStorage.removeItem('opm_remembered_password');
 
-      const userRole = result.user.user_metadata?.role || 'landlord';
+      // Fetch user profile to check for multiple roles
+      const supabase = createClient();
+      const { data: profile } = await supabase
+        .from('users_profile')
+        .select('roles, primary_role')
+        .eq('id', result.user.id)
+        .single();
+
+      const roles = profile?.roles || [];
+      const userRole = profile?.primary_role || result.user.user_metadata?.role || 'landlord';
+
+      // Unified Login Logic:
+      // 1. If user has 'super_admin' role OR has multiple roles -> Redirect to Portal
+      // 2. Otherwise -> Auto-redirect to specific dashboard
+      
+      if (roles.includes('super_admin') || roles.length > 1) {
+        router.push('/portal');
+        return;
+      }
+
+      // Single Role Auto-Redirect Logic
+      const currentOrigin = window.location.origin;
+      const isLocalhost3000 = currentOrigin.includes('localhost:3000');
+      const mainSiteUrl = process.env.NEXT_PUBLIC_MAIN_SITE_URL || 'http://localhost:3000';
 
       switch (userRole) {
         case 'landlord':
-          router.push('/landlord/dashboard');
-          router.refresh();
-          break;
-
-        case 'super_admin':
-          window.location.href = process.env.NEXT_PUBLIC_SUPERADMIN_URL
-            ? `${process.env.NEXT_PUBLIC_SUPERADMIN_URL}/superadmin/dashboard`
-            : 'http://localhost:3001/superadmin/dashboard';
+          if (isLocalhost3000) {
+             router.push('/landlord/dashboard');
+             router.refresh();
+          } else {
+             window.location.href = `${mainSiteUrl}/landlord/dashboard`;
+          }
           break;
 
         case 'agent':
-          router.push('/agent/dashboard');
-          router.refresh();
+          if (isLocalhost3000) {
+             router.push('/agent/dashboard');
+             router.refresh();
+          } else {
+             window.location.href = `${mainSiteUrl}/agent/dashboard`;
+          }
           break;
 
         default:
-          router.push('/landlord/dashboard');
-          router.refresh();
+          if (isLocalhost3000) {
+             router.push('/landlord/dashboard');
+             router.refresh();
+          } else {
+             window.location.href = `${mainSiteUrl}/landlord/dashboard`;
+          }
           break;
       }
     } catch (err: any) {

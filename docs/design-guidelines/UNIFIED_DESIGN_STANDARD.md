@@ -1,7 +1,7 @@
 # 統一設計規範與開發標準指南 (Unified Design Standard)
 
 > **生效日期**: 2026-02-01
-> **最後修改**: 2026-02-13 | **修改者**: Claude Opus 4.6 | **版本**: 1.1
+> **最後修改**: 2026-02-13 | **修改者**: Claude Opus 4.6 | **版本**: 1.2
 > **適用範圍**: Web App (Next.js) 與 Superadmin 後台 (Next.js)
 > **目的**: 解決現有設計風格混亂問題，提供統一的開發依據。
 > **關聯文件**: 具體樣式數據（顏色、字體、間距）請查閱 [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md)。
@@ -38,6 +38,75 @@
 | Ultra-Dark | `.ultra-dark` | 僅 Superadmin |
 
 > 完整色彩對照表請見 [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md) 的「語意化色彩變數 — 主題切換系統」章節。
+
+### 1.2 組件主題化開發指南
+
+**禁止事項**：
+- 禁止使用硬編碼 hex 值（如 `bg-[#1A1A1A]`、`dark:bg-[#2A2A2A]`）
+- 禁止使用 Tailwind 預設 gray 色階搭配 `dark:` 前綴（如 `text-gray-500 dark:text-gray-400`）
+- 禁止在組件中混用 `dark:` 前綴和 CSS 變數系統
+
+**正確做法**：
+```tsx
+// 使用語意化 Tailwind token（自動跟隨主題切換）
+<div className="bg-bg-primary text-text-primary border-border-default">
+  <p className="text-text-secondary">Secondary text</p>
+  <span className="text-text-muted">Muted text</span>
+</div>
+
+// 使用 accent 色系
+<button className="bg-accent hover:bg-accent-hover text-white">
+  CTA Button
+</button>
+```
+
+**可用的語意化 Tailwind class**：
+
+| 類別 | 可用值 | 說明 |
+|:-----|:-------|:-----|
+| `bg-bg-*` | `primary`, `secondary`, `tertiary` | 背景色（自動切換） |
+| `text-text-*` | `primary`, `secondary`, `muted` | 文字色（自動切換） |
+| `border-border-*` | `default`, `light` | 邊框色（自動切換） |
+| `bg-accent` / `text-accent` | `DEFAULT`, `hover`, `subtle` | 強調色（自動切換） |
+
+### 1.3 主題切換測試驗收標準
+
+每次涉及 UI 變更的 PR 必須通過以下檢查：
+
+- [ ] Light Mode 下所有文字清晰可讀（對比度 >= 4.5:1）
+- [ ] Dark Mode 下所有文字清晰可讀（對比度 >= 4.5:1）
+- [ ] 主題切換時無白色閃爍（FOUC）
+- [ ] 頁面刷新後主題偏好保持不變
+- [ ] 所有組件在 Light/Dark 兩種模式下視覺正確
+- [ ] 無硬編碼 hex 顏色值（`grep -r "bg-\[#" components/` 應無結果）
+- [ ] 無殘留的 `dark:` + Tailwind 預設色彩組合
+- [ ] 響應式佈局在 Mobile/Tablet/Desktop 皆正常
+
+### 1.4 主題管理技術架構
+
+```
+┌─────────────────────────────────────────────┐
+│ next-themes (ThemeProvider)                  │
+│   attribute="class"                         │
+│   defaultTheme="system"                     │
+│   storageKey="theme" (localStorage)         │
+├─────────────────────────────────────────────┤
+│ <html class="dark">                         │
+│   └─ globals.css @layer base                │
+│       ├─ :root { Light 色彩變數 }            │
+│       ├─ .dark { Dark 色彩變數覆寫 }          │
+│       └─ .midnight { Midnight 色彩變數覆寫 }  │
+├─────────────────────────────────────────────┤
+│ tailwind.config.ts                          │
+│   darkMode: "class"                         │
+│   colors: { bg, text, border, accent }      │
+│   → 映射至 CSS 變數                          │
+├─────────────────────────────────────────────┤
+│ 組件層                                       │
+│   ✅ className="bg-bg-primary text-text-*"  │
+│   ❌ className="bg-white dark:bg-gray-900"  │
+└─────────────────────────────────────────────┘
+```
 
 ---
 

@@ -34,15 +34,17 @@ npm run dev:web
 ./start-dev.sh web
 ```
 
-### 3. 啟動開發進度追蹤系統 (Port 3002)
+### 3. 啟動開發進度追蹤系統 (已整合至 Superadmin)
+ 
+ 該系統已遷移至 Superadmin 後台 (Port 3001)。請啟動 Superadmin 專案：
+ 
+ ```bash
+ # 啟動 Superadmin 開發服務器
+ cd apps/superadmin && npm run dev
 
-```bash
-# 在背景啟動開發進度追蹤系統
-nohup python3 -m http.server 3002 > /dev/null 2>&1 &
-
-# 或使用腳本
-./scripts/start-dashboard.sh
-```
+ # 啟動儀表板
+ open http://localhost:3001/superadmin/dashboard/project-progress
+ ```
 
 ### 4. 啟動離線謄本查詢系統 (Port 8000)
 
@@ -64,7 +66,7 @@ python minimal_app.py
 |------|------|------|
 | **Web App** | http://localhost:3000 | Next.js 主應用（房東/租客/買家、登入、註冊、儀表板） |
 | **Superadmin 後台** | http://localhost:3001/superadmin/dashboard | 超級管理員專用（`npm run dev:superadmin`） |
-| **開發進度追蹤** | http://localhost:3002/ | Sprint 進度儀表板（`./scripts/start-dashboard.sh`） |
+| **開發進度追蹤** | http://localhost:3001/superadmin/dashboard/project-progress | Sprint 進度儀表板（`npm run dev:superadmin`） |
 | **離線謄本查詢** | http://localhost:8000 | VLM OCR 服務 |
 | **Supabase Studio** | http://localhost:54323 | 資料庫管理介面 |
 | **Mailpit** | http://localhost:54324 | 郵件測試服務 |
@@ -287,8 +289,8 @@ echo ""
 echo "Port 3000 (Web App):"
 lsof -i :3000 || echo "  ❌ 未運行"
 echo ""
-echo "Port 3002 (Dev Dashboard):"
-lsof -i :3002 || echo "  ❌ 未運行"
+echo "Port 3001 (Superadmin/Dev Dashboard):"
+lsof -i :3001 || echo "  ❌ 未運行"
 echo ""
 echo "Port 8000 (OCR Service):"
 lsof -i :8000 || echo "  ❌ 未運行"
@@ -304,7 +306,7 @@ supabase status | head -10 || echo "  ❌ Supabase 未運行"
 curl -I http://localhost:3000
 
 # 測試開發進度追蹤系統
-curl -I http://localhost:3002
+curl -I http://localhost:3001/superadmin/dashboard/project-progress
 
 # 測試 OCR 服務
 curl http://localhost:8000/api/v1/health
@@ -325,8 +327,9 @@ supabase start
 cd apps/web && npm run dev
 # 或在背景運行: cd apps/web && nohup npm run dev > /tmp/nextjs.log 2>&1 &
 
-# 3. 啟動開發進度追蹤系統（可選）
-cd dev-dashboard && nohup python3 -m http.server 3002 > /dev/null 2>&1 &
+# 3. 啟動開發進度儀表板 (整合在 Superadmin 中)
+cd apps/superadmin && npm run dev
+# 或在背景運行: cd apps/superadmin && nohup npm run dev > /tmp/superadmin.log 2>&1 &
 
 # 4. 啟動離線謄本查詢系統（如需測試 VLM 功能）
 ./start-vlm-test.sh
@@ -337,7 +340,8 @@ cd dev-dashboard && nohup python3 -m http.server 3002 > /dev/null 2>&1 &
 # Ctrl + C 停止前台進程
 # 或 kill 背景進程: 
 # pkill -f "npm run dev"
-# pkill -f "python3 -m http.server 3002"
+# pkill -f "python3 -m http.server 3002" (已棄用)
+# pkill -f "npm run dev:superadmin" (如果運行了 Superadmin)
 # supabase stop
 ```
 
@@ -359,10 +363,10 @@ echo "2️⃣ 啟動 Web App (Port 3000)..."
 cd apps/web && nohup npm run dev > /tmp/nextjs.log 2>&1 &
 cd ../..
 
-# 啟動開發進度追蹤系統
-echo "3️⃣ 啟動開發進度追蹤系統 (Port 3002)..."
-cd dev-dashboard && nohup python3 -m http.server 3002 > /dev/null 2>&1 &
-cd ..
+# 啟動開發進度追蹤系統 (Superadmin)
+echo "3️⃣ 啟動開發進度追蹤系統 (Port 3001)..."
+cd apps/superadmin && nohup npm run dev > /tmp/superadmin.log 2>&1 &
+cd ../..
 
 # 啟動 OCR 服務
 echo "4️⃣ 啟動離線謄本查詢系統 (Port 8000)..."
@@ -373,7 +377,7 @@ echo "✅ 所有服務已啟動！"
 echo ""
 echo "📍 服務存取位址："
 echo "  • Web App: http://localhost:3000"
-echo "  • 開發進度追蹤: http://localhost:3002"
+echo "  • 開發進度追蹤: http://localhost:3001/superadmin/dashboard/project-progress"
 echo "  • OCR 服務: http://localhost:8000"
 echo "  • Supabase Studio: http://localhost:54323"
 echo ""
@@ -394,9 +398,9 @@ echo "🛑 停止所有開發服務..."
 echo "1️⃣ 停止 Web App..."
 pkill -f "npm run dev" || echo "  已停止"
 
-# 停止開發進度追蹤系統
+# 停止開發進度追蹤系統 (Superadmin)
 echo "2️⃣ 停止開發進度追蹤系統..."
-pkill -f "python3 -m http.server 3002" || echo "  已停止"
+pkill -f "npm run dev:superadmin" || echo "  已停止"
 
 # 停止 OCR 服務
 echo "3️⃣ 停止 OCR 服務..."

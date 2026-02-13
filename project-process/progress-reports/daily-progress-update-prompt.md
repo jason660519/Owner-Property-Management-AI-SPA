@@ -70,7 +70,7 @@
 
 ### Step 3: 更新 roadmap.js 🔄
 
-**檔案位置**: `project-process/project-progress-dashboard/roadmap.js`
+**檔案位置**: `project-process/roadmap.js`
 
 **更新邏輯**:
 1. **讀取資料**: 讀取 `window.ROADMAP_DATA`

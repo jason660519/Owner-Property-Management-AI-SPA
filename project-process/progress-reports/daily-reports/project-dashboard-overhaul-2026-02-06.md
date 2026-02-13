@@ -35,5 +35,5 @@
 - **Iconography**: SVG Icons (Heroicons style)。
 
 ## 4. 後續行動
-- 團隊成員應改用 `http://localhost:3002/project-process/index.html` 進行每日進度檢視。（Port 3001 保留給 Superadmin 後台）
+- 團隊成員應改用 `http://localhost:3001/superadmin/dashboard/project-progress` 進行每日進度檢視。（已整合至 Superadmin 後台）
 - 建議定期檢查 `roadmap.js` 確保進度數據的即時性。

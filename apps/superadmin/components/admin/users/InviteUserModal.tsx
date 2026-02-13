@@ -47,7 +47,7 @@ export function InviteUserModal() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="bg-[#7C3AED] text-white px-4 py-2 rounded-lg hover:bg-[#6D28D9] transition-colors text-sm font-medium flex items-center gap-2"
+        className="bg-accent text-white px-4 py-2 rounded-lg hover:bg-accent-hover transition-colors text-sm font-medium flex items-center gap-2"
       >
         <UserPlus size={16} />
         Invite User
@@ -57,10 +57,10 @@ export function InviteUserModal() {
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-[#2A2A2A] border border-[#333333] rounded-lg shadow-xl w-full max-w-md overflow-hidden">
-        <div className="flex justify-between items-center px-6 py-4 border-b border-[#333333]">
-          <h3 className="font-semibold text-white">Invite New User</h3>
-          <button onClick={() => setIsOpen(false)} className="text-[#999999] hover:text-white">
+      <div className="bg-bg-secondary border border-border-default rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+        <div className="flex justify-between items-center px-6 py-4 border-b border-border-default">
+          <h3 className="font-semibold text-text-primary">Invite New User</h3>
+          <button onClick={() => setIsOpen(false)} className="text-text-secondary hover:text-text-primary">
             <X size={20} />
           </button>
         </div>
@@ -74,11 +74,11 @@ export function InviteUserModal() {
             </div>
           )}
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-[#999999] mb-1">
+            <label htmlFor="email" className="block text-sm font-medium text-text-secondary mb-1">
               Email Address <span className="text-red-500">*</span>
             </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-2.5 text-[#666666]" size={16} />
+              <Mail className="absolute left-3 top-2.5 text-text-muted" size={16} />
               <input
                 type="email"
                 id="email"
@@ -87,13 +87,13 @@ export function InviteUserModal() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="colleague@example.com"
-                className="w-full pl-9 pr-3 py-2 border border-[#333333] rounded-md bg-[#1A1A1A] text-white placeholder-[#666666] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+                className="w-full pl-9 pr-3 py-2 border border-border-default rounded-md bg-bg-primary text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
-            <p className="text-xs text-[#666666] mt-1">The user will receive an email to set up their password.</p>
+            <p className="text-xs text-text-muted mt-1">The user will receive an email to set up their password.</p>
           </div>
           <div>
-            <label htmlFor="groupId" className="block text-sm font-medium text-[#999999] mb-1">
+            <label htmlFor="groupId" className="block text-sm font-medium text-text-secondary mb-1">
               Initial Group (Optional)
             </label>
             <select
@@ -101,7 +101,7 @@ export function InviteUserModal() {
               name="groupId"
               value={selectedGroupId}
               onChange={(e) => setSelectedGroupId(e.target.value)}
-              className="w-full px-3 py-2 border border-[#333333] rounded-md bg-[#1A1A1A] text-white focus:ring-2 focus:ring-[#7C3AED]"
+              className="w-full px-3 py-2 border border-border-default rounded-md bg-bg-primary text-text-primary focus:ring-2 focus:ring-accent"
             >
               <option value="">-- No Group --</option>
               {groups.map((g) => (
@@ -113,7 +113,7 @@ export function InviteUserModal() {
             <button
               type="button"
               onClick={() => setIsOpen(false)}
-              className="px-4 py-2 text-sm font-medium text-[#999999] border border-[#333333] rounded-md hover:bg-[#333333]"
+              className="px-4 py-2 text-sm font-medium text-text-secondary border border-border-default rounded-md hover:bg-bg-tertiary"
               disabled={isLoading}
             >
               Cancel
@@ -121,7 +121,7 @@ export function InviteUserModal() {
             <button
               type="submit"
               disabled={isLoading}
-              className="px-4 py-2 text-sm font-medium text-white bg-[#7C3AED] rounded-md hover:bg-[#6D28D9] flex items-center gap-2 disabled:opacity-70"
+              className="px-4 py-2 text-sm font-medium text-white bg-accent rounded-md hover:bg-accent-hover flex items-center gap-2 disabled:opacity-70"
             >
               {isLoading && <Loader2 size={16} className="animate-spin" />}
               {isLoading ? 'Sending...' : 'Send Invitation'}

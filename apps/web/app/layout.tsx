@@ -35,6 +35,8 @@ export const viewport: Viewport = {
   themeColor: '#7C3AED',
 };
 
+import Providers from './providers';
+
 export default function RootLayout({
   children,
 }: {
@@ -49,7 +51,9 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="房東管理" />
       </head>
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

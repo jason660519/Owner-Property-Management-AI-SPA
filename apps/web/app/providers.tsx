@@ -1,36 +1,21 @@
-// filepath: apps/web/app/providers.tsx
-/**
- * @file providers.tsx
- * @description App-level Providers (React Query)
- * @created 2026-01-31
- * @creator Claude Sonnet 4.5
- * @lastModified 2026-01-31
- * @modifiedBy Claude Sonnet 4.5
- * @version 1.0
- */
+'use client'
 
-'use client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ReactNode, useState } from 'react'
 
-import React from 'react';
-import { QueryClientProvider } from '@tanstack/react-query';
-import { QueryClient } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { queryClient } from '@/lib/react-query/queryClient';
-import { ThemeProvider } from '@/components/theme-provider';
+export default function Providers({ children }: { children: ReactNode }) {
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 60 * 1000,
+        refetchOnWindowFocus: false,
+      },
+    },
+  }))
 
-export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="system"
-        enableSystem
-        disableTransitionOnChange
-        themes={['light', 'dark']}
-      >
-        {children}
-      </ThemeProvider>
-      <ReactQueryDevtools initialIsOpen={false} />
+      {children}
     </QueryClientProvider>
-  );
+  )
 }

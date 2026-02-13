@@ -1,6 +1,8 @@
 # 系統配置調整與狀態確認報告
-
-**日期**: 2026-02-05  
+ 
+ > **注意**: 本報告為歷史紀錄 (2026-02-05)。開發進度追蹤系統已於 2026-02-13 遷移至 [http://localhost:3001/superadmin/dashboard/project-progress](http://localhost:3001/superadmin/dashboard/project-progress)。
+ 
+ **日期**: 2026-02-05  
 **作者**: GitHub Copilot (Claude Sonnet 4.5)  
 **任務**: 恢復離線謄本查詢系統與變更開發進度追蹤系統連接埠
 

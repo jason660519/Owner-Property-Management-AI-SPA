@@ -3,6 +3,8 @@
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { clsx } from 'clsx'
+import { useQuery } from '@tanstack/react-query'
+import { messageService } from '../../services/messageService'
 
 interface NavItem {
   name: string
@@ -80,6 +82,12 @@ const navItems: NavItem[] = [
 export function Sidebar() {
   const pathname = usePathname()
 
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ['unread-messages-count'],
+    queryFn: () => messageService.getUnreadCount(),
+    refetchInterval: 30000, // Poll every 30 seconds
+  })
+
   return (
     <aside className="fixed left-0 top-0 bottom-0 w-64 bg-[#2A2A2A] border-r border-[#333333] overflow-y-auto">
       {/* Logo */}
@@ -112,7 +120,12 @@ export function Sidebar() {
               )}
             >
               {item.icon}
-              <span className="font-medium">{item.name}</span>
+              <span className="font-medium flex-1">{item.name}</span>
+              {item.href === '/landlord/messages' && unreadCount > 0 && (
+                <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
             </Link>
           )
         })}

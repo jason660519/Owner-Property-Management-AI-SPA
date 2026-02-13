@@ -118,3 +118,22 @@ export async function signUpWithRole(credentials: SignUpCredentials) {
     return { success: false, error: error.message };
   }
 }
+
+export async function getUserRoles(userId: string) {
+  try {
+    const { data, error } = await adminSupabase.auth.admin.getUserById(userId);
+
+    if (error) {
+      console.error('Get user error:', error);
+      throw new Error(error.message);
+    }
+
+    // Prioritize app_metadata.roles as per instruction, fallback to user_metadata.roles
+    const roles = data.user.app_metadata.roles || data.user.user_metadata.roles || [];
+    
+    return { success: true, roles };
+  } catch (error: any) {
+    console.error('Get user roles error:', error);
+    return { success: false, error: error.message };
+  }
+}

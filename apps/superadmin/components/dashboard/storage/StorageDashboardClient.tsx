@@ -55,22 +55,22 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
       ]}
     >
       {/* Tabs */}
-      <div className="flex gap-4 mb-6 border-b border-gray-700">
+      <div className="flex gap-4 mb-6 border-b border-border-default">
         <button
           onClick={() => setActiveTab('overview')}
-          className={`pb-2 px-4 ${activeTab === 'overview' ? 'border-b-2 border-brand-500 text-brand-500' : 'text-gray-400'}`}
+          className={`pb-2 px-4 ${activeTab === 'overview' ? 'border-b-2 border-accent text-accent' : 'text-text-muted'}`}
         >
           總覽與統計
         </button>
         <button
           onClick={() => setActiveTab('orphaned')}
-          className={`pb-2 px-4 ${activeTab === 'orphaned' ? 'border-b-2 border-brand-500 text-brand-500' : 'text-gray-400'}`}
+          className={`pb-2 px-4 ${activeTab === 'orphaned' ? 'border-b-2 border-accent text-accent' : 'text-text-muted'}`}
         >
           孤兒檔案清理 ({orphanedFiles.length})
         </button>
         <button
           onClick={() => setActiveTab('quotas')}
-          className={`pb-2 px-4 ${activeTab === 'quotas' ? 'border-b-2 border-brand-500 text-brand-500' : 'text-gray-400'}`}
+          className={`pb-2 px-4 ${activeTab === 'quotas' ? 'border-b-2 border-accent text-accent' : 'text-text-muted'}`}
         >
           用戶配額管理
         </button>
@@ -87,7 +87,7 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
                                 <HardDrive className="w-6 h-6 text-blue-500" />
                             </div>
                             <div>
-                                <p className="text-sm text-gray-400">總使用空間</p>
+                                <p className="text-sm text-text-muted">總使用空間</p>
                                 <h3 className="text-2xl font-bold">{formatBytes(summary.total_size_bytes)}</h3>
                             </div>
                         </div>
@@ -100,7 +100,7 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
                                 <File className="w-6 h-6 text-green-500" />
                             </div>
                             <div>
-                                <p className="text-sm text-gray-400">總檔案數</p>
+                                <p className="text-sm text-text-muted">總檔案數</p>
                                 <h3 className="text-2xl font-bold">{summary.total_files.toLocaleString()}</h3>
                             </div>
                         </div>
@@ -113,7 +113,7 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
                                 <AlertTriangle className="w-6 h-6 text-orange-500" />
                             </div>
                             <div>
-                                <p className="text-sm text-gray-400">孤兒檔案 (前100筆)</p>
+                                <p className="text-sm text-text-muted">孤兒檔案 (前100筆)</p>
                                 <h3 className="text-2xl font-bold">{initialOrphanedFiles.length}</h3>
                             </div>
                         </div>
@@ -138,9 +138,9 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
                                         <span className="capitalize">{ft.type}</span>
                                         <span>{formatBytes(ft.size)} ({ft.count} files)</span>
                                     </div>
-                                    <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                    <div className="h-2 bg-bg-tertiary rounded-full overflow-hidden">
                                         <div 
-                                            className="h-full bg-brand-500" 
+                                            className="h-full bg-accent" 
                                             style={{ width: `${(ft.size / summary.total_size_bytes) * 100}%` }}
                                         />
                                     </div>
@@ -165,7 +165,7 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
                                         <span>{b.name}</span>
                                         <span>{formatBytes(b.size)}</span>
                                     </div>
-                                    <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                    <div className="h-2 bg-bg-tertiary rounded-full overflow-hidden">
                                         <div 
                                             className="h-full bg-purple-500" 
                                             style={{ width: `${summary.total_size_bytes > 0 ? (b.size / summary.total_size_bytes) * 100 : 0}%` }}
@@ -185,7 +185,7 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="p-4 bg-gray-800 rounded text-center text-gray-400">
+                    <div className="p-4 bg-bg-secondary rounded text-center text-text-muted">
                         Supabase CDN 流量數據整合中 (需串接 Supabase Management API)
                     </div>
                 </CardContent>
@@ -201,7 +201,7 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
             <CardContent>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
-                        <thead className="text-gray-400 border-b border-gray-700">
+                        <thead className="text-text-muted border-b border-border-default">
                             <tr>
                                 <th className="p-3">Bucket</th>
                                 <th className="p-3">檔案路徑</th>
@@ -213,7 +213,7 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
                         <tbody className="divide-y divide-gray-700">
                             {orphanedFiles.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="p-4 text-center text-gray-500">
+                                    <td colSpan={5} className="p-4 text-center text-text-secondary">
                                         無孤兒檔案
                                     </td>
                                 </tr>
@@ -251,7 +251,7 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
                 <CardTitle>用戶配額管理</CardTitle>
             </CardHeader>
             <CardContent>
-                 <div className="p-4 bg-gray-800 rounded text-center text-gray-400">
+                 <div className="p-4 bg-bg-secondary rounded text-center text-text-muted">
                     此功能開發中 (需整合用戶列表與配額設定)
                     <p className="text-xs mt-2">目前全域預設配額: 1GB</p>
                 </div>

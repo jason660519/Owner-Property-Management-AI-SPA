@@ -54,7 +54,15 @@ export async function GET(request: Request) {
         if (profile) {
           // Existing user, redirect based on role
           // Prioritize primary_role, fallback to first role in array, then default
-          const role = profile.primary_role || (profile.roles && profile.roles[0]) || 'landlord';
+          const roles = profile.roles || [];
+          const role = profile.primary_role || (roles.length > 0 ? roles[0] : 'landlord');
+          
+          // Unified Login Logic:
+          // If user has 'super_admin' role OR has multiple roles -> Redirect to Portal
+          if (roles.includes('super_admin') || roles.length > 1) {
+             return NextResponse.redirect(`${origin}/portal`);
+          }
+
           const dashboardPath = `/${role.replace('_', '-')}/dashboard`;
           return NextResponse.redirect(`${origin}${dashboardPath}`);
         } else {

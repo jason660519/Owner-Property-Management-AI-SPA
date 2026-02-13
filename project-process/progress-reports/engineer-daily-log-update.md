@@ -3,7 +3,7 @@
 **版本**: 1.0.0  
 **最後更新**: 2026/02/06  
 **適用對象**: 全體工程師（人類 & AI）  
-**儀表板網址**: http://localhost:3002（Port 3001 為 Superadmin 後台）
+**儀表板網址**: http://localhost:3001/superadmin/dashboard/project-progress
 
 ---
 
@@ -96,7 +96,7 @@
 
 ### Step 2: 更新 roadmap.js 📝
 
-**檔案位置**: `project-process/project-progress-dashboard/roadmap.js`
+**檔案位置**: `project-process/roadmap.js`
 
 ```javascript
 window.ROADMAP_DATA = {
@@ -294,10 +294,10 @@ const data = localStorage.getItem('key');</pre>
 - [ ] 代碼塊使用正確樣式（`.code-block` 和 `.code-inline`）
 - [ ] 參考資料僅包含外部 URL 或已移除
 - [ ] 開發日誌資訊完整
-- [ ] 儀表板可正常訪問: http://localhost:3002
-
-**測試步驟**:
-1. 在瀏覽器打開 http://localhost:3002
+- [ ] 儀表板可正常訪問: http://localhost:3001/superadmin/dashboard/project-progress
+ 
+ **測試步驟**:
+ 1. 在瀏覽器打開 http://localhost:3001/superadmin/dashboard/project-progress
 2. 檢查進度是否正確更新
 3. 點擊技術報告連結，確認可以打開
 4. 檢查報告中所有文字是否清晰可見
@@ -434,20 +434,20 @@ const data = localStorage.getItem('key');</pre>
 ### 終端機指令
 ```bash
 # 啟動儀表板
-open http://localhost:3002
-
+open http://localhost:3001/superadmin/dashboard/project-progress
+ 
 # 檢查 JSON 語法
-node -c dev-dashboard/roadmap.js
-
+node -c project-process/roadmap.js
+ 
 # 搜尋特定內容
-grep -r "功能名稱" dev-dashboard/
+grep -r "功能名稱" project-process/
 ```
-
+ 
 ---
-
+ 
 ## 📞 支援與資源
-
-- **儀表板**: http://localhost:3002
+ 
+- **儀表板**: http://localhost:3001/superadmin/dashboard/project-progress
 - **文件指南**: `docs/file-naming-guidelines.md`
 - **AI 工程師 SOP**: `docs/prompts/daily-progress-update-prompt.md`
 - **本指南**: `docs/prompts/engineer-daily-log-update.md`

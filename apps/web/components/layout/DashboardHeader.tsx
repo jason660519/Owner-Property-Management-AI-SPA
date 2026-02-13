@@ -2,9 +2,9 @@
  * @file DashboardHeader.tsx
  * @created 2026-02-03
  * @creator Antigravity
- * @lastModified 2026-02-03
- * @modifiedBy Antigravity
- * @version 1.0
+ * @lastModified 2026-02-13
+ * @modifiedBy Claude Opus 4.6
+ * @version 1.1
  */
 
 'use client';
@@ -55,16 +55,16 @@ export function DashboardHeader() {
 
   if (loading) {
     return (
-      <header className="flex h-16 items-center justify-end border-b border-gray-800 bg-[#1A1A1A] px-6">
-        <div className="h-10 w-10 animate-pulse rounded-full bg-gray-800" />
+      <header className="flex h-16 items-center justify-end border-b border-border-default bg-bg-primary px-6 transition-colors duration-200">
+        <div className="h-10 w-10 animate-pulse rounded-full bg-bg-tertiary" />
       </header>
     );
   }
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-gray-800 bg-[#1A1A1A] px-6">
+    <header className="flex h-16 items-center justify-between border-b border-border-default bg-bg-primary px-6 transition-colors duration-200">
       <div className="flex items-center gap-4">
-        <h1 className="text-xl font-semibold text-white">Dashboard</h1>
+        <h1 className="text-xl font-semibold text-text-primary">Dashboard</h1>
       </div>
 
       <div className="flex items-center gap-4">

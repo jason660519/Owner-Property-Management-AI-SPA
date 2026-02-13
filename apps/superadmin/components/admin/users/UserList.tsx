@@ -49,10 +49,10 @@ export function UserList({
       header: 'User',
       cell: (info) => (
         <div className="flex items-center gap-2">
-          <div className="bg-[#2A2A2A] p-2 rounded-full text-[#999999]">
+          <div className="bg-bg-secondary p-2 rounded-full text-text-secondary">
             <User size={16} />
           </div>
-          <span className="font-medium text-white">{info.getValue() as string}</span>
+          <span className="font-medium text-text-primary">{info.getValue() as string}</span>
         </div>
       ),
     },
@@ -80,7 +80,7 @@ export function UserList({
               setSelectedUser(info.row.original);
               setShowModal(true);
             }}
-            className="p-1 hover:bg-[#2A2A2A] rounded-full text-[#999999] hover:text-[#7C3AED] transition-colors"
+            className="p-1 hover:bg-bg-secondary rounded-full text-text-secondary hover:text-accent transition-colors"
             title="Assign to Group"
           >
             <Plus size={14} />
@@ -93,7 +93,7 @@ export function UserList({
       accessorKey: 'id',
       header: 'User ID',
       cell: (info) => (
-        <span className="text-xs text-[#666666] font-mono">{(info.getValue() as string).slice(0, 8)}...</span>
+        <span className="text-xs text-text-muted font-mono">{(info.getValue() as string).slice(0, 8)}...</span>
       ),
     },
   ];
@@ -110,33 +110,33 @@ export function UserList({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 bg-[#2A2A2A] border border-[#333333] p-2 rounded-lg max-w-sm">
-        <Search size={18} className="text-[#999999]" />
+      <div className="flex items-center gap-2 bg-bg-secondary border border-border-default p-2 rounded-lg max-w-sm">
+        <Search size={18} className="text-text-secondary" />
         <input
           placeholder="Search users..."
           value={globalFilter ?? ''}
           onChange={(e) => setGlobalFilter(e.target.value)}
-          className="outline-none text-sm w-full bg-transparent text-white placeholder-[#666666]"
+          className="outline-none text-sm w-full bg-transparent text-text-primary placeholder-text-muted"
         />
       </div>
-      <div className="bg-[#2A2A2A] border border-[#333333] rounded-lg overflow-hidden">
+      <div className="bg-bg-secondary border border-border-default rounded-lg overflow-hidden">
         <table className="w-full text-left text-sm">
-          <thead className="bg-[#1F1F1F] border-b border-[#333333]">
+          <thead className="bg-bg-tertiary border-b border-border-default">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <th key={header.id} className="px-6 py-3 font-medium text-[#999999]">
+                  <th key={header.id} className="px-6 py-3 font-medium text-text-secondary">
                     {flexRender(header.column.columnDef.header, header.getContext())}
                   </th>
                 ))}
               </tr>
             ))}
           </thead>
-          <tbody className="divide-y divide-[#333333]">
+          <tbody className="divide-y divide-border-default">
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="hover:bg-[#333333]/30 transition-colors">
+              <tr key={row.id} className="hover:bg-bg-tertiary/30 transition-colors">
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-6 py-4 text-white">
+                  <td key={cell.id} className="px-6 py-4 text-text-primary">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
@@ -144,18 +144,18 @@ export function UserList({
             ))}
           </tbody>
         </table>
-        <div className="p-4 border-t border-[#333333] flex items-center justify-between text-sm text-[#999999]">
+        <div className="p-4 border-t border-border-default flex items-center justify-between text-sm text-text-secondary">
           <div>Showing {table.getRowModel().rows.length} of {initialUsers.length}</div>
           <div className="flex gap-2">
             <button
-              className="px-3 py-1 border border-[#333333] rounded hover:bg-[#2A2A2A] disabled:opacity-50 text-white"
+              className="px-3 py-1 border border-border-default rounded hover:bg-bg-secondary disabled:opacity-50 text-text-primary"
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
             >
               Previous
             </button>
             <button
-              className="px-3 py-1 border border-[#333333] rounded hover:bg-[#2A2A2A] disabled:opacity-50 text-white"
+              className="px-3 py-1 border border-border-default rounded hover:bg-bg-secondary disabled:opacity-50 text-text-primary"
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
             >
@@ -166,14 +166,14 @@ export function UserList({
       </div>
       {showModal && selectedUser && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-          <div className="bg-[#2A2A2A] border border-[#333333] rounded-lg shadow-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-bold text-white mb-4">Assign Group to User</h3>
-            <p className="text-[#999999] mb-4 text-sm">
-              User: <span className="font-mono bg-[#333333] px-1 text-white">{selectedUser.email}</span>
+          <div className="bg-bg-secondary border border-border-default rounded-lg shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-bold text-text-primary mb-4">Assign Group to User</h3>
+            <p className="text-text-secondary mb-4 text-sm">
+              User: <span className="font-mono bg-bg-tertiary px-1 text-text-primary">{selectedUser.email}</span>
             </p>
-            <label className="block text-sm font-medium text-[#999999] mb-2">Select Group</label>
+            <label className="block text-sm font-medium text-text-secondary mb-2">Select Group</label>
             <select
-              className="w-full border border-[#333333] rounded-md p-2 mb-6 bg-[#1A1A1A] text-white"
+              className="w-full border border-border-default rounded-md p-2 mb-6 bg-bg-primary text-text-primary"
               value={selectedGroupId}
               onChange={(e) => setSelectedGroupId(e.target.value)}
             >
@@ -184,13 +184,13 @@ export function UserList({
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 text-[#999999] hover:bg-[#333333] rounded-md"
+                className="px-4 py-2 text-text-secondary hover:bg-bg-tertiary rounded-md"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAddGroup}
-                className="px-4 py-2 bg-[#7C3AED] text-white hover:bg-[#6D28D9] rounded-md"
+                className="px-4 py-2 bg-accent text-white hover:bg-accent-hover rounded-md"
               >
                 Assign
               </button>

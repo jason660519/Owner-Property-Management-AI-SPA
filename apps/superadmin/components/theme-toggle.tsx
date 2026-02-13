@@ -19,22 +19,20 @@ export function ThemeToggle() {
   }
 
   return (
-    <div className="flex gap-1 p-1 bg-bg-secondary rounded-lg border border-border-default">
-      <Button 
-        variant={theme === "light" ? "primary" : "ghost"} 
-        size="sm" 
+    <div className="flex gap-2 p-2 bg-bg-secondary rounded-lg border border-border-default">
+      <Button
+        variant={theme === "light" ? "primary" : "ghost"}
+        size="sm"
         onClick={() => setTheme("light")}
         title="Light Mode"
-        className="p-2 h-8 w-8"
       >
         <Sun className="h-4 w-4" />
       </Button>
-      <Button 
-        variant={theme === "dark" ? "primary" : "ghost"} 
-        size="sm" 
+      <Button
+        variant={theme === "dark" ? "primary" : "ghost"}
+        size="sm"
         onClick={() => setTheme("dark")}
         title="Dark Mode"
-        className="p-2 h-8 w-8"
       >
         <Moon className="h-4 w-4" />
       </Button>

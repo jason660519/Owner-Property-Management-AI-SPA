@@ -43,7 +43,7 @@ project-process/
 
 ## Verification
 - **Web Access**: `http://localhost:3001/superadmin/dashboard/project-progress` (Next.js) loads data from updated `roadmap.ts`.
-- **Static Dashboard**: `project-process/project-progress-dashboard/index.html` loads data from `../roadmap.js`.
+- **Static Dashboard**: `project-process/project-progress-dashboard/index.html` (Removed).
 - **Symlink**: `apps/superadmin/public/project-process` correctly resolves to root folder.
 
 ## Version Control Commit Record

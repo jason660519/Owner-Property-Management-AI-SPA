@@ -92,6 +92,9 @@ class OCRProcessor:
             else:
                 processed_images = await self._process_image(content, config)
 
+            if not processed_images:
+                raise ValueError(f"No content extracted from document {filename}")
+
             # Step 2: Text detection and recognition
             text_results = []
             for img_idx, image in enumerate(processed_images):
@@ -142,8 +145,8 @@ class OCRProcessor:
             # Process each page image
             processed_pages = []
             for page in pages:
-                if isinstance(page, dict) and "image" in page:
-                    image_data = page["image"]
+                if isinstance(page, dict) and "image_data" in page:
+                    image_data = page["image_data"]
                 elif isinstance(page, (bytes, bytearray)):
                     image_data = page
                 else:

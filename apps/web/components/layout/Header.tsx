@@ -113,7 +113,7 @@ export function Header() {
             <ThemeToggle />
             {loading ? (
                // Loading state placeholder
-               <div className="w-24 h-10 bg-gray-800 rounded animate-pulse" />
+               <div className="w-24 h-10 bg-bg-tertiary rounded animate-pulse" />
             ) : user ? (
               <>
                 <Link href={dashboardUrl}>

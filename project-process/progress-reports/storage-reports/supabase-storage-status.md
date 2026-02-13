@@ -6,7 +6,7 @@
 
 # Supabase 儲存空間 (Storage) 整合狀態總覽
 
-本文件對應於 `project-progress-dashboard/roadmap.js` 中的功能項目「Supabase 儲存空間 (Storage) 整合」，作為「Storage / 上傳流程」的匯總入口。
+本文件對應於 `project-process/roadmap.js` 中的功能項目「Supabase 儲存空間 (Storage) 整合」，作為「Storage / 上傳流程」的匯總入口。
 
 - **主要開發與測試報告**：  
   - `PHOTO_UPLOAD_TDD_IMPLEMENTATION_2026-02-04.md`  
@@ -22,5 +22,5 @@
 
 - 相關技術報告（尤其是 TDD / 實作文件）
 - 本文件摘要內容
-- `project-progress-dashboard/roadmap.js` 內對應 feature 的 `percentage` 與 `lastModifiedDate`
+- `project-process/roadmap.js` 內對應 feature 的 `percentage` 與 `lastModifiedDate`
 

@@ -10,6 +10,8 @@ import asyncio
 from datetime import datetime
 import json
 import contextvars
+import os
+import time
 
 from loguru import logger
 from .routes import ocr, health, logs, integrations, documents, search, es_admin
@@ -70,12 +72,19 @@ metrics = MetricsCollector()
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
+    global ocr_processor, cache_manager, metrics
+    
     # Initialize Logger
     system_logger.initialize()
     system_logger.setup_dynamic_sink()
     
     await ocr_processor.initialize()
     await cache_manager.initialize()
+    
+    # Inject dependencies into routers
+    ocr.ocr_processor = ocr_processor
+    ocr.cache_manager = cache_manager
+    ocr.metrics = metrics
     
     # Initialize Search Client
     search_client = get_search_client()
@@ -88,6 +97,9 @@ async def startup_event():
     
     # Start Log Archiver in background
     asyncio.create_task(run_periodic_archiver())
+    
+    # Start Temp File Cleanup
+    asyncio.create_task(run_temp_cleanup())
 
 async def run_periodic_archiver():
     """Run log archiver periodically (every 24 hours)"""
@@ -100,6 +112,28 @@ async def run_periodic_archiver():
         
         # Wait for 24 hours
         await asyncio.sleep(24 * 3600)
+
+async def run_temp_cleanup():
+    """Clean up temp files older than 24 hours"""
+    temp_dir = "/tmp/ocr_uploads"
+    while True:
+        try:
+            logger.info("Running scheduled temp file cleanup...")
+            if os.path.exists(temp_dir):
+                now = time.time()
+                for f in os.listdir(temp_dir):
+                    f_path = os.path.join(temp_dir, f)
+                    try:
+                        if os.stat(f_path).st_mtime < now - 24 * 3600:
+                            os.remove(f_path)
+                            logger.info(f"Deleted old temp file: {f}")
+                    except Exception as e:
+                        logger.warning(f"Failed to delete temp file {f}: {e}")
+        except Exception as e:
+            logger.error(f"Temp cleanup failed: {e}")
+        
+        # Check every hour
+        await asyncio.sleep(3600)
 
 @app.on_event("shutdown")
 async def shutdown_event():

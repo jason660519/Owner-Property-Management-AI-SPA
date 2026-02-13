@@ -5,15 +5,6 @@ const path = require('path');
 const OUTPUT_DIR = __dirname;
 const ANALYSIS_PATH = path.join(__dirname, 'project-packages-analysis/analysis.json');
 
-// Ensure project-progress-dashboard exists
-const dashboardDir = path.join(__dirname, 'project-progress-dashboard');
-if (!fs.existsSync(dashboardDir)) {
-    fs.mkdirSync(dashboardDir, { recursive: true });
-}
-
-// Copy to project-progress-dashboard if needed
-// fs.copyFileSync(path.join(__dirname, 'roadmap.js'), path.join(dashboardDir, 'roadmap.js'));
-
 // Read Data
 const analysisData = JSON.parse(fs.readFileSync(ANALYSIS_PATH, 'utf8'));
 let timelineData = [];
@@ -138,7 +129,7 @@ const generateIndex = () => {
                     <ul class="space-y-3">
                         <li><a href="timeline.html" class="text-blue-600 hover:underline">→ View Development Roadmap</a></li>
                         <li><a href="analysis.html" class="text-blue-600 hover:underline">→ Inspect Package Dependencies</a></li>
-                        <li><a href="legacy-dashboard/index.html" class="text-blue-600 hover:underline">→ Access Daily Reports</a></li>
+                        <li><a href="/superadmin/dashboard/project-progress" class="text-blue-600 hover:underline">→ Access Daily Reports</a></li>
                     </ul>
                 </div>
             </div>

@@ -105,6 +105,8 @@ sequenceDiagram
         else Agent
             Frontend-->>User: 導向 /agent/dashboard
         end
+        
+        Note over Frontend, User: 特別說明: Superadmin 登入頁 (Port 3001) 也支援非管理員角色登入，<br/>會自動將 Landlord/Tenant/Agent 重定向回主站 (Port 3000) 對應的 Dashboard。
     else 憑證錯誤
         Database-->>Supabase Auth: 驗證失敗
         Supabase Auth-->>Frontend: 返回錯誤 (401)

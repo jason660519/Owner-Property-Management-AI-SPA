@@ -33,7 +33,7 @@ import type { UserRole, RoleMetadata } from './types'
 /**
  * All available roles with metadata
  */
-const ROLE_METADATA: RoleMetadata[] = [
+export const ROLE_METADATA: RoleMetadata[] = [
   {
     role: 'landlord',
     displayName: '房東',
