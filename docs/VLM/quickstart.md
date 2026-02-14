@@ -2,11 +2,12 @@
 
 > **創建日期**: 2026-02-04
 > **創建者**: Claude Sonnet 4.5
+> **最後修改**: 2026-02-15 | 整合至 docs/VLM
 > **預估時間**: 15 分鐘
 
 ---
 
-## 🚀 5 分鐘快速啟動
+## 5 分鐘快速啟動
 
 ### 步驟 1: 生成 Master Key (1 分鐘)
 
@@ -22,7 +23,7 @@ export VLM_MASTER_KEY=<剛才生成的 hex string>
 
 ```bash
 # 進入專案根目錄
-cd /Volumes/KLEVV-4T-1/Real\ Estate\ Management\ Projects/Owner-Property-Management-AI-SPA
+cd /path/to/Owner-Property-Management-AI-SPA
 
 # 執行 migration
 supabase db reset
@@ -77,7 +78,7 @@ npm run dev
 
 ---
 
-## 📋 完整設定步驟
+## 完整設定步驟
 
 ### 1. 環境變數設定
 
@@ -185,43 +186,16 @@ supabase storage list
 
 ---
 
-## 🧪 測試功能
+## 測試功能
 
 ### 手動測試流程
 
 1. **登入系統**
-   ```
-   Email: test@example.com
-   Password: (你的測試密碼)
-   ```
-
-2. **前往新增物件**
-   ```
-   URL: http://localhost:3000/landlord/properties/add
-   ```
-
-3. **設定 VLM API Key**
-   - 應該會自動彈出 Drawer
-   - 選擇 **Anthropic Claude**
-   - 前往 https://console.anthropic.com/settings/keys
-   - 建立新的 API Key
-   - 複製並貼上
-   - 點擊「儲存設定」
-
-4. **上傳測試文件**
-   - 點擊「選擇檔案上傳」
-   - 選擇測試 PDF (謄本或權狀)
-   - 等待上傳和解析
-   - 應該在 5-8 秒內完成
-
-5. **查看結果**
-   - 檢查「所有權人姓名」是否正確
-   - 檢查「物件地址」是否正確
-   - 查看驗證圖示 (綠色 ✓ 或紅色 ✗)
-
-6. **自動填入**
-   - 點擊「一鍵帶入全部」
-   - 檢查表單欄位是否自動填入
+2. **前往新增物件**: `http://localhost:3000/landlord/properties/add`
+3. **設定 VLM API Key**: 自動彈出 Drawer → 選擇 Anthropic Claude → 輸入 API Key → 儲存
+4. **上傳測試文件**: 選擇謄本/權狀 PDF，等待上傳和解析（約 5-8 秒）
+5. **查看結果**: 檢查所有權人姓名、物件地址與驗證圖示
+6. **自動填入**: 點擊「一鍵帶入全部」
 
 ### 執行單元測試
 
@@ -230,147 +204,63 @@ supabase storage list
 cd backend/ocr_service
 pytest tests/test_kms.py -v
 pytest tests/test_document_validator.py -v
-
-# 預期結果:
-# ✅ 27 passed
 ```
 
 ### 執行 E2E 測試
 
 ```bash
-# 前端測試
 cd apps/web
-npx playwright test e2e/vlm-document-scan.spec.ts
-
-# 預期結果:
-# ✅ 8 passed
+npx playwright test e2e/flows/landlord/vlm-document-scan.spec.ts
 ```
 
 ---
 
-## 🐛 故障排除
+## 故障排除
 
 ### 問題 1: "VLM_MASTER_KEY environment variable not set"
 
-**解決方案**:
 ```bash
-# 生成新的 Master Key
 python3 -c "import os; print(os.urandom(32).hex())"
-
-# 設定到環境變數
 export VLM_MASTER_KEY=<生成的 hex string>
-
-# 或寫入 .env
-echo "VLM_MASTER_KEY=<生成的 hex string>" >> backend/ocr_service/.env
+# 或寫入 backend/ocr_service/.env
 ```
 
 ### 問題 2: "Supabase configuration missing"
 
-**解決方案**:
-```bash
-# 檢查 Supabase 環境變數
-echo $SUPABASE_URL
-echo $SUPABASE_SERVICE_ROLE_KEY
-
-# 如果是空的，從 Supabase Dashboard 複製
-# Settings → API → Project URL
-# Settings → API → service_role key (secret)
-```
+檢查 `SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`（從 Dashboard → Settings → API 取得）。
 
 ### 問題 3: "Storage bucket not found"
 
-**解決方案**:
-```bash
-# 檢查 bucket 是否存在
-supabase storage list
-
-# 如果沒有，建立 bucket
-# 前往 Supabase Dashboard → Storage → New Bucket
-# 名稱: property-documents
-# Public: 取消勾選
-```
+`supabase storage list` 確認後，於 Dashboard → Storage 建立 `property-documents`（Private）。
 
 ### 問題 4: 上傳成功但解析一直 "processing"
 
-**原因**: VLM Engine 尚未完全整合
-
-**解決方案**:
-- 檢查後端日誌: `backend/ocr_service/logs/`
-- 確認 VLM API Key 有效
-- 檢查網路連線
+檢查後端日誌、VLM API Key 是否有效、網路連線。
 
 ### 問題 5: "Failed to decrypt API key"
 
-**原因**: Master Key 或 Salt 不匹配
-
-**解決方案**:
-- 刪除現有的 API Key
-- 使用相同的 Master Key 重新儲存
-- 確保 `VLM_MASTER_KEY` 環境變數正確設定
+Master Key 或 Salt 不匹配。刪除現有 API Key，以相同 `VLM_MASTER_KEY` 重新儲存。
 
 ---
 
-## 📊 檢查清單
-
-使用此清單確保所有設定正確：
+## 檢查清單
 
 - [ ] VLM_MASTER_KEY 已生成並設定
-- [ ] Supabase 環境變數已設定 (URL, SERVICE_ROLE_KEY, JWT_SECRET)
+- [ ] Supabase 環境變數已設定
 - [ ] 資料庫 migration 已執行
-- [ ] `user_vlm_credentials` 表已建立
-- [ ] `property_documents` 表已增強
-- [ ] Storage bucket `property-documents` 已建立
-- [ ] Storage RLS 政策已設定
-- [ ] 後端依賴已安裝 (cryptography, python-jose, pdf2image)
-- [ ] 前端依賴已安裝 (npm install)
-- [ ] 後端服務已啟動 (port 8000)
-- [ ] 前端服務已啟動 (port 3000)
-- [ ] 可以登入系統
-- [ ] VLM API Key Drawer 可以開啟
-- [ ] 可以儲存 API Key
-- [ ] 可以上傳文件
-- [ ] 可以查看解析結果
-- [ ] 可以自動填入表單
+- [ ] `user_vlm_credentials`、`property_documents` 表已建立
+- [ ] Storage bucket `property-documents` 已建立且 RLS 已設定
+- [ ] 後端／前端依賴已安裝，服務已啟動
+- [ ] 可登入、開啟 VLM API Key Drawer、上傳文件、查看解析結果並自動填入
 
 ---
 
-## 🎯 下一步
+## 下一步
 
-完成基本設定後，可以：
-
-1. **閱讀完整文檔**
-   - [實作總結](VLM_DOCUMENT_SCAN_IMPLEMENTATION_SUMMARY.md)
-   - [整合範例](VLM_INTEGRATION_EXAMPLE.md)
-
-2. **自訂設定**
-   - 調整輪詢間隔 (預設 2 秒)
-   - 調整最大檔案大小 (預設 10MB)
-   - 新增更多 VLM 提供商
-
-3. **部署到生產環境**
-   - 設定環境變數到 Secrets Manager
-   - 啟用 HTTPS
-   - 設定 CDN 加速檔案上傳
-   - 監控 VLM API 使用量
-
-4. **效能優化**
-   - 新增 Redis 快取
-   - 實作圖片壓縮
-   - 並行處理多頁 PDF
+- [實作總結](./implementation_summary.md)
+- [整合範例](./integration_example.md)
+- [測試就緒檢查](./ready_to_test.md)
 
 ---
 
-## 💬 獲取協助
-
-如果遇到問題：
-
-1. 檢查 **故障排除** 章節
-2. 查看後端日誌: `backend/ocr_service/logs/`
-3. 查看瀏覽器 Console (F12)
-4. 參考 [實作總結](VLM_DOCUMENT_SCAN_IMPLEMENTATION_SUMMARY.md)
-
----
-
-**祝你使用愉快！** 🎉
-
-**最後更新**: 2026-02-04
+**最後更新**: 2026-02-15

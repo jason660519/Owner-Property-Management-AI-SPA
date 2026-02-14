@@ -1,66 +1,50 @@
 'use client';
 
-import { Users, Home, Key, Shield, FileText, Settings, Activity, Database, Server, Cpu } from 'lucide-react';
+import { Users, Home, Key, Shield, FileText, Settings, Activity, Database, Server, Cpu, BarChart3, FileSignature, Image, BookOpen, CircleCheck } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import {
-  DashboardLayout,
-  StatsGrid,
-  type KPIConfig,
-  type KPILoadingState,
-} from '@/components/dashboard';
+import { DashboardLayout } from '@/components/dashboard';
 import type { AdminStats } from '@/lib/actions/dashboard';
 import { SystemGrowthChart } from '@/components/dashboard/SystemGrowthChart';
 import { ActivityLogTable } from '@/components/dashboard/ActivityLogTable';
 
 const BASE = '/superadmin';
 
-export default function SuperadminDashboardClient({ stats }: { stats: AdminStats }) {
-  const kpis: KPIConfig[] = [
-    {
-      title: '總用戶數',
-      value: stats.totalUsers,
-      icon: Users,
-      color: 'text-blue-500',
-      progressLinks: [
-        { label: '管理用戶', href: `${BASE}/users` },
-        { label: '群組管理', href: `${BASE}/groups` },
-      ],
-    },
-    {
-      title: '總物件數',
-      value: stats.totalProperties,
-      icon: Home,
-      color: 'text-green-500',
-      progressLinks: [{ label: '查看所有物件', href: `${BASE}/properties` }],
-    },
-    {
-      title: '活躍租賃',
-      value: stats.activeRentals,
-      icon: Key,
-      color: 'text-purple-500',
-      progressLinks: [{ label: '查看租約', href: `${BASE}/leases` }],
-    },
-    {
-      title: '系統待辦',
-      value: stats.pendingVerifications,
-      icon: Shield,
-      color: 'text-orange-500',
-      progressLinks: [
-        {
-          label: '審核申請',
-          href: `${BASE}/verifications`,
-          badge:
-            stats.pendingVerifications > 0
-              ? { count: stats.pendingVerifications, variant: 'warning' as const }
-              : undefined,
-        },
-      ],
-    },
-  ];
+export default function SuperadminDashboardClient({
+  stats,
+  userName,
+}: {
+  stats: AdminStats;
+  userName?: string;
+}) {
+  const summaryRows = [
+    { label: '總用戶/活躍用戶/在線用戶數', value: `${stats.totalUsers} / ${stats.activeUsersCount} / ${stats.onlineUsersCount}` },
+    { label: '總群組數', value: stats.totalGroups },
+    { label: '總角色數', value: stats.totalRoles },
+    { label: 'superadmin 數', value: stats.superadminCount },
+  ] as const;
 
-  const kpiLoadingStates: KPILoadingState[] = kpis.map(() => ({ isLoading: false, isEmpty: false }));
+  const propertyRows = [
+    { label: '總物件數（含有效與無效）', value: stats.totalProperties },
+    { label: '目前在售物件數', value: stats.totalSales },
+    { label: '目前在租物件數', value: stats.totalRentals },
+    { label: '總部落格數', value: stats.totalBlogs },
+  ] as const;
+
+  const salesOverviewRows = [
+    { label: '在售物件調查報告書數 / 在售物件數', num: stats.surveyReportCountForSales, denom: stats.totalSales },
+    { label: '預覽買賣合約數 / 在售物件數', num: stats.salesContractsCount, denom: stats.totalSales },
+    { label: '在售物件部落格數 / 在售物件數', num: stats.salesBlogCount, denom: stats.totalSales },
+    { label: '逾期案出售物件數', value: stats.overdueSalesCount },
+    { label: '成交出售物件數', value: stats.soldSalesCount },
+  ] as const;
+
+  const rentalOverviewRows = [
+    { label: '在租物件調查報告書數 / 在租物件數', num: stats.surveyReportCountForRentals, denom: stats.totalRentals },
+    { label: '預覽租賃合約數 / 在租物件數', num: stats.leaseContractsCount, denom: stats.totalRentals },
+    { label: '在租物件部落格數 / 在租物件數', num: stats.rentalBlogCount, denom: stats.totalRentals },
+  ] as const;
 
   return (
     <DashboardLayout
@@ -71,7 +55,16 @@ export default function SuperadminDashboardClient({ stats }: { stats: AdminStats
         { label: '超級管理員專區', href: `${BASE}` },
         { label: '儀表板' },
       ]}
-      greeting="歡迎回來，系統管理員"
+      greeting={
+          userName ? (
+            <>
+              歡迎回來，超級管理員，
+              <span className="text-accent font-semibold text-base">{userName}</span>
+            </>
+          ) : (
+            '歡迎回來，超級管理員'
+          )
+        }
       headerActions={
         <Link href={`${BASE}/settings`}>
           <Button>
@@ -81,7 +74,217 @@ export default function SuperadminDashboardClient({ stats }: { stats: AdminStats
         </Link>
       }
     >
-      <StatsGrid kpis={kpis} loading={kpiLoadingStates} columns={4} className="mb-8" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <Card className="p-6 hover:border-accent/50 transition-all">
+          <div className="mb-4 flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-bg-tertiary">
+                <Users className="w-5 h-5 text-blue-500" />
+              </div>
+              <h3 className="text-sm font-medium text-text-secondary">IAM用戶群組概覽</h3>
+            </div>
+          </div>
+          <div className="space-y-2 mb-4">
+            {summaryRows.map(({ label, value }) => (
+              <div key={label} className="flex items-center justify-between text-sm">
+                <span className="text-text-muted">{label}</span>
+                <span className="font-semibold text-text-primary">{value}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 pt-4 border-t border-border-default space-y-1">
+            <Link
+              href={`${BASE}/users`}
+              className="text-sm text-accent hover:underline block"
+            >
+              管理用戶
+            </Link>
+            <Link
+              href={`${BASE}/groups`}
+              className="text-sm text-accent hover:underline block"
+            >
+              群組管理
+            </Link>
+          </div>
+        </Card>
+        <Card className="p-6 hover:border-accent/50 transition-all">
+          <div className="mb-4 flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-bg-tertiary">
+                <Home className="w-5 h-5 text-green-500" />
+              </div>
+              <h3 className="text-sm font-medium text-text-secondary">物件與部落格概覽</h3>
+            </div>
+          </div>
+          <div className="space-y-2 mb-4">
+            {propertyRows.map(({ label, value }) => (
+              <div key={label} className="flex items-center justify-between text-sm">
+                <span className="text-text-muted">{label}</span>
+                <span className="font-semibold text-text-primary">{value}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 pt-4 border-t border-border-default space-y-1">
+            <Link
+              href={`${BASE}/properties`}
+              className="text-sm text-accent hover:underline block"
+            >
+              查看所有物件
+            </Link>
+          </div>
+        </Card>
+        <Card className="p-6 hover:border-accent/50 transition-all">
+          <div className="mb-4 flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-bg-tertiary">
+                <BarChart3 className="w-5 h-5 text-purple-500" />
+              </div>
+              <h3 className="text-sm font-medium text-text-secondary">出售物件概覽</h3>
+            </div>
+          </div>
+          <div className="space-y-2 mb-4">
+            {salesOverviewRows.map((row) => (
+              <div key={row.label} className="flex items-center justify-between text-sm gap-2">
+                <span className="text-text-muted shrink-0">{row.label}</span>
+                <span className="font-semibold text-text-primary whitespace-nowrap">
+                  {'value' in row ? row.value : (row.denom === 0 ? '0' : `${row.num} / ${row.denom}`)}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 pt-4 border-t border-border-default space-y-1">
+            <Link
+              href={`${BASE}/properties`}
+              className="text-sm text-accent hover:underline block"
+            >
+              查看所有出售物件
+            </Link>
+          </div>
+        </Card>
+        <Card className="p-6 hover:border-accent/50 transition-all">
+          <div className="mb-4 flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-bg-tertiary">
+                <Key className="w-5 h-5 text-amber-500" />
+              </div>
+              <h3 className="text-sm font-medium text-text-secondary">出租物件概覽</h3>
+            </div>
+          </div>
+          <div className="space-y-2 mb-4">
+            {rentalOverviewRows.map(({ label, num, denom }) => (
+              <div key={label} className="flex items-center justify-between text-sm gap-2">
+                <span className="text-text-muted shrink-0">{label}</span>
+                <span className="font-semibold text-text-primary whitespace-nowrap">
+                  {denom === 0 ? '0' : `${num} / ${denom}`}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 pt-4 border-t border-border-default space-y-1">
+            <Link
+              href={`${BASE}/leases`}
+              className="text-sm text-accent hover:underline block"
+            >
+              查看所有出租物件
+            </Link>
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <Card className="p-6 hover:border-accent/50 transition-all">
+          <div className="mb-4 flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-bg-tertiary">
+                <FileSignature className="w-5 h-5 text-blue-500" />
+              </div>
+              <h3 className="text-sm font-medium text-text-secondary">物件合約概況</h3>
+            </div>
+          </div>
+          <div className="space-y-2 mb-4">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-text-muted">尚未完成預覽合約的在售物件數</span>
+              <span className="font-semibold text-text-primary">{Math.max(0, stats.totalSales - stats.salesContractsCount)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-text-muted">尚未完成預覽合約的在租物件數</span>
+              <span className="font-semibold text-text-primary">{Math.max(0, stats.totalRentals - stats.leaseContractsCount)}</span>
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-border-default space-y-1">
+            <Link href={`${BASE}/properties`} className="text-sm text-accent hover:underline block">查看合約</Link>
+          </div>
+        </Card>
+        <Card className="p-6 hover:border-accent/50 transition-all">
+          <div className="mb-4 flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-bg-tertiary">
+                <Image className="w-5 h-5 text-green-500" />
+              </div>
+              <h3 className="text-sm font-medium text-text-secondary">物件照片概況</h3>
+            </div>
+          </div>
+          <div className="space-y-2 mb-4">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-text-muted">尚未完成拍照的在售物件數</span>
+              <span className="font-semibold text-text-primary">{stats.salesWithoutPhotoCount}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-text-muted">尚未完成拍照的在租物件數</span>
+              <span className="font-semibold text-text-primary">{stats.rentalsWithoutPhotoCount}</span>
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-border-default space-y-1">
+            <Link href={`${BASE}/properties`} className="text-sm text-accent hover:underline block">查看物件照片</Link>
+          </div>
+        </Card>
+        <Card className="p-6 hover:border-accent/50 transition-all">
+          <div className="mb-4 flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-bg-tertiary">
+                <BookOpen className="w-5 h-5 text-purple-500" />
+              </div>
+              <h3 className="text-sm font-medium text-text-secondary">物件部落格概況</h3>
+            </div>
+          </div>
+          <div className="space-y-2 mb-4">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-text-muted">尚未完成行銷部落格的在售物件數</span>
+              <span className="font-semibold text-text-primary">{stats.salesWithoutBlogCount}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-text-muted">尚未完成行銷部落格的出租物件數</span>
+              <span className="font-semibold text-text-primary">{stats.rentalsWithoutBlogCount}</span>
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-border-default space-y-1">
+            <Link href={`${BASE}/properties`} className="text-sm text-accent hover:underline block">查看部落格</Link>
+          </div>
+        </Card>
+        <Card className="p-6 hover:border-accent/50 transition-all">
+          <div className="mb-4 flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-bg-tertiary">
+                <CircleCheck className="w-5 h-5 text-amber-500" />
+              </div>
+              <h3 className="text-sm font-medium text-text-secondary">逾期案概況</h3>
+            </div>
+          </div>
+          <div className="space-y-2 mb-4">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-text-muted">逾期出售案數</span>
+              <span className="font-semibold text-text-primary">{stats.overdueSalesCount}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-text-muted">逾期出租案數</span>
+              <span className="font-semibold text-text-primary">{stats.overdueRentalsCount}</span>
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-border-default space-y-1">
+            <Link href={`${BASE}/properties`} className="text-sm text-accent hover:underline block">查看結案</Link>
+          </div>
+        </Card>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <div className="lg:col-span-2">

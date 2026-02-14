@@ -13,31 +13,33 @@ CREATE TABLE IF NOT EXISTS public.logs (
 );
 
 -- Create indexes for efficient querying
-CREATE INDEX idx_logs_user_id ON public.logs(user_id);
-CREATE INDEX idx_logs_level ON public.logs(level);
-CREATE INDEX idx_logs_created_at ON public.logs(created_at DESC);
-CREATE INDEX idx_logs_service ON public.logs(service);
+CREATE INDEX IF NOT EXISTS idx_logs_user_id ON public.logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_logs_level ON public.logs(level);
+CREATE INDEX IF NOT EXISTS idx_logs_created_at ON public.logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_logs_service ON public.logs(service);
 
 -- GIN index for JSONB metadata queries
-CREATE INDEX idx_logs_metadata ON public.logs USING GIN(metadata);
+CREATE INDEX IF NOT EXISTS idx_logs_metadata ON public.logs USING GIN(metadata);
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE public.logs ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Only authenticated admins can view all logs
+DROP POLICY IF EXISTS "Admins can view all logs" ON public.logs;
 CREATE POLICY "Admins can view all logs"
     ON public.logs
     FOR SELECT
     TO authenticated
     USING (
         EXISTS (
-            SELECT 1 FROM public.users
+            SELECT 1 FROM public.users_profile
             WHERE id = auth.uid()
-            AND role IN ('admin', 'super_admin')
+            AND (primary_role = 'super_admin' OR 'super_admin' = ANY(roles))
         )
     );
 
 -- Policy: Users can view their own logs
+DROP POLICY IF EXISTS "Users can view their own logs" ON public.logs;
 CREATE POLICY "Users can view their own logs"
     ON public.logs
     FOR SELECT
@@ -47,6 +49,7 @@ CREATE POLICY "Users can view their own logs"
     );
 
 -- Policy: Service role can insert logs (for server-side logging)
+DROP POLICY IF EXISTS "Service role can insert logs" ON public.logs;
 CREATE POLICY "Service role can insert logs"
     ON public.logs
     FOR INSERT
@@ -54,15 +57,16 @@ CREATE POLICY "Service role can insert logs"
     WITH CHECK (true);
 
 -- Policy: Admins can delete old logs (for maintenance)
+DROP POLICY IF EXISTS "Admins can delete logs" ON public.logs;
 CREATE POLICY "Admins can delete logs"
     ON public.logs
     FOR DELETE
     TO authenticated
     USING (
         EXISTS (
-            SELECT 1 FROM public.users
+            SELECT 1 FROM public.users_profile
             WHERE id = auth.uid()
-            AND role IN ('admin', 'super_admin')
+            AND (primary_role = 'super_admin' OR 'super_admin' = ANY(roles))
         )
     );
 

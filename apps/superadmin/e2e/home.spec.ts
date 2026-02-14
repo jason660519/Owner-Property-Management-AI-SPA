@@ -12,12 +12,13 @@ test.describe('Superadmin Home Page', () => {
     // Check Dashboard Content
     await expect(page.getByText('超級管理員儀表板')).toBeVisible();
     
-    // Check Stats Cards (assuming mock data or empty state)
-    // We check for titles of the cards
-    await expect(page.getByText('總用戶數')).toBeVisible();
-    await expect(page.getByText('總物件數')).toBeVisible();
-    await expect(page.getByText('活躍租賃')).toBeVisible();
-    await expect(page.getByText('系統待辦')).toBeVisible();
+    // Check Stats Cards (first card: IAM用戶群組概覽 with 總用戶/活躍用戶/在線用戶數, etc.)
+    await expect(page.getByText('IAM用戶群組概覽')).toBeVisible();
+    await expect(page.getByText('總用戶/活躍用戶/在線用戶數')).toBeVisible();
+    await expect(page.getByText('物件與部落格概覽')).toBeVisible();
+    await expect(page.getByText('總物件數（含有效與無效）')).toBeVisible();
+    await expect(page.getByText('出售物件概覽')).toBeVisible();
+    await expect(page.getByText('出租物件概覽')).toBeVisible();
   });
 
   test('should navigate to users page', async ({ page }) => {

@@ -6,6 +6,7 @@
 > **修改者**: Claude Opus 4.5
 > **版本**: 2.0
 > **狀態**: ✅ 已審核 - 準備實施
+> **關聯**: 角色與權限架構見 [docs/operational-guides/iam/PERMISSION_ARCHITECTURE.md](../../operational-guides/iam/PERMISSION_ARCHITECTURE.md)；本文件專注於 **Auth 畫面樹、流程與驗收規格**。
 
 ## 1. 執行摘要 (Executive Summary)
 

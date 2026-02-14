@@ -9,6 +9,8 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
+import { addUserToIamGroupByRole } from '@/lib/iam';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
@@ -91,6 +93,13 @@ export async function GET(request: Request) {
           if (insertError) {
             console.error('Failed to create user profile from OAuth:', insertError);
             return NextResponse.redirect(`${origin}/login?error=create_profile_failed&message=${encodeURIComponent(insertError.message)}`);
+          }
+
+          try {
+            const admin = createAdminClient();
+            await addUserToIamGroupByRole(admin, user.id, defaultRole);
+          } catch (e) {
+            console.error('Failed to add OAuth user to IAM group:', e);
           }
 
           return NextResponse.redirect(`${origin}/${defaultRole}/dashboard`);

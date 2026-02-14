@@ -38,6 +38,7 @@ interface IAMStats {
   activeUsers: number;
   totalGroups: number;
   totalRoles: number;
+  postgresPredefinedRolesCount: number;
   addedToday: number;
   modifiedToday: number;
   deletedToday: number;
@@ -218,6 +219,13 @@ export default function IAMAuditPage() {
           icon={Lock} 
           subValue="+1 新增" 
           trend="up" 
+        />
+        <StatCard 
+          title="Postgres 預定義角色數" 
+          value={stats?.postgresPredefinedRolesCount ?? 0} 
+          icon={Lock} 
+          subValue="pg_roles" 
+          trend="neutral" 
         />
         <StatCard 
           title="今日異動數" 

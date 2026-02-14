@@ -35,13 +35,14 @@ root/
 ├── supabase/
 │   └── migrations/           # SQL 遷移檔 (Core + IAM)
 ├── docs/                     # 專案文檔中心
-│   ├── design-guidelines/    # UI/UX 設計規範、提案
-│   │   └── proposals/        # 設計提案
+│   ├── design-guidelines/    # UI/UX 設計規範
+│   ├── proposals/            # 設計提案（如 auth-redesign）
 │   ├── operational-guides/   # 操作指南（部署、進度更新、SOP、快速啟動等）
-│   │   └── deployment-guides/
+│   │   ├── deployment-guides/
+│   │   └── iam/              # IAM 權限架構、SOP、Option A、回歸檢查表
 │   ├── implementation-plans/
 │   ├── product-overview/
-│   ├── technical-selection/  # 技術架構、IAM、API 設計
+│   ├── technical-selection/  # 技術架構、API 設計（IAM 見 operational-guides/iam）
 │   └── testing/
 ├── project-process/          # 專案流程與進度報告
 │   └── progress-reports/

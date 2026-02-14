@@ -12,6 +12,7 @@ create unique index if not exists idx_user_invitations_invite_code
   where invite_code is not null;
 
 -- Add UPDATE policy so service_role can mark invitations as accepted
+drop policy if exists "Service role can update invitations" on user_invitations;
 create policy "Service role can update invitations"
   on user_invitations for update
   using (
@@ -22,6 +23,7 @@ create policy "Service role can update invitations"
   );
 
 -- Add UPDATE policy so super admins can update invitations
+drop policy if exists "Admins can update invitations" on user_invitations;
 create policy "Admins can update invitations"
   on user_invitations for update
   using (

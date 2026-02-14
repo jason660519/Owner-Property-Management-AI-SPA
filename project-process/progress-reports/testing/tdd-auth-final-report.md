@@ -343,7 +343,7 @@ Tests: 88 total (78 passed, 10 failed)
 
 ## 📚 參考文檔
 
-- **設計文檔**: `/docs/design-guidelines/proposals/auth-redesign.md`
+- **設計文檔**: `docs/proposals/auth-redesign.md`
 - **中期進度報告**: `/project-process/progress-reports/testing/tdd-auth-progress-report.md`
 - **專案規範**: `/CLAUDE.md`
 

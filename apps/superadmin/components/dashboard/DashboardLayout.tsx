@@ -17,7 +17,7 @@ export function DashboardLayout({
 }: {
   pageTitle: string;
   breadcrumbs: { label: string; href?: string }[];
-  greeting?: string;
+  greeting?: React.ReactNode;
   children: React.ReactNode;
   headerActions?: React.ReactNode;
   currentRole?: string; // Added type definition

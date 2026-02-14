@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
+import { addUserToIamGroupByRole } from '@/lib/iam';
 
 // 初始化 Admin Client (需要 Service Role Key)
 function getAdminSupabase() {
@@ -70,18 +70,8 @@ export async function signUpWithRole(credentials: SignUpCredentials) {
         throw new Error('更新使用者失敗');
       }
 
-      // 更新 users_profile 表
-      const { error: profileError } = await supabase
-        .from('users_profile')
-        .update({
-          role: role, // Update single role, not roles array
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existingUser.id);
-
-      if (profileError) {
-        console.error('Failed to update user profile roles:', profileError);
-      }
+      // Option A: 寫入 IAM，由 trigger 同步 profile.role
+      await addUserToIamGroupByRole(supabase, existingUser.id, role);
 
       return { success: true, message: '角色已新增，請登入' };
     }
@@ -102,7 +92,7 @@ export async function signUpWithRole(credentials: SignUpCredentials) {
       throw new Error(createError.message || '註冊失敗');
     }
 
-    // 創建 users_profile 記錄（確保在返回前完成）
+    // 創建 users_profile 記錄，並加入對應 IAM 群組（Option A：trigger 會同步 role）
     if (newUser.user) {
       const { error: profileError } = await supabase.from('users_profile').insert({
         id: newUser.user.id,
@@ -112,11 +102,10 @@ export async function signUpWithRole(credentials: SignUpCredentials) {
 
       if (profileError) {
         console.error('Failed to create user profile:', profileError);
-        // 如果 profile 創建失敗，需要回滾或稍後在登入時修復
-        // 為了不影響用戶體驗，這裡不拋出錯誤
+      } else {
+        await addUserToIamGroupByRole(supabase, newUser.user.id, role);
       }
 
-      // 等待一小段時間確保資料庫寫入完成
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
@@ -223,7 +212,7 @@ export async function acceptInviteCode(email: string, inviteCode: string) {
     const userId = verifyData.user?.id;
     const role = invitation.role || 'landlord';
 
-    // 4. Upsert users_profile with the invited role
+    // 4. Add user to IAM (Option A: trigger syncs profile.role); upsert profile if new
     if (userId) {
       const { data: existingProfile } = await admin
         .from('users_profile')
@@ -231,23 +220,7 @@ export async function acceptInviteCode(email: string, inviteCode: string) {
         .eq('id', userId)
         .single();
 
-      if (existingProfile) {
-        // Update existing profile — add the new role if not already present
-        const currentRoles: string[] = existingProfile.roles || [];
-        const updatedRoles = currentRoles.includes(role)
-          ? currentRoles
-          : [...currentRoles, role];
-
-        await admin
-          .from('users_profile')
-          .update({
-            roles: updatedRoles,
-            primary_role: role,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', userId);
-      } else {
-        // Create new profile (note: users_profile has no email column)
+      if (!existingProfile) {
         await admin.from('users_profile').insert({
           id: userId,
           display_name: email.split('@')[0],
@@ -257,7 +230,23 @@ export async function acceptInviteCode(email: string, inviteCode: string) {
         }).throwOnError();
       }
 
-      // Also update auth metadata
+      if (invitation.group_id) {
+        const { data: existingMembership } = await admin
+          .from('iam_group_members')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('group_id', invitation.group_id)
+          .single();
+        if (!existingMembership) {
+          await admin.from('iam_group_members').insert({
+            user_id: userId,
+            group_id: invitation.group_id,
+          });
+        }
+      } else {
+        await addUserToIamGroupByRole(admin, userId, role);
+      }
+
       await admin.auth.admin.updateUserById(userId, {
         user_metadata: {
           role: role,
@@ -274,24 +263,7 @@ export async function acceptInviteCode(email: string, inviteCode: string) {
       .update({ status: 'accepted' })
       .eq('id', invitation.id);
 
-    // 6. Handle group assignment if specified
-    if (invitation.group_id && userId) {
-      const { data: existingMembership } = await admin
-        .from('iam_group_members')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('group_id', invitation.group_id)
-        .single();
-
-      if (!existingMembership) {
-        await admin.from('iam_group_members').insert({
-          user_id: userId,
-          group_id: invitation.group_id,
-        });
-      }
-    }
-
-    // 7. Return success with redirect info
+    // 6. Return success with redirect info
     const dashboardPath = ROLE_DASHBOARD_MAP[role] || '/landlord/dashboard';
 
     return {

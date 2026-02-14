@@ -312,15 +312,15 @@ root/
 │   ├── migrations/
 │   └── config.toml
 ├── docs/                       # Documentation center (ALL docs here)
-│   ├── deployment-guides/      # Deployment guides, environment setup
 │   ├── design-guidelines/      # UI/UX 設計規範、Figma 文件
-│   │   ├── references/         # 設計參考資料
-│   │   └── proposals/          # 設計提案
+│   │   └── references/         # 設計參考資料
+│   ├── proposals/              # 設計提案（如 auth-redesign）
 │   ├── implementation-plans/   # 實作計畫
 │   ├── product-overview/       # 產品需求與使用場景
-│   ├── technical-selection/    # Technical architecture, IAM, and API design
-│   │   ├── access-control-policy.md
-│   │   └── iam-group-based-system-design.md
+│   ├── operational-guides/      # 操作指南
+│   │   ├── deployment-guides/   # 部署與環境
+│   │   └── iam/                 # IAM 權限架構、SOP、Option A、回歸檢查表
+│   ├── technical-selection/    # Technical architecture and API design (non-IAM)
 │   ├── testing/                # Testing standards and guidelines
 │   │   ├── TEST_FILE_MANAGEMENT_STANDARD.md  # Detailed testing standards
 │   │   └── TEST_QUICK_REFERENCE.md           # Quick reference card

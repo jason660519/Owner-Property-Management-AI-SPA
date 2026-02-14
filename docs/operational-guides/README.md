@@ -7,9 +7,8 @@
 | 檔案／目錄 | 說明 |
 |------------|------|
 | [update-project-progress-guide.md](./update-project-progress-guide.md) | 專案進度儀表板與工作日誌更新（roadmap、devLog、docPath） |
-| [IAM_SOP.md](./IAM_SOP.md) | IAM 標準作業程序（使用者入職、權限變更、緊急撤銷等） |
-| [QUICKSTART_VLM.md](./QUICKSTART_VLM.md) | VLM 文件掃描功能快速啟動 |
-| [VLM_READY_TO_TEST.md](./VLM_READY_TO_TEST.md) | VLM 測試就緒檢查與測試步驟 |
+| [iam/](./iam/) | IAM 權限架構、SOP、Option A 實作計畫、回歸測試檢查表 |
+| [VLM/](../VLM/README.md) | VLM 文件掃描功能文檔中心（含快速啟動、測試就緒、實作總結等） |
 | [deployment-guides/](./deployment-guides/) | 部署與環境相關操作（快速啟動、雲端平台選擇、Claude Code 整合等） |
 
 ## 歸檔原則

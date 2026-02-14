@@ -15,4 +15,7 @@ fi
 # 清理工作目錄中的 ._* 文件
 find . -name "._*" -type f -delete 2>/dev/null || true
 
+# 執行 Lint-Staged
+npx lint-staged
+
 exit 0

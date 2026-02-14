@@ -220,14 +220,14 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Custom email templates
+# Custom email templates (paths relative to project root when running supabase CLI)
 [auth.email.template.invite]
 subject = "您已被邀請加入物業管理系統"
-content_path = "./templates/invite.html"
+content_path = "supabase/templates/invite.html"
 
 [auth.email.template.recovery]
 subject = "重設您的密碼 - 物業管理系統"
-content_path = "./templates/recovery.html"
+content_path = "supabase/templates/recovery.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]

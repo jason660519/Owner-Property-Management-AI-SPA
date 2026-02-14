@@ -21,14 +21,15 @@ CREATE TABLE IF NOT EXISTS public.ai_api_keys (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_ai_api_keys_user_id ON public.ai_api_keys(user_id);
-CREATE INDEX idx_ai_api_keys_provider ON public.ai_api_keys(provider);
-CREATE UNIQUE INDEX unique_active_ai_key_per_provider
+CREATE INDEX IF NOT EXISTS idx_ai_api_keys_user_id ON public.ai_api_keys(user_id);
+CREATE INDEX IF NOT EXISTS idx_ai_api_keys_provider ON public.ai_api_keys(provider);
+CREATE UNIQUE INDEX IF NOT EXISTS unique_active_ai_key_per_provider
     ON public.ai_api_keys(user_id, provider)
     WHERE (is_active = true);
 
 ALTER TABLE public.ai_api_keys ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Superadmin can manage AI API keys" ON public.ai_api_keys;
 CREATE POLICY "Superadmin can manage AI API keys"
     ON public.ai_api_keys FOR ALL
     USING (auth.uid() = user_id)
@@ -51,11 +52,12 @@ CREATE TABLE IF NOT EXISTS public.ai_model_selections (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_ai_model_selections_user_id ON public.ai_model_selections(user_id);
-CREATE INDEX idx_ai_model_selections_provider ON public.ai_model_selections(provider);
+CREATE INDEX IF NOT EXISTS idx_ai_model_selections_user_id ON public.ai_model_selections(user_id);
+CREATE INDEX IF NOT EXISTS idx_ai_model_selections_provider ON public.ai_model_selections(provider);
 
 ALTER TABLE public.ai_model_selections ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Superadmin can manage AI model selections" ON public.ai_model_selections;
 CREATE POLICY "Superadmin can manage AI model selections"
     ON public.ai_model_selections FOR ALL
     USING (auth.uid() = user_id)
@@ -79,12 +81,13 @@ CREATE TABLE IF NOT EXISTS public.ai_feature_modules (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_ai_feature_modules_user_id ON public.ai_feature_modules(user_id);
-CREATE UNIQUE INDEX unique_feature_module_per_user
+CREATE INDEX IF NOT EXISTS idx_ai_feature_modules_user_id ON public.ai_feature_modules(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS unique_feature_module_per_user
     ON public.ai_feature_modules(user_id, module_key);
 
 ALTER TABLE public.ai_feature_modules ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Superadmin can manage AI feature modules" ON public.ai_feature_modules;
 CREATE POLICY "Superadmin can manage AI feature modules"
     ON public.ai_feature_modules FOR ALL
     USING (auth.uid() = user_id)
@@ -106,11 +109,12 @@ CREATE TABLE IF NOT EXISTS public.ai_system_prompts (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_ai_system_prompts_user_id ON public.ai_system_prompts(user_id);
-CREATE INDEX idx_ai_system_prompts_module ON public.ai_system_prompts(module_key);
+CREATE INDEX IF NOT EXISTS idx_ai_system_prompts_user_id ON public.ai_system_prompts(user_id);
+CREATE INDEX IF NOT EXISTS idx_ai_system_prompts_module ON public.ai_system_prompts(module_key);
 
 ALTER TABLE public.ai_system_prompts ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Superadmin can manage AI system prompts" ON public.ai_system_prompts;
 CREATE POLICY "Superadmin can manage AI system prompts"
     ON public.ai_system_prompts FOR ALL
     USING (auth.uid() = user_id)
@@ -134,16 +138,18 @@ CREATE TABLE IF NOT EXISTS public.ai_usage_logs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_ai_usage_logs_user_id ON public.ai_usage_logs(user_id);
-CREATE INDEX idx_ai_usage_logs_created_at ON public.ai_usage_logs(created_at);
-CREATE INDEX idx_ai_usage_logs_provider ON public.ai_usage_logs(provider);
+CREATE INDEX IF NOT EXISTS idx_ai_usage_logs_user_id ON public.ai_usage_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_ai_usage_logs_created_at ON public.ai_usage_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_ai_usage_logs_provider ON public.ai_usage_logs(provider);
 
 ALTER TABLE public.ai_usage_logs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Superadmin can view AI usage logs" ON public.ai_usage_logs;
 CREATE POLICY "Superadmin can view AI usage logs"
     ON public.ai_usage_logs FOR SELECT
     USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "System can insert AI usage logs" ON public.ai_usage_logs;
 CREATE POLICY "System can insert AI usage logs"
     ON public.ai_usage_logs FOR INSERT
     WITH CHECK (auth.uid() = user_id);
@@ -159,18 +165,22 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_ai_api_keys_updated_at ON public.ai_api_keys;
 CREATE TRIGGER trigger_ai_api_keys_updated_at
     BEFORE UPDATE ON public.ai_api_keys
     FOR EACH ROW EXECUTE FUNCTION public.update_ai_settings_updated_at();
 
+DROP TRIGGER IF EXISTS trigger_ai_model_selections_updated_at ON public.ai_model_selections;
 CREATE TRIGGER trigger_ai_model_selections_updated_at
     BEFORE UPDATE ON public.ai_model_selections
     FOR EACH ROW EXECUTE FUNCTION public.update_ai_settings_updated_at();
 
+DROP TRIGGER IF EXISTS trigger_ai_feature_modules_updated_at ON public.ai_feature_modules;
 CREATE TRIGGER trigger_ai_feature_modules_updated_at
     BEFORE UPDATE ON public.ai_feature_modules
     FOR EACH ROW EXECUTE FUNCTION public.update_ai_settings_updated_at();
 
+DROP TRIGGER IF EXISTS trigger_ai_system_prompts_updated_at ON public.ai_system_prompts;
 CREATE TRIGGER trigger_ai_system_prompts_updated_at
     BEFORE UPDATE ON public.ai_system_prompts
     FOR EACH ROW EXECUTE FUNCTION public.update_ai_settings_updated_at();

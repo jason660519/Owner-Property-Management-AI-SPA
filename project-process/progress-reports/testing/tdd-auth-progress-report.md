@@ -298,7 +298,7 @@ Coverage:    待建立
 
 ## 📞 支援資源
 
-- **設計文檔**: `docs/design-guidelines/proposals/auth-redesign.md`
+- **設計文檔**: `docs/proposals/auth-redesign.md`
 - **現有測試**: `apps/web/__tests__/`
 - **Playwright 配置**: `apps/web/playwright.config.ts`
 - **Jest 配置**: `apps/web/jest.config.js`
