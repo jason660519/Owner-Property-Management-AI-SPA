@@ -17,7 +17,19 @@ export async function signInWithPassword(credentials: SignInCredentials) {
     password: credentials.password,
   });
 
-  if (error) throw error;
+  if (error) {
+    const err = error as Error & { status?: number };
+    const raw = err.message ?? '';
+    const isUnexpected =
+      raw.includes('unexpected response') || raw.includes('Unexpected response');
+    const status = err.status ?? (err as unknown as { status?: number }).status;
+    const msg = isUnexpected
+      ? status === 400
+        ? '登入被拒絕（400）。請確認密碼是否正確；本機請確認 Supabase 已啟動且 Auth 已啟用 Email 登入（supabase config.toml 中 enable_signup = true），並執行 supabase stop && supabase start 後再試。'
+        : `登入失敗（${status ?? '伺服器異常'}），請稍後再試。`
+      : raw;
+    throw new Error(msg);
+  }
   return data;
 }
 

@@ -22,9 +22,8 @@ import * as z from 'zod';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
-import { signInWithPassword, signInWithGoogle, signInWithFacebook } from '@/lib/supabase/auth';
-import { acceptInviteCode } from '@/app/actions/auth';
-import { createClient } from '@/lib/supabase/client';
+import { signInWithGoogle, signInWithFacebook } from '@/lib/supabase/auth';
+import { acceptInviteCode, getUserRoles, signInWithPasswordAction } from '@/app/actions/auth';
 import Link from 'next/link';
 
 // --- Schemas ---
@@ -103,19 +102,33 @@ function LoginPageInner() {
     setIsInviteMode(urlMode === 'invite');
   }, [urlMode]);
 
+  // Show error/message from URL (e.g. redirect from auth hash: otp_expired, access_denied)
+  useEffect(() => {
+    const urlError = searchParams.get('error');
+    const urlMessage = searchParams.get('message');
+    if (urlMessage) {
+      setError(decodeURIComponent(urlMessage));
+    } else if (urlError) {
+      if (urlError === 'otp_expired') setError('重設密碼連結已過期，請重新申請。');
+      else setError(decodeURIComponent(urlError));
+    }
+  }, [searchParams]);
+
   // --- Password Login Handler ---
   const onPasswordLogin = async (data: LoginFormData) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const result = await signInWithPassword({
-        email: data.email,
-        password: data.password,
-      });
+      const result = await signInWithPasswordAction(data.email, data.password);
 
-      if (!result.session) {
-        throw new Error('登入失敗，請重試');
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+      if (!result.userId) {
+        setError('登入失敗，請重試');
+        return;
       }
 
       if (data.rememberMe) {
@@ -127,16 +140,10 @@ function LoginPageInner() {
       localStorage.removeItem('rememberedPassword');
       localStorage.removeItem('opm_remembered_password');
 
-      const supabase = createClient();
-      const { data: profile } = await supabase
-        .from('users_profile')
-        .select('roles, primary_role')
-        .eq('id', result.user.id)
-        .single();
-
-      const roles = profile?.roles || [];
-      const userRole =
-        profile?.primary_role || result.user.user_metadata?.role || 'landlord';
+      // Use IAM (getUserRoles RPC) as single source of truth for redirect decision
+      const roleResult = await getUserRoles(result.userId);
+      const roles = roleResult.success && Array.isArray(roleResult.roles) ? roleResult.roles : [];
+      const userRole = roles[0] || 'landlord';
 
       if (roles.includes('super_admin') || roles.length > 1) {
         router.push('/portal');
@@ -165,7 +172,10 @@ function LoginPageInner() {
           break;
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : '登入失敗，請檢查您的帳號密碼');
+      const message =
+        err instanceof Error ? err.message : '登入失敗，請檢查您的帳號密碼';
+      setError(message);
+      console.error('Login error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -253,8 +263,13 @@ function LoginPageInner() {
       <CardContent>
         {/* Error banner */}
         {error && (
-          <div className="p-3 bg-red-500/10 border border-red-500 rounded-lg mb-4">
+          <div className="p-3 bg-red-500/10 border border-red-500 rounded-lg mb-4 space-y-2">
             <p className="text-sm text-red-500">{error}</p>
+            {(searchParams.get('error') === 'otp_expired' || error.includes('過期')) && (
+              <Link href="/forgot-password" className="text-sm text-[#7C3AED] hover:underline block">
+                重新申請重設密碼 →
+              </Link>
+            )}
           </div>
         )}
 

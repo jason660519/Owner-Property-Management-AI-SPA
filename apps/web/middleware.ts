@@ -63,18 +63,22 @@ export async function middleware(request: NextRequest) {
   const authRoutes = ['/login', '/register', '/forgot-password'];
   const isAuthRoute = authRoutes.some((route) => request.nextUrl.pathname.startsWith(route));
 
-  // 如果已登入且訪問認證頁面，重導向到對應的儀表板（super_admin 導向獨立後台 3001）
+  // 如果已登入且訪問認證頁面，重導向到對應的儀表板
   if (user && isAuthRoute) {
     const role = effectiveRole;
+    const roles: string[] = Array.isArray(user.user_metadata?.roles)
+      ? user.user_metadata.roles
+      : [];
     const superadminUrl = process.env.NEXT_PUBLIC_SUPERADMIN_URL || 'http://localhost:3001';
-    
-    // Check if we are already on the target Superadmin URL to prevent loops if misconfigured
-    // But since this is apps/web (port 3000), a redirect to 3001 is always cross-origin/port.
-    
-    // Fix infinite loop: Check if we are logging in from port 3001 (e.g. via unified login on superadmin)
-    // The request.url tells us where we are currently (e.g. localhost:3000/login)
-    // If the user is super_admin, they should be on 3001.
-    
+
+    // Multi-role users (or super_admin with other roles) → portal for role selection
+    if (roles.length > 1 && !simulationRole) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = '/portal';
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    // Single-role super_admin → superadmin dashboard on port 3001
     if (role === 'super_admin' && !simulationRole) {
       return NextResponse.redirect(`${superadminUrl}/superadmin/dashboard`);
     }

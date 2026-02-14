@@ -37,6 +37,7 @@ export const viewport: Viewport = {
 };
 
 import Providers from './providers';
+import { AuthHashErrorHandler } from '@/components/auth/AuthHashErrorHandler';
 
 export default function RootLayout({
   children,
@@ -53,7 +54,10 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="房東管理" />
       </head>
       <body className={`${urbanist.variable} ${inter.variable} font-primary`}>
-        <Providers>{children}</Providers>
+        <Providers>
+          <AuthHashErrorHandler />
+          {children}
+        </Providers>
       </body>
     </html>
   );

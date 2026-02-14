@@ -48,11 +48,22 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // 2. 已登入但非 Super Admin：重導向至主站登入頁 (權限不足)
-  if (isSuperadminRoute && user && user.user_metadata?.role !== 'super_admin') {
-    const loginUrl = new URL(`${MAIN_SITE_URL}/login`);
-    loginUrl.searchParams.set('reason', 'insufficient_role');
-    return NextResponse.redirect(loginUrl);
+  // 2. 已登入：以 IAM 為準判斷是否為 Super Admin（與主站 Portal 一致）
+  if (isSuperadminRoute && user) {
+    const { data: roleRows } = await supabase.rpc('get_user_roles', {
+      lookup_user_id: user.id,
+    });
+    const roles = Array.isArray(roleRows)
+      ? roleRows.map((r: { role_name: string }) => r.role_name)
+      : [];
+    const isSuperAdmin =
+      roles.includes('super_admin') ||
+      user.user_metadata?.role === 'super_admin';
+    if (!isSuperAdmin) {
+      const loginUrl = new URL(`${MAIN_SITE_URL}/login`);
+      loginUrl.searchParams.set('reason', 'insufficient_role');
+      return NextResponse.redirect(loginUrl);
+    }
   }
 
   return response;

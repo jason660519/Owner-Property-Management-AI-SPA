@@ -2,6 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { addUserToIamGroupByRole } from '@/lib/iam';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 
 // 初始化 Admin Client (需要 Service Role Key)
 function getAdminSupabase() {
@@ -21,6 +22,39 @@ function getAdminSupabase() {
 }
 
 const adminSupabase = () => getAdminSupabase();
+
+/** Serializable return type for Server Actions (no Session/User objects) */
+type SignInResult =
+  | { success: true; userId: string }
+  | { success: false; error: string };
+
+/**
+ * Server-side sign in with password. Sets auth cookies on the response so the client is logged in.
+ * Returns only plain serializable data to avoid Next.js "unexpected response" (non-serializable return).
+ */
+export async function signInWithPasswordAction(email: string, password: string): Promise<SignInResult> {
+  try {
+    const supabase = await createServerClient();
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      const msg =
+        error.message?.includes('unexpected response') || error.message?.includes('Unexpected response')
+          ? '登入被拒絕。請確認密碼是否正確；本機請確認 Supabase 已啟動且 Auth 已啟用 Email 登入（config.toml 中 auth.email.enable_signup = true），執行 supabase stop && supabase start 後再試。'
+          : String(error.message ?? '登入失敗');
+      const out: SignInResult = { success: false, error: msg };
+      return out;
+    }
+    if (!data?.session || !data?.user?.id) {
+      return { success: false, error: '登入失敗，未取得 session。' };
+    }
+    return { success: true, userId: String(data.user.id) };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '登入失敗，請稍後再試。';
+    console.error('signInWithPasswordAction error:', e);
+    return { success: false, error: String(msg) };
+  }
+}
 
 export interface SignUpCredentials {
   email: string;
@@ -116,20 +150,47 @@ export async function signUpWithRole(credentials: SignUpCredentials) {
   }
 }
 
+/**
+ * Get user roles from IAM (single source of truth).
+ * Uses get_user_roles RPC; fallback to users_profile.roles cache if RPC fails.
+ */
 export async function getUserRoles(userId: string) {
   try {
     const supabase = adminSupabase();
-    const { data, error } = await supabase.auth.admin.getUserById(userId);
 
-    if (error) {
-      console.error('Get user error:', error);
-      throw new Error(error.message);
+    const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_roles', {
+      lookup_user_id: userId,
+    });
+
+    if (!rpcError && Array.isArray(rpcData) && rpcData.length > 0) {
+      const roles = rpcData.map((r: { role_name?: string }) => String(r?.role_name ?? r));
+      return { success: true, roles };
     }
 
-    // Prioritize app_metadata.roles as per instruction, fallback to user_metadata.roles
-    const roles = data.user.app_metadata.roles || data.user.user_metadata.roles || [];
-    
-    return { success: true, roles };
+    // Fallback: read from users_profile.roles (IAM-synced cache)
+    const { data: profile, error: profileError } = await supabase
+      .from('users_profile')
+      .select('roles')
+      .eq('id', userId)
+      .single();
+
+    if (!profileError && profile?.roles?.length) {
+      const roles = profile.roles.map((r: unknown) => String(r));
+      return { success: true, roles };
+    }
+
+    // Last resort: Auth metadata (legacy)
+    const { data: userData, error: authError } = await supabase.auth.admin.getUserById(userId);
+    if (!authError && userData?.user) {
+      const raw =
+        userData.user.app_metadata?.roles ||
+        userData.user.user_metadata?.roles ||
+        [];
+      const roles = Array.isArray(raw) ? raw.map((r: unknown) => String(r)) : [];
+      return { success: true, roles };
+    }
+
+    return { success: true, roles: [] };
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error('Get user roles error:', error);
