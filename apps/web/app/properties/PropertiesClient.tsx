@@ -1,38 +1,113 @@
 'use client';
 
-import React, { useState } from 'react';
+// filepath: apps/web/app/properties/PropertiesClient.tsx
+// created: 2026-01-22 | creator: Claude Opus 4.6
+// last-modified: 2026-02-14 | modifier: Claude Opus 4.6
+
+import React, { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { Card, CardImage, CardContent, CardFooter } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Property } from '@/lib/api/properties';
 
+const ITEMS_PER_PAGE = 9;
+
 interface PropertiesClientProps {
     initialProperties: Property[];
+    isMock?: boolean;
 }
 
-export default function PropertiesClient({ initialProperties }: PropertiesClientProps) {
+export default function PropertiesClient({ initialProperties, isMock = false }: PropertiesClientProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterType, setFilterType] = useState('all');
     const [filterStatus, setFilterStatus] = useState('all');
+    const [currentPage, setCurrentPage] = useState(1);
 
-    const filteredProperties = initialProperties.filter(property => {
-        const matchesSearch = property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            property.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            property.address.toLowerCase().includes(searchTerm.toLowerCase());
+    // Dynamically derive available property types from actual data
+    const availableTypes = useMemo(() => {
+        const typeSet = new Set<string>();
+        initialProperties.forEach(p => {
+            if (p.type) typeSet.add(p.type);
+        });
+        return Array.from(typeSet).sort();
+    }, [initialProperties]);
 
-        // Note: property.type in our mapper returns '公寓'/'別墅' etc, or '出租物件' fallback
-        // We need to match filter values
-        const matchesType = filterType === 'all' || property.type === filterType;
+    const filteredProperties = useMemo(() => {
+        return initialProperties.filter(property => {
+            const searchLower = searchTerm.toLowerCase();
+            const matchesSearch = !searchTerm ||
+                property.title.toLowerCase().includes(searchLower) ||
+                property.description.toLowerCase().includes(searchLower) ||
+                property.address.toLowerCase().includes(searchLower);
 
-        // property.status in mapper is 'sale' or 'rent'
-        const matchesStatus = filterStatus === 'all' || property.status === filterStatus;
+            const matchesType = filterType === 'all' || property.type === filterType;
+            const matchesStatus = filterStatus === 'all' || property.status === filterStatus;
 
-        return matchesSearch && matchesType && matchesStatus;
-    });
+            return matchesSearch && matchesType && matchesStatus;
+        });
+    }, [initialProperties, searchTerm, filterType, filterStatus]);
+
+    // Pagination calculations
+    const totalPages = Math.max(1, Math.ceil(filteredProperties.length / ITEMS_PER_PAGE));
+    const safeCurrentPage = Math.min(currentPage, totalPages);
+    const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+    const paginatedProperties = filteredProperties.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+    // Reset to page 1 when filters change
+    const handleFilterChange = useCallback((setter: React.Dispatch<React.SetStateAction<string>>, value: string) => {
+        setter(value);
+        setCurrentPage(1);
+    }, []);
+
+    const handleSearchChange = useCallback((value: string) => {
+        setSearchTerm(value);
+        setCurrentPage(1);
+    }, []);
+
+    const handleClearFilters = useCallback(() => {
+        setSearchTerm('');
+        setFilterType('all');
+        setFilterStatus('all');
+        setCurrentPage(1);
+    }, []);
+
+    // Generate page numbers for pagination
+    const getPageNumbers = (): (number | 'ellipsis')[] => {
+        if (totalPages <= 7) {
+            return Array.from({ length: totalPages }, (_, i) => i + 1);
+        }
+
+        const pages: (number | 'ellipsis')[] = [1];
+
+        if (safeCurrentPage > 3) {
+            pages.push('ellipsis');
+        }
+
+        const start = Math.max(2, safeCurrentPage - 1);
+        const end = Math.min(totalPages - 1, safeCurrentPage + 1);
+
+        for (let i = start; i <= end; i++) {
+            pages.push(i);
+        }
+
+        if (safeCurrentPage < totalPages - 2) {
+            pages.push('ellipsis');
+        }
+
+        pages.push(totalPages);
+        return pages;
+    };
 
     return (
         <div className="max-w-7xl mx-auto">
+            {/* Mock data banner */}
+            {isMock && (
+                <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-yellow-400 text-sm text-center">
+                    目前顯示的是展示用資料。資料庫連線不可用或尚無真實物件。
+                </div>
+            )}
+
             {/* Header & Search */}
             <div className="mb-12">
                 <h1 className="text-3xl md:text-4xl font-bold mb-4">尋找您的理想物業</h1>
@@ -45,7 +120,7 @@ export default function PropertiesClient({ initialProperties }: PropertiesClient
                         <Input
                             placeholder="搜尋關鍵字 (如：公寓、台北市)..."
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => handleSearchChange(e.target.value)}
                             className="bg-[#141414] border-[#333333] h-12"
                         />
                     </div>
@@ -53,14 +128,13 @@ export default function PropertiesClient({ initialProperties }: PropertiesClient
                         <div className="relative">
                             <select
                                 value={filterType}
-                                onChange={(e) => setFilterType(e.target.value)}
+                                onChange={(e) => handleFilterChange(setFilterType, e.target.value)}
                                 className="w-full h-12 px-4 bg-[#141414] border border-[#333333] rounded-lg text-white appearance-none focus:outline-none focus:border-[#7C3AED]"
                             >
                                 <option value="all">所有類型</option>
-                                <option value="公寓">公寓</option>
-                                <option value="別墅">別墅</option>
-                                <option value="套房">套房</option>
-                                <option value="商辦">商辦</option>
+                                {availableTypes.map(type => (
+                                    <option key={type} value={type}>{type}</option>
+                                ))}
                             </select>
                             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
                                 <svg className="w-4 h-4 text-[#999999]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
@@ -71,7 +145,7 @@ export default function PropertiesClient({ initialProperties }: PropertiesClient
                         <div className="relative">
                             <select
                                 value={filterStatus}
-                                onChange={(e) => setFilterStatus(e.target.value)}
+                                onChange={(e) => handleFilterChange(setFilterStatus, e.target.value)}
                                 className="w-full h-12 px-4 bg-[#141414] border border-[#333333] rounded-lg text-white appearance-none focus:outline-none focus:border-[#7C3AED]"
                             >
                                 <option value="all">所有狀態</option>
@@ -83,14 +157,24 @@ export default function PropertiesClient({ initialProperties }: PropertiesClient
                             </div>
                         </div>
                     </div>
-                    <Button className="md:w-32">搜尋</Button>
+                    <Button className="md:w-32" onClick={() => setCurrentPage(1)}>搜尋</Button>
                 </div>
             </div>
 
+            {/* Results count */}
+            {filteredProperties.length > 0 && (
+                <p className="text-[#999999] text-sm mb-6">
+                    共 {filteredProperties.length} 筆物件
+                    {filteredProperties.length > ITEMS_PER_PAGE && (
+                        <span>，顯示第 {startIndex + 1}-{Math.min(startIndex + ITEMS_PER_PAGE, filteredProperties.length)} 筆</span>
+                    )}
+                </p>
+            )}
+
             {/* Properties Grid */}
-            {filteredProperties.length > 0 ? (
+            {paginatedProperties.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {filteredProperties.map((property) => (
+                    {paginatedProperties.map((property) => (
                         <Link key={property.id} href={`/properties/${property.id}`} className="group">
                             <Card hoverable padding="md" className="h-full bg-[#1A1A1A] border-[#262626] group-hover:border-[#7C3AED]/50 transition-colors">
                                 <CardImage
@@ -144,11 +228,7 @@ export default function PropertiesClient({ initialProperties }: PropertiesClient
                     <Button
                         variant="outline"
                         className="mt-6"
-                        onClick={() => {
-                            setSearchTerm('');
-                            setFilterType('all');
-                            setFilterStatus('all');
-                        }}
+                        onClick={handleClearFilters}
                     >
                         清除搜尋條件
                     </Button>
@@ -156,22 +236,49 @@ export default function PropertiesClient({ initialProperties }: PropertiesClient
             )}
 
             {/* Pagination */}
-            {filteredProperties.length > 0 && (
+            {totalPages > 1 && (
                 <div className="mt-12 flex justify-center border-t border-[#262626] pt-8">
                     <div className="flex items-center gap-4 bg-[#141414] border border-[#262626] rounded-full px-4 py-2">
-                        <Button variant="ghost" size="sm" disabled>&larr;</Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={safeCurrentPage <= 1}
+                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        >
+                            &larr;
+                        </Button>
                         <div className="flex gap-2">
-                            <button className="w-8 h-8 rounded-full bg-[#7C3AED] text-white flex items-center justify-center text-sm font-bold">1</button>
-                            {filteredProperties.length > 9 && (
-                                <>
-                                    <button className="w-8 h-8 rounded-full hover:bg-[#262626] text-[#999999] flex items-center justify-center text-sm transition-colors">2</button>
-                                    <button className="w-8 h-8 rounded-full hover:bg-[#262626] text-[#999999] flex items-center justify-center text-sm transition-colors">3</button>
-                                    <span className="text-[#666666] flex items-end px-1">...</span>
-                                    <button className="w-8 h-8 rounded-full hover:bg-[#262626] text-[#999999] flex items-center justify-center text-sm transition-colors">10</button>
-                                </>
-                            )}
+                            {getPageNumbers().map((page, index) => {
+                                if (page === 'ellipsis') {
+                                    return (
+                                        <span key={`ellipsis-${index}`} className="text-[#666666] flex items-end px-1">
+                                            ...
+                                        </span>
+                                    );
+                                }
+                                return (
+                                    <button
+                                        key={page}
+                                        onClick={() => setCurrentPage(page)}
+                                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition-colors ${
+                                            page === safeCurrentPage
+                                                ? 'bg-[#7C3AED] text-white font-bold'
+                                                : 'hover:bg-[#262626] text-[#999999]'
+                                        }`}
+                                    >
+                                        {page}
+                                    </button>
+                                );
+                            })}
                         </div>
-                        <Button variant="ghost" size="sm">&rarr;</Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={safeCurrentPage >= totalPages}
+                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        >
+                            &rarr;
+                        </Button>
                     </div>
                 </div>
             )}

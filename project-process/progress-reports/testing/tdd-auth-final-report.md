@@ -131,7 +131,7 @@
     - ✅ 註冊流程 (含 3 秒自動跳轉)
     - ❌ 登入流程 (發現 Self-healing Bug)
     - ⏸️ 後續 7 個步驟因登入失敗而未執行
-    - 報告: `/apps/web/docs/E2E_MANUAL_TEST_REPORT.md`
+    - 報告: `/project-process/progress-reports/testing/e2e-manual-report.md`
 
 ---
 
@@ -151,7 +151,7 @@
     - 問題: 登入後無法取得或創建 Profile
     - 錯誤: 「無法取得或創建用戶資料，請聯絡客服」
     - 影響: 所有新註冊用戶無法登入
-    - 詳細報告: `/apps/web/docs/E2E_MANUAL_TEST_REPORT.md`
+    - 詳細報告: `/project-process/progress-reports/testing/e2e-manual-report.md`
 
 ### 中優先級 (1)
 
@@ -228,8 +228,8 @@ Tests: 88 total (78 passed, 10 failed)
 7. `/apps/web/components/ui/UserNav.tsx`
 8. `/apps/web/components/layout/DashboardHeader.tsx`
 9. `/apps/web/e2e/manual-auth-flow.spec.ts`
-10. `/apps/web/docs/E2E_MANUAL_TEST_REPORT.md`
-11. `/apps/web/docs/TDD_AUTH_FINAL_REPORT.md` (本文件)
+10. `/project-process/progress-reports/testing/e2e-manual-report.md`
+11. `/project-process/progress-reports/testing/tdd-auth-final-report.md` (本文件)
 
 ### 修改檔案 (5)
 
@@ -302,7 +302,7 @@ Tests: 88 total (78 passed, 10 failed)
    - 檢查 Profile 創建邏輯
    - 增加錯誤日誌
    - 測試修復效果
-   - **詳細調查報告**: `/apps/web/docs/E2E_MANUAL_TEST_REPORT.md`
+   - **詳細調查報告**: `/project-process/progress-reports/testing/e2e-manual-report.md`
 
 2. **重新執行 E2E 測試** (預計 30 分鐘)
    - 註冊 → 登入 → 使用 Dashboard → 登出
@@ -343,8 +343,8 @@ Tests: 88 total (78 passed, 10 failed)
 
 ## 📚 參考文檔
 
-- **設計文檔**: `/apps/web/docs/auth-redesign-proposal.md`
-- **中期進度報告**: `/apps/web/docs/TDD_AUTH_PROGRESS_REPORT.md`
+- **設計文檔**: `/docs/design-guidelines/proposals/auth-redesign.md`
+- **中期進度報告**: `/project-process/progress-reports/testing/tdd-auth-progress-report.md`
 - **專案規範**: `/CLAUDE.md`
 
 ---
@@ -391,4 +391,4 @@ Bugs Fixed: 0 (pending)
 
 **本報告完成時間**: 2026-02-03 03:15 AM  
 **下次更新**: 修復 Self-healing Bug 並重新執行 E2E 測試後  
-**優先行動**: 🔴 立即修復 Login Bug - 詳見 `/apps/web/docs/E2E_MANUAL_TEST_REPORT.md`
+**優先行動**: 🔴 立即修復 Login Bug - 詳見 `/project-process/progress-reports/testing/e2e-manual-report.md`

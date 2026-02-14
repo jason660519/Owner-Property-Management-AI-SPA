@@ -14,34 +14,34 @@
 
 ### 2.1 架構與路徑同步問題
 
-| 問題 | 說明 | 嚴重性 |
-|------|------|--------|
-| **DOCS_ROOT 僅用 `cwd/../../docs`** | 所有 API（tree、content、search、watch）均使用 `path.resolve(process.cwd(), '../../docs')`。當以 monorepo 根目錄為 cwd 啟動時，會解析到錯誤路徑。 | 高 |
-| **本地 docs 覆蓋專案 docs** | 存在 `apps/superadmin/docs/`（內含單一檔案如 IAM_AUDIT_GUIDE.md）時，若先檢查 `cwd/docs`，會優先使用該目錄，導致畫面只顯示 1 個檔案，與專案根目錄 `docs/` 不同步。 | 高 |
-| **無環境變數覆寫** | 無法透過 `DOCS_PATH` 指定文件目錄，不利於測試或不同部署環境。 | 中 |
+| 問題                                | 說明                                                                                                                                                               | 嚴重性 |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| **DOCS_ROOT 僅用 `cwd/../../docs`** | 所有 API（tree、content、search、watch）均使用 `path.resolve(process.cwd(), '../../docs')`。當以 monorepo 根目錄為 cwd 啟動時，會解析到錯誤路徑。                  | 高     |
+| **本地 docs 覆蓋專案 docs**         | 存在 `apps/superadmin/docs/`（內含單一檔案如 IAM_AUDIT_GUIDE.md）時，若先檢查 `cwd/docs`，會優先使用該目錄，導致畫面只顯示 1 個檔案，與專案根目錄 `docs/` 不同步。 | 高     |
+| **無環境變數覆寫**                  | 無法透過 `DOCS_PATH` 指定文件目錄，不利於測試或不同部署環境。                                                                                                      | 中     |
 
 ### 2.2 功能與邏輯錯誤
 
-| 問題 | 說明 | 嚴重性 |
-|------|------|--------|
-| **Watch SSE 的 cleanup 從未執行** | `ReadableStream` 的 `cancel()` 內使用 `(this as any).__cleanup`，但 `this` 為 underlying source 物件，cleanup 實際被掛在 `stream.__cleanup` 上，導致客戶端斷線時 watcher 與 heartbeat 未釋放。 | 高 |
-| **Watch 未檢查目錄存在** | 直接對 `DOCS_ROOT` 執行 `chokidar.watch()`，若路徑不存在會拋錯且僅在 console 出現，前端只會看到 SSE 連線失敗。 | 中 |
-| **Path traversal 比對** | content API 使用 `absolutePath.startsWith(DOCS_ROOT + path.sep)`，未先對兩邊做 `path.resolve`，在部分邊界情況下可能不夠嚴謹。 | 低 |
+| 問題                              | 說明                                                                                                                                                                                           | 嚴重性 |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| **Watch SSE 的 cleanup 從未執行** | `ReadableStream` 的 `cancel()` 內使用 `(this as any).__cleanup`，但 `this` 為 underlying source 物件，cleanup 實際被掛在 `stream.__cleanup` 上，導致客戶端斷線時 watcher 與 heartbeat 未釋放。 | 高     |
+| **Watch 未檢查目錄存在**          | 直接對 `DOCS_ROOT` 執行 `chokidar.watch()`，若路徑不存在會拋錯且僅在 console 出現，前端只會看到 SSE 連線失敗。                                                                                 | 中     |
+| **Path traversal 比對**           | content API 使用 `absolutePath.startsWith(DOCS_ROOT + path.sep)`，未先對兩邊做 `path.resolve`，在部分邊界情況下可能不夠嚴謹。                                                                  | 低     |
 
 ### 2.3 導航與路由
 
-| 問題 | 說明 | 嚴重性 |
-|------|------|--------|
-| **/docs 未對應到文件頁** | 使用者若造訪 `http://localhost:3001/docs` 會 404，實際文件頁在 `/superadmin/docs`。 | 中 |
-| **Header 的 Docs 連結** | DashboardHeader 的「Docs」為 `/docs`，未與 Sidebar 的 `/superadmin/docs` 一致；需至少讓 `/docs` 可導向文件頁。 | 低（已用重定向解決） |
+| 問題                     | 說明                                                                                                           | 嚴重性               |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------- | -------------------- |
+| **/docs 未對應到文件頁** | 使用者若造訪 `http://localhost:3001/docs` 會 404，實際文件頁在 `/superadmin/docs`。                            | 中                   |
+| **Header 的 Docs 連結**  | DashboardHeader 的「Docs」為 `/docs`，未與 Sidebar 的 `/superadmin/docs` 一致；需至少讓 `/docs` 可導向文件頁。 | 低（已用重定向解決） |
 
 ### 2.4 錯誤處理與日誌
 
-| 問題 | 說明 | 嚴重性 |
-|------|------|--------|
-| **API 錯誤訊息未回傳** | tree/content 失敗時僅在前端寫死「無法載入文件目錄/內容」，未將後端 `error` 訊息傳給 UI。 | 中 |
-| **無統一日誌前綴** | 各 API 使用 `console.error` 隨意輸出，不利於過濾與除錯。 | 低 |
-| **SearchBar 未處理 API 錯誤** | 搜尋 API 非 2xx 時未清空 results 或顯示錯誤狀態，可能留下舊結果。 | 低 |
+| 問題                          | 說明                                                                                     | 嚴重性 |
+| ----------------------------- | ---------------------------------------------------------------------------------------- | ------ |
+| **API 錯誤訊息未回傳**        | tree/content 失敗時僅在前端寫死「無法載入文件目錄/內容」，未將後端 `error` 訊息傳給 UI。 | 中     |
+| **無統一日誌前綴**            | 各 API 使用 `console.error` 隨意輸出，不利於過濾與除錯。                                 | 低     |
+| **SearchBar 未處理 API 錯誤** | 搜尋 API 非 2xx 時未清空 results 或顯示錯誤狀態，可能留下舊結果。                        | 低     |
 
 ---
 
@@ -86,16 +86,16 @@
 
 ## 4. 變更檔案清單
 
-| 檔案 | 變更類型 |
-|------|----------|
-| `apps/superadmin/lib/docs-config.ts` | 新增 |
-| `apps/superadmin/app/api/docs/tree/route.ts` | 修改（使用 getDocsRoot、SKIP_DIRS、日誌） |
-| `apps/superadmin/app/api/docs/content/route.ts` | 修改（getDocsRoot、路徑正規化、日誌） |
-| `apps/superadmin/app/api/docs/search/route.ts` | 修改（getDocsRoot、SKIP_DIRS、日誌） |
-| `apps/superadmin/app/api/docs/watch/route.ts` | 修改（getDocsRoot、cleanup 閉包、目錄存在檢查、日誌） |
-| `apps/superadmin/middleware.ts` | 修改（/docs → /superadmin/docs 重定向、matcher） |
-| `apps/superadmin/components/docs/DocsPage.tsx` | 修改（API 錯誤訊息、SSE error 處理） |
-| `apps/superadmin/components/docs/SearchBar.tsx` | 修改（API 錯誤時清空 results） |
+| 檔案                                            | 變更類型                                              |
+| ----------------------------------------------- | ----------------------------------------------------- |
+| `apps/superadmin/lib/docs-config.ts`            | 新增                                                  |
+| `apps/superadmin/app/api/docs/tree/route.ts`    | 修改（使用 getDocsRoot、SKIP_DIRS、日誌）             |
+| `apps/superadmin/app/api/docs/content/route.ts` | 修改（getDocsRoot、路徑正規化、日誌）                 |
+| `apps/superadmin/app/api/docs/search/route.ts`  | 修改（getDocsRoot、SKIP_DIRS、日誌）                  |
+| `apps/superadmin/app/api/docs/watch/route.ts`   | 修改（getDocsRoot、cleanup 閉包、目錄存在檢查、日誌） |
+| `apps/superadmin/middleware.ts`                 | 修改（/docs → /superadmin/docs 重定向、matcher）      |
+| `apps/superadmin/components/docs/DocsPage.tsx`  | 修改（API 錯誤訊息、SSE error 處理）                  |
+| `apps/superadmin/components/docs/SearchBar.tsx` | 修改（API 錯誤時清空 results）                        |
 
 ---
 
@@ -103,7 +103,7 @@
 
 - **Build**：`npm run build --workspace superadmin` 通過。
 - **路由**：`curl -sI http://localhost:3001/docs` → 307，`location: /superadmin/docs`。
-- **Tree API**：`/api/docs/tree` 回傳完整目錄樹（含 access-matrix-design-guidelines-and-process、deployment-guides、file-naming-guidelines 等），與專案 `docs/` 一致。
+- **Tree API**：`/api/docs/tree` 回傳完整目錄樹（含 technical-selection、deployment-guides、design-guidelines、file-naming-guidelines 等），與專案 `docs/` 一致。
 - **Content API**：`/api/docs/content?path=file-naming-guidelines.md` 回傳正確 Markdown 內容。
 - **Search API**：`/api/docs/search?q=...` 行為正常；錯誤時回傳 400/404/500 與 `error` 欄位。
 - **Watch API**：SSE 連線後收到 `event: 'connected'`；目錄不存在時收到 `event: 'error'`；客戶端斷線後 cleanup 會執行（依程式邏輯與閉包修正）。

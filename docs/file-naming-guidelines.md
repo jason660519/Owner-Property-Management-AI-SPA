@@ -194,47 +194,47 @@ export class UserAuthService {
 
 ### Test File Types / 測試檔案類型
 
-| Test Type                | File Suffix                       | Example                            | Framework         |
-| :----------------------- | :-------------------------------- | :--------------------------------- | :---------------- |
-| **Unit Test**            | `.test.ts(x)`                     | `Button.test.tsx`                  | Jest              |
-| **Integration Test**     | `.integration.test.ts(x)`         | `auth.integration.test.ts`         | Jest              |
-| **E2E Test**             | `.spec.ts`                        | `login.spec.ts`                    | Playwright        |
-| **Hook Test**            | `.test.ts` (in hooks/__tests__/)  | `useAuth.test.ts`                  | React Testing Lib |
-| **API Route Test**       | `route.test.ts`                   | `route.test.ts`                    | Jest              |
-| **Component Test (alt)** | `.test.tsx` (in component folder) | `PhotoUpload.test.tsx`             | React Testing Lib |
+| Test Type                | File Suffix                       | Example                    | Framework         |
+| :----------------------- | :-------------------------------- | :------------------------- | :---------------- |
+| **Unit Test**            | `.test.ts(x)`                     | `Button.test.tsx`          | Jest              |
+| **Integration Test**     | `.integration.test.ts(x)`         | `auth.integration.test.ts` | Jest              |
+| **E2E Test**             | `.spec.ts`                        | `login.spec.ts`            | Playwright        |
+| **Hook Test**            | `.test.ts` (in hooks/__tests__/)  | `useAuth.test.ts`          | React Testing Lib |
+| **API Route Test**       | `route.test.ts`                   | `route.test.ts`            | Jest              |
+| **Component Test (alt)** | `.test.tsx` (in component folder) | `PhotoUpload.test.tsx`     | React Testing Lib |
 
-| 測試類型           | 檔案後綴                          | 範例                               | 框架              |
-| :----------------- | :-------------------------------- | :--------------------------------- | :---------------- |
-| **單元測試**       | `.test.ts(x)`                     | `Button.test.tsx`                  | Jest              |
-| **整合測試**       | `.integration.test.ts(x)`         | `auth.integration.test.ts`         | Jest              |
-| **E2E 測試**       | `.spec.ts`                        | `login.spec.ts`                    | Playwright        |
-| **Hook 測試**      | `.test.ts` (在 hooks/__tests__/)  | `useAuth.test.ts`                  | React Testing Lib |
-| **API 路由測試**   | `route.test.ts`                   | `route.test.ts`                    | Jest              |
-| **組件測試（替代）** | `.test.tsx` (在組件資料夾)        | `PhotoUpload.test.tsx`             | React Testing Lib |
+| 測試類型             | 檔案後綴                         | 範例                       | 框架              |
+| :------------------- | :------------------------------- | :------------------------- | :---------------- |
+| **單元測試**         | `.test.ts(x)`                    | `Button.test.tsx`          | Jest              |
+| **整合測試**         | `.integration.test.ts(x)`        | `auth.integration.test.ts` | Jest              |
+| **E2E 測試**         | `.spec.ts`                       | `login.spec.ts`            | Playwright        |
+| **Hook 測試**        | `.test.ts` (在 hooks/__tests__/) | `useAuth.test.ts`          | React Testing Lib |
+| **API 路由測試**     | `route.test.ts`                  | `route.test.ts`            | Jest              |
+| **組件測試（替代）** | `.test.tsx` (在組件資料夾)       | `PhotoUpload.test.tsx`     | React Testing Lib |
 
 ### Source to Test Mapping / 原始碼與測試對應
 
-| Source File Path                | Test File Path                                   |
-| :------------------------------ | :----------------------------------------------- |
-| `app/(auth)/login/page.tsx`     | `app/(auth)/login/__tests__/page.test.tsx`       |
-| `components/ui/Button.tsx`      | `components/ui/Button/__tests__/Button.test.tsx` |
-| `hooks/useAuth.ts`              | `hooks/useAuth/__tests__/useAuth.test.ts`        |
-| `lib/supabase/auth.ts`          | `lib/supabase/__tests__/auth.test.ts`            |
-| `actions/auth.ts`               | `actions/__tests__/auth.test.ts`                 |
-| `app/api/contact/route.ts`      | `app/api/contact/__tests__/route.test.ts`        |
-| E2E: Login flow                 | `e2e/flows/auth/login.spec.ts`                   |
-| E2E: Add property flow          | `e2e/flows/landlord/add-property.spec.ts`        |
+| Source File Path            | Test File Path                                   |
+| :-------------------------- | :----------------------------------------------- |
+| `app/(auth)/login/page.tsx` | `app/(auth)/login/__tests__/page.test.tsx`       |
+| `components/ui/Button.tsx`  | `components/ui/Button/__tests__/Button.test.tsx` |
+| `hooks/useAuth.ts`          | `hooks/useAuth/__tests__/useAuth.test.ts`        |
+| `lib/supabase/auth.ts`      | `lib/supabase/__tests__/auth.test.ts`            |
+| `actions/auth.ts`           | `actions/__tests__/auth.test.ts`                 |
+| `app/api/contact/route.ts`  | `app/api/contact/__tests__/route.test.ts`        |
+| E2E: Login flow             | `e2e/flows/auth/login.spec.ts`                   |
+| E2E: Add property flow      | `e2e/flows/landlord/add-property.spec.ts`        |
 
-| 原始碼路徑                      | 測試檔案路徑                                     |
-| :------------------------------ | :----------------------------------------------- |
-| `app/(auth)/login/page.tsx`     | `app/(auth)/login/__tests__/page.test.tsx`       |
-| `components/ui/Button.tsx`      | `components/ui/Button/__tests__/Button.test.tsx` |
-| `hooks/useAuth.ts`              | `hooks/useAuth/__tests__/useAuth.test.ts`        |
-| `lib/supabase/auth.ts`          | `lib/supabase/__tests__/auth.test.ts`            |
-| `actions/auth.ts`               | `actions/__tests__/auth.test.ts`                 |
-| `app/api/contact/route.ts`      | `app/api/contact/__tests__/route.test.ts`        |
-| E2E: 登入流程                   | `e2e/flows/auth/login.spec.ts`                   |
-| E2E: 新增房產流程               | `e2e/flows/landlord/add-property.spec.ts`        |
+| 原始碼路徑                  | 測試檔案路徑                                     |
+| :-------------------------- | :----------------------------------------------- |
+| `app/(auth)/login/page.tsx` | `app/(auth)/login/__tests__/page.test.tsx`       |
+| `components/ui/Button.tsx`  | `components/ui/Button/__tests__/Button.test.tsx` |
+| `hooks/useAuth.ts`          | `hooks/useAuth/__tests__/useAuth.test.ts`        |
+| `lib/supabase/auth.ts`      | `lib/supabase/__tests__/auth.test.ts`            |
+| `actions/auth.ts`           | `actions/__tests__/auth.test.ts`                 |
+| `app/api/contact/route.ts`  | `app/api/contact/__tests__/route.test.ts`        |
+| E2E: 登入流程               | `e2e/flows/auth/login.spec.ts`                   |
+| E2E: 新增房產流程           | `e2e/flows/landlord/add-property.spec.ts`        |
 
 ### Test Naming Best Practices / 測試命名最佳實踐
 
@@ -285,20 +285,26 @@ root/
 ├── docs/                       # Documentation center (ALL docs here)
 │   ├── deployment-guides/      # Deployment guides, environment setup
 │   ├── design-guidelines/      # UI/UX 設計規範、Figma 文件
-│   │   └── references/         # 設計參考資料
+│   │   ├── references/         # 設計參考資料
+│   │   └── proposals/          # 設計提案
 │   ├── implementation-plans/   # 實作計畫
-│   ├── project-process/        # 專案流程與進度
-│   │   └── progress-reports/   # 進度報告
-│   │       ├── ocr-development/
-│   │       ├── roadmap/
-│   │       ├── daily-reports/
-│   │       └── database-reports/
 │   ├── product-overview/       # 產品需求與使用場景
-│   ├── technical-selection/    # Technical architecture and selection
+│   ├── technical-selection/    # Technical architecture, IAM, and API design
+│   │   ├── access-control-policy.md
+│   │   └── iam-group-based-system-design.md
 │   ├── testing/                # Testing standards and guidelines
 │   │   ├── TEST_FILE_MANAGEMENT_STANDARD.md  # Detailed testing standards
 │   │   └── TEST_QUICK_REFERENCE.md           # Quick reference card
 │   └── file-naming-guidelines.md  # This file
+├── project-process/            # 專案流程與進度報告
+│   └── progress-reports/
+│       ├── iam/                # IAM 系統進度
+│       ├── mobile/             # Mobile App 進度
+│       ├── testing/            # 測試報告
+│       ├── ocr-development/
+│       ├── roadmap/
+│       ├── daily-reports/
+│       └── database-reports/
 └── scripts/                    # Automation scripts (Build, Deploy, Maintenance)
     ├── clean-macos-files.sh    # macOS hidden files cleaner
     └── migrate-tests.sh        # Test migration script
@@ -553,21 +559,21 @@ module.exports = {
 
 ## 📝 Change History / 修改歷史
 
-| Date       | Version | Modified By       | Changes                                                     |
-| ---------- | ------- | ----------------- | ----------------------------------------------------------- |
-| 2026-02-06 | 4.0     | Claude Opus 4.5   | Integrated testing standards, colocated testing approach    |
+| Date       | Version | Modified By       | Changes                                                      |
+| ---------- | ------- | ----------------- | ------------------------------------------------------------ |
+| 2026-02-06 | 4.0     | Claude Opus 4.5   | Integrated testing standards, colocated testing approach     |
 | 2026-02-02 | 3.0     | Claude Sonnet 4.5 | Complete rewrite: English-only file names, bilingual content |
 | 2026-02-01 | 2.2     | Gemini 3 Pro      | Updated directory structure, archiving process               |
 | 2026-01-30 | 2.1     | Claude Sonnet 4.5 | Added AI collaborator identification and change tracking     |
 | 2026-01-30 | 1.0     | Project Team      | Initial version                                              |
 
-| 日期       | 版本 | 修改者            | 修改內容                                     |
-| ---------- | ---- | ----------------- | -------------------------------------------- |
-| 2026-02-06 | 4.0  | Claude Opus 4.5   | 整合測試規範、就近測試方法                   |
-| 2026-02-02 | 3.0  | Claude Sonnet 4.5 | 完全重寫：英文專用檔案名、雙語內容           |
-| 2026-02-01 | 2.2  | Gemini 3 Pro      | 更新目錄結構、歸檔流程                       |
-| 2026-01-30 | 2.1  | Claude Sonnet 4.5 | 新增 AI 協作者識別與修改追蹤                 |
-| 2026-01-30 | 1.0  | Project Team      | 初始版本                                     |
+| 日期       | 版本 | 修改者            | 修改內容                           |
+| ---------- | ---- | ----------------- | ---------------------------------- |
+| 2026-02-06 | 4.0  | Claude Opus 4.5   | 整合測試規範、就近測試方法         |
+| 2026-02-02 | 3.0  | Claude Sonnet 4.5 | 完全重寫：英文專用檔案名、雙語內容 |
+| 2026-02-01 | 2.2  | Gemini 3 Pro      | 更新目錄結構、歸檔流程             |
+| 2026-01-30 | 2.1  | Claude Sonnet 4.5 | 新增 AI 協作者識別與修改追蹤       |
+| 2026-01-30 | 1.0  | Project Team      | 初始版本                           |
 
 ---
 

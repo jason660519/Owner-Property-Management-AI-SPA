@@ -6,14 +6,14 @@
 
 ## 核心規範文件（必讀）
 
-| 規範 | 路徑 |
-|:-----|:-----|
-| 通用開發規則 | [.claude/rules/general.md](.claude/rules/general.md) |
-| 前端規則 | [.claude/rules/frontend/react-expo.md](.claude/rules/frontend/react-expo.md) |
-| 後端規則 | [.claude/rules/backend/supabase.md](.claude/rules/backend/supabase.md) |
-| 檔案命名總則 | [docs/file-naming-guidelines.md](docs/file-naming-guidelines.md) |
+| 規範           | 路徑                                                                                                   |
+| :------------- | :----------------------------------------------------------------------------------------------------- |
+| 通用開發規則   | [.claude/rules/general.md](.claude/rules/general.md)                                                   |
+| 前端規則       | [.claude/rules/frontend/react-expo.md](.claude/rules/frontend/react-expo.md)                           |
+| 後端規則       | [.claude/rules/backend/supabase.md](.claude/rules/backend/supabase.md)                                 |
+| 檔案命名總則   | [docs/file-naming-guidelines.md](docs/file-naming-guidelines.md)                                       |
 | UI/UX 設計規範 | [docs/design-guidelines/UNIFIED_DESIGN_STANDARD.md](docs/design-guidelines/UNIFIED_DESIGN_STANDARD.md) |
-| 測試快速參考 | [docs/testing/TEST_QUICK_REFERENCE.md](docs/testing/TEST_QUICK_REFERENCE.md) |
+| 測試快速參考   | [docs/testing/TEST_QUICK_REFERENCE.md](docs/testing/TEST_QUICK_REFERENCE.md)                           |
 
 ---
 
@@ -34,13 +34,18 @@ root/
 ├── supabase/
 │   └── migrations/           # SQL 遷移檔 (Core + IAM)
 ├── docs/                     # 專案文檔中心
-│   ├── access-matrix-design-guidelines-and-process/
 │   ├── deployment-guides/
-│   ├── design-guidelines/
+│   ├── design-guidelines/    # UI/UX 設計規範、提案
+│   │   └── proposals/        # 設計提案
 │   ├── implementation-plans/
 │   ├── product-overview/
+│   ├── technical-selection/  # 技術架構、IAM、API 設計
 │   └── testing/
 ├── project-process/          # 專案流程與進度報告
+│   └── progress-reports/
+│       ├── iam/              # IAM 系統進度
+│       ├── mobile/           # Mobile App 進度
+│       └── testing/          # 測試報告
 └── scripts/                  # 自動化腳本
 ```
 
@@ -54,13 +59,13 @@ root/
 - **SQL View** (`unified_properties_view`) → 標準查詢（列表、詳情）
 - **RPC** → 特殊邏輯（地理搜尋、複雜權限、批量操作）
 
-| 核心表 | 用途 | 訪問方式 |
-|:-------|:-----|:---------|
-| `unified_properties_view` | 整合 Sales/Rentals 的虛擬表 | View (Read-Only) |
-| `Property_Sales` / `Property_Rentals` | 出售/出租物件 | 透過 View 或 RPC |
-| `Property_Photos` | 物件照片 | 直接訪問 |
-| `users_profile` | 使用者資料 | 直接訪問 |
-| `iam_groups` / `iam_roles` / `iam_group_members` | IAM 權限系統 | Server Action / RPC |
+| 核心表                                           | 用途                        | 訪問方式            |
+| :----------------------------------------------- | :-------------------------- | :------------------ |
+| `unified_properties_view`                        | 整合 Sales/Rentals 的虛擬表 | View (Read-Only)    |
+| `Property_Sales` / `Property_Rentals`            | 出售/出租物件               | 透過 View 或 RPC    |
+| `Property_Photos`                                | 物件照片                    | 直接訪問            |
+| `users_profile`                                  | 使用者資料                  | 直接訪問            |
+| `iam_groups` / `iam_roles` / `iam_group_members` | IAM 權限系統                | Server Action / RPC |
 
 ---
 
@@ -104,12 +109,12 @@ npm run build && npm run lint # 建構 + 檢查
 
 ## Context7 文檔路徑
 
-| 技術 | 路徑 |
-|:-----|:-----|
-| Next.js 15 | `/vercel/next.js` |
-| React 19 | `/facebook/react` |
-| Supabase | `/supabase/supabase` |
-| Expo 54 | `/expo/expo` |
+| 技術       | 路徑                    |
+| :--------- | :---------------------- |
+| Next.js 15 | `/vercel/next.js`       |
+| React 19   | `/facebook/react`       |
+| Supabase   | `/supabase/supabase`    |
+| Expo 54    | `/expo/expo`            |
 | TypeScript | `/microsoft/typescript` |
 
 ---

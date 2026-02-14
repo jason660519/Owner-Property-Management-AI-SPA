@@ -12,7 +12,7 @@ Only authorized members of the Engineering and Product Security teams are permit
 - Any change to the permission matrix (e.g., adding a new role, changing a CRUD right) requires a corresponding update in this documentation repository BEFORE code implementation.
 
 ## 3. "Single Source of Truth"
-This folder (`docs/access-matrix-design-guidelines-and-process`) is the **Single Source of Truth** for the project's permission logic.
+The folder `docs/technical-selection/` is the **Single Source of Truth** for the project's permission logic and IAM architecture.
 - Do not rely on inline code comments as the primary definition of security policies.
 - Do not store fragmented permission docs in other project folders.
 

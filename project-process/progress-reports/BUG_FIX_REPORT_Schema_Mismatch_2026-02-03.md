@@ -496,7 +496,7 @@ Before deploying this fix to production:
 - **Database Migration**: `supabase/migrations/20260130120000_create_users_profile.sql`
 - **RLS Policies**: `supabase/migrations/20260131000000_add_rls_policies.sql`
 - **E2E Test**: `apps/web/e2e/manual-auth-flow.spec.ts`
-- **Test Report**: `apps/web/docs/E2E_MANUAL_TEST_REPORT.md`
+- **Test Report**: `project-process/progress-reports/testing/e2e-manual-report.md`
 
 ---
 

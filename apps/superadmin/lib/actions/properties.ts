@@ -1,33 +1,21 @@
 // filepath: apps/superadmin/lib/actions/properties.ts
 // created: 2026-02-14 | creator: Claude Opus 4.6
-// Fetch all properties for superadmin dashboard using service_role to bypass RLS
+// last-modified: 2026-02-14 | modifier: Claude Opus 4.6
+// CRUD operations for superadmin properties using service_role to bypass RLS
 'use server';
 
 import { createAdminClient } from '@/utils/supabase/admin';
+import { revalidatePath } from 'next/cache';
 import { unstable_noStore as noStore } from 'next/cache';
-
-export interface PropertyItem {
-  id: string;
-  type: 'sale' | 'rental';
-  title: string;
-  address: string;
-  status: string;
-  price: number | null;
-  monthlyRent: number | null;
-  ownerName: string | null;
-  ownerId: string;
-  area: number | null;
-  propertyType: string | null;
-  bedrooms: number | null;
-  bathrooms: number | null;
-  createdAt: string;
-}
-
-export interface PropertiesResult {
-  properties: PropertyItem[];
-  totalSales: number;
-  totalRentals: number;
-}
+import type {
+  PropertyItem,
+  PropertiesResult,
+  UpdatePropertyInput,
+  ActionResult,
+  SaleStatus,
+  RentalStatus,
+} from '@/lib/types/properties';
+import { SALE_STATUSES, RENTAL_STATUSES } from '@/lib/types/properties';
 
 export async function getAllProperties(): Promise<PropertiesResult> {
   noStore();
@@ -158,5 +146,132 @@ export async function getAllProperties(): Promise<PropertiesResult> {
       timestamp: new Date().toISOString(),
     });
     return { properties: [], totalSales: 0, totalRentals: 0 };
+  }
+}
+
+// ── Update Property ─────────────────────────────────────────────────────
+export async function updateProperty(
+  id: string,
+  type: 'sale' | 'rental',
+  input: UpdatePropertyInput
+): Promise<ActionResult> {
+  const adminClient = createAdminClient();
+  const table = type === 'sale' ? 'property_sales' : 'property_rentals';
+
+  try {
+    // Validate status against CHECK constraints
+    if (input.status) {
+      const validStatuses = type === 'sale' ? SALE_STATUSES : RENTAL_STATUSES;
+      if (!validStatuses.includes(input.status as SaleStatus & RentalStatus)) {
+        return {
+          success: false,
+          message: `無效的狀態「${input.status}」。有效值：${validStatuses.join(', ')}`,
+        };
+      }
+    }
+
+    // Validate price / rent >= 0
+    if (type === 'sale' && input.price != null && input.price < 0) {
+      return { success: false, message: '價格不能為負數' };
+    }
+    if (type === 'rental' && input.monthlyRent != null && input.monthlyRent < 0) {
+      return { success: false, message: '月租金不能為負數' };
+    }
+
+    // First fetch existing record to merge details JSONB
+    const { data: existing, error: fetchError } = await adminClient
+      .from(table)
+      .select('details')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      console.error(`[Properties] Error fetching ${table} for update:`, fetchError);
+      return { success: false, message: `找不到物件：${fetchError.message}` };
+    }
+
+    // Build the update payload for top-level columns
+    const updatePayload: Record<string, unknown> = {};
+    if (input.address !== undefined) updatePayload.address = input.address;
+    if (input.status !== undefined) updatePayload.status = input.status;
+
+    if (type === 'sale' && input.price !== undefined) {
+      updatePayload.price = input.price;
+    }
+    if (type === 'rental') {
+      if (input.monthlyRent !== undefined) updatePayload.monthly_rent = input.monthlyRent;
+      if (input.leaseTerm !== undefined) updatePayload.lease_term = input.leaseTerm;
+    }
+
+    // Merge details JSONB (preserve existing fields not being updated)
+    const existingDetails = existing?.details || {};
+    const updatedDetails = { ...existingDetails };
+    if (input.title !== undefined) updatedDetails.title = input.title;
+    if (input.propertyType !== undefined) updatedDetails.type = input.propertyType;
+    if (input.area !== undefined) updatedDetails.area = input.area;
+    if (input.bedrooms !== undefined) updatedDetails.bedrooms = input.bedrooms;
+    if (input.bathrooms !== undefined) updatedDetails.bathrooms = input.bathrooms;
+    if (input.description !== undefined) updatedDetails.description = input.description;
+
+    updatePayload.details = updatedDetails;
+
+    const { error: updateError } = await adminClient
+      .from(table)
+      .update(updatePayload)
+      .eq('id', id);
+
+    if (updateError) {
+      console.error(`[Properties] Error updating ${table}:`, updateError);
+      return { success: false, message: `更新失敗：${updateError.message}` };
+    }
+
+    console.log(`[Properties] Updated ${table} id=${id}`, {
+      fields: Object.keys(updatePayload),
+      timestamp: new Date().toISOString(),
+    });
+
+    revalidatePath('/superadmin/properties');
+    revalidatePath('/superadmin');
+
+    return { success: true, message: '物件已成功更新' };
+  } catch (error) {
+    console.error('[Properties] Unexpected error in updateProperty:', error);
+    return {
+      success: false,
+      message: `更新失敗：${error instanceof Error ? error.message : '未知錯誤'}`,
+    };
+  }
+}
+
+// ── Delete Property ─────────────────────────────────────────────────────
+export async function deleteProperty(
+  id: string,
+  type: 'sale' | 'rental'
+): Promise<ActionResult> {
+  const adminClient = createAdminClient();
+  const table = type === 'sale' ? 'property_sales' : 'property_rentals';
+
+  try {
+    const { error } = await adminClient.from(table).delete().eq('id', id);
+
+    if (error) {
+      console.error(`[Properties] Error deleting from ${table}:`, error);
+      return { success: false, message: `刪除失敗：${error.message}` };
+    }
+
+    console.log(`[Properties] Deleted from ${table} id=${id}`, {
+      timestamp: new Date().toISOString(),
+    });
+
+    revalidatePath('/superadmin/properties');
+    revalidatePath('/superadmin');
+
+    return { success: true, message: '物件已成功刪除' };
+  } catch (error) {
+    console.error('[Properties] Unexpected error in deleteProperty:', error);
+    return {
+      success: false,
+      message: `刪除失敗：${error instanceof Error ? error.message : '未知錯誤'}`,
+    };
   }
 }

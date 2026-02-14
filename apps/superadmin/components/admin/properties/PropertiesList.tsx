@@ -1,8 +1,11 @@
 // filepath: apps/superadmin/components/admin/properties/PropertiesList.tsx
 // created: 2026-02-14 | creator: Claude Opus 4.6
+// last-modified: 2026-02-14 | modifier: Claude Opus 4.6
+// Properties table with edit/delete actions synced to Supabase
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   flexRender,
   getCoreRowModel,
@@ -13,25 +16,33 @@ import {
   getSortedRowModel,
   type SortingState,
 } from '@tanstack/react-table';
-import { Search, Home, ArrowUpDown, Building2, Key } from 'lucide-react';
+import { Search, Home, ArrowUpDown, Building2, Key, Pencil, Trash2, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
-import type { PropertyItem, PropertiesResult } from '@/lib/actions/properties';
+import { deleteProperty } from '@/lib/actions/properties';
+import type { PropertyItem, PropertiesResult } from '@/lib/types/properties';
+import { PropertyEditModal } from './PropertyEditModal';
 
 const statusVariantMap: Record<string, 'success' | 'warning' | 'error' | 'info' | 'default'> = {
   available: 'success',
   vacant: 'success',
+  occupied: 'info',
   rented: 'info',
   sold: 'default',
   pending: 'warning',
+  maintenance: 'warning',
+  archived: 'error',
   unavailable: 'error',
 };
 
 const statusLabelMap: Record<string, string> = {
   available: '可售',
   vacant: '空置',
+  occupied: '已租',
   rented: '已租',
   sold: '已售',
   pending: '待審',
+  maintenance: '維修中',
+  archived: '已封存',
   unavailable: '下架',
 };
 
@@ -49,10 +60,33 @@ function formatRent(rent: number | null): string {
 }
 
 export function PropertiesList({ data: result }: { data: PropertiesResult }) {
+  const router = useRouter();
   const { properties, totalSales, totalRentals } = result;
   const [globalFilter, setGlobalFilter] = useState('');
   const [sorting, setSorting] = useState<SortingState>([]);
   const [typeFilter, setTypeFilter] = useState<'all' | 'sale' | 'rental'>('all');
+
+  // Edit modal state
+  const [editingProperty, setEditingProperty] = useState<PropertyItem | null>(null);
+
+  // Delete state
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isPendingDelete, startDeleteTransition] = useTransition();
+
+  const handleDelete = (property: PropertyItem) => {
+    if (!confirm(`確定要刪除「${property.title}」嗎？此操作無法復原。`)) return;
+
+    setDeletingId(property.id);
+    startDeleteTransition(async () => {
+      const result = await deleteProperty(property.id, property.type);
+      if (result.success) {
+        router.refresh();
+      } else {
+        alert(`刪除失敗：${result.message}`);
+      }
+      setDeletingId(null);
+    });
+  };
 
   const filteredData =
     typeFilter === 'all'
@@ -155,6 +189,34 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
         </span>
       ),
     },
+    {
+      id: 'actions',
+      header: '操作',
+      enableSorting: false,
+      cell: (info) => {
+        const row = info.row.original;
+        const isDeleting = deletingId === row.id;
+        return (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setEditingProperty(row)}
+              title="編輯"
+              className="p-1.5 rounded-md hover:bg-accent/10 text-text-secondary hover:text-accent transition-colors"
+            >
+              <Pencil size={14} />
+            </button>
+            <button
+              onClick={() => handleDelete(row)}
+              disabled={isDeleting}
+              title="刪除"
+              className="p-1.5 rounded-md hover:bg-red-500/10 text-text-secondary hover:text-red-500 transition-colors disabled:opacity-50"
+            >
+              {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+            </button>
+          </div>
+        );
+      },
+    },
   ];
 
   const table = useReactTable({
@@ -224,18 +286,23 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
             <thead className="bg-bg-tertiary border-b border-border-default">
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <th
-                      key={header.id}
-                      className="px-4 py-3 font-medium text-text-secondary whitespace-nowrap cursor-pointer select-none hover:text-text-primary transition-colors"
-                      onClick={header.column.getToggleSortingHandler()}
-                    >
-                      <div className="flex items-center gap-1">
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                        <ArrowUpDown size={12} className="text-text-muted" />
-                      </div>
-                    </th>
-                  ))}
+                  {headerGroup.headers.map((header) => {
+                    const canSort = header.column.getCanSort();
+                    return (
+                      <th
+                        key={header.id}
+                        className={`px-4 py-3 font-medium text-text-secondary whitespace-nowrap transition-colors ${
+                          canSort ? 'cursor-pointer select-none hover:text-text-primary' : ''
+                        }`}
+                        onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+                      >
+                        <div className="flex items-center gap-1">
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {canSort && <ArrowUpDown size={12} className="text-text-muted" />}
+                        </div>
+                      </th>
+                    );
+                  })}
                 </tr>
               ))}
             </thead>
@@ -292,6 +359,15 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
           </div>
         </div>
       </div>
+
+      {/* Edit Modal */}
+      {editingProperty && (
+        <PropertyEditModal
+          property={editingProperty}
+          onClose={() => setEditingProperty(null)}
+          onSaved={() => router.refresh()}
+        />
+      )}
     </div>
   );
 }
