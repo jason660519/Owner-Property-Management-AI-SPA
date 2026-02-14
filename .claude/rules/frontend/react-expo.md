@@ -12,11 +12,11 @@ paths:
 
 ## 應用概覽
 
-| App | 框架 | 用途 | Port | 狀態 |
-|:----|:-----|:-----|:-----|:-----|
-| `apps/web` | Next.js 15 (App Router) | Web App + PWA (房東/租客/買家) | 3000 | 主要開發 |
-| `apps/superadmin` | Next.js 15 | 超級管理員後台 | 3001 | 開發中 |
-| `apps/mobile` | Expo 54 | Mobile App | 8081 | 已暫停 |
+| App               | 框架                    | 用途                           | Port | 狀態     |
+| :---------------- | :---------------------- | :----------------------------- | :--- | :------- |
+| `apps/web`        | Next.js 15 (App Router) | Web App + PWA (房東/租客/買家) | 3000 | 主要開發 |
+| `apps/superadmin` | Next.js 15              | 超級管理員後台                 | 3001 | 開發中   |
+| `apps/mobile`     | Expo 54                 | Mobile App                     | 8081 | 已暫停   |
 
 **技術棧**：React 19 + TypeScript 5.x + Tailwind CSS + Supabase JS SDK
 
@@ -76,6 +76,11 @@ apps/web/components/
 - 暗黑模式：`dark:`
 - 複用樣式用 `@apply`
 
+> 📎 **完整設計規格**（色彩變數、字型、間距、元件樣式）請參閱：
+> - [DESIGN_SYSTEM.md](../../docs/design-guidelines/DESIGN_SYSTEM.md)
+> - [UNIFIED_DESIGN_STANDARD.md](../../docs/design-guidelines/UNIFIED_DESIGN_STANDARD.md)
+> - [THEME_SYSTEM.md](../../docs/design-guidelines/THEME_SYSTEM.md)
+
 ### Mobile — NativeWind + StyleSheet
 
 - 簡單樣式用 NativeWind (`className`)
@@ -87,14 +92,14 @@ apps/web/components/
 
 ## 效能優化
 
-| 平台 | 項目 | 方法 |
-|:-----|:-----|:-----|
-| Web | 代碼分割 | `next/dynamic` |
-| Web | 圖片 | `<Image>` 組件 |
-| Web | 字體 | `next/font` |
-| Mobile | 列表 | `FlatList` + `removeClippedSubviews` |
-| Mobile | 圖片 | `expo-image` |
-| 通用 | Memoization | `React.memo` / `useMemo` / `useCallback` (按需) |
+| 平台   | 項目        | 方法                                            |
+| :----- | :---------- | :---------------------------------------------- |
+| Web    | 代碼分割    | `next/dynamic`                                  |
+| Web    | 圖片        | `<Image>` 組件                                  |
+| Web    | 字體        | `next/font`                                     |
+| Mobile | 列表        | `FlatList` + `removeClippedSubviews`            |
+| Mobile | 圖片        | `expo-image`                                    |
+| 通用   | Memoization | `React.memo` / `useMemo` / `useCallback` (按需) |
 
 ---
 

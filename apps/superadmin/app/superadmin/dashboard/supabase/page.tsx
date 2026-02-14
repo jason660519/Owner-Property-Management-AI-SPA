@@ -61,7 +61,7 @@ export default function SupabasePage() {
             <li>Go to the Supabase Dashboard.</li>
             <li>Navigate to Database &gt; Backups.</li>
             <li>Select the Point-in-Time Recovery (PITR) or a scheduled backup.</li>
-            <li>Click "Restore".</li>
+            <li>Click &quot;Restore&quot;.</li>
           </ol>
         </div>
         <button className="border border-gray-300 px-4 py-2 rounded-md hover:bg-gray-50">

@@ -11,7 +11,7 @@ export function Badge({
   size?: 'default' | 'sm';
 }) {
   const variantClasses = {
-    default: 'bg-[#333333] text-white',
+    default: 'bg-bg-tertiary text-text-primary',
     success: 'bg-green-500/20 text-green-500',
     warning: 'bg-yellow-500/20 text-yellow-500',
     error: 'bg-red-500/20 text-red-500',

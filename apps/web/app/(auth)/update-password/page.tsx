@@ -20,6 +20,9 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card'
 import { updatePassword } from '@/lib/supabase/auth'
+import { createClient } from '@/lib/supabase/client'
+import { ROLE_METADATA } from '@/config/roles'
+import { canonicalizeRole } from '@/lib/roles'
 import Link from 'next/link'
 
 const resetPasswordSchema = z.object({
@@ -74,11 +77,43 @@ export default function ResetPasswordPage() {
     try {
       await updatePassword(data.password)
       setSuccess(true)
+
+      // Determine redirect target based on user's roles (check profile table first, then metadata)
+      let redirectPath = '/portal'
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          // Try profile table first (more reliable since acceptInviteCode writes here)
+          const { data: profile } = await supabase
+            .from('users_profile')
+            .select('roles, primary_role')
+            .eq('id', user.id)
+            .single()
+
+          const roles: string[] = profile?.roles || user.app_metadata?.roles || user.user_metadata?.roles || []
+          const primaryRole = profile?.primary_role || (roles.length === 1 ? roles[0] : null)
+
+          if (roles.includes('super_admin') || roles.length > 1) {
+            redirectPath = '/portal'
+          } else if (primaryRole) {
+            const canonical = canonicalizeRole(primaryRole)
+            if (canonical) {
+              const meta = ROLE_METADATA.find(r => r.role === canonical)
+              if (meta) redirectPath = meta.dashboardPath
+            }
+          }
+        }
+      } catch {
+        // Fallback to /portal if role resolution fails
+      }
+
       setTimeout(() => {
-        router.push('/login')
+        router.push(redirectPath)
+        router.refresh()
       }, 3000)
-    } catch (err: any) {
-      setError(err.message || '重設密碼失敗，請稍後再試')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '重設密碼失敗，請稍後再試')
     } finally {
       setIsLoading(false)
     }
@@ -93,13 +128,13 @@ export default function ResetPasswordPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h3 className="text-xl font-semibold text-white mb-2">密碼重設成功！</h3>
+          <h3 className="text-xl font-semibold text-white mb-2">帳號設定完成！</h3>
           <p className="text-[#999999] mb-6">
-            您的密碼已成功重設<br />
-            現在可以使用新密碼登入
+            您的密碼已成功設定<br />
+            即將為您導向工作區
           </p>
           <p className="text-sm text-[#666666]">
-            3 秒後自動跳轉到登入頁...
+            3 秒後自動跳轉...
           </p>
         </CardContent>
       </Card>

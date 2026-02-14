@@ -1,15 +1,17 @@
+// filepath: apps/web/lib/api/properties.ts
+// created: 2026-01-22 | creator: Claude Opus 4.6
+// last-modified: 2026-02-14 | modifier: Claude Opus 4.6
+
 import { createClient } from '../supabase/server';
-import { writeFile, appendFile } from 'fs/promises';
-import { join } from 'path';
 
 export interface PropertyDetails {
     title: string;
     description: string;
-    imageUrl: string; // CamelCase in JSON
+    imageUrl: string;
     bedrooms: number;
     bathrooms: number;
     area: number;
-    type: string; // '公寓', etc.
+    type: string; // '公寓', '別墅', '套房', '華廈', etc.
     images?: string[];
 }
 
@@ -32,7 +34,7 @@ export interface Property {
     address: string;
     type: string;
     status: string; // 'sale' | 'rent' for UI
-    statusLabel: string; // 'available', 'sold'
+    statusLabel: string; // 'available', 'sold', 'vacant', etc.
     price: string;
     rawPrice: number;
     area: number;
@@ -41,6 +43,43 @@ export interface Property {
     imageUrl: string;
     images: string[];
     created_at: string;
+}
+
+/**
+ * Safely parse raw Supabase row into DatabaseProperty with runtime validation.
+ * Returns null if the data shape is invalid.
+ */
+function parseDatabaseProperty(
+    raw: Record<string, unknown>,
+    propertyType: 'sale' | 'rental'
+): DatabaseProperty | null {
+    if (!raw || typeof raw !== 'object') return null;
+    if (typeof raw.id !== 'string' || typeof raw.address !== 'string') return null;
+
+    const details = (raw.details && typeof raw.details === 'object')
+        ? raw.details as Record<string, unknown>
+        : {};
+
+    return {
+        id: raw.id as string,
+        owner_id: (raw.owner_id as string) || '',
+        address: raw.address as string,
+        property_type: propertyType,
+        price: typeof raw.price === 'number' ? raw.price : null,
+        monthly_rent: typeof raw.monthly_rent === 'number' ? raw.monthly_rent : null,
+        status: typeof raw.status === 'string' ? raw.status : 'unknown',
+        details: {
+            title: typeof details.title === 'string' ? details.title : '',
+            description: typeof details.description === 'string' ? details.description : '',
+            imageUrl: typeof details.imageUrl === 'string' ? details.imageUrl : '',
+            bedrooms: typeof details.bedrooms === 'number' ? details.bedrooms : 0,
+            bathrooms: typeof details.bathrooms === 'number' ? details.bathrooms : 0,
+            area: typeof details.area === 'number' ? details.area : 0,
+            type: typeof details.type === 'string' ? details.type : '',
+            images: Array.isArray(details.images) ? details.images as string[] : undefined,
+        },
+        created_at: typeof raw.created_at === 'string' ? raw.created_at : new Date().toISOString(),
+    };
 }
 
 function mapDatabaseToProperty(dbProp: DatabaseProperty): Property {
@@ -138,71 +177,59 @@ export interface PropertiesResult {
     isMock: boolean;
 }
 
+/**
+ * Fetch both property_sales and property_rentals, merge and sort by created_at.
+ * Falls back to mock data on error or empty results.
+ */
+async function fetchAllProperties(supabase: Awaited<ReturnType<typeof createClient>>): Promise<{
+    sales: DatabaseProperty[];
+    rentals: DatabaseProperty[];
+    error: string | null;
+}> {
+    const [salesResult, rentalsResult] = await Promise.all([
+        supabase.from('property_sales').select('*').order('created_at', { ascending: false }),
+        supabase.from('property_rentals').select('*').order('created_at', { ascending: false }),
+    ]);
+
+    if (salesResult.error || rentalsResult.error) {
+        const errMsg = (salesResult.error?.message || rentalsResult.error?.message) ?? 'Unknown error';
+        return { sales: [], rentals: [], error: errMsg };
+    }
+
+    const sales = (salesResult.data || [])
+        .map(row => parseDatabaseProperty(row as Record<string, unknown>, 'sale'))
+        .filter((p): p is DatabaseProperty => p !== null);
+
+    const rentals = (rentalsResult.data || [])
+        .map(row => parseDatabaseProperty(row as Record<string, unknown>, 'rental'))
+        .filter((p): p is DatabaseProperty => p !== null);
+
+    return { sales, rentals, error: null };
+}
+
 export async function getProperties(): Promise<PropertiesResult> {
-    // #region agent log
-    const logPath = join(process.cwd(), '.cursor', 'debug.log');
-    const logEntry = JSON.stringify({location:'lib/api/properties.ts:134',message:'getProperties entry',data:{hasEnvUrl:!!process.env.NEXT_PUBLIC_SUPABASE_URL,hasEnvKey:!!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,envUrlLength:process.env.NEXT_PUBLIC_SUPABASE_URL?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'}) + '\n';
-    appendFile(logPath, logEntry).catch(()=>{});
-    // #endregion
     let supabase;
     try {
-        // #region agent log
-        const logPath2 = join(process.cwd(), '.cursor', 'debug.log');
-        const logEntry2 = JSON.stringify({location:'lib/api/properties.ts:138',message:'Before createClient call',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'}) + '\n';
-        appendFile(logPath2, logEntry2).catch(()=>{});
-        // #endregion
         supabase = await createClient();
-        // #region agent log
-        const logPath3 = join(process.cwd(), '.cursor', 'debug.log');
-        const logEntry3 = JSON.stringify({location:'lib/api/properties.ts:141',message:'After createClient call',data:{supabaseType:typeof supabase,hasFrom:typeof supabase?.from==='function'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'}) + '\n';
-        appendFile(logPath3, logEntry3).catch(()=>{});
-        // #endregion
     } catch (error) {
-        // #region agent log
-        const logPath4 = join(process.cwd(), '.cursor', 'debug.log');
-        const logEntry4 = JSON.stringify({location:'lib/api/properties.ts:144',message:'Error in createClient',data:{errorMessage:error instanceof Error?error.message:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'}) + '\n';
-        appendFile(logPath4, logEntry4).catch(()=>{});
-        // #endregion
         console.error('Failed to create Supabase client:', error);
         return {
             properties: MOCK_PROPERTIES.map(mapDatabaseToProperty),
             isMock: true
         };
     }
-    // #region agent log
-    const logPath5 = join(process.cwd(), '.cursor', 'debug.log');
-    const logEntry5 = JSON.stringify({location:'lib/api/properties.ts:148',message:'Before Supabase query',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'}) + '\n';
-    appendFile(logPath5, logEntry5).catch(()=>{});
-    // #endregion
-    
-    const { data: salesData, error: salesError } = await supabase
-        .from('property_sales')
-        .select('*')
-        .order('created_at', { ascending: false });
 
-    const { data: rentalsData, error: rentalsError } = await supabase
-        .from('property_rentals')
-        .select('*')
-        .order('created_at', { ascending: false });
+    const { sales, rentals, error } = await fetchAllProperties(supabase);
 
-    // #region agent log
-    const logPath6 = join(process.cwd(), '.cursor', 'debug.log');
-    const logEntry6 = JSON.stringify({location:'lib/api/properties.ts:150',message:'After Supabase query',data:{hasSalesError:!!salesError,hasRentalsError:!!rentalsError,salesCount:salesData?.length||0,rentalsCount:rentalsData?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'}) + '\n';
-    appendFile(logPath6, logEntry6).catch(()=>{});
-    // #endregion
-
-    if (salesError || rentalsError) {
-        console.error('Error fetching properties, using mock data:', salesError || rentalsError);
+    if (error) {
+        console.error('Error fetching properties, using mock data:', error);
         return {
             properties: MOCK_PROPERTIES.map(mapDatabaseToProperty),
             isMock: true
         };
     }
 
-    const sales = (salesData || []).map(p => ({ ...p, property_type: 'sale' }));
-    const rentals = (rentalsData || []).map(p => ({ ...p, property_type: 'rental' }));
-    
-    const allProperties = [...sales, ...rentals].sort((a, b) => 
+    const allProperties = [...sales, ...rentals].sort((a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
 
@@ -215,25 +242,53 @@ export async function getProperties(): Promise<PropertiesResult> {
     }
 
     return {
-        properties: (allProperties as unknown as DatabaseProperty[]).map(mapDatabaseToProperty),
+        properties: allProperties.map(mapDatabaseToProperty),
         isMock: false
     };
 }
 
-export async function getProperty(id: string) {
+/**
+ * Fetch a single property by ID.
+ * Queries both property_sales and property_rentals directly
+ * (consistent with getProperties, and supports anon access via RLS).
+ */
+export async function getProperty(id: string): Promise<Property | null> {
     // Check for mock ID
     if (id.startsWith('mock-')) {
         const mock = MOCK_PROPERTIES.find(p => p.id === id);
         return mock ? mapDatabaseToProperty(mock) : null;
     }
 
-    const supabase = await createClient();
-    const { data, error } = await supabase.from('properties').select('*').eq('id', id).single();
-
-    if (error) {
-        console.error(`Error fetching property ${id}:`, error);
+    let supabase;
+    try {
+        supabase = await createClient();
+    } catch (error) {
+        console.error('Failed to create Supabase client:', error);
         return null;
     }
 
-    return mapDatabaseToProperty(data as unknown as DatabaseProperty);
+    // Query both tables in parallel - same pattern as getProperties()
+    const [salesResult, rentalsResult] = await Promise.all([
+        supabase.from('property_sales').select('*').eq('id', id).maybeSingle(),
+        supabase.from('property_rentals').select('*').eq('id', id).maybeSingle(),
+    ]);
+
+    // Check sales table first
+    if (salesResult.data) {
+        const parsed = parseDatabaseProperty(salesResult.data as Record<string, unknown>, 'sale');
+        return parsed ? mapDatabaseToProperty(parsed) : null;
+    }
+
+    // Then check rentals table
+    if (rentalsResult.data) {
+        const parsed = parseDatabaseProperty(rentalsResult.data as Record<string, unknown>, 'rental');
+        return parsed ? mapDatabaseToProperty(parsed) : null;
+    }
+
+    // Log errors if both failed
+    if (salesResult.error && rentalsResult.error) {
+        console.error(`Error fetching property ${id}:`, salesResult.error, rentalsResult.error);
+    }
+
+    return null;
 }

@@ -56,6 +56,116 @@ export interface CreatePropertyResult {
   error_code?: string
 }
 
+/** 房東物件列表項目 */
+export interface MyPropertyItem {
+  id: string
+  title: string
+  address: string
+  type: 'rental' | 'sale'
+  status: string
+  price: number
+  area: number
+  imageUrl: string
+  created_at: string
+}
+
+export interface MyPropertiesResult {
+  success: boolean
+  properties: MyPropertyItem[]
+  error?: string
+}
+
+/**
+ * 查詢當前登入房東的所有物件（不分狀態）
+ * RLS 會自動過濾為 owner_id = auth.uid() 的物件
+ */
+export async function getMyProperties(): Promise<MyPropertiesResult> {
+  try {
+    const supabase = await createClient()
+
+    // 1. 確認用戶已登入
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return { success: false, properties: [], error: '用戶未登入' }
+    }
+
+    // 2. 並行查詢出售和出租物件（RLS 自動過濾 owner_id）
+    const [salesResult, rentalsResult] = await Promise.all([
+      supabase
+        .from('property_sales')
+        .select('*')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('property_rentals')
+        .select('*')
+        .order('created_at', { ascending: false }),
+    ])
+
+    if (salesResult.error) {
+      console.error('[GetMyProperties] Sales query error:', salesResult.error)
+    }
+    if (rentalsResult.error) {
+      console.error('[GetMyProperties] Rentals query error:', rentalsResult.error)
+    }
+
+    // 3. 正規化出售物件
+    const salesProperties: MyPropertyItem[] = (salesResult.data || []).map((s) => {
+      const details = (s.details || {}) as Record<string, unknown>
+      return {
+        id: s.id,
+        title: (details.title as string) || s.address,
+        address: s.address,
+        type: 'sale' as const,
+        status: s.status,
+        price: Number(s.price) || 0,
+        area: Number(details.main_area_sqm || details.area) || 0,
+        imageUrl: (details.imageUrl as string) || '',
+        created_at: s.created_at,
+      }
+    })
+
+    // 4. 正規化出租物件
+    const rentalProperties: MyPropertyItem[] = (rentalsResult.data || []).map((r) => {
+      const details = (r.details || {}) as Record<string, unknown>
+      return {
+        id: r.id,
+        title: (details.title as string) || r.address,
+        address: r.address,
+        type: 'rental' as const,
+        status: r.status,
+        price: Number(r.monthly_rent) || 0,
+        area: Number(details.main_area_sqm || details.area) || 0,
+        imageUrl: (details.imageUrl as string) || '',
+        created_at: r.created_at,
+      }
+    })
+
+    // 5. 合併並按建立時間排序
+    const allProperties = [...salesProperties, ...rentalProperties].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
+
+    console.log('[GetMyProperties] Fetched:', {
+      sales: salesProperties.length,
+      rentals: rentalProperties.length,
+      total: allProperties.length,
+    })
+
+    return { success: true, properties: allProperties }
+  } catch (error) {
+    console.error('[GetMyProperties] Unexpected error:', error)
+    return {
+      success: false,
+      properties: [],
+      error: error instanceof Error ? error.message : '未知錯誤',
+    }
+  }
+}
+
 /**
  * 創建新物件
  */
@@ -255,7 +365,7 @@ export async function uploadPropertyPhoto(
         .getPublicUrl(data.path)
 
       const tableName = propertyType === 'sale' ? 'property_sales' : 'property_rentals'
-      
+
       // 獲取當前 details
       const { data: currentProp, error: fetchError } = await supabase
         .from(tableName)
@@ -276,9 +386,9 @@ export async function uploadPropertyPhoto(
           .from(tableName)
           .update({ details: newDetails })
           .eq('id', propertyId)
-          
+
         if (updateError) {
-           console.error('[UploadPhoto] Failed to update property details:', updateError)
+          console.error('[UploadPhoto] Failed to update property details:', updateError)
         }
       }
     }

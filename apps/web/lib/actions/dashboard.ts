@@ -45,6 +45,32 @@ export interface PotentialTenantStats {
   applicationsInProgress: number
 }
 
+export interface AgentDashboardStats {
+  activeListings: number
+  pendingApplications: number
+  upcomingViewings: number
+  totalCommission: number
+  thisMonthDeals: number
+  clientCount: number
+}
+
+export interface PotentialBuyerStats {
+  savedProperties: number
+  scheduledViewings: number
+  activeOffers: number
+  newMatches: number
+  preApprovedAmount: number
+}
+
+export interface ServiceProviderStats {
+  openWorkOrders: number
+  completedJobsMonth: number
+  averageRating: number
+  todayScheduleCount: number
+  earningsMonth: number
+  pendingQuotes: number
+}
+
 export interface TenantProperty {
   id: string
   title: string
@@ -436,5 +462,58 @@ export async function getPotentialTenantProperties(): Promise<TenantProperty[]> 
   } catch (error) {
     console.error('Error fetching potential tenant properties:', error)
     return []
+  }
+}
+
+/**
+ * Fetch statistics for Agent Dashboard
+ */
+export async function getAgentDashboardStats(): Promise<AgentDashboardStats> {
+  noStore()
+  // Mock data for initial implementation
+  await new Promise(resolve => setTimeout(resolve, 500)) // Simulate network delay
+
+  return {
+    activeListings: 12,
+    pendingApplications: 5,
+    upcomingViewings: 8,
+    totalCommission: 158000,
+    thisMonthDeals: 3,
+    clientCount: 45
+  }
+}
+
+/**
+ * Fetch statistics for Potential Buyer Dashboard
+ */
+export async function getPotentialBuyerDashboardStats(): Promise<PotentialBuyerStats> {
+  noStore()
+  // Mock data for initial implementation
+  await new Promise(resolve => setTimeout(resolve, 500))
+
+  return {
+    savedProperties: 15,
+    scheduledViewings: 3,
+    activeOffers: 1,
+    newMatches: 8,
+    preApprovedAmount: 15000000
+  }
+}
+
+/**
+ * Fetch statistics for Service Provider Dashboard
+ */
+export async function getServiceProviderDashboardStats(): Promise<ServiceProviderStats> {
+  noStore()
+  // Mock data for initial implementation
+  await new Promise(resolve => setTimeout(resolve, 500))
+
+  return {
+    openWorkOrders: 7,
+    completedJobsMonth: 24,
+    averageRating: 4.8,
+    todayScheduleCount: 3,
+    earningsMonth: 86000,
+    pendingQuotes: 4
   }
 }

@@ -3,7 +3,8 @@ Pydantic schemas for OCR processing
 """
 
 from enum import Enum
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel
 
 

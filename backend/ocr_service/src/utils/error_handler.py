@@ -1,21 +1,23 @@
 """
 Error handling and retry mechanism for OCR VLM system
 """
-from typing import Dict, Any, Optional, Callable, Type
 import asyncio
 from datetime import datetime
+from typing import Any, Callable, Dict, Optional, Type
+
 from loguru import logger
 from tenacity import (
-    retry, 
-    stop_after_attempt, 
-    wait_exponential, 
+    before_sleep_log,
+    retry,
     retry_if_exception_type,
-    before_sleep_log
+    stop_after_attempt,
+    wait_exponential,
 )
+
 
 class OCRVLMError(Exception):
     """Base exception for OCR VLM system"""
-    def __init__(self, message: str, error_code: str = "INTERNAL_ERROR", 
+    def __init__(self, message: str, error_code: str = "INTERNAL_ERROR",
                  details: Optional[Dict[str, Any]] = None):
         self.message = message
         self.error_code = error_code
@@ -51,9 +53,9 @@ class TimeoutError(OCRVLMError):
 class ErrorHandler:
     def __init__(self, metrics_collector: Optional[Any] = None):
         self.metrics_collector = metrics_collector
-    
+
     def create_retry_decorator(
-        self, 
+        self,
         max_attempts: int = 3,
         min_wait: float = 1.0,
         max_wait: float = 10.0,
@@ -62,7 +64,7 @@ class ErrorHandler:
         """Create a retry decorator with custom parameters"""
         if retry_exceptions is None:
             retry_exceptions = (Exception,)
-        
+
         return retry(
             stop=stop_after_attempt(max_attempts),
             wait=wait_exponential(multiplier=1, min=min_wait, max=max_wait),
@@ -70,10 +72,10 @@ class ErrorHandler:
             reraise=True,
             before_sleep=before_sleep_log(logger, "WARNING")
         )
-    
+
     async def handle_error(
-        self, 
-        error: Exception, 
+        self,
+        error: Exception,
         context: Optional[Dict[str, Any]] = None,
         operation: str = "unknown"
     ) -> Dict[str, Any]:
@@ -81,14 +83,14 @@ class ErrorHandler:
         try:
             # Log error
             logger.error(f"Error in {operation}: {error}")
-            
+
             # Record metrics
             if self.metrics_collector:
                 await self.metrics_collector.increment("ocr_error", tags={
                     "operation": operation,
                     "error_type": error.__class__.__name__
                 })
-            
+
             # Create structured error response
             if isinstance(error, OCRVLMError):
                 error_response = {
@@ -108,9 +110,9 @@ class ErrorHandler:
                         "timestamp": datetime.now().isoformat()
                     }
                 }
-            
+
             return error_response
-            
+
         except Exception as e:
             logger.critical(f"Error handling failed: {e}")
             return {
@@ -121,9 +123,9 @@ class ErrorHandler:
                     "timestamp": datetime.now().isoformat()
                 }
             }
-    
+
     async def execute_with_retry(
-        self, 
+        self,
         operation: Callable,
         operation_name: str,
         max_attempts: int = 3,
@@ -135,37 +137,37 @@ class ErrorHandler:
             max_attempts=max_attempts,
             retry_exceptions=retry_exceptions
         )
-        
+
         @retry_decorator
         async def _execute():
             return await operation(**kwargs)
-        
+
         try:
             result = await _execute()
-            
+
             # Record success
             if self.metrics_collector:
                 await self.metrics_collector.increment("ocr_success", tags={
                     "operation": operation_name
                 })
-            
+
             return result
-            
+
         except Exception as e:
             # Handle error and re-raise or return error response
             error_response = await self.handle_error(e, {"operation": operation_name}, operation_name)
-            
+
             # For retryable errors, re-raise to trigger retry
             if retry_exceptions and isinstance(e, retry_exceptions):
                 raise
-            
+
             # For non-retryable errors, return error response
             return error_response
-    
+
     async def validate_document(
-        self, 
-        content: bytes, 
-        filename: str, 
+        self,
+        content: bytes,
+        filename: str,
         max_size_mb: int = 10
     ) -> None:
         """Validate document before processing"""
@@ -176,7 +178,7 @@ class ErrorHandler:
                     f"File size exceeds maximum allowed size of {max_size_mb}MB",
                     {"file_size": len(content), "max_size": max_size_mb * 1024 * 1024}
                 )
-            
+
             # Check file type
             allowed_extensions = {'.jpg', '.jpeg', '.png', '.pdf'}
             file_ext = filename.lower()
@@ -185,20 +187,20 @@ class ErrorHandler:
                     f"Unsupported file type: {filename}. Allowed types: {allowed_extensions}",
                     {"filename": filename, "allowed_extensions": list(allowed_extensions)}
                 )
-            
+
             # Check if content is valid
             if len(content) == 0:
                 raise ValidationError("Empty file content", {"filename": filename})
-            
+
             logger.info(f"Document validation passed: {filename}")
-            
+
         except ValidationError:
             raise
         except Exception as e:
-            raise ValidationError(f"Document validation failed: {e}", {"filename": filename})
-    
+            raise ValidationError(f"Document validation failed: {e}", {"filename": filename}) from e
+
     async def create_timeout_handler(
-        self, 
+        self,
         timeout_seconds: float = 30.0,
         timeout_error_type: Type[Exception] = TimeoutError
     ) -> Callable:
@@ -213,40 +215,40 @@ class ErrorHandler:
                 raise timeout_error_type(
                     f"Operation timed out after {timeout_seconds} seconds",
                     {"timeout_seconds": timeout_seconds}
-                )
-        
+                ) from None
+
         return _with_timeout
-    
+
     async def get_error_stats(
-        self, 
+        self,
         time_window_minutes: Optional[int] = 60
     ) -> Dict[str, Any]:
         """Get error statistics"""
         if not self.metrics_collector:
             return {}
-        
+
         try:
             error_metrics = await self.metrics_collector.get_metrics(
                 "ocr_error", time_window_minutes=time_window_minutes
             )
-            
+
             success_metrics = await self.metrics_collector.get_metrics(
                 "ocr_success", time_window_minutes=time_window_minutes
             )
-            
+
             total_errors = sum(
-                len(metric_data['values']) 
+                len(metric_data['values'])
                 for metric_data in error_metrics.values()
             ) if error_metrics else 0
-            
+
             total_success = sum(
-                len(metric_data['values']) 
+                len(metric_data['values'])
                 for metric_data in success_metrics.values()
             ) if success_metrics else 0
-            
+
             total_operations = total_errors + total_success
             error_rate = total_errors / total_operations if total_operations > 0 else 0
-            
+
             # Group errors by type
             error_types = {}
             if error_metrics:
@@ -255,7 +257,7 @@ class ErrorHandler:
                     if '_' in key:
                         error_type = key.split('_')[-1]
                         error_types[error_type] = len(metric_data['values'])
-            
+
             return {
                 "total_operations": total_operations,
                 "total_errors": total_errors,
@@ -264,22 +266,22 @@ class ErrorHandler:
                 "error_types": error_types,
                 "time_window_minutes": time_window_minutes
             }
-            
+
         except Exception as e:
             logger.warning(f"Failed to get error stats: {e}")
             return {}
-    
+
     async def health_check(self) -> Dict[str, Any]:
         """Perform health check"""
         try:
             error_stats = await self.get_error_stats(time_window_minutes=5)
-            
+
             return {
                 'status': 'healthy',
                 'message': 'Error handler functioning normally',
                 'error_stats': error_stats
             }
-            
+
         except Exception as e:
             return {
                 'status': 'unhealthy',

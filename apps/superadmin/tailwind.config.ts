@@ -5,12 +5,15 @@ const config: Config = {
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
+        // Primitive colors
         grey: { '08': '#1A1A1A', '10': '#2A2A2A', '15': '#333333', '60': '#999999' },
         purple: { '60': '#7C3AED', '70': '#6D28D9' },
-        // Design System Colors
+
+        // Semantic colors (mapped to CSS variables — auto-switch with theme)
         bg: {
           primary: 'var(--color-bg-primary)',
           secondary: 'var(--color-bg-secondary)',
@@ -21,16 +24,15 @@ const config: Config = {
           secondary: 'var(--color-text-secondary)',
           muted: 'var(--color-text-muted)',
         },
-        brand: {
-          DEFAULT: 'var(--color-accent)',
-          alt: 'var(--color-accent-hover)',
-          light: '#a584f9',
-        },
         border: {
-          DEFAULT: 'var(--color-border-default)',
+          default: 'var(--color-border-default)',
           light: 'var(--color-border-light)',
-          subtle: '#4c4c4c',
-        }
+        },
+        accent: {
+          DEFAULT: 'var(--color-accent)',
+          hover: 'var(--color-accent-hover)',
+          subtle: 'var(--color-accent-subtle)',
+        },
       },
       fontFamily: {
         primary: ['Urbanist', 'system-ui', 'sans-serif'],
@@ -40,11 +42,10 @@ const config: Config = {
         'base': '12px',
         'lg': '16px',
         'xl': '20px',
-      }
+      },
     },
   },
   plugins: [],
-  darkMode: 'class',
 }
 
 export default config

@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
 
+// This test suite verifies login redirection logic on Port 3001 (Superadmin App).
+// Since 2026-02-13, Port 3001 acts as a unified login entry point:
+// - Super Admins -> stay on Port 3001 (/superadmin)
+// - Other roles (Landlord/Tenant/Agent) -> redirect to Port 3000 (Main Site)
+
 const BASE_URL = 'http://localhost:3001';
 
 test.describe('Superadmin Login Redirection & UI', () => {
@@ -13,7 +18,7 @@ test.describe('Superadmin Login Redirection & UI', () => {
 
   test('UI should match design system', async ({ page }) => {
     // Check title
-    await expect(page.getByRole('heading', { name: '超級管理員登入' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '管理員登入' })).toBeVisible();
     
     // Check inputs
     await expect(page.getByLabel('電子郵件')).toBeVisible();
@@ -90,7 +95,7 @@ test.describe('Superadmin Login Redirection & UI', () => {
     }
   });
 
-  test('Default redirect should be to dashboard on 3001', async ({ page }) => {
+  test('Super Admin should be redirected to Superadmin Dashboard (Port 3001)', async ({ page }) => {
     await page.goto(`${BASE_URL}/login`);
     
     await page.fill('input[type="email"]', 'a0405142777@gmail.com');
@@ -98,10 +103,16 @@ test.describe('Superadmin Login Redirection & UI', () => {
     
     await page.click('button[type="submit"]');
     
-    await page.waitForURL(/superadmin|localhost:3000/);
+    // Expect strict redirect to Superadmin Dashboard
+    await page.waitForURL(/superadmin/);
+    await expect(page).toHaveURL(/\/superadmin/);
     
-    if (!page.url().includes('localhost:3000')) {
-        await expect(page).toHaveURL(`${BASE_URL}/superadmin`);
-    }
+    // Ensure we are NOT on Port 3000
+    const url = page.url();
+    expect(url).toContain('localhost:3001');
+    expect(url).not.toContain('localhost:3000');
   });
+
+  // Note: To test Landlord redirect, we would need a different account (e.g. landlord@example.com)
+  // Since we only have one test account credentials in this suite, we focus on the Super Admin case.
 });

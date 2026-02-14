@@ -3,6 +3,8 @@
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { clsx } from 'clsx'
+import { useQuery } from '@tanstack/react-query'
+import { messageService } from '../../services/messageService'
 
 interface NavItem {
   name: string
@@ -80,6 +82,12 @@ const navItems: NavItem[] = [
 export function Sidebar() {
   const pathname = usePathname()
 
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ['unread-messages-count'],
+    queryFn: () => messageService.getUnreadCount(),
+    refetchInterval: 30000, // Poll every 30 seconds
+  })
+
   return (
     <aside className="fixed left-0 top-0 bottom-0 w-64 bg-[#2A2A2A] border-r border-[#333333] overflow-y-auto">
       {/* Logo */}
@@ -112,24 +120,17 @@ export function Sidebar() {
               )}
             >
               {item.icon}
-              <span className="font-medium">{item.name}</span>
+              <span className="font-medium flex-1">{item.name}</span>
+              {item.href === '/landlord/messages' && unreadCount > 0 && (
+                <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
             </Link>
           )
         })}
       </nav>
 
-      {/* User Info */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-[#333333]">
-        <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-[#333333] cursor-pointer transition-colors">
-          <div className="w-10 h-10 bg-[#7C3AED] rounded-full flex items-center justify-center">
-            <span className="text-white font-semibold">房</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">房東用戶</p>
-            <p className="text-xs text-[#999999] truncate">landlord@example.com</p>
-          </div>
-        </div>
-      </div>
     </aside>
   )
 }

@@ -17,7 +17,7 @@ export function DashboardLayout({
 }: {
   pageTitle: string;
   breadcrumbs: { label: string; href?: string }[];
-  greeting?: string;
+  greeting?: React.ReactNode;
   children: React.ReactNode;
   headerActions?: React.ReactNode;
   currentRole?: string; // Added type definition
@@ -25,26 +25,26 @@ export function DashboardLayout({
 }) {
   return (
     <div className={`flex-1 ${className}`}>
-      <div className="bg-gray-100 dark:bg-[#1F1F1F] border-b border-gray-200 dark:border-[#333333] px-6 py-4">
+      <div className="bg-bg-tertiary border-b border-border-default px-6 py-4">
         <div className="max-w-7xl mx-auto">
           <nav className="flex items-center gap-2 text-sm mb-4">
             {breadcrumbs.map((crumb, index) => (
               <React.Fragment key={index}>
                 {crumb.href ? (
-                  <Link href={crumb.href} className="text-gray-500 dark:text-[#999999] hover:text-gray-900 dark:hover:text-white transition-colors">
+                  <Link href={crumb.href} className="text-text-secondary hover:text-text-primary transition-colors">
                     {crumb.label}
                   </Link>
                 ) : (
-                  <span className="text-gray-900 dark:text-white font-medium">{crumb.label}</span>
+                  <span className="text-text-primary font-medium">{crumb.label}</span>
                 )}
-                {index < breadcrumbs.length - 1 && <ChevronRight className="w-4 h-4 text-gray-400 dark:text-[#666666]" />}
+                {index < breadcrumbs.length - 1 && <ChevronRight className="w-4 h-4 text-text-muted" />}
               </React.Fragment>
             ))}
           </nav>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{pageTitle}</h1>
-              {greeting && <p className="text-sm text-gray-500 dark:text-[#999999]">{greeting}</p>}
+              <h1 className="text-2xl font-bold text-text-primary mb-1">{pageTitle}</h1>
+              {greeting && <p className="text-sm text-text-secondary">{greeting}</p>}
             </div>
             <div className="flex items-center gap-4">
               {headerActions}

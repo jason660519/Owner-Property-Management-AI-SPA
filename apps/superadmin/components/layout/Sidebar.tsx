@@ -16,7 +16,9 @@ import {
   HardDrive, 
   VenetianMask, 
   FileBarChart, 
-  Settings 
+  Settings,
+  Bot,
+  BookOpen
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -40,7 +42,9 @@ const navItems: NavItem[] = [
   { name: 'Storage', href: '/superadmin/dashboard/storage', icon: HardDrive },
   { name: 'Impersonate', href: '/superadmin/role-simulation', icon: VenetianMask },
   { name: 'IAM Audit', href: '/superadmin/dashboard/iam-audit', icon: FileBarChart },
-  { name: 'Project Progress', href: '/superadmin/dashboard/project-progress', icon: FileText },
+  { name: 'Project Progress Dashboard', href: '/superadmin/dashboard/project-progress', icon: FileText },
+  { name: 'Project Files', href: '/superadmin/docs', icon: BookOpen },
+  { name: 'AI Service', href: '/superadmin/ai-service', icon: Bot },
   { name: 'Settings', href: '/superadmin/settings', icon: Settings },
 ];
 
@@ -51,7 +55,7 @@ export function Sidebar() {
   return (
     <aside
       className={twMerge(
-        "fixed left-0 top-16 z-40 h-[calc(100vh-4rem)] bg-white dark:bg-[#1A1A1A] border-r border-gray-200 dark:border-[#2A2A2A] transition-all duration-300 ease-in-out flex flex-col",
+        "fixed left-0 top-16 z-40 h-[calc(100vh-4rem)] bg-bg-primary border-r border-border-default transition-all duration-300 ease-in-out flex flex-col",
         isHovered ? "w-64" : "w-16"
       )}
       onMouseEnter={() => setIsHovered(true)}
@@ -72,14 +76,14 @@ export function Sidebar() {
                   "group flex items-center px-3 py-2.5 rounded-md transition-colors duration-200",
                   isActive 
                     ? "bg-emerald-500/10 text-emerald-500" 
-                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#2A2A2A] hover:text-gray-900 dark:hover:text-white"
+                    : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
                 )}
                 title={!isHovered ? item.name : undefined}
               >
                 <item.icon 
                   className={twMerge(
                     "flex-shrink-0 w-5 h-5 transition-colors",
-                    isActive ? "text-emerald-500" : "text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white"
+                    isActive ? "text-emerald-500" : "text-text-secondary group-hover:text-text-primary"
                   )} 
                 />
                 <span 
@@ -98,17 +102,17 @@ export function Sidebar() {
         </nav>
 
         {/* Bottom Section (Optional User Profile or Version) */}
-        <div className="mt-auto px-2 py-4 border-t border-gray-200 dark:border-[#2A2A2A]">
+        <div className="mt-auto px-2 py-4 border-t border-border-default">
            <div className="flex items-center px-3 py-2">
-              <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-700 flex-shrink-0" />
-              <div 
+              <div className="w-8 h-8 rounded-full bg-bg-tertiary flex-shrink-0" />
+              <div
                 className={twMerge(
                   "ml-3 overflow-hidden transition-all duration-300",
                    isHovered ? "opacity-100 w-auto" : "opacity-0 w-0"
                 )}
               >
-                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">Admin User</p>
-                <p className="text-xs text-gray-500 dark:text-gray-500 truncate">admin@example.com</p>
+                <p className="text-sm font-medium text-text-primary truncate">Admin User</p>
+                <p className="text-xs text-text-secondary truncate">admin@example.com</p>
               </div>
            </div>
         </div>

@@ -6,18 +6,20 @@ creator: Claude Sonnet 4.5
 """
 
 import logging
-import uuid
-from typing import Optional
-from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, status, BackgroundTasks
-from pydantic import BaseModel, Field
-from supabase import create_client, Client
 import os
+import uuid
+from datetime import datetime
+from typing import Optional
 
-from ...core.storage_client import get_storage_client, SupabaseStorageClient
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
+from pydantic import BaseModel
+from supabase import Client, create_client
+
 from ...core.auth import get_current_user
-from ...core.kms import get_kms, VLMKeyKMS
-from ...core.document_validator import get_validator, DocumentValidator
+from ...core.document_validator import DocumentValidator, get_validator
+from ...core.kms import VLMKeyKMS, get_kms
 from ...core.search_client import get_search_client
+from ...core.storage_client import SupabaseStorageClient, get_storage_client
 from ...vlm.vlm_engine import VLMEngine
 
 logger = logging.getLogger(__name__)
@@ -106,7 +108,7 @@ async def process_document_with_vlm(
         provider = credential['provider']
 
         # Decrypt API key
-        decrypted_api_key = await kms.decrypt(
+        _ = await kms.decrypt(
             ciphertext=bytes(credential['api_key_ciphertext']),
             nonce=bytes(credential['nonce']),
             salt=bytes(credential['salt'])
@@ -187,7 +189,7 @@ async def process_document_with_vlm(
             search_client = get_search_client()
             # Ensure initialization is called or handled within get_search_client if using a robust pattern
             # For now relying on app startup or manual init check inside client methods if needed
-            
+
             es_doc = {
                 "owner_name": extracted_data.get('owner_name'),
                 "property_address": extracted_data.get('property_address'),
@@ -200,7 +202,7 @@ async def process_document_with_vlm(
             }
             # We assume text_results or vlm_result might have more raw text, but extracted_data is key
             # If we want full text search on the raw OCR text, we should extract it from vlm_result if available
-            
+
             await search_client.index_document(document_id, es_doc)
             logger.info(f"Successfully indexed document {document_id} to Elasticsearch")
         except Exception as es_e:
@@ -312,7 +314,7 @@ async def upload_and_parse_document(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to upload document"
-        )
+        ) from e
 
 
 @router.get("/{document_id}/status", response_model=DocumentParsingStatus)
@@ -366,4 +368,4 @@ async def get_document_parsing_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get document status"
-        )
+        ) from e

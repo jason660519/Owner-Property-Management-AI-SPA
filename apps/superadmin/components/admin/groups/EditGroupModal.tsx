@@ -60,7 +60,7 @@ export function EditGroupModal({ group }: { group: Group }) {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="p-1 hover:bg-[#333333] rounded text-[#999999] hover:text-white transition-colors"
+        className="p-1 hover:bg-bg-tertiary rounded text-text-secondary hover:text-text-primary transition-colors"
         title="Edit Group"
       >
         <Edit size={16} />
@@ -70,10 +70,10 @@ export function EditGroupModal({ group }: { group: Group }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-[#2A2A2A] border border-[#333333] rounded-lg shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="flex justify-between items-center px-6 py-4 border-b border-[#333333] flex-shrink-0">
-          <h3 className="font-semibold text-white">Edit Permission Group</h3>
-          <button onClick={() => setIsOpen(false)} className="text-[#999999] hover:text-white">
+      <div className="bg-bg-secondary border border-border-default rounded-lg shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="flex justify-between items-center px-6 py-4 border-b border-border-default flex-shrink-0">
+          <h3 className="font-semibold text-text-primary">Edit Permission Group</h3>
+          <button onClick={() => setIsOpen(false)} className="text-text-secondary hover:text-text-primary">
             <X size={20} />
           </button>
         </div>
@@ -86,7 +86,7 @@ export function EditGroupModal({ group }: { group: Group }) {
           <input type="hidden" name="id" value={group.id} />
           <div className="space-y-4">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-[#999999] mb-1">
+              <label htmlFor="name" className="block text-sm font-medium text-text-secondary mb-1">
                 Group Name
               </label>
               <input
@@ -95,11 +95,11 @@ export function EditGroupModal({ group }: { group: Group }) {
                 name="name"
                 defaultValue={group.name}
                 required
-                className="w-full px-3 py-2 border border-[#333333] rounded-md bg-[#1A1A1A] text-white focus:ring-2 focus:ring-[#7C3AED]"
+                className="w-full px-3 py-2 border border-border-default rounded-md bg-bg-primary text-text-primary focus:ring-2 focus:ring-accent"
               />
             </div>
             <div>
-              <label htmlFor="description" className="block text-sm font-medium text-[#999999] mb-1">
+              <label htmlFor="description" className="block text-sm font-medium text-text-secondary mb-1">
                 Description
               </label>
               <textarea
@@ -107,28 +107,28 @@ export function EditGroupModal({ group }: { group: Group }) {
                 name="description"
                 defaultValue={group.description || ''}
                 rows={2}
-                className="w-full px-3 py-2 border border-[#333333] rounded-md bg-[#1A1A1A] text-white resize-none focus:ring-2 focus:ring-[#7C3AED]"
+                className="w-full px-3 py-2 border border-border-default rounded-md bg-bg-primary text-text-primary resize-none focus:ring-2 focus:ring-accent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#999999] mb-2">
+              <label className="block text-sm font-medium text-text-secondary mb-2">
                 Assigned Roles & Permissions
               </label>
-              <div className="border border-[#333333] rounded-md divide-y divide-[#333333] max-h-60 overflow-y-auto">
+              <div className="border border-border-default rounded-md divide-y divide-border-default max-h-60 overflow-y-auto">
                 {roles.length === 0 ? (
-                  <div className="p-4 text-center text-[#666666] text-sm">Loading roles...</div>
+                  <div className="p-4 text-center text-text-muted text-sm">Loading roles...</div>
                 ) : (
                   roles.map((role) => (
                     <div
                       key={role.id}
                       className={`flex items-start gap-3 p-3 cursor-pointer transition-colors ${
-                        selectedRoles.includes(role.id) ? 'bg-[#7C3AED]/20' : 'hover:bg-[#333333]/50'
+                        selectedRoles.includes(role.id) ? 'bg-accent/20' : 'hover:bg-bg-tertiary/50'
                       }`}
                       onClick={() => toggleRole(role.id)}
                     >
                       <div
                         className={`mt-0.5 w-4 h-4 border rounded flex items-center justify-center ${
-                          selectedRoles.includes(role.id) ? 'bg-[#7C3AED] border-[#7C3AED]' : 'border-[#666666]'
+                          selectedRoles.includes(role.id) ? 'bg-accent border-accent' : 'border-border-light'
                         }`}
                       >
                         {selectedRoles.includes(role.id) && (
@@ -136,24 +136,24 @@ export function EditGroupModal({ group }: { group: Group }) {
                         )}
                       </div>
                       <div>
-                        <div className="text-sm font-medium text-white">{role.name}</div>
-                        <div className="text-xs text-[#666666]">{role.description}</div>
+                        <div className="text-sm font-medium text-text-primary">{role.name}</div>
+                        <div className="text-xs text-text-muted">{role.description}</div>
                       </div>
                     </div>
                   ))
                 )}
               </div>
-              <p className="text-xs text-[#666666] mt-1">
+              <p className="text-xs text-text-muted mt-1">
                 Select the roles that members of this group should inherit.
               </p>
             </div>
           </div>
         </form>
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-[#333333] flex-shrink-0">
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-border-default flex-shrink-0">
           <button
             type="button"
             onClick={() => setIsOpen(false)}
-            className="px-4 py-2 text-sm font-medium text-[#999999] border border-[#333333] rounded-md hover:bg-[#333333]"
+            className="px-4 py-2 text-sm font-medium text-text-secondary border border-border-default rounded-md hover:bg-bg-tertiary"
             disabled={isLoading}
           >
             Cancel
@@ -165,7 +165,7 @@ export function EditGroupModal({ group }: { group: Group }) {
               if (form) form.requestSubmit();
             }}
             disabled={isLoading}
-            className="px-4 py-2 text-sm font-medium text-white bg-[#7C3AED] rounded-md hover:bg-[#6D28D9] flex items-center gap-2 disabled:opacity-70"
+            className="px-4 py-2 text-sm font-medium text-white bg-accent rounded-md hover:bg-accent-hover flex items-center gap-2 disabled:opacity-70"
           >
             {isLoading && <Loader2 size={16} className="animate-spin" />}
             {isLoading ? 'Saving...' : 'Save Changes'}

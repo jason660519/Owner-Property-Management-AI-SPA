@@ -36,9 +36,9 @@ cd apps/web
 npm run dev
 
 # 3. 啟動開發進度儀表板 (Project Process Dashboard)
-# 訪問: http://localhost:3002/project-process/project-progress-dashboard/index.html
-# （Port 3001 保留給 Superadmin 後台）
-./scripts/start-dashboard.sh
+# 訪問: http://localhost:3001/superadmin/dashboard/project-progress
+# （整合至 Superadmin 後台）
+cd apps/superadmin && npm run dev
 
 # 4. 訪問應用
 # 主站 (房東/租客/買家): http://localhost:3000
@@ -248,7 +248,7 @@ npx supabase gen types typescript --local > apps/web/lib/database.types.ts
 
 ### 開發指南
 
-- [開發環境快速啟動](./docs/deployment-guides/quick-start-guide.md)
+- [開發環境快速啟動](./docs/operational-guides/deployment-guides/quick-start-guide.md)
 - [檔案命名規則](./docs/本專案檔案命名規則與新增文件歸檔總則.md)
 
 ---
@@ -300,7 +300,7 @@ chore: 雜項
 |---------|------|------|------|
 | **Web App** | http://localhost:3000 | Next.js 主應用 (房東/租客/買家) | Port 3000 預留 |
 | **Superadmin 後台** | http://localhost:3001 | 超級管理員儀表板 (`npm run dev:superadmin`) | 按需啟動 |
-| **開發進度追蹤** | http://localhost:3002 | Sprint 進度儀表板 (`./scripts/start-dashboard.sh`) | 按需啟動 |
+| **開發進度追蹤** | http://localhost:3001/superadmin/dashboard/project-progress | Sprint 進度儀表板 (`npm run dev:superadmin`) | 按需啟動 |
 | **VLM OCR 服務** | http://localhost:8000 | 離線謄本查詢系統 | ✅ 運行中 |
 | **Supabase API** | http://localhost:54321 | 本地資料庫 API | ✅ 運行中 |
 | **Supabase Studio** | http://localhost:54323 | 資料庫管理介面 | ✅ 運行中 |
@@ -349,5 +349,38 @@ Private - All Rights Reserved
 
 ---
 
-**最後更新**: 2026-02-02
-**版本**: 2.0 (專注 Web App 策略)
+## ❓ 本地開發常見問題 (Troubleshooting)
+
+### 伺服器當機排除步驟
+
+若遇到 `http://localhost:3000/` 無法訪問或伺服器當機，請嘗試以下步驟：
+
+1. **檢查埠號佔用**:
+   ```bash
+   lsof -i :3000
+   kill -9 <PID>
+   ```
+
+2. **重新安裝依賴**:
+   ```bash
+   cd apps/web
+   rm -rf node_modules
+   npm install
+   ```
+
+3. **檢查編譯錯誤**:
+   查看終端機輸出，確認是否有 `Module not found` 或其他 TS 錯誤。常見問題包括相對路徑錯誤（建議使用 `@/` alias）。
+
+4. **啟動偵錯模式**:
+   使用以下指令啟動並觀察錯誤日誌：
+   ```bash
+   NODE_OPTIONS='--inspect' npm run dev
+   ```
+
+5. **日誌位置**:
+   嚴重崩潰錯誤會記錄於 `logs/crash-*.log`。
+
+---
+
+**最後更新**: 2026-02-13
+**版本**: 2.1 (修復本地開發伺服器當機問題)

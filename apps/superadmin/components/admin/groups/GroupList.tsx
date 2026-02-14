@@ -22,21 +22,21 @@ export function GroupList({ initialGroups }: { initialGroups: Group[] }) {
       accessorKey: 'name',
       header: 'Group Name',
       cell: (info) => (
-        <span className="font-semibold text-white">{info.getValue() as string}</span>
+        <span className="font-semibold text-text-primary">{info.getValue() as string}</span>
       ),
     },
     {
       accessorKey: 'description',
       header: 'Description',
       cell: (info) => (
-        <span className="text-[#999999]">{(info.getValue() as string) || '-'}</span>
+        <span className="text-text-secondary">{(info.getValue() as string) || '-'}</span>
       ),
     },
     {
       accessorKey: 'member_count',
       header: 'Members',
       cell: (info) => (
-        <div className="flex items-center gap-1 text-[#999999]">
+        <div className="flex items-center gap-1 text-text-secondary">
           <Users size={16} />
           <span>{info.getValue() as number}</span>
         </div>
@@ -50,7 +50,7 @@ export function GroupList({ initialGroups }: { initialGroups: Group[] }) {
           {(info.getValue() as string[]).map((role) => (
             <span
               key={role}
-              className="px-2 py-0.5 bg-[#7C3AED]/20 text-[#A78BFA] text-xs rounded-full flex items-center gap-1"
+              className="px-2 py-0.5 bg-accent/20 text-accent text-xs rounded-full flex items-center gap-1"
             >
               <Shield size={10} />
               {role}
@@ -73,7 +73,7 @@ export function GroupList({ initialGroups }: { initialGroups: Group[] }) {
               </button>
             )}
             {isSystem && (
-              <span className="text-xs text-[#666666] italic py-1">System</span>
+              <span className="text-xs text-text-muted italic py-1">System</span>
             )}
           </div>
         );
@@ -88,24 +88,24 @@ export function GroupList({ initialGroups }: { initialGroups: Group[] }) {
   });
 
   return (
-    <div className="bg-[#2A2A2A] border border-[#333333] rounded-lg overflow-hidden">
+    <div className="bg-bg-secondary border border-border-default rounded-lg overflow-hidden">
       <table className="w-full text-left text-sm">
-        <thead className="bg-[#1F1F1F] border-b border-[#333333]">
+        <thead className="bg-bg-tertiary border-b border-border-default">
           {table.getHeaderGroups().map((headerGroup) => (
             <tr key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
-                <th key={header.id} className="px-6 py-3 font-medium text-[#999999]">
+                <th key={header.id} className="px-6 py-3 font-medium text-text-secondary">
                   {flexRender(header.column.columnDef.header, header.getContext())}
                 </th>
               ))}
             </tr>
           ))}
         </thead>
-        <tbody className="divide-y divide-[#333333]">
+        <tbody className="divide-y divide-border-default">
           {table.getRowModel().rows.map((row) => (
-            <tr key={row.id} className="hover:bg-[#333333]/30 transition-colors">
+            <tr key={row.id} className="hover:bg-bg-tertiary/30 transition-colors">
               {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className="px-6 py-4 text-white">
+                <td key={cell.id} className="px-6 py-4 text-text-primary">
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </td>
               ))}

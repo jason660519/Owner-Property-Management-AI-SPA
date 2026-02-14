@@ -5,11 +5,12 @@ created: 2026-02-04
 creator: Claude Sonnet 4.5
 """
 
-import os
 import logging
+import os
 from typing import Optional
-from fastapi import HTTPException, status, Header
-from jose import jwt, JWTError
+
+from fastapi import Header, HTTPException, status
+from jose import JWTError, jwt
 
 logger = logging.getLogger(__name__)
 
@@ -38,11 +39,11 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
         scheme, token = authorization.split()
         if scheme.lower() != 'bearer':
             raise ValueError("Invalid authentication scheme")
-    except ValueError:
+    except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid Authorization header format. Expected: Bearer <token>"
-        )
+        ) from e
 
     # Decode JWT token
     try:
@@ -76,10 +77,10 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token"
-        )
+        ) from e
     except Exception as e:
         logger.error(f"Failed to decode token: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Authentication error"
-        )
+        ) from e

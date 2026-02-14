@@ -86,13 +86,9 @@ export function Header() {
           {/* Logo */}
           <Link href="/" className={styles.logo}>
             <div className={styles.logoIcon}>
-              <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="28" height="28" rx="6" fill="var(--color-accent)" />
-                <path d="M7 14L14 8L21 14V21C21 21.5523 20.5523 22 20 22H8C7.44772 22 7 21.5523 7 21V14Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M11 22V15H17V22" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              <span className={styles.logoLetter}>O</span>
             </div>
-            <span className={styles.logoText}>Estatein</span>
+            <span className={styles.logoText}>Owner AI</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -113,7 +109,7 @@ export function Header() {
             <ThemeToggle />
             {loading ? (
                // Loading state placeholder
-               <div className="w-24 h-10 bg-gray-800 rounded animate-pulse" />
+               <div className="w-24 h-10 bg-bg-tertiary rounded animate-pulse" />
             ) : user ? (
               <>
                 <Link href={dashboardUrl}>
@@ -156,6 +152,9 @@ export function Header() {
       {/* Mobile Menu */}
       <div className={`${styles.mobileMenu} ${isMobileMenuOpen ? styles.open : ''}`}>
         <div className={styles.mobileMenuContent}>
+          <div className="flex justify-center lg:hidden mb-4">
+            <ThemeToggle />
+          </div>
           {navLinks.map((link) => (
             <Link
               key={link.href}

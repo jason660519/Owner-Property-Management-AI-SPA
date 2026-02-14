@@ -1,6 +1,11 @@
 {
   "enabledPlugins": {
-    "document-skills@anthropic-agent-skills": false,
-    "everything-claude-code@everything-claude-code": false
+    "document-skills@anthropic-agent-skills": true,
+    "everything-claude-code@everything-claude-code": true,
+    "file-explorer@anthropic-agent-skills": true,
+    "google-search@anthropic-agent-skills": true,
+    "python@anthropic-agent-skills": true,
+    "terminal@anthropic-agent-skills": true,
+    "web-browsing@anthropic-agent-skills": true
   }
 }

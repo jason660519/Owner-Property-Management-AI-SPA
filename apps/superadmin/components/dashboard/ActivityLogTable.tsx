@@ -68,7 +68,7 @@ export function ActivityLogTable() {
       <CardContent>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-gray-100 dark:bg-gray-800/50">
+            <thead className="text-xs text-text-secondary uppercase bg-bg-tertiary">
               <tr>
                 <th className="px-4 py-3">時間</th>
                 <th className="px-4 py-3">用戶</th>
@@ -79,11 +79,11 @@ export function ActivityLogTable() {
             </thead>
             <tbody>
               {mockLogs.map((log) => (
-                <tr key={log.id} className="border-b border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/30">
-                  <td className="px-4 py-3 whitespace-nowrap text-gray-600 dark:text-gray-300">{log.timestamp}</td>
-                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{log.user}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{log.action}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{log.target}</td>
+                <tr key={log.id} className="border-b border-border-default hover:bg-bg-secondary">
+                  <td className="px-4 py-3 whitespace-nowrap text-text-secondary">{log.timestamp}</td>
+                  <td className="px-4 py-3 font-medium text-text-primary">{log.user}</td>
+                  <td className="px-4 py-3 text-text-secondary">{log.action}</td>
+                  <td className="px-4 py-3 text-text-secondary">{log.target}</td>
                   <td className="px-4 py-3">
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium ${

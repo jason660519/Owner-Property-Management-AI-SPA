@@ -11,13 +11,15 @@ export async function GET(request: NextRequest) {
       { data: groups, error: groupError },
       { data: roles, error: roleError },
       { data: members, error: memberError },
-      { data: groupRoles, error: groupRoleError }
+      { data: groupRoles, error: groupRoleError },
+      { data: postgresRolesCount, error: postgresRolesError }
     ] = await Promise.all([
       supabase.auth.admin.listUsers(),
       supabase.from('iam_groups').select('*'),
       supabase.from('iam_roles').select('*'),
       supabase.from('iam_group_members').select('*'),
-      supabase.from('iam_group_roles').select('*')
+      supabase.from('iam_group_roles').select('*'),
+      supabase.rpc('get_postgres_roles_count')
     ]);
 
     if (userError || groupError || roleError || memberError || groupRoleError) {
@@ -41,6 +43,7 @@ export async function GET(request: NextRequest) {
       activeUsers: activeUniqueEmails.size,
       totalGroups: groups?.length || 0,
       totalRoles: roles?.length || 0,
+      postgresPredefinedRolesCount: postgresRolesError ? 0 : (Number(postgresRolesCount) ?? 0),
       // These changes would ideally come from a real audit table. 
       // We will mock them for the demonstration as per requirements if no table exists.
       addedToday: 2, 
@@ -95,8 +98,9 @@ export async function GET(request: NextRequest) {
       logs: auditLogs
     });
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Unexpected error:', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

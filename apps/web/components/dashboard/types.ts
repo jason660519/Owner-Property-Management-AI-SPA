@@ -6,6 +6,9 @@
  */
 
 import { LucideIcon } from 'lucide-react'
+import type { UserRole, RoleMetadata } from '@/config/roles'
+
+export type { UserRole, RoleMetadata }
 
 /**
  * Badge variant types for progress links
@@ -46,31 +49,6 @@ export interface KPIConfig {
   color: string // Tailwind color class (e.g., "text-blue-500")
   trend?: TrendIndicator
   progressLinks: ProgressLink[]
-}
-
-/**
- * User role types (8 roles)
- */
-export type UserRole =
-  | 'landlord'
-  | 'contracted_tenant'
-  | 'potential_tenant'
-  | 'contracted_buyer'
-  | 'potential_buyer'
-  | 'agent'
-  | 'service_provider'
-  | 'super_admin'
-
-/**
- * Role display metadata
- */
-export interface RoleMetadata {
-  role: UserRole
-  displayName: string
-  description: string
-  icon: LucideIcon
-  color: string
-  dashboardPath: string
 }
 
 /**

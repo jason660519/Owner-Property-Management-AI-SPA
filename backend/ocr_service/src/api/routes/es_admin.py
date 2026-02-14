@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from typing import Dict, Any
-from pydantic import BaseModel
-from ...core.search_client import get_search_client, SearchClient
-from ...scripts.sync_es import sync_all_documents
 import logging
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from pydantic import BaseModel
+
+from ...core.search_client import SearchClient, get_search_client
+from ...scripts.sync_es import sync_all_documents
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ async def get_es_health(
         )
     except Exception as e:
         logger.error(f"Failed to get ES health: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get("/stats", response_model=IndexStatsResponse)
 async def get_es_stats(
@@ -55,7 +56,7 @@ async def get_es_stats(
         index_name = search_client.index_name
         index_stats = stats.get("indices", {}).get(index_name, {})
         primaries = index_stats.get("primaries", {})
-        
+
         return IndexStatsResponse(
             doc_count=primaries.get("docs", {}).get("count", 0),
             store_size_in_bytes=primaries.get("store", {}).get("size_in_bytes", 0),
@@ -65,8 +66,12 @@ async def get_es_stats(
         logger.error(f"Failed to get ES stats: {e}")
         # If index doesn't exist yet, return 0
         if "index_not_found_exception" in str(e):
-             return IndexStatsResponse(doc_count=0, store_size_in_bytes=0, index_name=search_client.index_name)
-        raise HTTPException(status_code=500, detail=str(e))
+            return IndexStatsResponse(
+                doc_count=0,
+                store_size_in_bytes=0,
+                index_name=search_client.index_name
+            )
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.post("/reindex")
 async def trigger_reindex(

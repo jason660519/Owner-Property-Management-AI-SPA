@@ -1,8 +1,6 @@
-from fastapi import APIRouter, HTTPException, Query
-from typing import List, Dict, Any
-from pathlib import Path
 import os
-from datetime import datetime
+
+from fastapi import APIRouter, HTTPException
 
 from ...utils.logger import LOG_ROOT, get_logger
 
@@ -18,14 +16,14 @@ async def get_log_stats():
         total_size = 0
         total_files = 0
         user_count = 0
-        
+
         # Iterate through LOG_ROOT
         if LOG_ROOT.exists():
             for entry in LOG_ROOT.iterdir():
                 if entry.is_dir() and entry.name not in ["system", "archive", "temp"]:
                     user_count += 1
                     # Calculate user dir size
-                    for root, dirs, files in os.walk(entry):
+                    for root, _, files in os.walk(entry):
                         total_files += len(files)
                         for f in files:
                             fp = os.path.join(root, f)
@@ -43,7 +41,7 @@ async def get_log_stats():
         }
     except Exception as e:
         logger.error(f"Failed to get log stats: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get("/users")
 async def list_log_users():
@@ -58,7 +56,7 @@ async def list_log_users():
                     users.append(entry.name)
         return {"users": users}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get("/users/{user_id}/stats")
 async def get_user_log_stats(user_id: str):
@@ -68,12 +66,12 @@ async def get_user_log_stats(user_id: str):
     user_dir = LOG_ROOT / user_id
     if not user_dir.exists():
         raise HTTPException(status_code=404, detail="User logs not found")
-    
+
     try:
         total_size = 0
         file_count = 0
         dates = []
-        
+
         for date_dir in user_dir.iterdir():
             if date_dir.is_dir():
                 dates.append(date_dir.name)
@@ -81,7 +79,7 @@ async def get_user_log_stats(user_id: str):
                     if f.is_file():
                         file_count += 1
                         total_size += f.stat().st_size
-        
+
         return {
             "user_id": user_id,
             "total_size_bytes": total_size,
@@ -90,4 +88,4 @@ async def get_user_log_stats(user_id: str):
             "dates": sorted(dates, reverse=True)
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

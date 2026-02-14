@@ -1,10 +1,10 @@
-import os
-import time
-import shutil
 import asyncio
-from pathlib import Path
+import shutil
 from datetime import datetime, timedelta
+from pathlib import Path
+
 from loguru import logger
+
 
 class LogArchiver:
     def __init__(self, log_root: str, retention_days: int = 30, archive_size_mb: int = 100):
@@ -35,30 +35,30 @@ class LogArchiver:
         """
         Archive files that are old but not yet deleted, or move rotated files to archive.
         In this system, Loguru handles rotation and compression (zip) in place.
-        So we might just want to move old user logs to the central archive folder 
+        So we might just want to move old user logs to the central archive folder
         to keep user folders clean, or just enforce retention.
-        
+
         The requirement says: "2) compress and archive logs exceeding specific size".
         Loguru does this.
         "3) auto delete logs exceeding retention period".
         Loguru does this too with 'retention'.
-        
+
         However, if we want a separate 'archive' process (e.g., move to cold storage /archive folder),
         we can implement it here.
-        Let's assume we want to move zipped logs from user folders to /logs/archive after 7 days, 
+        Let's assume we want to move zipped logs from user folders to /logs/archive after 7 days,
         and delete from /logs/archive after 30 days.
         """
-        
+
         # Iterate over user directories
         for user_dir in self.log_root.iterdir():
             if not user_dir.is_dir() or user_dir.name in ["archive", "temp", "system"]:
                 continue
-                
+
             # Iterate over date directories
             for date_dir in user_dir.iterdir():
                 if not date_dir.is_dir():
                     continue
-                
+
                 # Check if date_dir is older than 7 days
                 try:
                     dir_date = datetime.strptime(date_dir.name, "%Y-%m-%d")
@@ -66,7 +66,7 @@ class LogArchiver:
                         # Move entire date folder to archive
                         archive_user_path = self.archive_dir / user_dir.name
                         archive_user_path.mkdir(exist_ok=True)
-                        
+
                         target_path = archive_user_path / date_dir.name
                         if not target_path.exists():
                             shutil.move(str(date_dir), str(target_path))
@@ -76,7 +76,7 @@ class LogArchiver:
                             shutil.rmtree(str(date_dir))
                 except ValueError:
                     continue
-                    
+
         # Allow async loop to breathe
         await asyncio.sleep(0.1)
 
@@ -85,11 +85,11 @@ class LogArchiver:
         Delete files in archive older than retention_days.
         """
         cutoff_date = datetime.now() - timedelta(days=self.retention_days)
-        
+
         for user_dir in self.archive_dir.iterdir():
             if not user_dir.is_dir():
                 continue
-                
+
             for date_dir in user_dir.iterdir():
                 try:
                     dir_date = datetime.strptime(date_dir.name, "%Y-%m-%d")

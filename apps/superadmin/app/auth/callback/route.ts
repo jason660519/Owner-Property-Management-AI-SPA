@@ -25,10 +25,36 @@ export async function GET(request: Request) {
   }
 
   const { data: { user } } = await supabase.auth.getUser();
-  const role = user?.user_metadata?.role;
+  
+  // Query users_profile to check for roles
+  const { data: profile } = await supabase
+    .from('users_profile')
+    .select('roles, primary_role')
+    .eq('id', user?.id)
+    .single();
 
-  if (role === 'super_admin') {
+  const roles = profile?.roles || [];
+  const primaryRole = profile?.primary_role;
+  const isSuperAdmin = roles.includes('super_admin') || primaryRole === 'super_admin';
+
+  if (isSuperAdmin) {
     return NextResponse.redirect(new URL('/superadmin/dashboard', request.url));
+  }
+
+  // Handle other roles redirection - Sign out from Superadmin (Port 3001) before redirecting to Main Site (Port 3000)
+  // This prevents having an active session on 3001 for a non-admin user
+  await supabase.auth.signOut();
+
+  if (roles.includes('landlord') || primaryRole === 'landlord') {
+    return NextResponse.redirect(`${MAIN_SITE_URL}/landlord/dashboard`);
+  }
+
+  if (roles.includes('agent') || primaryRole === 'agent') {
+    return NextResponse.redirect(`${MAIN_SITE_URL}/agent/dashboard`);
+  }
+
+  if (roles.includes('tenant') || primaryRole === 'tenant') {
+    return NextResponse.redirect(`${MAIN_SITE_URL}/tenant/dashboard`);
   }
 
   return NextResponse.redirect(MAIN_SITE_URL);

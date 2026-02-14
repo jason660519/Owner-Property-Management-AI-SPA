@@ -5,7 +5,7 @@ Based on OCR規劃報告.md Section 4: Jason JSON 輸出草案
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -42,8 +42,8 @@ class Metadata(BaseModel):
         """Validate UUID format"""
         try:
             UUID(v)
-        except ValueError:
-            raise ValueError(f"Invalid UUID format: {v}")
+        except ValueError as e:
+            raise ValueError(f"Invalid UUID format: {v}") from e
         return v
 
 
@@ -91,7 +91,7 @@ class Ownership(BaseModel):
             if numerator <= 0 or denominator <= 0:
                 raise ValueError("Share ratio parts must be positive integers")
         except ValueError as e:
-            raise ValueError(f"Invalid share ratio format: {e}")
+            raise ValueError(f"Invalid share ratio format: {e}") from e
         return v
 
 

@@ -15,16 +15,11 @@ import pytest
 # Will be implemented
 from src.models.jason_schema import (
     AreaSummary,
-    AuditInfo,
-    BasicInfo,
-    BuildingProfile,
     ConfidenceNote,
-    Encumbrance,
     Holder,
     Metadata,
     OCREngine,
     Ownership,
-    Sections,
     TranscriptPayload,
 )
 

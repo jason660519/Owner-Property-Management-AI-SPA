@@ -14,6 +14,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {
+    "lint-staged": "^16.2.7",
     "prettier": "^3.0.0"
   },
   "packageManager": "npm@10.0.0",

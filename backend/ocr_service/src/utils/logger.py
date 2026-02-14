@@ -1,8 +1,8 @@
 import sys
-import os
-from pathlib import Path
-from loguru import logger
 from datetime import datetime
+from pathlib import Path
+
+from loguru import logger
 
 # Define log root directory
 PROJECT_ROOT = Path("/Volumes/KLEVV-4T-1/Real Estate Management Projects/Owner-Property-Management-AI-SPA")
@@ -22,15 +22,15 @@ class UserFileSink:
         timestamp = record["time"]
         date_str = timestamp.strftime("%Y-%m-%d")
         level = record["level"].name
-        
+
         # Directory: /logs/{user_id}/{date}/
         user_dir = self.log_root / user_id / date_str
         user_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Base Filename: user_{user_id}_{date}_{log_level}.log
         filename = f"user_{user_id}_{date_str}_{level}.log"
         file_path = user_dir / filename
-        
+
         # Check rotation (size based)
         if file_path.exists() and file_path.stat().st_size > self.rotation_size:
             # Rotate: Rename current file to include timestamp
@@ -41,7 +41,7 @@ class UserFileSink:
                 file_path.rename(rotated_path)
             except OSError:
                 pass # Handle race condition or error
-        
+
         # Write message
         try:
             with open(file_path, "a", encoding="utf-8") as f:
@@ -51,7 +51,7 @@ class UserFileSink:
 
 class SystemLogger:
     _instance = None
-    
+
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(SystemLogger, cls).__new__(cls)

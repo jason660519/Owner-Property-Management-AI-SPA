@@ -1,10 +1,22 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Mail, X, Loader2, UserPlus } from 'lucide-react';
+import { Mail, X, Loader2, UserPlus, ShieldCheck } from 'lucide-react';
 import { inviteUser, getAllGroups } from '@/app/superadmin/users/actions';
 
 type GroupOption = { id: string; name: string };
+
+/** Available roles for invitation */
+const INVITE_ROLES = [
+  { value: 'landlord', label: '房東 (Landlord)' },
+  { value: 'contracted_tenant', label: '簽約租客 (Contracted Tenant)' },
+  { value: 'potential_tenant', label: '潛在租客 (Potential Tenant)' },
+  { value: 'contracted_buyer', label: '簽約買家 (Contracted Buyer)' },
+  { value: 'potential_buyer', label: '潛在買家 (Potential Buyer)' },
+  { value: 'agent', label: '仲介 (Agent)' },
+  { value: 'service_provider', label: '服務提供者 (Service Provider)' },
+  { value: 'super_admin', label: '超級管理員 (Super Admin)' },
+] as const;
 
 export function InviteUserModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -13,6 +25,7 @@ export function InviteUserModal() {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [email, setEmail] = useState('');
+  const [selectedRole, setSelectedRole] = useState('landlord');
   const [selectedGroupId, setSelectedGroupId] = useState('');
 
   useEffect(() => {
@@ -20,6 +33,7 @@ export function InviteUserModal() {
       setSuccessMsg(null);
       setError(null);
       setEmail('');
+      setSelectedRole('landlord');
       setSelectedGroupId('');
       getAllGroups().then(setGroups).catch(console.error);
     }
@@ -33,8 +47,8 @@ export function InviteUserModal() {
       const result = await inviteUser(formData);
       if (result?.error) setError(result.error);
       else {
-        setSuccessMsg(result.warning || 'Invitation sent successfully!');
-        if (!result.warning) setTimeout(() => setIsOpen(false), 1500);
+        setSuccessMsg('Invitation sent successfully! The user will receive an email with an 8-digit invite code.');
+        setTimeout(() => setIsOpen(false), 2500);
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'An unexpected error occurred');
@@ -47,7 +61,7 @@ export function InviteUserModal() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="bg-[#7C3AED] text-white px-4 py-2 rounded-lg hover:bg-[#6D28D9] transition-colors text-sm font-medium flex items-center gap-2"
+        className="bg-accent text-white px-4 py-2 rounded-lg hover:bg-accent-hover transition-colors text-sm font-medium flex items-center gap-2"
       >
         <UserPlus size={16} />
         Invite User
@@ -57,10 +71,10 @@ export function InviteUserModal() {
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-[#2A2A2A] border border-[#333333] rounded-lg shadow-xl w-full max-w-md overflow-hidden">
-        <div className="flex justify-between items-center px-6 py-4 border-b border-[#333333]">
-          <h3 className="font-semibold text-white">Invite New User</h3>
-          <button onClick={() => setIsOpen(false)} className="text-[#999999] hover:text-white">
+      <div className="bg-bg-secondary border border-border-default rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+        <div className="flex justify-between items-center px-6 py-4 border-b border-border-default">
+          <h3 className="font-semibold text-text-primary">Invite New User</h3>
+          <button onClick={() => setIsOpen(false)} className="text-text-secondary hover:text-text-primary">
             <X size={20} />
           </button>
         </div>
@@ -74,11 +88,11 @@ export function InviteUserModal() {
             </div>
           )}
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-[#999999] mb-1">
+            <label htmlFor="email" className="block text-sm font-medium text-text-secondary mb-1">
               Email Address <span className="text-red-500">*</span>
             </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-2.5 text-[#666666]" size={16} />
+              <Mail className="absolute left-3 top-2.5 text-text-muted" size={16} />
               <input
                 type="email"
                 id="email"
@@ -87,13 +101,34 @@ export function InviteUserModal() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="colleague@example.com"
-                className="w-full pl-9 pr-3 py-2 border border-[#333333] rounded-md bg-[#1A1A1A] text-white placeholder-[#666666] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+                className="w-full pl-9 pr-3 py-2 border border-border-default rounded-md bg-bg-primary text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
-            <p className="text-xs text-[#666666] mt-1">The user will receive an email to set up their password.</p>
+            <p className="text-xs text-text-muted mt-1">
+              An 8-digit invite code will be sent to this email address.
+            </p>
           </div>
           <div>
-            <label htmlFor="groupId" className="block text-sm font-medium text-[#999999] mb-1">
+            <label htmlFor="role" className="block text-sm font-medium text-text-secondary mb-1">
+              Role <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <ShieldCheck className="absolute left-3 top-2.5 text-text-muted" size={16} />
+              <select
+                id="role"
+                name="role"
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 border border-border-default rounded-md bg-bg-primary text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+              >
+                {INVITE_ROLES.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label htmlFor="groupId" className="block text-sm font-medium text-text-secondary mb-1">
               Initial Group (Optional)
             </label>
             <select
@@ -101,7 +136,7 @@ export function InviteUserModal() {
               name="groupId"
               value={selectedGroupId}
               onChange={(e) => setSelectedGroupId(e.target.value)}
-              className="w-full px-3 py-2 border border-[#333333] rounded-md bg-[#1A1A1A] text-white focus:ring-2 focus:ring-[#7C3AED]"
+              className="w-full px-3 py-2 border border-border-default rounded-md bg-bg-primary text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
             >
               <option value="">-- No Group --</option>
               {groups.map((g) => (
@@ -113,7 +148,7 @@ export function InviteUserModal() {
             <button
               type="button"
               onClick={() => setIsOpen(false)}
-              className="px-4 py-2 text-sm font-medium text-[#999999] border border-[#333333] rounded-md hover:bg-[#333333]"
+              className="px-4 py-2 text-sm font-medium text-text-secondary border border-border-default rounded-md hover:bg-bg-tertiary"
               disabled={isLoading}
             >
               Cancel
@@ -121,7 +156,7 @@ export function InviteUserModal() {
             <button
               type="submit"
               disabled={isLoading}
-              className="px-4 py-2 text-sm font-medium text-white bg-[#7C3AED] rounded-md hover:bg-[#6D28D9] flex items-center gap-2 disabled:opacity-70"
+              className="px-4 py-2 text-sm font-medium text-white bg-accent rounded-md hover:bg-accent-hover flex items-center gap-2 disabled:opacity-70"
             >
               {isLoading && <Loader2 size={16} className="animate-spin" />}
               {isLoading ? 'Sending...' : 'Send Invitation'}

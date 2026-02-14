@@ -5,10 +5,10 @@ created: 2026-02-04
 creator: Claude Sonnet 4.5
 """
 
-import os
 import logging
-from typing import Optional
-from supabase import create_client, Client
+import os
+
+from supabase import Client, create_client
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ class SupabaseStorageClient:
             storage_path = f"documents/{user_id}/{document_id}/{filename}"
 
             # Upload to Supabase Storage
-            result = self.client.storage.from_(self.BUCKET_NAME).upload(
+            self.client.storage.from_(self.BUCKET_NAME).upload(
                 path=storage_path,
                 file=file_data,
                 file_options={"content-type": "application/pdf"}
@@ -74,7 +74,26 @@ class SupabaseStorageClient:
 
         except Exception as e:
             logger.error(f"Failed to upload file: {e}")
-            raise Exception(f"Storage upload failed: {e}")
+            raise Exception(f"Storage upload failed: {e}") from e
+
+    async def upload_bytes(
+        self,
+        file_data: bytes,
+        storage_path: str,
+        content_type: str
+    ) -> str:
+        try:
+            self.client.storage.from_(self.BUCKET_NAME).upload(
+                path=storage_path,
+                file=file_data,
+                file_options={"content-type": content_type}
+            )
+
+            logger.info(f"File uploaded successfully: {storage_path}")
+            return storage_path
+        except Exception as e:
+            logger.error(f"Failed to upload file: {e}")
+            raise Exception(f"Storage upload failed: {e}") from e
 
     async def get_file_url(self, storage_path: str, expires_in: int = 3600) -> str:
         """
@@ -105,7 +124,7 @@ class SupabaseStorageClient:
 
         except Exception as e:
             logger.error(f"Failed to generate signed URL: {e}")
-            raise Exception(f"URL generation failed: {e}")
+            raise Exception(f"URL generation failed: {e}") from e
 
     async def download_file(self, storage_path: str) -> bytes:
         """
@@ -127,7 +146,7 @@ class SupabaseStorageClient:
 
         except Exception as e:
             logger.error(f"Failed to download file: {e}")
-            raise Exception(f"Storage download failed: {e}")
+            raise Exception(f"Storage download failed: {e}") from e
 
     async def delete_file(self, storage_path: str) -> None:
         """
@@ -145,7 +164,7 @@ class SupabaseStorageClient:
 
         except Exception as e:
             logger.error(f"Failed to delete file: {e}")
-            raise Exception(f"Storage deletion failed: {e}")
+            raise Exception(f"Storage deletion failed: {e}") from e
 
 
 # Singleton instance

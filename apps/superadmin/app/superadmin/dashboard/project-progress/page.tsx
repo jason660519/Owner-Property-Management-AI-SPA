@@ -120,6 +120,7 @@ export default function ProjectProgressPage() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length === 9) {
+          // eslint-disable-next-line
           setColWidths(parsed);
           currentWidthsRef.current = parsed;
         }
@@ -372,12 +373,19 @@ export default function ProjectProgressPage() {
                         style={{ width: `${colWidths[2]}%` }}
                       >
                           <h3 className="text-sm font-medium text-text-primary break-words w-full">{feature.name}</h3>
-                          {feature.docPath && (
-                              <a href={feature.docPath} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline mt-1">
-                                  <ExternalLink className="w-3 h-3" />
-                                  Docs
-                              </a>
-                          )}
+                          {feature.docPath && (() => {
+                              const docPath = feature.docPath!.trim();
+                              const isDocsScope = docPath.startsWith('/docs/');
+                              const scope = isDocsScope ? 'docs' : 'project';
+                              const pathParam = isDocsScope ? docPath.slice(6) : docPath.replace(/^\//, '');
+                              const docsHref = `/superadmin/docs?scope=${scope}&path=${encodeURIComponent(pathParam)}`;
+                              return (
+                                  <a href={docsHref} className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline mt-1">
+                                      <ExternalLink className="w-3 h-3" />
+                                      Docs
+                                  </a>
+                              );
+                          })()}
                       </div>
 
                       {/* 4. Criteria */}

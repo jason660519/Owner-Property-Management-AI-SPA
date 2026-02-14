@@ -5,16 +5,17 @@ created: 2026-02-04
 creator: Claude Sonnet 4.5
 """
 
-import logging
 import base64
-from typing import Optional
-from fastapi import APIRouter, HTTPException, Depends, status
-from pydantic import BaseModel, Field
-from supabase import create_client, Client
+import logging
 import os
+from typing import Optional
 
-from ...core.kms import get_kms, VLMKeyKMS
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
+from supabase import Client, create_client
+
 from ...core.auth import get_current_user
+from ...core.kms import VLMKeyKMS, get_kms
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +90,7 @@ async def upsert_vlm_api_key(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid salt format: {e}"
-            )
+            ) from e
 
         # Encrypt API key
         encrypted = await kms.encrypt(payload.api_key, salt)
@@ -100,7 +101,7 @@ async def upsert_vlm_api_key(
         }).eq('user_id', user_id).eq('provider', payload.provider).eq('is_active', True).execute()
 
         # Insert new credential
-        result = supabase.table('user_vlm_credentials').insert({
+        supabase.table('user_vlm_credentials').insert({
             'user_id': user_id,
             'provider': payload.provider,
             'api_key_ciphertext': encrypted.ciphertext,
@@ -124,7 +125,7 @@ async def upsert_vlm_api_key(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to save API key"
-        )
+        ) from e
 
 
 @router.get("/vlm-key/status", response_model=VLMKeyStatusResponse)
@@ -170,7 +171,7 @@ async def get_vlm_key_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to check API key status"
-        )
+        ) from e
 
 
 @router.delete("/vlm-key", response_model=VLMKeyDeleteResponse)
@@ -216,4 +217,4 @@ async def delete_vlm_api_key(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete API key"
-        )
+        ) from e

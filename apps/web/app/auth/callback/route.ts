@@ -9,6 +9,8 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
+import { addUserToIamGroupByRole } from '@/lib/iam';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
@@ -34,6 +36,10 @@ export async function GET(request: Request) {
       if (type === 'recovery') {
         return NextResponse.redirect(`${origin}/update-password`);
       }
+      // Invite type: redirect to login in invite mode so user enters their 8-digit code
+      if (type === 'invite') {
+        return NextResponse.redirect(`${origin}/login?mode=invite`);
+      }
 
       const {
         data: { user },
@@ -54,7 +60,15 @@ export async function GET(request: Request) {
         if (profile) {
           // Existing user, redirect based on role
           // Prioritize primary_role, fallback to first role in array, then default
-          const role = profile.primary_role || (profile.roles && profile.roles[0]) || 'landlord';
+          const roles = profile.roles || [];
+          const role = profile.primary_role || (roles.length > 0 ? roles[0] : 'landlord');
+          
+          // Unified Login Logic:
+          // If user has 'super_admin' role OR has multiple roles -> Redirect to Portal
+          if (roles.includes('super_admin') || roles.length > 1) {
+             return NextResponse.redirect(`${origin}/portal`);
+          }
+
           const dashboardPath = `/${role.replace('_', '-')}/dashboard`;
           return NextResponse.redirect(`${origin}${dashboardPath}`);
         } else {
@@ -70,8 +84,8 @@ export async function GET(request: Request) {
             .from('users_profile')
             .insert({
               id: user.id,
-              email: user.email!,
               display_name: displayName,
+              role: defaultRole,
               roles: [defaultRole],
               primary_role: defaultRole
             });
@@ -79,6 +93,13 @@ export async function GET(request: Request) {
           if (insertError) {
             console.error('Failed to create user profile from OAuth:', insertError);
             return NextResponse.redirect(`${origin}/login?error=create_profile_failed&message=${encodeURIComponent(insertError.message)}`);
+          }
+
+          try {
+            const admin = createAdminClient();
+            await addUserToIamGroupByRole(admin, user.id, defaultRole);
+          } catch (e) {
+            console.error('Failed to add OAuth user to IAM group:', e);
           }
 
           return NextResponse.redirect(`${origin}/${defaultRole}/dashboard`);

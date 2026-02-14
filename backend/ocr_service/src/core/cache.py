@@ -3,7 +3,7 @@ Cache manager for OCR service
 """
 
 from typing import Any, Optional
-import asyncio
+
 from loguru import logger
 
 

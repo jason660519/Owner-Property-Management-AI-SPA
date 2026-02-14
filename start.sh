@@ -155,7 +155,7 @@ start_all() {
     echo ""
     echo -e "${GREEN}🎉 所有服務啟動程序已完成${NC}"
     echo -e "   • Web App:          http://localhost:3000"
-    echo -e "   • Superadmin:       http://localhost:3001/superadmin/dashboard"
+    echo -e "   • Superadmin:       http://localhost:3001/superadmin/dashboard (亦可作為統一登入入口)"
     echo -e "   • OCR Service:      http://localhost:8000"
     echo -e "   • Supabase Studio:  http://localhost:54323"
     echo -e "   • Mailpit (Email):  http://localhost:54324"

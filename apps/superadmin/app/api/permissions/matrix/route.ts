@@ -41,11 +41,12 @@ export async function GET(request: NextRequest) {
 
     // Transform the data into the requested format: { functions: [], tables: [], pages: [] }
     const result = {
-      functions: [] as any[],
-      tables: [] as any[],
-      pages: [] as any[]
+      functions: [] as Record<string, unknown>[],
+      tables: [] as Record<string, unknown>[],
+      pages: [] as Record<string, unknown>[]
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rolePermissions.forEach((item: any) => {
       const p = item.permissions;
       if (!p) return;
@@ -82,7 +83,7 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json(result);
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Unexpected error:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }

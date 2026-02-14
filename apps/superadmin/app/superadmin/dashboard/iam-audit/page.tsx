@@ -38,6 +38,7 @@ interface IAMStats {
   activeUsers: number;
   totalGroups: number;
   totalRoles: number;
+  postgresPredefinedRolesCount: number;
   addedToday: number;
   modifiedToday: number;
   deletedToday: number;
@@ -45,7 +46,19 @@ interface IAMStats {
 
 // --- Components ---
 
-const StatCard = ({ title, value, subValue, icon: Icon, trend }: any) => (
+interface StatCardProps {
+  title: string;
+  value: string | number | {
+    totalAccounts: number;
+    totalPeople: number;
+    activeUsers: number;
+  };
+  subValue?: string;
+  icon: React.ElementType;
+  trend?: 'up' | 'down' | 'neutral';
+}
+
+const StatCard = ({ title, value, subValue, icon: Icon, trend }: StatCardProps) => (
   <Card>
     <CardContent className="p-6">
       <div className="flex items-center justify-between space-y-0 pb-2">
@@ -206,6 +219,13 @@ export default function IAMAuditPage() {
           icon={Lock} 
           subValue="+1 新增" 
           trend="up" 
+        />
+        <StatCard 
+          title="Postgres 預定義角色數" 
+          value={stats?.postgresPredefinedRolesCount ?? 0} 
+          icon={Lock} 
+          subValue="pg_roles" 
+          trend="neutral" 
         />
         <StatCard 
           title="今日異動數" 
