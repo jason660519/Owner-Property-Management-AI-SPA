@@ -14,6 +14,7 @@
 | 檔案命名總則   | [docs/file-naming-guidelines.md](docs/file-naming-guidelines.md)                                       |
 | UI/UX 設計規範 | [docs/design-guidelines/UNIFIED_DESIGN_STANDARD.md](docs/design-guidelines/UNIFIED_DESIGN_STANDARD.md) |
 | 測試快速參考   | [docs/testing/TEST_QUICK_REFERENCE.md](docs/testing/TEST_QUICK_REFERENCE.md)                           |
+| 工作日誌／進度更新 | [docs/operational-guides/update-project-progress-guide.md](docs/operational-guides/update-project-progress-guide.md) |
 
 ---
 
@@ -34,9 +35,10 @@ root/
 ├── supabase/
 │   └── migrations/           # SQL 遷移檔 (Core + IAM)
 ├── docs/                     # 專案文檔中心
-│   ├── deployment-guides/
 │   ├── design-guidelines/    # UI/UX 設計規範、提案
 │   │   └── proposals/        # 設計提案
+│   ├── operational-guides/   # 操作指南（部署、進度更新、SOP、快速啟動等）
+│   │   └── deployment-guides/
 │   ├── implementation-plans/
 │   ├── product-overview/
 │   ├── technical-selection/  # 技術架構、IAM、API 設計
@@ -126,3 +128,4 @@ npm run build && npm run lint # 建構 + 檢查
 3. **命名規則** — 組件 PascalCase / 工具 camelCase / 資料夾 kebab-case / 文檔 snake_case
 4. **測試結構** — 單元測試 colocated (`__tests__/`)，E2E 在 `e2e/flows/{module}/`
 5. **Skills 優先級** — `.claude/rules/` > `.claude/skills/` > 系統 Skills
+6. **SQL 檔案管理** — `*.sql` 僅允許存在於 `supabase/migrations/`，命名格式 `YYYYMMDDHHMMSS_描述.sql`，禁止在其他目錄建立 SQL 檔（臨時查詢用 Supabase Dashboard）

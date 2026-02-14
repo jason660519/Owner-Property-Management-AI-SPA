@@ -24,7 +24,7 @@ export default async function PropertiesPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#141414] text-white font-urbanist">
+        <div className="min-h-screen bg-bg-primary text-text-primary transition-colors duration-300">
             <Header />
 
             <main className="pt-32 pb-20 px-6 md:px-12 lg:px-20">

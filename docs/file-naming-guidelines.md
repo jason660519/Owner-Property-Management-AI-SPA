@@ -3,9 +3,9 @@
 
 > **Created Date**: 2026-02-02
 > **Created By**: Claude Sonnet 4.5
-> **Last Modified**: 2026-02-06
-> **Modified By**: Claude Opus 4.5
-> **Version**: 4.0 (Integrated Testing Standards Edition)
+> **Last Modified**: 2026-02-14
+> **Modified By**: Antigravity
+> **Version**: 4.1 (SQL File Management Edition)
 > **Document Type**: Technical Documentation / 技術文件
 
 ---
@@ -187,6 +187,35 @@ export class UserAuthService {
 | **Progress Reports** | **type + ISO Date**       | `sdlc-progress-report_2026-01-30.md`                  | Must include date suffix         |
 | **Images**           | **snake_case**            | `logo_main.png`, `banner_home.jpg`                    | No date needed                   |
 | **Shell Scripts**    | **kebab-case**            | `deploy-prod.sh`, `setup-env.sh`                      | Version controlled               |
+
+### 4. SQL Files / SQL 檔案
+
+> ⚠️ **CRITICAL: SQL files (`*.sql`) MUST ONLY exist in `supabase/migrations/`.**
+> ⚠️ **關鍵規則：SQL 檔案（`*.sql`）僅允許存在於 `supabase/migrations/` 目錄。**
+
+| Rule / 規則          | Details / 說明                                                                                                             |
+| :------------------- | :------------------------------------------------------------------------------------------------------------------------- |
+| **Allowed Location** | `supabase/migrations/` ONLY / 僅限 `supabase/migrations/`                                                                  |
+| **Naming Format**    | `YYYYMMDDHHMMSS_descriptive_name.sql` (e.g., `20260214100000_create_users_table.sql`)                                      |
+| **Prohibited**       | Creating `.sql` files anywhere else in the project / 禁止在專案其他任何位置建立 `.sql` 檔                                  |
+| **Ad-hoc Queries**   | Use Supabase Dashboard SQL Editor directly; do NOT commit scratch queries / 臨時查詢請使用 Supabase Dashboard，不要 commit |
+| **Schema Dumps**     | Do NOT commit schema dump `.sql` files; use migrations instead / 不要 commit schema dump，改用 migration                   |
+
+#### ❌ WRONG / 錯誤
+
+```
+supabase/snippets/Untitled query 353.sql   # Supabase Studio 草稿
+supabase/queries/audit-queries.sql          # 散落的查詢檔
+apps/superadmin/supabase_schema.sql         # 散落的 schema 檔
+src/db/setup.sql                            # 任何非 migrations 位置
+```
+
+#### ✅ CORRECT / 正確
+
+```
+supabase/migrations/20260214100000_create_ai_api_keys.sql
+supabase/migrations/20260214110000_add_rls_policies.sql
+```
 
 ---
 
@@ -420,7 +449,7 @@ module.exports = {
 ### 1. New Files / 新增文件
 
 **English Guidelines**:
-- **Deployment & Environment**: Store in `docs/deployment-guides/`
+- **Deployment & Environment**: Store in `docs/operational-guides/deployment-guides/`
 - **Design Specs & UI/UX**: Store in `docs/design-guidelines/`
 - **Progress Reports**:
   - OCR related → `project-process/progress-reports/ocr-development/`
@@ -435,7 +464,7 @@ module.exports = {
 - **Images/Videos**: Store in `docs/design-guidelines/references/` or `apps/*/assets/`
 
 **中文指引**:
-- **部署與環境文件**：存入 `docs/deployment-guides/`
+- **部署與環境文件**：存入 `docs/operational-guides/deployment-guides/`
 - **設計規範與 UI/UX 文件**：存入 `docs/design-guidelines/`
 - **進度報告**：
   - OCR 相關 → `project-process/progress-reports/ocr-development/`
@@ -534,6 +563,7 @@ module.exports = {
 - [ ] Is the file placed in the correct directory? / 文件是否已放入正確的目錄？
 - [ ] For test files: Is it in `__tests__/` next to source code? / 測試檔案是否在源代碼旁的 `__tests__/`？
 - [ ] For E2E tests: Is it in `e2e/flows/{module}/`? / E2E 測試是否在 `e2e/flows/{模組}/`？
+- [ ] For SQL files: Is it in `supabase/migrations/` with timestamp naming? / SQL 檔案是否在 `supabase/migrations/` 且使用時間戳命名？
 
 ### 🧪 Test File Creation Checklist / 測試文件創建檢查表
 
@@ -561,19 +591,21 @@ module.exports = {
 
 | Date       | Version | Modified By       | Changes                                                      |
 | ---------- | ------- | ----------------- | ------------------------------------------------------------ |
+| 2026-02-14 | 4.1     | Antigravity       | Added SQL file management rules, prohibited scattered .sql   |
 | 2026-02-06 | 4.0     | Claude Opus 4.5   | Integrated testing standards, colocated testing approach     |
 | 2026-02-02 | 3.0     | Claude Sonnet 4.5 | Complete rewrite: English-only file names, bilingual content |
 | 2026-02-01 | 2.2     | Gemini 3 Pro      | Updated directory structure, archiving process               |
 | 2026-01-30 | 2.1     | Claude Sonnet 4.5 | Added AI collaborator identification and change tracking     |
 | 2026-01-30 | 1.0     | Project Team      | Initial version                                              |
 
-| 日期       | 版本 | 修改者            | 修改內容                           |
-| ---------- | ---- | ----------------- | ---------------------------------- |
-| 2026-02-06 | 4.0  | Claude Opus 4.5   | 整合測試規範、就近測試方法         |
-| 2026-02-02 | 3.0  | Claude Sonnet 4.5 | 完全重寫：英文專用檔案名、雙語內容 |
-| 2026-02-01 | 2.2  | Gemini 3 Pro      | 更新目錄結構、歸檔流程             |
-| 2026-01-30 | 2.1  | Claude Sonnet 4.5 | 新增 AI 協作者識別與修改追蹤       |
-| 2026-01-30 | 1.0  | Project Team      | 初始版本                           |
+| 日期       | 版本 | 修改者            | 修改內容                             |
+| ---------- | ---- | ----------------- | ------------------------------------ |
+| 2026-02-14 | 4.1  | Antigravity       | 新增 SQL 檔案管理規則，禁止散落 .sql |
+| 2026-02-06 | 4.0  | Claude Opus 4.5   | 整合測試規範、就近測試方法           |
+| 2026-02-02 | 3.0  | Claude Sonnet 4.5 | 完全重寫：英文專用檔案名、雙語內容   |
+| 2026-02-01 | 2.2  | Gemini 3 Pro      | 更新目錄結構、歸檔流程               |
+| 2026-01-30 | 2.1  | Claude Sonnet 4.5 | 新增 AI 協作者識別與修改追蹤         |
+| 2026-01-30 | 1.0  | Project Team      | 初始版本                             |
 
 ---
 

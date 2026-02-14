@@ -2,9 +2,9 @@
 
 > **創建日期**: 2026-01-31
 > **創建者**: Project Team
-> **最後修改**: 2026-02-13
+> **最後修改**: 2026-02-14
 > **修改者**: Claude Opus 4.6
-> **版本**: 1.1
+> **版本**: 1.2
 > **文件類型**: 設計文件
 
 ---
@@ -80,21 +80,23 @@
 
 ### 語意化色彩變數 — 主題切換系統
 
-所有主題透過覆寫語意化變數實現，兩個應用共用完全相同的值：
+所有主題透過覆寫語意化變數實現。**Web 與 Superadmin 預設僅啟用 Light / Dark**（ThemeProvider `themes={['light', 'dark']}`），下表為兩應用共用值：
 
-| 變數 | Light Mode | Dark Mode | Midnight | Ultra-Dark (Superadmin) |
-|:-----|:-----------|:----------|:---------|:------------------------|
-| `--color-text-primary` | `#111827` | `#FFFFFF` | `#F1F5F9` | `#E0E0E0` |
-| `--color-text-secondary` | `#6B7280` | `#999999` | `#94A3B8` | `#9E9E9E` |
-| `--color-text-muted` | `#9CA3AF` | `#666666` | `#64748B` | `#616161` |
-| `--color-bg-primary` | `#FFFFFF` | `#1A1A1A` | `#0B1121` | `#0A0A0A` |
-| `--color-bg-secondary` | `#F9FAFB` | `#2A2A2A` | `#151E32` | `#121212` |
-| `--color-bg-tertiary` | `#F3F4F6` | `#333333` | `#1E293B` | `#0F0F0F` |
-| `--color-border-default` | `#E5E7EB` | `#333333` | `#2A3655` | `#242424` |
-| `--color-border-light` | `#D1D5DB` | `#444444` | `#334155` | `#1B1B1B` |
-| `--color-accent` | `#7C3AED` | `#7C3AED` | `#22D3EE` | `#90CAF9` |
-| `--color-accent-hover` | `#6D28D9` | `#6D28D9` | `#67E8F9` | `#64B5F6` |
-| `--color-accent-subtle` | `rgba(124,58,237,0.08)` | `rgba(124,58,237,0.15)` | `rgba(34,211,238,0.15)` | `rgba(144,202,249,0.1)` |
+| 變數 | Light Mode | Dark Mode |
+|:-----|:-----------|:----------|
+| `--color-text-primary` | `#111827` | `#FFFFFF` |
+| `--color-text-secondary` | `#6B7280` | `#999999` |
+| `--color-text-muted` | `#9CA3AF` | `#666666` |
+| `--color-bg-primary` | `#FFFFFF` | `#1A1A1A` |
+| `--color-bg-secondary` | `#F9FAFB` | `#2A2A2A` |
+| `--color-bg-tertiary` | `#F3F4F6` | `#333333` |
+| `--color-border-default` | `#E5E7EB` | `#333333` |
+| `--color-border-light` | `#D1D5DB` | `#444444` |
+| `--color-accent` | `#7C3AED` | `#7C3AED` |
+| `--color-accent-hover` | `#6D28D9` | `#6D28D9` |
+| `--color-accent-subtle` | `rgba(124,58,237,0.08)` | `rgba(124,58,237,0.15)` |
+
+> 若 `globals.css` 中另有 `.midnight` / `.ultra-dark` 定義，僅供未來擴充或內部實驗，目前 UI 不提供切換入口。
 
 ### Tailwind CSS 語意色彩映射
 
@@ -130,23 +132,29 @@ colors: {
 
 ### 字型家族
 
+Web 與 Superadmin **統一使用 Urbanist 為主字型**，並以 Inter 為輔（變數載入）：
+
 ```css
 :root {
   /* 主要字型 - Urbanist (從 Figma 設計稿) */
-  --font-primary: 'Urbanist', system-ui, -apple-system, sans-serif;
-  
-  /* 備用字型 */
-  --font-fallback: 'Inter', 'Manrope', sans-serif;
+  --font-primary: 'Urbanist', system-ui, sans-serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
 }
 ```
 
-### 字型載入
+### 字型載入（Next.js）
 
-```html
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap" rel="stylesheet">
+兩應用皆在 `app/layout.tsx` 使用 `next/font/google` 載入，並將 `body` 設為 `font-primary`：
+
+```tsx
+import { Inter, Urbanist } from 'next/font/google';
+const urbanist = Urbanist({ subsets: ['latin'], variable: '--font-urbanist' });
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+// ...
+<body className={`${urbanist.variable} ${inter.variable} font-primary`}>
 ```
+
+Tailwind 需設定 `fontFamily.primary: ['Urbanist', 'system-ui', 'sans-serif']`，組件使用 `className="font-primary"` 即可。
 
 ### 字型樣式 (從 Figma 提取的實際數值)
 
@@ -793,5 +801,6 @@ styles/
 
 | 日期       | 版本  | 更新內容                                 |
 | ---------- | ----- | ---------------------------------------- |
+| 2026-02-14 | 1.2.0 | 主題統一為 Light/Dark 雙模式；字型載入改為 next/font + font-primary |
 | 2026-02-13 | 1.1.0 | 統一 Web/Superadmin 主題切換系統，新增完整主題色彩對照表 |
 | 2026-01-31 | 1.0.0 | 初始版本 - 從 Figma API 提取完整設計規格 |

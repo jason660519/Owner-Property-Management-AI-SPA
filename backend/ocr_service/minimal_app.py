@@ -3,15 +3,25 @@ Minimal FastAPI app for VLM testing
 Includes mock OCR batch-upload and SSE event endpoints
 """
 
-from fastapi import FastAPI, File, UploadFile, BackgroundTasks
+import os
+import json
+import uuid
+import asyncio
+import shutil
+import tempfile
+from pathlib import Path
+from datetime import datetime
+from typing import List, Optional
+
+from fastapi import FastAPI, File, UploadFile, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from typing import List
-import asyncio
-import json
-import os
-import uuid
-from datetime import datetime
+from dotenv import load_dotenv
+
+from src.ocr_engine.vlm import VLMEngine
+from src.preprocessor.pdf_preprocessor import PDFPreprocessor
+
+load_dotenv()
 
 app = FastAPI(title="VLM OCR Service", version="1.0.0")
 
@@ -46,12 +56,30 @@ async def vlm_status():
 
 @app.post("/api/v1/vlm/credentials")
 async def save_credentials(provider: str, api_key: str):
-    """Save VLM credentials (mock)"""
-    return {
-        "status": "success",
-        "message": f"Credentials saved for {provider}",
-        "provider": provider,
+    """Save VLM credentials (in-memory for this session)"""
+    key_map = {
+        "anthropic_claude": "ANTHROPIC_API_KEY",
+        "openai_gpt4v": "OPENAI_API_KEY",
+        "google_gemini": "GOOGLE_API_KEY",
     }
+    
+    env_var = key_map.get(provider)
+    if env_var:
+        os.environ[env_var] = api_key
+        # Also update dotenv if possible, or write to .env? 
+        # For now, just memory is safer/easier for a "minimal" app without breaking things.
+        
+        return {
+            "status": "success",
+            "message": f"Credentials saved for {provider}",
+            "provider": provider,
+        }
+    else:
+        return {
+            "status": "error",
+            "message": f"Unknown provider: {provider}",
+            "provider": provider
+        }, 400
 
 
 @app.post("/api/v1/documents/upload")
@@ -81,63 +109,150 @@ async def process_document():
 
 
 # ---------------------------------------------------------------------------
-# OCR Batch Upload & SSE Events (mock implementation for testing)
+# OCR Batch Upload & SSE Events (real VLM parsing; ensure API keys are set)
 # ---------------------------------------------------------------------------
 
-async def _mock_process_batch(batch_id: str, filenames: List[str]):
-    """Background task: simulate OCR processing and push SSE events."""
+async def _process_batch(batch_id: str, file_paths: List[str], batch_dir: str):
+    """Background task: Process OCR batch and push SSE events."""
     queue = sse_queues.get(batch_id)
     if not queue:
         return
 
+    # Initialize Engines
+    # Determine provider based on env vars
+    provider = "openai"
+    model = "gpt-4o"
+    if os.getenv("ANTHROPIC_API_KEY"):
+        provider = "anthropic"
+        model = "claude-3-5-sonnet-20240620"
+    elif os.getenv("OPENAI_API_KEY"):
+        provider = "openai"
+        model = "gpt-4o"
+    elif os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"):
+        provider = "google"
+        model = "gemini-1.5-pro"
+
+    api_key = (
+        os.getenv("ANTHROPIC_API_KEY")
+        or os.getenv("OPENAI_API_KEY")
+        or os.getenv("GOOGLE_API_KEY")
+        or os.getenv("GEMINI_API_KEY")
+    )
+    if not api_key:
+        await queue.put({
+            "type": "BATCH_FAILED",
+            "error": "請先設定至少一個 VLM API Key：ANTHROPIC_API_KEY、OPENAI_API_KEY 或 GOOGLE_API_KEY（可在 .env 或環境變數中設定）",
+        })
+        await queue.put("END")
+        return
+
     try:
+        vlm_engine = VLMEngine(provider=provider, model=model)
+        pdf_processor = PDFPreprocessor()
+        await pdf_processor.initialize()
+
         await queue.put({
             "type": "BATCH_STARTED",
-            "total": len(filenames),
+            "total": len(file_paths),
             "timestamp": datetime.now().isoformat(),
+            "provider": provider
         })
 
-        for i, filename in enumerate(filenames):
-            # Emit processing event
+        for i, file_path_str in enumerate(file_paths):
+            file_path = Path(file_path_str)
+            filename = file_path.name
+            
             await queue.put({
                 "type": "FILE_PROCESSING",
                 "file_id": str(uuid.uuid4()),
                 "filename": filename,
                 "index": i,
-                "progress": int((i / len(filenames)) * 100),
+                "progress": int((i / len(file_paths)) * 100),
             })
 
-            # Simulate OCR processing time (0.5-1.5s per file)
-            await asyncio.sleep(0.8)
+            start_time = datetime.now()
+            try:
+                # Process file
+                image_path = file_path
+                
+                # If PDF, convert first page to image
+                if file_path.suffix.lower() == ".pdf":
+                    # Read PDF file
+                    with open(file_path, "rb") as f:
+                        pdf_data = f.read()
+                    
+                    images = await pdf_processor.convert_to_images(pdf_data, page_range="1")
+                    if images:
+                        # Save temp image
+                        image_path = Path(batch_dir) / f"{file_path.stem}_page1.png"
+                        with open(image_path, "wb") as f:
+                            f.write(images[0])
+                    else:
+                        raise ValueError("Could not extract images from PDF")
 
-            # Emit completed event with mock result
-            await queue.put({
-                "type": "FILE_COMPLETED",
-                "file_id": str(uuid.uuid4()),
-                "filename": filename,
-                "result": {
-                    "text": f"[Mock OCR] 解析結果 — {filename}",
-                    "owner_name": "王小明",
-                    "property_address": "台北市大安區忠孝東路四段123號",
-                    "confidence": 0.92,
-                    "processing_time_ms": 800,
-                },
-            })
+                # Call VLM (ensure Path for engine)
+                result = await vlm_engine.process(
+                    image_path=Path(image_path),
+                    document_type="建物登記謄本"
+                )
+                
+                # Detect if model returned the prompt example instead of real content
+                ownership = result.get("ownership_info") or {}
+                basic = result.get("building_basic_info") or {}
+                doc_info = result.get("document_info") or {}
+                is_example_echo = (
+                    ownership.get("owner") == "詹琬"
+                    and "敦化南路586" in str(basic.get("address", ""))
+                ) or (
+                    doc_info.get("certificate_number") == "大安電腾字第007104號"
+                    and basic.get("building_number") == "02069-000建號"
+                )
+                if is_example_echo:
+                    await queue.put({
+                        "type": "FILE_FAILED",
+                        "filename": filename,
+                        "error": "解析結果與系統範例相同，可能未正確辨識您的圖片。請確認：1) API Key 有效 2) 上傳的檔案為謄本圖片/PDF 3) 圖片清晰可讀。",
+                    })
+                    continue
+                
+                # Add metadata
+                processing_time = (datetime.now() - start_time).total_seconds() * 1000
+                result["processing_time_ms"] = int(processing_time)
+                result["provider"] = provider
+
+                await queue.put({
+                    "type": "FILE_COMPLETED",
+                    "file_id": str(uuid.uuid4()),
+                    "filename": filename,
+                    "result": result,
+                })
+
+            except Exception as e:
+                await queue.put({
+                    "type": "FILE_FAILED",
+                    "filename": filename,
+                    "error": str(e)
+                })
 
         await queue.put({
             "type": "BATCH_COMPLETED",
             "batch_id": batch_id,
-            "results_count": len(filenames),
+            "results_count": len(file_paths),
         })
+
     except Exception as e:
         await queue.put({
             "type": "BATCH_FAILED",
             "error": str(e),
         })
     finally:
-        # Send END signal
+        # Cleanup
+        try:
+            shutil.rmtree(batch_dir, ignore_errors=True)
+        except Exception:
+            pass
+            
         await queue.put("END")
-        # Clean up queue after 60s
         await asyncio.sleep(60)
         sse_queues.pop(batch_id, None)
 
@@ -148,35 +263,40 @@ async def upload_batch_documents(
     files: List[UploadFile] = File(...),
 ):
     """
-    Upload multiple files for batch OCR processing (mock).
+    Upload multiple files for batch OCR processing.
     Returns a batch_id; connect to /api/v1/ocr/events/{batch_id} for progress.
     """
     batch_id = str(uuid.uuid4())
     sse_queues[batch_id] = asyncio.Queue()
 
-    # Collect filenames and validate
+    # Create a temp directory for this batch
+    batch_dir = Path(tempfile.gettempdir()) / "ocr_batches" / batch_id
+    batch_dir.mkdir(parents=True, exist_ok=True)
+
     valid_extensions = {"jpg", "jpeg", "png", "pdf", "tif", "tiff", "bmp", "gif"}
-    filenames: List[str] = []
+    saved_files: List[str] = []
 
     for file in files:
         ext = (file.filename or "unknown").rsplit(".", 1)[-1].lower()
         if ext not in valid_extensions:
             continue
+        
+        file_path = batch_dir / (file.filename or f"unnamed.{ext}")
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        saved_files.append(str(file_path))
 
-        # Read and discard content (mock — no actual processing)
-        await file.read()
-        filenames.append(file.filename or f"unnamed.{ext}")
-
-    if not filenames:
+    if not saved_files:
+        shutil.rmtree(batch_dir, ignore_errors=True)
         return {"detail": "No valid files provided"}, 400
 
-    # Start mock background processing
-    background_tasks.add_task(_mock_process_batch, batch_id, filenames)
+    # Start background processing
+    background_tasks.add_task(_process_batch, batch_id, saved_files, str(batch_dir))
 
     return {
         "batch_id": batch_id,
         "message": "Batch uploaded and processing started",
-        "file_count": len(filenames),
+        "file_count": len(saved_files),
     }
 
 

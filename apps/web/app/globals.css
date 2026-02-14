@@ -36,6 +36,7 @@
 
     /* 字體變數 */
     --font-sans: 'Inter', system-ui, sans-serif;
+    --font-primary: 'Urbanist', system-ui, sans-serif;
 
     /* 間距變數 */
     --spacing-xs: 8px;
@@ -54,6 +55,7 @@
     --radius-2xl: 28px;
     --radius-3xl: 75px;
     --radius-pill: 9999px;
+    --radius-base: 12px;
     --radius-nav: 75px;
 
     /* 文字大小變數 */
@@ -183,7 +185,7 @@ html {
 
 body {
   font-family: var(--font-sans);
-  background-color: var(--color-bg-primary);
+  background: var(--color-bg-primary);
   color: var(--color-text-primary);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -191,22 +193,32 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* 自定義滾動條 */
+/* Prevent white flash on theme switch */
+html,
+body,
+.main-container,
+.content-wrapper,
+.inner-page {
+  background-color: var(--color-bg-primary);
+}
+
+/* 自定義滾動條 (與 superadmin 一致) */
 ::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-bg-secondary);
+  background: var(--color-bg-primary);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border-default);
+  background: var(--color-border-light);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-secondary);
+  background: var(--color-text-muted);
 }
 
 /* 焦點樣式 */

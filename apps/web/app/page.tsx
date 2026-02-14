@@ -8,19 +8,19 @@ import { FAQ } from '@/components/sections/FAQ';
 import { getProperties } from '@/lib/api/properties';
 
 export const metadata: Metadata = {
-  title: 'Estatein - 房東物業的 AI 好幫手',
+  title: 'Owner AI - 房東物業的 AI 好幫手',
   description: '透過 AI 智能平台，輕鬆管理您的不動產資產。無論是租賃管理、物業維護還是收益優化，我們都能為您提供全方位的解決方案。',
   keywords: ['物業管理', '房地產', 'AI', '租賃管理', '房東', '不動產'],
   openGraph: {
-    title: 'Estatein - 房東物業的 AI 好幫手',
+    title: 'Owner AI - 房東物業的 AI 好幫手',
     description: '透過 AI 智能平台，輕鬆管理您的不動產資產。',
     type: 'website',
     locale: 'zh_TW',
-    siteName: 'Estatein',
+    siteName: 'Owner AI',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Estatein - 房東物業的 AI 好幫手',
+    title: 'Owner AI - 房東物業的 AI 好幫手',
     description: '透過 AI 智能平台，輕鬆管理您的不動產資產。',
   },
 };
@@ -31,7 +31,7 @@ export default async function Home() {
   const { properties, isMock } = await getProperties();
 
   return (
-    <div className="min-h-screen bg-[#141414] text-white font-urbanist">
+    <div className="min-h-screen bg-bg-primary text-text-primary font-primary">
       <Header />
       <main>
         <HeroSection />

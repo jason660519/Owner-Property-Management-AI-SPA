@@ -30,6 +30,13 @@ paths:
 - 時間戳：`xxx_at`
 - Migration：`YYYYMMDDHHMMSS_description.sql`
 
+## ⚠️ SQL 檔案管理
+
+- `*.sql` 檔案**僅允許**存在於 `supabase/migrations/`
+- **禁止**在 `supabase/snippets/`、`supabase/queries/`、`apps/` 或任何其他目錄建立 `.sql` 檔
+- 臨時查詢 / 診斷腳本：直接在 Supabase Dashboard SQL Editor 執行，不要 commit
+- Schema dump：不要 commit，改用 migration
+
 ---
 
 ## RLS (Row Level Security)

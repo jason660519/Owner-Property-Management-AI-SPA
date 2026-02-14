@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Urbanist } from 'next/font/google';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const urbanist = Urbanist({ subsets: ['latin'], variable: '--font-urbanist' });
 
 export const metadata: Metadata = {
   title: '房東管理系統 - AI 驅動的物業管理平台',
@@ -51,7 +52,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="房東管理" />
       </head>
-      <body className={inter.className}>
+      <body className={`${urbanist.variable} ${inter.variable} font-primary`}>
         <Providers>{children}</Providers>
       </body>
     </html>

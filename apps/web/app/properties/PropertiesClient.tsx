@@ -111,17 +111,17 @@ export default function PropertiesClient({ initialProperties, isMock = false }: 
             {/* Header & Search */}
             <div className="mb-12">
                 <h1 className="text-3xl md:text-4xl font-bold mb-4">尋找您的理想物業</h1>
-                <p className="text-[#999999] mb-8">
+                <p className="text-text-secondary mb-8">
                     瀏覽我們精選的物業列表，找到最適合您的家或投資標的。
                 </p>
 
-                <div className="bg-[#1A1A1A] p-6 rounded-xl border border-[#262626] flex flex-col md:flex-row gap-4">
+                <div className="bg-bg-secondary p-6 rounded-xl border border-border-default flex flex-col md:flex-row gap-4">
                     <div className="flex-1">
                         <Input
                             placeholder="搜尋關鍵字 (如：公寓、台北市)..."
                             value={searchTerm}
                             onChange={(e) => handleSearchChange(e.target.value)}
-                            className="bg-[#141414] border-[#333333] h-12"
+                            className="bg-bg-primary border-border-light h-12"
                         />
                     </div>
                     <div className="w-full md:w-48">
@@ -129,7 +129,7 @@ export default function PropertiesClient({ initialProperties, isMock = false }: 
                             <select
                                 value={filterType}
                                 onChange={(e) => handleFilterChange(setFilterType, e.target.value)}
-                                className="w-full h-12 px-4 bg-[#141414] border border-[#333333] rounded-lg text-white appearance-none focus:outline-none focus:border-[#7C3AED]"
+                                className="w-full h-12 px-4 bg-bg-primary border border-border-light rounded-lg text-text-primary appearance-none focus:outline-none focus:border-accent"
                             >
                                 <option value="all">所有類型</option>
                                 {availableTypes.map(type => (
@@ -137,7 +137,7 @@ export default function PropertiesClient({ initialProperties, isMock = false }: 
                                 ))}
                             </select>
                             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                                <svg className="w-4 h-4 text-[#999999]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                             </div>
                         </div>
                     </div>
@@ -146,14 +146,14 @@ export default function PropertiesClient({ initialProperties, isMock = false }: 
                             <select
                                 value={filterStatus}
                                 onChange={(e) => handleFilterChange(setFilterStatus, e.target.value)}
-                                className="w-full h-12 px-4 bg-[#141414] border border-[#333333] rounded-lg text-white appearance-none focus:outline-none focus:border-[#7C3AED]"
+                                className="w-full h-12 px-4 bg-bg-primary border border-border-light rounded-lg text-text-primary appearance-none focus:outline-none focus:border-accent"
                             >
                                 <option value="all">所有狀態</option>
                                 <option value="sale">出售</option>
                                 <option value="rent">出租</option>
                             </select>
                             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                                <svg className="w-4 h-4 text-[#999999]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                             </div>
                         </div>
                     </div>
@@ -163,7 +163,7 @@ export default function PropertiesClient({ initialProperties, isMock = false }: 
 
             {/* Results count */}
             {filteredProperties.length > 0 && (
-                <p className="text-[#999999] text-sm mb-6">
+                <p className="text-text-secondary text-sm mb-6">
                     共 {filteredProperties.length} 筆物件
                     {filteredProperties.length > ITEMS_PER_PAGE && (
                         <span>，顯示第 {startIndex + 1}-{Math.min(startIndex + ITEMS_PER_PAGE, filteredProperties.length)} 筆</span>
@@ -176,7 +176,7 @@ export default function PropertiesClient({ initialProperties, isMock = false }: 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {paginatedProperties.map((property) => (
                         <Link key={property.id} href={`/properties/${property.id}`} className="group">
-                            <Card hoverable padding="md" className="h-full bg-[#1A1A1A] border-[#262626] group-hover:border-[#7C3AED]/50 transition-colors">
+                            <Card hoverable padding="md" className="h-full bg-bg-secondary border-border-default group-hover:border-accent/50 transition-colors">
                                 <CardImage
                                     src={property.imageUrl}
                                     alt={property.title}
@@ -185,46 +185,46 @@ export default function PropertiesClient({ initialProperties, isMock = false }: 
                                 />
                                 <CardContent>
                                     <div className="flex justify-between items-start mb-2">
-                                        <span className={`text-xs font-semibold px-2 py-1 rounded ${property.status === 'rent' ? 'bg-[#7C3AED]/20 text-[#7C3AED]' : 'bg-green-500/20 text-green-500'
+                                        <span className={`text-xs font-semibold px-2 py-1 rounded ${property.status === 'rent' ? 'bg-accent-subtle text-accent' : 'bg-green-500/20 text-green-500'
                                             }`}>
                                             {property.status === 'rent' ? '出租' : '出售'}
                                         </span>
-                                        <span className="text-[#999999] text-xs border border-[#333333] px-2 py-1 rounded">{property.type}</span>
+                                        <span className="text-text-secondary text-xs border border-border-light px-2 py-1 rounded">{property.type}</span>
                                     </div>
 
-                                    <h3 className="text-xl font-bold mb-2 group-hover:text-[#7C3AED] transition-colors">{property.title}</h3>
-                                    <p className="text-[#999999] text-sm mb-4 line-clamp-2">{property.description}</p>
+                                    <h3 className="text-xl font-bold mb-2 group-hover:text-accent transition-colors">{property.title}</h3>
+                                    <p className="text-text-secondary text-sm mb-4 line-clamp-2">{property.description}</p>
 
-                                    <div className="grid grid-cols-3 gap-4 border-t border-[#262626] pt-4 mb-2">
-                                        <div className="flex items-center gap-2 text-sm text-[#CCCCCC]">
+                                    <div className="grid grid-cols-3 gap-4 border-t border-border-default pt-4 mb-2">
+                                        <div className="flex items-center gap-2 text-sm text-text-secondary">
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
                                             {property.bedrooms} 房
                                         </div>
-                                        <div className="flex items-center gap-2 text-sm text-[#CCCCCC]">
+                                        <div className="flex items-center gap-2 text-sm text-text-secondary">
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                             {property.bathrooms} 衛
                                         </div>
-                                        <div className="flex items-center gap-2 text-sm text-[#CCCCCC]">
+                                        <div className="flex items-center gap-2 text-sm text-text-secondary">
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
                                             {property.area} 坪
                                         </div>
                                     </div>
                                 </CardContent>
-                                <CardFooter className="mt-auto pt-4 border-t border-[#262626]">
+                                <CardFooter className="mt-auto pt-4 border-t border-border-default">
                                     <span className="text-xl font-bold">{property.price}</span>
-                                    <span className="text-[#7C3AED] text-sm font-medium hover:underline">查看詳情 &rarr;</span>
+                                    <span className="text-accent text-sm font-medium hover:underline">查看詳情 &rarr;</span>
                                 </CardFooter>
                             </Card>
                         </Link>
                     ))}
                 </div>
             ) : (
-                <div className="text-center py-20 bg-[#1A1A1A] rounded-xl border border-[#262626]">
-                    <div className="w-16 h-16 bg-[#262626] rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg className="w-8 h-8 text-[#666666]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <div className="text-center py-20 bg-bg-secondary rounded-xl border border-border-default">
+                    <div className="w-16 h-16 bg-bg-tertiary rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </div>
                     <h3 className="text-xl font-bold mb-2">沒有找到相關物業</h3>
-                    <p className="text-[#999999]">請嘗試調整您的搜尋條件或清除過濾器。</p>
+                    <p className="text-text-secondary">請嘗試調整您的搜尋條件或清除過濾器。</p>
                     <Button
                         variant="outline"
                         className="mt-6"
@@ -237,8 +237,8 @@ export default function PropertiesClient({ initialProperties, isMock = false }: 
 
             {/* Pagination */}
             {totalPages > 1 && (
-                <div className="mt-12 flex justify-center border-t border-[#262626] pt-8">
-                    <div className="flex items-center gap-4 bg-[#141414] border border-[#262626] rounded-full px-4 py-2">
+                <div className="mt-12 flex justify-center border-t border-border-default pt-8">
+                    <div className="flex items-center gap-4 bg-bg-primary border border-border-default rounded-full px-4 py-2">
                         <Button
                             variant="ghost"
                             size="sm"
@@ -251,7 +251,7 @@ export default function PropertiesClient({ initialProperties, isMock = false }: 
                             {getPageNumbers().map((page, index) => {
                                 if (page === 'ellipsis') {
                                     return (
-                                        <span key={`ellipsis-${index}`} className="text-[#666666] flex items-end px-1">
+                                        <span key={`ellipsis-${index}`} className="text-text-muted flex items-end px-1">
                                             ...
                                         </span>
                                     );
@@ -262,8 +262,8 @@ export default function PropertiesClient({ initialProperties, isMock = false }: 
                                         onClick={() => setCurrentPage(page)}
                                         className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition-colors ${
                                             page === safeCurrentPage
-                                                ? 'bg-[#7C3AED] text-white font-bold'
-                                                : 'hover:bg-[#262626] text-[#999999]'
+                                                ? 'bg-accent text-white font-bold'
+                                                : 'hover:bg-bg-tertiary text-text-secondary'
                                         }`}
                                     >
                                         {page}

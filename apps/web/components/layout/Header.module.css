@@ -120,6 +120,22 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--color-accent);
+    color: white;
+    transition: background var(--transition-fast);
+}
+
+.logo:hover .logoIcon {
+    background: var(--color-accent-hover);
+}
+
+.logoLetter {
+    font-size: 1.125rem;
+    font-weight: var(--font-bold);
+    line-height: 1;
 }
 
 .logoText {

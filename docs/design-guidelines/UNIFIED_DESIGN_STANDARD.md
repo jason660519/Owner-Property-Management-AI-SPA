@@ -1,7 +1,7 @@
 # 統一設計規範與開發標準指南 (Unified Design Standard)
 
 > **生效日期**: 2026-02-01
-> **最後修改**: 2026-02-13 | **修改者**: Claude Opus 4.6 | **版本**: 1.2
+> **最後修改**: 2026-02-14 | **修改者**: Claude Opus 4.6 | **版本**: 1.3
 > **適用範圍**: Web App (Next.js) 與 Superadmin 後台 (Next.js)
 > **目的**: 解決現有設計風格混亂問題，提供統一的開發依據。
 > **關聯文件**: 具體樣式數據（顏色、字體、間距）請查閱 [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md)。
@@ -28,15 +28,14 @@
 | **Hydration** | `<html>` 標籤必須加上 `suppressHydrationWarning` |
 | **Tailwind 映射** | `tailwind.config.ts` 中 `bg`/`text`/`border`/`accent` 映射到 CSS 變數 |
 
-**可用主題**：
+**可用主題（統一為明暗雙模式）**：
 
-| 主題 | CSS Class | 適用範圍 |
-|:-----|:----------|:---------|
-| Light | `:root` (預設) | Web + Superadmin |
-| Dark | `.dark` | Web + Superadmin |
-| Midnight | `.midnight` | Web + Superadmin |
-| Ultra-Dark | `.ultra-dark` | 僅 Superadmin |
+| 主題 | CSS Class | 適用範圍 | 說明 |
+|:-----|:----------|:---------|:-----|
+| Light | `:root` (預設) | Web + Superadmin | 明亮模式 |
+| Dark | `.dark` | Web + Superadmin | 暗黑模式 |
 
+兩應用 **ThemeProvider** 均設定為 `themes={['light', 'dark']}`、`defaultTheme="system"`、`enableSystem`。使用者可透過 **ThemeToggle**（太陽/月亮按鈕）切換，或跟隨系統偏好。  
 > 完整色彩對照表請見 [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md) 的「語意化色彩變數 — 主題切換系統」章節。
 
 ### 1.2 組件主題化開發指南
@@ -87,24 +86,23 @@
 ```
 ┌─────────────────────────────────────────────┐
 │ next-themes (ThemeProvider)                  │
-│   attribute="class"                         │
-│   defaultTheme="system"                     │
-│   storageKey="theme" (localStorage)         │
+│   attribute="class"                          │
+│   defaultTheme="system" / enableSystem       │
+│   themes={['light', 'dark']}                 │
 ├─────────────────────────────────────────────┤
-│ <html class="dark">                         │
-│   └─ globals.css @layer base                │
+│ <html class="light" | "dark">                │
+│   └─ globals.css @layer base                 │
 │       ├─ :root { Light 色彩變數 }            │
-│       ├─ .dark { Dark 色彩變數覆寫 }          │
-│       └─ .midnight { Midnight 色彩變數覆寫 }  │
+│       └─ .dark { Dark 色彩變數覆寫 }          │
 ├─────────────────────────────────────────────┤
-│ tailwind.config.ts                          │
-│   darkMode: "class"                         │
-│   colors: { bg, text, border, accent }      │
-│   → 映射至 CSS 變數                          │
+│ tailwind.config.ts                           │
+│   darkMode: "class"                          │
+│   colors: { bg, text, border, accent }        │
+│   fontFamily.primary: Urbanist               │
 ├─────────────────────────────────────────────┤
 │ 組件層                                       │
-│   ✅ className="bg-bg-primary text-text-*"  │
-│   ❌ className="bg-white dark:bg-gray-900"  │
+│   ✅ className="bg-bg-primary text-text-*"   │
+│   ❌ className="bg-white dark:bg-gray-900"   │
 └─────────────────────────────────────────────┘
 ```
 
@@ -122,6 +120,7 @@
         - **Hero Section**: 大標題 + 強調色按鈕 + 視覺圖。
         - **Feature Grid**: 卡片式佈局，並在 Mobile 上轉為單欄堆疊。
         - **導航欄**: Desktop 為橫向展開，Mobile 需轉為漢堡選單 (Hamburger Menu)。
+    - **主題與風格**: 與 Superadmin 一致 — 使用語意化色彩 (`bg-bg-primary`, `text-text-primary`)、Urbanist 主字體 (`font-primary`)、明暗切換 (ThemeToggle 於導航列與行動版選單內)。
     - **開發路徑**: `apps/web/app/`
 
 ### 2.2 Web Web App (Dashboard)

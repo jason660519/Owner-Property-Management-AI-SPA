@@ -220,7 +220,7 @@ Result:
 ### 文檔 (4)
 16. ✅ `docs/implementation-plans/VLM_DOCUMENT_SCAN_IMPLEMENTATION_SUMMARY.md`
 17. ✅ `docs/implementation-plans/VLM_INTEGRATION_EXAMPLE.md`
-18. ✅ `docs/QUICKSTART_VLM.md`
+18. ✅ `docs/operational-guides/QUICKSTART_VLM.md`
 19. ✅ `start.sh` (OCR module) (啟動腳本)
 
 ---

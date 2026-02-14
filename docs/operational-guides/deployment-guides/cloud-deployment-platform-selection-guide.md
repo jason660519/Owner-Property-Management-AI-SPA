@@ -1759,7 +1759,7 @@ npm ls | grep @vercel
 
 **迁移准备**:
 ```markdown
-# 维护迁移文档（docs/deployment-guides/migration-plan.md）
+# 维护迁移文档（docs/operational-guides/deployment-guides/migration-plan.md）
 
 ## 迁移检查清单
 - [ ] 环境变量导出

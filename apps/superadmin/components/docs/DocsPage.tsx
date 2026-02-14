@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { BookOpen, PanelLeftClose, PanelLeftOpen, RefreshCw, Loader2, Pencil, Save, X } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
 import { FileTree, type TreeNode } from './FileTree';
@@ -16,6 +17,7 @@ interface FileContent {
 }
 
 export function DocsPage() {
+  const searchParams = useSearchParams();
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [totalFiles, setTotalFiles] = useState(0);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -31,6 +33,7 @@ export function DocsPage() {
   const [scope, setScope] = useState<DocsScope>('docs');
   const [saveWarning, setSaveWarning] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const openFromUrlHandled = useRef(false);
 
   // Fetch file tree
   const fetchTree = useCallback(async () => {
@@ -85,6 +88,38 @@ export function DocsPage() {
     setSaveWarning(null);
     fetchContent(path);
   }, [fetchContent]);
+
+  // Open file from URL (e.g. from Project Progress "Docs" link)
+  useEffect(() => {
+    if (openFromUrlHandled.current) return;
+    const urlScope = searchParams.get('scope') as DocsScope | null;
+    const urlPath = searchParams.get('path');
+    if (!urlPath || (urlScope !== 'docs' && urlScope !== 'project')) return;
+    openFromUrlHandled.current = true;
+    setScope(urlScope);
+    setSelectedPath(urlPath);
+    setEditMode(false);
+    setSaveWarning(null);
+    setError(null);
+    setIsLoadingContent(true);
+    fetch(
+      `/api/docs/content?path=${encodeURIComponent(urlPath)}&scope=${urlScope}`
+    )
+      .then((res) => res.json().catch(() => ({})))
+      .then((data) => {
+        if (data.content !== undefined) {
+          setFileContent(data);
+        } else {
+          setError(data?.error ?? '無法載入文件內容');
+          setFileContent(null);
+        }
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : '無法載入文件內容');
+        setFileContent(null);
+      })
+      .finally(() => setIsLoadingContent(false));
+  }, [searchParams]);
 
   const canEdit =
     fileContent &&
@@ -385,6 +420,25 @@ export function DocsPage() {
                   fileName={fileContent.name}
                   lastModified={fileContent.lastModified}
                 />
+              ) : /\.html?$/i.test(fileContent.name) ? (
+                <div className="w-full space-y-3">
+                  <div className="flex items-center justify-between px-1 pb-2 border-b border-border-default">
+                    <h1 className="text-xl font-bold text-text-primary font-heading truncate">
+                      {fileContent.name}
+                    </h1>
+                    {fileContent.lastModified && (
+                      <span className="text-xs text-text-muted flex-shrink-0 ml-2">
+                        最後修改：{new Date(fileContent.lastModified).toLocaleString('zh-TW')}
+                      </span>
+                    )}
+                  </div>
+                  <iframe
+                    title={fileContent.name}
+                    srcDoc={fileContent.content}
+                    sandbox="allow-same-origin allow-scripts"
+                    className="w-full min-h-[calc(100vh-16rem)] rounded-lg border border-border-default bg-white"
+                  />
+                </div>
               ) : (
                 <div className="w-full">
                   <div className="flex items-center justify-between px-1 pb-4 mb-6 border-b border-border-default">

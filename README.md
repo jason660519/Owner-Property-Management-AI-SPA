@@ -248,7 +248,7 @@ npx supabase gen types typescript --local > apps/web/lib/database.types.ts
 
 ### 開發指南
 
-- [開發環境快速啟動](./docs/deployment-guides/quick-start-guide.md)
+- [開發環境快速啟動](./docs/operational-guides/deployment-guides/quick-start-guide.md)
 - [檔案命名規則](./docs/本專案檔案命名規則與新增文件歸檔總則.md)
 
 ---

@@ -61,6 +61,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        primary: ['Urbanist', 'system-ui', 'sans-serif'],
       },
       fontSize: {
         // 基於 Figma 的文字層級

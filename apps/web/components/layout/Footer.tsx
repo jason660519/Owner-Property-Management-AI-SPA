@@ -109,13 +109,9 @@ export function Footer() {
                     <div className={styles.brand}>
                         <Link href="/" className={styles.logo}>
                             <div className={styles.logoIcon}>
-                                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <rect width="28" height="28" rx="6" fill="var(--color-accent)" />
-                                    <path d="M7 14L14 8L21 14V21C21 21.5523 20.5523 22 20 22H8C7.44772 22 7 21.5523 7 21V14Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                    <path d="M11 22V15H17V22" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
+                                <span className={styles.logoLetter}>O</span>
                             </div>
-                            <span className={styles.logoText}>Estatein</span>
+                            <span className={styles.logoText}>Owner AI</span>
                         </Link>
 
                         {/* Newsletter */}
@@ -198,7 +194,7 @@ export function Footer() {
             <div className={styles.bottom}>
                 <div className={styles.bottomContent}>
                     <p className={styles.copyright}>
-                        © {new Date().getFullYear()} Estatein. 保留所有權利。
+                        © {new Date().getFullYear()} Owner AI. 保留所有權利。
                     </p>
 
                     <div className={styles.legal}>

@@ -1,64 +1,62 @@
 # 主題系統使用指南 (Theme System Documentation)
 
-本專案已實作完整的主題切換系統，支援明亮 (Light)、暗黑 (Dark) 以及第三種主題 "午夜 (Midnight)"。系統基於 `next-themes` 和 CSS Variables 構建，並整合 Tailwind CSS。
+本專案已實作**統一的主題切換系統**，Web（localhost:3000）與 Superadmin（localhost:3001）**僅支援明亮 (Light) 與暗黑 (Dark)** 兩種模式。系統基於 `next-themes` 與 CSS Variables，並整合 Tailwind CSS。
 
 ## 1. 架構概覽
 
-- **狀態管理**: 使用 `next-themes` 的 `ThemeProvider` 管理主題狀態 (`theme`: 'light' | 'dark' | 'midnight' | 'system')。
-- **樣式定義**: 在 `globals.css` 中使用 CSS Variables 定義語意化色彩 (Semantic Colors)。
-- **工具整合**: `tailwind.config.ts` 將 CSS Variables 映射為 Tailwind Utility Classes (如 `bg-bg-primary`)。
+- **狀態管理**: `next-themes` 的 `ThemeProvider`，`theme`: `'light' | 'dark' | 'system'`。
+- **樣式定義**: `globals.css` 的 `@layer base` 內以 CSS Variables 定義語意化色彩。
+- **Tailwind**: `tailwind.config.ts` 將變數映射為 `bg-bg-primary`、`text-text-primary` 等 utility classes。
 
 ## 2. 主題定義 (`globals.css`)
 
-所有色彩變數皆定義於 `globals.css` 中：
-
-- **`:root`**: 定義基礎色盤 (Primitives) 與 **預設主題 (Light Mode)** 的語意化變數。
-- **`.dark`**: 定義 **暗黑主題 (Dark Mode)** 的語意化變數覆寫。
-- **`.midnight`**: 定義 **午夜主題 (Midnight Mode)** 的語意化變數覆寫。
-
-### 關鍵變數範例
+- **`:root`**: 基礎色盤 (Primitives) + **Light 模式**語意變數。
+- **`.dark`**: **Dark 模式**語意變數覆寫。
 
 ```css
 :root {
-  /* 基礎色盤 */
-  --color-grey-900: #111827;
-  --color-white: #FFFFFF;
-  
-  /* 語意化變數 (Light Mode) */
   --color-bg-primary: var(--color-white);
   --color-text-primary: var(--color-grey-900);
+  /* ... */
 }
 
 .dark {
-  /* Dark Mode 覆寫 */
   --color-bg-primary: var(--color-grey-08);
   --color-text-primary: var(--color-white);
-}
-
-.midnight {
-  /* Midnight Mode 覆寫 */
-  --color-bg-primary: #0B1121;
-  --color-text-primary: #F1F5F9;
+  /* ... */
 }
 ```
 
-## 3. 如何使用
-
-### 3.1 在 Tailwind 中使用
-
-直接使用 `tailwind.config.ts` 中配置的語意化 Class：
+## 3. ThemeProvider 設定（兩應用一致）
 
 ```tsx
-// 背景色會根據當前主題自動切換
-<div className="bg-bg-primary text-text-primary border-border-default border">
+<ThemeProvider
+  attribute="class"
+  defaultTheme="system"
+  enableSystem
+  disableTransitionOnChange
+  themes={['light', 'dark']}
+>
+  {children}
+</ThemeProvider>
+```
+
+- **defaultTheme="system"**: 首次進入跟隨作業系統明暗偏好。
+- **enableSystem**: 允許「跟隨系統」行為。
+- **themes={['light', 'dark']}**: 僅提供明暗切換，不包含其他主題。
+
+## 4. 如何使用
+
+### 4.1 在 Tailwind 中使用
+
+```tsx
+<div className="bg-bg-primary text-text-primary border border-border-default">
   <h1 className="text-accent">標題</h1>
   <p className="text-text-secondary">次要文字</p>
 </div>
 ```
 
-### 3.2 在 CSS Modules 中使用
-
-直接引用 CSS Variables：
+### 4.2 在 CSS Modules 中使用
 
 ```css
 .myComponent {
@@ -68,9 +66,14 @@
 }
 ```
 
-### 3.3 切換主題
+### 4.3 切換主題 — ThemeToggle 組件
 
-使用 `useTheme` hook 或 `<ThemeToggle />` 組件：
+兩應用皆使用共用的 `<ThemeToggle />`（太陽 / 月亮按鈕）：
+
+- **Web**: 導航列右側（桌面版）+ 行動版選單內。
+- **Superadmin**: 頂部導航列右側（桌面與行動版皆可見）。
+
+程式內切換範例：
 
 ```tsx
 import { useTheme } from "next-themes"
@@ -79,39 +82,22 @@ export function MyComponent() {
   const { theme, setTheme } = useTheme()
 
   return (
-    <button onClick={() => setTheme('midnight')}>
-      切換到午夜模式
-    </button>
+    <button onClick={() => setTheme('dark')}>切換到暗色</button>
   )
 }
 ```
 
-## 4. 擴展新主題
+## 5. 防止切換閃爍 (FOUC)
 
-若要新增第四種主題 (例如 "Forest")：
+- `<html lang="zh-TW" suppressHydrationWarning>` 必須設定。
+- `globals.css` 中對 `html, body` 及主要容器使用 `background-color: var(--color-bg-primary)`，避免切換時白屏。
 
-1.  **修改 `globals.css`**:
-    在 `@layer base` 內新增 `.forest` 類別，並定義相應變數：
+## 6. 故障排除
 
-    ```css
-    .forest {
-      --color-bg-primary: #052e16;
-      --color-text-primary: #ecfccb;
-      /* ... 其他必要變數 */
-    }
-    ```
+- **樣式未隨主題變化**: 檢查是否使用硬編碼顏色（如 `bg-white`、`#ffffff`），應改為語意化 class（`bg-bg-primary`）。
+- **切換時閃爍**: 確認 `html` 有 `suppressHydrationWarning`，且 body/容器背景使用 CSS 變數。
+- **ThemeToggle 在行動版看不到**: Web 站在行動版需在漢堡選單內額外放置一組 ThemeToggle。
 
-2.  **更新 `ThemeProvider`**:
-    在 `app/providers.tsx` (Web) 或 `app/layout.tsx` (Superadmin) 中，將新主題名稱加入 `themes` 陣列：
+---
 
-    ```tsx
-    <ThemeProvider themes={['light', 'dark', 'midnight', 'forest']} ...>
-    ```
-
-3.  **更新 `ThemeToggle`**:
-    在 `components/theme-toggle.tsx` 中加入切換按鈕。
-
-## 5. 故障排除
-
-- **樣式未生效**: 檢查是否使用了硬編碼的顏色 (如 `bg-white` 或 `#ffffff`) 而非語意化 Class (`bg-bg-primary`)。
-- **切換閃爍**: 確保 `ThemeProvider` 設置了 `suppressHydrationWarning` 於 `html` 標籤 (Next.js 要求)。
+> **最後修改**: 2026-02-14 | **關聯**: [UNIFIED_DESIGN_STANDARD.md](./UNIFIED_DESIGN_STANDARD.md)、[DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md)

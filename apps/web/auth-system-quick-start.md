@@ -90,7 +90,7 @@ app/(dashboard)/
 
 詳細實作指引請參閱：
 - [認證系統架構設計](../../docs/technical-selection/認證系統架構設計.md)
-- [Supabase Auth 整合指南](../../docs/deployment-guides/Supabase_Auth_整合指南.md)
+- [Supabase Auth 整合指南](../../docs/operational-guides/deployment-guides/Supabase_Auth_整合指南.md)
 
 ## ⚠️ 注意事項
 
