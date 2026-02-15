@@ -35,7 +35,7 @@ export async function middleware(request: NextRequest) {
   // Role Simulation Logic (Only for Super Admins)
   let effectiveRole = user?.user_metadata?.role || 'landlord';
   const simulationRole = request.cookies.get('x-simulation-role')?.value;
-  
+
   // Verify if the REAL user is actually a super_admin before allowing simulation
   // This prevents non-admins from spoofing the cookie to escalate privileges
   if (user && simulationRole && user.user_metadata?.role === 'super_admin') {
@@ -63,8 +63,13 @@ export async function middleware(request: NextRequest) {
   const authRoutes = ['/login', '/register', '/forgot-password'];
   const isAuthRoute = authRoutes.some((route) => request.nextUrl.pathname.startsWith(route));
 
-  // 如果已登入且訪問認證頁面，重導向到對應的儀表板
-  if (user && isAuthRoute) {
+  // Server Action requests (POST with Next-Action header) should NOT be redirected —
+  // otherwise sequential Server Action calls after login (e.g. getUserRoles) will fail
+  // because the middleware redirects the POST and the client gets HTML instead of RSC payload.
+  const isServerAction = request.method === 'POST' && request.headers.has('Next-Action');
+
+  // 如果已登入且訪問認證頁面，重導向到對應的儀表板（跳過 Server Action）
+  if (user && isAuthRoute && !isServerAction) {
     const role = effectiveRole;
     const roles: string[] = Array.isArray(user.user_metadata?.roles)
       ? user.user_metadata.roles
@@ -115,24 +120,21 @@ export const config = {
   matcher: [
     /*
      * 匹配所有需要認證檢查的路由（超級管理員在 port 3001，不在此站）
-     * - /landlord/* - 房東儀表板
-     * - /tenant/* - 租戶儀表板
-     * - /buyer/* - 買家儀表板
-     * - /agent/* - 經紀人儀表板
+     * - /landlord/*     - 房東儀表板
+     * - /tenant/*       - 租戶儀表板
+     * - /buyer/*        - 買家儀表板
+     * - /agent/*        - 經紀人儀表板
      * - /service-provider/* - 服務商儀表板
-     * - /login - 登入頁
-     * - /register - 註冊頁
+     * - /portal/*       - 角色選擇入口
+     * - /login          - 登入頁
+     * - /register       - 註冊頁
      * - /forgot-password - 忘記密碼頁
+     * 
+     * 排除靜態資源:
+     * - /_next/static, /_next/image
+     * - favicon.ico
+     * - 图片文件 (svg, png, jpg, etc.)
      */
-    '/landlord/:path*',
-    '/tenant/:path*',
-    '/buyer/:path*',
-    '/agent/:path*',
-    '/service-provider/:path*',
-    '/portal',
-    '/portal/:path*',
-    '/login',
-    '/register',
-    '/forgot-password',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

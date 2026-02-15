@@ -38,10 +38,15 @@ export async function signInWithPasswordAction(email: string, password: string):
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      const msg =
-        error.message?.includes('unexpected response') || error.message?.includes('Unexpected response')
+      const isDev = process.env.NODE_ENV === 'development';
+      let msg = '登入失敗，請確認帳號與密碼是否正確。';
+
+      if (isDev) {
+        msg = error.message?.includes('unexpected response') || error.message?.includes('Unexpected response')
           ? '登入被拒絕。請確認密碼是否正確；本機請確認 Supabase 已啟動且 Auth 已啟用 Email 登入（config.toml 中 auth.email.enable_signup = true），執行 supabase stop && supabase start 後再試。'
           : String(error.message ?? '登入失敗');
+      }
+
       const out: SignInResult = { success: false, error: msg };
       return out;
     }
