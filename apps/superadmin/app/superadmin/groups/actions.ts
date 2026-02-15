@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
 const BASE = '/superadmin/groups';
@@ -84,9 +85,10 @@ export async function getGroups(): Promise<GroupRow[]> {
   })) as GroupRow[];
 }
 
+/** Fetch all iam_roles for Superadmin (Invite User / Edit Group). Uses service_role so we always get the full list. */
 export async function getRoles() {
-  const supabase = await createClient();
-  const { data, error } = await supabase.from('iam_roles').select('*').order('name');
+  const admin = createAdminClient();
+  const { data, error } = await admin.from('iam_roles').select('id, name, description').order('name');
   if (error) throw error;
-  return data;
+  return data ?? [];
 }

@@ -20,8 +20,8 @@ describe('Sidebar Component', () => {
     // Let's check for the existence of the text
     const expectedLabels = [
       'Overview',
-      'Users',
-      'Auth Groups',
+      'User Management',
+      'Group Management',
       'Properties',
       'Leases',
       'Verifications',
@@ -64,7 +64,7 @@ describe('Sidebar Component', () => {
     (usePathname as jest.Mock).mockReturnValue('/superadmin/users');
     render(<Sidebar />);
     
-    const activeLink = screen.getByText('Users').closest('a');
+    const activeLink = screen.getByText('User Management').closest('a');
     expect(activeLink).toHaveClass('bg-emerald-500/10');
     expect(activeLink).toHaveClass('text-emerald-500');
   });

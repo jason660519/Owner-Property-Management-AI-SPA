@@ -72,9 +72,16 @@ export async function middleware(request: NextRequest) {
   if (user && isAuthRoute && !isServerAction) {
     const role = effectiveRole;
     const roles: string[] = Array.isArray(user.user_metadata?.roles)
-      ? user.user_metadata.roles
+      ? (user.user_metadata.roles as string[]).map((r) => String(r))
       : [];
     const superadminUrl = process.env.NEXT_PUBLIC_SUPERADMIN_URL || 'http://localhost:3001';
+
+    // No roles in metadata (e.g. legacy session): send to portal so it can load from IAM
+    if (roles.length === 0) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = '/portal';
+      return NextResponse.redirect(redirectUrl);
+    }
 
     // Multi-role users (or super_admin with other roles) → portal for role selection
     if (roles.length > 1 && !simulationRole) {

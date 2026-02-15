@@ -23,7 +23,8 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { signInWithGoogle, signInWithFacebook } from '@/lib/supabase/auth';
-import { acceptInviteCode, getUserRoles, signInWithPasswordAction } from '@/app/actions/auth';
+import { acceptInviteCode, getUserRoles, signInWithPasswordAction, syncUserRolesToAuthMetadata } from '@/app/actions/auth';
+import { normalizeRoles } from '@/lib/roles';
 import Link from 'next/link';
 
 // --- Schemas ---
@@ -115,15 +116,21 @@ function LoginPageInner() {
   }, [searchParams]);
 
   // --- Password Login Handler ---
+  const LOGIN_TIMEOUT_MS = 20_000;
+
   const onPasswordLogin = async (data: LoginFormData) => {
     setIsLoading(true);
     setError(null);
 
-    try {
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('登入逾時，請檢查網路連線或稍後再試。若為本機開發，請確認 Supabase 已啟動。')), LOGIN_TIMEOUT_MS)
+    );
+
+    const loginFlow = async () => {
       const result = await signInWithPasswordAction(data.email, data.password);
 
       if (!result.success) {
-        setError(result.error);
+        setError(result.error ?? '登入失敗，請重試');
         return;
       }
       if (!result.userId) {
@@ -140,37 +147,18 @@ function LoginPageInner() {
       localStorage.removeItem('rememberedPassword');
       localStorage.removeItem('opm_remembered_password');
 
-      // Use IAM (getUserRoles RPC) as single source of truth for redirect decision
+      // Always send to portal after login; portal shows role cards and handles redirect (super_admin → 3001, others → 3000/{role})
       const roleResult = await getUserRoles(result.userId);
-      const roles = roleResult.success && Array.isArray(roleResult.roles) ? roleResult.roles : [];
-      const userRole = roles[0] || 'landlord';
+      const roles = normalizeRoles(roleResult.success ? roleResult.roles : []);
 
-      if (roles.includes('super_admin') || roles.length > 1) {
-        router.push('/portal');
-        return;
-      }
+      // Sync roles to auth metadata in background so middleware redirects to portal when visiting /login again
+      void syncUserRolesToAuthMetadata(result.userId, roles);
 
-      const currentOrigin = window.location.origin;
-      const isLocalhost3000 = currentOrigin.includes('localhost:3000');
-      const mainSiteUrl = process.env.NEXT_PUBLIC_MAIN_SITE_URL || 'http://localhost:3000';
+      window.location.href = '/portal';
+    };
 
-      switch (userRole) {
-        case 'landlord':
-          isLocalhost3000
-            ? (router.push('/landlord/dashboard'), router.refresh())
-            : (window.location.href = `${mainSiteUrl}/landlord/dashboard`);
-          break;
-        case 'agent':
-          isLocalhost3000
-            ? (router.push('/agent/dashboard'), router.refresh())
-            : (window.location.href = `${mainSiteUrl}/agent/dashboard`);
-          break;
-        default:
-          isLocalhost3000
-            ? (router.push('/landlord/dashboard'), router.refresh())
-            : (window.location.href = `${mainSiteUrl}/landlord/dashboard`);
-          break;
-      }
+    try {
+      await Promise.race([loginFlow(), timeoutPromise]);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : '登入失敗，請檢查您的帳號密碼';

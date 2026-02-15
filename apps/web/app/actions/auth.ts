@@ -203,6 +203,33 @@ export async function getUserRoles(userId: string) {
   }
 }
 
+/**
+ * Sync IAM roles to Supabase Auth user_metadata so middleware sees the same roles
+ * (e.g. multi-role → redirect to /portal). Call after login when we have fresh roles.
+ */
+export async function syncUserRolesToAuthMetadata(userId: string, roles: string[]): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = adminSupabase();
+    const { data: userData, error: fetchError } = await supabase.auth.admin.getUserById(userId);
+    if (fetchError || !userData?.user) {
+      return { success: false, error: fetchError?.message ?? 'User not found' };
+    }
+    const existing = userData.user.user_metadata || {};
+    const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
+      user_metadata: { ...existing, roles, role: roles[0] ?? existing.role },
+    });
+    if (updateError) {
+      console.error('syncUserRolesToAuthMetadata error:', updateError);
+      return { success: false, error: updateError.message };
+    }
+    return { success: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('syncUserRolesToAuthMetadata error:', e);
+    return { success: false, error: msg };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Accept Invite Code — validates 8-digit code and creates a session
 // ---------------------------------------------------------------------------

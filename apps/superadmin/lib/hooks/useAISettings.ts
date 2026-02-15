@@ -106,7 +106,11 @@ export function useAISettings() {
 
       setKeys(processedKeys);
       setModels(modelsData.models || []);
-      setModules(modulesData.modules || []);
+      // API 回傳 assigned_function，對應為 module_key 供 UI 使用
+      setModules((modulesData.modules || []).map((m: { assigned_function?: string; module_key?: string }) => ({
+        ...m,
+        module_key: m.assigned_function ?? m.module_key ?? '',
+      })));
       setPrompts(promptsData.prompts || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : '載入設定失敗');

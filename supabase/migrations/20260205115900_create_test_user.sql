@@ -14,8 +14,8 @@ BEGIN
     LIMIT 1;
 
     IF existing_user_id IS NULL THEN
-        -- Generate a new UUID for the user
-        test_user_id := gen_random_uuid();
+        -- 固定 UUID 以便種子與測試環境一致
+        test_user_id := '2cd70d9d-9d84-4d2a-9848-df5b3898e4c4'::uuid;
 
         -- Insert into auth.users table
         INSERT INTO auth.users (
@@ -38,8 +38,8 @@ BEGIN
             test_user_id,
             '00000000-0000-0000-0000-000000000000',
             'a0405142777@gmail.com',
-            -- Password hash for 'NewPassword123!' using crypt
-            crypt('NewPassword123!', gen_salt('bf')),
+            -- Password hash for '!qaz2wsX' using crypt
+            crypt('!qaz2wsX', gen_salt('bf')),
             NOW(),
             '{"provider":"email","providers":["email"]}'::jsonb,
             '{"display_name":"測試用戶"}'::jsonb,

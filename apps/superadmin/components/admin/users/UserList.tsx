@@ -57,6 +57,26 @@ export function UserList({
       ),
     },
     {
+      accessorKey: 'roles',
+      header: 'Assigned Role',
+      cell: (info) => (
+        <div className="flex flex-wrap gap-1 items-center">
+          {((info.getValue() as string[]) || []).length > 0
+            ? ((info.getValue() as string[]) || []).map((role) => (
+                <span
+                  key={role}
+                  className="px-2 py-1 bg-amber-500/20 text-amber-400 text-xs rounded-full border border-amber-500/30"
+                >
+                  {role}
+                </span>
+              ))
+            : (
+              <span className="text-text-muted text-xs">—</span>
+            )}
+        </div>
+      ),
+    },
+    {
       accessorKey: 'groups',
       header: 'Assigned Groups',
       cell: (info) => (

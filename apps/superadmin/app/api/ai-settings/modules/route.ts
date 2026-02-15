@@ -15,10 +15,10 @@ export async function GET(request: NextRequest) {
     }
 
     const { data, error } = await supabase
-      .from('ai_feature_modules')
+      .from('ai_modules_assigned_function')
       .select('*')
       .eq('user_id', userId)
-      .order('module_key');
+      .order('assigned_function');
 
     if (error) throw error;
 
@@ -39,26 +39,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Upsert: update if exists, insert if not
+    // Upsert: update if exists, insert if not（DB 欄位為 assigned_function）
     const { data, error } = await supabase
-      .from('ai_feature_modules')
+      .from('ai_modules_assigned_function')
       .upsert(
         {
           user_id: userId,
-          module_key: moduleKey,
+          assigned_function: moduleKey,
           is_enabled: isEnabled ?? false,
           assigned_provider: assignedProvider || null,
           assigned_model: assignedModel || null,
           config: config || {},
         },
-        { onConflict: 'user_id,module_key' }
+        { onConflict: 'user_id,assigned_function' }
       )
       .select()
       .single();
 
     if (error) throw error;
 
-    console.log(`[AI Settings] Module ${moduleKey} updated: enabled=${isEnabled}`);
+    console.log(`[AI Settings] Assigned function ${moduleKey} updated: enabled=${isEnabled}`);
     return NextResponse.json({ module: data });
   } catch (err) {
     console.error('[AI Settings] POST module error:', err);

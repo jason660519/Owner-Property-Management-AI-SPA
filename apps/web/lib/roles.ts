@@ -54,3 +54,19 @@ export function canonicalizeRole(raw?: string | null): CanonicalRole | null {
   const key = raw.trim().toLowerCase();
   return NORMALIZATION_MAP[key] ?? null;
 }
+
+/**
+ * Normalize roles from API (string[] or { role_name?: string }[]) to string[].
+ * Use so login/middleware always work with a flat list of role names.
+ */
+export function normalizeRoles(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((r: unknown) => {
+      if (typeof r === 'string') return r;
+      if (r && typeof r === 'object' && 'role_name' in r) return String((r as { role_name?: string }).role_name ?? '');
+      if (r && typeof r === 'object' && 'role' in r) return String((r as { role?: string }).role ?? '');
+      return String(r);
+    })
+    .filter(Boolean);
+}

@@ -182,6 +182,7 @@ export type IAMUser = {
   id: string;
   email: string;
   groups: string[];
+  roles: string[];
 };
 
 export async function getUsers(): Promise<IAMUser[]> {
@@ -197,9 +198,23 @@ export async function getUsers(): Promise<IAMUser[]> {
     .select('user_id, group:iam_groups(name)');
   if (memberError) throw new Error(`Failed to fetch memberships: ${memberError.message}`);
 
+  const { data: profiles } = await supabase
+    .from('users_profile')
+    .select('id, roles');
+
+  const profileRolesMap = new Map<string, string[]>();
+  (profiles || []).forEach((p: { id: string; roles: string[] | null }) => {
+    profileRolesMap.set(p.id, p.roles || []);
+  });
+
   const userMap = new Map<string, IAMUser>();
   users.forEach((u) => {
-    userMap.set(u.id, { id: u.id, email: u.email || 'No Email', groups: [] });
+    userMap.set(u.id, {
+      id: u.id,
+      email: u.email || 'No Email',
+      groups: [],
+      roles: profileRolesMap.get(u.id) || [],
+    });
   });
   memberships.forEach((m: { user_id: string; group?: { name: string } | { name: string }[] }) => {
     const user = userMap.get(m.user_id);

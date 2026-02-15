@@ -31,7 +31,6 @@ echo -e "${BLUE}🛑 正在停止所有服務...${NC}"
 # 1. 停止應用服務
 kill_port 3000 "Web App"
 kill_port 3001 "Superadmin"
-kill_port 3002 "Progress Tracker"
 kill_port 8000 "OCR Service"
 kill_port 8081 "Expo/Metro"
 
@@ -39,7 +38,6 @@ kill_port 8081 "Expo/Metro"
 echo -e "${YELLOW}檢查殘留 Python 進程...${NC}"
 pkill -f "minimal_app.py" 2>/dev/null || true
 pkill -f "uvicorn" 2>/dev/null || true
-pkill -f "python server.py" 2>/dev/null || true
 
 # 3. 清理 Log (可選)
 rm -f /tmp/nextjs.log /tmp/superadmin.log /tmp/ocr_service.log 2>/dev/null

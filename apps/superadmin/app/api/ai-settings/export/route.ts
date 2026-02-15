@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     const [modelsRes, modulesRes, promptsRes] = await Promise.all([
       supabase.from('ai_model_selections').select('*').eq('user_id', userId).eq('is_active', true),
-      supabase.from('ai_feature_modules').select('*').eq('user_id', userId),
+      supabase.from('ai_modules_assigned_function').select('*').eq('user_id', userId),
       supabase.from('ai_system_prompts').select('*').eq('user_id', userId).eq('is_active', true),
     ]);
 
@@ -62,19 +62,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Import feature modules
+    // Import feature modules（DB 欄位為 assigned_function；匯入檔可能為 module_key 或 assigned_function）
     if (importData.modules?.length) {
       for (const mod of importData.modules) {
-        await supabase.from('ai_feature_modules').upsert(
+        const assignedFunction = mod.assigned_function ?? mod.module_key;
+        if (!assignedFunction) continue;
+        await supabase.from('ai_modules_assigned_function').upsert(
           {
             user_id: userId,
-            module_key: mod.module_key,
+            assigned_function: assignedFunction,
             is_enabled: mod.is_enabled,
             assigned_provider: mod.assigned_provider,
             assigned_model: mod.assigned_model,
             config: mod.config || {},
           },
-          { onConflict: 'user_id,module_key' }
+          { onConflict: 'user_id,assigned_function' }
         );
         results.modules++;
       }

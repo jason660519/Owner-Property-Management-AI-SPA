@@ -3,25 +3,16 @@
 import { useState, useEffect } from 'react';
 import { Mail, X, Loader2, UserPlus, ShieldCheck } from 'lucide-react';
 import { inviteUser, getAllGroups } from '@/app/superadmin/users/actions';
+import { getRoles } from '@/app/superadmin/groups/actions';
 
 type GroupOption = { id: string; name: string };
-
-/** Available roles for invitation */
-const INVITE_ROLES = [
-  { value: 'landlord', label: '房東 (Landlord)' },
-  { value: 'contracted_tenant', label: '簽約租客 (Contracted Tenant)' },
-  { value: 'potential_tenant', label: '潛在租客 (Potential Tenant)' },
-  { value: 'contracted_buyer', label: '簽約買家 (Contracted Buyer)' },
-  { value: 'potential_buyer', label: '潛在買家 (Potential Buyer)' },
-  { value: 'agent', label: '仲介 (Agent)' },
-  { value: 'service_provider', label: '服務提供者 (Service Provider)' },
-  { value: 'super_admin', label: '超級管理員 (Super Admin)' },
-] as const;
+type RoleOption = { id: string; name: string; description: string | null };
 
 export function InviteUserModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [groups, setGroups] = useState<GroupOption[]>([]);
+  const [roles, setRoles] = useState<RoleOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [email, setEmail] = useState('');
@@ -33,9 +24,15 @@ export function InviteUserModal() {
       setSuccessMsg(null);
       setError(null);
       setEmail('');
-      setSelectedRole('landlord');
       setSelectedGroupId('');
-      getAllGroups().then(setGroups).catch(console.error);
+      Promise.all([getAllGroups(), getRoles()])
+        .then(([groupsData, rolesData]) => {
+          setGroups(groupsData);
+          setRoles(rolesData ?? []);
+          const names = (rolesData ?? []).map((r) => r.name);
+          setSelectedRole(names.includes('landlord') ? 'landlord' : names[0] ?? 'landlord');
+        })
+        .catch(console.error);
     }
   }, [isOpen]);
 
@@ -121,9 +118,15 @@ export function InviteUserModal() {
                 onChange={(e) => setSelectedRole(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 border border-border-default rounded-md bg-bg-primary text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
               >
-                {INVITE_ROLES.map((r) => (
-                  <option key={r.value} value={r.value}>{r.label}</option>
-                ))}
+                {roles.length === 0 ? (
+                  <option value="landlord">Loading roles…</option>
+                ) : (
+                  roles.map((r) => (
+                    <option key={r.id} value={r.name}>
+                      {r.name}{r.description ? ` — ${r.description}` : ''}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
           </div>

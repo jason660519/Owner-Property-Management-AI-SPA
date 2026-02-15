@@ -184,7 +184,7 @@
 **範例**：
 ```
 列出資料庫中的所有 tables 和它們的欄位
-查詢 unified_properties_view 的前 10 筆資料
+查詢 public.properties 的前 10 筆資料
 ```
 
 #### 4. Playwright（瀏覽器自動化）

@@ -59,12 +59,12 @@ root/
 ## 資料庫架構
 
 **存取策略**：
-- **SQL View** (`unified_properties_view`) → 標準查詢（列表、詳情）
+- **SQL View** (`public.properties`) → 標準查詢（列表、詳情）
 - **RPC** → 特殊邏輯（地理搜尋、複雜權限、批量操作）
 
 | 核心表                                           | 用途                        | 訪問方式            |
 | :----------------------------------------------- | :-------------------------- | :------------------ |
-| `unified_properties_view`                        | 整合 Sales/Rentals 的虛擬表 | View (Read-Only)    |
+| `public.properties`                              | 整合 Sales/Rentals 的虛擬表 | View (Read-Only)    |
 | `Property_Sales` / `Property_Rentals`            | 出售/出租物件               | 透過 View 或 RPC    |
 | `Property_Photos`                                | 物件照片                    | 直接訪問            |
 | `users_profile`                                  | 使用者資料                  | 直接訪問            |

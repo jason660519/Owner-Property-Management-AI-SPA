@@ -171,12 +171,11 @@ export async function getLandlordDashboardStats(): Promise<LandlordStats> {
 
     // 1. Properties
     // We need to check both tables if landlord can have both types
-    // Assuming owner_id links to users_profile.id
-    // First get profile id
+    // users_profile.id IS the auth user ID (FK to auth.users.id)
     const { data: profile } = await supabase
       .from('users_profile')
       .select('id')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single()
     
     if (!profile) throw new Error('Profile not found')
@@ -241,7 +240,7 @@ export async function getTenantDashboardStats(): Promise<TenantStats | null> {
     const { data: profile } = await supabase
       .from('users_profile')
       .select('id')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single()
     
     if (!profile) return null

@@ -31,8 +31,8 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { name: 'Overview', href: '/superadmin', icon: Home },
-  { name: 'Users', href: '/superadmin/users', icon: Users },
-  { name: 'Auth Groups', href: '/superadmin/groups', icon: Lock },
+  { name: 'User Management', href: '/superadmin/users', icon: Users },
+  { name: 'Group Management', href: '/superadmin/groups', icon: Lock },
   { name: 'Properties', href: '/superadmin/properties', icon: Building },
   { name: 'Leases', href: '/superadmin/leases', icon: FileText },
   { name: 'Verifications', href: '/superadmin/verifications', icon: ShieldCheck },

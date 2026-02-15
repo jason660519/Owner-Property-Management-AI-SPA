@@ -29,7 +29,7 @@ export interface RoadmapData {
 }
 
 export const ROADMAP_DATA: RoadmapData = {
-    lastUpdated: "2026/02/14-22:30",
+    lastUpdated: "2026/02/16",
     features: [
         // 超級管理員
         { 
@@ -227,6 +227,24 @@ export const ROADMAP_DATA: RoadmapData = {
             testLog: "✅ Markdown 語法正確\n✅ 7 個平台全部覆蓋\n✅ 定價資訊準確\n✅ 實施步驟可操作\n✅ 風險評估全面",
             lastModifiedBy: "Claude Sonnet 4.5",
             lastModifiedDate: "2026/02/14"
+        },
+
+        // === 2026-02-16 新增任務 ===
+        {
+            name: "登入／Portal／IAM 角色流程與 Superadmin 全角色選單",
+            percentage: 100,
+            workCategory: "認證與權限",
+            featureDescription: "登入後一律進 Portal；多角色與 middleware 同步；Portal 顯示使用者 IAM 角色卡；Superadmin 邀請使用者可選全部 iam_roles；測試帳號加入所有 IAM 群組並以 Playwright 驗證。",
+            acceptanceCriteria: "1. 登入後一律導向 /portal。\n2. 多角色用戶在 Portal 可見所有被指派角色卡。\n3. Superadmin「Invite User」角色下拉顯示 DB 內全部角色（約 16 個）。\n4. 測試帳號 a0405142777@gmail.com 於 Portal 可見 11 張角色卡。\n5. Playwright 可完成登入→Portal→Superadmin 流程驗證。",
+            developmentProgress: "100%",
+            category: "通用/系統 (General/System)",
+            points: 5,
+            docPath: "/project-process/dev-logs/dev-login-portal-iam-roles-2026-02-16.md",
+            devLog: "### 今日完成項目\n- 登入後一律導向 Portal；syncUserRolesToAuthMetadata 改 fire-and-forget。\n- normalizeRoles 移至 lib/roles.ts；middleware 空 roles 時導向 /portal。\n- Superadmin getRoles() 改為 admin client，Invite User 從 iam_roles 載入全表。\n- Migration 補齊 16 個 iam_roles、測試用戶加入所有 IAM 群組（Portal 11 張卡）。\n- Playwright 符號連結 1208→1200；以帳密執行登入與 Portal／Invite 驗證。\n\n### 技術難點與解決方案\n- 登入卡住：不 await sync，立即 window.location.href = '/portal'。\n- Portal 僅 2 卡：測試用戶僅 2 群組 → migration 加入所有 iam_groups。\n- Invite 僅 2 選項：getRoles() 用 service_role 查 iam_roles + migration 種子全角色。\n- normalizeRoles 在 'use server' 報錯：移至 lib/roles.ts。\n\n### 避坑指南\n⚠️ 'use server' 匯出函式須為 async。\n⚠️ 登入導向勿阻塞在 sync metadata。\n⚠️ Playwright MCP 缺 1200 時可 symlink 至 1208。\n\n### 下階段計畫\n- [ ] 評估 IAM 變更時同步 Auth user_metadata.roles。\n- [ ] E2E 新增多角色登入→Portal、Portal 卡數與 IAM 一致。\n\n詳見: /superadmin/docs?scope=project&path=project-process/dev-logs/dev-login-portal-iam-roles-2026-02-16.md",
+            testProgress: "100%（Playwright 登入→Portal→Superadmin Invite 手動驗證通過）",
+            testLog: "✅ 登入後進入 /portal。\n✅ Portal 顯示 11 張角色卡（測試用戶已加入所有群組）。\n✅ Superadmin Invite User 角色下拉 16 選項。\n✅ Playwright MCP 登入＋擷取角色卡數與選項數驗證。",
+            lastModifiedBy: "Claude (Auto)",
+            lastModifiedDate: "2026/02/16"
         }
     ]
 };
