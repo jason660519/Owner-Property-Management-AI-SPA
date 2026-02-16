@@ -245,6 +245,22 @@ export const ROADMAP_DATA: RoadmapData = {
             testLog: "✅ 登入後進入 /portal。\n✅ Portal 顯示 11 張角色卡（測試用戶已加入所有群組）。\n✅ Superadmin Invite User 角色下拉 16 選項。\n✅ Playwright MCP 登入＋擷取角色卡數與選項數驗證。",
             lastModifiedBy: "Claude (Auto)",
             lastModifiedDate: "2026/02/16"
+        },
+        {
+            name: "OAuth 用戶新增角色功能修復（Add Role Feature Fix）",
+            percentage: 100,
+            workCategory: "認證與權限",
+            featureDescription: "修復 OAuth 登入用戶在 Portal 新增角色時出現的失敗問題，涉及 RLS 權限、IAM 群組映射、前端路由跳轉三個層面的問題診斷與修復。",
+            acceptanceCriteria: "1. OAuth 用戶可在 Portal 成功新增角色（potential_tenant、potential_buyer 等）。\n2. 新增角色後 users_profile.roles 與 IAM 群組成員資格同步更新。\n3. Portal 頁面正確顯示所有用戶角色（從 IAM 系統讀取）。\n4. 前端無卡頓，成功跳轉回 Portal。\n5. ROLE_TO_GROUP_NAME 映射完整涵蓋所有角色類型。",
+            developmentProgress: "100%",
+            category: "通用/系統 (General/System)",
+            points: 5,
+            devLog: "### 今日完成項目\n- 修復 addUserRole Server Action：改用 admin 客戶端繞過 RLS 限制\n- 修復前端路由跳轉：router.push 改為 window.location.href 強制完整重新載入\n- 修復 IAM 角色映射缺失：ROLE_TO_GROUP_NAME 補齊 potential_tenant、potential_buyer、contracted_tenant、contracted_buyer、super_admin\n- 手動修復測試用戶的 IAM 群組成員資格（加入 Potential Buyers 和 Potential Tenants）\n- 驗證 get_user_roles RPC 正確返回所有 3 個角色\n\n### 技術難點與解決方案\n- **問題 1**: Server Action 一直 rendering，無法完成\n  **根因**: router.push() 在某些情況下不立即執行，導致頁面保持 loading 狀態\n  **解決**: 使用 window.location.href 強制完整頁面重新載入\n\n- **問題 2**: 角色成功添加到 users_profile.roles，但 Portal 不顯示\n  **根因**: ROLE_TO_GROUP_NAME 映射缺少 potential_tenant/potential_buyer，導致 addUserToIamGroupByRole 使用默認的 landlord 群組，IAM 系統未正確添加群組成員資格\n  **解決**: 補齊映射表，手動修復現有用戶的 IAM 群組成員資格\n\n- **問題 3**: addUserRole 使用普通客戶端可能受 RLS 限制\n  **根因**: createClient() 使用 anon key，雖然 RLS 允許更新，但使用 admin 客戶端更安全可靠\n  **解決**: 改用 createAdminClient() 進行角色更新操作\n\n### 重點心得\n- Portal 頁面通過 get_user_roles RPC 從 IAM 系統讀取角色，而非直接讀 users_profile.roles\n- IAM 系統是 Single Source of Truth，users_profile.roles 僅為緩存\n- 角色映射配置（ROLE_TO_GROUP_NAME）必須完整，否則會導致 IAM 同步失敗但不報錯\n- 數據庫層面的 UPDATE 成功不代表整個業務邏輯成功\n\n### 避坑指南\n⚠️ 新增角色類型時必須同步更新 ROLE_TO_GROUP_NAME 映射\n⚠️ Server Action 中處理敏感權限操作應使用 admin 客戶端\n⚠️ 路由跳轉問題可能不會拋錯，需要通過用戶反饋發現\n⚠️ 驗證功能時要檢查整個數據流：DB → IAM → RPC → Portal 顯示\n⚠️ 日誌中顯示「Success」不一定代表所有步驟都成功（IAM 添加被標記為 non-critical）\n\n### 下階段計畫\n- [ ] 考慮在 addUserRole 中添加 IAM 同步失敗時的回滾機制\n- [ ] 新增 E2E 測試覆蓋多角色添加流程\n- [ ] 監控生產環境用戶新增角色的成功率",
+            testProgress: "100%（手動測試通過，涵蓋完整流程驗證）",
+            testLog: "✅ 數據庫層面 UPDATE 操作成功（SQL 測試通過）\n✅ RLS 政策允許用戶更新自己的 profile\n✅ addUserRole Server Action 成功返回\n✅ IAM 群組成員資格正確添加（手動驗證 iam_group_members 表）\n✅ get_user_roles RPC 返回所有 3 個角色\n✅ Portal 頁面顯示所有角色卡片（landlord、potential_buyer、potential_tenant）\n✅ 前端路由跳轉正常，無卡頓\n✅ 重複添加已有角色時正確顯示錯誤訊息",
+            testCoverage: 0,
+            lastModifiedBy: "Claude Sonnet 4.5",
+            lastModifiedDate: "2026/02/16-23:30"
         }
     ]
 };

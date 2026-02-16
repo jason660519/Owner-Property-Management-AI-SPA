@@ -109,40 +109,61 @@ export async function createUserProfile(role: UserRole): Promise<CreateProfileRe
  */
 export async function addUserRole(newRole: UserRole): Promise<CreateProfileResult> {
   try {
+    console.log('[addUserRole] Starting to add role:', newRole);
     const supabase = await createClient();
 
-    // Get current user
+    // Get current user for authentication verification
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser();
 
-    if (authError || !user) {
+    if (authError) {
+      console.error('[addUserRole] Auth error:', authError);
+      return { success: false, error: `認證錯誤：${authError.message}` };
+    }
+
+    if (!user) {
+      console.error('[addUserRole] No user found');
       return { success: false, error: '未登入，請重新登入' };
     }
 
+    console.log('[addUserRole] User found:', user.id);
+
+    // Use admin client for role updates (bypasses RLS)
+    const admin = createAdminClient();
+
     // Get current profile
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await admin
       .from('users_profile')
       .select('roles')
       .eq('id', user.id)
       .single();
 
-    if (profileError || !profile) {
+    if (profileError) {
+      console.error('[addUserRole] Profile error:', profileError);
+      return { success: false, error: `找不到使用者資料：${profileError.message}` };
+    }
+
+    if (!profile) {
+      console.error('[addUserRole] No profile found');
       return { success: false, error: '找不到使用者資料' };
     }
 
     const currentRoles = profile.roles || [];
+    console.log('[addUserRole] Current roles:', currentRoles);
 
     // Check if role already exists
     if (currentRoles.includes(newRole)) {
+      console.log('[addUserRole] Role already exists');
       return { success: false, error: '您已經有這個角色了' };
     }
 
-    // Add new role
+    // Add new role using admin client
     const updatedRoles = [...currentRoles, newRole];
+    console.log('[addUserRole] Updated roles:', updatedRoles);
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await admin
       .from('users_profile')
       .update({
         roles: updatedRoles,
@@ -151,22 +172,25 @@ export async function addUserRole(newRole: UserRole): Promise<CreateProfileResul
       .eq('id', user.id);
 
     if (updateError) {
-      console.error('Failed to add role:', updateError);
-      return { success: false, error: '新增角色失敗' };
+      console.error('[addUserRole] Update error:', updateError);
+      return { success: false, error: `更新失敗：${updateError.message}` };
     }
+
+    console.log('[addUserRole] Profile updated successfully');
 
     // Add to IAM group
     try {
-      const admin = createAdminClient();
       await addUserToIamGroupByRole(admin, user.id, newRole);
+      console.log('[addUserRole] IAM group added successfully');
     } catch (e) {
-      console.error('Failed to add user to IAM group:', e);
+      console.error('[addUserRole] IAM group error (non-critical):', e);
       // Non-critical error, continue
     }
 
+    console.log('[addUserRole] Success!');
     return { success: true };
   } catch (error: unknown) {
-    console.error('Error in addUserRole:', error);
+    console.error('[addUserRole] Unexpected error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : '系統錯誤，請稍後再試',

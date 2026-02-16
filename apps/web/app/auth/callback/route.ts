@@ -58,19 +58,12 @@ export async function GET(request: Request) {
           .single();
 
         if (profile) {
-          // Existing user, redirect based on role
-          // Prioritize primary_role, fallback to first role in array, then default
-          const roles = profile.roles || [];
-          const role = profile.primary_role || (roles.length > 0 ? roles[0] : 'landlord');
-          
-          // Unified Login Logic:
-          // If user has 'super_admin' role OR has multiple roles -> Redirect to Portal
-          if (roles.includes('super_admin') || roles.length > 1) {
-             return NextResponse.redirect(`${origin}/portal`);
-          }
-
-          const dashboardPath = `/${role.replace('_', '-')}/dashboard`;
-          return NextResponse.redirect(`${origin}${dashboardPath}`);
+          // Existing user - Always redirect to Portal
+          // This allows users to:
+          // 1. Choose which role to use (if they have multiple)
+          // 2. Add new roles via the "Add Role" card
+          // 3. See all their roles in one place
+          return NextResponse.redirect(`${origin}/portal`);
         } else {
           // New user (OAuth first time)
           // Redirect to role selection page to let user choose their primary need

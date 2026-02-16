@@ -8,10 +8,15 @@ const ROLE_TO_GROUP_NAME: Record<string, string> = {
   landlord: 'Standard Landlords',
   agent: 'Agents',
   tenant: 'Active Tenants',
+  potential_tenant: 'Potential Tenants',
+  contracted_tenant: 'Active Tenants',
   buyer: 'Active Buyers',
+  potential_buyer: 'Potential Buyers',
+  contracted_buyer: 'Active Buyers',
   contract_buyer: 'Active Buyers',
   service_provider: 'Vendors',
   vendor: 'Vendors',
+  super_admin: 'Administrators',
 };
 
 /**

@@ -121,11 +121,26 @@
    - 讀取 `project-process/roadmap.js` 或 `apps/superadmin/app/data/roadmap.ts`
    - 解析 `ROADMAP_DATA.features` 陣列（roadmap.js 則為 `window.ROADMAP_DATA`）
 
-2. **任務識別**
-   - **若我有指定編號或功能名稱**
+2. **任務識別與編號**
+   - **項目 ID 計算方式**：依據 `features` 陣列中 `name` 欄位的出現順序，從 1 開始編號
+   - **如何查詢項目 ID**：
+     ```bash
+     # 方法 1: 使用 grep 查詢（推薦）
+     grep -n "name:" apps/superadmin/app/data/roadmap.ts | grep -n "您的功能名稱"
+     # 輸出範例: 96:250: name: "OAuth 用戶新增角色功能修復"
+     # → 項目 ID 為 #96（冒號前的第一個數字）
+
+     # 方法 2: 查看所有項目列表
+     grep "name:" apps/superadmin/app/data/roadmap.ts | nl
+     ```
+
+   - **若使用者有指定編號或功能名稱**
      → 找到對應項目，直接更新內容
-   - **若我未指定**
+     → 範例：「更新 #96」、「更新 OAuth 用戶新增角色功能修復」
+
+   - **若使用者未指定**
      → 在 `features` 陣列末尾新增一筆（注意欄位與現有結構一致）
+     → 新增後，使用上述方法查詢並**告知使用者新項目的 ID 編號**
 
 3. **整理今日工作**
    - 根據今天的 Git commits、討論內容、修改的檔案
@@ -148,17 +163,58 @@
 ```
 ✅ 已更新專案進度儀表板
 
-更新項目: [功能名稱或編號]
+更新項目 ID: #96
+功能名稱: OAuth 用戶新增角色功能修復（Add Role Feature Fix）
 
 摘要:
-- [項目一]: 刪除錯誤的 vercel.json 配置
-- [項目二]: 重構 Winston 日誌系統為 Supabase 資料庫
+- 修復 Server Action：改用 admin 客戶端繞過 RLS
+- 修復前端路由：router.push → window.location.href
+- 修復 IAM 映射：補齊 ROLE_TO_GROUP_NAME 缺失的角色
 
-詳細內容已寫入: apps/superadmin/app/data/roadmap.ts（若同時維護 project-process/roadmap.js 請一併更新）
+詳細內容已寫入: apps/superadmin/app/data/roadmap.ts（行 250-278）
 ```
+
+**重要提醒**：
+- 新增項目時，務必告知使用者**項目 ID 編號**（使用 `grep -n` 查詢）
+- 更新現有項目時，請在回應中包含項目 ID 以便追蹤
+
+## 🔢 ID 編號追蹤
+
+### 如何查詢項目 ID
+
+項目 ID 按照 `features` 陣列中的順序從 1 開始編號。查詢方法：
+
+```bash
+# 查詢特定功能的 ID（推薦）
+grep -n "name:" apps/superadmin/app/data/roadmap.ts | grep -n "功能名稱關鍵字"
+
+# 範例輸出：96:250:            name: "OAuth 用戶新增角色功能修復"
+# 解讀：項目 ID = #96（第一個數字），檔案行號 = 250（第二個數字）
+
+# 查看所有項目列表及編號
+grep "name:" apps/superadmin/app/data/roadmap.ts | nl
+
+# 查看最新項目的 ID（陣列末尾）
+grep "name:" apps/superadmin/app/data/roadmap.ts | nl | tail -5
+```
+
+### ID 編號規則
+
+1. **ID 不可重複使用**：即使刪除項目，其 ID 也不應分配給新項目
+2. **新增項目**：一律附加到陣列末尾，自動獲得下一個可用 ID
+3. **更新項目**：使用 ID 或功能名稱精確定位
+4. **ID 查詢**：新增或更新後，務必查詢並告知使用者項目 ID
+
+### 最新項目 ID
+
+截至 2026-02-16，最新項目 ID：**#96**
+- 功能名稱：OAuth 用戶新增角色功能修復（Add Role Feature Fix）
+- 新增日期：2026/02/16-23:30
+- 負責人：Claude Sonnet 4.5
 
 ## 🚨 注意事項
 
+- **務必告知項目 ID**：新增或更新項目後，使用 `grep -n` 查詢並在回應中明確說明項目 ID
 - 確保 JSON/TS 格式正確（注意逗號、引號、跳脫字元）
 - 開發日誌、測試日誌中的換行請使用 `\n`
 - `docPath` 為專案根相對路徑、以 `/` 開頭；無文件時留空字串 `""`

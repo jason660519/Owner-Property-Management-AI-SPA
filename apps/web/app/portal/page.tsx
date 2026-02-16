@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/Alert';
-import { Loader2, LogOut, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Loader2, LogOut, ShieldCheck, AlertCircle, PlusCircle } from 'lucide-react';
 import { getUserRoles } from '@/app/actions/auth';
 import { ROLE_METADATA } from '@/config/roles';
 import type { RoleMetadata } from '@/config/roles';
@@ -158,7 +158,8 @@ export default function PortalPage() {
 
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
           {roles.length > 0 ? (
-            roles.map((item) => {
+            <>
+              {roles.map((item) => {
               const config = getRoleData(item.role);
               const Icon = config.icon;
               
@@ -198,7 +199,30 @@ export default function PortalPage() {
                   {CardComponent}
                 </Link>
               );
-            })
+            })}
+
+            {/* Add Role Card */}
+            <Link href="/onboarding/add-role" className="block h-full">
+              <Card
+                className="
+                  h-full transition-all duration-200 bg-[#2A2A2A] border-2 border-dashed border-[#333333]
+                  cursor-pointer hover:border-[#7C3AED] hover:bg-[#7C3AED]/5
+                "
+              >
+                <CardHeader>
+                  <div className="flex flex-col items-center justify-center gap-3 py-4">
+                    <div className="p-3 rounded-lg bg-[#7C3AED]/10 text-[#7C3AED]">
+                      <PlusCircle className="w-8 h-8" />
+                    </div>
+                    <CardTitle className="text-lg text-white text-center">新增角色</CardTitle>
+                    <CardDescription className="text-gray-400 text-center">
+                      擴展您的使用需求
+                    </CardDescription>
+                  </div>
+                </CardHeader>
+              </Card>
+            </Link>
+          </>
           ) : (
             <div className="col-span-full py-12 text-center bg-[#2A2A2A] border border-[#333333] rounded-2xl">
               <ShieldCheck className="w-12 h-12 text-gray-600 mx-auto mb-4" />
