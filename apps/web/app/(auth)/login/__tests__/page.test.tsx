@@ -1,14 +1,20 @@
 import React from 'react';
 import '@testing-library/jest-dom';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import LoginPage from '@/app/(auth)/login/page';
-import { signInWithPassword, signInWithGoogle, signInWithFacebook } from '@/lib/supabase/auth';
-import { supabase } from '@/lib/supabase/client';
+import { signInWithGoogle, signInWithFacebook } from '@/lib/supabase/auth';
+import { signInWithPasswordAction, getUserRoles, syncUserRolesToAuthMetadata } from '@/app/actions/auth';
 
-// Mock the auth functions
+// Mock Server Actions (password login flow uses these, not signInWithPassword from client)
+jest.mock('@/app/actions/auth', () => ({
+  signInWithPasswordAction: jest.fn(),
+  getUserRoles: jest.fn(),
+  syncUserRolesToAuthMetadata: jest.fn(),
+  acceptInviteCode: jest.fn(),
+}));
+
 jest.mock('@/lib/supabase/auth', () => ({
-  signInWithPassword: jest.fn(),
   signInWithGoogle: jest.fn(),
   signInWithFacebook: jest.fn(),
 }));
@@ -16,28 +22,24 @@ jest.mock('@/lib/supabase/auth', () => ({
 // Mock next/navigation
 const mockPush = jest.fn();
 const mockRefresh = jest.fn();
+const mockGet = jest.fn();
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
     push: mockPush,
     refresh: mockRefresh,
   }),
+  useSearchParams: () => ({
+    get: mockGet,
+  }),
 }));
 
 describe('LoginPage', () => {
   const user = userEvent.setup();
-  
+
   beforeEach(() => {
     jest.clearAllMocks();
-    // Clear localStorage before each test
     localStorage.clear();
-    // Mock global fetch for API calls
-    global.fetch = jest.fn(() => 
-      Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ redirectUrl: '/landlord/dashboard' }),
-      })
-    ) as jest.Mock;
   });
 
   test('應該正確渲染登入表單', () => {
@@ -46,115 +48,97 @@ describe('LoginPage', () => {
     expect(screen.getByLabelText(/電子郵件/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/密碼/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/記住我/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /登入/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^登入$/ })).toBeInTheDocument();
     expect(screen.getByText(/忘記密碼/i)).toBeInTheDocument();
   });
 
   test('應該顯示表單驗證錯誤', async () => {
     render(<LoginPage />);
     
-    const submitButton = screen.getByRole('button', { name: /登入/i });
+    const submitButton = screen.getByRole('button', { name: /^登入$/ });
     await user.click(submitButton);
     
     expect(await screen.findByText(/請輸入有效的電子郵件地址/i)).toBeInTheDocument();
     expect(screen.getByText(/密碼至少需要 8 個字元/i)).toBeInTheDocument();
   });
 
-  test('應該成功登入並重定向 (房東)', async () => {
-    const mockUser = { id: 'user-123', email: 'landlord@example.com' };
-    (signInWithPassword as jest.Mock).mockResolvedValue({
-      user: mockUser,
-      session: { user: mockUser },
-    });
-
-    // Mock supabase profile query
-    (supabase.from as jest.Mock).mockReturnValue({
-      select: jest.fn().mockReturnValue({
-        eq: jest.fn().mockReturnValue({
-          single: jest.fn().mockResolvedValue({
-            data: { primary_role: 'landlord' },
-            error: null,
-          }),
-        }),
-      }),
-    });
+  test('應該成功登入並呼叫 getUserRoles、sync 後導向 Portal', async () => {
+    (signInWithPasswordAction as jest.Mock).mockResolvedValue({ success: true, userId: 'user-123' });
+    (getUserRoles as jest.Mock).mockResolvedValue({ success: true, roles: ['landlord'] });
+    (syncUserRolesToAuthMetadata as jest.Mock).mockResolvedValue({ success: true });
 
     render(<LoginPage />);
-    
+
     await user.type(screen.getByLabelText(/電子郵件/i), 'landlord@example.com');
     await user.type(screen.getByLabelText(/密碼/i), 'ValidPass123');
-    await user.click(screen.getByRole('button', { name: /登入/i }));
+    await user.click(screen.getByRole('button', { name: /^登入$/ }));
 
     await waitFor(() => {
-      expect(signInWithPassword).toHaveBeenCalledWith({
-        email: 'landlord@example.com',
-        password: 'ValidPass123',
-      });
-      // Check if fetch was called for token generation
-      expect(global.fetch).toHaveBeenCalledWith('/api/auth/generate-transfer-token', expect.any(Object));
+      expect(signInWithPasswordAction).toHaveBeenCalledWith('landlord@example.com', 'ValidPass123');
+      expect(getUserRoles).toHaveBeenCalledWith('user-123');
+      expect(syncUserRolesToAuthMetadata).toHaveBeenCalledWith('user-123', ['landlord']);
     });
-  });
-
-  test('應該成功登入並重定向 (租客)', async () => {
-    const mockUser = { id: 'user-456', email: 'tenant@example.com' };
-    (signInWithPassword as jest.Mock).mockResolvedValue({
-      user: mockUser,
-      session: { user: mockUser },
-    });
-
-    // Mock supabase profile query
-    (supabase.from as jest.Mock).mockReturnValue({
-      select: jest.fn().mockReturnValue({
-        eq: jest.fn().mockReturnValue({
-          single: jest.fn().mockResolvedValue({
-            data: { primary_role: 'tenant' },
-            error: null,
-          }),
-        }),
-      }),
-    });
-
-    render(<LoginPage />);
-    
-    await user.type(screen.getByLabelText(/電子郵件/i), 'tenant@example.com');
-    await user.type(screen.getByLabelText(/密碼/i), 'ValidPass123');
-    await user.click(screen.getByRole('button', { name: /登入/i }));
-
-    await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith('/tenant/dashboard');
-      expect(mockRefresh).toHaveBeenCalled();
-    });
+    // 實際 window.location.href = '/portal' 由 E2E 驗證
   });
 
   test('應該處理登入失敗', async () => {
     const errorMessage = 'Invalid credentials';
-    (signInWithPassword as jest.Mock).mockRejectedValue(new Error(errorMessage));
+    (signInWithPasswordAction as jest.Mock).mockResolvedValue({ success: false, error: errorMessage });
 
     render(<LoginPage />);
-    
+
     await user.type(screen.getByLabelText(/電子郵件/i), 'test@example.com');
     await user.type(screen.getByLabelText(/密碼/i), 'WrongPass123');
-    await user.click(screen.getByRole('button', { name: /登入/i }));
-    
+    await user.click(screen.getByRole('button', { name: /^登入$/ }));
+
     expect(await screen.findByText(errorMessage)).toBeInTheDocument();
   });
 
   test('應該處理 Google 登入', async () => {
     render(<LoginPage />);
-    
-    const googleButton = screen.getAllByRole('button')[1]; // Assume second button is Google
+    const googleButton = screen.getByRole('button', { name: /Google/i });
     await user.click(googleButton);
-    
     expect(signInWithGoogle).toHaveBeenCalled();
   });
 
   test('應該處理 Facebook 登入', async () => {
     render(<LoginPage />);
-    
-    const facebookButton = screen.getAllByRole('button')[2]; // Assume third button is Facebook
+    const facebookButton = screen.getByRole('button', { name: /Facebook/i });
     await user.click(facebookButton);
-    
     expect(signInWithFacebook).toHaveBeenCalled();
+  });
+
+  test('應該顯示 Google 登入錯誤', async () => {
+    const errorMessage = 'Google 登入失敗';
+    (signInWithGoogle as jest.Mock).mockRejectedValue(new Error(errorMessage));
+
+    render(<LoginPage />);
+    const googleButton = screen.getByRole('button', { name: /Google/i });
+    await user.click(googleButton);
+
+    expect(await screen.findByText(errorMessage)).toBeInTheDocument();
+  });
+
+  test('應該顯示 Facebook 登入錯誤', async () => {
+    const errorMessage = 'Facebook 登入失敗';
+    (signInWithFacebook as jest.Mock).mockRejectedValue(new Error(errorMessage));
+
+    render(<LoginPage />);
+    const facebookButton = screen.getByRole('button', { name: /Facebook/i });
+    await user.click(facebookButton);
+
+    expect(await screen.findByText(errorMessage)).toBeInTheDocument();
+  });
+
+  test('應該顯示通用 OAuth 錯誤訊息', async () => {
+    (signInWithGoogle as jest.Mock).mockRejectedValue(new Error('Unknown error'));
+
+    render(<LoginPage />);
+    const googleButton = screen.getByRole('button', { name: /Google/i });
+    await user.click(googleButton);
+
+    // Should display the error thrown by signInWithGoogle
+    expect(await screen.findByText(/Unknown error/i)).toBeInTheDocument();
   });
 
   describe('記住我功能測試 (安全版本 - 僅儲存 Email)', () => {
@@ -165,29 +149,16 @@ describe('LoginPage', () => {
      */
 
     test('勾選「記住我」後應該只儲存 email（不儲存密碼以確保安全）', async () => {
-      const mockUser = { id: 'user-123', email: 'test@example.com' };
-      (signInWithPassword as jest.Mock).mockResolvedValue({
-        user: mockUser,
-        session: { user: mockUser },
-      });
-
-      (supabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
-              data: { primary_role: 'landlord' },
-              error: null,
-            }),
-          }),
-        }),
-      });
+      (signInWithPasswordAction as jest.Mock).mockResolvedValue({ success: true, userId: 'user-123' });
+      (getUserRoles as jest.Mock).mockResolvedValue({ success: true, roles: ['landlord'] });
+      (syncUserRolesToAuthMetadata as jest.Mock).mockResolvedValue({ success: true });
 
       render(<LoginPage />);
 
       const emailInput = screen.getByLabelText(/電子郵件/i);
       const passwordInput = screen.getByLabelText(/密碼/i);
       const rememberMeCheckbox = screen.getByLabelText(/記住我/i);
-      const submitButton = screen.getByRole('button', { name: /登入/i });
+      const submitButton = screen.getByRole('button', { name: /^登入$/ });
 
       await user.type(emailInput, 'test@example.com');
       await user.type(passwordInput, 'TestPass123');
@@ -204,24 +175,10 @@ describe('LoginPage', () => {
     });
 
     test('取消勾選「記住我」後應該清除 localStorage 中的 email', async () => {
-      const mockUser = { id: 'user-123', email: 'test@example.com' };
-      (signInWithPassword as jest.Mock).mockResolvedValue({
-        user: mockUser,
-        session: { user: mockUser },
-      });
+      (signInWithPasswordAction as jest.Mock).mockResolvedValue({ success: true, userId: 'user-123' });
+      (getUserRoles as jest.Mock).mockResolvedValue({ success: true, roles: ['landlord'] });
+      (syncUserRolesToAuthMetadata as jest.Mock).mockResolvedValue({ success: true });
 
-      (supabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
-              data: { primary_role: 'landlord' },
-              error: null,
-            }),
-          }),
-        }),
-      });
-
-      // Set up previously saved data
       localStorage.setItem('opm_remembered_email', 'old@example.com');
 
       render(<LoginPage />);
@@ -229,7 +186,7 @@ describe('LoginPage', () => {
       const emailInput = screen.getByLabelText(/電子郵件/i);
       const passwordInput = screen.getByLabelText(/密碼/i);
       const rememberMeCheckbox = screen.getByLabelText(/記住我/i);
-      const submitButton = screen.getByRole('button', { name: /登入/i });
+      const submitButton = screen.getByRole('button', { name: /^登入$/ });
 
       await user.clear(emailInput);
       await user.type(emailInput, 'new@example.com');
@@ -284,22 +241,9 @@ describe('LoginPage', () => {
     });
 
     test('登入成功後應該清理所有舊的密碼儲存', async () => {
-      const mockUser = { id: 'user-123', email: 'test@example.com' };
-      (signInWithPassword as jest.Mock).mockResolvedValue({
-        user: mockUser,
-        session: { user: mockUser },
-      });
-
-      (supabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
-              data: { primary_role: 'landlord' },
-              error: null,
-            }),
-          }),
-        }),
-      });
+      (signInWithPasswordAction as jest.Mock).mockResolvedValue({ success: true, userId: 'user-123' });
+      (getUserRoles as jest.Mock).mockResolvedValue({ success: true, roles: ['landlord'] });
+      (syncUserRolesToAuthMetadata as jest.Mock).mockResolvedValue({ success: true });
 
       // Set up legacy insecure data
       localStorage.setItem('rememberedPassword', 'OLD_INSECURE_PASSWORD');
@@ -310,7 +254,7 @@ describe('LoginPage', () => {
       const emailInput = screen.getByLabelText(/電子郵件/i);
       const passwordInput = screen.getByLabelText(/密碼/i);
       const rememberMeCheckbox = screen.getByLabelText(/記住我/i);
-      const submitButton = screen.getByRole('button', { name: /登入/i });
+      const submitButton = screen.getByRole('button', { name: /^登入$/ });
 
       await user.type(emailInput, 'test@example.com');
       await user.type(passwordInput, 'SecurePass123');
@@ -324,6 +268,112 @@ describe('LoginPage', () => {
         expect(localStorage.getItem('rememberedPassword')).toBeNull();
         expect(localStorage.getItem('opm_remembered_password')).toBeNull();
       });
+    });
+  });
+
+  describe('OAuth 錯誤處理測試', () => {
+    test('應該從 URL 參數顯示 OAuth 錯誤訊息', () => {
+      mockGet.mockImplementation((param: string) => {
+        if (param === 'error') return 'access_denied';
+        return null;
+      });
+
+      render(<LoginPage />);
+
+      expect(screen.getByText(/access_denied/i)).toBeInTheDocument();
+    });
+
+    test('應該顯示自訂錯誤訊息（message 參數）', () => {
+      const customMessage = 'User cancelled the login process';
+      mockGet.mockImplementation((param: string) => {
+        if (param === 'message') return customMessage;
+        return null;
+      });
+
+      render(<LoginPage />);
+
+      expect(screen.getByText(customMessage)).toBeInTheDocument();
+    });
+
+    test('應該顯示 OTP 過期錯誤並提供重設密碼連結', () => {
+      mockGet.mockImplementation((param: string) => {
+        if (param === 'error') return 'otp_expired';
+        return null;
+      });
+
+      render(<LoginPage />);
+
+      expect(screen.getByText(/重設密碼連結已過期/i)).toBeInTheDocument();
+      expect(screen.getByText(/重新申請重設密碼/i)).toBeInTheDocument();
+    });
+
+    test('應該顯示 OAuth callback 失敗錯誤', () => {
+      mockGet.mockImplementation((param: string) => {
+        if (param === 'error') return 'auth_callback_failed';
+        return null;
+      });
+
+      render(<LoginPage />);
+
+      expect(screen.getByText(/auth_callback_failed/i)).toBeInTheDocument();
+    });
+
+    test('應該顯示 profile 建立失敗錯誤', () => {
+      const errorMessage = 'Database constraint violation';
+      mockGet.mockImplementation((param: string) => {
+        if (param === 'error') return 'create_profile_failed';
+        if (param === 'message') return errorMessage;
+        return null;
+      });
+
+      render(<LoginPage />);
+
+      expect(screen.getByText(errorMessage)).toBeInTheDocument();
+    });
+  });
+
+  describe('OAuth 按鈕可見性測試', () => {
+    test('應該顯示 Google 和 Facebook 登入按鈕', () => {
+      render(<LoginPage />);
+
+      const googleButton = screen.getByRole('button', { name: /Google/i });
+      const facebookButton = screen.getByRole('button', { name: /Facebook/i });
+
+      expect(googleButton).toBeInTheDocument();
+      expect(facebookButton).toBeInTheDocument();
+    });
+
+    test('應該顯示 OAuth 分隔線', () => {
+      render(<LoginPage />);
+
+      expect(screen.getByText(/或使用社群帳號登入/i)).toBeInTheDocument();
+    });
+
+    test('OAuth 按鈕應該在密碼登入模式下可見', () => {
+      mockGet.mockReturnValue(null); // Not in invite mode
+
+      render(<LoginPage />);
+
+      const googleButton = screen.getByRole('button', { name: /Google/i });
+      const facebookButton = screen.getByRole('button', { name: /Facebook/i });
+
+      expect(googleButton).toBeVisible();
+      expect(facebookButton).toBeVisible();
+    });
+
+    test('OAuth 按鈕應該在邀請碼模式下不可見', () => {
+      mockGet.mockImplementation((param: string) => {
+        if (param === 'mode') return 'invite';
+        return null;
+      });
+
+      render(<LoginPage />);
+
+      const googleButton = screen.queryByRole('button', { name: /Google/i });
+      const facebookButton = screen.queryByRole('button', { name: /Facebook/i });
+
+      expect(googleButton).not.toBeInTheDocument();
+      expect(facebookButton).not.toBeInTheDocument();
     });
   });
 });

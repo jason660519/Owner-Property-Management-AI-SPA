@@ -72,37 +72,10 @@ export async function GET(request: Request) {
           const dashboardPath = `/${role.replace('_', '-')}/dashboard`;
           return NextResponse.redirect(`${origin}${dashboardPath}`);
         } else {
-          // New user (OAuth first time), create profile
-          // Default to 'landlord' as this is "Owner Property Management" app, but maybe 'tenant' is safer?
-          // Let's use 'landlord' as per the project name implication, or maybe check metadata?
-          // Actually, defaulting to 'landlord' might be what the user expects for this app.
-          const defaultRole = 'landlord'; 
-          const metadata = user.user_metadata || {};
-          const displayName = metadata.full_name || metadata.name || user.email?.split('@')[0] || 'New User';
-
-          const { error: insertError } = await supabase
-            .from('users_profile')
-            .insert({
-              id: user.id,
-              display_name: displayName,
-              role: defaultRole,
-              roles: [defaultRole],
-              primary_role: defaultRole
-            });
-
-          if (insertError) {
-            console.error('Failed to create user profile from OAuth:', insertError);
-            return NextResponse.redirect(`${origin}/login?error=create_profile_failed&message=${encodeURIComponent(insertError.message)}`);
-          }
-
-          try {
-            const admin = createAdminClient();
-            await addUserToIamGroupByRole(admin, user.id, defaultRole);
-          } catch (e) {
-            console.error('Failed to add OAuth user to IAM group:', e);
-          }
-
-          return NextResponse.redirect(`${origin}/${defaultRole}/dashboard`);
+          // New user (OAuth first time)
+          // Redirect to role selection page to let user choose their primary need
+          // This provides better UX than defaulting to a role
+          return NextResponse.redirect(`${origin}/onboarding/role-selection`);
         }
       }
 
