@@ -17,6 +17,7 @@ import {
   ChevronDown,
   Save,
   AlignLeft,
+  Eye,
   Play,
   Loader2,
   Pause,
@@ -107,6 +108,9 @@ const COLUMN_HEADERS = [
 /** Column letters A..L for alignment dropdown label only (no row/column headers in table) */
 const COLUMN_LETTERS = COLUMN_HEADERS.map((_, i) => String.fromCharCode(65 + i));
 
+const FREEZE_ROW_STORAGE_KEY = 'project_progress_freeze_row_v1';
+const FROZEN_DATA_COL_COUNT_KEY = 'project_progress_frozen_data_col_count_v2';
+
 const WIDTH_PRESETS_KEY = 'project_progress_col_widths_presets_v9';
 const HEADER_HEIGHT_KEY = 'project_progress_header_height_v1';
 const DEFAULT_HEADER_HEIGHT = 56;
@@ -179,6 +183,25 @@ export default function ProjectProgressPage() {
   const [alignmentTargetCol, setAlignmentTargetCol] = useState(0);
   const alignmentDropdownRef = useRef<HTMLDivElement>(null);
 
+  const [viewDropdownOpen, setViewDropdownOpen] = useState(false);
+  const viewDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Freeze panes (persisted; View 選單控制)：0=不凍結列，1=凍結第 1 row
+  const [freezeRowCount, setFreezeRowCount] = useState<0 | 1>(1);
+  const [frozenDataColCount, setFrozenDataColCount] = useState(0);
+
+  // Column pixel widths for sticky left (from ResizeObserver)
+  const [colPxWidths, setColPxWidths] = useState<number[]>(() => COLUMN_HEADERS.map(() => 80));
+  const frozenColLeftOffsets = useMemo(() => {
+    const offsets: number[] = [];
+    let acc = 0;
+    for (let i = 0; i < 12; i++) {
+      offsets.push(acc);
+      acc += colPxWidths[i] ?? 80;
+    }
+    return offsets;
+  }, [colPxWidths]);
+
   // Excel-style selection: cell, whole column, whole row, or all (corner = 全選)
   type SelectionType = 'cell' | 'column' | 'row' | 'all' | null;
   const [selectionType, setSelectionType] = useState<SelectionType>(null);
@@ -228,6 +251,17 @@ export default function ProjectProgressPage() {
         console.error('Failed to parse saved alignments', e);
       }
     }
+    const savedFreezeRow = localStorage.getItem(FREEZE_ROW_STORAGE_KEY);
+    if (savedFreezeRow) {
+      const r = parseInt(savedFreezeRow, 10);
+      if (r === 0 || r === 1) setFreezeRowCount(r);
+      else if (r === 2) setFreezeRowCount(1); // 舊版「2 列」改為凍結第 1 row
+    }
+    const savedFrozenCol = localStorage.getItem(FROZEN_DATA_COL_COUNT_KEY);
+    if (savedFrozenCol) {
+      const c = parseInt(savedFrozenCol, 10);
+      if (!Number.isNaN(c) && c >= 0 && c <= 12) setFrozenDataColCount(c);
+    }
     const presetsRaw = localStorage.getItem(WIDTH_PRESETS_KEY);
     if (presetsRaw) {
       try {
@@ -250,6 +284,21 @@ export default function ProjectProgressPage() {
       }
     }
   }, []);
+
+  // Compute column pixel widths from percentages for sticky freeze (View 凍結col)
+  useEffect(() => {
+    const container = tableRef.current;
+    if (!container) return;
+    const update = () => {
+      const w = container.clientWidth;
+      if (w <= 0) return;
+      setColPxWidths(colWidths.map(pct => Math.max(40, (pct / 100) * w)));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [colWidths]);
 
   const handleResizeStart = (index: number, e: React.MouseEvent) => {
     e.preventDefault();
@@ -467,6 +516,25 @@ export default function ProjectProgressPage() {
     };
   }, [alignmentDropdownOpen]);
 
+  // Close view dropdown on click outside or Escape
+  useEffect(() => {
+    if (!viewDropdownOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (viewDropdownRef.current && !viewDropdownRef.current.contains(e.target as Node)) {
+        setViewDropdownOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setViewDropdownOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [viewDropdownOpen]);
+
   return (
     <div className="space-y-6 h-[calc(100vh-100px)] flex flex-col">
       {/* Header */}
@@ -612,7 +680,7 @@ export default function ProjectProgressPage() {
                 </div>
               )}
             </div>
-            {/* 排版：選擇欄位後設定水平/垂直對齊 */}
+            {/* 排版：選擇col位後設定水平/垂直對齊 */}
             <div className="relative" ref={alignmentDropdownRef}>
               <button
                 type="button"
@@ -623,7 +691,7 @@ export default function ProjectProgressPage() {
                 aria-expanded={alignmentDropdownOpen}
                 aria-haspopup="listbox"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border whitespace-nowrap bg-bg-primary border-border-default text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
-                title="欄位文字排版（靠左/置中/靠右、靠上/置中/靠下）。可先點選欄位 A–K 或儲存格再設定。"
+                title="col位文字排版（靠左/置中/靠右、靠上/置中/靠下）。可先點選col位 A–K 或儲存格再設定。"
               >
                 <AlignLeft className="w-3.5 h-3.5" />
                 排版
@@ -633,9 +701,9 @@ export default function ProjectProgressPage() {
                 <div
                   className="absolute left-0 top-full mt-1 z-50 min-w-[200px] bg-bg-primary border border-border-default rounded-lg shadow-lg p-3 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   role="dialog"
-                  aria-label="欄位排版"
+                  aria-label="col位排版"
                 >
-                  <p className="text-[10px] text-text-muted mb-2">套用至欄位 {COLUMN_LETTERS[alignmentTargetCol]} – {COLUMN_HEADERS[alignmentTargetCol]?.zh}</p>
+                  <p className="text-[10px] text-text-muted mb-2">套用至col位 {COLUMN_LETTERS[alignmentTargetCol]} – {COLUMN_HEADERS[alignmentTargetCol]?.zh}</p>
                   <p className="text-xs font-medium text-text-secondary mb-1">水平</p>
                   <div className="flex gap-1 mb-3">
                     {(['left', 'center', 'right'] as const).map(h => (
@@ -671,6 +739,86 @@ export default function ProjectProgressPage() {
                         {v === 'top' ? '靠上' : v === 'middle' ? '上下置中' : '靠下'}
                       </button>
                     ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            {/* View：凍結窗格等檢視選項（在排版右邊） */}
+            <div className="relative" ref={viewDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setViewDropdownOpen(open => !open)}
+                aria-expanded={viewDropdownOpen}
+                aria-haspopup="menu"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border whitespace-nowrap bg-bg-primary border-border-default text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
+                title="檢視選項（凍結列/col等）"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                View
+                <ChevronDown className={clsx("w-3.5 h-3.5 transition-transform", viewDropdownOpen && "rotate-180")} />
+              </button>
+              {viewDropdownOpen && (
+                <div
+                  className="absolute left-0 top-full mt-1 z-50 min-w-[200px] bg-bg-primary border border-border-default rounded-lg shadow-lg py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  role="menu"
+                  aria-label="檢視選項"
+                >
+                  <div className="px-3 py-1.5 text-[10px] font-medium text-text-muted uppercase tracking-wide">
+                    凍結窗格
+                  </div>
+                  <div className="border-t border-border-light mt-1 pt-1">
+                    <div className="px-3 py-1 text-[10px] text-text-muted">列</div>
+                    {([0, 1] as const).map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setFreezeRowCount(n);
+                          localStorage.setItem(FREEZE_ROW_STORAGE_KEY, String(n));
+                          setViewDropdownOpen(false);
+                        }}
+                        className={clsx(
+                          "w-full text-left px-3 py-2 text-sm transition-colors",
+                          freezeRowCount === n
+                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 font-medium"
+                            : "text-text-primary hover:bg-bg-secondary"
+                        )}
+                      >
+                        {n === 0 ? '不凍結列' : '凍結第 1 row'}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="border-t border-border-light mt-1 pt-1">
+                    <div className="px-3 py-1 text-[10px] text-text-muted">col（亦可拖曳凍結線）</div>
+                    <div className="max-h-[240px] overflow-y-auto">
+                        {[
+                        { n: 0, label: '不凍結col' },
+                        ...Array.from({ length: 12 }, (_, i) => ({
+                          n: i + 1,
+                          label: i === 0 ? '凍結第 1 col' : `凍結第 1 ~ ${i + 1} col`,
+                        })),
+                      ].map(({ n, label }) => (
+                        <button
+                          key={n}
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setFrozenDataColCount(n);
+                            localStorage.setItem(FROZEN_DATA_COL_COUNT_KEY, String(n));
+                            setViewDropdownOpen(false);
+                          }}
+                          className={clsx(
+                            "w-full text-left px-3 py-2 text-sm transition-colors",
+                            frozenDataColCount === n
+                              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 font-medium"
+                              : "text-text-primary hover:bg-bg-secondary"
+                          )}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
@@ -770,18 +918,23 @@ export default function ProjectProgressPage() {
       {/* Table: 12 columns; click header or cell to select for 排版 */}
       <div className="bg-bg-primary border border-border-default rounded-lg shadow-sm overflow-hidden flex flex-col flex-1 min-h-0 transition-colors">
         <div className="overflow-y-auto flex-1 min-h-0" ref={tableRef}>
-          {/* Sticky header: 12 column headers (resizable height) */}
+          {/* Header: sticky 僅在 View 凍結列 > 0 時生效 */}
           <div
-            className="sticky top-0 z-10 border-b border-border-default bg-bg-secondary flex flex-col w-full min-w-0 shrink-0"
+            className={clsx(
+              "z-10 bg-bg-secondary flex flex-col w-full min-w-0 shrink-0",
+              freezeRowCount > 0 ? "sticky top-0 border-b-4 border-gray-300 dark:border-gray-600" : "border-b border-border-default"
+            )}
             style={{ minHeight: headerHeight, height: headerHeight }}
           >
-            {/* Title row: 編碼、分類、功能需求名稱…（無欄位字母列、無列號欄） */}
+            {/* Title row: 編碼、分類、功能需求名稱…（無col位字母列、無列號col） */}
             <div className="flex flex-1 min-h-0 w-full">
               {/* 12 column headers with resize handles */}
               <div className="flex flex-1 min-w-0">
                 {COLUMN_HEADERS.map((header, idx) => {
                   const { flex: alignFlex, text: alignText } = getAlignmentClasses(columnAlignments[idx] ?? DEFAULT_COLUMN_ALIGNMENT);
                   const isColSelected = (selectionType === 'column' && selectedCol === idx) || isAllSelected;
+                  const isFrozen = idx < frozenDataColCount;
+                  const isFreezeBoundary = frozenDataColCount > 0 && idx === frozenDataColCount - 1;
                   return (
                   <div
                     key={header.en}
@@ -790,12 +943,18 @@ export default function ProjectProgressPage() {
                     onClick={() => { setSelectionType('column'); setSelectedCol(idx); setSelectedRow(0); }}
                     onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectionType('column'); setSelectedCol(idx); setSelectedRow(0); } }}
                     className={clsx(
-                      "relative flex-shrink-0 flex-grow-0 px-4 py-3 text-xs font-semibold text-text-secondary tracking-wider flex flex-col border-r border-border-default last:border-r-0 overflow-hidden min-h-0 cursor-pointer",
+                      "relative flex-shrink-0 flex-grow-0 px-4 py-3 text-xs font-semibold text-text-secondary tracking-wider flex flex-col overflow-hidden min-h-0 cursor-pointer",
+                      isFreezeBoundary ? "border-r-4 border-gray-300 dark:border-gray-600" : "border-r border-border-default last:border-r-0",
                       alignFlex,
                       alignText,
-                      isColSelected && "bg-blue-500/15 ring-inset ring-1 ring-blue-500/40"
+                      isColSelected && "bg-blue-500/15 ring-inset ring-1 ring-blue-500/40",
+                      isFrozen && "sticky bg-bg-secondary"
                     )}
-                    style={{ width: `${colWidths[idx]}%`, minWidth: 0 }}
+                    style={{
+                      width: `${colWidths[idx]}%`,
+                      minWidth: 0,
+                      ...(isFrozen ? { left: frozenColLeftOffsets[idx], zIndex: 2 } : {})
+                    }}
                   >
                     <span className="uppercase break-words w-full leading-tight line-clamp-2">{header.en}</span>
                     <span className="text-[10px] text-text-muted break-words w-full leading-tight line-clamp-1">{header.zh}</span>
@@ -809,15 +968,17 @@ export default function ProjectProgressPage() {
                 ); })}
               </div>
             </div>
-            {/* Drag handle to resize header row height */}
-            <div
-              role="separator"
-              aria-label="調整標題列高度"
-              className="absolute left-0 right-0 bottom-0 h-2 cursor-row-resize hover:bg-blue-400/30 active:bg-blue-500/50 z-20 flex items-center justify-center group"
-              onMouseDown={handleHeaderResizeStart}
-            >
-              <span className="opacity-0 group-hover:opacity-100 text-[10px] text-text-muted">拖曳調整高度</span>
-            </div>
+            {/* 拖曳調整標題列高度：僅在 View 凍結列 > 0 時顯示 */}
+            {freezeRowCount > 0 && (
+              <div
+                role="separator"
+                aria-label="調整標題列高度"
+                className="absolute left-0 right-0 bottom-0 h-2 cursor-row-resize hover:bg-blue-400/30 active:bg-blue-500/50 z-20 flex items-center justify-center group"
+                onMouseDown={handleHeaderResizeStart}
+              >
+                <span className="opacity-0 group-hover:opacity-100 text-[10px] text-text-muted">拖曳調整高度</span>
+              </div>
+            )}
           </div>
 
           {/* Body rows: 12 data columns; click cell or header to select for 排版 */}
@@ -841,13 +1002,15 @@ export default function ProjectProgressPage() {
                         onClick={() => { setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(0); }}
                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(0); } }}
                         className={clsx(
-                          "flex-shrink-0 flex-grow-0 px-2 py-4 flex flex-col border-r border-border-light overflow-hidden cursor-cell",
+                          "flex-shrink-0 flex-grow-0 px-2 py-4 flex flex-col overflow-hidden cursor-cell",
+                          frozenDataColCount > 0 && 0 === frozenDataColCount - 1 ? "border-r-4 border-gray-300 dark:border-gray-600" : "border-r border-border-light",
                           ((selectionType === 'cell' && selectedRow === rowIdx && selectedCol === 0) || isAllSelected) && "bg-blue-500/20 ring-1 ring-inset ring-blue-500/40",
                           (selectionType === 'column' && selectedCol === 0) && "bg-blue-500/10",
                           getAlignmentClasses(columnAlignments[0] ?? DEFAULT_COLUMN_ALIGNMENT).flex,
-                          getAlignmentClasses(columnAlignments[0] ?? DEFAULT_COLUMN_ALIGNMENT).text
+                          getAlignmentClasses(columnAlignments[0] ?? DEFAULT_COLUMN_ALIGNMENT).text,
+                          frozenDataColCount > 0 && "sticky bg-bg-primary"
                         )}
-                        style={{ width: `${colWidths[0]}%`, minWidth: 0 }}
+                        style={{ width: `${colWidths[0]}%`, minWidth: 0, ...(frozenDataColCount > 0 ? { left: frozenColLeftOffsets[0], zIndex: 1 } : {}) }}
                       >
                           <div className="font-mono text-xs text-text-secondary bg-bg-primary border border-border-default px-1.5 py-0.5 rounded h-fit">
                               {(rowIdx + 1).toString().padStart(3, '0')}
@@ -861,13 +1024,15 @@ export default function ProjectProgressPage() {
                         onClick={() => { setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(1); }}
                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(1); } }}
                         className={clsx(
-                          "flex-shrink-0 flex-grow-0 px-4 py-4 border-r border-border-light flex flex-col min-w-0 overflow-hidden cursor-cell",
+                          "flex-shrink-0 flex-grow-0 px-4 py-4 flex flex-col min-w-0 overflow-hidden cursor-cell",
+                          frozenDataColCount > 0 && 1 === frozenDataColCount - 1 ? "border-r-4 border-gray-300 dark:border-gray-600" : "border-r border-border-light",
                           ((selectionType === 'cell' && selectedRow === rowIdx && selectedCol === 1) || isAllSelected) && "bg-blue-500/20 ring-1 ring-inset ring-blue-500/40",
                           (selectionType === 'column' && selectedCol === 1) && "bg-blue-500/10",
                           getAlignmentClasses(columnAlignments[1] ?? DEFAULT_COLUMN_ALIGNMENT).flex,
-                          getAlignmentClasses(columnAlignments[1] ?? DEFAULT_COLUMN_ALIGNMENT).text
+                          getAlignmentClasses(columnAlignments[1] ?? DEFAULT_COLUMN_ALIGNMENT).text,
+                          frozenDataColCount > 1 && "sticky bg-bg-primary"
                         )}
-                        style={{ width: `${colWidths[1]}%` }}
+                        style={{ width: `${colWidths[1]}%`, ...(frozenDataColCount > 1 ? { left: frozenColLeftOffsets[1], zIndex: 1 } : {}) }}
                       >
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-bg-tertiary text-text-primary truncate max-w-full" title={feature.category}>
                               {feature.category}
@@ -881,13 +1046,15 @@ export default function ProjectProgressPage() {
                         onClick={() => { setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(2); }}
                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(2); } }}
                         className={clsx(
-                          "flex-shrink-0 flex-grow-0 px-4 py-4 border-r border-border-light flex flex-col min-w-0 overflow-hidden cursor-cell",
+                          "flex-shrink-0 flex-grow-0 px-4 py-4 flex flex-col min-w-0 overflow-hidden cursor-cell",
+                          frozenDataColCount > 0 && 2 === frozenDataColCount - 1 ? "border-r-4 border-gray-300 dark:border-gray-600" : "border-r border-border-light",
                           ((selectionType === 'cell' && selectedRow === rowIdx && selectedCol === 2) || isAllSelected) && "bg-blue-500/20 ring-1 ring-inset ring-blue-500/40",
                           (selectionType === 'column' && selectedCol === 2) && "bg-blue-500/10",
                           getAlignmentClasses(columnAlignments[2] ?? DEFAULT_COLUMN_ALIGNMENT).flex,
-                          getAlignmentClasses(columnAlignments[2] ?? DEFAULT_COLUMN_ALIGNMENT).text
+                          getAlignmentClasses(columnAlignments[2] ?? DEFAULT_COLUMN_ALIGNMENT).text,
+                          frozenDataColCount > 2 && "sticky bg-bg-primary"
                         )}
-                        style={{ width: `${colWidths[2]}%` }}
+                        style={{ width: `${colWidths[2]}%`, ...(frozenDataColCount > 2 ? { left: frozenColLeftOffsets[2], zIndex: 1 } : {}) }}
                       >
                           <h3 className="text-sm font-medium text-text-primary break-words w-full line-clamp-3" title={feature.name}>{feature.name}</h3>
                       </div>
@@ -899,13 +1066,15 @@ export default function ProjectProgressPage() {
                         onClick={() => { setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(3); }}
                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(3); } }}
                         className={clsx(
-                          "flex-shrink-0 flex-grow-0 px-4 py-4 border-r border-border-light flex flex-col min-w-0 overflow-hidden cursor-cell",
+                          "flex-shrink-0 flex-grow-0 px-4 py-4 flex flex-col min-w-0 overflow-hidden cursor-cell",
+                          frozenDataColCount > 0 && 3 === frozenDataColCount - 1 ? "border-r-4 border-gray-300 dark:border-gray-600" : "border-r border-border-light",
                           ((selectionType === 'cell' && selectedRow === rowIdx && selectedCol === 3) || isAllSelected) && "bg-blue-500/20 ring-1 ring-inset ring-blue-500/40",
                           (selectionType === 'column' && selectedCol === 3) && "bg-blue-500/10",
                           getAlignmentClasses(columnAlignments[3] ?? DEFAULT_COLUMN_ALIGNMENT).flex,
-                          getAlignmentClasses(columnAlignments[3] ?? DEFAULT_COLUMN_ALIGNMENT).text
+                          getAlignmentClasses(columnAlignments[3] ?? DEFAULT_COLUMN_ALIGNMENT).text,
+                          frozenDataColCount > 3 && "sticky bg-bg-primary"
                         )}
-                        style={{ width: `${colWidths[3]}%` }}
+                        style={{ width: `${colWidths[3]}%`, ...(frozenDataColCount > 3 ? { left: frozenColLeftOffsets[3], zIndex: 1 } : {}) }}
                       >
                         <div className="text-xs text-text-secondary whitespace-pre-line break-words w-full line-clamp-3" title={feature.acceptanceCriteria}>
                             {feature.acceptanceCriteria}
@@ -919,13 +1088,15 @@ export default function ProjectProgressPage() {
                         onClick={() => { setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(4); }}
                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(4); } }}
                         className={clsx(
-                          "flex-shrink-0 flex-grow-0 px-4 py-4 border-r border-border-light flex flex-col min-w-0 overflow-hidden cursor-cell",
+                          "flex-shrink-0 flex-grow-0 px-4 py-4 flex flex-col min-w-0 overflow-hidden cursor-cell",
+                          frozenDataColCount > 0 && 4 === frozenDataColCount - 1 ? "border-r-4 border-gray-300 dark:border-gray-600" : "border-r border-border-light",
                           ((selectionType === 'cell' && selectedRow === rowIdx && selectedCol === 4) || isAllSelected) && "bg-blue-500/20 ring-1 ring-inset ring-blue-500/40",
                           (selectionType === 'column' && selectedCol === 4) && "bg-blue-500/10",
                           getAlignmentClasses(columnAlignments[4] ?? DEFAULT_COLUMN_ALIGNMENT).flex,
-                          getAlignmentClasses(columnAlignments[4] ?? DEFAULT_COLUMN_ALIGNMENT).text
+                          getAlignmentClasses(columnAlignments[4] ?? DEFAULT_COLUMN_ALIGNMENT).text,
+                          frozenDataColCount > 4 && "sticky bg-bg-primary"
                         )}
-                        style={{ width: `${colWidths[4]}%` }}
+                        style={{ width: `${colWidths[4]}%`, ...(frozenDataColCount > 4 ? { left: frozenColLeftOffsets[4], zIndex: 1 } : {}) }}
                       >
                           {feature.docPath ? (() => {
                               const docPath = feature.docPath.trim();
@@ -949,13 +1120,15 @@ export default function ProjectProgressPage() {
                         onClick={() => { setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(5); }}
                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(5); } }}
                         className={clsx(
-                          "flex-shrink-0 flex-grow-0 px-4 py-4 border-r border-border-light flex flex-col min-w-0 overflow-hidden cursor-cell",
+                          "flex-shrink-0 flex-grow-0 px-4 py-4 flex flex-col min-w-0 overflow-hidden cursor-cell",
+                          frozenDataColCount > 0 && 5 === frozenDataColCount - 1 ? "border-r-4 border-gray-300 dark:border-gray-600" : "border-r border-border-light",
                           ((selectionType === 'cell' && selectedRow === rowIdx && selectedCol === 5) || isAllSelected) && "bg-blue-500/20 ring-1 ring-inset ring-blue-500/40",
                           (selectionType === 'column' && selectedCol === 5) && "bg-blue-500/10",
                           getAlignmentClasses(columnAlignments[5] ?? DEFAULT_COLUMN_ALIGNMENT).flex,
-                          getAlignmentClasses(columnAlignments[5] ?? DEFAULT_COLUMN_ALIGNMENT).text
+                          getAlignmentClasses(columnAlignments[5] ?? DEFAULT_COLUMN_ALIGNMENT).text,
+                          frozenDataColCount > 5 && "sticky bg-bg-primary"
                         )}
-                        style={{ width: `${colWidths[5]}%` }}
+                        style={{ width: `${colWidths[5]}%`, ...(frozenDataColCount > 5 ? { left: frozenColLeftOffsets[5], zIndex: 1 } : {}) }}
                       >
                           <div className="text-xs text-text-secondary whitespace-pre-line break-words w-full line-clamp-3" title={feature.testProgress ? String(feature.testProgress) : undefined}>
                               {feature.testProgress ? feature.testProgress : <span className="text-text-muted italic">No test info</span>}
@@ -969,13 +1142,15 @@ export default function ProjectProgressPage() {
                         onClick={() => { setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(6); }}
                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(6); } }}
                         className={clsx(
-                          "flex-shrink-0 flex-grow-0 px-4 py-4 border-r border-border-light flex flex-col min-w-0 overflow-hidden cursor-cell",
+                          "flex-shrink-0 flex-grow-0 px-4 py-4 flex flex-col min-w-0 overflow-hidden cursor-cell",
+                          frozenDataColCount > 0 && 6 === frozenDataColCount - 1 ? "border-r-4 border-gray-300 dark:border-gray-600" : "border-r border-border-light",
                           ((selectionType === 'cell' && selectedRow === rowIdx && selectedCol === 6) || isAllSelected) && "bg-blue-500/20 ring-1 ring-inset ring-blue-500/40",
                           (selectionType === 'column' && selectedCol === 6) && "bg-blue-500/10",
                           getAlignmentClasses(columnAlignments[6] ?? DEFAULT_COLUMN_ALIGNMENT).flex,
-                          getAlignmentClasses(columnAlignments[6] ?? DEFAULT_COLUMN_ALIGNMENT).text
+                          getAlignmentClasses(columnAlignments[6] ?? DEFAULT_COLUMN_ALIGNMENT).text,
+                          frozenDataColCount > 6 && "sticky bg-bg-primary"
                         )}
-                        style={{ width: `${colWidths[6]}%` }}
+                        style={{ width: `${colWidths[6]}%`, ...(frozenDataColCount > 6 ? { left: frozenColLeftOffsets[6], zIndex: 1 } : {}) }}
                       >
                           <div className="w-full min-w-0">
                               <ProgressBar percentage={feature.percentage} />
@@ -989,13 +1164,15 @@ export default function ProjectProgressPage() {
                         onClick={() => { setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(7); }}
                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(7); } }}
                         className={clsx(
-                          "flex-shrink-0 flex-grow-0 px-4 py-4 border-r border-border-light flex flex-col min-w-0 overflow-hidden cursor-cell",
+                          "flex-shrink-0 flex-grow-0 px-4 py-4 flex flex-col min-w-0 overflow-hidden cursor-cell",
+                          frozenDataColCount > 0 && 7 === frozenDataColCount - 1 ? "border-r-4 border-gray-300 dark:border-gray-600" : "border-r border-border-light",
                           ((selectionType === 'cell' && selectedRow === rowIdx && selectedCol === 7) || isAllSelected) && "bg-blue-500/20 ring-1 ring-inset ring-blue-500/40",
                           (selectionType === 'column' && selectedCol === 7) && "bg-blue-500/10",
                           getAlignmentClasses(columnAlignments[7] ?? DEFAULT_COLUMN_ALIGNMENT).flex,
-                          getAlignmentClasses(columnAlignments[7] ?? DEFAULT_COLUMN_ALIGNMENT).text
+                          getAlignmentClasses(columnAlignments[7] ?? DEFAULT_COLUMN_ALIGNMENT).text,
+                          frozenDataColCount > 7 && "sticky bg-bg-primary"
                         )}
-                        style={{ width: `${colWidths[7]}%` }}
+                        style={{ width: `${colWidths[7]}%`, ...(frozenDataColCount > 7 ? { left: frozenColLeftOffsets[7], zIndex: 1 } : {}) }}
                       >
                           <div className="w-full min-w-0">
                               <ProgressBar percentage={feature.testCoverage || 0} />
@@ -1009,13 +1186,15 @@ export default function ProjectProgressPage() {
                         onClick={() => { setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(8); }}
                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(8); } }}
                         className={clsx(
-                          "project-progress-selectable flex-shrink-0 flex-grow-0 px-4 py-4 border-r border-border-light flex flex-col min-w-0 overflow-hidden cursor-cell",
+                          "project-progress-selectable flex-shrink-0 flex-grow-0 px-4 py-4 flex flex-col min-w-0 overflow-hidden cursor-cell",
+                          frozenDataColCount > 0 && 8 === frozenDataColCount - 1 ? "border-r-4 border-gray-300 dark:border-gray-600" : "border-r border-border-light",
                           ((selectionType === 'cell' && selectedRow === rowIdx && selectedCol === 8) || isAllSelected) && "bg-blue-500/20 ring-1 ring-inset ring-blue-500/40",
                           (selectionType === 'column' && selectedCol === 8) && "bg-blue-500/10",
                           getAlignmentClasses(columnAlignments[8] ?? DEFAULT_COLUMN_ALIGNMENT).flex,
-                          getAlignmentClasses(columnAlignments[8] ?? DEFAULT_COLUMN_ALIGNMENT).text
+                          getAlignmentClasses(columnAlignments[8] ?? DEFAULT_COLUMN_ALIGNMENT).text,
+                          frozenDataColCount > 8 && "sticky bg-bg-primary"
                         )}
-                        style={{ width: `${colWidths[8]}%`, minWidth: 0 }}
+                        style={{ width: `${colWidths[8]}%`, minWidth: 0, ...(frozenDataColCount > 8 ? { left: frozenColLeftOffsets[8], zIndex: 1 } : {}) }}
                       >
                         <div className="text-xs text-text-secondary truncate w-full" title={feature.model ? String(feature.model) : undefined}>
                             {feature.model ? feature.model : <span className="text-text-muted italic">—</span>}
@@ -1029,13 +1208,15 @@ export default function ProjectProgressPage() {
                         onClick={() => { setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(9); }}
                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(9); } }}
                         className={clsx(
-                          "project-progress-selectable flex-shrink-0 flex-grow-0 px-4 py-4 border-r border-border-light flex flex-col min-w-0 overflow-hidden cursor-cell",
+                          "project-progress-selectable flex-shrink-0 flex-grow-0 px-4 py-4 flex flex-col min-w-0 overflow-hidden cursor-cell",
+                          frozenDataColCount > 0 && 9 === frozenDataColCount - 1 ? "border-r-4 border-gray-300 dark:border-gray-600" : "border-r border-border-light",
                           ((selectionType === 'cell' && selectedRow === rowIdx && selectedCol === 9) || isAllSelected) && "bg-blue-500/20 ring-1 ring-inset ring-blue-500/40",
                           (selectionType === 'column' && selectedCol === 9) && "bg-blue-500/10",
                           getAlignmentClasses(columnAlignments[9] ?? DEFAULT_COLUMN_ALIGNMENT).flex,
-                          getAlignmentClasses(columnAlignments[9] ?? DEFAULT_COLUMN_ALIGNMENT).text
+                          getAlignmentClasses(columnAlignments[9] ?? DEFAULT_COLUMN_ALIGNMENT).text,
+                          frozenDataColCount > 9 && "sticky bg-bg-primary"
                         )}
-                        style={{ width: `${colWidths[9]}%`, minWidth: 0 }}
+                        style={{ width: `${colWidths[9]}%`, minWidth: 0, ...(frozenDataColCount > 9 ? { left: frozenColLeftOffsets[9], zIndex: 1 } : {}) }}
                       >
                         <div className="text-xs text-text-secondary whitespace-pre-line break-words w-full line-clamp-3" title={feature.aiPrompt ? String(feature.aiPrompt) : undefined}>
                             {feature.aiPrompt ? feature.aiPrompt : <span className="text-text-muted italic">—</span>}
@@ -1049,13 +1230,15 @@ export default function ProjectProgressPage() {
                         onClick={() => { setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(10); }}
                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(10); } }}
                         className={clsx(
-                          "project-progress-selectable flex-shrink-0 flex-grow-0 px-4 py-4 border-r border-border-light flex flex-col min-w-0 overflow-hidden cursor-cell",
+                          "project-progress-selectable flex-shrink-0 flex-grow-0 px-4 py-4 flex flex-col min-w-0 overflow-hidden cursor-cell",
+                          frozenDataColCount > 0 && 10 === frozenDataColCount - 1 ? "border-r-4 border-gray-300 dark:border-gray-600" : "border-r border-border-light",
                           ((selectionType === 'cell' && selectedRow === rowIdx && selectedCol === 10) || isAllSelected) && "bg-blue-500/20 ring-1 ring-inset ring-blue-500/40",
                           (selectionType === 'column' && selectedCol === 10) && "bg-blue-500/10",
                           getAlignmentClasses(columnAlignments[10] ?? DEFAULT_COLUMN_ALIGNMENT).flex,
-                          getAlignmentClasses(columnAlignments[10] ?? DEFAULT_COLUMN_ALIGNMENT).text
+                          getAlignmentClasses(columnAlignments[10] ?? DEFAULT_COLUMN_ALIGNMENT).text,
+                          frozenDataColCount > 10 && "sticky bg-bg-primary"
                         )}
-                        style={{ width: `${colWidths[10]}%`, minWidth: 0 }}
+                        style={{ width: `${colWidths[10]}%`, minWidth: 0, ...(frozenDataColCount > 10 ? { left: frozenColLeftOffsets[10], zIndex: 1 } : {}) }}
                       >
                         <div className="flex items-center justify-center gap-2 flex-wrap w-full min-w-0">
                           {devInProgressIds.has(feature.name) ? (
@@ -1096,13 +1279,15 @@ export default function ProjectProgressPage() {
                         onClick={() => { setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(11); }}
                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(11); } }}
                         className={clsx(
-                          "project-progress-selectable flex-shrink-0 flex-grow-0 px-4 py-4 flex flex-col border-border-light min-w-0 overflow-hidden cursor-cell",
+                          "project-progress-selectable flex-shrink-0 flex-grow-0 px-4 py-4 flex flex-col min-w-0 overflow-hidden cursor-cell",
+                          frozenDataColCount > 0 && 11 === frozenDataColCount - 1 && "border-r-4 border-gray-300 dark:border-gray-600",
                           ((selectionType === 'cell' && selectedRow === rowIdx && selectedCol === 11) || isAllSelected) && "bg-blue-500/20 ring-1 ring-inset ring-blue-500/40",
                           (selectionType === 'column' && selectedCol === 11) && "bg-blue-500/10",
                           getAlignmentClasses(columnAlignments[11] ?? DEFAULT_COLUMN_ALIGNMENT).flex,
-                          getAlignmentClasses(columnAlignments[11] ?? DEFAULT_COLUMN_ALIGNMENT).text
+                          getAlignmentClasses(columnAlignments[11] ?? DEFAULT_COLUMN_ALIGNMENT).text,
+                          frozenDataColCount > 11 && "sticky bg-bg-primary"
                         )}
-                        style={{ width: `${colWidths[11]}%`, minWidth: 0 }}
+                        style={{ width: `${colWidths[11]}%`, minWidth: 0, ...(frozenDataColCount > 11 ? { left: frozenColLeftOffsets[11], zIndex: 1 } : {}) }}
                       >
                           <div className="text-xs text-text-muted">
                               <p className="truncate" title={feature.lastModifiedBy}>{feature.lastModifiedBy}</p>
