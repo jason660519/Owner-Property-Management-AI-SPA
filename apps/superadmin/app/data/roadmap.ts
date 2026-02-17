@@ -17,10 +17,13 @@ export interface RoadmapFeature {
   lastModifiedDate?: string;
   acceptanceCriteria?: string;
   devLog?: string;
+  /** 開發進度與日誌報告文件路徑，於儀表板「開發進度與日誌報告URL」欄顯示為連結 */
+  devLogDocPath?: string;
   featureDescription?: string;
   workCategory?: string;
   developmentProgress?: string;
   testLog?: string;
+  aiPrompt?: string;
 }
 
 export interface RoadmapData {
@@ -42,6 +45,7 @@ export const ROADMAP_DATA: RoadmapData = {
             lastModifiedBy: "Trae AI", 
             lastModifiedDate: "2026/02/13",
             devLog: "[2026/02/13] (Trae AI)\n• 完成儀表板進度頁面重構，支援 9 欄位動態調整寬度\n• 實作欄位順序優化與雙語標題顯示\n• 新增 `dev-logs` 與 `test-logs` 資料夾結構\n詳見: [開發日誌](../dev-logs/dev-dashboard-refactor-2026-02-13.md)",
+            devLogDocPath: "/project-process/dev-logs/dev-dashboard-refactor-2026-02-13.md",
             testProgress: "[2026/02/13] (Trae AI)\n• UI/UX 功能測試通過 (欄位拖曳、記憶還原、RWD)\n詳見: [測試日誌](../test-logs/test-dashboard-refactor-2026-02-13.md)",
             testCoverage: 0 
         },
