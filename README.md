@@ -1,6 +1,6 @@
 # Owner Property Management AI Web App
 
-> AI 驅動的房東物業管理平台
+> 🏠 AI 驅動的房東物業管理平台 — 讓物業管理更簡單、更智慧
 
 ---
 
@@ -18,7 +18,7 @@
 ### Phase 2: Mobile App (暫停) ⏸️
 
 - ⏸️ Expo/React Native 開發已暫停
-- 📁 代碼保留在 `apps/mobile/` (以備未來使用)
+- 📁 代碼保留在 [`apps/mobile/`](./apps/mobile/) (以備未來使用)
 - 📊 待 Web App 上線後，根據用戶需求決定是否開發
 
 ---
@@ -87,7 +87,7 @@ ipconfig getifaddr en0
 
 ## 🏗️ 專案結構
 
-```
+```text
 Owner-Property-Management-AI-SPA/
 ├── apps/
 │   ├── web/                 # Next.js Web App (主要開發)
@@ -263,7 +263,7 @@ npx supabase gen types typescript --local > apps/web/lib/database.types.ts
 
 ### 提交規範
 
-```
+```text
 feat: 新功能
 fix: Bug 修復
 docs: 文檔更新
@@ -275,7 +275,7 @@ chore: 雜項
 
 ---
 
-## 📊 專案狀態
+## 📊 開發進度
 
 ### 完成度
 
@@ -319,7 +319,6 @@ chore: 雜項
 # 停止所有服務
 ./stop.sh
 
-
 # 啟動 Web App
 cd apps/web && npm run dev
 ```
@@ -337,7 +336,7 @@ cd apps/web && npm run dev
 
 如有問題，請查看：
 
-1. [文檔](./docs/)
+1. [專案文檔](./docs/)
 2. [Issue Tracker](../../issues)
 3. 聯繫開發團隊
 
