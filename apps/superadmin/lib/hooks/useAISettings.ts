@@ -47,6 +47,13 @@ export interface SavedPrompt {
   version: number;
 }
 
+export interface KeyValidationResult {
+  valid: boolean;
+  message: string;
+  modelInfo?: string;
+  availableModels?: string[];
+}
+
 export function useAISettings() {
   const [keys, setKeys] = useState<SavedKey[]>([]);
   const [models, setModels] = useState<SavedModel[]>([]);
@@ -68,11 +75,12 @@ export function useAISettings() {
   }, []);
 
   // ---- Fetch all settings ----
-  const fetchAll = useCallback(async () => {
+  // ---- Fetch all settings ----
+  const fetchAll = useCallback(async (silent = false) => {
     // Wait for real user ID if possible, but don't block too long if using mock
     // Actually, we should probably wait until we check auth status
-    
-    setLoading(true);
+
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const headers = { 'x-user-id': userId };
@@ -115,14 +123,14 @@ export function useAISettings() {
     } catch (err) {
       setError(err instanceof Error ? err.message : '載入設定失敗');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [userId]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   // ---- API Key Operations ----
-  const saveKey = async (provider: AIProvider, rawKey: string) => {
+  const saveKey = useCallback(async (provider: AIProvider, rawKey: string) => {
     const { encrypted, iv } = await encryptApiKey(rawKey);
     const res = await fetch('/api/ai-settings/keys', {
       method: 'POST',
@@ -133,29 +141,30 @@ export function useAISettings() {
     if (!res.ok) throw new Error(data.error);
     await fetchAll();
     return data.key;
-  };
+  }, [userId, fetchAll]);
 
-  const deleteKey = async (keyId: string) => {
+  const deleteKey = useCallback(async (keyId: string) => {
     const res = await fetch(`/api/ai-settings/keys?id=${keyId}&userId=${userId}`, {
       method: 'DELETE',
     });
     if (!res.ok) throw new Error('刪除失敗');
     await fetchAll();
-  };
+  }, [userId, fetchAll]);
 
-  const validateKey = async (provider: AIProvider, apiKey: string, keyId?: string) => {
+  const validateKey = useCallback(async (provider: AIProvider, apiKey: string, keyId?: string) => {
     const res = await fetch('/api/ai-settings/keys/validate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ provider, apiKey, keyId, userId }),
     });
     const result = await res.json();
-    if (keyId) await fetchAll();
-    return result as { valid: boolean; message: string; modelInfo?: string };
-  };
+    // Use silent refresh to avoid unmounting components during validation
+    if (keyId) await fetchAll(true);
+    return result as KeyValidationResult;
+  }, [userId, fetchAll]);
 
   // ---- Model Operations ----
-  const saveModels = async (
+  const saveModels = useCallback(async (
     provider: AIProvider,
     selections: { modelId: string; modelName: string; isPrimary: boolean }[]
   ) => {
@@ -166,10 +175,10 @@ export function useAISettings() {
     });
     if (!res.ok) throw new Error('儲存模型選擇失敗');
     await fetchAll();
-  };
+  }, [userId, fetchAll]);
 
   // ---- Module Operations ----
-  const saveModule = async (
+  const saveModule = useCallback(async (
     moduleKey: string,
     isEnabled: boolean,
     assignedProvider?: string,
@@ -183,10 +192,10 @@ export function useAISettings() {
     });
     if (!res.ok) throw new Error('儲存模組設定失敗');
     await fetchAll();
-  };
+  }, [userId, fetchAll]);
 
   // ---- Prompt Operations ----
-  const savePrompt = async (
+  const savePrompt = useCallback(async (
     moduleKey: string,
     provider: string,
     promptContent: string,
@@ -199,7 +208,7 @@ export function useAISettings() {
     });
     if (!res.ok) throw new Error('儲存 Prompt 失敗');
     await fetchAll();
-  };
+  }, [userId, fetchAll]);
 
   // ---- Export / Import ----
   const exportSettings = async () => {

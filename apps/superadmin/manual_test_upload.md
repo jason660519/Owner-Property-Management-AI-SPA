@@ -3,7 +3,7 @@
 ## Pre-requisites
 1. Start Backend: `cd backend/ocr_service && uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000`
 2. Start Frontend: `cd apps/superadmin && npm run dev`
-3. Access: `http://localhost:3001/superadmin/ai-service` -> Select "System Prompt" tab.
+3. Access: `http://localhost:3001/superadmin/settings/api_key_and_model_setting` -> Select "System Prompt" tab.
 
 ## Test Cases
 

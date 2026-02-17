@@ -87,25 +87,26 @@ const StatCard = ({
   </div>
 );
 
-// Initial percentages (must sum to 100): 1.ID … 8.MODEL 9.PROMPT 10.Start Dev 11.Last Modified
-const INITIAL_WIDTHS = [4, 9, 13, 17, 24, 8, 7, 7, 4, 4, 6, 7];
+// Initial percentages (must sum to 100): 1.ID … 9.Mode 10.MODEL 11.PROMPT 12.Start Dev 13.Last Modified
+const INITIAL_WIDTHS = [4, 9, 13, 17, 24, 8, 7, 7, 4, 4, 4, 6, 7];
 
 const COLUMN_HEADERS = [
     { en: 'ID', zh: '編碼' },
     { en: 'Category', zh: '分類' },
     { en: 'Feature', zh: '功能需求名稱' },
-    { en: 'Acceptance Criteria and Test standard', zh: '完成標準 與測試標準 URL' },
+    { en: 'Feature Spec URL', zh: '功能需求說明 URL' },
     { en: 'Dev Progress & Log Report', zh: '開發進度與日誌報告 URL' },
     { en: 'TEST STANDARD & LOG URL', zh: '測試標準與測試進度報告 URL' },
     { en: 'Dev Progress', zh: '開發進度' },
     { en: 'Test Coverage', zh: '測試進度' },
+    { en: 'Mode', zh: '模式' },
     { en: 'MODEL', zh: '模型' },
     { en: 'PROMPT', zh: '設計提示詞' },
     { en: 'Start Dev', zh: '開始開發' },
     { en: 'Last Modified', zh: '最後修改者' }
 ];
 
-/** Column letters A..L for alignment dropdown label only (no row/column headers in table) */
+/** Column letters A..M for alignment dropdown label only (no row/column headers in table) */
 const COLUMN_LETTERS = COLUMN_HEADERS.map((_, i) => String.fromCharCode(65 + i));
 
 const FREEZE_ROW_STORAGE_KEY = 'project_progress_freeze_row_v1';
@@ -129,6 +130,8 @@ interface ColumnAlignment {
   h: HAlign;
   v: VAlign;
 }
+
+type ModeOption = 'agent' | 'plan' | 'chat';
 
 const ALIGNMENT_STORAGE_KEY = 'project_progress_col_alignments_v1';
 const DEFAULT_COLUMN_ALIGNMENT: ColumnAlignment = { h: 'left', v: 'top' };
@@ -156,7 +159,7 @@ export default function ProjectProgressPage() {
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Column resizing state (12 columns)
+  // Column resizing state (13 columns)
   const [colWidths, setColWidths] = useState<number[]>(INITIAL_WIDTHS);
   const tableRef = useRef<HTMLDivElement>(null);
   const currentWidthsRef = useRef<number[]>(INITIAL_WIDTHS);
@@ -186,6 +189,19 @@ export default function ProjectProgressPage() {
   const [viewDropdownOpen, setViewDropdownOpen] = useState(false);
   const viewDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Per-feature mode selection (agent / plan / chat), local-only
+  const [modeByFeature, setModeByFeature] = useState<Record<string, ModeOption>>(
+    () => {
+      const initial: Record<string, ModeOption> = {};
+      ROADMAP_DATA.features.forEach(f => {
+        if (f.mode === 'agent' || f.mode === 'plan' || f.mode === 'chat') {
+          initial[f.name] = f.mode;
+        }
+      });
+      return initial;
+    }
+  );
+
   // Freeze panes (persisted; View 選單控制)：0=不凍結列，1=凍結第 1 row
   const [freezeRowCount, setFreezeRowCount] = useState<0 | 1>(1);
   const [frozenDataColCount, setFrozenDataColCount] = useState(0);
@@ -195,7 +211,7 @@ export default function ProjectProgressPage() {
   const frozenColLeftOffsets = useMemo(() => {
     const offsets: number[] = [];
     let acc = 0;
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < COLUMN_HEADERS.length; i++) {
       offsets.push(acc);
       acc += colPxWidths[i] ?? 80;
     }
@@ -215,7 +231,7 @@ export default function ProjectProgressPage() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length === 12) {
+        if (Array.isArray(parsed) && parsed.length === COLUMN_HEADERS.length) {
           const normalized = normalizeWidths(parsed.map((n: unknown) => Number(n) || 0));
           setColWidths(normalized);
           currentWidthsRef.current = normalized;
@@ -260,7 +276,7 @@ export default function ProjectProgressPage() {
     const savedFrozenCol = localStorage.getItem(FROZEN_DATA_COL_COUNT_KEY);
     if (savedFrozenCol) {
       const c = parseInt(savedFrozenCol, 10);
-      if (!Number.isNaN(c) && c >= 0 && c <= 12) setFrozenDataColCount(c);
+      if (!Number.isNaN(c) && c >= 0 && c <= COLUMN_HEADERS.length) setFrozenDataColCount(c);
     }
     const presetsRaw = localStorage.getItem(WIDTH_PRESETS_KEY);
     if (presetsRaw) {
@@ -275,7 +291,7 @@ export default function ProjectProgressPage() {
               'name' in p &&
               'widths' in p &&
               Array.isArray((p as WidthPreset).widths) &&
-              (p as WidthPreset).widths.length === 12
+              (p as WidthPreset).widths.length === COLUMN_HEADERS.length
           );
           setWidthPresets(valid);
         }
@@ -621,6 +637,15 @@ export default function ProjectProgressPage() {
            <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
+              className={clsx(
+                "px-3 py-1.5 rounded-full text-xs font-medium transition-colors border whitespace-nowrap",
+                "bg-bg-primary border-border-default text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
+              )}
+            >
+              API KEY
+            </button>
+            <button
+              type="button"
               onClick={() => setSelectedCategories(new Set())}
               className={clsx(
                 "px-3 py-1.5 rounded-full text-xs font-medium transition-colors border whitespace-nowrap",
@@ -794,7 +819,7 @@ export default function ProjectProgressPage() {
                     <div className="max-h-[240px] overflow-y-auto">
                         {[
                         { n: 0, label: '不凍結col' },
-                        ...Array.from({ length: 12 }, (_, i) => ({
+                        ...Array.from({ length: COLUMN_HEADERS.length }, (_, i) => ({
                           n: i + 1,
                           label: i === 0 ? '凍結第 1 col' : `凍結第 1 ~ ${i + 1} col`,
                         })),
@@ -915,7 +940,7 @@ export default function ProjectProgressPage() {
         </div>
       </div>
 
-      {/* Table: 12 columns; click header or cell to select for 排版 */}
+      {/* Table: 13 columns; click header or cell to select for 排版 */}
       <div className="bg-bg-primary border border-border-default rounded-lg shadow-sm overflow-hidden flex flex-col flex-1 min-h-0 transition-colors">
         <div className="overflow-y-auto flex-1 min-h-0" ref={tableRef}>
           {/* Header: sticky 僅在 View 凍結列 > 0 時生效 */}
@@ -928,7 +953,7 @@ export default function ProjectProgressPage() {
           >
             {/* Title row: 編碼、分類、功能需求名稱…（無col位字母列、無列號col） */}
             <div className="flex flex-1 min-h-0 w-full">
-              {/* 12 column headers with resize handles */}
+              {/* 13 column headers with resize handles */}
               <div className="flex flex-1 min-w-0">
                 {COLUMN_HEADERS.map((header, idx) => {
                   const { flex: alignFlex, text: alignText } = getAlignmentClasses(columnAlignments[idx] ?? DEFAULT_COLUMN_ALIGNMENT);
@@ -981,7 +1006,7 @@ export default function ProjectProgressPage() {
             )}
           </div>
 
-          {/* Body rows: 12 data columns; click cell or header to select for 排版 */}
+          {/* Body rows: 13 data columns; click cell or header to select for 排版 */}
            <div className="divide-y divide-border-light">
               {filteredFeatures.map((feature, rowIdx) => {
                   const isRowSelected = selectionType === 'row' && selectedRow === rowIdx;
@@ -993,7 +1018,7 @@ export default function ProjectProgressPage() {
                       isRowSelected ? "bg-blue-500/10" : isAllSelected ? "bg-blue-500/5" : "hover:bg-bg-secondary"
                     )}
                   >
-                      {/* 12 data columns */}
+                      {/* 13 data columns */}
                       <div className="flex flex-1 min-w-0">
                       {/* 1. ID */}
                       <div 
@@ -1179,7 +1204,7 @@ export default function ProjectProgressPage() {
                           </div>
                       </div>
 
-                      {/* 9. MODEL */}
+                      {/* 9. Mode */}
                       <div 
                         role="button"
                         tabIndex={0}
@@ -1196,12 +1221,34 @@ export default function ProjectProgressPage() {
                         )}
                         style={{ width: `${colWidths[8]}%`, minWidth: 0, ...(frozenDataColCount > 8 ? { left: frozenColLeftOffsets[8], zIndex: 1 } : {}) }}
                       >
-                        <div className="text-xs text-text-secondary truncate w-full" title={feature.model ? String(feature.model) : undefined}>
-                            {feature.model ? feature.model : <span className="text-text-muted italic">—</span>}
+                        <div className="w-full">
+                          <select
+                            className="w-full bg-bg-secondary border border-border-default rounded px-2 py-1 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                            value={modeByFeature[feature.name] ?? ''}
+                            onChange={e => {
+                              const value = e.target.value as ModeOption | '';
+                              setModeByFeature(prev => {
+                                const next = { ...prev };
+                                if (value === '') {
+                                  delete next[feature.name];
+                                } else {
+                                  next[feature.name] = value;
+                                }
+                                return next;
+                              });
+                            }}
+                            onClick={e => e.stopPropagation()}
+                            onKeyDown={e => e.stopPropagation()}
+                          >
+                            <option value="">{'—'}</option>
+                            <option value="agent">agent</option>
+                            <option value="plan">plan</option>
+                            <option value="chat">chat</option>
+                          </select>
                         </div>
                       </div>
 
-                      {/* 10. PROMPT */}
+                      {/* 10. MODEL */}
                       <div 
                         role="button"
                         tabIndex={0}
@@ -1218,12 +1265,12 @@ export default function ProjectProgressPage() {
                         )}
                         style={{ width: `${colWidths[9]}%`, minWidth: 0, ...(frozenDataColCount > 9 ? { left: frozenColLeftOffsets[9], zIndex: 1 } : {}) }}
                       >
-                        <div className="text-xs text-text-secondary whitespace-pre-line break-words w-full line-clamp-3" title={feature.aiPrompt ? String(feature.aiPrompt) : undefined}>
-                            {feature.aiPrompt ? feature.aiPrompt : <span className="text-text-muted italic">—</span>}
+                        <div className="text-xs text-text-secondary truncate w-full" title={feature.model ? String(feature.model) : undefined}>
+                            {feature.model ? feature.model : <span className="text-text-muted italic">—</span>}
                         </div>
                       </div>
 
-                      {/* 11. Start Dev 開始開發 */}
+                      {/* 11. PROMPT */}
                       <div 
                         role="button"
                         tabIndex={0}
@@ -1239,6 +1286,28 @@ export default function ProjectProgressPage() {
                           frozenDataColCount > 10 && "sticky bg-bg-primary"
                         )}
                         style={{ width: `${colWidths[10]}%`, minWidth: 0, ...(frozenDataColCount > 10 ? { left: frozenColLeftOffsets[10], zIndex: 1 } : {}) }}
+                      >
+                        <div className="text-xs text-text-secondary whitespace-pre-line break-words w-full line-clamp-3" title={feature.aiPrompt ? String(feature.aiPrompt) : undefined}>
+                            {feature.aiPrompt ? feature.aiPrompt : <span className="text-text-muted italic">—</span>}
+                        </div>
+                      </div>
+
+                      {/* 12. Start Dev 開始開發 */}
+                      <div 
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => { setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(11); }}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(11); } }}
+                        className={clsx(
+                          "project-progress-selectable flex-shrink-0 flex-grow-0 px-4 py-4 flex flex-col min-w-0 overflow-hidden cursor-cell",
+                          frozenDataColCount > 0 && 11 === frozenDataColCount - 1 ? "border-r-4 border-gray-300 dark:border-gray-600" : "border-r border-border-light",
+                          ((selectionType === 'cell' && selectedRow === rowIdx && selectedCol === 11) || isAllSelected) && "bg-blue-500/20 ring-1 ring-inset ring-blue-500/40",
+                          (selectionType === 'column' && selectedCol === 11) && "bg-blue-500/10",
+                          getAlignmentClasses(columnAlignments[11] ?? DEFAULT_COLUMN_ALIGNMENT).flex,
+                          getAlignmentClasses(columnAlignments[11] ?? DEFAULT_COLUMN_ALIGNMENT).text,
+                          frozenDataColCount > 11 && "sticky bg-bg-primary"
+                        )}
+                        style={{ width: `${colWidths[11]}%`, minWidth: 0, ...(frozenDataColCount > 11 ? { left: frozenColLeftOffsets[11], zIndex: 1 } : {}) }}
                       >
                         <div className="flex items-center justify-center gap-2 flex-wrap w-full min-w-0">
                           {devInProgressIds.has(feature.name) ? (
@@ -1272,22 +1341,22 @@ export default function ProjectProgressPage() {
                         </div>
                       </div>
 
-                      {/* 12. Last Modified */}
+                      {/* 13. Last Modified */}
                       <div 
                         role="button"
                         tabIndex={0}
-                        onClick={() => { setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(11); }}
-                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(11); } }}
+                        onClick={() => { setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(12); }}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(12); } }}
                         className={clsx(
                           "project-progress-selectable flex-shrink-0 flex-grow-0 px-4 py-4 flex flex-col min-w-0 overflow-hidden cursor-cell",
-                          frozenDataColCount > 0 && 11 === frozenDataColCount - 1 && "border-r-4 border-gray-300 dark:border-gray-600",
-                          ((selectionType === 'cell' && selectedRow === rowIdx && selectedCol === 11) || isAllSelected) && "bg-blue-500/20 ring-1 ring-inset ring-blue-500/40",
-                          (selectionType === 'column' && selectedCol === 11) && "bg-blue-500/10",
-                          getAlignmentClasses(columnAlignments[11] ?? DEFAULT_COLUMN_ALIGNMENT).flex,
-                          getAlignmentClasses(columnAlignments[11] ?? DEFAULT_COLUMN_ALIGNMENT).text,
-                          frozenDataColCount > 11 && "sticky bg-bg-primary"
+                          frozenDataColCount > 0 && 12 === frozenDataColCount - 1 && "border-r-4 border-gray-300 dark:border-gray-600",
+                          ((selectionType === 'cell' && selectedRow === rowIdx && selectedCol === 12) || isAllSelected) && "bg-blue-500/20 ring-1 ring-inset ring-blue-500/40",
+                          (selectionType === 'column' && selectedCol === 12) && "bg-blue-500/10",
+                          getAlignmentClasses(columnAlignments[12] ?? DEFAULT_COLUMN_ALIGNMENT).flex,
+                          getAlignmentClasses(columnAlignments[12] ?? DEFAULT_COLUMN_ALIGNMENT).text,
+                          frozenDataColCount > 12 && "sticky bg-bg-primary"
                         )}
-                        style={{ width: `${colWidths[11]}%`, minWidth: 0, ...(frozenDataColCount > 11 ? { left: frozenColLeftOffsets[11], zIndex: 1 } : {}) }}
+                        style={{ width: `${colWidths[12]}%`, minWidth: 0, ...(frozenDataColCount > 12 ? { left: frozenColLeftOffsets[12], zIndex: 1 } : {}) }}
                       >
                           <div className="text-xs text-text-muted">
                               <p className="truncate" title={feature.lastModifiedBy}>{feature.lastModifiedBy}</p>

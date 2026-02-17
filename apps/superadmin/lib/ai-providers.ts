@@ -9,6 +9,11 @@ export interface AIProviderInfo {
   envKey: string;
   sdkPackage: string;
   docsUrl: string;
+  /**
+   * Direct link to the provider's API key/dashboard page
+   * so users can quickly create/manage keys.
+   */
+  apiKeyUrl: string;
   baseUrl: string;
   keyPrefix: string;
   models: AIModelInfo[];
@@ -46,6 +51,7 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     envKey: 'OPENAI_API_KEY',
     sdkPackage: 'openai',
     docsUrl: 'https://platform.openai.com/docs/api-reference',
+    apiKeyUrl: 'https://platform.openai.com/api-keys',
     baseUrl: 'https://api.openai.com/v1',
     keyPrefix: 'sk-',
     models: [
@@ -112,6 +118,7 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     envKey: 'ANTHROPIC_API_KEY',
     sdkPackage: 'anthropic',
     docsUrl: 'https://docs.anthropic.com/claude/docs',
+    apiKeyUrl: 'https://console.anthropic.com/settings/keys',
     baseUrl: 'https://api.anthropic.com/v1',
     keyPrefix: 'sk-ant-',
     models: [
@@ -151,6 +158,7 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     envKey: 'GEMINI_API_KEY',
     sdkPackage: 'google-generativeai',
     docsUrl: 'https://ai.google.dev/docs',
+    apiKeyUrl: 'https://aistudio.google.com/app/apikey',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
     keyPrefix: 'AIza',
     models: [
@@ -199,6 +207,7 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     envKey: 'DEEPSEEK_API_KEY',
     sdkPackage: 'openai (compatible)',
     docsUrl: 'https://platform.deepseek.com/api-docs',
+    apiKeyUrl: 'https://platform.deepseek.com/api_keys',
     baseUrl: 'https://api.deepseek.com/v1',
     keyPrefix: 'sk-',
     models: [
@@ -229,6 +238,7 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     envKey: 'GROK_API_KEY',
     sdkPackage: 'openai (compatible)',
     docsUrl: 'https://docs.x.ai/',
+    apiKeyUrl: 'https://accounts.x.ai/sign-up?redirect=cloud-console',
     baseUrl: 'https://api.x.ai/v1',
     keyPrefix: 'xai-',
     models: [

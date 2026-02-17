@@ -3,18 +3,18 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Eye, EyeOff, Check, X, Loader2, Shield, Trash2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { AI_PROVIDERS, type AIProvider, type AIProviderInfo } from '@/lib/ai-providers';
 import { maskApiKey } from '@/lib/crypto';
-import type { SavedKey } from '@/lib/hooks/useAISettings';
+import type { SavedKey, KeyValidationResult } from '@/lib/hooks/useAISettings';
 
 interface ApiKeyManagerProps {
   savedKeys: SavedKey[];
   onSave: (provider: AIProvider, rawKey: string) => Promise<void>;
   onDelete: (keyId: string) => Promise<void>;
-  onValidate: (provider: AIProvider, apiKey: string, keyId?: string) => Promise<{ valid: boolean; message: string }>;
+  onValidate: (provider: AIProvider, apiKey: string, keyId?: string) => Promise<KeyValidationResult>;
 }
 
 interface ProviderKeyRowProps {
@@ -22,7 +22,7 @@ interface ProviderKeyRowProps {
   savedKey?: SavedKey;
   onSave: (provider: AIProvider, rawKey: string) => Promise<void>;
   onDelete: (keyId: string) => Promise<void>;
-  onValidate: (provider: AIProvider, apiKey: string, keyId?: string) => Promise<{ valid: boolean; message: string }>;
+  onValidate: (provider: AIProvider, apiKey: string, keyId?: string) => Promise<KeyValidationResult>;
 }
 
 function ProviderKeyRow({ provider, savedKey, onSave, onDelete, onValidate }: ProviderKeyRowProps) {
@@ -30,9 +30,52 @@ function ProviderKeyRow({ provider, savedKey, onSave, onDelete, onValidate }: Pr
   const [showKey, setShowKey] = useState(false);
   const [saving, setSaving] = useState(false);
   const [validating, setValidating] = useState(false);
-  const [validationResult, setValidationResult] = useState<{ valid: boolean; message: string; modelInfo?: string } | null>(null);
+  const [validationResult, setValidationResult] = useState<KeyValidationResult | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(!savedKey);
+  const [selectedModels, setSelectedModels] = useState<string[]>([]);
+
+  // Auto-fetch available models for already-validated keys (using stored key in DB)
+  useEffect(() => {
+    const shouldAutoValidate =
+      !!savedKey &&
+      savedKey.is_valid === true &&
+      !isEditing &&
+      !validationResult &&
+      !validating;
+
+    if (!shouldAutoValidate) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setValidating(true);
+        const result = await onValidate(provider.id, '', savedKey.id);
+        if (cancelled) return;
+        if (result.valid) {
+          setValidationResult(result);
+          if (Array.isArray(result.availableModels)) {
+            setSelectedModels(result.availableModels);
+          }
+        } else {
+          setValidationResult(result);
+        }
+      } catch {
+        if (!cancelled) {
+          setValidationResult({ valid: false, message: '驗證請求失敗' });
+        }
+      } finally {
+        if (!cancelled) {
+          setValidating(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [savedKey, isEditing, validationResult, validating, onValidate, provider.id]);
 
   const handleSave = async () => {
     if (!inputValue.trim()) return;
@@ -56,12 +99,15 @@ function ProviderKeyRow({ provider, savedKey, onSave, onDelete, onValidate }: Pr
     const keyToValidate = inputValue.trim();
     // Allow validation if we have input OR if we have a saved key (and no input, meaning validate stored)
     if (!keyToValidate && !savedKey) return;
-    
+
     setValidating(true);
     setValidationResult(null);
     try {
       const result = await onValidate(provider.id, keyToValidate, savedKey?.id);
       setValidationResult(result);
+      if (!result.valid) {
+        setSelectedModels([]);
+      }
     } catch {
       setValidationResult({ valid: false, message: '驗證請求失敗' });
     } finally {
@@ -85,7 +131,10 @@ function ProviderKeyRow({ provider, savedKey, onSave, onDelete, onValidate }: Pr
   };
 
   return (
-    <div className="border border-border-default rounded-base p-4 hover:border-accent/30 transition-all">
+    <div
+      className="border border-border-default rounded-base p-4 hover:border-accent/30 transition-all"
+      data-testid={`provider-card-${provider.id}`}
+    >
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
@@ -97,7 +146,17 @@ function ProviderKeyRow({ provider, savedKey, onSave, onDelete, onValidate }: Pr
           </div>
           <div>
             <h4 className="text-sm font-semibold text-text-primary">{provider.name}</h4>
-            <p className="text-xs text-text-muted">{provider.envKey}</p>
+            <p className="text-xs text-text-muted">
+              <a
+                href={provider.apiKeyUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline-offset-2 hover:underline hover:text-accent transition-colors"
+                title={`${provider.name} API Key 設定頁面`}
+              >
+                {provider.envKey}
+              </a>
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -107,13 +166,12 @@ function ProviderKeyRow({ provider, savedKey, onSave, onDelete, onValidate }: Pr
             </span>
           )}
           {savedKey && (
-            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-              savedKey.is_valid === true
-                ? 'bg-green-500/20 text-green-400'
-                : savedKey.is_valid === false
-                  ? 'bg-red-500/20 text-red-400'
-                  : 'bg-yellow-500/20 text-yellow-400'
-            }`}>
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${savedKey.is_valid === true
+              ? 'bg-green-500/20 text-green-400'
+              : savedKey.is_valid === false
+                ? 'bg-red-500/20 text-red-400'
+                : 'bg-yellow-500/20 text-yellow-400'
+              }`}>
               {savedKey.is_valid === true ? <Check size={10} /> : savedKey.is_valid === false ? <X size={10} /> : <Shield size={10} />}
               {savedKey.is_valid === true ? '已驗證' : savedKey.is_valid === false ? '無效' : '待驗證'}
             </span>
@@ -150,14 +208,13 @@ function ProviderKeyRow({ provider, savedKey, onSave, onDelete, onValidate }: Pr
               <Trash2 size={14} />
             </Button>
           </div>
-          
+
           {/* Validation Result for Stored Key */}
           {validationResult && (
-            <div className={`flex items-center gap-2 px-3 py-2 rounded-base text-xs ${
-              validationResult.valid
-                ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                : 'bg-red-500/10 text-red-400 border border-red-500/20'
-            }`}>
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-base text-xs ${validationResult.valid
+              ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+              : 'bg-red-500/10 text-red-400 border border-red-500/20'
+              }`}>
               {validationResult.valid ? <Check size={12} /> : <X size={12} />}
               <span className="font-medium">{validationResult.message}</span>
               {validationResult.modelInfo && (
@@ -189,11 +246,10 @@ function ProviderKeyRow({ provider, savedKey, onSave, onDelete, onValidate }: Pr
 
           {/* Validation Result */}
           {validationResult && (
-            <div className={`flex items-center gap-2 px-3 py-2 rounded-base text-xs ${
-              validationResult.valid
-                ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                : 'bg-red-500/10 text-red-400 border border-red-500/20'
-            }`}>
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-base text-xs ${validationResult.valid
+              ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+              : 'bg-red-500/10 text-red-400 border border-red-500/20'
+              }`}>
               {validationResult.valid ? <Check size={12} /> : <X size={12} />}
               <span className="font-medium">{validationResult.message}</span>
               {validationResult.modelInfo && (
@@ -239,6 +295,55 @@ function ProviderKeyRow({ provider, savedKey, onSave, onDelete, onValidate }: Pr
         <span>SDK: <code className="text-text-secondary">{provider.sdkPackage}</code></span>
         <span>Base URL: <code className="text-text-secondary">{provider.baseUrl}</code></span>
       </div>
+
+      {/* Available Models (after successful validation) */}
+      {validationResult?.valid && (
+        <div className="mt-2 space-y-1 text-[11px] text-text-muted">
+          {(!validationResult.availableModels || validationResult.availableModels.length === 0) ? (
+            <div className="flex items-center gap-2 p-2 rounded-base bg-yellow-500/10 text-yellow-500/80 border border-yellow-500/20">
+              <span className="shrink-0">⚠️ 雖然驗證成功，但未取得可用模型列表。可能是權限不足或 API 回應格式不符。</span>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="shrink-0">Available models:</span>
+                {selectedModels.length > 0 && (
+                  <span className="rounded-full border border-border-subtle bg-bg-tertiary px-2 py-0.5 text-[10px] text-text-secondary">
+                    已選 {selectedModels.length} 個
+                  </span>
+                )}
+              </div>
+              <div
+                className="max-h-32 overflow-y-auto rounded-base border border-border-subtle bg-bg-primary/40 px-2 py-1 scrollbar-thin scrollbar-thumb-border-default hover:scrollbar-thumb-border-hover"
+              >
+                {validationResult.availableModels.map(modelId => {
+                  const checked = selectedModels.includes(modelId);
+                  return (
+                    <label
+                      key={modelId}
+                      className="flex cursor-pointer items-center gap-2 py-0.5 text-[11px] text-text-secondary"
+                    >
+                      <input
+                        type="checkbox"
+                        className="h-3 w-3 rounded border-border-default bg-bg-primary text-accent focus:ring-0"
+                        checked={checked}
+                        onChange={() => {
+                          setSelectedModels(prev =>
+                            prev.includes(modelId)
+                              ? prev.filter(id => id !== modelId)
+                              : [...prev, modelId]
+                          );
+                        }}
+                      />
+                      <span className="truncate font-mono text-[10px]">{modelId}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

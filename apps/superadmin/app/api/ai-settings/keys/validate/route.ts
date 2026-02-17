@@ -11,6 +11,7 @@ interface ValidationResult {
   provider: string;
   message: string;
   modelInfo?: string; // e.g. "GPT-4 Turbo"
+  availableModels?: string[]; // full list of available models for provider/key
 }
 
 async function validateOpenAI(apiKey: string): Promise<ValidationResult> {
@@ -20,15 +21,24 @@ async function validateOpenAI(apiKey: string): Promise<ValidationResult> {
     });
     if (res.ok) {
       const data = await res.json();
+      // Collect all model IDs returned by OpenAI for this key
+      const models: string[] = Array.isArray(data?.data)
+        ? data.data.map((m: { id: string }) => m.id).filter(Boolean)
+        : [];
+
       // Try to find a flagship model to display
-      const models = data.data?.map((m: { id: string }) => m.id) || [];
-      const flagship = models.find((m: string) => m.includes('gpt-4')) || models.find((m: string) => m.includes('gpt-3.5')) || models[0] || 'Unknown Model';
-      
-      return { 
-        valid: true, 
-        provider: 'openai', 
-        message: '金鑰驗證成功', 
-        modelInfo: `OpenAI ${flagship}`
+      const flagship =
+        models.find(m => m.includes('gpt-4')) ||
+        models.find(m => m.includes('gpt-3.5')) ||
+        models[0] ||
+        'Unknown Model';
+
+      return {
+        valid: true,
+        provider: 'openai',
+        message: '金鑰驗證成功',
+        modelInfo: `OpenAI ${flagship}`,
+        availableModels: models,
       };
     }
     const err = await res.json().catch(() => ({}));
@@ -40,28 +50,61 @@ async function validateOpenAI(apiKey: string): Promise<ValidationResult> {
 
 async function validateAnthropic(apiKey: string): Promise<ValidationResult> {
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
+    const res = await fetch('https://api.anthropic.com/v1/models', {
       headers: {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'claude-3-opus-20240229',
-        max_tokens: 1,
-        messages: [{ role: 'user', content: 'Hi' }],
-      }),
     });
-    
-    if (res.ok || res.status === 400) { // 400 usually means valid key but invalid request body
-      return { 
-        valid: true, 
-        provider: 'anthropic', 
+
+    if (res.ok) {
+      const data = await res.json();
+      const models: string[] = Array.isArray(data?.data)
+        ? data.data.map((m: { id: string }) => m.id).filter(Boolean)
+        : [];
+
+      const flagship =
+        models.find(m => m.includes('claude-3-5-sonnet')) ||
+        models.find(m => m.includes('claude-3-opus')) ||
+        models[0] ||
+        'Claude Model';
+
+      return {
+        valid: true,
+        provider: 'anthropic',
         message: '金鑰驗證成功',
-        modelInfo: 'Claude 3 Family'
+        modelInfo: `Anthropic ${flagship}`,
+        availableModels: models,
       };
     }
+
+    // Fallback: If v1/models fails (e.g. 404), try the messages endpoint to at least validate the key
+    if (res.status === 404) {
+      const msgRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-3-opus-20240229',
+          max_tokens: 1,
+          messages: [{ role: 'user', content: 'Hi' }],
+        }),
+      });
+
+      if (msgRes.ok || msgRes.status === 400) {
+        return {
+          valid: true,
+          provider: 'anthropic',
+          message: '金鑰驗證成功 (無法取得模型列表)',
+          modelInfo: 'Claude 3 Family',
+          availableModels: []
+        };
+      }
+    }
+
     if (res.status === 401) {
       return { valid: false, provider: 'anthropic', message: '金鑰無效或已過期' };
     }
@@ -78,18 +121,24 @@ async function validateGemini(apiKey: string): Promise<ValidationResult> {
     );
     if (res.ok) {
       const data = await res.json();
-      const models = data.models?.map((m: { name: string, displayName: string }) => m.displayName || m.name) || [];
-      const flagship = models.find((m: string) => m.includes('Gemini 1.5')) || models[0] || 'Unknown Model';
-      
-      return { 
-        valid: true, 
-        provider: 'gemini', 
+      const models: string[] = Array.isArray(data?.models)
+        ? data.models.map((m: { name: string }) => m.name.replace(/^models\//, '')).filter(Boolean)
+        : [];
+      const flagship =
+        models.find(m => m.includes('Gemini 1.5')) ||
+        models[0] ||
+        'Unknown Model';
+
+      return {
+        valid: true,
+        provider: 'gemini',
         message: '金鑰驗證成功',
-        modelInfo: `Google ${flagship}`
+        modelInfo: `Google ${flagship}`,
+        availableModels: models,
       };
     }
     if (res.status === 400 || res.status === 403) {
-       return { valid: false, provider: 'gemini', message: '金鑰無效或已過期' };
+      return { valid: false, provider: 'gemini', message: '金鑰無效或已過期' };
     }
     return { valid: false, provider: 'gemini', message: `HTTP ${res.status}` };
   } catch (e) {
@@ -103,15 +152,30 @@ async function validateDeepSeek(apiKey: string): Promise<ValidationResult> {
       headers: { Authorization: `Bearer ${apiKey}` },
     });
     if (res.ok) {
-      return { 
-        valid: true, 
-        provider: 'deepseek', 
+      const data = await res.json().catch(() => ({}));
+      // DeepSeek's API is OpenAI compatible; try typical shapes
+      const models: string[] = Array.isArray((data as any)?.data)
+        ? (data as any).data.map((m: { id: string }) => m.id).filter(Boolean)
+        : Array.isArray((data as any)?.models)
+          ? (data as any).models.map((m: { id: string }) => m.id).filter(Boolean)
+          : [];
+
+      const flagship =
+        models.find(m => m.toLowerCase().includes('deepseek-chat')) ||
+        models.find(m => m.toLowerCase().includes('deepseek-reasoner')) ||
+        models[0] ||
+        'DeepSeek-V3/R1';
+
+      return {
+        valid: true,
+        provider: 'deepseek',
         message: '金鑰驗證成功',
-        modelInfo: 'DeepSeek-V3/R1' 
+        modelInfo: flagship,
+        availableModels: models,
       };
     }
     if (res.status === 401) {
-       return { valid: false, provider: 'deepseek', message: '金鑰無效或已過期' };
+      return { valid: false, provider: 'deepseek', message: '金鑰無效或已過期' };
     }
     return { valid: false, provider: 'deepseek', message: `HTTP ${res.status}` };
   } catch (e) {
@@ -125,15 +189,29 @@ async function validateGrok(apiKey: string): Promise<ValidationResult> {
       headers: { Authorization: `Bearer ${apiKey}` },
     });
     if (res.ok) {
-       return { 
-        valid: true, 
-        provider: 'grok', 
+      const data = await res.json().catch(() => ({}));
+      const models: string[] = Array.isArray((data as any)?.data)
+        ? (data as any).data.map((m: { id: string }) => m.id).filter(Boolean)
+        : Array.isArray((data as any)?.models)
+          ? (data as any).models.map((m: { id: string }) => m.id).filter(Boolean)
+          : [];
+
+      const flagship =
+        models.find(m => m.toLowerCase().includes('grok-2')) ||
+        models.find(m => m.toLowerCase().includes('grok-1')) ||
+        models[0] ||
+        'Grok-1/Beta';
+
+      return {
+        valid: true,
+        provider: 'grok',
         message: '金鑰驗證成功',
-        modelInfo: 'Grok-1/Beta'
+        modelInfo: flagship,
+        availableModels: models,
       };
     }
     if (res.status === 401) {
-       return { valid: false, provider: 'grok', message: '金鑰無效或已過期' };
+      return { valid: false, provider: 'grok', message: '金鑰無效或已過期' };
     }
     return { valid: false, provider: 'grok', message: `HTTP ${res.status}` };
   } catch (e) {
