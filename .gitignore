@@ -63,13 +63,6 @@ logs/
 
 # Media
 # ============================================
-*.jpg
-*.jpeg
-*.png
-*.gif
-*.webp
-*.svg
-*.ico
 *.mp4
 *.mov
 *.avi
