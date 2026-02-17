@@ -23,6 +23,9 @@ export interface RoadmapFeature {
   workCategory?: string;
   developmentProgress?: string;
   testLog?: string;
+  /** 模型名稱，於儀表板「MODEL」欄顯示 */
+  model?: string;
+  /** 提示詞／設計提示，於儀表板「PROMPT」欄顯示 */
   aiPrompt?: string;
 }
 
