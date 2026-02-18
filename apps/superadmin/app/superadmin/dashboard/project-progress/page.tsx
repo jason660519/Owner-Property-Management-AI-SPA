@@ -1310,34 +1310,34 @@ export default function ProjectProgressPage() {
                         )}
                         style={{ width: `${colWidths[11]}%`, minWidth: 0, ...(frozenDataColCount > 11 ? { left: frozenColLeftOffsets[11], zIndex: 1 } : {}) }}
                       >
-                        <div className="flex items-center justify-center gap-2 flex-wrap w-full min-w-0">
+                        <div className="flex flex-row flex-wrap items-center justify-center gap-1 w-full min-w-0">
                           {devInProgressIds.has(feature.name) ? (
-                            <Loader2 className="w-5 h-5 text-blue-500 animate-spin flex-shrink-0" aria-label="開發中" />
+                            <Loader2 className="w-4 h-4 text-blue-500 animate-spin flex-shrink-0" aria-label="開發中" />
                           ) : (
                             <button
                               type="button"
                               onClick={() => setDevInProgressIds(prev => new Set(prev).add(feature.name))}
-                              className="p-1 rounded hover:bg-bg-secondary transition-colors"
+                              className="p-0.5 rounded hover:bg-bg-secondary transition-colors"
                               title="開始開發"
                             >
-                              <Play className="w-5 h-5 text-emerald-600 fill-emerald-600" />
+                              <Play className="w-4 h-4 text-emerald-600 fill-emerald-600" />
                             </button>
                           )}
                           <button
                             type="button"
                             onClick={() => setDevInProgressIds(prev => { const n = new Set(prev); n.delete(feature.name); return n; })}
-                            className="p-1 rounded hover:bg-bg-secondary transition-colors text-pink-500"
+                            className="p-0.5 rounded hover:bg-bg-secondary transition-colors text-pink-500"
                             title="暫緩"
                           >
-                            <Pause className="w-5 h-5" />
+                            <Pause className="w-4 h-4" />
                           </button>
                           <button
                             type="button"
                             onClick={() => setDevInProgressIds(prev => { const n = new Set(prev); n.delete(feature.name); return n; })}
-                            className="p-1 rounded hover:bg-bg-secondary transition-colors text-black dark:text-gray-200"
+                            className="p-0.5 rounded hover:bg-bg-secondary transition-colors text-black dark:text-gray-200"
                             title="停止"
                           >
-                            <Square className="w-5 h-5" />
+                            <Square className="w-4 h-4" />
                           </button>
                         </div>
                       </div>

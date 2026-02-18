@@ -54,11 +54,23 @@ export interface KeyValidationResult {
   availableModels?: string[];
 }
 
+/** DB-backed 組態概況：最近一次「全部驗證」結果 */
+export interface ValidationSummary {
+  validatedCount: number;
+  totalModels: number;
+  updatedAt: string | null;
+}
+
 export function useAISettings() {
   const [keys, setKeys] = useState<SavedKey[]>([]);
   const [models, setModels] = useState<SavedModel[]>([]);
   const [modules, setModules] = useState<SavedModule[]>([]);
   const [prompts, setPrompts] = useState<SavedPrompt[]>([]);
+  const [validationSummary, setValidationSummary] = useState<ValidationSummary>({
+    validatedCount: 0,
+    totalModels: 0,
+    updatedAt: null,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string>(MOCK_USER_ID);
@@ -84,20 +96,24 @@ export function useAISettings() {
       const headers = { 'x-user-id': userId };
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+      // cache: 'no-store' + cache-bust 避免導入後重整仍拿到舊的（空）金鑰列表
+      const keysUrl = `/api/ai-settings/keys?_=${Date.now()}`;
       const fetchWithTimeout = (url: string) =>
-        fetch(url, { signal: controller.signal, headers: { ...headers } });
+        fetch(url, { signal: controller.signal, headers: { ...headers }, cache: 'no-store' });
 
-      const [keysRes, modelsRes, modulesRes, promptsRes] = await Promise.all([
-        fetchWithTimeout('/api/ai-settings/keys'),
+      const [keysRes, modelsRes, modulesRes, promptsRes, summaryRes] = await Promise.all([
+        fetchWithTimeout(keysUrl),
         fetchWithTimeout('/api/ai-settings/models'),
         fetchWithTimeout('/api/ai-settings/modules'),
         fetchWithTimeout('/api/ai-settings/prompts'),
+        fetchWithTimeout('/api/ai-settings/summary'),
       ]).finally(() => clearTimeout(timeoutId));
 
       const keysData = await keysRes.json().catch(() => ({})) as { keys?: unknown[]; error?: string };
       const modelsData = await modelsRes.json().catch(() => ({})) as { models?: unknown[]; error?: string };
       const modulesData = await modulesRes.json().catch(() => ({})) as { modules?: unknown[]; error?: string };
       const promptsData = await promptsRes.json().catch(() => ({})) as { prompts?: unknown[]; error?: string };
+      const summaryData = await summaryRes.json().catch(() => ({})) as { summary?: ValidationSummary; error?: string };
 
       const failMsg = !keysRes.ok ? (keysData?.error ?? '無法載入金鑰')
         : !modelsRes.ok ? (modelsData?.error ?? '無法載入模型')
@@ -105,16 +121,24 @@ export function useAISettings() {
         : !promptsRes.ok ? (promptsData?.error ?? '無法載入提示詞') : null;
       if (failMsg) setError(failMsg);
 
-      const rawKeys = keysRes.ok ? (keysData?.keys ?? []) : [];
+      const rawKeys = (keysRes.ok ? (keysData?.keys ?? []) : []) as Record<string, unknown>[];
       // 先顯示列表並關閉 loading，避免解密 (PBKDF2) 阻塞造成一直轉圈
-      setKeys(rawKeys.map((key: Record<string, unknown>) => ({ ...key, decryptedKey: undefined })));
+      setKeys(
+        rawKeys.map((key) => ({ ...key, decryptedKey: undefined })) as SavedKey[]
+      );
       // 僅在該 API 成功時更新，避免錯誤回應把側欄數字蓋成 0
-      if (modelsRes.ok) setModels(modelsData?.models ?? []);
-      if (modulesRes.ok) setModules((modulesData?.modules ?? []).map((m: { assigned_function?: string; module_key?: string }) => ({
-        ...m,
-        module_key: m.assigned_function ?? m.module_key ?? '',
-      })));
-      if (promptsRes.ok) setPrompts(promptsData?.prompts ?? []);
+      if (modelsRes.ok) setModels((modelsData?.models ?? []) as SavedModel[]);
+      if (modulesRes.ok) {
+        const modules = (modulesData?.modules ?? []) as { assigned_function?: string; module_key?: string }[];
+        setModules(modules.map((m) => ({
+          ...m,
+          module_key: m.assigned_function ?? m.module_key ?? '',
+        })) as SavedModule[]);
+      }
+      if (promptsRes.ok) setPrompts((promptsData?.prompts ?? []) as SavedPrompt[]);
+      if (summaryRes.ok && summaryData?.summary) {
+        setValidationSummary(summaryData.summary);
+      }
 
       // 背景解密，完成後再更新 keys（不阻塞 loading）
       if (rawKeys.length > 0) {
@@ -133,7 +157,7 @@ export function useAISettings() {
             }
             return { ...key, decryptedKey };
           })
-        ).then((processedKeys) => setKeys(processedKeys));
+        ).then((processedKeys) => setKeys(processedKeys as SavedKey[]));
       }
     } catch (err) {
       const msg = err instanceof Error && err.name === 'AbortError'
@@ -148,7 +172,8 @@ export function useAISettings() {
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   // ---- API Key Operations ----
-  const saveKey = useCallback(async (provider: AIProvider, rawKey: string) => {
+  /** skipRefresh: 批量導入時使用，避免每筆儲存都觸發 fetchAll 造成畫面閃爍 */
+  const saveKey = useCallback(async (provider: AIProvider, rawKey: string, options?: { skipRefresh?: boolean }) => {
     const { encrypted, iv } = await encryptApiKey(rawKey);
     const res = await fetch('/api/ai-settings/keys', {
       method: 'POST',
@@ -157,7 +182,7 @@ export function useAISettings() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    await fetchAll();
+    if (options?.skipRefresh !== true) await fetchAll();
     return data.key;
   }, [userId, fetchAll]);
 
@@ -169,17 +194,25 @@ export function useAISettings() {
     await fetchAll();
   }, [userId, fetchAll]);
 
-  const validateKey = useCallback(async (provider: AIProvider, apiKey: string, keyId?: string) => {
-    const res = await fetch('/api/ai-settings/keys/validate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, apiKey, keyId, userId }),
-    });
-    const result = await res.json();
-    // Use silent refresh to avoid unmounting components during validation
-    if (keyId) await fetchAll(true);
-    return result as KeyValidationResult;
-  }, [userId, fetchAll]);
+  const validateKey = useCallback(
+    async (
+      provider: AIProvider,
+      apiKey: string,
+      keyId?: string,
+      options?: { skipRefresh?: boolean }
+    ) => {
+      const res = await fetch('/api/ai-settings/keys/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, apiKey, keyId, userId }),
+      });
+      const result = (await res.json()) as KeyValidationResult & { error?: string };
+      // Single-key validation UI: refresh so is_valid badge updates. Batch 全部驗證: caller will refresh once.
+      if (keyId && options?.skipRefresh !== true) await fetchAll(true);
+      return result;
+    },
+    [userId, fetchAll]
+  );
 
   // ---- Model Operations ----
   const saveModels = useCallback(async (
@@ -192,7 +225,7 @@ export function useAISettings() {
       body: JSON.stringify({ userId, provider, selections }),
     });
     if (!res.ok) throw new Error('儲存模型選擇失敗');
-    await fetchAll();
+    await fetchAll(true);
   }, [userId, fetchAll]);
 
   // ---- Module Operations ----
@@ -247,14 +280,45 @@ export function useAISettings() {
     return res.json();
   };
 
+  /** 一鍵清空雲端：API 金鑰、已選模型、功能模組、System Prompt */
+  const clearAll = useCallback(async () => {
+    const res = await fetch('/api/ai-settings/clear-all', {
+      method: 'POST',
+      headers: { 'x-user-id': userId },
+    });
+    if (!res.ok) throw new Error('清空失敗');
+    await fetchAll();
+  }, [userId, fetchAll]);
+
+  /** 靜默重整：不設 loading，避免勾選模型後畫面閃爍 */
+  const refreshSilent = useCallback(() => fetchAll(true), [fetchAll]);
+
+  /** 儲存「全部驗證」結果到 DB，供組態概況與 Supabase 同步 */
+  const saveValidationSummary = useCallback(
+    async (validatedCount: number, totalModels: number) => {
+      const res = await fetch('/api/ai-settings/summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+        body: JSON.stringify({ validatedCount, totalModels }),
+      });
+      if (!res.ok) throw new Error('儲存組態概況失敗');
+      const data = (await res.json()) as { summary?: ValidationSummary };
+      if (data.summary) setValidationSummary(data.summary);
+    },
+    [userId]
+  );
+
   return {
-    keys, models, modules, prompts,
+    keys, models, modules, prompts, validationSummary,
     loading, error,
     saveKey, deleteKey, validateKey,
     saveModels, saveModule,
     savePrompt,
     exportSettings, importSettings,
+    clearAll,
+    saveValidationSummary,
     refresh: fetchAll,
+    refreshSilent,
     userId,
   };
 }

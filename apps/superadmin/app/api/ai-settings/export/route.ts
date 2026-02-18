@@ -3,18 +3,25 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { resolveUserId } from '@/lib/resolve-ai-settings-user';
 
-// GET: Export all AI settings as JSON
+// GET: Export all AI settings as JSON (keys 為加密形式，與 keys/models 使用同一 resolveUserId)
 export async function GET(request: NextRequest) {
   try {
     const supabase = createAdminClient();
-    const userId = request.headers.get('x-user-id');
+    const requestedUserId = request.headers.get('x-user-id');
 
-    if (!userId) {
+    if (!requestedUserId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const [modelsRes, modulesRes, promptsRes] = await Promise.all([
+    const userId = await resolveUserId(supabase, requestedUserId);
+    if (!userId) {
+      return NextResponse.json({ version: '1.0', exportedAt: new Date().toISOString(), keys: [], models: [], modules: [], prompts: [] });
+    }
+
+    const [keysRes, modelsRes, modulesRes, promptsRes] = await Promise.all([
+      supabase.from('ai_api_keys').select('provider, api_key_encrypted, iv, is_valid, last_validated_at').eq('user_id', userId).eq('is_active', true),
       supabase.from('ai_model_selections').select('*').eq('user_id', userId).eq('is_active', true),
       supabase.from('ai_modules_assigned_function').select('*').eq('user_id', userId),
       supabase.from('ai_system_prompts').select('*').eq('user_id', userId).eq('is_active', true),
@@ -23,6 +30,13 @@ export async function GET(request: NextRequest) {
     const exportData = {
       version: '1.0',
       exportedAt: new Date().toISOString(),
+      keys: (keysRes.data || []).map((k: { provider: string; api_key_encrypted: string; iv: string; is_valid?: boolean | null; last_validated_at?: string | null }) => ({
+        provider: k.provider,
+        api_key_encrypted: k.api_key_encrypted,
+        iv: k.iv,
+        is_valid: k.is_valid ?? undefined,
+        last_validated_at: k.last_validated_at ?? undefined,
+      })),
       models: modelsRes.data || [],
       modules: modulesRes.data || [],
       prompts: promptsRes.data || [],
@@ -35,17 +49,40 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: Import AI settings from JSON (models, modules, prompts only - not keys)
+// POST: Import AI settings from JSON (keys 為加密形式還原；可選 api_keys_env 由前端解析後逐筆 POST keys)
 export async function POST(request: NextRequest) {
   try {
     const supabase = createAdminClient();
-    const { userId, data: importData } = await request.json();
+    const { userId: requestedUserId, data: importData } = await request.json();
 
-    if (!userId || !importData) {
+    if (!requestedUserId || !importData) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const results = { models: 0, modules: 0, prompts: 0 };
+    const userId = await resolveUserId(supabase, requestedUserId);
+    if (!userId) {
+      return NextResponse.json({ error: '找不到可用的使用者' }, { status: 401 });
+    }
+
+    const results = { keys: 0, models: 0, modules: 0, prompts: 0 };
+
+    // Import keys（僅接受匯出檔中的加密 key；明文由前端用「批量導入API KEY」或 api_keys_env 處理）
+    if (importData.keys?.length) {
+      for (const key of importData.keys) {
+        if (!key.provider || !key.api_key_encrypted || !key.iv) continue;
+        await supabase.from('ai_api_keys').update({ is_active: false }).eq('user_id', userId).eq('provider', key.provider);
+        await supabase.from('ai_api_keys').insert({
+          user_id: userId,
+          provider: key.provider,
+          api_key_encrypted: key.api_key_encrypted,
+          iv: key.iv,
+          is_valid: key.is_valid ?? null,
+          last_validated_at: key.last_validated_at ?? null,
+          is_active: true,
+        });
+        results.keys++;
+      }
+    }
 
     // Import model selections
     if (importData.models?.length) {

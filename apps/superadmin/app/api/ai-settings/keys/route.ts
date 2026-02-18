@@ -2,6 +2,8 @@
 // API route for managing AI API keys (CRUD + validation)
 
 import { NextRequest, NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { resolveUserId } from '@/lib/resolve-ai-settings-user';
 
@@ -29,7 +31,9 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    return NextResponse.json({ keys: data || [] });
+    const res = NextResponse.json({ keys: data || [] });
+    res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    return res;
   } catch (err) {
     console.error('[AI Settings] GET keys error:', err);
     return NextResponse.json({ error: '無法讀取金鑰列表' }, { status: 500 });
