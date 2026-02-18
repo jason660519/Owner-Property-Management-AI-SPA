@@ -5,13 +5,26 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import type { AIProvider } from '@/lib/ai-providers';
 import { decryptApiKey } from '@/lib/crypto';
+import { resolveUserId } from '@/lib/resolve-ai-settings-user';
 
 interface ValidationResult {
   valid: boolean;
   provider: string;
   message: string;
-  modelInfo?: string; // e.g. "GPT-4 Turbo"
+  modelInfo?: string; // e.g. "最新可用: gpt-4o"
   availableModels?: string[]; // full list of available models for provider/key
+}
+
+/** Pick the "latest available" model from the list by trying predicates in order (newest-first). */
+function pickLatestModel(
+  models: string[],
+  priorityPredicates: ((id: string) => boolean)[]
+): string {
+  for (const pred of priorityPredicates) {
+    const found = models.find(pred);
+    if (found) return found;
+  }
+  return models[0] ?? 'Unknown';
 }
 
 async function validateOpenAI(apiKey: string): Promise<ValidationResult> {
@@ -26,18 +39,20 @@ async function validateOpenAI(apiKey: string): Promise<ValidationResult> {
         ? data.data.map((m: { id: string }) => m.id).filter(Boolean)
         : [];
 
-      // Try to find a flagship model to display
-      const flagship =
-        models.find(m => m.includes('gpt-4')) ||
-        models.find(m => m.includes('gpt-3.5')) ||
-        models[0] ||
-        'Unknown Model';
+      // Newest-first: pick the latest available model this key can use (e.g. 5.2 vs market 5.3)
+      const latest = pickLatestModel(models, [
+        m => m.includes('gpt-5'),
+        m => m.includes('gpt-4o'),
+        m => m.includes('gpt-4-turbo'),
+        m => m.includes('gpt-4'),
+        m => m.includes('gpt-3.5'),
+      ]);
 
       return {
         valid: true,
         provider: 'openai',
         message: '金鑰驗證成功',
-        modelInfo: `OpenAI ${flagship}`,
+        modelInfo: `最新可用: ${latest}`,
         availableModels: models,
       };
     }
@@ -63,17 +78,19 @@ async function validateAnthropic(apiKey: string): Promise<ValidationResult> {
         ? data.data.map((m: { id: string }) => m.id).filter(Boolean)
         : [];
 
-      const flagship =
-        models.find(m => m.includes('claude-3-5-sonnet')) ||
-        models.find(m => m.includes('claude-3-opus')) ||
-        models[0] ||
-        'Claude Model';
+      const latest = pickLatestModel(models, [
+        m => m.includes('claude-3-5'),
+        m => m.includes('claude-3-opus'),
+        m => m.includes('claude-3-sonnet'),
+        m => m.includes('claude-3-haiku'),
+        m => m.includes('claude-3'),
+      ]);
 
       return {
         valid: true,
         provider: 'anthropic',
         message: '金鑰驗證成功',
-        modelInfo: `Anthropic ${flagship}`,
+        modelInfo: `最新可用: ${latest}`,
         availableModels: models,
       };
     }
@@ -99,7 +116,7 @@ async function validateAnthropic(apiKey: string): Promise<ValidationResult> {
           valid: true,
           provider: 'anthropic',
           message: '金鑰驗證成功 (無法取得模型列表)',
-          modelInfo: 'Claude 3 Family',
+          modelInfo: '最新可用: (列表未取得)',
           availableModels: []
         };
       }
@@ -124,16 +141,17 @@ async function validateGemini(apiKey: string): Promise<ValidationResult> {
       const models: string[] = Array.isArray(data?.models)
         ? data.models.map((m: { name: string }) => m.name.replace(/^models\//, '')).filter(Boolean)
         : [];
-      const flagship =
-        models.find(m => m.includes('Gemini 1.5')) ||
-        models[0] ||
-        'Unknown Model';
+      const latest = pickLatestModel(models, [
+        m => m.includes('gemini-2') || m.includes('Gemini 2'),
+        m => m.includes('gemini-1.5') || m.includes('Gemini 1.5'),
+        m => m.includes('gemini-1') || m.includes('Gemini 1'),
+      ]);
 
       return {
         valid: true,
         provider: 'gemini',
         message: '金鑰驗證成功',
-        modelInfo: `Google ${flagship}`,
+        modelInfo: `最新可用: ${latest}`,
         availableModels: models,
       };
     }
@@ -160,17 +178,17 @@ async function validateDeepSeek(apiKey: string): Promise<ValidationResult> {
           ? (data as any).models.map((m: { id: string }) => m.id).filter(Boolean)
           : [];
 
-      const flagship =
-        models.find(m => m.toLowerCase().includes('deepseek-chat')) ||
-        models.find(m => m.toLowerCase().includes('deepseek-reasoner')) ||
-        models[0] ||
-        'DeepSeek-V3/R1';
+      const latest = pickLatestModel(models, [
+        m => m.toLowerCase().includes('deepseek-reasoner'),
+        m => m.toLowerCase().includes('deepseek-chat'),
+        m => m.toLowerCase().includes('deepseek'),
+      ]);
 
       return {
         valid: true,
         provider: 'deepseek',
         message: '金鑰驗證成功',
-        modelInfo: flagship,
+        modelInfo: `最新可用: ${latest}`,
         availableModels: models,
       };
     }
@@ -196,17 +214,16 @@ async function validateGrok(apiKey: string): Promise<ValidationResult> {
           ? (data as any).models.map((m: { id: string }) => m.id).filter(Boolean)
           : [];
 
-      const flagship =
-        models.find(m => m.toLowerCase().includes('grok-2')) ||
-        models.find(m => m.toLowerCase().includes('grok-1')) ||
-        models[0] ||
-        'Grok-1/Beta';
+      const latest = pickLatestModel(models, [
+        m => m.toLowerCase().includes('grok-2'),
+        m => m.toLowerCase().includes('grok-1'),
+      ]);
 
       return {
         valid: true,
         provider: 'grok',
         message: '金鑰驗證成功',
-        modelInfo: flagship,
+        modelInfo: `最新可用: ${latest}`,
         availableModels: models,
       };
     }
@@ -237,18 +254,22 @@ export async function POST(request: NextRequest) {
 
     let keyToValidate = apiKey;
 
-    // If keyId is provided, fetch from DB and decrypt
+    // If keyId is provided, fetch from DB and decrypt (use resolveUserId so 未登入時與 keys API 一致)
     if (keyId && userId && !apiKey) {
       const supabase = createAdminClient();
+      const effectiveUserId = await resolveUserId(supabase, userId);
+      if (!effectiveUserId) {
+        return NextResponse.json({ valid: false, message: '找不到可用的使用者，請先登入或確認 Auth 中已有使用者' });
+      }
       const { data, error } = await supabase
         .from('ai_api_keys')
         .select('api_key_encrypted, iv')
         .eq('id', keyId)
-        .eq('user_id', userId)
+        .eq('user_id', effectiveUserId)
         .single();
 
       if (error || !data) {
-        return NextResponse.json({ valid: false, message: '資料庫連線失敗或找不到金鑰' });
+        return NextResponse.json({ valid: false, message: '找不到金鑰（可能已被刪除或不屬於目前使用者）' });
       }
 
       try {
@@ -270,17 +291,20 @@ export async function POST(request: NextRequest) {
 
     const result = await validate(keyToValidate);
 
-    // Update validation status in database if keyId provided
+    // Update validation status in database if keyId provided (use same resolved userId)
     if (keyId && userId) {
       const supabase = createAdminClient();
-      await supabase
-        .from('ai_api_keys')
-        .update({
-          is_valid: result.valid,
-          last_validated_at: new Date().toISOString(),
-        })
-        .eq('id', keyId)
-        .eq('user_id', userId);
+      const effectiveUserId = await resolveUserId(supabase, userId);
+      if (effectiveUserId) {
+        await supabase
+          .from('ai_api_keys')
+          .update({
+            is_valid: result.valid,
+            last_validated_at: new Date().toISOString(),
+          })
+          .eq('id', keyId)
+          .eq('user_id', effectiveUserId);
+      }
     }
 
     console.log(`[AI Settings] Key validation for ${provider}: ${result.valid ? 'PASS' : 'FAIL'}`);

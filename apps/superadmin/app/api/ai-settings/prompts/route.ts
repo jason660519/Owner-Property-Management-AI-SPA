@@ -3,15 +3,21 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { resolveUserId } from '@/lib/resolve-ai-settings-user';
 
-// GET: Fetch system prompts
+// GET: Fetch system prompts（使用 resolveUserId 與 keys 一致）
 export async function GET(request: NextRequest) {
   try {
     const supabase = createAdminClient();
-    const userId = request.headers.get('x-user-id');
+    const requestedUserId = request.headers.get('x-user-id');
 
-    if (!userId) {
+    if (!requestedUserId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userId = await resolveUserId(supabase, requestedUserId);
+    if (!userId) {
+      return NextResponse.json({ prompts: [] });
     }
 
     const { data, error } = await supabase

@@ -1,31 +1,47 @@
 // filepath: apps/superadmin/components/ai-settings/ApiKeyManager.tsx
-// Component for managing AI API keys with encryption, masking, and validation
+// Component for managing AI API keys: .env import (system-parsed) and per-provider save.
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from 'react';
 import { Eye, EyeOff, Check, X, Loader2, Shield, Trash2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { AI_PROVIDERS, type AIProvider, type AIProviderInfo } from '@/lib/ai-providers';
 import { maskApiKey } from '@/lib/crypto';
-import type { SavedKey, KeyValidationResult } from '@/lib/hooks/useAISettings';
+import { parseEnvForAIKeys, SUPPORTED_AI_ENV_KEY_NAMES } from '@/lib/parse-env-keys';
+import type { SavedKey, SavedModel, KeyValidationResult } from '@/lib/hooks/useAISettings';
 
 interface ApiKeyManagerProps {
   savedKeys: SavedKey[];
+  /** 來自「模型費用說明」的已選模型，用於在未驗證時顯示已選模型（系統有持久化） */
+  savedModels?: SavedModel[];
   onSave: (provider: AIProvider, rawKey: string) => Promise<void>;
   onDelete: (keyId: string) => Promise<void>;
   onValidate: (provider: AIProvider, apiKey: string, keyId?: string) => Promise<KeyValidationResult>;
+  /** Optional ref for parent to trigger env import panel open/close (e.g. header button). */
+  headerActionsRef?: React.MutableRefObject<{ setEnvImportOpen: (v: boolean) => void } | null>;
+  /** 當各 provider 已選模型加總變更時回報，供側欄「已選總 models 數量」即時顯示 */
+  onModelSelectionTotalChange?: (total: number) => void;
+}
+
+export interface ApiKeyManagerHandle {
+  /** 取得目前各 provider 在畫面上的模型勾選（供「儲存設定」寫入 DB） */
+  getModelSelections: () => Record<string, string[]>;
 }
 
 interface ProviderKeyRowProps {
   provider: AIProviderInfo;
   savedKey?: SavedKey;
+  /** 該 provider 在 DB 的已選模型（來自 ai_model_selections），重新載入後仍可顯示 */
+  providerSavedModels?: SavedModel[];
+  /** 當使用者在 Available models 勾選變更時回報給父層，供「儲存設定」使用 */
+  onModelSelectionChange?: (providerId: string, modelIds: string[]) => void;
   onSave: (provider: AIProvider, rawKey: string) => Promise<void>;
   onDelete: (keyId: string) => Promise<void>;
   onValidate: (provider: AIProvider, apiKey: string, keyId?: string) => Promise<KeyValidationResult>;
 }
 
-function ProviderKeyRow({ provider, savedKey, onSave, onDelete, onValidate }: ProviderKeyRowProps) {
+function ProviderKeyRow({ provider, savedKey, providerSavedModels = [], onModelSelectionChange, onSave, onDelete, onValidate }: ProviderKeyRowProps) {
   const [inputValue, setInputValue] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -35,47 +51,14 @@ function ProviderKeyRow({ provider, savedKey, onSave, onDelete, onValidate }: Pr
   const [isEditing, setIsEditing] = useState(!savedKey);
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
 
-  // Auto-fetch available models for already-validated keys (using stored key in DB)
+  // 驗證成功後以 DB 已選模型初始化勾選，並同步給父層
   useEffect(() => {
-    const shouldAutoValidate =
-      !!savedKey &&
-      savedKey.is_valid === true &&
-      !isEditing &&
-      !validationResult &&
-      !validating;
-
-    if (!shouldAutoValidate) return;
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        setValidating(true);
-        const result = await onValidate(provider.id, '', savedKey.id);
-        if (cancelled) return;
-        if (result.valid) {
-          setValidationResult(result);
-          if (Array.isArray(result.availableModels)) {
-            setSelectedModels(result.availableModels);
-          }
-        } else {
-          setValidationResult(result);
-        }
-      } catch {
-        if (!cancelled) {
-          setValidationResult({ valid: false, message: '驗證請求失敗' });
-        }
-      } finally {
-        if (!cancelled) {
-          setValidating(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [savedKey, isEditing, validationResult, validating, onValidate, provider.id]);
+    if (validationResult?.valid && providerSavedModels.length > 0 && Array.isArray(validationResult.availableModels)) {
+      const savedIds = providerSavedModels.map(m => m.model_id).filter(id => validationResult.availableModels!.includes(id));
+      setSelectedModels(savedIds);
+      onModelSelectionChange?.(provider.id, savedIds);
+    }
+  }, [validationResult?.valid, provider.id, providerSavedModels, validationResult?.availableModels, onModelSelectionChange]);
 
   const handleSave = async () => {
     if (!inputValue.trim()) return;
@@ -146,7 +129,7 @@ function ProviderKeyRow({ provider, savedKey, onSave, onDelete, onValidate }: Pr
           </div>
           <div>
             <h4 className="text-sm font-semibold text-text-primary">{provider.name}</h4>
-            <p className="text-xs text-text-muted">
+            <p className="text-xs text-text-muted flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <a
                 href={provider.apiKeyUrl}
                 target="_blank"
@@ -156,6 +139,32 @@ function ProviderKeyRow({ provider, savedKey, onSave, onDelete, onValidate }: Pr
               >
                 {provider.envKey}
               </a>
+              {provider.sdkDocsUrl && (
+                <>
+                  <span className="text-border-default">·</span>
+                  <a
+                    href={provider.sdkDocsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline-offset-2 hover:underline hover:text-accent transition-colors"
+                  >
+                    {provider.sdkDocsLabel ?? `${provider.name} SDK Doc`}
+                  </a>
+                </>
+              )}
+              {provider.dashboardUrl && (
+                <>
+                  <span className="text-border-default">·</span>
+                  <a
+                    href={provider.dashboardUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline-offset-2 hover:underline hover:text-accent transition-colors"
+                  >
+                    {provider.dashboardLabel ?? `${provider.name} Dashboard`}
+                  </a>
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -209,19 +218,29 @@ function ProviderKeyRow({ provider, savedKey, onSave, onDelete, onValidate }: Pr
             </Button>
           </div>
 
-          {/* Validation Result for Stored Key */}
+          {/* Validation Result for Stored Key (已儲存金鑰按「驗證金鑰」的結果) */}
           {validationResult && (
-            <div className={`flex items-center gap-2 px-3 py-2 rounded-base text-xs ${validationResult.valid
-              ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-              : 'bg-red-500/10 text-red-400 border border-red-500/20'
-              }`}>
+            <div
+              className={`flex flex-wrap items-center gap-2 px-3 py-2 rounded-base text-xs ${
+                validationResult.valid
+                  ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                  : 'bg-red-500/10 text-red-400 border border-red-500/20'
+              }`}
+            >
               {validationResult.valid ? <Check size={12} /> : <X size={12} />}
               <span className="font-medium">{validationResult.message}</span>
               {validationResult.modelInfo && (
-                <span className="ml-1 px-1.5 py-0.5 bg-bg-primary rounded text-[10px] border border-border-default">
+                <span className="px-1.5 py-0.5 bg-bg-primary rounded text-[10px] border border-border-default">
                   {validationResult.modelInfo}
                 </span>
               )}
+              {validationResult.valid &&
+                Array.isArray(validationResult.availableModels) &&
+                validationResult.availableModels.length >= 0 && (
+                  <span className="px-1.5 py-0.5 bg-bg-primary rounded text-[10px] border border-border-default font-medium">
+                    Available models: {validationResult.availableModels.length}
+                  </span>
+                )}
             </div>
           )}
         </div>
@@ -244,19 +263,29 @@ function ProviderKeyRow({ provider, savedKey, onSave, onDelete, onValidate }: Pr
             </button>
           </div>
 
-          {/* Validation Result */}
+          {/* Validation Result (輸入金鑰後按「驗證金鑰」的結果) */}
           {validationResult && (
-            <div className={`flex items-center gap-2 px-3 py-2 rounded-base text-xs ${validationResult.valid
-              ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-              : 'bg-red-500/10 text-red-400 border border-red-500/20'
-              }`}>
+            <div
+              className={`flex flex-wrap items-center gap-2 px-3 py-2 rounded-base text-xs ${
+                validationResult.valid
+                  ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                  : 'bg-red-500/10 text-red-400 border border-red-500/20'
+              }`}
+            >
               {validationResult.valid ? <Check size={12} /> : <X size={12} />}
               <span className="font-medium">{validationResult.message}</span>
               {validationResult.modelInfo && (
-                <span className="ml-1 px-1.5 py-0.5 bg-bg-primary rounded text-[10px] border border-border-default">
+                <span className="px-1.5 py-0.5 bg-bg-primary rounded text-[10px] border border-border-default">
                   {validationResult.modelInfo}
                 </span>
               )}
+              {validationResult.valid &&
+                Array.isArray(validationResult.availableModels) &&
+                validationResult.availableModels.length >= 0 && (
+                  <span className="px-1.5 py-0.5 bg-bg-primary rounded text-[10px] border border-border-default font-medium">
+                    Available models: {validationResult.availableModels.length}
+                  </span>
+                )}
             </div>
           )}
 
@@ -270,7 +299,7 @@ function ProviderKeyRow({ provider, savedKey, onSave, onDelete, onValidate }: Pr
               isLoading={saving}
             >
               <Shield size={14} />
-              加密儲存
+              儲存
             </Button>
             <Button
               size="sm"
@@ -290,13 +319,30 @@ function ProviderKeyRow({ provider, savedKey, onSave, onDelete, onValidate }: Pr
         </div>
       )}
 
-      {/* SDK Info */}
+      {/* SDK Info (when sdkDocsUrl is set, SDK links are in header; only show Base URL here) */}
       <div className="mt-3 flex items-center gap-4 text-[11px] text-text-muted">
-        <span>SDK: <code className="text-text-secondary">{provider.sdkPackage}</code></span>
+        {!provider.sdkDocsUrl && (
+          <span>SDK: <code className="text-text-secondary">{provider.sdkPackage}</code></span>
+        )}
         <span>Base URL: <code className="text-text-secondary">{provider.baseUrl}</code></span>
       </div>
 
-      {/* Available Models (after successful validation) */}
+      {/* 已選模型（來自 DB，重新載入後仍會顯示；不影響 AI 開發使用的設定） */}
+      {savedKey && providerSavedModels.length > 0 && (
+        <div className="mt-2 space-y-0.5 text-[11px] text-text-muted">
+          <div className="flex items-center gap-2">
+            <span className="shrink-0 font-medium text-text-secondary">已選模型（來自「模型費用說明」）：</span>
+            <span className="font-mono text-[10px] text-text-primary">
+              {providerSavedModels.map(m => m.model_id).join('、')}
+            </span>
+          </div>
+          <p className="text-[10px] text-text-muted">
+            完整可用模型列表請點「驗證金鑰」取得；模型費用說明請至「模型費用說明」分頁。
+          </p>
+        </div>
+      )}
+
+      {/* Available Models (點「驗證金鑰」後才出現的完整列表與勾選) */}
       {validationResult?.valid && (
         <div className="mt-2 space-y-1 text-[11px] text-text-muted">
           {(!validationResult.availableModels || validationResult.availableModels.length === 0) ? (
@@ -328,11 +374,11 @@ function ProviderKeyRow({ provider, savedKey, onSave, onDelete, onValidate }: Pr
                         className="h-3 w-3 rounded border-border-default bg-bg-primary text-accent focus:ring-0"
                         checked={checked}
                         onChange={() => {
-                          setSelectedModels(prev =>
-                            prev.includes(modelId)
-                              ? prev.filter(id => id !== modelId)
-                              : [...prev, modelId]
-                          );
+                          const next = selectedModels.includes(modelId)
+                            ? selectedModels.filter(id => id !== modelId)
+                            : [...selectedModels, modelId];
+                          setSelectedModels(next);
+                          onModelSelectionChange?.(provider.id, next);
                         }}
                       />
                       <span className="truncate font-mono text-[10px]">{modelId}</span>
@@ -348,22 +394,184 @@ function ProviderKeyRow({ provider, savedKey, onSave, onDelete, onValidate }: Pr
   );
 }
 
-export function ApiKeyManager({ savedKeys, onSave, onDelete, onValidate }: ApiKeyManagerProps) {
+const ApiKeyManagerInner = ({
+  savedKeys,
+  savedModels = [],
+  onSave,
+  onDelete,
+  onValidate,
+  headerActionsRef,
+  onModelSelectionTotalChange,
+}: ApiKeyManagerProps,
+ref: React.Ref<ApiKeyManagerHandle>) => {
+  const [envImportOpen, setEnvImportOpen] = useState(false);
+  const [envImportText, setEnvImportText] = useState('');
+  const [envImporting, setEnvImporting] = useState(false);
+  const [envImportResult, setEnvImportResult] = useState<{ ok: string[]; err: string[] } | null>(null);
+  const [modelSelectionsByProvider, setModelSelectionsByProvider] = useState<Record<string, string[]>>({});
+
+  useImperativeHandle(ref, () => ({
+    getModelSelections: () => ({ ...modelSelectionsByProvider }),
+  }), [modelSelectionsByProvider]);
+
+  const handleModelSelectionChange = useCallback((providerId: string, ids: string[]) => {
+    setModelSelectionsByProvider(prev => ({ ...prev, [providerId]: ids }));
+  }, []);
+
+  // 從 DB 已選模型初始化，讓側欄「已選總 models 數量」與 getModelSelections 一開始就正確
+  useEffect(() => {
+    const fromDb: Record<string, string[]> = {};
+    for (const m of savedModels) {
+      if (!fromDb[m.provider]) fromDb[m.provider] = [];
+      fromDb[m.provider].push(m.model_id);
+    }
+    setModelSelectionsByProvider(prev => {
+      const merged = { ...fromDb };
+      Object.entries(prev).forEach(([k, v]) => { if (v.length > 0) merged[k] = v; });
+      return merged;
+    });
+  }, [savedModels]);
+
+  // 回報已選總數給側欄
+  useEffect(() => {
+    const total = Object.values(modelSelectionsByProvider).flat().length;
+    onModelSelectionTotalChange?.(total);
+  }, [modelSelectionsByProvider, onModelSelectionTotalChange]);
+
+  useEffect(() => {
+    if (headerActionsRef) {
+      headerActionsRef.current = { setEnvImportOpen };
+      return () => {
+        headerActionsRef.current = null;
+      };
+    }
+  }, [headerActionsRef]);
+
+  const handleEnvImport = async () => {
+    const parsed = parseEnvForAIKeys(envImportText);
+    if (parsed.length === 0) {
+      setEnvImportResult({
+        ok: [],
+        err: [`未辨識到任何 AI 金鑰。請確認貼文內含 KEY=value 且變數名為：${SUPPORTED_AI_ENV_KEY_NAMES.join('、')}`],
+      });
+      return;
+    }
+    setEnvImporting(true);
+    setEnvImportResult(null);
+    const ok: string[] = [];
+    const err: string[] = [];
+    for (const { provider, envKey, value } of parsed) {
+      try {
+        await onSave(provider, value);
+        ok.push(envKey);
+      } catch (e) {
+        err.push(`${envKey}: ${e instanceof Error ? e.message : '儲存失敗'}`);
+      }
+    }
+    setEnvImportResult({ ok, err });
+    setEnvImporting(false);
+    if (err.length === 0) {
+      setEnvImportText('');
+      setTimeout(() => {
+        setEnvImportOpen(false);
+        setEnvImportResult(null);
+      }, 2000);
+    }
+  };
+
   return (
-    <div className="space-y-3">
-      {AI_PROVIDERS.map(provider => {
-        const savedKey = savedKeys.find(k => k.provider === provider.id);
-        return (
-          <ProviderKeyRow
-            key={provider.id}
-            provider={provider}
-            savedKey={savedKey}
-            onSave={onSave}
-            onDelete={onDelete}
-            onValidate={onValidate}
-          />
-        );
-      })}
+    <div className="space-y-4">
+      {/* 從 .env 導入：說明改由 header 按鈕 hover 顯示，此處僅在展開時顯示表單 */}
+      {envImportOpen && (
+        <div className="bg-bg-secondary border border-border-default rounded-base p-4 sm:p-5 shadow-sm">
+          <div className="space-y-3">
+            <textarea
+              value={envImportText}
+              onChange={(e) => setEnvImportText(e.target.value)}
+              placeholder={'OPENAI_API_KEY=sk-...\nANTHROPIC_API_KEY=sk-ant-...\nGEMINI_API_KEY=AIza...\n# 其他 KEY 會被忽略'}
+              rows={6}
+              className="w-full px-3 py-2 bg-bg-primary border border-border-default rounded-base text-sm text-text-primary font-mono placeholder:text-text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 resize-y"
+            />
+            {envImportText.trim() && (
+              <div className="text-xs text-text-muted">
+                {(() => {
+                  const parsed = parseEnvForAIKeys(envImportText);
+                  if (parsed.length === 0) {
+                    return (
+                      <span className="text-amber-500">
+                        尚未辨識到任何 AI 金鑰（請確認變數名為上列其一且格式為 KEY=value）
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className="text-green-600 dark:text-green-400">
+                      辨識到 {parsed.length} 個：{parsed.map((p) => p.envKey).join('、')}
+                    </span>
+                  );
+                })()}
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={handleEnvImport}
+                disabled={envImporting}
+                isLoading={envImporting}
+              >
+                <Shield size={14} />
+                導入並加密儲存
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  setEnvImportOpen(false);
+                  setEnvImportText('');
+                  setEnvImportResult(null);
+                }}
+              >
+                關閉
+              </Button>
+            </div>
+            {envImportResult && (
+              <div className="space-y-1 text-xs">
+                {envImportResult.ok.length > 0 && (
+                  <p className="text-green-400 flex items-center gap-1">
+                    <Check size={12} /> 已導入：{envImportResult.ok.join(', ')}
+                  </p>
+                )}
+                {envImportResult.err.length > 0 && (
+                  <p className="text-red-400 flex items-center gap-1">
+                    <X size={12} /> {envImportResult.err.join('；')}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {AI_PROVIDERS.map(provider => {
+          const savedKey = savedKeys.find(k => k.provider === provider.id);
+          const providerSavedModels = savedModels.filter(m => m.provider === provider.id);
+          return (
+            <ProviderKeyRow
+              key={provider.id}
+              provider={provider}
+              savedKey={savedKey}
+              providerSavedModels={providerSavedModels}
+              onModelSelectionChange={handleModelSelectionChange}
+              onSave={onSave}
+              onDelete={onDelete}
+              onValidate={onValidate}
+            />
+          );
+        })}
+      </div>
     </div>
   );
-}
+};
+
+export const ApiKeyManager = forwardRef<ApiKeyManagerHandle, ApiKeyManagerProps>(ApiKeyManagerInner);

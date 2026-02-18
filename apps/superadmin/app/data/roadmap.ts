@@ -37,7 +37,7 @@ export interface RoadmapData {
 }
 
 export const ROADMAP_DATA: RoadmapData = {
-    lastUpdated: "2026/02/16",
+    lastUpdated: "2026/02/18",
     features: [
         // 超級管理員
         { 
@@ -270,6 +270,19 @@ export const ROADMAP_DATA: RoadmapData = {
             testCoverage: 0,
             lastModifiedBy: "Claude Sonnet 4.5",
             lastModifiedDate: "2026/02/16-23:30"
+        },
+        // 超級管理員 - AI 服務設定（API 金鑰與模型）
+        {
+            name: "超級管理員-AI 服務設定（API 金鑰與模型費用）",
+            percentage: 85,
+            acceptanceCriteria: "1. API 金鑰管理：從 .env 導入、單筆/全部刪除、金鑰驗證。\n2. 未登入時以 resolveUserId fallback 寫入/讀取 Supabase（keys/models/modules/prompts）。\n3. 側欄組態概況：已選總 models 數量即時反映各 provider 勾選加總。\n4. 儲存設定按鈕：將畫面上已選模型寫入 ai_model_selections。\n5. 分頁命名：模型費用說明；說明文案導向「模型費用說明」分頁。",
+            docPath: "/docs/update-project-progress-guide.md",
+            category: "超級管理員 (Super Admin)",
+            points: 5,
+            testProgress: "手動驗證：從 .env 導入、全部清空、單筆刪除、驗證金鑰、儲存設定、側欄數字更新。",
+            testCoverage: 0,
+            lastModifiedBy: "Claude (Auto)",
+            lastModifiedDate: "2026/02/18"
         }
     ]
 };

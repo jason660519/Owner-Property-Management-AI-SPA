@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import Link from 'next/link';
 import { ROADMAP_DATA, RoadmapFeature } from '@/app/data/roadmap';
 import { 
   PieChart, 
@@ -635,15 +636,15 @@ export default function ProjectProgressPage() {
             />
           </div>
            <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
+            <Link
+              href="/superadmin/settings/api_key_and_model_setting"
               className={clsx(
                 "px-3 py-1.5 rounded-full text-xs font-medium transition-colors border whitespace-nowrap",
                 "bg-bg-primary border-border-default text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
               )}
             >
               API KEY
-            </button>
+            </Link>
             <button
               type="button"
               onClick={() => setSelectedCategories(new Set())}

@@ -1,34 +1,42 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Key, Cpu, Puzzle, MessageSquareText, BarChart3,
-  ChevronRight, Loader2, RefreshCw,
+  ChevronRight, Loader2, RefreshCw, Trash2,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Button } from '@/components/ui/Button';
 import {
   ApiKeyManager,
+  type ApiKeyManagerHandle,
   ModelSelector,
   FeatureModuleSelector,
   SystemPromptEditor,
   UsageMonitor,
 } from '@/components/ai-settings';
 import { useAISettings } from '@/lib/hooks/useAISettings';
+import { SUPPORTED_AI_ENV_KEY_NAMES } from '@/lib/parse-env-keys';
 
 type SettingsTab = 'keys' | 'models' | 'modules' | 'prompts' | 'usage';
 
 const TABS: { id: SettingsTab; label: string; icon: React.ElementType; description: string }[] = [
   { id: 'keys', label: 'API 金鑰管理', icon: Key, description: '管理各 AI 服務提供商的 API 金鑰' },
-  { id: 'models', label: '模型版本選擇', icon: Cpu, description: '選擇與配置可用的 AI 模型' },
+  { id: 'models', label: '模型費用說明', icon: Cpu, description: '選擇與配置可用的 AI 模型' },
   { id: 'modules', label: '功能模組配置', icon: Puzzle, description: '啟用與配置 AI 功能模組' },
   { id: 'prompts', label: 'System Prompt', icon: MessageSquareText, description: '編輯各功能模組的系統提示詞' },
   { id: 'usage', label: '使用監控與設定', icon: BarChart3, description: '查看使用統計，匯入/匯出設定' },
 ];
 
+const ENV_IMPORT_TOOLTIP = `從 .env 導入\n貼上 .env 內容後，系統僅會依「變數名」過濾並導入下列 AI 金鑰（大小寫不拘），其餘變數一律忽略。\n辨識清單：${SUPPORTED_AI_ENV_KEY_NAMES.join('、')}`;
+
 export default function AIServiceSettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('keys');
+  const [envImportButtonHover, setEnvImportButtonHover] = useState(false);
+  const [keysTabModelTotal, setKeysTabModelTotal] = useState<number | null>(null);
   const settings = useAISettings();
+  const apiKeyHeaderActionsRef = useRef<{ setEnvImportOpen: (v: boolean) => void } | null>(null);
+  const apiKeyManagerRef = useRef<ApiKeyManagerHandle | null>(null);
 
   const renderContent = () => {
     if (settings.loading) {
@@ -55,10 +63,14 @@ export default function AIServiceSettingsPage() {
       case 'keys':
         return (
           <ApiKeyManager
+            ref={apiKeyManagerRef}
             savedKeys={settings.keys}
+            savedModels={settings.models}
             onSave={settings.saveKey}
             onDelete={settings.deleteKey}
             onValidate={settings.validateKey}
+            headerActionsRef={apiKeyHeaderActionsRef}
+            onModelSelectionTotalChange={setKeysTabModelTotal}
           />
         );
       case 'models':
@@ -120,14 +132,6 @@ export default function AIServiceSettingsPage() {
             <h1 className="text-2xl font-semibold text-text-primary tracking-tight">
               LLM API 金鑰與模型設定
             </h1>
-            <p className="text-sm text-text-muted mt-1 max-w-2xl">
-              管理 AI 服務提供商的金鑰、預設模型與功能模組。版面參考 OpenAI API Keys
-              頁面，讓超級管理員可以快速理解目前配置狀態。
-            </p>
-          </div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-border-subtle bg-bg-secondary px-3 py-1 text-[11px] text-text-muted w-fit">
-            <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            <span>金鑰只會完整顯示一次，請妥善保存。</span>
           </div>
         </div>
 
@@ -169,9 +173,70 @@ export default function AIServiceSettingsPage() {
                   <p className="text-[11px] text-text-muted">{currentTab.description}</p>
                 </div>
               </div>
-              <Button size="sm" variant="ghost" onClick={settings.refresh}>
-                <RefreshCw size={14} /> 重新整理
-              </Button>
+              <div className="flex items-center gap-2">
+                {activeTab === 'keys' && (
+                  <>
+                    <div
+                      className="relative inline-flex"
+                      onMouseEnter={() => setEnvImportButtonHover(true)}
+                      onMouseLeave={() => setEnvImportButtonHover(false)}
+                    >
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => apiKeyHeaderActionsRef.current?.setEnvImportOpen(true)}
+                      >
+                        從 .env 導入
+                      </Button>
+                      {envImportButtonHover && (
+                        <div
+                          className="absolute right-0 top-full z-50 mt-1.5 w-72 rounded-base border border-border-default bg-bg-primary px-3 py-2.5 text-left shadow-lg"
+                          role="tooltip"
+                        >
+                          <p className="whitespace-pre-line text-xs text-text-secondary">
+                            {ENV_IMPORT_TOOLTIP}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={async () => {
+                        const selections = apiKeyManagerRef.current?.getModelSelections() ?? {};
+                        let saved = 0;
+                        for (const [providerId, ids] of Object.entries(selections)) {
+                          if (ids.length > 0) {
+                            await settings.saveModels(
+                              providerId as Parameters<typeof settings.saveModels>[0],
+                              ids.map((modelId, i) => ({ modelId, modelName: modelId, isPrimary: i === 0 }))
+                            );
+                            saved += 1;
+                          }
+                        }
+                        if (saved > 0) await settings.refresh();
+                      }}
+                    >
+                      儲存設定
+                    </Button>
+                  </>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    if (activeTab === 'keys' && settings.keys.length > 0) {
+                      if (typeof window !== 'undefined' && window.confirm('確定要清空所有 API 金鑰嗎？此操作無法復原。')) {
+                        Promise.all(settings.keys.map(k => settings.deleteKey(k.id))).then(() => settings.refresh());
+                      }
+                    } else {
+                      settings.refresh();
+                    }
+                  }}
+                >
+                  <Trash2 size={14} /> 全部清空
+                </Button>
+              </div>
             </div>
 
             <div className="bg-bg-secondary border border-border-default rounded-base p-4 sm:p-5 shadow-sm">
@@ -194,9 +259,11 @@ export default function AIServiceSettingsPage() {
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>已選模型</span>
+                    <span>已選總 models 數量</span>
                     <span className="font-medium text-text-primary">
-                      {settings.models.length}
+                      {activeTab === 'keys' && keysTabModelTotal != null
+                        ? keysTabModelTotal
+                        : settings.models.length}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -225,7 +292,7 @@ export default function AIServiceSettingsPage() {
               </p>
               <ol className="list-decimal list-inside space-y-1 text-xs text-text-secondary">
                 <li>先在「API 金鑰管理」中新增各雲端提供商金鑰。</li>
-                <li>於「模型版本選擇」指定預設模型與備援模型。</li>
+                <li>於「模型費用說明」指定預設模型與備援模型。</li>
                 <li>在「功能模組配置」啟用對應模組並綁定模型。</li>
                 <li>最後在「System Prompt」微調各模組的系統提示詞。</li>
               </ol>

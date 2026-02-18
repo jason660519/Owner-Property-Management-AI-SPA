@@ -14,6 +14,14 @@ export interface AIProviderInfo {
    * so users can quickly create/manage keys.
    */
   apiKeyUrl: string;
+  /** SDK / quickstart documentation URL; when set, shown in card header and "SDK: ..." row is hidden. */
+  sdkDocsUrl?: string;
+  /** Console or API dashboard URL; when set, shown in card header. */
+  dashboardUrl?: string;
+  /** Link text for SDK doc (e.g. "OpenAI Agent SDK Doc"). Default: "{name} SDK Doc". */
+  sdkDocsLabel?: string;
+  /** Link text for dashboard (e.g. "OpenAI API Dashboard"). Default: "{name} Dashboard". */
+  dashboardLabel?: string;
   baseUrl: string;
   keyPrefix: string;
   models: AIModelInfo[];
@@ -52,6 +60,10 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     sdkPackage: 'openai',
     docsUrl: 'https://platform.openai.com/docs/api-reference',
     apiKeyUrl: 'https://platform.openai.com/api-keys',
+    sdkDocsUrl: 'https://openai.github.io/openai-agents-python/quickstart/',
+    dashboardUrl: 'https://platform.openai.com/chat',
+    sdkDocsLabel: 'OpenAI Agent SDK Doc',
+    dashboardLabel: 'OpenAI API Dashboard',
     baseUrl: 'https://api.openai.com/v1',
     keyPrefix: 'sk-',
     models: [
@@ -119,6 +131,10 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     sdkPackage: 'anthropic',
     docsUrl: 'https://docs.anthropic.com/claude/docs',
     apiKeyUrl: 'https://console.anthropic.com/settings/keys',
+    sdkDocsUrl: 'https://docs.anthropic.com/en/docs/get-started',
+    dashboardUrl: 'https://console.anthropic.com/dashboard',
+    sdkDocsLabel: 'Claude SDK Doc',
+    dashboardLabel: 'Anthropic Console',
     baseUrl: 'https://api.anthropic.com/v1',
     keyPrefix: 'sk-ant-',
     models: [
@@ -159,6 +175,10 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     sdkPackage: 'google-generativeai',
     docsUrl: 'https://ai.google.dev/docs',
     apiKeyUrl: 'https://aistudio.google.com/app/apikey',
+    sdkDocsUrl: 'https://ai.google.dev/gemini-api/docs/quickstart',
+    dashboardUrl: 'https://aistudio.google.com/',
+    sdkDocsLabel: 'Gemini SDK Doc',
+    dashboardLabel: 'Google AI Studio',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
     keyPrefix: 'AIza',
     models: [
@@ -208,6 +228,10 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     sdkPackage: 'openai (compatible)',
     docsUrl: 'https://platform.deepseek.com/api-docs',
     apiKeyUrl: 'https://platform.deepseek.com/api_keys',
+    sdkDocsUrl: 'https://api-docs.deepseek.com/',
+    dashboardUrl: 'https://platform.deepseek.com/',
+    sdkDocsLabel: 'DeepSeek API Doc',
+    dashboardLabel: 'DeepSeek Platform',
     baseUrl: 'https://api.deepseek.com/v1',
     keyPrefix: 'sk-',
     models: [
@@ -239,6 +263,10 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     sdkPackage: 'openai (compatible)',
     docsUrl: 'https://docs.x.ai/',
     apiKeyUrl: 'https://accounts.x.ai/sign-up?redirect=cloud-console',
+    sdkDocsUrl: 'https://docs.x.ai/',
+    dashboardUrl: 'https://console.x.ai',
+    sdkDocsLabel: 'Grok API Doc',
+    dashboardLabel: 'xAI Console',
     baseUrl: 'https://api.x.ai/v1',
     keyPrefix: 'xai-',
     models: [

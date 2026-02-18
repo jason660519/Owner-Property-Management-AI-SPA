@@ -74,54 +74,72 @@ export function useAISettings() {
     getUser();
   }, []);
 
-  // ---- Fetch all settings ----
+  const FETCH_TIMEOUT_MS = 15000;
+
   // ---- Fetch all settings ----
   const fetchAll = useCallback(async (silent = false) => {
-    // Wait for real user ID if possible, but don't block too long if using mock
-    // Actually, we should probably wait until we check auth status
-
     if (!silent) setLoading(true);
     setError(null);
     try {
       const headers = { 'x-user-id': userId };
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+      const fetchWithTimeout = (url: string) =>
+        fetch(url, { signal: controller.signal, headers: { ...headers } });
+
       const [keysRes, modelsRes, modulesRes, promptsRes] = await Promise.all([
-        fetch('/api/ai-settings/keys', { headers }),
-        fetch('/api/ai-settings/models', { headers }),
-        fetch('/api/ai-settings/modules', { headers }),
-        fetch('/api/ai-settings/prompts', { headers }),
-      ]);
-      const [keysData, modelsData, modulesData, promptsData] = await Promise.all([
-        keysRes.json(),
-        modelsRes.json(),
-        modulesRes.json(),
-        promptsRes.json(),
-      ]);
+        fetchWithTimeout('/api/ai-settings/keys'),
+        fetchWithTimeout('/api/ai-settings/models'),
+        fetchWithTimeout('/api/ai-settings/modules'),
+        fetchWithTimeout('/api/ai-settings/prompts'),
+      ]).finally(() => clearTimeout(timeoutId));
 
-      // Process keys: Decrypt them if encrypted data is present
-      const rawKeys = keysData.keys || [];
-      const processedKeys = await Promise.all(rawKeys.map(async (key: any) => {
-        let decryptedKey = undefined;
-        // If we have encrypted data, try to decrypt it
-        if (key.api_key_encrypted && key.iv) {
-          try {
-            decryptedKey = await decryptApiKey(key.api_key_encrypted, key.iv);
-          } catch (err) {
-            console.warn(`[AI Settings] Failed to decrypt key for ${key.provider}`, err);
-          }
-        }
-        return { ...key, decryptedKey };
-      }));
+      const keysData = await keysRes.json().catch(() => ({})) as { keys?: unknown[]; error?: string };
+      const modelsData = await modelsRes.json().catch(() => ({})) as { models?: unknown[]; error?: string };
+      const modulesData = await modulesRes.json().catch(() => ({})) as { modules?: unknown[]; error?: string };
+      const promptsData = await promptsRes.json().catch(() => ({})) as { prompts?: unknown[]; error?: string };
 
-      setKeys(processedKeys);
-      setModels(modelsData.models || []);
-      // API 回傳 assigned_function，對應為 module_key 供 UI 使用
-      setModules((modulesData.modules || []).map((m: { assigned_function?: string; module_key?: string }) => ({
+      const failMsg = !keysRes.ok ? (keysData?.error ?? '無法載入金鑰')
+        : !modelsRes.ok ? (modelsData?.error ?? '無法載入模型')
+        : !modulesRes.ok ? (modulesData?.error ?? '無法載入模組')
+        : !promptsRes.ok ? (promptsData?.error ?? '無法載入提示詞') : null;
+      if (failMsg) setError(failMsg);
+
+      const rawKeys = keysRes.ok ? (keysData?.keys ?? []) : [];
+      // 先顯示列表並關閉 loading，避免解密 (PBKDF2) 阻塞造成一直轉圈
+      setKeys(rawKeys.map((key: Record<string, unknown>) => ({ ...key, decryptedKey: undefined })));
+      // 僅在該 API 成功時更新，避免錯誤回應把側欄數字蓋成 0
+      if (modelsRes.ok) setModels(modelsData?.models ?? []);
+      if (modulesRes.ok) setModules((modulesData?.modules ?? []).map((m: { assigned_function?: string; module_key?: string }) => ({
         ...m,
         module_key: m.assigned_function ?? m.module_key ?? '',
       })));
-      setPrompts(promptsData.prompts || []);
+      if (promptsRes.ok) setPrompts(promptsData?.prompts ?? []);
+
+      // 背景解密，完成後再更新 keys（不阻塞 loading）
+      if (rawKeys.length > 0) {
+        Promise.all(
+          rawKeys.map(async (key: Record<string, unknown>) => {
+            let decryptedKey: string | undefined;
+            if (key.api_key_encrypted && key.iv) {
+              try {
+                decryptedKey = await decryptApiKey(
+                  key.api_key_encrypted as string,
+                  key.iv as string
+                );
+              } catch (err) {
+                console.warn(`[AI Settings] Failed to decrypt key for ${key.provider}`, err);
+              }
+            }
+            return { ...key, decryptedKey };
+          })
+        ).then((processedKeys) => setKeys(processedKeys));
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '載入設定失敗');
+      const msg = err instanceof Error && err.name === 'AbortError'
+        ? '載入逾時（超過 15 秒），請檢查網路或稍後再試'
+        : err instanceof Error ? err.message : '載入設定失敗';
+      setError(msg);
     } finally {
       if (!silent) setLoading(false);
     }

@@ -14,7 +14,7 @@
 | 檔案命名總則   | [docs/file-naming-guidelines.md](docs/file-naming-guidelines.md)                                       |
 | UI/UX 設計規範 | [docs/design-guidelines/UNIFIED_DESIGN_STANDARD.md](docs/design-guidelines/UNIFIED_DESIGN_STANDARD.md) |
 | 測試快速參考   | [docs/testing/TEST_QUICK_REFERENCE.md](docs/testing/TEST_QUICK_REFERENCE.md)                           |
-| 工作日誌／進度更新 | [docs/operational-guides/update-project-progress-guide.md](docs/operational-guides/update-project-progress-guide.md) |
+| 工作日誌／進度更新 | [docs/update-project-progress-guide.md](docs/update-project-progress-guide.md) |
 
 ---
 
