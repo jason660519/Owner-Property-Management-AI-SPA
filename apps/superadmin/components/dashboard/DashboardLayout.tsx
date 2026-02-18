@@ -13,6 +13,7 @@ export function DashboardLayout({
   children,
   headerActions,
   currentRole, // Added currentRole
+  fixedContent,
   className = '',
 }: {
   pageTitle: string;
@@ -21,11 +22,13 @@ export function DashboardLayout({
   children: React.ReactNode;
   headerActions?: React.ReactNode;
   currentRole?: string; // Added type definition
+  /** 固定區塊，不參與捲動，插在麵包屑與捲動內容之間 */
+  fixedContent?: React.ReactNode;
   className?: string;
 }) {
   return (
-    <div className={`flex-1 ${className}`}>
-      <div className="bg-bg-tertiary border-b border-border-default px-6 py-4">
+    <div className={`flex-1 flex flex-col min-h-0 ${className}`}>
+      <div className="shrink-0 bg-bg-tertiary border-b border-border-default px-6 py-4">
         <div className="max-w-7xl mx-auto">
           <nav className="flex items-center gap-2 text-sm mb-4">
             {breadcrumbs.map((crumb, index) => (
@@ -52,7 +55,10 @@ export function DashboardLayout({
           </div>
         </div>
       </div>
-      <div className="max-w-7xl mx-auto px-6 py-8">{children}</div>
+      {fixedContent != null ? <div className="shrink-0">{fixedContent}</div> : null}
+      <div className="flex-1 min-h-0 min-w-0 overflow-y-auto">
+        <div className="max-w-7xl mx-auto px-6 py-8">{children}</div>
+      </div>
     </div>
   );
 }

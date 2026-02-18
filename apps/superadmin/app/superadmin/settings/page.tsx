@@ -1,8 +1,13 @@
+// filepath: apps/superadmin/app/superadmin/settings/page.tsx
+// created: 2026-02-17 | Blacklist UI for IP / User-Agent blocking
+
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Settings } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 
 export default function SettingsPage() {
   return (
@@ -17,21 +22,45 @@ export default function SettingsPage() {
     >
       <div className="max-w-6xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-text-primary">一般設定</h1>
+          <h1 className="text-2xl font-bold text-text-primary">Setting</h1>
           <p className="text-sm text-text-muted mt-1">
             系統全域設定與偏好
           </p>
         </div>
 
-        <div className="bg-bg-secondary border border-border-default rounded-base p-8 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-bg-tertiary mb-4">
-            <Settings className="w-8 h-8 text-text-muted" />
-          </div>
-          <h3 className="text-lg font-medium text-text-primary mb-2">設定頁面建置中</h3>
-          <p className="text-text-secondary max-w-md mx-auto">
-            AI 服務設定已移動至專屬頁面。一般系統設定功能即將推出。
-          </p>
+        {/* 黑名單與 AI 設定入口 */}
+        <div className="grid gap-6 md:grid-cols-2 mb-8">
+          <Link href="/superadmin/settings/black_list" className="block">
+            <Card
+              variant="outlined"
+              padding="lg"
+              hoverable
+            >
+              <CardHeader>
+                <CardTitle>黑名單設定</CardTitle>
+                <CardDescription>
+                  設定被封鎖的 IP / CIDR 與 User-Agent，防止惡意爬蟲與攻擊來源。
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+
+          <Link href="/superadmin/settings/api_key_and_model_setting" className="block">
+            <Card
+              variant="outlined"
+              padding="lg"
+              hoverable
+            >
+              <CardHeader>
+                <CardTitle>AI 服務 / API KEY</CardTitle>
+                <CardDescription>
+                  管理 AI 服務提供商金鑰、模型與功能模組設定。
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
         </div>
+
       </div>
     </DashboardLayout>
   );

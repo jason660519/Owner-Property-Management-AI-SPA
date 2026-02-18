@@ -1,0 +1,114 @@
+# 專案進度儀表板更新指南
+
+> **創建日期**: 2026-02-14 | **更新日期**: 2026-02-18 | **位置**: `docs/update-project-progress-guide.md`
+> **用途**: 更新專案開發進度儀表板時，請依本指南操作（欄位、格式、連結規則、流程）。
+
+請將今天的工作內容更新至專案開發進度儀表板。
+
+## 📋 背景說明
+
+- **目標檔案**: `apps/superadmin/app/data/roadmap.ts`
+- **儀表板位置**: http://localhost:3001/superadmin/dashboard/project-progress
+- **今日日期**: （使用時請以當日日期為準）
+
+## 🎯 資料欄位與儀表板對應
+
+請更新或新增 `ROADMAP_DATA.features` 陣列中的物件。以下為欄位與儀表板顯示的對應關係：
+
+| 欄位 (`roadmap.ts`)  | 儀表板欄位名稱 (Header)             | 說明與格式                                                                                                                                                           |
+| ---------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`               | **Feature**                   | 功能名稱                                                                                                                                                             |
+| `category`           | **Category**                  | 工作分類，如 `專案管理與工具 (Project Management)`                                                                                                                 |
+| `acceptanceCriteria` | **Feature Spec URL**          | **(顯示為文字+連結)** 僅列出三個主要功能規格與驗收標準，第四行附上<詳細內容URL><br />可用html或md檔撰寫，並統一把這個檔案放置專案中指定位置（見下方路徑規則） |
+| `docPath`            | **Dev Progress & Log Report** | **(顯示為文字+連結)** 僅列出三個你今天主要的工作內容，第四行附上<詳細內容URL> <br />可用html或md檔撰寫，並統一把這個檔案放置專案中指定位置（見下方路徑規則）   |
+| `testProgress`       | **TEST STANDARD & LOG URL**   | **(顯示為文字+連結)** 僅列出三個主要的測試方法，第四行附上<詳細內容URL><br />可用html或md檔撰寫，並統一把這個檔案放置專案中指定位置（見下方路徑規則）          |
+| `percentage`         | **Dev Progress**              | 開發進度條 (0-100)                                                                                                                                                   |
+| `testCoverage`       | **Test Coverage**             | 測試覆蓋度進度條 (0-100)                                                                                                                                             |
+| `mode`               | **Mode**                      | (新功能) AI 模式，可選值:`'agent'`, `'plan'`, `'chat'`                                                                                                         |
+| `model`              | **MODEL**                     | (新功能) 使用的模型名稱                                                                                                                                              |
+| `aiPrompt`           | **PROMPT**                    | (新功能) 提示詞或設計提示                                                                                                                                            |
+| `lastModifiedBy`     | **Last Modified**             | 最後修改者                                                                                                                                                           |
+| `lastModifiedDate`   | **Last Modified**             | 最後修改日期                                                                                                                                                         |
+
+> ⚠️ **注意**: `devLog` 欄位目前在儀表板中未直接顯示，但建議仍保留在 `roadmap.ts` 中作為詳細記錄。儀表板主要顯示 `docPath` 連結與 `testProgress` 文字。
+
+## 📁 今天的工作檔案放哪裡（工程師必看）
+
+你今天寫的 **開發內容**、**測試內容** 要放在專案裡**固定目錄**，儀表板才能正確顯示連結。對應關係如下：
+
+| 我要寫的內容                             | 檔案放這裡                     | 儀表板欄位 / roadmap 欄位                                          | 填進 roadmap 的路徑範例                                |
+| ---------------------------------------- | ------------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------ |
+| **今天做了什麼（開發日誌）**       | `project-process/dev-logs/`  | **Dev Progress & Log Report**（`docPath`）                 | `/project-process/dev-logs/dev-主題-2026-02-18.md`   |
+| **怎麼測的（測試方法／測試報告）** | `project-process/test-logs/` | **TEST STANDARD & LOG URL**（`testProgress` 裡的詳細 URL） | `/project-process/test-logs/test-主題-2026-02-18.md` |
+| **某個功能的規格／說明（總覽）**   | `project-process/features/`  | **Feature Spec URL** 或 **Dev Progress & Log Report**  | `/project-process/features/功能名-20260218.html`     |
+
+- 檔名要帶日期，例如：`dev-login-portal-2026-02-16.md`、`test-dashboard-refactor-2026-02-13.md`。
+- 若今天**沒有**對應文件，該欄位留空字串 `""` 即可。
+
+---
+
+## 🔗 文件路徑規則（`docPath` 寫法參考）
+
+`docPath` 會變成 **Superadmin 專案檔案檢視器** 的連結。路徑以**專案根目錄**為準，**一律以 `/` 開頭**。
+
+- **放在 `docs/` 底下的文件**（操作指南、設計規範等）：`docPath` 寫 `/docs/子路徑/檔名.md`，例如 `/docs/update-project-progress-guide.md`。
+- **放在專案根目錄其他位置**（如 `project-process/`）：`docPath` 寫 `/project-process/...`，例如 `/project-process/dev-logs/xxx.md`、`/project-process/features/xxx.html`。
+
+若無文件，請留空字串 `""`。
+
+## 🔄 更新流程
+
+1. **讀取現有資料**
+
+   - 讀取 `apps/superadmin/app/data/roadmap.ts`
+2. **任務識別與編號**
+
+   - **項目 ID** 為該項目在 `features` 陣列中的順序 (Index + 1)。
+   - **查詢 ID**:
+
+     ```bash
+     grep -n "name:" apps/superadmin/app/data/roadmap.ts | grep "關鍵字"
+     # 輸出範例: 250: name: "功能名稱" -> 行號 250，需推算它是第幾個 item
+     ```
+
+     更簡單的方式是直接查看儀表板或計算陣列索引。
+3. **新增或更新項目**
+
+   - **更新**: 找到對應的 `name` 或 ID 進行修改。
+   - **新增**: 在 `features` 陣列末尾加入新物件。
+4. **填寫內容**
+
+   - 務必更新 `percentage` (開發進度) 與 `testProgress` (測試進度)。
+   - 若有相關文件，填寫 `docPath`。
+   - 若涉及 AI 開發，填寫 `mode`, `model`, `aiPrompt`。
+5. **寫入檔案**
+
+   - 更新 `apps/superadmin/app/data/roadmap.ts`。
+
+## ✅ 輸出範例
+
+更新完成後，請回應：
+
+```
+✅ 已更新專案進度儀表板
+
+更新項目: [功能名稱]
+ID: #[陣列順序]
+進度: [X]%
+說明:
+- [更新重點1]
+- [更新重點2]
+
+詳細內容已寫入: apps/superadmin/app/data/roadmap.ts
+```
+
+## 📝 常用分類參考
+
+- `超級管理員 (Super Admin)`
+- `買家 (Buyer)`
+- `房東 (Landlord)`
+- `租客 (Tenant)`
+- `通用/系統 (General/System)`
+- `專案管理與工具 (Project Management)`
+- `測試與品質保證 (Testing & QA)`
+- `認證與權限` (可自訂新分類)

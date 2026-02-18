@@ -8,7 +8,7 @@ globs: []
 
 當使用者要求「更新工作日誌」「更新專案進度」「更新 roadmap」「更新儀表板」或類似任務時：
 
-1. **必讀**：[docs/operational-guides/update-project-progress-guide.md](docs/operational-guides/update-project-progress-guide.md)
+1. **必讀**：[docs/update-project-progress-guide.md](docs/update-project-progress-guide.md)
 2. 依該指南的欄位、格式、`docPath`／連結規則與處理流程操作。
 3. 目標檔案：`apps/superadmin/app/data/roadmap.ts`（儀表板讀取）；可選同步 `project-process/roadmap.js`。
 4. 儀表板：http://localhost:3001/superadmin/dashboard/project-progress

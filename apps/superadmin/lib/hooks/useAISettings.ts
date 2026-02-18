@@ -47,11 +47,30 @@ export interface SavedPrompt {
   version: number;
 }
 
+export interface KeyValidationResult {
+  valid: boolean;
+  message: string;
+  modelInfo?: string;
+  availableModels?: string[];
+}
+
+/** DB-backed 組態概況：最近一次「全部驗證」結果 */
+export interface ValidationSummary {
+  validatedCount: number;
+  totalModels: number;
+  updatedAt: string | null;
+}
+
 export function useAISettings() {
   const [keys, setKeys] = useState<SavedKey[]>([]);
   const [models, setModels] = useState<SavedModel[]>([]);
   const [modules, setModules] = useState<SavedModule[]>([]);
   const [prompts, setPrompts] = useState<SavedPrompt[]>([]);
+  const [validationSummary, setValidationSummary] = useState<ValidationSummary>({
+    validatedCount: 0,
+    totalModels: 0,
+    updatedAt: null,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string>(MOCK_USER_ID);
@@ -67,62 +86,94 @@ export function useAISettings() {
     getUser();
   }, []);
 
+  const FETCH_TIMEOUT_MS = 15000;
+
   // ---- Fetch all settings ----
-  const fetchAll = useCallback(async () => {
-    // Wait for real user ID if possible, but don't block too long if using mock
-    // Actually, we should probably wait until we check auth status
-    
-    setLoading(true);
+  const fetchAll = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const headers = { 'x-user-id': userId };
-      const [keysRes, modelsRes, modulesRes, promptsRes] = await Promise.all([
-        fetch('/api/ai-settings/keys', { headers }),
-        fetch('/api/ai-settings/models', { headers }),
-        fetch('/api/ai-settings/modules', { headers }),
-        fetch('/api/ai-settings/prompts', { headers }),
-      ]);
-      const [keysData, modelsData, modulesData, promptsData] = await Promise.all([
-        keysRes.json(),
-        modelsRes.json(),
-        modulesRes.json(),
-        promptsRes.json(),
-      ]);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+      // cache: 'no-store' + cache-bust 避免導入後重整仍拿到舊的（空）金鑰列表
+      const keysUrl = `/api/ai-settings/keys?_=${Date.now()}`;
+      const fetchWithTimeout = (url: string) =>
+        fetch(url, { signal: controller.signal, headers: { ...headers }, cache: 'no-store' });
 
-      // Process keys: Decrypt them if encrypted data is present
-      const rawKeys = keysData.keys || [];
-      const processedKeys = await Promise.all(rawKeys.map(async (key: any) => {
-        let decryptedKey = undefined;
-        // If we have encrypted data, try to decrypt it
-        if (key.api_key_encrypted && key.iv) {
-          try {
-            decryptedKey = await decryptApiKey(key.api_key_encrypted, key.iv);
-          } catch (err) {
-            console.warn(`[AI Settings] Failed to decrypt key for ${key.provider}`, err);
-          }
-        }
-        return { ...key, decryptedKey };
-      }));
+      const [keysRes, modelsRes, modulesRes, promptsRes, summaryRes] = await Promise.all([
+        fetchWithTimeout(keysUrl),
+        fetchWithTimeout('/api/ai-settings/models'),
+        fetchWithTimeout('/api/ai-settings/modules'),
+        fetchWithTimeout('/api/ai-settings/prompts'),
+        fetchWithTimeout('/api/ai-settings/summary'),
+      ]).finally(() => clearTimeout(timeoutId));
 
-      setKeys(processedKeys);
-      setModels(modelsData.models || []);
-      // API 回傳 assigned_function，對應為 module_key 供 UI 使用
-      setModules((modulesData.modules || []).map((m: { assigned_function?: string; module_key?: string }) => ({
-        ...m,
-        module_key: m.assigned_function ?? m.module_key ?? '',
-      })));
-      setPrompts(promptsData.prompts || []);
+      const keysData = await keysRes.json().catch(() => ({})) as { keys?: unknown[]; error?: string };
+      const modelsData = await modelsRes.json().catch(() => ({})) as { models?: unknown[]; error?: string };
+      const modulesData = await modulesRes.json().catch(() => ({})) as { modules?: unknown[]; error?: string };
+      const promptsData = await promptsRes.json().catch(() => ({})) as { prompts?: unknown[]; error?: string };
+      const summaryData = await summaryRes.json().catch(() => ({})) as { summary?: ValidationSummary; error?: string };
+
+      const failMsg = !keysRes.ok ? (keysData?.error ?? '無法載入金鑰')
+        : !modelsRes.ok ? (modelsData?.error ?? '無法載入模型')
+        : !modulesRes.ok ? (modulesData?.error ?? '無法載入模組')
+        : !promptsRes.ok ? (promptsData?.error ?? '無法載入提示詞') : null;
+      if (failMsg) setError(failMsg);
+
+      const rawKeys = (keysRes.ok ? (keysData?.keys ?? []) : []) as Record<string, unknown>[];
+      // 先顯示列表並關閉 loading，避免解密 (PBKDF2) 阻塞造成一直轉圈
+      setKeys(
+        rawKeys.map((key) => ({ ...key, decryptedKey: undefined })) as SavedKey[]
+      );
+      // 僅在該 API 成功時更新，避免錯誤回應把側欄數字蓋成 0
+      if (modelsRes.ok) setModels((modelsData?.models ?? []) as SavedModel[]);
+      if (modulesRes.ok) {
+        const modules = (modulesData?.modules ?? []) as { assigned_function?: string; module_key?: string }[];
+        setModules(modules.map((m) => ({
+          ...m,
+          module_key: m.assigned_function ?? m.module_key ?? '',
+        })) as SavedModule[]);
+      }
+      if (promptsRes.ok) setPrompts((promptsData?.prompts ?? []) as SavedPrompt[]);
+      if (summaryRes.ok && summaryData?.summary) {
+        setValidationSummary(summaryData.summary);
+      }
+
+      // 背景解密，完成後再更新 keys（不阻塞 loading）
+      if (rawKeys.length > 0) {
+        Promise.all(
+          rawKeys.map(async (key: Record<string, unknown>) => {
+            let decryptedKey: string | undefined;
+            if (key.api_key_encrypted && key.iv) {
+              try {
+                decryptedKey = await decryptApiKey(
+                  key.api_key_encrypted as string,
+                  key.iv as string
+                );
+              } catch (err) {
+                console.warn(`[AI Settings] Failed to decrypt key for ${key.provider}`, err);
+              }
+            }
+            return { ...key, decryptedKey };
+          })
+        ).then((processedKeys) => setKeys(processedKeys as SavedKey[]));
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '載入設定失敗');
+      const msg = err instanceof Error && err.name === 'AbortError'
+        ? '載入逾時（超過 15 秒），請檢查網路或稍後再試'
+        : err instanceof Error ? err.message : '載入設定失敗';
+      setError(msg);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [userId]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   // ---- API Key Operations ----
-  const saveKey = async (provider: AIProvider, rawKey: string) => {
+  /** skipRefresh: 批量導入時使用，避免每筆儲存都觸發 fetchAll 造成畫面閃爍 */
+  const saveKey = useCallback(async (provider: AIProvider, rawKey: string, options?: { skipRefresh?: boolean }) => {
     const { encrypted, iv } = await encryptApiKey(rawKey);
     const res = await fetch('/api/ai-settings/keys', {
       method: 'POST',
@@ -131,31 +182,40 @@ export function useAISettings() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    await fetchAll();
+    if (options?.skipRefresh !== true) await fetchAll();
     return data.key;
-  };
+  }, [userId, fetchAll]);
 
-  const deleteKey = async (keyId: string) => {
+  const deleteKey = useCallback(async (keyId: string) => {
     const res = await fetch(`/api/ai-settings/keys?id=${keyId}&userId=${userId}`, {
       method: 'DELETE',
     });
     if (!res.ok) throw new Error('刪除失敗');
     await fetchAll();
-  };
+  }, [userId, fetchAll]);
 
-  const validateKey = async (provider: AIProvider, apiKey: string, keyId?: string) => {
-    const res = await fetch('/api/ai-settings/keys/validate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, apiKey, keyId, userId }),
-    });
-    const result = await res.json();
-    if (keyId) await fetchAll();
-    return result as { valid: boolean; message: string; modelInfo?: string };
-  };
+  const validateKey = useCallback(
+    async (
+      provider: AIProvider,
+      apiKey: string,
+      keyId?: string,
+      options?: { skipRefresh?: boolean }
+    ) => {
+      const res = await fetch('/api/ai-settings/keys/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, apiKey, keyId, userId }),
+      });
+      const result = (await res.json()) as KeyValidationResult & { error?: string };
+      // Single-key validation UI: refresh so is_valid badge updates. Batch 全部驗證: caller will refresh once.
+      if (keyId && options?.skipRefresh !== true) await fetchAll(true);
+      return result;
+    },
+    [userId, fetchAll]
+  );
 
   // ---- Model Operations ----
-  const saveModels = async (
+  const saveModels = useCallback(async (
     provider: AIProvider,
     selections: { modelId: string; modelName: string; isPrimary: boolean }[]
   ) => {
@@ -165,11 +225,11 @@ export function useAISettings() {
       body: JSON.stringify({ userId, provider, selections }),
     });
     if (!res.ok) throw new Error('儲存模型選擇失敗');
-    await fetchAll();
-  };
+    await fetchAll(true);
+  }, [userId, fetchAll]);
 
   // ---- Module Operations ----
-  const saveModule = async (
+  const saveModule = useCallback(async (
     moduleKey: string,
     isEnabled: boolean,
     assignedProvider?: string,
@@ -183,10 +243,10 @@ export function useAISettings() {
     });
     if (!res.ok) throw new Error('儲存模組設定失敗');
     await fetchAll();
-  };
+  }, [userId, fetchAll]);
 
   // ---- Prompt Operations ----
-  const savePrompt = async (
+  const savePrompt = useCallback(async (
     moduleKey: string,
     provider: string,
     promptContent: string,
@@ -199,7 +259,7 @@ export function useAISettings() {
     });
     if (!res.ok) throw new Error('儲存 Prompt 失敗');
     await fetchAll();
-  };
+  }, [userId, fetchAll]);
 
   // ---- Export / Import ----
   const exportSettings = async () => {
@@ -220,14 +280,45 @@ export function useAISettings() {
     return res.json();
   };
 
+  /** 一鍵清空雲端：API 金鑰、已選模型、功能模組、System Prompt */
+  const clearAll = useCallback(async () => {
+    const res = await fetch('/api/ai-settings/clear-all', {
+      method: 'POST',
+      headers: { 'x-user-id': userId },
+    });
+    if (!res.ok) throw new Error('清空失敗');
+    await fetchAll();
+  }, [userId, fetchAll]);
+
+  /** 靜默重整：不設 loading，避免勾選模型後畫面閃爍 */
+  const refreshSilent = useCallback(() => fetchAll(true), [fetchAll]);
+
+  /** 儲存「全部驗證」結果到 DB，供組態概況與 Supabase 同步 */
+  const saveValidationSummary = useCallback(
+    async (validatedCount: number, totalModels: number) => {
+      const res = await fetch('/api/ai-settings/summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+        body: JSON.stringify({ validatedCount, totalModels }),
+      });
+      if (!res.ok) throw new Error('儲存組態概況失敗');
+      const data = (await res.json()) as { summary?: ValidationSummary };
+      if (data.summary) setValidationSummary(data.summary);
+    },
+    [userId]
+  );
+
   return {
-    keys, models, modules, prompts,
+    keys, models, modules, prompts, validationSummary,
     loading, error,
     saveKey, deleteKey, validateKey,
     saveModels, saveModule,
     savePrompt,
     exportSettings, importSettings,
+    clearAll,
+    saveValidationSummary,
     refresh: fetchAll,
+    refreshSilent,
     userId,
   };
 }

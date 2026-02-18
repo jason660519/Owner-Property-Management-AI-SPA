@@ -17,9 +17,11 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command: 'npm run start',
-    url: 'http://localhost:3001',
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: process.env.PW_NO_WEBSERVER
+    ? undefined
+    : {
+        command: 'npm run start',
+        url: 'http://localhost:3001',
+        reuseExistingServer: !process.env.CI,
+      },
 });

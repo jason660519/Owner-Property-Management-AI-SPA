@@ -18,7 +18,8 @@ import {
   FileBarChart, 
   Settings,
   Bot,
-  BookOpen
+  BookOpen,
+  Key
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -44,7 +45,6 @@ const navItems: NavItem[] = [
   { name: 'IAM Audit', href: '/superadmin/dashboard/iam-audit', icon: FileBarChart },
   { name: 'Project Progress Dashboard', href: '/superadmin/dashboard/project-progress', icon: FileText },
   { name: 'Project Files', href: '/superadmin/docs', icon: BookOpen },
-  { name: 'AI Service', href: '/superadmin/ai-service', icon: Bot },
   { name: 'Settings', href: '/superadmin/settings', icon: Settings },
 ];
 

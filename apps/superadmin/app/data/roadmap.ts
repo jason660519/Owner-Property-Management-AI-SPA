@@ -17,10 +17,18 @@ export interface RoadmapFeature {
   lastModifiedDate?: string;
   acceptanceCriteria?: string;
   devLog?: string;
+  /** 開發進度與日誌報告文件路徑，於儀表板「開發進度與日誌報告URL」欄顯示為連結 */
+  devLogDocPath?: string;
   featureDescription?: string;
   workCategory?: string;
   developmentProgress?: string;
   testLog?: string;
+  /** 模式（例如 chat/tool/voice），於儀表板「Mode」欄顯示 */
+  mode?: string;
+  /** 模型名稱，於儀表板「MODEL」欄顯示 */
+  model?: string;
+  /** 提示詞／設計提示，於儀表板「PROMPT」欄顯示 */
+  aiPrompt?: string;
 }
 
 export interface RoadmapData {
@@ -29,7 +37,7 @@ export interface RoadmapData {
 }
 
 export const ROADMAP_DATA: RoadmapData = {
-    lastUpdated: "2026/02/16",
+    lastUpdated: "2026/02/18",
     features: [
         // 超級管理員
         { 
@@ -42,6 +50,7 @@ export const ROADMAP_DATA: RoadmapData = {
             lastModifiedBy: "Trae AI", 
             lastModifiedDate: "2026/02/13",
             devLog: "[2026/02/13] (Trae AI)\n• 完成儀表板進度頁面重構，支援 9 欄位動態調整寬度\n• 實作欄位順序優化與雙語標題顯示\n• 新增 `dev-logs` 與 `test-logs` 資料夾結構\n詳見: [開發日誌](../dev-logs/dev-dashboard-refactor-2026-02-13.md)",
+            devLogDocPath: "/project-process/dev-logs/dev-dashboard-refactor-2026-02-13.md",
             testProgress: "[2026/02/13] (Trae AI)\n• UI/UX 功能測試通過 (欄位拖曳、記憶還原、RWD)\n詳見: [測試日誌](../test-logs/test-dashboard-refactor-2026-02-13.md)",
             testCoverage: 0 
         },
@@ -261,6 +270,19 @@ export const ROADMAP_DATA: RoadmapData = {
             testCoverage: 0,
             lastModifiedBy: "Claude Sonnet 4.5",
             lastModifiedDate: "2026/02/16-23:30"
+        },
+        // 超級管理員 - AI 服務設定（API 金鑰與模型）
+        {
+            name: "超級管理員-AI 服務設定（API 金鑰與模型費用）",
+            percentage: 85,
+            acceptanceCriteria: "1. API 金鑰管理：從 .env 導入、單筆/全部刪除、金鑰驗證。\n2. 未登入時以 resolveUserId fallback 寫入/讀取 Supabase（keys/models/modules/prompts）。\n3. 側欄組態概況：已選總 models 數量即時反映各 provider 勾選加總。\n4. 儲存設定按鈕：將畫面上已選模型寫入 ai_model_selections。\n5. 分頁命名：模型費用說明；說明文案導向「模型費用說明」分頁。",
+            docPath: "/docs/update-project-progress-guide.md",
+            category: "超級管理員 (Super Admin)",
+            points: 5,
+            testProgress: "手動驗證：從 .env 導入、全部清空、單筆刪除、驗證金鑰、儲存設定、側欄數字更新。",
+            testCoverage: 0,
+            lastModifiedBy: "Claude (Auto)",
+            lastModifiedDate: "2026/02/18"
         }
     ]
 };

@@ -25,6 +25,9 @@
 
 ## 🚀 快速開始
 
+> 📖 **測試帳號**: 請參閱 [測試帳號參考文檔](./docs/operational-guides/deployment-guides/TEST_ACCOUNTS_REFERENCE.md)  
+> 🔑 **本地測試密碼**: 所有測試帳號統一使用 `!qaz2wsX`
+
 ### 開發環境
 
 ```bash
@@ -249,6 +252,7 @@ npx supabase gen types typescript --local > apps/web/lib/database.types.ts
 ### 開發指南
 
 - [開發環境快速啟動](./docs/operational-guides/deployment-guides/quick-start-guide.md)
+- [測試帳號參考](./docs/operational-guides/deployment-guides/TEST_ACCOUNTS_REFERENCE.md) 🔐
 - [檔案命名規則](./docs/本專案檔案命名規則與新增文件歸檔總則.md)
 
 ---

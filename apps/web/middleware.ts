@@ -24,6 +24,9 @@ export async function middleware(request: NextRequest) {
           );
         },
       },
+      cookieOptions: {
+        name: 'sb-localhost-auth-token',
+      },
     }
   );
 

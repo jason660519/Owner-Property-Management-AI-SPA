@@ -87,22 +87,45 @@ python minimal_app.py
 
 ### 測試帳號
 
-如果您沒有測試帳號，可以：
+> 📖 **完整測試帳號資訊**: 請參閱 [測試帳號參考文檔](./TEST_ACCOUNTS_REFERENCE.md)
 
-1. **註冊新帳號**: 訪問 http://localhost:3000/register
-2. **使用超級管理員帳號**（需先創建）
+**本地開發環境測試帳號（統一密碼：`!qaz2wsX`）**：
+
+| Email | 密碼 | 角色 | 用途 |
+|-------|------|------|------|
+| `a0426788981@gmail.com` | `!qaz2wsX` | landlord | 主要開發測試（房東） |
+| `awsjasonyu@gmail.com` | `!qaz2wsX` | 多角色 | 多角色測試 |
+| `a0405142777@gmail.com` | `!qaz2wsX` | 多角色 | 備用測試帳號 |
+
+**如果您沒有測試帳號，可以**：
+
+1. **使用上述測試帳號**: 直接登入進行開發測試
+2. **註冊新帳號**: 訪問 http://localhost:3000/register
+3. **使用超級管理員帳號**（需先創建）
 
 ### 忘記密碼？
+
+#### 方法 1：使用重設密碼腳本（推薦）
+
+```bash
+# 重設為標準測試密碼
+npx tsx scripts/reset_password.ts <email> '!qaz2wsX'
+
+# 範例
+npx tsx scripts/reset_password.ts a0426788981@gmail.com '!qaz2wsX'
+```
+
+#### 方法 2：使用忘記密碼功能
 
 如果忘記超級管理員密碼：
 
 1. 訪問 http://localhost:3000/forgot-password
 2. 輸入註冊時使用的 email
-3. 檢查郵箱（本地開發查看 Supabase 日誌）
+3. 檢查郵箱（本地開發查看 Mailpit: http://localhost:54324）
 4. 點擊重設連結
 5. 設定新密碼
 
-### 重設超級管理員密碼（開發環境）
+#### 方法 3：直接使用 SQL 重設（進階）
 
 如果 email 服務未配置，可以直接通過 SQL 重設密碼：
 
@@ -155,6 +178,8 @@ SELECT id, email, raw_user_meta_data FROM auth.users;
 ```
 
 ## 🐛 常見問題排查
+
+> 💡 **提示**: 更多測試帳號管理工具和問題排查，請參閱 [測試帳號參考文檔](./TEST_ACCOUNTS_REFERENCE.md)
 
 ### 問題 1: 登錄失敗 "Request interrupted by user"
 

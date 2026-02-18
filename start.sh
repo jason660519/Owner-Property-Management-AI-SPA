@@ -181,6 +181,11 @@ start_all() {
     echo -e "   • Supabase Studio:  http://localhost:54323"
     echo -e "   • Mailpit (Email):  http://localhost:54324"
     echo -e "   • Logs:             $LOG_DIR/"
+    echo ""
+    echo -e "${YELLOW}📝 測試帳號資訊${NC}"
+    echo -e "   • 測試 Email:       a0426788981@gmail.com"
+    echo -e "   • 統一密碼:         !qaz2wsX"
+    echo -e "   • 詳細資訊:         docs/operational-guides/deployment-guides/TEST_ACCOUNTS_REFERENCE.md"
 }
 
 clean_cache() {

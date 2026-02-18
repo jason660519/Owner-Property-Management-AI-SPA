@@ -6,7 +6,7 @@
 
 | 檔案／目錄 | 說明 |
 |------------|------|
-| [update-project-progress-guide.md](./update-project-progress-guide.md) | 專案進度儀表板與工作日誌更新（roadmap、devLog、docPath） |
+| [update-project-progress-guide.md](../update-project-progress-guide.md) | 專案進度儀表板與工作日誌更新（roadmap、devLog、docPath） |
 | [iam/](./iam/) | IAM 權限架構、SOP、Option A 實作計畫、回歸測試檢查表 |
 | [VLM/](../VLM/README.md) | VLM 文件掃描功能文檔中心（含快速啟動、測試就緒、實作總結等） |
 | [deployment-guides/](./deployment-guides/) | 部署與環境相關操作（快速啟動、雲端平台選擇、Claude Code 整合等） |
