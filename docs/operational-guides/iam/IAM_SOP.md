@@ -10,9 +10,10 @@ This document outlines the procedures for managing user identities, groups, and 
 
 ### 2.1 New Customer (Tenant/Buyer)
 1.  **Registration**: User signs up via `/register`. Default role: `authenticated`.
-2.  **Verification**: User verifies email.
-3.  **Assignment**:
-    *   **Potential**: Auto-assigned to `Potential Tenants` or `Potential Buyers` based on onboarding survey.
+2.  **Profile creation**: When `users_profile` is first created, the user is **auto-added to the Registered Users group** (trigger), so they are no longer group-orphans.
+3.  **Verification**: User verifies email.
+4.  **Assignment**:
+    *   **Potential**: Auto-assigned to `Potential Tenants` or `Potential Buyers` based on onboarding survey (can be in addition to or instead of Registered Users, per policy).
     *   **Contracted**: System automatically adds user to `Active Tenants` or `Active Buyers` upon contract signature validation.
 
 ### 2.2 New Staff / Partner

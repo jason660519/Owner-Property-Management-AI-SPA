@@ -105,6 +105,7 @@ graph TD
 | **Potential Buyers** | `potential_buyer` | Users interested in buying | `potential_buyer` |
 | **Vendors** | `vendor_group` | Service providers (cleaning, repair) | `vendor` |
 | **Financial Auditors** | `auditor_group` | External financial auditors | `auditor` |
+| **Registered Users** | `registered_users` | Signed up but not yet in any business group | `register` |
 
 ---
 
@@ -140,6 +141,9 @@ The system uses `public.iam_groups`, `public.iam_roles`, and junction tables for
 *   `iam_roles`: Stores granular capabilities.
 *   `iam_group_roles`: Maps capabilities to groups.
 *   `iam_group_members`: Maps users to groups.
+
+### 3.1.1 Registered Users auto-assignment
+When a new row is created in `users_profile`, a trigger (`ensure_registered_users_group_on_profile_insert`) runs and, if the user has no other IAM group membership, adds them to the **Registered Users** group. Existing users with a profile but no group membership are backfilled into Registered Users by migration `20260219120000_auto_assign_registered_users_group.sql`. Logic: `ensure_user_in_registered_users_group(uuid)`.
 
 ### 3.2 Role Inheritance
 Inheritance is implemented via **additive permissions**. A user belonging to the **Security Operations Center** group automatically inherits:

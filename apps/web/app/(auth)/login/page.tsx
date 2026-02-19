@@ -23,7 +23,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { signInWithGoogle, signInWithFacebook } from '@/lib/supabase/auth';
-import { acceptInviteCode, getUserRoles, signInWithPasswordAction, syncUserRolesToAuthMetadata } from '@/app/actions/auth';
+import { acceptInviteCode, getUserRoles, signInWithPasswordAction, syncUserRolesToAuthMetadata } from '@/lib/actions/auth';
 import { normalizeRoles } from '@/lib/roles';
 import Link from 'next/link';
 

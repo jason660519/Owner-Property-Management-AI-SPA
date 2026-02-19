@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Ca
 import { Button } from '@/components/ui/Button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/Alert';
 import { Loader2, LogOut, ShieldCheck, AlertCircle, PlusCircle } from 'lucide-react';
-import { getUserRoles } from '@/app/actions/auth';
+import { getUserRoles } from '@/lib/actions/auth';
 import { ROLE_METADATA } from '@/config/roles';
 import type { RoleMetadata } from '@/config/roles';
 import { canonicalizeRole } from '@/lib/roles';

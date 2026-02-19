@@ -1,6 +1,6 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import PortalPage from '../page';
-import { getUserRoles } from '@/app/actions/auth';
+import { getUserRoles } from '@/lib/actions/auth';
 import { createClient } from '@/lib/supabase/client';
 import { ROLE_METADATA } from '@/config/roles';
 

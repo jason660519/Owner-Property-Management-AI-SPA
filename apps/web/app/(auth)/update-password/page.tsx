@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card'
 import { updatePassword } from '@/lib/supabase/auth'
-import { createClient } from '@/lib/supabase/client'
+import type { MeProfileResponse } from '@/app/api/me/profile/route'
 import { ROLE_METADATA } from '@/config/roles'
 import { canonicalizeRole } from '@/lib/roles'
 import Link from 'next/link'
@@ -81,19 +81,10 @@ export default function ResetPasswordPage() {
       // Determine redirect target based on user's roles (check profile table first, then metadata)
       let redirectPath = '/portal'
       try {
-        const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          // Try profile table first (more reliable since acceptInviteCode writes here)
-          const { data: profile } = await supabase
-            .from('users_profile')
-            .select('roles, primary_role')
-            .eq('id', user.id)
-            .single()
-
-          const roles: string[] = profile?.roles || user.app_metadata?.roles || user.user_metadata?.roles || []
-          const primaryRole = profile?.primary_role || (roles.length === 1 ? roles[0] : null)
-
+        const res = await fetch('/api/me/profile')
+        if (res.ok) {
+          const data: MeProfileResponse = await res.json()
+          const { roles, primary_role: primaryRole } = data
           if (roles.includes('super_admin') || roles.length > 1) {
             redirectPath = '/portal'
           } else if (primaryRole) {

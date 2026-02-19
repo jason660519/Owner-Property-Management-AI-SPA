@@ -19,7 +19,7 @@ import * as z from 'zod';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
-import { signUpWithRole } from '@/app/actions/auth';
+import { signUpWithRole } from '@/lib/actions/auth';
 import Link from 'next/link';
 
 const registerSchema = z

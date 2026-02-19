@@ -14,8 +14,8 @@ import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Home, Key, ShoppingCart, DollarSign, ArrowLeft } from 'lucide-react';
-import { addUserRole } from '@/app/actions/onboarding';
-import { getUserRoles } from '@/app/actions/auth';
+import { addUserRole } from '@/lib/actions/onboarding';
+import { getUserRoles } from '@/lib/actions/auth';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 

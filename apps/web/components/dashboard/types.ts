@@ -1,59 +1,18 @@
-/**
- * @file types.ts
- * @created 2026-02-05
- * @creator Claude Sonnet 4.5
- * @description TypeScript type definitions for Dashboard components
- */
-
-import { LucideIcon } from 'lucide-react'
 import type { UserRole, RoleMetadata } from '@/config/roles'
 
 export type { UserRole, RoleMetadata }
 
-/**
- * Badge variant types for progress links
- */
-export type BadgeVariant = 'info' | 'warning' | 'success' | 'error' | 'default'
+export type {
+  BadgeVariant,
+  ProgressLink,
+  TrendIndicator,
+  KPIConfig,
+  KPILoadingState,
+} from '@repo/shared-types'
 
-/**
- * Progress link configuration
- * Represents a clickable link with optional badge in KPI cards
- */
-export interface ProgressLink {
-  label: string
-  href: string
-  query?: Record<string, string>
-  badge?: {
-    count: number
-    variant: BadgeVariant
-  }
-}
+// Re-import for local use in DashboardConfig
+import type { KPIConfig } from '@repo/shared-types'
 
-/**
- * Trend indicator for KPI values
- */
-export interface TrendIndicator {
-  value: number // Percentage change (e.g., 12.5 means +12.5%)
-  direction: 'up' | 'down'
-  label: string // Description (e.g., "vs last month")
-}
-
-/**
- * KPI Card configuration
- * Represents a single KPI metric card in the dashboard
- */
-export interface KPIConfig {
-  title: string
-  value: number | string
-  icon: LucideIcon
-  color: string // Tailwind color class (e.g., "text-blue-500")
-  trend?: TrendIndicator
-  progressLinks: ProgressLink[]
-}
-
-/**
- * Dashboard configuration for each role
- */
 export interface DashboardConfig {
   role: UserRole
   pageTitle: string
@@ -62,14 +21,5 @@ export interface DashboardConfig {
     href?: string
   }>
   kpis: KPIConfig[]
-  greeting?: string // Custom greeting message
-}
-
-/**
- * Loading state for KPI cards
- */
-export interface KPILoadingState {
-  isLoading: boolean
-  error?: string
-  isEmpty?: boolean
+  greeting?: string
 }

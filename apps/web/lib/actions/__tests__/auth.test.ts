@@ -1,4 +1,4 @@
-import { signUpWithRole } from '@/app/actions/auth';
+import { signUpWithRole } from '@/lib/actions/auth';
 
 jest.mock('@supabase/supabase-js', () => ({
   createClient: jest.fn(() => ({

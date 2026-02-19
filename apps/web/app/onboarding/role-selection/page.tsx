@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Home, Key, ShoppingCart, DollarSign } from 'lucide-react';
-import { createUserProfile } from '@/app/actions/onboarding';
+import { createUserProfile } from '@/lib/actions/onboarding';
 
 type RoleOption = {
   id: string;

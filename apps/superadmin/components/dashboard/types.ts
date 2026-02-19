@@ -1,31 +1,7 @@
-import type { LucideIcon } from 'lucide-react';
-
-export type BadgeVariant = 'info' | 'warning' | 'success' | 'error' | 'default';
-
-export interface ProgressLink {
-  label: string;
-  href: string;
-  query?: Record<string, string>;
-  badge?: { count: number; variant: BadgeVariant };
-}
-
-export interface TrendIndicator {
-  value: number;
-  direction: 'up' | 'down';
-  label: string;
-}
-
-export interface KPIConfig {
-  title: string;
-  value: number | string;
-  icon: LucideIcon;
-  color: string;
-  trend?: TrendIndicator;
-  progressLinks: ProgressLink[];
-}
-
-export interface KPILoadingState {
-  isLoading: boolean;
-  error?: string;
-  isEmpty?: boolean;
-}
+export type {
+  BadgeVariant,
+  ProgressLink,
+  TrendIndicator,
+  KPIConfig,
+  KPILoadingState,
+} from '@repo/shared-types';

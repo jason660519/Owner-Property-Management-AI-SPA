@@ -25,29 +25,24 @@
 
 ## 🚀 快速開始
 
-> 📖 **測試帳號**: 請參閱 [測試帳號參考文檔](./docs/operational-guides/deployment-guides/TEST_ACCOUNTS_REFERENCE.md)  
+> 📖 **測試帳號**: 請參閱 [測試帳號參考文檔](./docs/operational-guides/deployment-guides/TEST_ACCOUNTS_REFERENCE.md)
 > 🔑 **本地測試密碼**: 所有測試帳號統一使用 `!qaz2wsX`
 
 ### 開發環境
 
+**Step 1：開啟 Docker Desktop**（Supabase 本地服務需要 Docker）
+
+**Step 2：執行啟動腳本**
+
 ```bash
-# 1. 安裝依賴
-npm install
-
-# 2. 啟動 Web 開發服務器
-cd apps/web
-npm run dev
-
-# 3. 啟動開發進度儀表板 (Project Process Dashboard)
-# 訪問: http://localhost:3001/superadmin/dashboard/project-progress
-# （整合至 Superadmin 後台）
-cd apps/superadmin && npm run dev
-
-# 4. 訪問應用
-# 主站 (房東/租客/買家): http://localhost:3000
-# Superadmin 後台: http://localhost:3001/superadmin/dashboard
-# 手機: http://[你的IP]:3000
+./start.sh        # 互動式選單（推薦）
+./start.sh all    # 一鍵啟動全部服務
 ```
+
+啟動後訪問：
+- 主站 (房東/租客/買家)：http://localhost:3000
+- Superadmin 後台：http://localhost:3001/superadmin/dashboard
+- 開發進度儀表板：http://localhost:3001/superadmin/dashboard/project-progress
 
 ### 查看本機 IP (供手機訪問)
 
@@ -385,5 +380,5 @@ Private - All Rights Reserved
 
 ---
 
-**最後更新**: 2026-02-13
-**版本**: 2.1 (修復本地開發伺服器當機問題)
+**最後更新**: 2026-02-19
+**版本**: 2.2

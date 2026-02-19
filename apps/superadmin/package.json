@@ -10,6 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@repo/shared-types": "*",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.93.3",
     "@tanstack/react-table": "^8.21.3",

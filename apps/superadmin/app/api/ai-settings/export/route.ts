@@ -99,18 +99,30 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Import feature modules（DB 欄位為 assigned_function；匯入檔可能為 module_key 或 assigned_function）
+    // Import feature modules（DB 欄位為 assigned_function；支援 assigned_models 複選）
     if (importData.modules?.length) {
       for (const mod of importData.modules) {
         const assignedFunction = mod.assigned_function ?? mod.module_key;
         if (!assignedFunction) continue;
+        const models = Array.isArray(mod.assigned_models)
+          ? mod.assigned_models
+              .filter((x: unknown) => x && typeof x === 'object' && 'provider' in x && 'model' in x)
+              .map((x: Record<string, unknown>, i: number) => ({
+                provider: x.provider,
+                model: x.model,
+                priority: typeof x.priority === 'number' && x.priority >= 1 && x.priority <= 100 ? x.priority : i + 1,
+              }))
+          : mod.assigned_provider && mod.assigned_model
+            ? [{ provider: mod.assigned_provider, model: mod.assigned_model, priority: 1 }]
+            : [];
         await supabase.from('ai_modules_assigned_function').upsert(
           {
             user_id: userId,
             assigned_function: assignedFunction,
             is_enabled: mod.is_enabled,
-            assigned_provider: mod.assigned_provider,
-            assigned_model: mod.assigned_model,
+            assigned_models: models,
+            assigned_provider: models[0]?.provider ?? mod.assigned_provider ?? null,
+            assigned_model: models[0]?.model ?? mod.assigned_model ?? null,
             config: mod.config || {},
           },
           { onConflict: 'user_id,assigned_function' }

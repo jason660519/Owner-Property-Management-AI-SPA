@@ -26,7 +26,7 @@
 | `agent` | 仲介 |
 | `vendor` | 服務提供者／供應商 |
 | `auditor` | 稽核／唯讀財務 |
-| `register` | 已註冊但尚未加入群組（sync 預設） |
+| `register` | 已註冊但尚未加入群組（sync 預設）；新用戶建立 profile 時會自動加入 **Registered Users** 群組 |
 | `unregister` | 未註冊／訪客 |
 | `system_engineer` | 系統工程師 |
 | `cybersecurity_engineer` | 資安工程師 |

@@ -2,55 +2,32 @@
  * @file DashboardHeader.tsx
  * @created 2026-02-03
  * @creator Antigravity
- * @lastModified 2026-02-13
+ * @lastModified 2026-02-19
  * @modifiedBy Claude Opus 4.6
- * @version 1.1
+ * @version 1.2
  */
 
 'use client';
 
 import React from 'react';
 import { UserNav } from '@/components/ui/UserNav';
-import { createClient } from '@/lib/supabase/client';
 import { useEffect, useState } from 'react';
-import { User } from '@supabase/supabase-js';
-
-interface UserProfile {
-  full_name?: string;
-  avatar_url?: string;
-  primary_role?: string;
-}
+import type { MeProfileResponse } from '@/app/api/me/profile/route';
 
 export function DashboardHeader() {
-  const [user, setUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [profile, setProfile] = useState<MeProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      const {
-        data: { user: currentUser },
-      } = await supabase.auth.getUser();
-
-      if (currentUser) {
-        setUser(currentUser);
-
-        const { data: profile } = await supabase
-          .from('users_profile')
-          .select('full_name, avatar_url, primary_role')
-          .eq('user_id', currentUser.id)
-          .single();
-
-        if (profile) {
-          setUserProfile(profile);
-        }
+    async function load() {
+      try {
+        const res = await fetch('/api/me/profile');
+        if (res.ok) setProfile(await res.json());
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
-    };
-
-    fetchUserData();
+    }
+    load();
   }, []);
 
   if (loading) {
@@ -68,7 +45,16 @@ export function DashboardHeader() {
       </div>
 
       <div className="flex items-center gap-4">
-        {user && <UserNav user={user} userProfile={userProfile || undefined} />}
+        {profile && (
+          <UserNav
+            user={{ email: profile.email }}
+            userProfile={{
+              full_name: profile.full_name,
+              avatar_url: profile.avatar_url,
+              primary_role: profile.primary_role,
+            }}
+          />
+        )}
       </div>
     </header>
   );

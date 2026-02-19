@@ -18,14 +18,12 @@ import {
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { format } from 'date-fns'
 import { DashboardLayout } from '@/components/dashboard'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { Label } from '@/components/ui/Label'
 import { useToast } from '@/components/ui/Toast'
-import { createClient } from '@/lib/supabase/client'
 
 // --- Types ---
 
@@ -199,14 +197,11 @@ export default function TransactionsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
 
-  // Fetch Properties for dropdown
   useEffect(() => {
-    const fetchProps = async () => {
-      const supabase = createClient()
-      const { data } = await supabase.from('property_rentals').select('id, title')
-      if (data) setProperties(data)
-    }
-    fetchProps()
+    fetch('/api/landlord/property-options')
+      .then(r => r.ok ? r.json() : [])
+      .then(setProperties)
+      .catch(() => showToast({ type: 'error', message: '無法載入房源清單' }))
   }, [])
 
   const fetchTransactions = async () => {

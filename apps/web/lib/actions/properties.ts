@@ -405,3 +405,12 @@ export async function uploadPropertyPhoto(
     }
   }
 }
+
+export async function getPropertyOptions(): Promise<{ id: string; title: string }[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('property_rentals')
+    .select('id, title')
+    .order('title')
+  return data ?? []
+}

@@ -131,7 +131,10 @@ export default function AIServiceSettingsPage() {
             savedModules={settings.modules}
             savedKeys={settings.keys}
             savedModels={settings.models}
-            onSave={settings.saveModule}
+            onSave={async (moduleKey, isEnabled, assignedModels, config) => {
+              await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
+            }}
+            onTestModel={settings.testModel}
           />
         );
       case 'prompts':
@@ -244,113 +247,115 @@ export default function AIServiceSettingsPage() {
               </div>
             )}
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => importFileInputRef.current?.click()}
-              isLoading={importLocalLoading}
-              title="從本機選擇 JSON 檔案，將 AI 金鑰、模型與模組等設定匯入並同步至雲端"
-            >
-              <Upload size={14} /> 導入設定
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={async () => {
-                setExportLocalLoading(true);
-                try {
-                  const data = await settings.exportSettings();
-                  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `ai-settings-${new Date().toISOString().split('T')[0]}.json`;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  URL.revokeObjectURL(url);
-                } catch {
-                  if (typeof window !== 'undefined') window.alert('匯出失敗');
-                } finally {
-                  setExportLocalLoading(false);
-                }
-              }}
-              isLoading={exportLocalLoading}
-              title="將目前 AI 金鑰、模型與模組等設定匯出為 JSON 檔案下載"
-            >
-              <Download size={14} /> 導出設定
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              title="一鍵清空雲端上的 API 金鑰、已選模型、功能模組與 System Prompt"
-              onClick={async () => {
-                if (typeof window === 'undefined') return;
-                try {
-                  await settings.clearAll();
-                } catch {
-                  // 靜默失敗，不顯示彈窗
-                }
-              }}
-            >
-              <Trash2 size={14} /> 全部清空
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              title="一鍵驗證所有已儲存的 API 金鑰，並顯示可選用模型總數"
-              isLoading={validateAllLoading}
-              onClick={async () => {
-                const keys = settings.keys;
-                if (!keys.length) {
-                  if (typeof window !== 'undefined') window.alert('尚無已儲存的金鑰可驗證');
-                  return;
-                }
-                setValidateAllLoading(true);
-                try {
-                  const results = await Promise.all(
-                    keys.map((key) =>
-                      settings.validateKey(
-                        key.provider,
-                        key.decryptedKey ?? '',
-                        key.id,
-                        { skipRefresh: true }
-                      )
-                    )
-                  );
-                  await settings.refreshSilent();
-                  const successCount = results.filter((r) => r?.valid).length;
-                  const totalModels = results
-                    .filter((r) => r?.valid && Array.isArray(r.availableModels))
-                    .reduce((sum, r) => sum + (r.availableModels?.length ?? 0), 0);
-                  const byKeyId: Record<string, KeyValidationResult> = {};
-                  keys.forEach((k, i) => {
-                    if (results[i]) byKeyId[k.id] = results[i] as KeyValidationResult;
-                  });
-                  setValidateAllResultsByKeyId(byKeyId);
+          {activeTab === 'keys' && (
+            <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => importFileInputRef.current?.click()}
+                isLoading={importLocalLoading}
+                title="從本機選擇 JSON 檔案，將 AI 金鑰、模型與模組等設定匯入並同步至雲端"
+              >
+                <Upload size={14} /> 導入設定
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={async () => {
+                  setExportLocalLoading(true);
                   try {
-                    await settings.saveValidationSummary(successCount, totalModels);
-                  } catch (saveErr) {
-                    console.warn('[全部驗證] 組態概況寫入失敗，不影響驗證結果', saveErr);
+                    const data = await settings.exportSettings();
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `ai-settings-${new Date().toISOString().split('T')[0]}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  } catch {
+                    if (typeof window !== 'undefined') window.alert('匯出失敗');
+                  } finally {
+                    setExportLocalLoading(false);
                   }
-                  if (typeof window !== 'undefined') {
-                    window.alert(
-                      `驗證完成。\n驗證成功 ${successCount} 家，共 ${totalModels} 個 models 可選用。`
+                }}
+                isLoading={exportLocalLoading}
+                title="將目前 AI 金鑰、模型與模組等設定匯出為 JSON 檔案下載"
+              >
+                <Download size={14} /> 導出設定
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                title="一鍵清空雲端上的 API 金鑰、已選模型、功能模組與 System Prompt"
+                onClick={async () => {
+                  if (typeof window === 'undefined') return;
+                  try {
+                    await settings.clearAll();
+                  } catch {
+                    // 靜默失敗，不顯示彈窗
+                  }
+                }}
+              >
+                <Trash2 size={14} /> 全部清空
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                title="一鍵驗證所有已儲存的 API 金鑰，並顯示可選用模型總數"
+                isLoading={validateAllLoading}
+                onClick={async () => {
+                  const keys = settings.keys;
+                  if (!keys.length) {
+                    if (typeof window !== 'undefined') window.alert('尚無已儲存的金鑰可驗證');
+                    return;
+                  }
+                  setValidateAllLoading(true);
+                  try {
+                    const results = await Promise.all(
+                      keys.map((key) =>
+                        settings.validateKey(
+                          key.provider,
+                          key.decryptedKey ?? '',
+                          key.id,
+                          { skipRefresh: true }
+                        )
+                      )
                     );
+                    await settings.refreshSilent();
+                    const successCount = results.filter((r) => r?.valid).length;
+                    const totalModels = results
+                      .filter((r) => r?.valid && Array.isArray(r.availableModels))
+                      .reduce((sum, r) => sum + (r.availableModels?.length ?? 0), 0);
+                    const byKeyId: Record<string, KeyValidationResult> = {};
+                    keys.forEach((k, i) => {
+                      if (results[i]) byKeyId[k.id] = results[i] as KeyValidationResult;
+                    });
+                    setValidateAllResultsByKeyId(byKeyId);
+                    try {
+                      await settings.saveValidationSummary(successCount, totalModels);
+                    } catch (saveErr) {
+                      console.warn('[全部驗證] 組態概況寫入失敗，不影響驗證結果', saveErr);
+                    }
+                    if (typeof window !== 'undefined') {
+                      window.alert(
+                        `驗證完成。\n驗證成功 ${successCount} 家，共 ${totalModels} 個 models 可選用。`
+                      );
+                    }
+                  } catch (err) {
+                    const msg =
+                      err instanceof Error ? err.message : '全部驗證時發生錯誤，請稍後再試';
+                    if (typeof window !== 'undefined') window.alert(msg);
+                  } finally {
+                    setValidateAllLoading(false);
                   }
-                } catch (err) {
-                  const msg =
-                    err instanceof Error ? err.message : '全部驗證時發生錯誤，請稍後再試';
-                  if (typeof window !== 'undefined') window.alert(msg);
-                } finally {
-                  setValidateAllLoading(false);
-                }
-              }}
-            >
-              <ShieldCheck size={14} /> 全部驗證
-            </Button>
-          </div>
+                }}
+              >
+                <ShieldCheck size={14} /> 全部驗證
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -437,30 +442,32 @@ export default function AIServiceSettingsPage() {
             }
           }}
         />
-        {/* 安全提醒、建議流程 – 頁面下方 */}
-        <div className="mt-8 space-y-4">
-          <div className="rounded-base border border-amber-300/40 bg-amber-50/80 p-4 space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
-              安全提醒
-            </p>
-            <p className="text-xs text-amber-800">
-              請勿在前端程式碼或公開版控中硬編金鑰。所有 LLM 請求應透過後端或受保護的
-              Server Action 轉發。
-            </p>
-          </div>
+        {/* 安全提醒、建議流程 – 僅在 keys 頁籤顯示 */}
+        {activeTab === 'keys' && (
+          <div className="mt-8 space-y-4">
+            <div className="rounded-base border border-amber-300/40 bg-amber-50/80 p-4 space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+                安全提醒
+              </p>
+              <p className="text-xs text-amber-800">
+                請勿在前端程式碼或公開版控中硬編金鑰。所有 LLM 請求應透過後端或受保護的
+                Server Action 轉發。
+              </p>
+            </div>
 
-          <div className="rounded-base border border-border-subtle bg-bg-secondary p-4 space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-              建議流程
-            </p>
-            <ol className="list-decimal list-inside space-y-1 text-xs text-text-secondary">
-              <li>先在「API 金鑰管理」中新增各雲端提供商金鑰。</li>
-              <li>於「模型費用說明」指定預設模型與備援模型。</li>
-              <li>在「功能模組配置」啟用對應模組並綁定模型。</li>
-              <li>最後在「System Prompt」微調各模組的系統提示詞。</li>
-            </ol>
+            <div className="rounded-base border border-border-subtle bg-bg-secondary p-4 space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                建議流程
+              </p>
+              <ol className="list-decimal list-inside space-y-1 text-xs text-text-secondary">
+                <li>先在「API 金鑰管理」中新增各雲端提供商金鑰。</li>
+                <li>於「模型費用說明」指定預設模型與備援模型。</li>
+                <li>在「功能模組配置」啟用對應模組並綁定模型。</li>
+                <li>最後在「System Prompt」微調各模組的系統提示詞。</li>
+              </ol>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </DashboardLayout>
   );

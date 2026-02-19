@@ -309,7 +309,7 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
 export const FEATURE_MODULES: FeatureModule[] = [
   {
     key: 'online_ocr',
-    name: '線上 AI OCR 謄本解讀解析',
+    name: '雲端OCR謄本解析',
     description: '透過雲端 AI API 進行謄本文件的光學字元辨識與結構化解析',
     icon: 'cloud',
     category: 'ocr',
@@ -319,19 +319,6 @@ export const FEATURE_MODULES: FeatureModule[] = [
 2. 所有權部：所有權人、權利範圍、取得日期
 3. 他項權利部：抵押權、地上權等設定
 請以結構化 JSON 格式輸出結果。`,
-  },
-  {
-    key: 'local_ocr',
-    name: '本地 AI OCR 謄本解讀解析',
-    description: '使用本地端 OCR 引擎進行文字辨識，保障資料隱私',
-    icon: 'hard-drive',
-    category: 'ocr',
-    requiredCapabilities: ['text'],
-    defaultPrompt: `你是台灣不動產謄本分析專家。根據 OCR 辨識已提取的文字，請分析並結構化以下內容：
-1. 土地/建物標示部
-2. 所有權部  
-3. 他項權利部
-將結果整理為結構化 JSON 格式。`,
   },
   {
     key: 'web_assistant',

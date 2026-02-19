@@ -17,6 +17,7 @@
     "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
+    "@repo/shared-types": "*",
     "@casl/ability": "^6.8.0",
     "@casl/react": "^5.0.1",
     "@hookform/resolvers": "^5.2.2",

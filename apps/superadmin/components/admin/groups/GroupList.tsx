@@ -14,6 +14,14 @@ import type { GroupRow } from '@/app/superadmin/groups/actions';
 
 type Group = GroupRow;
 
+/** Display name with " Group" suffix (e.g. "Active Buyers" → "Active Buyer Group"). */
+function displayGroupName(name: string): string {
+  if (!name) return name;
+  if (name.endsWith(' Group')) return name;
+  if (name.endsWith('s')) return name.slice(0, -1) + ' Group';
+  return name + ' Group';
+}
+
 export function GroupList({ initialGroups }: { initialGroups: Group[] }) {
   const [data] = useState<Group[]>(initialGroups);
 
@@ -22,7 +30,9 @@ export function GroupList({ initialGroups }: { initialGroups: Group[] }) {
       accessorKey: 'name',
       header: 'Group Name',
       cell: (info) => (
-        <span className="font-semibold text-text-primary">{info.getValue() as string}</span>
+        <span className="font-semibold text-text-primary">
+          {displayGroupName(info.getValue() as string)}
+        </span>
       ),
     },
     {
@@ -34,7 +44,7 @@ export function GroupList({ initialGroups }: { initialGroups: Group[] }) {
     },
     {
       accessorKey: 'member_count',
-      header: 'Members',
+      header: 'Users in this group',
       cell: (info) => (
         <div className="flex items-center gap-1 text-text-secondary">
           <Users size={16} />
@@ -44,7 +54,7 @@ export function GroupList({ initialGroups }: { initialGroups: Group[] }) {
     },
     {
       accessorKey: 'roles',
-      header: 'Attached Roles',
+      header: 'Attached Roles in this group',
       cell: (info) => (
         <div className="flex flex-wrap gap-1">
           {(info.getValue() as string[]).map((role) => (

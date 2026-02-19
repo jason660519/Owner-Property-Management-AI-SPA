@@ -2,6 +2,9 @@
 // This file is auto-generated from the original roadmap.js
 // Date: 2026-02-14
 
+/** Lifecycle phase of a feature */
+export type PhaseType = 'development' | 'testing' | 'deployment' | 'operations';
+
 export interface RoadmapFeature {
   name: string;
   percentage: number;
@@ -29,6 +32,28 @@ export interface RoadmapFeature {
   model?: string;
   /** 提示詞／設計提示，於儀表板「PROMPT」欄顯示 */
   aiPrompt?: string;
+
+  // --- Phase lifecycle ---
+  /** Current lifecycle phase (default: 'development') */
+  phase?: PhaseType;
+
+  // Testing phase fields
+  testStatus?: 'pending' | 'in_progress' | 'passed' | 'failed';
+  unitTestCoverage?: number;
+  e2eTestCoverage?: number;
+  defectCount?: number;
+
+  // Deployment phase fields
+  deployStatus?: 'not_deployed' | 'staging' | 'production' | 'rollback';
+  deployEnv?: string;
+  version?: string;
+  deployDate?: string;
+
+  // Operations phase fields
+  uptimePercent?: number;
+  errorRate?: number;
+  avgResponseTime?: number;
+  lastIncident?: string;
 }
 
 export interface RoadmapData {
@@ -36,9 +61,14 @@ export interface RoadmapData {
   features: RoadmapFeature[];
 }
 
-export const ROADMAP_DATA: RoadmapData = {
-    lastUpdated: "2026/02/18",
-    features: [
+/** Derive default phase from existing data when not explicitly set */
+function inferPhase(f: RoadmapFeature): PhaseType {
+  if (f.phase) return f.phase;
+  if ((f.testCoverage && f.testCoverage > 0) || f.testProgress) return 'testing';
+  return 'development';
+}
+
+const RAW_FEATURES: RoadmapFeature[] = [
         // 超級管理員
         { 
             name: "超級管理員-儀表板", 
@@ -283,6 +313,30 @@ export const ROADMAP_DATA: RoadmapData = {
             testCoverage: 0,
             lastModifiedBy: "Claude (Auto)",
             lastModifiedDate: "2026/02/18"
+        },
+
+        // === 2026-02-19 新增任務 ===
+        {
+            name: "Project Progress Dashboard — 四階段 Tab 重構",
+            percentage: 100,
+            workCategory: "重構/優化",
+            featureDescription: "將 1,478 行單一頁面拆分為四階段 Tab 架構（開發/測試/部署/運維），抽取共用元件，主頁面縮減至 87 行。新增 PhaseType 資料模型、Pill 風格 Tab 列、各階段統計卡片、DevelopmentTab（完整功能保留）、Testing/Deployment/Operations Tab 骨架。",
+            acceptanceCriteria: "1. 四個 Pill Tab 正確顯示並可切換（#development/#testing/#deployment/#operations hash 導航）。\n2. Development Tab 保留所有原有功能（搜尋、分類篩選、凍結窗格、欄寬調整、Save Widths、排版對齊、伺服器同步）。\n3. 各 Tab 顯示差異化統計卡片。\n4. TypeScript 型別嚴格（禁 any），npm run build 零錯誤。\n5. 主頁面 < 100 行，各 Tab 元件各 200-400 行。",
+            docPath: "/docs/update-project-progress-guide.md",
+            category: "專案管理與工具 (Project Management)",
+            points: 5,
+            mode: "agent",
+            model: "claude-sonnet-4-6",
+            devLog: "### 今日完成項目\n- page.tsx 1,478 行 → 87 行（重構率 94%）\n- 新增 PhaseType、RoadmapFeature 擴展（phase/testStatus/deployStatus/ops 欄位）\n- 建立 components/: ProgressBar, StatCard, PhaseTabBar, SharedStatsCards, DevelopmentTab, TestingTab, DeploymentTab, OperationsTab\n- DevelopmentTab 完整搬移：凍結窗格、欄寬拖曳、Preset、排版、Server 同步\n- Hash-based navigation (#development/#testing/#deployment/#operations)\n- inferPhase() 自動從現有資料推導階段（testCoverage>0 → testing）\n- npm run build 零錯誤",
+            testProgress: "100%（npm run build 通過，頁面結構與 Tab 切換手動驗證）",
+            testLog: "✅ npm run build 零 TypeScript 錯誤\n✅ /superadmin/dashboard/project-progress 四 Tab 正確渲染\n✅ Development Tab 保留所有原有表格功能\n✅ URL hash 同步（#development 等）\n✅ 統計卡片隨 Tab 切換",
+            testCoverage: 0,
+            lastModifiedBy: "Claude Sonnet 4.6",
+            lastModifiedDate: "2026/02/19"
         }
-    ]
+];
+
+export const ROADMAP_DATA: RoadmapData = {
+    lastUpdated: "2026/02/18",
+    features: RAW_FEATURES.map(f => ({ ...f, phase: inferPhase(f) })),
 };

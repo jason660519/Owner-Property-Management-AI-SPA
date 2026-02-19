@@ -3,7 +3,7 @@ import '@testing-library/jest-dom';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import RegisterPage from '@/app/(auth)/register/page';
-import { signUpWithRole } from '@/app/actions/auth';
+import { signUpWithRole } from '@/lib/actions/auth';
 
 // Mock the signUpWithRole function
 jest.mock('@/app/actions/auth', () => ({

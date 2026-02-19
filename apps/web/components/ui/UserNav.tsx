@@ -12,10 +12,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { User } from '@supabase/supabase-js';
 
 interface UserNavProps {
-  user: User;
+  user: { email?: string };
   userProfile?: {
     full_name?: string;
     avatar_url?: string;

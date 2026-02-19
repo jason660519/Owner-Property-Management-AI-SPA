@@ -39,13 +39,28 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = createAdminClient();
-    const { userId, moduleKey, isEnabled, assignedProvider, assignedModel, config } = await request.json();
+    const body = await request.json();
+    const {
+      userId,
+      moduleKey,
+      isEnabled,
+      assignedProvider,
+      assignedModel,
+      assignedModels,
+      config,
+    } = body;
 
     if (!userId || !moduleKey) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Upsert: update if exists, insert if not（DB 欄位為 assigned_function）
+    // assignedModels: [{ provider, model }, ...] — primary; fallback to single for backward compat
+    const models = Array.isArray(assignedModels)
+      ? assignedModels
+      : assignedProvider && assignedModel
+        ? [{ provider: assignedProvider, model: assignedModel }]
+        : [];
+
     const { data, error } = await supabase
       .from('ai_modules_assigned_function')
       .upsert(
@@ -53,8 +68,9 @@ export async function POST(request: NextRequest) {
           user_id: userId,
           assigned_function: moduleKey,
           is_enabled: isEnabled ?? false,
-          assigned_provider: assignedProvider || null,
-          assigned_model: assignedModel || null,
+          assigned_models: models,
+          assigned_provider: models[0]?.provider ?? null,
+          assigned_model: models[0]?.model ?? null,
           config: config || {},
         },
         { onConflict: 'user_id,assigned_function' }
@@ -64,7 +80,7 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
 
-    console.log(`[AI Settings] Assigned function ${moduleKey} updated: enabled=${isEnabled}`);
+    console.log(`[AI Settings] Assigned function ${moduleKey} updated: enabled=${isEnabled}, models=${models.length}`);
     return NextResponse.json({ module: data });
   } catch (err) {
     console.error('[AI Settings] POST module error:', err);

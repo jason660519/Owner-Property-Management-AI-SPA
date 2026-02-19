@@ -4,7 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import LoginPage from '@/app/(auth)/login/page';
 import { signInWithGoogle, signInWithFacebook } from '@/lib/supabase/auth';
-import { signInWithPasswordAction, getUserRoles, syncUserRolesToAuthMetadata } from '@/app/actions/auth';
+import { signInWithPasswordAction, getUserRoles, syncUserRolesToAuthMetadata } from '@/lib/actions/auth';
 
 // Mock Server Actions (password login flow uses these, not signInWithPassword from client)
 jest.mock('@/app/actions/auth', () => ({

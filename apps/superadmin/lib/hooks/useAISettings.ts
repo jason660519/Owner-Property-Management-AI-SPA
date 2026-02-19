@@ -29,12 +29,32 @@ export interface SavedModel {
   is_primary: boolean;
 }
 
+/** LLM 呼叫參數，各家 SDK 設定模式不同需客製化 */
+export interface ModelSettings {
+  temperature?: number;
+  max_tokens?: number;
+  top_p?: number;
+  base_url?: string;
+  [key: string]: unknown;
+}
+
+export interface AssignedModel {
+  provider: string;
+  model: string;
+  /** 1=主模型，2~100=備選順序；主模型失效時依編號替補 */
+  priority?: number;
+  /** 該模型/提供商的 SDK 專用設定 */
+  settings?: ModelSettings;
+}
+
 export interface SavedModule {
   id: string;
   module_key: string;
   is_enabled: boolean;
   assigned_provider: string | null;
   assigned_model: string | null;
+  /** Multiple model assignments for fallback and concurrent inference */
+  assigned_models: AssignedModel[];
   config: Record<string, unknown>;
 }
 
@@ -129,11 +149,36 @@ export function useAISettings() {
       // 僅在該 API 成功時更新，避免錯誤回應把側欄數字蓋成 0
       if (modelsRes.ok) setModels((modelsData?.models ?? []) as SavedModel[]);
       if (modulesRes.ok) {
-        const modules = (modulesData?.modules ?? []) as { assigned_function?: string; module_key?: string }[];
-        setModules(modules.map((m) => ({
-          ...m,
-          module_key: m.assigned_function ?? m.module_key ?? '',
-        })) as SavedModule[]);
+        const modules = (modulesData?.modules ?? []) as {
+          assigned_function?: string;
+          module_key?: string;
+          assigned_models?: AssignedModel[] | unknown;
+          assigned_provider?: string | null;
+          assigned_model?: string | null;
+        }[];
+        setModules(modules.map((m) => {
+          const raw = m.assigned_models;
+          let arr: AssignedModel[] = Array.isArray(raw)
+            ? raw
+                .filter((x): x is Record<string, unknown> => x && typeof x === 'object' && 'provider' in x && 'model' in x)
+                .map((x, i) => ({
+                  provider: String(x.provider),
+                  model: String(x.model),
+                  priority: typeof x.priority === 'number' && x.priority >= 1 && x.priority <= 100
+                    ? x.priority
+                    : i + 1,
+                  settings: x.settings && typeof x.settings === 'object' ? (x.settings as ModelSettings) : undefined,
+                }))
+            : m.assigned_provider && m.assigned_model
+              ? [{ provider: m.assigned_provider, model: m.assigned_model, priority: 1 }]
+              : [];
+          arr = arr.sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99));
+          return {
+            ...m,
+            module_key: m.assigned_function ?? m.module_key ?? '',
+            assigned_models: arr,
+          };
+        }) as SavedModule[]);
       }
       if (promptsRes.ok) setPrompts((promptsData?.prompts ?? []) as SavedPrompt[]);
       if (summaryRes.ok && summaryData?.summary) {
@@ -232,14 +277,19 @@ export function useAISettings() {
   const saveModule = useCallback(async (
     moduleKey: string,
     isEnabled: boolean,
-    assignedProvider?: string,
+    assignedModelsOrProvider?: AssignedModel[] | string,
     assignedModel?: string,
     config?: Record<string, unknown>
   ) => {
+    const assignedModels = Array.isArray(assignedModelsOrProvider)
+      ? assignedModelsOrProvider
+      : assignedModelsOrProvider && assignedModel
+        ? [{ provider: assignedModelsOrProvider, model: assignedModel }]
+        : [];
     const res = await fetch('/api/ai-settings/modules', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, moduleKey, isEnabled, assignedProvider, assignedModel, config }),
+      body: JSON.stringify({ userId, moduleKey, isEnabled, assignedModels, config }),
     });
     if (!res.ok) throw new Error('儲存模組設定失敗');
     await fetchAll();
@@ -293,6 +343,20 @@ export function useAISettings() {
   /** 靜默重整：不設 loading，避免勾選模型後畫面閃爍 */
   const refreshSilent = useCallback(() => fetchAll(true), [fetchAll]);
 
+  /** 連線測試：測試指定 model 是否能正常回應 */
+  const testModel = useCallback(
+    async (provider: string, modelId: string): Promise<{ success: boolean; message?: string; output?: string }> => {
+      const res = await fetch('/api/ai-settings/models/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+        body: JSON.stringify({ provider, modelId }),
+      });
+      const data = (await res.json()) as { success?: boolean; message?: string; output?: string };
+      return { success: data.success ?? false, message: data.message, output: data.output };
+    },
+    [userId]
+  );
+
   /** 儲存「全部驗證」結果到 DB，供組態概況與 Supabase 同步 */
   const saveValidationSummary = useCallback(
     async (validatedCount: number, totalModels: number) => {
@@ -312,7 +376,7 @@ export function useAISettings() {
     keys, models, modules, prompts, validationSummary,
     loading, error,
     saveKey, deleteKey, validateKey,
-    saveModels, saveModule,
+    saveModels, saveModule, testModel,
     savePrompt,
     exportSettings, importSettings,
     clearAll,
