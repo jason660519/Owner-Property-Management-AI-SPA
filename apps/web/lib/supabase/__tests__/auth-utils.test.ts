@@ -9,7 +9,7 @@
  */
 
 // Mock Supabase client
-const mockSupabase = {
+const mockSupabase: any = {
   auth: {
     signInWithPassword: jest.fn(),
     signUp: jest.fn(),
@@ -375,7 +375,7 @@ describe('Authentication System', () => {
 
       const mockInsert = jest.fn().mockResolvedValue({ error: null });
 
-      mockSupabase.from.mockImplementation((table) => {
+      mockSupabase.from.mockImplementation((table: any) => {
         if (table === 'users_profile') {
           return {
             select: mockSelect,
@@ -442,9 +442,9 @@ describe('Authentication System', () => {
     });
 
     test('should validate password confirmation matches', () => {
-      const password = 'Password123!';
-      const confirmPassword = 'Password123!';
-      const wrongConfirmPassword = 'Password456!';
+      const password: string = 'Password123!';
+      const confirmPassword: string = 'Password123!';
+      const wrongConfirmPassword: string = 'Password456!';
 
       expect(password === confirmPassword).toBe(true);
       expect(password === wrongConfirmPassword).toBe(false);

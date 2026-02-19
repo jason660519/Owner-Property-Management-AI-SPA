@@ -67,7 +67,7 @@ describe('/portal/[role] redirect', () => {
 
   it('redirects super_admin to external URL', async () => {
     await RoleRedirectPage({ params: mkParams('super_admin') });
-    const url = (redirect as jest.Mock).mock.calls[0][0] as string;
+    const url = (redirect as unknown as jest.Mock).mock.calls[0][0] as string;
     expect(url).toContain('/superadmin/dashboard');
     // Should include the port 3001 URL
     expect(url).toMatch(/localhost:3001|NEXT_PUBLIC_SUPERADMIN_URL/);
