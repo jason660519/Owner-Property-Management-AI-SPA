@@ -107,7 +107,7 @@ export async function sendContactEmail(data: ContactFormData) {
       await transporter.sendMail({
         from: '"Vision Real Estate Support" <a0405142777@gmail.com>',
         to: email,
-        subject: '我們已收到您的詢問 - Estatein',
+        subject: '我們已收到您的詢問 - Owner AI',
         text: `
           親愛的 ${name} 您好，
           
@@ -121,7 +121,7 @@ export async function sendContactEmail(data: ContactFormData) {
           
           此郵件為系統自動發送，請勿直接回覆。
           
-          Estatein 團隊 敬上
+          Owner AI 團隊 敬上
         `,
         html: `
           <h2>親愛的 ${name} 您好，</h2>
@@ -133,7 +133,7 @@ export async function sendContactEmail(data: ContactFormData) {
           <hr/>
           <p style="color: #666; font-size: 12px;">此郵件為系統自動發送，請勿直接回覆。</p>
           <br/>
-          <p><strong>Estatein 團隊 敬上</strong></p>
+          <p><strong>Owner AI 團隊 敬上</strong></p>
         `,
       });
     });

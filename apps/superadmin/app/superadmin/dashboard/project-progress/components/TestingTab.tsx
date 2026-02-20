@@ -16,7 +16,7 @@ const COLUMN_HEADERS = [
   { en: 'Test Status', zh: '測試狀態', width: 10 },
   { en: 'Test Coverage', zh: '測試覆蓋率', width: 10 },
   { en: 'Unit Test', zh: '單元測試 %', width: 10 },
-  { en: 'E2E Test', zh: 'E2E 測試 %', width: 10 },
+  { en: 'E2E Acceptance Test', zh: '端到端驗收標準', width: 10 },
   { en: 'Defect Count', zh: '缺陷數', width: 7 },
   { en: 'TTD Spec URL', zh: 'TTD 規格 URL', width: 10 },
   { en: 'Test Log', zh: '測試日誌', width: 10 },
@@ -99,7 +99,7 @@ export const TestingTab = ({ features }: TestingTabProps) => {
                   <div className="px-4 py-3 border-r border-border-light flex items-center" style={{ width: '10%', flexShrink: 0 }}>
                     <div className="w-full"><ProgressBar percentage={feature.unitTestCoverage ?? 0} /></div>
                   </div>
-                  {/* E2E Test */}
+                  {/* E2E Acceptance Test */}
                   <div className="px-4 py-3 border-r border-border-light flex items-center" style={{ width: '10%', flexShrink: 0 }}>
                     <div className="w-full"><ProgressBar percentage={feature.e2eTestCoverage ?? 0} /></div>
                   </div>

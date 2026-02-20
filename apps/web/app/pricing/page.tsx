@@ -8,51 +8,34 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription }
 const pricingPlans = [
     {
         id: 'free',
-        title: '免費版',
-        description: '適合剛起步的房東體驗',
-        price: '$0',
+        title: '免費 － 房屋廣告免費',
+        description: '刊登物件零成本，適合先試水溫的房東',
+        price: 'NT$0',
         period: '/ 月',
         features: [
-            '管理 1 個物業',
-            '基礎租客管理',
-            '每月財務報表',
+            '房屋廣告刊登（免費）',
             '社群支援'
         ],
         cta: '立即開始',
         variant: 'outline' as const
     },
     {
-        id: '1-year',
-        title: '1 年會員',
-        description: '適合專業房東的完整方案',
-        price: '$999',
+        id: 'tenant-contract',
+        title: '房客管理 + 合約管理',
+        description: '1 組完整管理，適合有出租需求的房東',
+        price: 'NT$99',
         period: '/ 月',
         features: [
-            '管理無限物業',
-            'AI 智能分析與建議',
-            '進階財務報表與稅務輔助',
-            '優先客戶支援',
-            '自動化租金催收'
+            '房屋廣告刊登（免費）',
+            '房客管理',
+            '合約管理',
+            '自動催繳',
+            '房客篩選',
+            'AI 合約輔助'
         ],
         cta: '選擇此方案',
         variant: 'primary' as const,
         popular: true
-    },
-    {
-        id: '3-year',
-        title: '3 年會員',
-        description: '長期投資的最佳選擇',
-        price: '$799',
-        period: '/ 月',
-        features: [
-            '包含所有 1 年會員功能',
-            '專屬帳戶經理',
-            '法律諮詢服務',
-            '優先體驗新功能',
-            '享有 20% 折扣優惠'
-        ],
-        cta: '最佳優惠',
-        variant: 'secondary' as const
     }
 ];
 
@@ -71,8 +54,10 @@ export default function PricingPage() {
                         <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
                             簡單透明的<span className="text-[#7C3AED]">定價方案</span>
                         </h1>
-                        <p className="text-[#999999] text-lg max-w-2xl mx-auto mb-8">
-                            無論您是剛開始管理第一個物業，還是擁有龐大的資產組合，我們都有適合您的方案。
+                        <p className="text-[#999999] text-lg max-w-2xl mx-auto mb-4">
+                            房屋廣告一律免費，付費方案為 1 組「房客管理 + 合約管理」。
+                        </p>
+                        <p className="text-[#999999] text-base max-w-2xl mx-auto mb-8">
                             無隱藏費用，隨時可取消。
                         </p>
                     </div>
@@ -80,20 +65,20 @@ export default function PricingPage() {
 
                 {/* Pricing Cards */}
                 <section className="pb-20 px-6 md:px-12 lg:px-20">
-                    <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+                    <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
                         {pricingPlans.map((plan) => (
                             <div key={plan.id} className="relative group">
-                                {plan.popular && (
-                                    <div className="absolute -top-4 left-0 right-0 flex justify-center z-10">
-                                        <span className="bg-[#7C3AED] text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg">
-                                            最受歡迎
-                                        </span>
-                                    </div>
-                                )}
                                 <Card 
-                                    className={`h-full flex flex-col border-[#262626] bg-[#1A1A1A] relative overflow-hidden transition-all duration-300 ${plan.popular ? 'border-[#7C3AED] shadow-[0_0_30px_rgba(124,58,237,0.15)] scale-105 z-10' : 'hover:border-[#7C3AED]/50'}`}
+                                    className={`h-full flex flex-col border-[#262626] bg-[#1A1A1A] relative overflow-hidden transition-all duration-300 ${plan.popular ? 'border-[#7C3AED] shadow-[0_0_24px_rgba(124,58,237,0.12)]' : 'hover:border-[#7C3AED]/50'}`}
                                 >
-                                    <CardHeader className="text-center pb-2">
+                                    <CardHeader className="text-center pb-2 pt-6">
+                                        {plan.popular && (
+                                            <div className="flex justify-center mb-2">
+                                                <span className="bg-[#7C3AED] text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                                                    最受歡迎
+                                                </span>
+                                            </div>
+                                        )}
                                         <CardTitle className="text-2xl font-bold">{plan.title}</CardTitle>
                                         <CardDescription className="text-[#999999] mt-2">{plan.description}</CardDescription>
                                     </CardHeader>

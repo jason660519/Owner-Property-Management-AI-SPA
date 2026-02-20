@@ -73,7 +73,7 @@ describe('DashboardHeader', () => {
 
     checkLink('Product', '/product');
     checkLink('Developers', '/developers');
-    checkLink('Pricing', '/pricing');
+    checkLink('Pricing', 'http://localhost:3000/pricing');
     checkLink('Project Files', '/docs');
     
     // Check New Link

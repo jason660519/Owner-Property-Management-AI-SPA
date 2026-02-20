@@ -50,7 +50,7 @@ type SelectionType = 'cell' | 'column' | 'row' | 'all' | null;
 
 // --- Constants ---
 
-const INITIAL_WIDTHS = [4, 9, 13, 17, 24, 8, 7, 7, 4, 4, 4, 6, 7];
+const INITIAL_WIDTHS = [4, 9, 13, 17, 24, 8, 7, 4, 4, 4, 6, 7];
 
 const COLUMN_HEADERS = [
   { en: 'ID', zh: '編碼' },
@@ -60,7 +60,6 @@ const COLUMN_HEADERS = [
   { en: 'Dev Progress URL', zh: '開發進度 URL' },
   { en: 'TTD Spec URL', zh: 'TTD 規格 URL' },
   { en: 'Dev Progress', zh: '開發進度' },
-  { en: 'Test Coverage', zh: '測試進度' },
   { en: 'Mode', zh: '模式' },
   { en: 'MODEL', zh: '模型' },
   { en: 'PROMPT', zh: '設計提示詞' },
@@ -898,14 +897,8 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                         <ProgressBar percentage={feature.percentage} />
                       </div>
                     </CellWrapper>
-                    {/* 8. Test Coverage */}
+                    {/* 8. Mode */}
                     <CellWrapper colIdx={7} rowIdx={rowIdx}>
-                      <div className="w-full min-w-0">
-                        <ProgressBar percentage={feature.testCoverage || 0} />
-                      </div>
-                    </CellWrapper>
-                    {/* 9. Mode */}
-                    <CellWrapper colIdx={8} rowIdx={rowIdx}>
                       <div className="w-full">
                         <select
                           className="w-full bg-bg-secondary border border-border-default rounded px-2 py-1 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
@@ -929,20 +922,20 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                         </select>
                       </div>
                     </CellWrapper>
-                    {/* 10. MODEL */}
-                    <CellWrapper colIdx={9} rowIdx={rowIdx}>
+                    {/* 9. MODEL */}
+                    <CellWrapper colIdx={8} rowIdx={rowIdx}>
                       <div className="text-xs text-text-secondary truncate w-full" title={feature.model ? String(feature.model) : undefined}>
                         {feature.model ? feature.model : <span className="text-text-muted italic">—</span>}
                       </div>
                     </CellWrapper>
-                    {/* 11. PROMPT */}
-                    <CellWrapper colIdx={10} rowIdx={rowIdx}>
+                    {/* 10. PROMPT */}
+                    <CellWrapper colIdx={9} rowIdx={rowIdx}>
                       <div className="text-xs text-text-secondary whitespace-pre-line break-words w-full line-clamp-3" title={feature.aiPrompt ? String(feature.aiPrompt) : undefined}>
                         {feature.aiPrompt ? feature.aiPrompt : <span className="text-text-muted italic">—</span>}
                       </div>
                     </CellWrapper>
-                    {/* 12. Start Dev */}
-                    <CellWrapper colIdx={11} rowIdx={rowIdx}>
+                    {/* 11. Start Dev */}
+                    <CellWrapper colIdx={10} rowIdx={rowIdx}>
                       <div className="flex flex-row flex-wrap items-center justify-center gap-1 w-full min-w-0">
                         {devInProgressIds.has(feature.name) ? (
                           <Loader2 className="w-4 h-4 text-blue-500 animate-spin flex-shrink-0" aria-label="開發中" />
@@ -962,8 +955,8 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                         </button>
                       </div>
                     </CellWrapper>
-                    {/* 13. Last Modified */}
-                    <CellWrapper colIdx={12} rowIdx={rowIdx}>
+                    {/* 12. Last Modified */}
+                    <CellWrapper colIdx={11} rowIdx={rowIdx}>
                       <div className="text-xs text-text-muted">
                         <p className="truncate" title={feature.lastModifiedBy}>{feature.lastModifiedBy}</p>
                         <p className="font-mono mt-0.5 text-[10px] truncate">{feature.lastModifiedDate}</p>

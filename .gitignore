@@ -78,6 +78,8 @@ Outh.json
 docs_backup_*.tar.gz
 renaming_report.csv
 resources/
+plane/
+plane-selfhost/
 
 # ============================================
 # Database

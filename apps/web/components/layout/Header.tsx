@@ -14,6 +14,7 @@ const navLinks = [
   { href: '/about', label: '關於我們' },
   { href: '/properties', label: '物業列表' },
   { href: '/services', label: '服務項目' },
+  { href: '/pricing', label: '收費方式' },
   { href: '/contact', label: '聯絡我們' },
 ];
 

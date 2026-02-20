@@ -29,7 +29,7 @@ export function FeaturedProperties({ properties }: FeaturedPropertiesProps) {
           </Text>
           <div className="max-w-2xl lg:max-w-3xl mx-auto">
             <Text variant="body-lg" color="grey-60" className="mb-6 lg:mb-8">
-              Explore our handpicked selection of featured properties. Each listing offers a glimpse into exceptional homes and investments available through Estatein. Click "View Details" for more information.
+              Explore our handpicked selection of featured properties. Each listing offers a glimpse into exceptional homes and investments available through Owner AI. Click "View Details" for more information.
             </Text>
           </div>
           <motion.div

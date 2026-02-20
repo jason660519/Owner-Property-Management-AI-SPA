@@ -101,7 +101,7 @@ export default function RegisterScreen({ onNavigateToLogin }: { onNavigateToLogi
                         </View>
                         <Text className="text-text-primary text-2xl font-semibold">建立帳號</Text>
                         <Text className="text-text-secondary text-center mt-2">
-                            加入 Estatein 開始管理您的物業
+                            加入 Owner AI 開始管理您的物業
                         </Text>
                     </View>
 

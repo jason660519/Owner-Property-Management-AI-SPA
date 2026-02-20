@@ -215,7 +215,7 @@ export default function ContactPage() {
 
                                         <div className="flex items-center gap-2 mb-4">
                                             <input required type="checkbox" id="scrapi" className="rounded bg-[#1A1A1A] border-[#333333] text-[#7C3AED] focus:ring-[#7C3AED]" />
-                                            <label htmlFor="scrapi" className="text-sm text-[#999999]">我同意 Estatein 處理我的個人資料以回應此詢問。</label>
+                                            <label htmlFor="scrapi" className="text-sm text-[#999999]">我同意 Owner AI 處理我的個人資料以回應此詢問。</label>
                                         </div>
 
                                         {error && (

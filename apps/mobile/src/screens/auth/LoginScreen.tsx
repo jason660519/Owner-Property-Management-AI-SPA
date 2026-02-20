@@ -64,7 +64,7 @@ export default function LoginScreen({ onNavigateToRegister }: { onNavigateToRegi
                         </View>
                         <Text className="text-text-primary text-2xl font-semibold">歡迎回來</Text>
                         <Text className="text-text-secondary text-center mt-2">
-                            登入您的 Estatein 帳號
+                            登入您的 Owner AI 帳號
                         </Text>
                     </View>
 

@@ -44,7 +44,7 @@ export function DashboardHeader() {
     { name: 'Home', href: MAIN_SITE_URL },
     { name: 'Product', href: '/product' },
     { name: 'Developers', href: '/developers' },
-    { name: 'Pricing', href: '/pricing' },
+    { name: 'Pricing', href: `${MAIN_SITE_URL}/pricing` },
     { name: 'Project Files', href: '/docs' },
     { name: 'Project Progress Dashboard', href: 'http://localhost:3001/superadmin/dashboard/project-progress' },
   ];

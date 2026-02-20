@@ -153,7 +153,7 @@ export function Footer() {
         <div className="border-t border-grey-15 mt-8 lg:mt-12 pt-6 lg:pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <Text variant="body-sm" className="text-grey-60">
-              © 2024 Estatein. All rights reserved.
+              © 2024 Owner AI. All rights reserved.
             </Text>
             <div className="flex space-x-4 lg:space-x-6">
               <a 
