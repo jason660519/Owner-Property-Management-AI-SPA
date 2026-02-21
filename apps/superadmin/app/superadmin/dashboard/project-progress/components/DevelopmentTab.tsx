@@ -21,6 +21,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { ProgressBar } from './ProgressBar';
 import { getProjectProgressSettings, setProjectProgressSettings } from '../actions';
 import type { ProjectProgressSettingsPayload } from '../types';
 
@@ -47,7 +48,7 @@ type SelectionType = 'cell' | 'column' | 'row' | 'all' | null;
 
 // --- Constants ---
 
-const INITIAL_WIDTHS = [4, 9, 25, 24, 7, 8, 6, 8];
+const INITIAL_WIDTHS = [4, 9, 25, 23, 7, 8, 6, 6, 6, 6]; // sum = 100 (Unit Test, E2E, Test Script Pass Rate)
 
 const DEFAULT_TEST_SCRIPT_PATH = 'apps/superadmin/e2e';
 
@@ -59,6 +60,8 @@ const COLUMN_HEADERS = [
   { en: 'Dev Progress Rate', zh: '開發進度完成率（Completed數/TODO數）' },
   { en: 'TTD Spec URL', zh: 'TTD 測試驅動開發規格說明書 URL' },
   { en: 'Test Script Count', zh: '測試腳本數量' },
+  { en: 'Unit Test', zh: '單元測試 %' },
+  { en: 'E2E Acceptance Test', zh: '端到端驗收標準' },
   { en: 'Test Script Pass Rate', zh: '測試腳本通過率' },
 ];
 
@@ -889,15 +892,15 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                         <span className="text-xs text-text-primary font-mono flex-shrink-0">
                           {`${feature.devCompletedCount ?? 0}/${feature.devTodoCount ?? 0}`}
                         </span>
-                        <button
-                          type="button"
-                          onClick={e => { e.stopPropagation(); /* TODO: open dev prompt settings */ }}
-                          className="p-0.5 rounded hover:bg-bg-secondary transition-colors text-text-secondary hover:text-text-primary"
-                          title="Dev prompt settings"
-                          aria-label="Dev prompt settings"
+                        <Link
+                          href="/superadmin/settings/api_key_and_model_setting"
+                          onClick={e => e.stopPropagation()}
+                          className="p-0.5 rounded hover:bg-bg-secondary transition-colors text-text-secondary hover:text-text-primary inline-flex items-center justify-center"
+                          title="開發進度與模型／提示詞設定"
+                          aria-label="開發進度與模型／提示詞設定"
                         >
                           <Settings className="w-4 h-4" />
-                        </button>
+                        </Link>
                         <button
                           type="button"
                           onClick={e => { e.stopPropagation(); setDevInProgressIds(prev => new Set(prev).add(feature.name)); }}
@@ -949,21 +952,33 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                         );
                       })()}
                     </CellWrapper>
-                    {/* 8. Test Script Pass Rate (測試腳本通過率)：通過數/總數 + 齒輪(設定) + 綠色箭頭(開始) + 方格(停止) */}
+                    {/* 8. Unit Test (單元測試 %) */}
                     <CellWrapper colIdx={7} rowIdx={rowIdx}>
+                      <div className="w-full min-w-0">
+                        <ProgressBar percentage={feature.unitTestCoverage ?? 0} variant="status" />
+                      </div>
+                    </CellWrapper>
+                    {/* 9. E2E Acceptance Test (端到端驗收標準) */}
+                    <CellWrapper colIdx={8} rowIdx={rowIdx}>
+                      <div className="w-full min-w-0">
+                        <ProgressBar percentage={feature.e2eTestCoverage ?? 0} variant="status" />
+                      </div>
+                    </CellWrapper>
+                    {/* 10. Test Script Pass Rate (測試腳本通過率)：通過數/總數 + 齒輪(設定) + 綠色箭頭(開始) + 方格(停止) */}
+                    <CellWrapper colIdx={9} rowIdx={rowIdx}>
                       <div className="flex flex-row flex-wrap items-center gap-1.5 w-full min-w-0" title={feature.testProgress ? String(feature.testProgress) : undefined}>
                         <span className="text-xs text-text-primary font-mono flex-shrink-0">
                           {`${feature.testScriptPassedCount ?? 0}/${feature.testScriptCount ?? 0}`}
                         </span>
-                        <button
-                          type="button"
-                          onClick={e => { e.stopPropagation(); /* TODO: open test prompt settings */ }}
-                          className="p-0.5 rounded hover:bg-bg-secondary transition-colors text-text-secondary hover:text-text-primary"
-                          title="Test prompt settings"
-                          aria-label="Test prompt settings"
+                        <Link
+                          href="/superadmin/settings/api_key_and_model_setting"
+                          onClick={e => e.stopPropagation()}
+                          className="p-0.5 rounded hover:bg-bg-secondary transition-colors text-text-secondary hover:text-text-primary inline-flex items-center justify-center"
+                          title="測試腳本與模型／提示詞設定"
+                          aria-label="測試腳本與模型／提示詞設定"
                         >
                           <Settings className="w-4 h-4" />
-                        </button>
+                        </Link>
                         {testInProgressIds.has(feature.name) ? (
                           <Loader2 className="w-4 h-4 text-blue-500 animate-spin flex-shrink-0" aria-label="測試執行中" />
                         ) : (
