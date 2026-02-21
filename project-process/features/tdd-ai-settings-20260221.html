@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TDD 規格報告：超級管理員-AI 服務設定 — 2026/02/21</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; max-width: 1100px; margin: 0 auto; padding: 24px; background: #f8f9fa; color: #1f2937; }
+    .container { background: #fff; border-radius: 12px; padding: 40px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    h1 { color: #7c3aed; border-bottom: 3px solid #7c3aed; padding-bottom: 12px; margin-bottom: 24px; }
+    h2 { color: #6d28d9; margin-top: 32px; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+    .pass { background: #dcfce7; color: #166534; }
+    .fail { background: #fee2e2; color: #991b1b; }
+    .pending { background: #fef9c3; color: #854d0e; }
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 20px 0; }
+    .info-card { background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 8px; padding: 14px; }
+    .info-card .label { font-size: 0.72rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+    .info-card .value { font-size: 1.1rem; font-weight: 700; color: #4c1d95; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.875rem; }
+    th { background: #7c3aed; color: #fff; padding: 10px 14px; text-align: left; }
+    td { padding: 9px 14px; border-bottom: 1px solid #e5e7eb; }
+    tr:nth-child(even) td { background: #faf5ff; }
+    .ac-list { counter-reset: ac; list-style: none; padding: 0; }
+    .ac-list li { counter-increment: ac; padding: 8px 0 8px 36px; position: relative; border-bottom: 1px solid #f0f0f0; }
+    .ac-list li::before { content: "AC-" counter(ac, decimal-leading-zero); position: absolute; left: 0; color: #7c3aed; font-weight: 700; font-size: 0.75rem; top: 10px; }
+    .highlight { background: #f5f3ff; border-left: 4px solid #7c3aed; padding: 12px 16px; border-radius: 4px; margin: 16px 0; }
+    code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>TDD 規格報告：超級管理員-AI 服務設定（API 金鑰與模型費用）</h1>
+
+  <div class="info-grid">
+    <div class="info-card"><div class="label">功能分類</div><div class="value">超級管理員</div></div>
+    <div class="info-card"><div class="label">開發進度</div><div class="value">85%</div></div>
+    <div class="info-card"><div class="label">測試狀態</div><div class="value"><span class="badge pass">手動驗證通過</span></div></div>
+    <div class="info-card"><div class="label">最後更新</div><div class="value">2026/02/21</div></div>
+    <div class="info-card"><div class="label">Story Points</div><div class="value">5 SP</div></div>
+    <div class="info-card"><div class="label">負責人</div><div class="value">Claude (Auto)</div></div>
+  </div>
+
+  <h2>一、驗收標準 (Acceptance Criteria)</h2>
+  <ul class="ac-list">
+    <li>API 金鑰管理：從 .env 導入、單筆/全部刪除、金鑰驗證功能均可正常操作</li>
+    <li>未登入時以 resolveUserId fallback 寫入/讀取 Supabase（keys/models/modules/prompts）</li>
+    <li>側欄組態概況：已選總 models 數量即時反映各 provider 勾選加總</li>
+    <li>儲存設定按鈕：將畫面上已選模型寫入 <code>ai_model_selections</code></li>
+    <li>分頁命名「模型費用說明」；說明文案導向「模型費用說明」分頁</li>
+  </ul>
+
+  <h2>二、測試案例清單</h2>
+  <table>
+    <thead>
+      <tr><th>#</th><th>測試描述</th><th>類型</th><th>狀態</th><th>執行者</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>T-01</td><td>點擊「從 .env 導入」後 API 金鑰正確載入</td><td>功能</td><td><span class="badge pass">PASS</span></td><td>手動 2026/02/18</td></tr>
+      <tr><td>T-02</td><td>點擊「全部清空」後所有金鑰從 Supabase 刪除</td><td>功能</td><td><span class="badge pass">PASS</span></td><td>手動 2026/02/18</td></tr>
+      <tr><td>T-03</td><td>點擊單筆刪除後該金鑰從列表消失</td><td>功能</td><td><span class="badge pass">PASS</span></td><td>手動 2026/02/18</td></tr>
+      <tr><td>T-04</td><td>點擊「驗證金鑰」後顯示有效/無效狀態</td><td>功能</td><td><span class="badge pass">PASS</span></td><td>手動 2026/02/18</td></tr>
+      <tr><td>T-05</td><td>勾選模型後側欄「已選 models 數量」即時更新</td><td>狀態</td><td><span class="badge pass">PASS</span></td><td>手動 2026/02/18</td></tr>
+      <tr><td>T-06</td><td>點擊「儲存設定」後資料寫入 ai_model_selections</td><td>資料</td><td><span class="badge pass">PASS</span></td><td>手動 2026/02/18</td></tr>
+      <tr><td>T-07</td><td>未登入狀態下設定仍可儲存（resolveUserId fallback）</td><td>邊界</td><td><span class="badge pass">PASS</span></td><td>手動 2026/02/18</td></tr>
+      <tr><td>T-08</td><td>分頁標籤「模型費用說明」正確顯示</td><td>UI</td><td><span class="badge pass">PASS</span></td><td>手動 2026/02/18</td></tr>
+      <tr><td>T-09</td><td>E2E 自動化測試：完整 API 金鑰管理流程</td><td>E2E</td><td><span class="badge pending">待補</span></td><td>需 Playwright 補測</td></tr>
+      <tr><td>T-10</td><td>TypeScript 型別嚴格驗證（禁 any）</td><td>型別</td><td><span class="badge pass">PASS</span></td><td>npm run build 通過</td></tr>
+    </tbody>
+  </table>
+
+  <h2>三、Supabase 資料表對應</h2>
+  <table>
+    <thead><tr><th>資料表</th><th>操作</th><th>對應功能</th></tr></thead>
+    <tbody>
+      <tr><td><code>ai_api_keys</code></td><td>INSERT / DELETE / SELECT</td><td>API 金鑰管理</td></tr>
+      <tr><td><code>ai_model_selections</code></td><td>UPSERT / SELECT</td><td>儲存已選模型</td></tr>
+      <tr><td><code>ai_modules</code></td><td>SELECT</td><td>顯示可用模組</td></tr>
+      <tr><td><code>ai_prompts</code></td><td>SELECT / UPSERT</td><td>系統提示詞管理</td></tr>
+    </tbody>
+  </table>
+
+  <h2>四、已知缺陷與待補項目</h2>
+  <table>
+    <thead><tr><th>缺陷ID</th><th>描述</th><th>優先級</th><th>狀態</th></tr></thead>
+    <tbody>
+      <tr><td>BUG-01</td><td>E2E 自動化測試尚未補充</td><td>中</td><td><span class="badge pending">開放</span></td></tr>
+      <tr><td>BUG-02</td><td>金鑰驗證 API 呼叫頻率限制未處理</td><td>低</td><td><span class="badge pending">開放</span></td></tr>
+    </tbody>
+  </table>
+
+  <h2>五、結論</h2>
+  <p>AI 服務設定頁面核心功能（API 金鑰 CRUD、模型選擇、設定儲存）已完成手動驗證，所有主要 AC 通過。剩餘 15% 為 E2E 自動化測試補充與費率限制處理。</p>
+</div>
+</body>
+</html>

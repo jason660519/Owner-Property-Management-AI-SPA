@@ -3,23 +3,26 @@
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  Home, 
-  Users, 
-  Lock, 
-  Building, 
-  FileText, 
-  ShieldCheck, 
-  Shield, 
-  Grid, 
-  Database, 
-  HardDrive, 
-  VenetianMask, 
-  FileBarChart, 
+import {
+  Home,
+  Users,
+  Lock,
+  Building,
+  FileText,
+  ShieldCheck,
+  Shield,
+  Grid,
+  Database,
+  HardDrive,
+  VenetianMask,
+  FileBarChart,
   Settings,
   Bot,
   BookOpen,
-  Key
+  Key,
+  Activity,
+  Gauge,
+  Brain
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -43,6 +46,9 @@ const navItems: NavItem[] = [
   { name: 'Storage', href: '/superadmin/dashboard/storage', icon: HardDrive },
   { name: 'Impersonate', href: '/superadmin/role-simulation', icon: VenetianMask },
   { name: 'IAM Audit', href: '/superadmin/dashboard/iam-audit', icon: FileBarChart },
+  { name: 'Behavior Monitor', href: '/superadmin/dashboard/behavior-monitoring', icon: Activity },
+  { name: 'Performance Monitor', href: '/superadmin/dashboard/performance', icon: Gauge },
+  { name: 'AI LLM Monitor', href: '/superadmin/dashboard/llm-monitor', icon: Brain },
   { name: 'Project Progress Dashboard', href: '/superadmin/dashboard/project-progress', icon: FileText },
   { name: 'Project Files', href: '/superadmin/docs', icon: BookOpen },
   { name: 'Settings', href: '/superadmin/settings', icon: Settings },

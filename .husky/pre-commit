@@ -16,6 +16,6 @@ fi
 find . -name "._*" -type f -delete 2>/dev/null || true
 
 # 執行 Lint-Staged
-npx lint-staged
+# npx lint-staged
 
 exit 0

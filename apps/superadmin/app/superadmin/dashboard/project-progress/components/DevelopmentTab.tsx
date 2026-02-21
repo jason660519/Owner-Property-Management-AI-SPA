@@ -16,14 +16,13 @@ import {
   Eye,
   Play,
   Loader2,
-  Pause,
   Square,
   ExternalLink,
+  Settings,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { getProjectProgressSettings, setProjectProgressSettings } from '../actions';
 import type { ProjectProgressSettingsPayload } from '../types';
-import { ProgressBar } from './ProgressBar';
 
 // --- Types ---
 
@@ -44,27 +43,23 @@ interface WidthPreset {
   widths: number[];
 }
 
-type ModeOption = 'agent' | 'plan' | 'chat';
-
 type SelectionType = 'cell' | 'column' | 'row' | 'all' | null;
 
 // --- Constants ---
 
-const INITIAL_WIDTHS = [4, 9, 13, 17, 24, 8, 7, 4, 4, 4, 6, 7];
+const INITIAL_WIDTHS = [4, 9, 25, 24, 7, 8, 6, 8];
+
+const DEFAULT_TEST_SCRIPT_PATH = 'apps/superadmin/e2e';
 
 const COLUMN_HEADERS = [
   { en: 'ID', zh: '編碼' },
   { en: 'Category', zh: '分類' },
   { en: 'Feature', zh: '功能需求名稱' },
-  { en: 'Feature Spec URL', zh: '功能需求說明 URL' },
-  { en: 'Dev Progress URL', zh: '開發進度 URL' },
-  { en: 'TTD Spec URL', zh: 'TTD 規格 URL' },
-  { en: 'Dev Progress', zh: '開發進度' },
-  { en: 'Mode', zh: '模式' },
-  { en: 'MODEL', zh: '模型' },
-  { en: 'PROMPT', zh: '設計提示詞' },
-  { en: 'Start Dev', zh: '開始開發' },
-  { en: 'Last Modified', zh: '最後修改者' },
+  { en: 'Dev Progress & Report', zh: '開發進度與報告' },
+  { en: 'Dev Progress Rate', zh: '開發進度完成率（Completed數/TODO數）' },
+  { en: 'TTD Spec URL', zh: 'TTD 測試驅動開發規格說明書 URL' },
+  { en: 'Test Script Count', zh: '測試腳本數量' },
+  { en: 'Test Script Pass Rate', zh: '測試腳本通過率' },
 ];
 
 const COLUMN_LETTERS = COLUMN_HEADERS.map((_, i) => String.fromCharCode(65 + i));
@@ -114,6 +109,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   const currentWidthsRef = useRef<number[]>(INITIAL_WIDTHS);
 
   const [devInProgressIds, setDevInProgressIds] = useState<Set<string>>(new Set());
+  const [testInProgressIds, setTestInProgressIds] = useState<Set<string>>(new Set());
 
   const [headerHeight, setHeaderHeight] = useState(DEFAULT_HEADER_HEIGHT);
   const headerHeightRef = useRef(DEFAULT_HEADER_HEIGHT);
@@ -133,18 +129,6 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
 
   const [viewDropdownOpen, setViewDropdownOpen] = useState(false);
   const viewDropdownRef = useRef<HTMLDivElement>(null);
-
-  const [modeByFeature, setModeByFeature] = useState<Record<string, ModeOption>>(
-    () => {
-      const initial: Record<string, ModeOption> = {};
-      features.forEach(f => {
-        if (f.mode === 'agent' || f.mode === 'plan' || f.mode === 'chat') {
-          initial[f.name] = f.mode;
-        }
-      });
-      return initial;
-    }
-  );
 
   const [freezeRowCount, setFreezeRowCount] = useState<0 | 1>(1);
   const [frozenDataColCount, setFrozenDataColCount] = useState(0);
@@ -859,107 +843,149 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                         {feature.category}
                       </span>
                     </CellWrapper>
-                    {/* 3. Feature */}
+                    {/* 3. Feature（功能需求名稱 ＋ 功能需求說明書URL） */}
                     <CellWrapper colIdx={2} rowIdx={rowIdx}>
-                      <h3 className="text-sm font-medium text-text-primary break-words w-full line-clamp-3" title={feature.name}>{feature.name}</h3>
-                    </CellWrapper>
-                    {/* 4. Feature Spec URL */}
-                    <CellWrapper colIdx={3} rowIdx={rowIdx}>
-                      <div className="text-xs text-text-secondary whitespace-pre-line break-words w-full line-clamp-3" title={feature.acceptanceCriteria}>
-                        {feature.acceptanceCriteria}
+                      <div className="text-sm text-text-primary break-words w-full line-clamp-3" title={feature.name}>
+                        <span className="font-medium">{feature.name}</span>
+                        {feature.featureSpecDocPath ? (
+                          (() => {
+                            const sp = feature.featureSpecDocPath.trim();
+                            const isDocsScope = sp.startsWith('/docs/');
+                            const scope = isDocsScope ? 'docs' : 'project';
+                            const pathParam = isDocsScope ? sp.slice(6) : sp.replace(/^\//, '');
+                            const href = `/superadmin/docs?scope=${scope}&path=${encodeURIComponent(pathParam)}`;
+                            return (
+                              <>
+                                <span className="text-text-secondary"> - </span>
+                                <a href={href} className="text-blue-500 hover:underline" title={sp}>
+                                  {(rowIdx + 1).toString().padStart(3, '0')}-Dev-Spec-URL
+                                </a>
+                              </>
+                            );
+                          })()
+                        ) : null}
                       </div>
                     </CellWrapper>
-                    {/* 5. Dev Progress URL */}
-                    <CellWrapper colIdx={4} rowIdx={rowIdx}>
+                    {/* 4. 開發進度與報告 */}
+                    <CellWrapper colIdx={3} rowIdx={rowIdx}>
                       {feature.docPath ? (() => {
                         const docPath = feature.docPath.trim();
                         const isDocsScope = docPath.startsWith('/docs/');
                         const scope = isDocsScope ? 'docs' : 'project';
                         const pathParam = isDocsScope ? docPath.slice(6) : docPath.replace(/^\//, '');
                         const docsHref = `/superadmin/docs?scope=${scope}&path=${encodeURIComponent(pathParam)}`;
+                        const label = `${(rowIdx + 1).toString().padStart(3, '0')}-Dev-Process-and-Summary-URL`;
                         return (
                           <a href={docsHref} className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full" title={docPath}>
                             <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                            <span className="truncate">{docPath}</span>
+                            <span className="truncate">{label}</span>
                           </a>
                         );
                       })() : <span className="text-text-muted italic text-xs">—</span>}
                     </CellWrapper>
-                    {/* 6. TTD Spec URL */}
-                    <CellWrapper colIdx={5} rowIdx={rowIdx}>
-                      <div className="text-xs text-text-secondary whitespace-pre-line break-words w-full line-clamp-3" title={feature.testProgress ? String(feature.testProgress) : undefined}>
-                        {feature.testProgress ? feature.testProgress : <span className="text-text-muted italic">No test info</span>}
-                      </div>
-                    </CellWrapper>
-                    {/* 7. Dev Progress */}
-                    <CellWrapper colIdx={6} rowIdx={rowIdx}>
-                      <div className="w-full min-w-0">
-                        <ProgressBar percentage={feature.percentage} />
-                      </div>
-                    </CellWrapper>
-                    {/* 8. Mode */}
-                    <CellWrapper colIdx={7} rowIdx={rowIdx}>
-                      <div className="w-full">
-                        <select
-                          className="w-full bg-bg-secondary border border-border-default rounded px-2 py-1 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                          value={modeByFeature[feature.name] ?? ''}
-                          onChange={e => {
-                            const value = e.target.value as ModeOption | '';
-                            setModeByFeature(prev => {
-                              const next = { ...prev };
-                              if (value === '') delete next[feature.name];
-                              else next[feature.name] = value;
-                              return next;
-                            });
-                          }}
-                          onClick={e => e.stopPropagation()}
-                          onKeyDown={e => e.stopPropagation()}
+                    {/* 5. Dev Progress (開發進度)：完成數/TODO數 + 齒輪(設定) + 綠色箭頭(開始執行) */}
+                    <CellWrapper colIdx={4} rowIdx={rowIdx}>
+                      <div className="flex flex-row flex-wrap items-center gap-1.5 w-full min-w-0">
+                        <span className="text-xs text-text-primary font-mono flex-shrink-0">
+                          {`${feature.devCompletedCount ?? 0}/${feature.devTodoCount ?? 0}`}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); /* TODO: open dev prompt settings */ }}
+                          className="p-0.5 rounded hover:bg-bg-secondary transition-colors text-text-secondary hover:text-text-primary"
+                          title="Dev prompt settings"
+                          aria-label="Dev prompt settings"
                         >
-                          <option value="">{'—'}</option>
-                          <option value="agent">agent</option>
-                          <option value="plan">plan</option>
-                          <option value="chat">chat</option>
-                        </select>
-                      </div>
-                    </CellWrapper>
-                    {/* 9. MODEL */}
-                    <CellWrapper colIdx={8} rowIdx={rowIdx}>
-                      <div className="text-xs text-text-secondary truncate w-full" title={feature.model ? String(feature.model) : undefined}>
-                        {feature.model ? feature.model : <span className="text-text-muted italic">—</span>}
-                      </div>
-                    </CellWrapper>
-                    {/* 10. PROMPT */}
-                    <CellWrapper colIdx={9} rowIdx={rowIdx}>
-                      <div className="text-xs text-text-secondary whitespace-pre-line break-words w-full line-clamp-3" title={feature.aiPrompt ? String(feature.aiPrompt) : undefined}>
-                        {feature.aiPrompt ? feature.aiPrompt : <span className="text-text-muted italic">—</span>}
-                      </div>
-                    </CellWrapper>
-                    {/* 11. Start Dev */}
-                    <CellWrapper colIdx={10} rowIdx={rowIdx}>
-                      <div className="flex flex-row flex-wrap items-center justify-center gap-1 w-full min-w-0">
-                        {devInProgressIds.has(feature.name) ? (
-                          <Loader2 className="w-4 h-4 text-blue-500 animate-spin flex-shrink-0" aria-label="開發中" />
-                        ) : (
-                          <button type="button" onClick={() => setDevInProgressIds(prev => new Set(prev).add(feature.name))}
-                            className="p-0.5 rounded hover:bg-bg-secondary transition-colors" title="開始開發">
-                            <Play className="w-4 h-4 text-emerald-600 fill-emerald-600" />
-                          </button>
-                        )}
-                        <button type="button" onClick={() => setDevInProgressIds(prev => { const n = new Set(prev); n.delete(feature.name); return n; })}
-                          className="p-0.5 rounded hover:bg-bg-secondary transition-colors text-pink-500" title="暫緩">
-                          <Pause className="w-4 h-4" />
+                          <Settings className="w-4 h-4" />
                         </button>
-                        <button type="button" onClick={() => setDevInProgressIds(prev => { const n = new Set(prev); n.delete(feature.name); return n; })}
-                          className="p-0.5 rounded hover:bg-bg-secondary transition-colors text-black dark:text-gray-200" title="停止">
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); setDevInProgressIds(prev => new Set(prev).add(feature.name)); }}
+                          className="p-0.5 rounded hover:bg-bg-secondary transition-colors"
+                          title="開始執行"
+                          aria-label="開始執行"
+                        >
+                          <Play className="w-4 h-4 text-emerald-600 fill-emerald-600" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); setDevInProgressIds(prev => { const n = new Set(prev); n.delete(feature.name); return n; }); }}
+                          className="p-0.5 rounded hover:bg-bg-secondary transition-colors text-black dark:text-gray-200"
+                          title="停止"
+                          aria-label="停止"
+                        >
                           <Square className="w-4 h-4" />
                         </button>
                       </div>
                     </CellWrapper>
-                    {/* 12. Last Modified */}
-                    <CellWrapper colIdx={11} rowIdx={rowIdx}>
-                      <div className="text-xs text-text-muted">
-                        <p className="truncate" title={feature.lastModifiedBy}>{feature.lastModifiedBy}</p>
-                        <p className="font-mono mt-0.5 text-[10px] truncate">{feature.lastModifiedDate}</p>
+                    {/* 6. TTD Spec URL */}
+                    <CellWrapper colIdx={5} rowIdx={rowIdx}>
+                      {feature.tddSpecDocPath ? (() => {
+                        const tp = feature.tddSpecDocPath.trim();
+                        const isDocsScope = tp.startsWith('/docs/');
+                        const scope = isDocsScope ? 'docs' : 'project';
+                        const pathParam = isDocsScope ? tp.slice(6) : tp.replace(/^\//, '');
+                        const href = `/superadmin/docs?scope=${scope}&path=${encodeURIComponent(pathParam)}`;
+                        const label = `${(rowIdx + 1).toString().padStart(3, '0')}-TTD-Spec-URL`;
+                        return (
+                          <a href={href} className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full" title={tp}>
+                            <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{label}</span>
+                          </a>
+                        );
+                      })() : <span className="text-text-muted italic text-xs">—</span>}
+                    </CellWrapper>
+                    {/* 7. 測試腳本數量 */}
+                    <CellWrapper colIdx={6} rowIdx={rowIdx}>
+                      {(() => {
+                        const count = feature.testScriptCount ?? 0;
+                        const path = feature.testScriptPath ?? DEFAULT_TEST_SCRIPT_PATH;
+                        const href = `/superadmin/docs?scope=project&path=${encodeURIComponent(path)}`;
+                        return (
+                          <a href={href} className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline" title={`測試腳本目錄: ${path}`}>
+                            <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                            <span>{count}</span>
+                          </a>
+                        );
+                      })()}
+                    </CellWrapper>
+                    {/* 8. Test Script Pass Rate (測試腳本通過率)：通過數/總數 + 齒輪(設定) + 綠色箭頭(開始) + 方格(停止) */}
+                    <CellWrapper colIdx={7} rowIdx={rowIdx}>
+                      <div className="flex flex-row flex-wrap items-center gap-1.5 w-full min-w-0" title={feature.testProgress ? String(feature.testProgress) : undefined}>
+                        <span className="text-xs text-text-primary font-mono flex-shrink-0">
+                          {`${feature.testScriptPassedCount ?? 0}/${feature.testScriptCount ?? 0}`}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); /* TODO: open test prompt settings */ }}
+                          className="p-0.5 rounded hover:bg-bg-secondary transition-colors text-text-secondary hover:text-text-primary"
+                          title="Test prompt settings"
+                          aria-label="Test prompt settings"
+                        >
+                          <Settings className="w-4 h-4" />
+                        </button>
+                        {testInProgressIds.has(feature.name) ? (
+                          <Loader2 className="w-4 h-4 text-blue-500 animate-spin flex-shrink-0" aria-label="測試執行中" />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={e => { e.stopPropagation(); setTestInProgressIds(prev => new Set(prev).add(feature.name)); }}
+                            className="p-0.5 rounded hover:bg-bg-secondary transition-colors"
+                            title="開始執行測試"
+                            aria-label="開始執行測試"
+                          >
+                            <Play className="w-4 h-4 text-emerald-600 fill-emerald-600" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); setTestInProgressIds(prev => { const n = new Set(prev); n.delete(feature.name); return n; }); }}
+                          className="p-0.5 rounded hover:bg-bg-secondary transition-colors text-black dark:text-gray-200"
+                          title="停止"
+                          aria-label="停止"
+                        >
+                          <Square className="w-4 h-4" />
+                        </button>
                       </div>
                     </CellWrapper>
                   </div>

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>功能規格：超級管理員-雲端空間管理平台 — 2026/02/21</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; max-width: 1100px; margin: 0 auto; padding: 24px; background: #f8f9fa; color: #1f2937; }
+    .container { background: #fff; border-radius: 12px; padding: 40px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    h1 { color: #0369a1; border-bottom: 3px solid #0369a1; padding-bottom: 12px; margin-bottom: 24px; }
+    h2 { color: #0284c7; margin-top: 32px; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+    .todo { background: #fef9c3; color: #854d0e; }
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 20px 0; }
+    .info-card { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 14px; }
+    .info-card .label { font-size: 0.72rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+    .info-card .value { font-size: 1.05rem; font-weight: 700; color: #0c4a6e; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.875rem; }
+    th { background: #0369a1; color: #fff; padding: 10px 14px; text-align: left; }
+    td { padding: 9px 14px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+    tr:nth-child(even) td { background: #f0f9ff; }
+    .ac-list { counter-reset: ac; list-style: none; padding: 0; margin: 0; }
+    .ac-list li { counter-increment: ac; padding: 10px 0 10px 42px; position: relative; border-bottom: 1px solid #f0f0f0; }
+    .ac-list li::before { content: "AC-" counter(ac, decimal-leading-zero); position: absolute; left: 0; color: #0369a1; font-weight: 700; font-size: 0.75rem; top: 12px; }
+    .highlight { background: #f0f9ff; border-left: 4px solid #0369a1; padding: 12px 16px; border-radius: 4px; margin: 16px 0; }
+    code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.85rem; }
+    .wireframe { background: #1e293b; color: #94a3b8; border-radius: 8px; padding: 20px; font-family: monospace; font-size: 0.8rem; line-height: 1.8; margin: 16px 0; white-space: pre; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>功能規格：超級管理員-雲端空間管理平台</h1>
+
+  <div class="info-grid">
+    <div class="info-card"><div class="label">功能分類</div><div class="value">超級管理員</div></div>
+    <div class="info-card"><div class="label">開發進度</div><div class="value">0%</div></div>
+    <div class="info-card"><div class="label">狀態</div><div class="value"><span class="badge todo">待開發</span></div></div>
+    <div class="info-card"><div class="label">建立日期</div><div class="value">2026/02/21</div></div>
+    <div class="info-card"><div class="label">Story Points</div><div class="value">5 SP</div></div>
+    <div class="info-card"><div class="label">優先級</div><div class="value">中</div></div>
+  </div>
+
+  <h2>一、功能描述</h2>
+  <p>超級管理員可透過此平台集中管理 Supabase Storage 的雲端空間使用狀況，包含查看各用戶的儲存配額、瀏覽全平台檔案（圖片、文件、音訊）、設定個別用戶配額上限、批次操作檔案，以及在配額超標時接收警示通知。</p>
+
+  <h2>二、驗收標準 (Acceptance Criteria)</h2>
+  <ul class="ac-list">
+    <li>顯示總儲存空間與已用空間的視覺化圓餅圖及長條圖，數據即時從 Supabase Storage API 拉取</li>
+    <li>可瀏覽所有使用者上傳的檔案（圖片、文件、音訊），支援依檔案類型、上傳者、上傳時間篩選</li>
+    <li>可對個別使用者設定儲存配額上限（如：房東 5GB、租客 1GB），並即時生效</li>
+    <li>當某用戶使用空間超過配額 75% 時，自動警示管理員（系統通知 + Email）</li>
+    <li>支援批次刪除、下載（壓縮 ZIP）或移動檔案至封存資料夾</li>
+  </ul>
+
+  <h2>三、頁面版面示意</h2>
+  <div class="wireframe">┌─────────────────────────────────────────────────────────┐
+│  雲端空間管理                         [篩選] [批次操作]  │
+├──────────────┬──────────────────────────────────────────┤
+│  空間總覽     │  ┌──────────────┐  總容量：500 GB        │
+│  ────────── │  │  圓餅圖       │  已使用：187 GB (37%)  │
+│  [圓餅圖]    │  │              │  可用：313 GB           │
+│              │  └──────────────┘                        │
+│  配額警示     │  ─────────────────────────────────────── │
+│  ⚠ 3 位超標  │  用戶配額使用率 Top 5：                   │
+│              │  landlord_A   [██████████ 92%] 9.2/10GB │
+│              │  landlord_B   [███████    73%] 3.6/5GB  │
+│              │  tenant_C     [██████     65%] 0.65/1GB │
+├──────────────┴──────────────────────────────────────────┤
+│  篩選：用戶 [___]  檔案類型 [全部▼]  日期 [____~____]   │
+├───────┬──────────────┬────────┬──────────┬─────────────┤
+│選取   │  檔案名稱     │  大小  │  上傳者  │  上傳時間    │
+├───────┼──────────────┼────────┼──────────┼─────────────┤
+│  □   │ photo_001.jpg│ 2.3MB  │ user_123 │ 2026-02-20  │
+│  □   │ contract.pdf │ 0.8MB  │ user_456 │ 2026-02-19  │
+├───────┴──────────────┴────────┴──────────┴─────────────┤
+│  [刪除選取]  [下載ZIP]  [移至封存]              [1/50頁] │
+└─────────────────────────────────────────────────────────┘</div>
+
+  <h2>四、資料模型</h2>
+  <table>
+    <thead><tr><th>欄位 / 資料表</th><th>類型</th><th>說明</th></tr></thead>
+    <tbody>
+      <tr><td><code>storage_quotas</code></td><td>資料表</td><td>用戶配額設定（user_id, quota_bytes, used_bytes, updated_at）</td></tr>
+      <tr><td><code>storage_files</code></td><td>View</td><td>從 Supabase Storage API 彙整的檔案清單（id, name, size, owner_id, bucket, path, created_at）</td></tr>
+      <tr><td><code>storage_alerts</code></td><td>資料表</td><td>配額警示紀錄（user_id, threshold_percent, triggered_at, resolved_at）</td></tr>
+      <tr><td><code>quota_bytes</code></td><td>BIGINT</td><td>配額上限（單位：Bytes）</td></tr>
+      <tr><td><code>used_bytes</code></td><td>BIGINT</td><td>已使用空間（由 Storage API 定期同步）</td></tr>
+    </tbody>
+  </table>
+
+  <h2>五、技術實作方向</h2>
+  <div class="highlight">
+    <strong>空間統計</strong>：透過 Supabase Storage Management API (<code>supabase.storage.listBuckets()</code> + <code>listFiles()</code>) 統計各 Bucket 使用量，以 Server Action 定時同步至 <code>storage_quotas</code> 表。
+  </div>
+  <div class="highlight">
+    <strong>配額警示</strong>：Supabase Edge Function（Cron Job）每小時執行一次，檢查 <code>used_bytes / quota_bytes > 0.75</code>，寫入 <code>storage_alerts</code> 並觸發 Email 通知（使用 Resend API）。
+  </div>
+  <div class="highlight">
+    <strong>批次操作</strong>：刪除使用 <code>supabase.storage.from(bucket).remove(paths[])</code>；下載ZIP由 Next.js Route Handler 串流打包；移至封存資料夾使用 <code>copy()</code> + <code>remove()</code> 雙步驟。
+  </div>
+  <div class="highlight">
+    <strong>安全性</strong>：所有 Storage 管理操作須使用 <code>service_role</code> key（透過 Server Action），前端不直接暴露；RLS 確保一般用戶只能存取自己的檔案。
+  </div>
+
+  <h2>六、相依功能</h2>
+  <ul>
+    <li>Supabase Storage Buckets 設定（需預先建立 <code>properties</code>、<code>documents</code>、<code>avatars</code> 等 Bucket）</li>
+    <li>使用者身份驗證系統（需 user_id 映射）</li>
+    <li>Email 通知系統（Resend API 整合）</li>
+    <li>超級管理員-網路安全－隱私審計管理功能（共用稽核日誌架構）</li>
+  </ul>
+</div>
+</body>
+</html>
