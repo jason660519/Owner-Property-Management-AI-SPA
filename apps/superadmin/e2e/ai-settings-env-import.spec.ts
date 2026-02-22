@@ -12,7 +12,7 @@ test.describe('AI Settings – env import shows keys without page refresh', () =
     await page.waitForURL(/\/superadmin/);
   });
 
-  test('after 導入並加密儲存, saved key appears in list without manual refresh', async ({ page }) => {
+  test('after 導入，儲存並驗證全部金鑰, saved key appears in list without manual refresh', async ({ page }) => {
     await page.goto(SETTINGS_URL);
     await page.waitForLoadState('networkidle');
 
@@ -27,8 +27,8 @@ test.describe('AI Settings – env import shows keys without page refresh', () =
     // Wait for "辨識到 1 個" so button is enabled
     await expect(page.getByText(/辨識到 1 個/)).toBeVisible({ timeout: 3000 });
 
-    // Click 導入並加密儲存
-    await page.getByRole('button', { name: /導入並加密儲存/ }).click();
+    // Click 導入，儲存並驗證全部金鑰
+    await page.getByRole('button', { name: /導入，儲存並驗證全部金鑰/ }).click();
 
     // Wait for success: either "已導入" or loading then list update
     await expect(

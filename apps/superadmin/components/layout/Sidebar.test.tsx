@@ -31,6 +31,7 @@ describe('Sidebar Component', () => {
       'Storage',
       'Impersonate',
       'IAM Audit',
+      'AI 服務 / API KEY',
       'Settings'
     ];
 

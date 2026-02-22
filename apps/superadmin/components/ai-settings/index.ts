@@ -3,6 +3,7 @@
 
 export { ApiKeyManager, type ApiKeyManagerHandle } from './ApiKeyManager';
 export { ModelSelector } from './ModelSelector';
+export { ModelEvaluator } from './ModelEvaluator';
 export { FeatureModuleSelector } from './FeatureModuleSelector';
 export { SystemPromptEditor } from './SystemPromptEditor';
 export { UsageMonitor } from './UsageMonitor';

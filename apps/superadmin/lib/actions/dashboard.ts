@@ -53,17 +53,46 @@ export interface AdminStats {
   pendingVerifications: number;
 }
 
+export const FALLBACK_STATS: AdminStats = {
+  totalUsers: 0,
+  totalGroups: 0,
+  totalRoles: 0,
+  superadminCount: 0,
+  activeUsersCount: 0,
+  onlineUsersCount: 0,
+  totalProperties: 0,
+  totalSales: 0,
+  totalRentals: 0,
+  overdueSalesCount: 0,
+  overdueRentalsCount: 0,
+  soldSalesCount: 0,
+  totalBlogs: 0,
+  surveyReportCountForSales: 0,
+  salesContractsCount: 0,
+  salesBlogCount: 0,
+  surveyReportCountForRentals: 0,
+  leaseContractsCount: 0,
+  rentalBlogCount: 0,
+  salesWithoutPhotoCount: 0,
+  rentalsWithoutPhotoCount: 0,
+  salesWithoutBlogCount: 0,
+  rentalsWithoutBlogCount: 0,
+  activeRentals: 0,
+  activeListings: 0,
+  totalRevenue: 0,
+  pendingVerifications: 0,
+};
+
 export async function getAdminDashboardStats(): Promise<AdminStats> {
   noStore();
 
-  // Superadmin dashboard needs a global system-wide view of ALL data.
-  // The service_role client:
-  //   1. Can call auth.admin.listUsers() (anon key gets 403 "not_admin")
-  //   2. Bypasses RLS on all tables (anon/session clients are filtered by RLS policies
-  //      that restrict visibility by owner_id or status, e.g. only 'available'/'vacant')
-  const adminClient = createAdminClient();
-
   try {
+    // Superadmin dashboard needs a global system-wide view of ALL data.
+    // The service_role client:
+    //   1. Can call auth.admin.listUsers() (anon key gets 403 "not_admin")
+    //   2. Bypasses RLS on all tables (anon/session clients are filtered by RLS policies
+    //      that restrict visibility by owner_id or status, e.g. only 'available'/'vacant')
+    const adminClient = createAdminClient();
     // All dashboard numeric fields are read from Supabase (live sync). Seed data: 20260215200000_seed_superadmin_dashboard_data.sql when DB is empty.
     // ── 1. Total users + active (7d) + online (24h) from Supabase Auth ─
     let totalUsers = 0;
@@ -335,35 +364,6 @@ export async function getAdminDashboardStats(): Promise<AdminStats> {
       stack: error instanceof Error ? error.stack : undefined,
       timestamp: new Date().toISOString(),
     });
-
-    return {
-      totalUsers: 0,
-      totalGroups: 0,
-      totalRoles: 0,
-      superadminCount: 0,
-      activeUsersCount: 0,
-      onlineUsersCount: 0,
-      totalProperties: 0,
-      totalSales: 0,
-      totalRentals: 0,
-      overdueSalesCount: 0,
-      overdueRentalsCount: 0,
-      soldSalesCount: 0,
-      totalBlogs: 0,
-      surveyReportCountForSales: 0,
-      salesContractsCount: 0,
-      salesBlogCount: 0,
-      surveyReportCountForRentals: 0,
-      leaseContractsCount: 0,
-      rentalBlogCount: 0,
-      salesWithoutPhotoCount: 0,
-      rentalsWithoutPhotoCount: 0,
-      salesWithoutBlogCount: 0,
-      rentalsWithoutBlogCount: 0,
-      activeRentals: 0,
-      activeListings: 0,
-      totalRevenue: 0,
-      pendingVerifications: 0,
-    };
+    return FALLBACK_STATS;
   }
 }

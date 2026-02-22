@@ -7,9 +7,15 @@ import { decryptApiKey } from '@/lib/crypto';
 import { resolveUserId } from '@/lib/resolve-ai-settings-user';
 import type { AIProvider } from '@/lib/ai-providers';
 
-const TEST_PROMPT = '請用一句話回覆：你好，我是{你的模型名稱與型號}，可以正常接收並回應。';
+const DEFAULT_TEST_PROMPT = '請用一句話回覆：你好，我是{你的模型名稱與型號}，可以正常接收並回應。';
 
 type TestResult = { success: boolean; message: string; output?: string };
+
+function getPromptAndMaxTokens(prompt?: string): { prompt: string; max_tokens: number } {
+  const text = typeof prompt === 'string' && prompt.trim() ? prompt.trim() : DEFAULT_TEST_PROMPT;
+  const max_tokens = text === DEFAULT_TEST_PROMPT ? 64 : 512;
+  return { prompt: text, max_tokens };
+}
 
 function extractOpenAIOutput(data: unknown): string {
   const choices = (data as { choices?: { message?: { content?: string } }[] })?.choices;
@@ -17,15 +23,16 @@ function extractOpenAIOutput(data: unknown): string {
   return typeof text === 'string' ? text.trim() : '';
 }
 
-async function testOpenAI(apiKey: string, modelId: string): Promise<TestResult> {
+async function testOpenAI(apiKey: string, modelId: string, userPrompt?: string): Promise<TestResult> {
+  const { prompt, max_tokens } = getPromptAndMaxTokens(userPrompt);
   try {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: modelId,
-        messages: [{ role: 'user', content: TEST_PROMPT }],
-        max_tokens: 64,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens,
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -42,7 +49,8 @@ function extractAnthropicOutput(data: unknown): string {
   return typeof text === 'string' ? text.trim() : '';
 }
 
-async function testAnthropic(apiKey: string, modelId: string): Promise<TestResult> {
+async function testAnthropic(apiKey: string, modelId: string, userPrompt?: string): Promise<TestResult> {
+  const { prompt, max_tokens } = getPromptAndMaxTokens(userPrompt);
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -53,8 +61,8 @@ async function testAnthropic(apiKey: string, modelId: string): Promise<TestResul
       },
       body: JSON.stringify({
         model: modelId,
-        max_tokens: 64,
-        messages: [{ role: 'user', content: TEST_PROMPT }],
+        max_tokens,
+        messages: [{ role: 'user', content: prompt }],
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -71,7 +79,8 @@ function extractGeminiOutput(data: unknown): string {
   return typeof text === 'string' ? text.trim() : '';
 }
 
-async function testGemini(apiKey: string, modelId: string): Promise<TestResult> {
+async function testGemini(apiKey: string, modelId: string, userPrompt?: string): Promise<TestResult> {
+  const { prompt, max_tokens } = getPromptAndMaxTokens(userPrompt);
   try {
     const name = modelId.startsWith('models/') ? modelId : `models/${modelId}`;
     const res = await fetch(
@@ -80,8 +89,8 @@ async function testGemini(apiKey: string, modelId: string): Promise<TestResult> 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: TEST_PROMPT }] }],
-          generationConfig: { maxOutputTokens: 64 },
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: max_tokens },
         }),
       }
     );
@@ -93,15 +102,16 @@ async function testGemini(apiKey: string, modelId: string): Promise<TestResult> 
   }
 }
 
-async function testDeepSeek(apiKey: string, modelId: string): Promise<TestResult> {
+async function testDeepSeek(apiKey: string, modelId: string, userPrompt?: string): Promise<TestResult> {
+  const { prompt, max_tokens } = getPromptAndMaxTokens(userPrompt);
   try {
     const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: modelId,
-        messages: [{ role: 'user', content: TEST_PROMPT }],
-        max_tokens: 64,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens,
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -112,15 +122,16 @@ async function testDeepSeek(apiKey: string, modelId: string): Promise<TestResult
   }
 }
 
-async function testGrok(apiKey: string, modelId: string): Promise<TestResult> {
+async function testGrok(apiKey: string, modelId: string, userPrompt?: string): Promise<TestResult> {
+  const { prompt, max_tokens } = getPromptAndMaxTokens(userPrompt);
   try {
     const res = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: modelId,
-        messages: [{ role: 'user', content: TEST_PROMPT }],
-        max_tokens: 64,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens,
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -131,7 +142,7 @@ async function testGrok(apiKey: string, modelId: string): Promise<TestResult> {
   }
 }
 
-const testers: Record<AIProvider, (key: string, modelId: string) => Promise<TestResult>> = {
+const testers: Record<AIProvider, (key: string, modelId: string, userPrompt?: string) => Promise<TestResult>> = {
   openai: testOpenAI,
   anthropic: testAnthropic,
   gemini: testGemini,
@@ -150,7 +161,8 @@ export async function POST(request: NextRequest) {
     if (!userId) {
       return NextResponse.json({ success: false, message: '找不到可用的使用者' }, { status: 401 });
     }
-    const { provider, modelId } = await request.json();
+    const body = await request.json();
+    const { provider, modelId, prompt: userPrompt } = body as { provider?: string; modelId?: string; prompt?: string };
     if (!provider || !modelId) {
       return NextResponse.json({ success: false, message: '缺少 provider 或 modelId' }, { status: 400 });
     }
@@ -174,7 +186,7 @@ export async function POST(request: NextRequest) {
     } catch {
       return NextResponse.json({ success: false, message: '金鑰解密失敗' }, { status: 500 });
     }
-    const result = await test(apiKey, modelId);
+    const result = await test(apiKey, modelId, userPrompt);
     return NextResponse.json(result);
   } catch (err) {
     console.error('[AI Settings] Model test error:', err);

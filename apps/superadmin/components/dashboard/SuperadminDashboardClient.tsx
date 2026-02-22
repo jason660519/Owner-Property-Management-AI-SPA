@@ -14,9 +14,12 @@ const BASE = '/superadmin';
 export default function SuperadminDashboardClient({
   stats,
   userName,
+  loadError,
 }: {
   stats: AdminStats;
   userName?: string;
+  /** 當儀表板資料載入失敗時顯示的訊息（不觸發 error boundary） */
+  loadError?: string;
 }) {
   const summaryRows = [
     { label: '總用戶/活躍用戶/在線用戶數', value: `${stats.totalUsers} / ${stats.activeUsersCount} / ${stats.onlineUsersCount}` },
@@ -74,6 +77,11 @@ export default function SuperadminDashboardClient({
         </Link>
       }
     >
+      {loadError && (
+        <div className="mb-4 rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400" role="alert">
+          資料暫時無法完整載入。{loadError}
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card className="p-6 hover:border-accent/50 transition-all">
           <div className="mb-4 flex items-start justify-between">

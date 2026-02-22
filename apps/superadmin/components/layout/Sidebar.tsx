@@ -51,6 +51,7 @@ const navItems: NavItem[] = [
   { name: 'AI LLM Monitor', href: '/superadmin/dashboard/llm-monitor', icon: Brain },
   { name: 'Project Progress Dashboard', href: '/superadmin/dashboard/project-progress', icon: FileText },
   { name: 'Project Files', href: '/superadmin/docs', icon: BookOpen },
+  { name: 'AI 服務 / API KEY', href: '/superadmin/settings/api_key_and_model_setting', icon: Key },
   { name: 'Settings', href: '/superadmin/settings', icon: Settings },
 ];
 

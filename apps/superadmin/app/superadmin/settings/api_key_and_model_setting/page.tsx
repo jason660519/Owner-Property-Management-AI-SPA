@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Key, Cpu, Puzzle, MessageSquareText, BarChart3,
-  Loader2, RefreshCw, Trash2, Upload, Download, ShieldCheck,
+  Key, Cpu, Puzzle, MessageSquareText, BarChart3, FlaskConical,
+  Loader2, RefreshCw, Trash2, Upload, ShieldCheck, Save,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Button } from '@/components/ui/Button';
@@ -11,16 +11,19 @@ import {
   ApiKeyManager,
   type ApiKeyManagerHandle,
   ModelSelector,
+  ModelEvaluator,
   FeatureModuleSelector,
   SystemPromptEditor,
   UsageMonitor,
 } from '@/components/ai-settings';
 import { useAISettings, type KeyValidationResult } from '@/lib/hooks/useAISettings';
+import { getTotalAvailableModels, getSelectedCountInAvailable } from '@/lib/utils/total-available-models';
+import { getProviderById } from '@/lib/ai-providers';
 import { SUPPORTED_AI_ENV_KEY_NAMES, parseEnvForAIKeys } from '@/lib/parse-env-keys';
 
-type SettingsTab = 'keys' | 'models' | 'modules' | 'prompts' | 'usage';
+type SettingsTab = 'keys' | 'evaluations' | 'models' | 'modules' | 'prompts' | 'usage';
 
-const TAB_IDS: SettingsTab[] = ['keys', 'modules', 'prompts', 'usage', 'models'];
+const TAB_IDS: SettingsTab[] = ['keys', 'evaluations', 'modules', 'prompts', 'usage', 'models'];
 
 function getTabFromHash(): SettingsTab | null {
   if (typeof window === 'undefined') return null;
@@ -30,6 +33,7 @@ function getTabFromHash(): SettingsTab | null {
 
 const TABS: { id: SettingsTab; label: string; icon: React.ElementType; description: string }[] = [
   { id: 'keys', label: 'API 金鑰管理', icon: Key, description: '管理各 AI 服務提供商的 API 金鑰' },
+  { id: 'evaluations', label: '已選/可選模型評估', icon: FlaskConical, description: '評估各模型的運作狀態與強項，建立 AI 功能候選名單' },
   { id: 'modules', label: '功能模組配置', icon: Puzzle, description: '啟用與配置 AI 功能模組' },
   { id: 'prompts', label: 'System Prompt', icon: MessageSquareText, description: '編輯各功能模組的系統提示詞' },
   { id: 'usage', label: '使用監控與設定', icon: BarChart3, description: '查看使用統計，匯入/匯出設定' },
@@ -41,16 +45,19 @@ const ENV_IMPORT_TOOLTIP = `從 .env 或 JSON 導入\n支援兩種格式：\n•
 export default function AIServiceSettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => getTabFromHash() ?? 'keys');
   const [envImportButtonHover, setEnvImportButtonHover] = useState(false);
-  const [keysTabModelTotal, setKeysTabModelTotal] = useState<number | null>(null);
   const settings = useAISettings();
   const apiKeyHeaderActionsRef = useRef<{ setEnvImportOpen: (v: boolean) => void } | null>(null);
   const apiKeyManagerRef = useRef<ApiKeyManagerHandle | null>(null);
   const importFileInputRef = useRef<HTMLInputElement>(null);
-  const [exportLocalLoading, setExportLocalLoading] = useState(false);
   const [importLocalLoading, setImportLocalLoading] = useState(false);
+  const [saveSettingsLoading, setSaveSettingsLoading] = useState(false);
   const [validateAllLoading, setValidateAllLoading] = useState(false);
   /** 全部驗證完成後各 key 的結果，供每張 card 直接顯示 Available models，無需再按「驗證金鑰」 */
   const [validateAllResultsByKeyId, setValidateAllResultsByKeyId] = useState<Record<string, KeyValidationResult>>({});
+  const keysRef = useRef(settings.keys);
+  useEffect(() => {
+    keysRef.current = settings.keys;
+  }, [settings.keys]);
 
   useEffect(() => {
     const tab = getTabFromHash();
@@ -63,12 +70,101 @@ export default function AIServiceSettingsPage() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
+  // 只合併「目前仍存在的 key」的驗證快取，刪除金鑰後不會帶入已刪 key 的 cache
+  useEffect(() => {
+    const cache = settings.validationCacheByKeyId;
+    const currentKeyIds = new Set(settings.keys.map((k) => k.id));
+    if (!cache || Object.keys(cache).length === 0) return;
+    const fromCache = Object.fromEntries(
+      Object.entries(cache).filter(([keyId]) => currentKeyIds.has(keyId))
+    );
+    if (Object.keys(fromCache).length === 0) return;
+    setValidateAllResultsByKeyId((prev) => ({ ...fromCache, ...prev }));
+  }, [settings.validationCacheByKeyId, settings.keys]);
+
+  // 金鑰刪除後清除已不存在 key 的驗證結果，使「可選 models」數字即時減少
+  useEffect(() => {
+    const currentKeyIds = new Set(settings.keys.map((k) => k.id));
+    setValidateAllResultsByKeyId((prev) => {
+      const next = Object.fromEntries(
+        Object.entries(prev).filter(([keyId]) => currentKeyIds.has(keyId))
+      );
+      return Object.keys(next).length === Object.keys(prev).length ? prev : next;
+    });
+  }, [settings.keys]);
+
   const handleTabClick = (tabId: SettingsTab) => {
     setActiveTab(tabId);
     if (typeof window !== 'undefined') {
       window.history.replaceState(null, '', `#${tabId}`);
     }
   };
+
+  const runValidateAllKeys = useCallback(
+    async (keys: typeof settings.keys, importedCount?: number) => {
+      if (!keys.length) return;
+      setValidateAllLoading(true);
+      try {
+        const results = await Promise.all(
+          keys.map((key) =>
+            settings.validateKey(
+              key.provider,
+              key.decryptedKey ?? '',
+              key.id,
+              { skipRefresh: true }
+            )
+          )
+        );
+        await settings.refreshSilent();
+        const successCount = results.filter((r) => r?.valid).length;
+        const byProviderForTotal = new Map<string, number>();
+        keys.forEach((k, i) => {
+          const r = results[i];
+          if (!r?.valid || !Array.isArray(r.availableModels)) return;
+          const count = r.availableModels.length;
+          const existing = byProviderForTotal.get(k.provider);
+          if (existing === undefined || existing < count) byProviderForTotal.set(k.provider, count);
+        });
+        const totalModels = Array.from(byProviderForTotal.values()).reduce((a, b) => a + b, 0);
+        const byKeyId: Record<string, KeyValidationResult> = {};
+        keys.forEach((k, i) => {
+          if (results[i]) byKeyId[k.id] = results[i] as KeyValidationResult;
+        });
+        setValidateAllResultsByKeyId(byKeyId);
+        try {
+          await settings.saveValidationSummary(successCount, totalModels);
+        } catch (saveErr) {
+          console.warn('[驗證全部金鑰] 組態概況寫入失敗，不影響驗證結果', saveErr);
+        }
+        if (typeof window !== 'undefined') {
+          const lines: string[] = [];
+          if (importedCount != null && importedCount > 0) {
+            lines.push(`導入成功 ${importedCount} 家金鑰。`);
+            lines.push('');
+          }
+          lines.push(`驗證完成。驗證成功 ${successCount} 家。`);
+          if (byProviderForTotal.size > 0) {
+            const perProvider = Array.from(byProviderForTotal.entries())
+              .map(([providerId, count]) => {
+                const name = getProviderById(providerId as Parameters<typeof getProviderById>[0])?.name ?? providerId;
+                return `${name}：${count} 個`;
+              })
+              .join('；');
+            lines.push(`各家可用模型數：${perProvider}`);
+          }
+          lines.push(`全部可用模型共 ${totalModels} 個。`);
+          window.alert(lines.join('\n'));
+        }
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : '驗證全部金鑰時發生錯誤，請稍後再試';
+        if (typeof window !== 'undefined') window.alert(msg);
+      } finally {
+        setValidateAllLoading(false);
+      }
+    },
+    [settings]
+  );
 
   const renderContent = () => {
     if (settings.loading) {
@@ -107,14 +203,35 @@ export default function AIServiceSettingsPage() {
               return r;
             }}
             headerActionsRef={apiKeyHeaderActionsRef}
-            onModelSelectionTotalChange={setKeysTabModelTotal}
             onSaveModels={async (providerId, modelIds) => {
               await settings.saveModels(
                 providerId as Parameters<typeof settings.saveModels>[0],
                 modelIds.map((modelId, i) => ({ modelId, modelName: modelId, isPrimary: i === 0 }))
               );
             }}
-            onBatchImportComplete={settings.refresh}
+            onBatchImportComplete={async (importedCount) => {
+              await settings.refresh();
+              await new Promise((r) => setTimeout(r, 800));
+              await runValidateAllKeys(keysRef.current, importedCount);
+            }}
+          />
+        );
+      case 'evaluations':
+        return (
+          <ModelEvaluator
+            savedKeys={settings.keys}
+            savedModels={settings.models}
+            savedEvaluations={settings.evaluations}
+            validateAllResultsByKeyId={validateAllResultsByKeyId}
+            currentKeys={settings.keys.map((k) => ({ id: k.id, provider: k.provider }))}
+            onSave={settings.saveEvaluations}
+            onTestModel={settings.testModel}
+            onSaveModels={async (providerId, selections) => {
+              await settings.saveModels(
+                providerId as Parameters<typeof settings.saveModels>[0],
+                selections
+              );
+            }}
           />
         );
       case 'models':
@@ -161,6 +278,36 @@ export default function AIServiceSettingsPage() {
 
   const currentTab = TABS.find(t => t.id === activeTab)!;
 
+  /** 可選 models 總數：只計入「目前仍存在的 key」的驗證結果，刪除金鑰後即時減少 */
+  const computedFromValidation = getTotalAvailableModels(
+    validateAllResultsByKeyId,
+    settings.keys.map((k) => ({ id: k.id, provider: k.provider }))
+  );
+  const totalAvailableModels =
+    settings.keys.length === 0
+      ? 0
+      : computedFromValidation > 0
+        ? computedFromValidation
+        : settings.validationSummary.totalModels;
+
+  /**
+   * 單一事實來源：已選數量一律來自 Supabase ai_model_selections（settings.models）。
+   * 與 API 金鑰管理、已選/可選模型評估、模型費用說明 等分頁顯示一致。
+   */
+  const currentKeysForUtil = settings.keys.map((k) => ({ id: k.id, provider: k.provider }));
+  const selectedInAvailable = getSelectedCountInAvailable(
+    settings.models,
+    validateAllResultsByKeyId,
+    currentKeysForUtil
+  );
+  const currentProviderIds = new Set(settings.keys.map((k) => k.provider));
+  const selectedModelsForCurrentKeys = settings.models.filter((m) =>
+    currentProviderIds.has(m.provider)
+  );
+  const selectedModelCountRaw =
+    selectedInAvailable ?? selectedModelsForCurrentKeys.length;
+  const selectedModelCount = Math.min(selectedModelCountRaw, totalAvailableModels);
+
   const fixedBlock = (
     <div className="max-w-7xl mx-auto px-6 py-4 bg-bg-secondary border-b border-border-subtle">
       <div className="max-w-6xl mx-auto px-4">
@@ -187,31 +334,6 @@ export default function AIServiceSettingsPage() {
                 );
               })}
             </div>
-            {!settings.loading && (
-              <div className="flex items-center gap-4 shrink-0 text-xs text-text-secondary">
-                <span>
-                  已驗證/可設定金鑰家數{' '}
-                  <span className="font-medium text-text-primary">
-                    {settings.keys.filter((k) => k.is_valid === true).length}/5
-                  </span>
-                </span>
-                <span>
-                  已選/可選 models 數量{' '}
-                  <span className="font-medium text-text-primary">
-                    {activeTab === 'keys' && keysTabModelTotal != null
-                      ? keysTabModelTotal
-                      : settings.models.length}
-                    /
-                    {Object.keys(validateAllResultsByKeyId).length > 0
-                      ? Object.values(validateAllResultsByKeyId).reduce(
-                          (sum, r) => sum + (r?.availableModels?.length ?? 0),
-                          0
-                        )
-                      : settings.validationSummary.totalModels}
-                  </span>
-                </span>
-              </div>
-            )}
           </div>
         </div>
         <div className="flex items-center justify-between">
@@ -222,28 +344,57 @@ export default function AIServiceSettingsPage() {
               <p className="text-[11px] text-text-muted">{currentTab.description}</p>
             </div>
             {activeTab === 'keys' && (
-              <div
-                className="relative inline-flex shrink-0"
-                onMouseEnter={() => setEnvImportButtonHover(true)}
-                onMouseLeave={() => setEnvImportButtonHover(false)}
-              >
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={() => apiKeyHeaderActionsRef.current?.setEnvImportOpen(true)}
+              <>
+                <div
+                  className="relative inline-flex shrink-0"
+                  onMouseEnter={() => setEnvImportButtonHover(true)}
+                  onMouseLeave={() => setEnvImportButtonHover(false)}
                 >
-                  批量導入API KEY
-                </Button>
-                {envImportButtonHover && (
-                  <div
-                    className="absolute right-0 top-full z-50 mt-1.5 w-72 rounded-base border border-border-default bg-bg-primary px-3 py-2.5 text-left shadow-lg"
-                    role="tooltip"
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => apiKeyHeaderActionsRef.current?.setEnvImportOpen(true)}
                   >
-                    <p className="whitespace-pre-line text-xs text-text-secondary">
-                      {ENV_IMPORT_TOOLTIP}
-                    </p>
+                    批量導入API KEY
+                  </Button>
+                  {envImportButtonHover && (
+                    <div
+                      className="absolute right-0 top-full z-50 mt-1.5 w-72 rounded-base border border-border-default bg-bg-primary px-3 py-2.5 text-left shadow-lg"
+                      role="tooltip"
+                    >
+                      <p className="whitespace-pre-line text-xs text-text-secondary">
+                        {ENV_IMPORT_TOOLTIP}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                {!settings.loading && (
+                  <div className="flex flex-col gap-0.5 shrink-0 text-xs text-text-secondary">
+                    <span>
+                      已驗證/可設定金鑰家數{' '}
+                      <span className="font-medium text-text-primary">
+                        {settings.keys.filter((k) => k.is_valid === true).length}/5
+                      </span>
+                    </span>
+                    <span>
+                      已選/可選 models 數量{' '}
+                      <span className="font-medium text-text-primary">
+                        {selectedModelCount}/{totalAvailableModels}
+                      </span>
+                    </span>
                   </div>
                 )}
+              </>
+            )}
+            {activeTab === 'evaluations' && !settings.loading && (
+              <div className="flex flex-col gap-0.5 shrink-0 text-xs text-text-secondary">
+                <span>
+                  已選/可選 models 數量{' '}
+                  <span className="font-medium text-text-primary">
+                    {selectedModelCount}/{totalAvailableModels}
+                  </span>
+                  <span className="text-text-muted ml-1">（與 API 金鑰管理同步）</span>
+                </span>
               </div>
             )}
           </div>
@@ -261,29 +412,30 @@ export default function AIServiceSettingsPage() {
               <Button
                 size="sm"
                 variant="secondary"
+                title="將目前畫面上的已選 models 寫入雲端"
+                isLoading={saveSettingsLoading}
                 onClick={async () => {
-                  setExportLocalLoading(true);
+                  const selections = apiKeyManagerRef.current?.getModelSelections?.() ?? {};
+                  setSaveSettingsLoading(true);
                   try {
-                    const data = await settings.exportSettings();
-                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `ai-settings-${new Date().toISOString().split('T')[0]}.json`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                  } catch {
-                    if (typeof window !== 'undefined') window.alert('匯出失敗');
+                    const providers = Object.keys(selections);
+                    for (const providerId of providers) {
+                      const ids = selections[providerId] ?? [];
+                      await settings.saveModels(
+                        providerId as Parameters<typeof settings.saveModels>[0],
+                        ids.map((modelId, i) => ({ modelId, modelName: modelId, isPrimary: i === 0 }))
+                      );
+                    }
+                    await settings.refreshSilent();
+                    if (typeof window !== 'undefined') window.alert('設定已儲存');
+                  } catch (err) {
+                    if (typeof window !== 'undefined') window.alert(err instanceof Error ? err.message : '儲存失敗');
                   } finally {
-                    setExportLocalLoading(false);
+                    setSaveSettingsLoading(false);
                   }
                 }}
-                isLoading={exportLocalLoading}
-                title="將目前 AI 金鑰、模型與模組等設定匯出為 JSON 檔案下載"
               >
-                <Download size={14} /> 導出設定
+                <Save size={14} /> 儲存設定
               </Button>
               <Button
                 size="sm"
@@ -311,48 +463,10 @@ export default function AIServiceSettingsPage() {
                     if (typeof window !== 'undefined') window.alert('尚無已儲存的金鑰可驗證');
                     return;
                   }
-                  setValidateAllLoading(true);
-                  try {
-                    const results = await Promise.all(
-                      keys.map((key) =>
-                        settings.validateKey(
-                          key.provider,
-                          key.decryptedKey ?? '',
-                          key.id,
-                          { skipRefresh: true }
-                        )
-                      )
-                    );
-                    await settings.refreshSilent();
-                    const successCount = results.filter((r) => r?.valid).length;
-                    const totalModels = results
-                      .filter((r) => r?.valid && Array.isArray(r.availableModels))
-                      .reduce((sum, r) => sum + (r.availableModels?.length ?? 0), 0);
-                    const byKeyId: Record<string, KeyValidationResult> = {};
-                    keys.forEach((k, i) => {
-                      if (results[i]) byKeyId[k.id] = results[i] as KeyValidationResult;
-                    });
-                    setValidateAllResultsByKeyId(byKeyId);
-                    try {
-                      await settings.saveValidationSummary(successCount, totalModels);
-                    } catch (saveErr) {
-                      console.warn('[全部驗證] 組態概況寫入失敗，不影響驗證結果', saveErr);
-                    }
-                    if (typeof window !== 'undefined') {
-                      window.alert(
-                        `驗證完成。\n驗證成功 ${successCount} 家，共 ${totalModels} 個 models 可選用。`
-                      );
-                    }
-                  } catch (err) {
-                    const msg =
-                      err instanceof Error ? err.message : '全部驗證時發生錯誤，請稍後再試';
-                    if (typeof window !== 'undefined') window.alert(msg);
-                  } finally {
-                    setValidateAllLoading(false);
-                  }
+                  await runValidateAllKeys(keys);
                 }}
               >
-                <ShieldCheck size={14} /> 全部驗證
+                <ShieldCheck size={14} /> 驗證全部金鑰
               </Button>
             </div>
           )}

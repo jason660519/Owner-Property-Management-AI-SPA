@@ -21,7 +21,6 @@ import {
   Settings,
 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { ProgressBar } from './ProgressBar';
 import { getProjectProgressSettings, setProjectProgressSettings } from '../actions';
 import type { ProjectProgressSettingsPayload } from '../types';
 
@@ -48,21 +47,18 @@ type SelectionType = 'cell' | 'column' | 'row' | 'all' | null;
 
 // --- Constants ---
 
-const INITIAL_WIDTHS = [4, 9, 25, 23, 7, 8, 6, 6, 6, 6]; // sum = 100 (Unit Test, E2E, Test Script Pass Rate)
-
-const DEFAULT_TEST_SCRIPT_PATH = 'apps/superadmin/e2e';
+const INITIAL_WIDTHS = [4, 4, 5, 25, 23, 12, 6, 6, 15]; // sum = 100 (Category 1 + Category 2)
 
 const COLUMN_HEADERS = [
   { en: 'ID', zh: '編碼' },
-  { en: 'Category', zh: '分類' },
+  { en: 'Category 1 (Role/General)', zh: '分類1：按Role或通用分類' },
+  { en: 'Category 2 (Feature)', zh: '分類2：按功能需求分類' },
   { en: 'Feature', zh: '功能需求名稱' },
-  { en: 'Dev Progress & Report', zh: '開發進度與報告' },
-  { en: 'Dev Progress Rate', zh: '開發進度完成率（Completed數/TODO數）' },
-  { en: 'TTD Spec URL', zh: 'TTD 測試驅動開發規格說明書 URL' },
-  { en: 'Test Script Count', zh: '測試腳本數量' },
-  { en: 'Unit Test', zh: '單元測試 %' },
-  { en: 'E2E Acceptance Test', zh: '端到端驗收標準' },
+  { en: 'TDD Progress Report', zh: '測試驅動開發進度報告' },
+  { en: 'Unit Test Script Folder Name', zh: '單元測試腳本資料夾名稱' },
+  { en: 'E2E Acceptance Test Folder Name', zh: '端到端測試腳本目錄名稱' },
   { en: 'Test Script Pass Rate', zh: '測試腳本通過率' },
+  { en: 'TDD Spec URL', zh: 'TDD 測試驅動開發規格說明書 URL' },
 ];
 
 const COLUMN_LETTERS = COLUMN_HEADERS.map((_, i) => String.fromCharCode(65 + i));
@@ -840,14 +836,20 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                         {(rowIdx + 1).toString().padStart(3, '0')}
                       </div>
                     </CellWrapper>
-                    {/* 2. Category */}
+                    {/* 2. Category 1 (Role/General) */}
                     <CellWrapper colIdx={1} rowIdx={rowIdx}>
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-bg-tertiary text-text-primary truncate max-w-full" title={feature.category}>
                         {feature.category}
                       </span>
                     </CellWrapper>
-                    {/* 3. Feature（功能需求名稱 ＋ 功能需求說明書URL） */}
+                    {/* 3. Category 2 (Feature) */}
                     <CellWrapper colIdx={2} rowIdx={rowIdx}>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-bg-tertiary text-text-primary truncate max-w-full" title={feature.workCategory ?? ''}>
+                        {feature.workCategory ?? '—'}
+                      </span>
+                    </CellWrapper>
+                    {/* 4. Feature（功能需求名稱 ＋ 功能需求說明書URL） */}
+                    <CellWrapper colIdx={3} rowIdx={rowIdx}>
                       <div className="text-sm text-text-primary break-words w-full line-clamp-3" title={feature.name}>
                         <span className="font-medium">{feature.name}</span>
                         {feature.featureSpecDocPath ? (
@@ -869,15 +871,15 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                         ) : null}
                       </div>
                     </CellWrapper>
-                    {/* 4. 開發進度與報告 */}
-                    <CellWrapper colIdx={3} rowIdx={rowIdx}>
+                    {/* 5. TDD Report */}
+                    <CellWrapper colIdx={4} rowIdx={rowIdx}>
                       {feature.docPath ? (() => {
                         const docPath = feature.docPath.trim();
                         const isDocsScope = docPath.startsWith('/docs/');
                         const scope = isDocsScope ? 'docs' : 'project';
                         const pathParam = isDocsScope ? docPath.slice(6) : docPath.replace(/^\//, '');
                         const docsHref = `/superadmin/docs?scope=${scope}&path=${encodeURIComponent(pathParam)}`;
-                        const label = `${(rowIdx + 1).toString().padStart(3, '0')}-Dev-Process-and-Summary-URL`;
+                        const label = `${(rowIdx + 1).toString().padStart(3, '0')}-TDD-Report-URL`;
                         return (
                           <a href={docsHref} className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full" title={docPath}>
                             <ExternalLink className="w-3 h-3 flex-shrink-0" />
@@ -886,86 +888,34 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                         );
                       })() : <span className="text-text-muted italic text-xs">—</span>}
                     </CellWrapper>
-                    {/* 5. Dev Progress (開發進度)：完成數/TODO數 + 齒輪(設定) + 綠色箭頭(開始執行) */}
-                    <CellWrapper colIdx={4} rowIdx={rowIdx}>
-                      <div className="flex flex-row flex-wrap items-center gap-1.5 w-full min-w-0">
-                        <span className="text-xs text-text-primary font-mono flex-shrink-0">
-                          {`${feature.devCompletedCount ?? 0}/${feature.devTodoCount ?? 0}`}
-                        </span>
-                        <Link
-                          href="/superadmin/settings/api_key_and_model_setting"
-                          onClick={e => e.stopPropagation()}
-                          className="p-0.5 rounded hover:bg-bg-secondary transition-colors text-text-secondary hover:text-text-primary inline-flex items-center justify-center"
-                          title="開發進度與模型／提示詞設定"
-                          aria-label="開發進度與模型／提示詞設定"
-                        >
-                          <Settings className="w-4 h-4" />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={e => { e.stopPropagation(); setDevInProgressIds(prev => new Set(prev).add(feature.name)); }}
-                          className="p-0.5 rounded hover:bg-bg-secondary transition-colors"
-                          title="開始執行"
-                          aria-label="開始執行"
-                        >
-                          <Play className="w-4 h-4 text-emerald-600 fill-emerald-600" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={e => { e.stopPropagation(); setDevInProgressIds(prev => { const n = new Set(prev); n.delete(feature.name); return n; }); }}
-                          className="p-0.5 rounded hover:bg-bg-secondary transition-colors text-black dark:text-gray-200"
-                          title="停止"
-                          aria-label="停止"
-                        >
-                          <Square className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </CellWrapper>
-                    {/* 6. TTD Spec URL */}
+                    {/* 6. Unit Test Script Folder Name */}
                     <CellWrapper colIdx={5} rowIdx={rowIdx}>
-                      {feature.tddSpecDocPath ? (() => {
-                        const tp = feature.tddSpecDocPath.trim();
-                        const isDocsScope = tp.startsWith('/docs/');
-                        const scope = isDocsScope ? 'docs' : 'project';
-                        const pathParam = isDocsScope ? tp.slice(6) : tp.replace(/^\//, '');
-                        const href = `/superadmin/docs?scope=${scope}&path=${encodeURIComponent(pathParam)}`;
-                        const label = `${(rowIdx + 1).toString().padStart(3, '0')}-TTD-Spec-URL`;
-                        return (
-                          <a href={href} className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full" title={tp}>
-                            <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                            <span className="truncate">{label}</span>
-                          </a>
-                        );
-                      })() : <span className="text-text-muted italic text-xs">—</span>}
-                    </CellWrapper>
-                    {/* 7. 測試腳本數量 */}
-                    <CellWrapper colIdx={6} rowIdx={rowIdx}>
                       {(() => {
-                        const count = feature.testScriptCount ?? 0;
-                        const path = feature.testScriptPath ?? DEFAULT_TEST_SCRIPT_PATH;
+                        const path = `apps/superadmin/unit_test/${(rowIdx + 1).toString().padStart(3, '0')}`;
                         const href = `/superadmin/docs?scope=project&path=${encodeURIComponent(path)}`;
                         return (
-                          <a href={href} className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline" title={`測試腳本目錄: ${path}`}>
+                          <a href={href} className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full" title={path}>
                             <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                            <span>{count}</span>
+                            <span className="truncate">{path}</span>
                           </a>
                         );
                       })()}
                     </CellWrapper>
-                    {/* 8. Unit Test (單元測試 %) */}
+                    {/* 7. E2E Acceptance Test Folder Name */}
+                    <CellWrapper colIdx={6} rowIdx={rowIdx}>
+                      {(() => {
+                        const path = `apps/superadmin/e2e/${(rowIdx + 1).toString().padStart(3, '0')}`;
+                        const href = `/superadmin/docs?scope=project&path=${encodeURIComponent(path)}`;
+                        return (
+                          <a href={href} className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full" title={path}>
+                            <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{path}</span>
+                          </a>
+                        );
+                      })()}
+                    </CellWrapper>
+                    {/* 8. Test Script Pass Rate (測試腳本通過率)：通過數/總數 + 齒輪(設定) + 綠色箭頭(開始) + 方格(停止) */}
                     <CellWrapper colIdx={7} rowIdx={rowIdx}>
-                      <div className="w-full min-w-0">
-                        <ProgressBar percentage={feature.unitTestCoverage ?? 0} variant="status" />
-                      </div>
-                    </CellWrapper>
-                    {/* 9. E2E Acceptance Test (端到端驗收標準) */}
-                    <CellWrapper colIdx={8} rowIdx={rowIdx}>
-                      <div className="w-full min-w-0">
-                        <ProgressBar percentage={feature.e2eTestCoverage ?? 0} variant="status" />
-                      </div>
-                    </CellWrapper>
-                    {/* 10. Test Script Pass Rate (測試腳本通過率)：通過數/總數 + 齒輪(設定) + 綠色箭頭(開始) + 方格(停止) */}
-                    <CellWrapper colIdx={9} rowIdx={rowIdx}>
                       <div className="flex flex-row flex-wrap items-center gap-1.5 w-full min-w-0" title={feature.testProgress ? String(feature.testProgress) : undefined}>
                         <span className="text-xs text-text-primary font-mono flex-shrink-0">
                           {`${feature.testScriptPassedCount ?? 0}/${feature.testScriptCount ?? 0}`}
@@ -1002,6 +952,23 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                           <Square className="w-4 h-4" />
                         </button>
                       </div>
+                    </CellWrapper>
+                    {/* 9. TDD Spec URL */}
+                    <CellWrapper colIdx={8} rowIdx={rowIdx}>
+                      {feature.tddSpecDocPath ? (() => {
+                        const tp = feature.tddSpecDocPath.trim();
+                        const isDocsScope = tp.startsWith('/docs/');
+                        const scope = isDocsScope ? 'docs' : 'project';
+                        const pathParam = isDocsScope ? tp.slice(6) : tp.replace(/^\//, '');
+                        const href = `/superadmin/docs?scope=${scope}&path=${encodeURIComponent(pathParam)}`;
+                        const label = `${(rowIdx + 1).toString().padStart(3, '0')}-TDD-Spec-URL`;
+                        return (
+                          <a href={href} className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full" title={tp}>
+                            <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{label}</span>
+                          </a>
+                        );
+                      })() : <span className="text-text-muted italic text-xs">—</span>}
                     </CellWrapper>
                   </div>
                 </div>
