@@ -1,5 +1,6 @@
-import { getAdminDashboardStats, FALLBACK_STATS } from '@/lib/actions/dashboard';
-import type { AdminStats } from '@/lib/actions/dashboard';
+import { getAdminDashboardStats } from '@/lib/actions/dashboard';
+import { FALLBACK_STATS } from '@/lib/actions/dashboard-types';
+import type { AdminStats } from '@/lib/actions/dashboard-types';
 import SuperadminDashboardClient from '@/components/dashboard/SuperadminDashboardClient';
 import { createClient } from '@/utils/supabase/server';
 

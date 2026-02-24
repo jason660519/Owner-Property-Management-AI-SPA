@@ -2,28 +2,25 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Key, Cpu, Puzzle, MessageSquareText, BarChart3, FlaskConical,
-  Loader2, RefreshCw, Trash2, Upload, ShieldCheck, Save,
+  Key, Puzzle, MessageSquareText, FlaskConical,
+  Loader2, RefreshCw, Trash2, ShieldCheck,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Button } from '@/components/ui/Button';
 import {
   ApiKeyManager,
   type ApiKeyManagerHandle,
-  ModelSelector,
   ModelEvaluator,
   FeatureModuleSelector,
-  SystemPromptEditor,
-  UsageMonitor,
 } from '@/components/ai-settings';
 import { useAISettings, type KeyValidationResult } from '@/lib/hooks/useAISettings';
 import { getTotalAvailableModels, getSelectedCountInAvailable } from '@/lib/utils/total-available-models';
-import { getProviderById } from '@/lib/ai-providers';
-import { SUPPORTED_AI_ENV_KEY_NAMES, parseEnvForAIKeys } from '@/lib/parse-env-keys';
+import { getProviderById, AI_PROVIDERS } from '@/lib/ai-providers';
+import { SUPPORTED_AI_ENV_KEY_NAMES } from '@/lib/parse-env-keys';
 
-type SettingsTab = 'keys' | 'evaluations' | 'models' | 'modules' | 'prompts' | 'usage';
+type SettingsTab = 'keys' | 'evaluations' | 'modules';
 
-const TAB_IDS: SettingsTab[] = ['keys', 'evaluations', 'modules', 'prompts', 'usage', 'models'];
+const TAB_IDS: SettingsTab[] = ['keys', 'evaluations', 'modules'];
 
 function getTabFromHash(): SettingsTab | null {
   if (typeof window === 'undefined') return null;
@@ -35,9 +32,6 @@ const TABS: { id: SettingsTab; label: string; icon: React.ElementType; descripti
   { id: 'keys', label: 'API 金鑰管理', icon: Key, description: '管理各 AI 服務提供商的 API 金鑰' },
   { id: 'evaluations', label: '已選/可選模型評估', icon: FlaskConical, description: '評估各模型的運作狀態與強項，建立 AI 功能候選名單' },
   { id: 'modules', label: '功能模組配置', icon: Puzzle, description: '啟用與配置 AI 功能模組' },
-  { id: 'prompts', label: 'System Prompt', icon: MessageSquareText, description: '編輯各功能模組的系統提示詞' },
-  { id: 'usage', label: '使用監控與設定', icon: BarChart3, description: '查看使用統計，匯入/匯出設定' },
-  { id: 'models', label: '模型費用說明', icon: Cpu, description: '選擇與配置可用的 AI 模型' },
 ];
 
 const ENV_IMPORT_TOOLTIP = `從 .env 或 JSON 導入\n支援兩種格式：\n• .env：KEY=value 或 export KEY=value\n• JSON：{"OPENAI_API_KEY":"sk-..."} 等頂層 key\n變數名大小寫不拘、拼寫需正確；僅下列金鑰會被辨識：${SUPPORTED_AI_ENV_KEY_NAMES.join('、')}`;
@@ -48,9 +42,6 @@ export default function AIServiceSettingsPage() {
   const settings = useAISettings();
   const apiKeyHeaderActionsRef = useRef<{ setEnvImportOpen: (v: boolean) => void } | null>(null);
   const apiKeyManagerRef = useRef<ApiKeyManagerHandle | null>(null);
-  const importFileInputRef = useRef<HTMLInputElement>(null);
-  const [importLocalLoading, setImportLocalLoading] = useState(false);
-  const [saveSettingsLoading, setSaveSettingsLoading] = useState(false);
   const [validateAllLoading, setValidateAllLoading] = useState(false);
   /** 全部驗證完成後各 key 的結果，供每張 card 直接顯示 Available models，無需再按「驗證金鑰」 */
   const [validateAllResultsByKeyId, setValidateAllResultsByKeyId] = useState<Record<string, KeyValidationResult>>({});
@@ -203,12 +194,6 @@ export default function AIServiceSettingsPage() {
               return r;
             }}
             headerActionsRef={apiKeyHeaderActionsRef}
-            onSaveModels={async (providerId, modelIds) => {
-              await settings.saveModels(
-                providerId as Parameters<typeof settings.saveModels>[0],
-                modelIds.map((modelId, i) => ({ modelId, modelName: modelId, isPrimary: i === 0 }))
-              );
-            }}
             onBatchImportComplete={async (importedCount) => {
               await settings.refresh();
               await new Promise((r) => setTimeout(r, 800));
@@ -232,14 +217,10 @@ export default function AIServiceSettingsPage() {
                 selections
               );
             }}
-          />
-        );
-      case 'models':
-        return (
-          <ModelSelector
-            savedKeys={settings.keys}
-            savedModels={settings.models}
-            onSave={settings.saveModels}
+            savedModules={settings.modules}
+            onSaveModule={async (moduleKey, isEnabled, assignedModels, config) => {
+              await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
+            }}
           />
         );
       case 'modules':
@@ -254,25 +235,8 @@ export default function AIServiceSettingsPage() {
             onTestModel={settings.testModel}
           />
         );
-      case 'prompts':
-        return (
-          <SystemPromptEditor
-            savedPrompts={settings.prompts}
-            savedKeys={settings.keys}
-            onSave={settings.savePrompt}
-          />
-        );
-      case 'usage':
-        return (
-          <UsageMonitor
-            keys={settings.keys}
-            models={settings.models}
-            modules={settings.modules}
-            prompts={settings.prompts}
-            onExport={settings.exportSettings}
-            onImport={settings.importSettings}
-          />
-        );
+      default:
+        return null;
     }
   };
 
@@ -292,7 +256,7 @@ export default function AIServiceSettingsPage() {
 
   /**
    * 單一事實來源：已選數量一律來自 Supabase ai_model_selections（settings.models）。
-   * 與 API 金鑰管理、已選/可選模型評估、模型費用說明 等分頁顯示一致。
+   * 與 API 金鑰管理、已選/可選模型評估 等分頁顯示一致。
    */
   const currentKeysForUtil = settings.keys.map((k) => ({ id: k.id, provider: k.provider }));
   const selectedInAvailable = getSelectedCountInAvailable(
@@ -373,13 +337,7 @@ export default function AIServiceSettingsPage() {
                     <span>
                       已驗證/可設定金鑰家數{' '}
                       <span className="font-medium text-text-primary">
-                        {settings.keys.filter((k) => k.is_valid === true).length}/5
-                      </span>
-                    </span>
-                    <span>
-                      已選/可選 models 數量{' '}
-                      <span className="font-medium text-text-primary">
-                        {selectedModelCount}/{totalAvailableModels}
+                        {settings.keys.filter((k) => k.is_valid === true).length}/{AI_PROVIDERS.length}
                       </span>
                     </span>
                   </div>
@@ -400,43 +358,6 @@ export default function AIServiceSettingsPage() {
           </div>
           {activeTab === 'keys' && (
             <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => importFileInputRef.current?.click()}
-                isLoading={importLocalLoading}
-                title="從本機選擇 JSON 檔案，將 AI 金鑰、模型與模組等設定匯入並同步至雲端"
-              >
-                <Upload size={14} /> 導入設定
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                title="將目前畫面上的已選 models 寫入雲端"
-                isLoading={saveSettingsLoading}
-                onClick={async () => {
-                  const selections = apiKeyManagerRef.current?.getModelSelections?.() ?? {};
-                  setSaveSettingsLoading(true);
-                  try {
-                    const providers = Object.keys(selections);
-                    for (const providerId of providers) {
-                      const ids = selections[providerId] ?? [];
-                      await settings.saveModels(
-                        providerId as Parameters<typeof settings.saveModels>[0],
-                        ids.map((modelId, i) => ({ modelId, modelName: modelId, isPrimary: i === 0 }))
-                      );
-                    }
-                    await settings.refreshSilent();
-                    if (typeof window !== 'undefined') window.alert('設定已儲存');
-                  } catch (err) {
-                    if (typeof window !== 'undefined') window.alert(err instanceof Error ? err.message : '儲存失敗');
-                  } finally {
-                    setSaveSettingsLoading(false);
-                  }
-                }}
-              >
-                <Save size={14} /> 儲存設定
-              </Button>
               <Button
                 size="sm"
                 variant="ghost"
@@ -494,68 +415,6 @@ export default function AIServiceSettingsPage() {
           </div>
         </section>
 
-        <input
-          ref={importFileInputRef}
-          type="file"
-          accept=".json,.env,application/json,text/plain"
-          className="hidden"
-          onChange={async (e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            setImportLocalLoading(true);
-            try {
-              let text = await file.text();
-              text = text.replace(/^\uFEFF/, '').trim();
-              let importPayload: Record<string, unknown> = {};
-              const firstBrace = text.indexOf('{');
-
-              if (firstBrace >= 0 && firstBrace < text.length) {
-                const envPart = text.slice(0, firstBrace).trim();
-                const jsonPart = text.slice(firstBrace);
-                if (envPart) {
-                  const envKeys = parseEnvForAIKeys(envPart);
-                  for (const { provider, value } of envKeys) {
-                    await settings.saveKey(provider, value);
-                  }
-                }
-                try {
-                  importPayload = JSON.parse(jsonPart) as Record<string, unknown>;
-                } catch {
-                  if (!envPart) throw new Error('JSON 區段格式不正確');
-                }
-              } else if (text.startsWith('{')) {
-                importPayload = JSON.parse(text) as Record<string, unknown>;
-              } else {
-                const envKeys = parseEnvForAIKeys(text);
-                for (const { provider, value } of envKeys) {
-                  await settings.saveKey(provider, value);
-                }
-                await settings.refresh();
-                setImportLocalLoading(false);
-                e.target.value = '';
-                if (typeof window !== 'undefined') window.alert(envKeys.length ? `已導入 ${envKeys.length} 個 API 金鑰（檔案內無 JSON 設定）` : '未辨識到任何 AI 金鑰，請確認格式為 KEY=value 或 JSON');
-                return;
-              }
-
-              if (typeof importPayload.api_keys_env === 'string') {
-                const envKeys = parseEnvForAIKeys(importPayload.api_keys_env);
-                for (const { provider, value } of envKeys) {
-                  await settings.saveKey(provider, value);
-                }
-                const { api_keys_env: _, ...rest } = importPayload;
-                importPayload = rest;
-              }
-              await settings.importSettings(importPayload);
-              await settings.refresh();
-              if (typeof window !== 'undefined') window.alert('導入完成');
-            } catch (err) {
-              if (typeof window !== 'undefined') window.alert(err instanceof Error ? err.message : '導入失敗：檔案格式不正確');
-            } finally {
-              setImportLocalLoading(false);
-              e.target.value = '';
-            }
-          }}
-        />
         {/* 安全提醒、建議流程 – 僅在 keys 頁籤顯示 */}
         {activeTab === 'keys' && (
           <div className="mt-8 space-y-4">
@@ -574,10 +433,9 @@ export default function AIServiceSettingsPage() {
                 建議流程
               </p>
               <ol className="list-decimal list-inside space-y-1 text-xs text-text-secondary">
-                <li>先在「API 金鑰管理」中新增各雲端提供商金鑰。</li>
-                <li>於「模型費用說明」指定預設模型與備援模型。</li>
-                <li>在「功能模組配置」啟用對應模組並綁定模型。</li>
-                <li>最後在「System Prompt」微調各模組的系統提示詞。</li>
+                <li>在「API 金鑰管理」新增各提供商的 API 金鑰；可用「驗證金鑰」確認可用性並取得可選模型清單。</li>
+                <li>在「已選/可選模型評估」勾選要納入候選的模型（可測試連線）；這些模型將可在功能模組中綁定。</li>
+                <li>在「功能模組配置」啟用所需模組，並為各模組綁定主模型（1）與備援模型（2～100），必要時可設定 LLM 參數與 System Prompt。</li>
               </ol>
             </div>
           </div>

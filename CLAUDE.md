@@ -8,13 +8,9 @@ Monorepo。主要開發 `apps/web/`（Port 3000），`apps/superadmin/`（Port 3
 
 | 用途 | 路徑 |
 | :--- | :--- |
-| 通用開發規則 | `.claude/rules/general.md` |
-| 前端規則 | `.claude/rules/frontend/react-expo.md` |
-| 後端規則 | `.claude/rules/backend/supabase.md` |
+
 | 檔案命名 | `docs/file-naming-guidelines.md` |
 | UI/UX 設計 | `docs/design-guidelines/UNIFIED_DESIGN_STANDARD.md` |
-| 測試參考 | `docs/testing/TEST_QUICK_REFERENCE.md` |
-| 進度更新 | `docs/update-project-progress-guide.md` |
 
 ## 硬性規定
 

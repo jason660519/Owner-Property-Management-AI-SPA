@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { DashboardLayout } from '@/components/dashboard';
-import type { AdminStats } from '@/lib/actions/dashboard';
+import type { AdminStats } from '@/lib/actions/dashboard-types';
 import { SystemGrowthChart } from '@/components/dashboard/SystemGrowthChart';
 import { ActivityLogTable } from '@/components/dashboard/ActivityLogTable';
 
@@ -95,24 +95,20 @@ export default function SuperadminDashboardClient({
           <div className="space-y-2 mb-4">
             {summaryRows.map(({ label, value }) => (
               <div key={label} className="flex items-center justify-between text-sm">
-                <span className="text-text-muted">{label}</span>
+                {label === '總用戶/活躍用戶/在線用戶數' ? (
+                  <Link href={`${BASE}/users`} className="text-text-muted hover:text-accent hover:underline">
+                    {label}
+                  </Link>
+                ) : label === '總群組數' ? (
+                  <Link href={`${BASE}/groups`} className="text-text-muted hover:text-accent hover:underline">
+                    {label}
+                  </Link>
+                ) : (
+                  <span className="text-text-muted">{label}</span>
+                )}
                 <span className="font-semibold text-text-primary">{value}</span>
               </div>
             ))}
-          </div>
-          <div className="mt-4 pt-4 border-t border-border-default space-y-1">
-            <Link
-              href={`${BASE}/users`}
-              className="text-sm text-accent hover:underline block"
-            >
-              管理用戶
-            </Link>
-            <Link
-              href={`${BASE}/groups`}
-              className="text-sm text-accent hover:underline block"
-            >
-              群組管理
-            </Link>
           </div>
         </Card>
         <Card className="p-6 hover:border-accent/50 transition-all">
@@ -127,18 +123,16 @@ export default function SuperadminDashboardClient({
           <div className="space-y-2 mb-4">
             {propertyRows.map(({ label, value }) => (
               <div key={label} className="flex items-center justify-between text-sm">
-                <span className="text-text-muted">{label}</span>
+                {label === '總物件數（含有效與無效）' ? (
+                  <Link href={`${BASE}/properties`} className="text-text-muted hover:text-accent hover:underline">
+                    {label}
+                  </Link>
+                ) : (
+                  <span className="text-text-muted">{label}</span>
+                )}
                 <span className="font-semibold text-text-primary">{value}</span>
               </div>
             ))}
-          </div>
-          <div className="mt-4 pt-4 border-t border-border-default space-y-1">
-            <Link
-              href={`${BASE}/properties`}
-              className="text-sm text-accent hover:underline block"
-            >
-              查看所有物件
-            </Link>
           </div>
         </Card>
         <Card className="p-6 hover:border-accent/50 transition-all">
@@ -160,14 +154,6 @@ export default function SuperadminDashboardClient({
               </div>
             ))}
           </div>
-          <div className="mt-4 pt-4 border-t border-border-default space-y-1">
-            <Link
-              href={`${BASE}/properties`}
-              className="text-sm text-accent hover:underline block"
-            >
-              查看所有出售物件
-            </Link>
-          </div>
         </Card>
         <Card className="p-6 hover:border-accent/50 transition-all">
           <div className="mb-4 flex items-start justify-between">
@@ -187,14 +173,6 @@ export default function SuperadminDashboardClient({
                 </span>
               </div>
             ))}
-          </div>
-          <div className="mt-4 pt-4 border-t border-border-default space-y-1">
-            <Link
-              href={`${BASE}/leases`}
-              className="text-sm text-accent hover:underline block"
-            >
-              查看所有出租物件
-            </Link>
           </div>
         </Card>
       </div>

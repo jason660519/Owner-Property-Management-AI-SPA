@@ -108,14 +108,15 @@ export function useAISettings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string>(MOCK_USER_ID);
+  /** Prevents double-fetch: wait for auth resolution before first fetchAll */
+  const [authChecked, setAuthChecked] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
     async function getUser() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-      }
+      if (user) setUserId(user.id);
+      setAuthChecked(true);
     }
     getUser();
   }, []);
@@ -236,7 +237,8 @@ export function useAISettings() {
     }
   }, [userId]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  // Only fetch after auth is resolved to prevent double-fetch with wrong user ID
+  useEffect(() => { if (authChecked) fetchAll(); }, [authChecked, fetchAll]);
 
   // ---- API Key Operations ----
   /** skipRefresh: 批量導入時使用，避免每筆儲存都觸發 fetchAll 造成畫面閃爍 */
@@ -365,17 +367,41 @@ export function useAISettings() {
   /** 靜默重整：不設 loading，避免勾選模型後畫面閃爍 */
   const refreshSilent = useCallback(() => fetchAll(true), [fetchAll]);
 
-  /** 連線測試：測試指定 model 是否能正常回應；可傳入自訂 prompt，回應內容在 output */
+  /** 連線測試：測試指定 model 是否能正常回應；可傳入自訂 prompt 與選用檔案（PDF/圖片），回應內容在 output */
   const testModel = useCallback(
     async (
       provider: string,
       modelId: string,
-      prompt?: string
+      prompt?: string,
+      file?: File | null
     ): Promise<{ success: boolean; message?: string; output?: string }> => {
+      let fileBase64: string | undefined;
+      let mimeType: string | undefined;
+      let fileName: string | undefined;
+      if (file && file.size > 0) {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(file);
+        });
+        const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+        if (match) {
+          mimeType = match[1];
+          fileBase64 = match[2];
+          fileName = file.name;
+        }
+      }
+      const body: Record<string, unknown> = { provider, modelId, prompt: prompt ?? undefined };
+      if (fileBase64 && mimeType) {
+        body.fileBase64 = fileBase64;
+        body.mimeType = mimeType;
+        if (fileName) body.fileName = fileName;
+      }
       const res = await fetch('/api/ai-settings/models/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
-        body: JSON.stringify({ provider, modelId, prompt: prompt ?? undefined }),
+        body: JSON.stringify(body),
       });
       const data = (await res.json()) as { success?: boolean; message?: string; output?: string };
       return { success: data.success ?? false, message: data.message, output: data.output };

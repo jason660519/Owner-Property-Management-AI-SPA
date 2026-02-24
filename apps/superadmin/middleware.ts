@@ -76,13 +76,11 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const MAIN_SITE_URL = process.env.NEXT_PUBLIC_MAIN_SITE_URL || 'http://localhost:3000';
-
-  // 1. 未登入：重導向至主站登入頁
+  // 1. 未登入：重導向至本機登入頁（同 port 3001），避免依賴 3000 主站
   if (isSuperadminRoute && !user) {
-    const loginUrl = new URL(`${MAIN_SITE_URL}/login`);
-    // Pass the current URL as redirectTo so they can come back after login (if supported by main site login)
-    // Note: Cross-domain redirect might need special handling, but basic link is fine.
+    const loginUrl = new URL('/login', request.url);
+    const returnUrl = request.nextUrl.pathname + request.nextUrl.search;
+    if (returnUrl && returnUrl !== '/login') loginUrl.searchParams.set('returnUrl', returnUrl);
     return NextResponse.redirect(loginUrl);
   }
 
@@ -98,7 +96,7 @@ export async function middleware(request: NextRequest) {
       roles.includes('super_admin') ||
       user.user_metadata?.role === 'super_admin';
     if (!isSuperAdmin) {
-      const loginUrl = new URL(`${MAIN_SITE_URL}/login`);
+      const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('reason', 'insufficient_role');
       return NextResponse.redirect(loginUrl);
     }

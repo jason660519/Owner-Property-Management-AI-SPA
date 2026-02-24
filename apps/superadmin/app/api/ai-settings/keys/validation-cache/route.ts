@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { resolveUserId } from '@/lib/resolve-ai-settings-user';
 
-const CACHE_TTL_HOURS = 6;
+const CACHE_TTL_HOURS = 72;
 
 export async function GET(request: NextRequest) {
   try {

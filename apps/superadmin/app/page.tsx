@@ -1,14 +1,12 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 
-const MAIN_SITE_URL = process.env.NEXT_PUBLIC_MAIN_SITE_URL || 'http://localhost:3000';
-
 export default async function SuperadminRootPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect(`${MAIN_SITE_URL}/login`);
+    redirect('/login');
   }
 
   const { data: roleRows } = await supabase.rpc('get_user_roles', {
@@ -21,7 +19,7 @@ export default async function SuperadminRootPage() {
     roles.includes('super_admin') || user.user_metadata?.role === 'super_admin';
 
   if (!isSuperAdmin) {
-    redirect(`${MAIN_SITE_URL}/login?reason=insufficient_role`);
+    redirect('/login?reason=insufficient_role');
   }
 
   redirect('/superadmin/dashboard');
