@@ -1,6 +1,6 @@
 'use server';
 
-import { createAdminClient } from '../../utils/supabase/admin';
+import { createAdminClient } from '@/utils/supabase/admin';
 
 export interface StorageSummary {
   total_size_bytes: number;
@@ -118,10 +118,7 @@ export async function setUserQuota(
   const supabase = createAdminClient();
   const { error } = await supabase
     .from('storage_quotas')
-    .upsert(
-      { user_id: userId, quota_bytes: quotaBytes, notes: notes ?? null },
-      { onConflict: 'user_id' }
-    );
+    .upsert({ user_id: userId, quota_bytes: quotaBytes, notes: notes ?? null }, { onConflict: 'user_id' });
 
   if (error) {
     console.error('Error setting user quota:', error);

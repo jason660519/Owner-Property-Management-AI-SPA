@@ -5,7 +5,15 @@ import { DashboardLayout } from '@/components/dashboard';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { HardDrive, File, Trash2, AlertTriangle, PieChart, BarChart2, Activity } from 'lucide-react';
-import { deleteFile, type StorageSummary, type FileTypeStat, type OrphanedFile } from '@/app/actions/storage';
+import {
+  deleteFile,
+  setUserQuota,
+  type StorageSummary,
+  type FileTypeStat,
+  type OrphanedFile,
+  type StorageQuota,
+} from '@/app/actions/storage';
+import { getQuotaUsagePercent } from '@/app/superadmin/dashboard/storage/storage-quota-utils';
 import { useRouter } from 'next/navigation';
 
 function formatBytes(bytes: number, decimals = 2) {
@@ -21,12 +29,14 @@ interface Props {
   summary: StorageSummary;
   fileTypes: FileTypeStat[];
   initialOrphanedFiles: OrphanedFile[];
+  quotas: StorageQuota[];
 }
 
-export default function StorageDashboardClient({ summary, fileTypes, initialOrphanedFiles }: Props) {
+export default function StorageDashboardClient({ summary, fileTypes, initialOrphanedFiles, quotas }: Props) {
   const [activeTab, setActiveTab] = useState<'overview' | 'orphaned' | 'quotas'>('overview');
   const [orphanedFiles, setOrphanedFiles] = useState(initialOrphanedFiles);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [savingQuotaFor, setSavingQuotaFor] = useState<string | null>(null);
   const router = useRouter();
 
   const handleDelete = async (bucket: string, path: string) => {
@@ -41,6 +51,40 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
       console.error(error);
     } finally {
       setDeleting(null);
+    }
+  };
+
+  const handleEditQuota = async (quota: StorageQuota) => {
+    const currentGb = quota.quota_bytes / (1024 ** 3);
+    // eslint-disable-next-line no-alert
+    const input = window.prompt('請輸入新的配額上限 (GB)：', currentGb.toFixed(2));
+    if (!input) return;
+
+    const parsed = Number.parseFloat(input);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      // eslint-disable-next-line no-alert
+      window.alert('請輸入大於 0 的數值');
+      return;
+    }
+
+    const newQuotaBytes = Math.round(parsed * 1024 ** 3);
+    setSavingQuotaFor(quota.user_id);
+    try {
+      const result = await setUserQuota(quota.user_id, newQuotaBytes);
+      if (!result.success) {
+        // eslint-disable-next-line no-alert
+        window.alert(result.error ?? '更新配額失敗');
+        return;
+      }
+      // eslint-disable-next-line no-alert
+      window.alert('配額已更新');
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      // eslint-disable-next-line no-alert
+      window.alert('更新配額時發生錯誤');
+    } finally {
+      setSavingQuotaFor(null);
     }
   };
 
@@ -247,15 +291,74 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
 
       {activeTab === 'quotas' && (
         <Card>
-             <CardHeader>
-                <CardTitle>用戶配額管理</CardTitle>
-            </CardHeader>
-            <CardContent>
-                 <div className="p-4 bg-bg-secondary rounded text-center text-text-muted">
-                    此功能開發中 (需整合用戶列表與配額設定)
-                    <p className="text-xs mt-2">目前全域預設配額: 1GB</p>
-                </div>
-            </CardContent>
+          <CardHeader>
+            <CardTitle>用戶配額管理</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {quotas.length === 0 ? (
+              <div className="p-4 bg-bg-secondary rounded text-center text-text-muted">
+                目前尚無任何配額紀錄。
+                <p className="text-xs mt-2">預設配額：所有用戶 1GB，由後端排程同步實際使用量。</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="text-text-muted border-b border-border-default">
+                    <tr>
+                      <th className="p-3">User ID</th>
+                      <th className="p-3">已用空間 / 配額</th>
+                      <th className="p-3">使用率</th>
+                      <th className="p-3">最後更新</th>
+                      <th className="p-3">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border-subtle">
+                    {quotas.map((quota) => {
+                      const usage = getQuotaUsagePercent(quota);
+                      const percentLabel = `${(usage * 100).toFixed(1)}%`;
+                      const isHigh = usage >= 0.75;
+                      return (
+                        <tr key={quota.id} className={isHigh ? 'bg-red-500/5' : undefined}>
+                          <td className="p-3 font-mono text-xs max-w-xs truncate" title={quota.user_id}>
+                            {quota.user_id}
+                          </td>
+                          <td className="p-3">
+                            {formatBytes(quota.used_bytes)} / {formatBytes(quota.quota_bytes)}
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-2 bg-bg-tertiary rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full ${isHigh ? 'bg-red-500' : 'bg-accent'}`}
+                                  style={{ width: `${Math.min(usage * 100, 100)}%` }}
+                                />
+                              </div>
+                              <span className={`text-xs ${isHigh ? 'text-red-500 font-semibold' : 'text-text-secondary'}`}>
+                                {percentLabel}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="p-3 whitespace-nowrap">
+                            {new Date(quota.updated_at).toLocaleString()}
+                          </td>
+                          <td className="p-3">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditQuota(quota)}
+                              disabled={savingQuotaFor === quota.user_id}
+                            >
+                              {savingQuotaFor === quota.user_id ? '儲存中…' : '編輯配額'}
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
         </Card>
       )}
     </DashboardLayout>
