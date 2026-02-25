@@ -46,29 +46,30 @@ export default function ProjectProgressPage() {
   const allFeatures = ROADMAP_DATA.features;
 
   return (
-    <div className="space-y-6 h-[calc(100vh-100px)] flex flex-col">
-      {/* Header */}
-      <div className="flex flex-col gap-1 flex-none">
-        <h1 className="text-2xl font-semibold text-text-primary flex items-center gap-2">
-          <Activity className="text-emerald-600 w-6 h-6" />
-          Project Progress Dashboard (專案進度儀表板)
-        </h1>
-        <p className="text-text-secondary text-sm">
-          Track development progress across all modules. Last updated:{' '}
-          <span className="font-mono font-medium text-text-primary">
-            {ROADMAP_DATA.lastUpdated}
-          </span>
-        </p>
+    <div className="space-y-4 h-[calc(100vh-100px)] flex flex-col">
+      {/* Header row: title left, stats compact top-right */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 flex-none">
+        <div className="flex flex-col gap-1 min-w-0">
+          <h1 className="text-2xl font-semibold text-text-primary flex items-center gap-2">
+            <Activity className="text-emerald-600 w-6 h-6 flex-shrink-0" />
+            Project Progress Dashboard (專案進度儀表板)
+          </h1>
+          <p className="text-text-secondary text-sm">
+            Track development progress across all modules. Last updated:{' '}
+            <span className="font-mono font-medium text-text-primary">
+              {ROADMAP_DATA.lastUpdated}
+            </span>
+          </p>
+        </div>
+        <SharedStatsCards
+          phase={activePhase}
+          features={activePhase === 'development' ? allFeatures : phaseFeatures}
+          compact
+        />
       </div>
 
       {/* Phase Tab Bar */}
       <PhaseTabBar activePhase={activePhase} onPhaseChange={setActivePhase} />
-
-      {/* Stats Cards */}
-      <SharedStatsCards
-        phase={activePhase}
-        features={activePhase === 'development' ? allFeatures : phaseFeatures}
-      />
 
       {/* Tab Content */}
       {activePhase === 'development' && <DevelopmentTab features={allFeatures} />}

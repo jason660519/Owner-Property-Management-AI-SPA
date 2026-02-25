@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
-import { CheckCircle2, XCircle, Loader2, FlaskConical, Upload, Cloud, MessageCircle, FileText, PenTool, Layout, Settings2, Plus, X } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, FlaskConical, Upload, Cloud, MessageCircle, FileText, PenTool, Layout, Settings2, Plus, X, AlignLeft, Eye, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { AI_PROVIDERS, FEATURE_MODULES } from '@/lib/ai-providers';
 import type { FeatureModule } from '@/lib/ai-providers';
@@ -50,6 +50,45 @@ export interface ModelEvaluatorProps {
     assignedModels: AssignedModel[],
     config?: Record<string, unknown>
   ) => Promise<void>;
+}
+
+type TableHAlign = 'left' | 'center' | 'right';
+type TableVAlign = 'top' | 'middle' | 'bottom';
+
+const TABLE_H_ALIGN_CLASSES: Record<TableHAlign, string> = {
+  left: '[&_th]:text-left [&_td]:text-left',
+  center: '[&_th]:text-center [&_td]:text-center',
+  right: '[&_th]:text-right [&_td]:text-right',
+};
+
+const TABLE_V_ALIGN_CLASSES: Record<TableVAlign, string> = {
+  top: '[&_th]:align-top [&_td]:align-top',
+  middle: '[&_th]:align-middle [&_td]:align-middle',
+  bottom: '[&_th]:align-bottom [&_td]:align-bottom',
+};
+
+/** Closes a dropdown when clicking outside its ref element or pressing Escape. */
+function useClickOutsideClose(
+  ref: React.RefObject<HTMLDivElement | null>,
+  open: boolean,
+  setOpen: React.Dispatch<React.SetStateAction<boolean>>
+) {
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (ref.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open, setOpen, ref]);
 }
 
 function getModelDisplayName(providerId: string, modelId: string): string {
@@ -182,6 +221,13 @@ export function ModelEvaluator({
   const [testResultByKey, setTestResultByKey] = useState<Record<string, boolean>>({});
   const [testingKey, setTestingKey] = useState<string | null>(null);
   const [batchTesting, setBatchTesting] = useState(false);
+  const [tableAlignH, setTableAlignH] = useState<TableHAlign>('left');
+  const [tableAlignV, setTableAlignV] = useState<TableVAlign>('top');
+  const [alignDropdownOpen, setAlignDropdownOpen] = useState(false);
+  const alignDropdownRef = useRef<HTMLDivElement | null>(null);
+  const [viewDropdownOpen, setViewDropdownOpen] = useState(false);
+  const viewDropdownRef = useRef<HTMLDivElement | null>(null);
+  const [freezeHeader, setFreezeHeader] = useState<boolean>(true);
 
   // ── Feature module state (integrated from #modules) ──────────────────────
   interface ModuleRowState { isEnabled: boolean; assignments: AssignedModel[] }
@@ -527,6 +573,9 @@ export function ModelEvaluator({
     [onTestModel, testPrompt, rowPrompts, onSave, evaluationMap, uploadedFile]
   );
 
+  useClickOutsideClose(alignDropdownRef, alignDropdownOpen, setAlignDropdownOpen);
+  useClickOutsideClose(viewDropdownRef, viewDropdownOpen, setViewDropdownOpen);
+
   /** 全部測試：僅對「已選」且「有金鑰」的模型並行測試，完成後一次批量寫入 DB */
   const handleBatchTest = useCallback(async () => {
     const selectedInFiltered = rowsAfterCategoryFilter.filter((r) =>
@@ -625,57 +674,132 @@ export function ModelEvaluator({
         />
       </div>
       <div className="rounded-lg border border-border-subtle overflow-hidden bg-bg-primary">
-        <div className="flex flex-wrap items-center gap-3 px-3 py-2 border-b border-border-subtle bg-bg-tertiary">
+        <div className="relative z-20 flex flex-wrap items-center justify-end gap-3 px-3 py-2 border-b border-border-subtle bg-bg-tertiary">
           <div className="flex items-center gap-2">
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-text-secondary hover:text-text-primary">
-              <input
-                type="checkbox"
-                checked={allFilteredSelected}
-                ref={(el) => {
-                  if (el) el.indeterminate = someFilteredSelected && !allFilteredSelected;
-                }}
-                onChange={(e) => handleSelectAllFiltered(e.target.checked)}
-                disabled={!onSaveModels || rowsAfterCategoryFilter.length === 0}
-                className="rounded border-border-subtle bg-bg-primary text-accent focus:ring-accent"
-              />
-              <span>全選</span>
-            </label>
-            <span className="text-text-muted text-xs">
-              （目前可選模型 {rowsAfterCategoryFilter.length} 筆，已選 {filteredSelectedCount} 筆）
-            </span>
-          </div>
-          <div className="ml-auto">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={handleBatchTest}
-              isLoading={batchTesting}
-              disabled={batchTesting || filteredSelectedCount === 0}
-              title={
-                filteredSelectedCount === 0
-                  ? '目前選擇的 models 數為 0，無法測試。請先勾選要測試的模型。'
-                  : '對目前已選且具金鑰的模型並行測試'
-              }
-            >
-              {batchTesting ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <FlaskConical size={14} />
+            <div className="relative" ref={alignDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setAlignDropdownOpen((v) => !v)}
+                aria-expanded={alignDropdownOpen}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border whitespace-nowrap bg-bg-primary border-border-default text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
+                title="col位文字排版"
+              >
+                <AlignLeft className="w-3.5 h-3.5" />
+                排版
+                <ChevronDown
+                  className={`w-3.5 h-3.5 transition-transform ${alignDropdownOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+              {alignDropdownOpen && (
+                <div
+                  className="absolute right-0 top-full mt-1 z-30 min-w-[200px] bg-bg-primary border border-border-default rounded-lg shadow-lg p-3"
+                  role="dialog"
+                  aria-label="表格文字排版"
+                >
+                  <p className="text-[10px] text-text-muted mb-2">
+                    套用至整個表格（所有 col）
+                  </p>
+                  <p className="text-xs font-medium text-text-secondary mb-1">水平</p>
+                  <div className="flex gap-1 mb-3">
+                    {(['left', 'center', 'right'] as TableHAlign[]).map((h) => (
+                      <button
+                        key={h}
+                        type="button"
+                        onClick={() => setTableAlignH(h)}
+                        className={`flex-1 px-2 py-1.5 rounded text-xs border transition-colors ${
+                          tableAlignH === h
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-700 dark:text-emerald-300'
+                            : 'bg-bg-secondary border-border-default text-text-secondary hover:bg-bg-secondary/80'
+                        }`}
+                      >
+                        {h === 'left' ? '靠左' : h === 'center' ? '左右置中' : '靠右'}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs font-medium text-text-secondary mb-1">垂直</p>
+                  <div className="flex gap-1">
+                    {(['top', 'middle', 'bottom'] as TableVAlign[]).map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => setTableAlignV(v)}
+                        className={`flex-1 px-2 py-1.5 rounded text-xs border transition-colors ${
+                          tableAlignV === v
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-700 dark:text-emerald-300'
+                            : 'bg-bg-secondary border-border-default text-text-secondary hover:bg-bg-secondary/80'
+                        }`}
+                      >
+                        {v === 'top' ? '靠上' : v === 'middle' ? '上下置中' : '靠下'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
-              <span className="ml-1.5">全部測試</span>
-            </Button>
+            </div>
+            <div className="relative" ref={viewDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setViewDropdownOpen((v) => !v)}
+                aria-expanded={viewDropdownOpen}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border whitespace-nowrap bg-bg-primary border-border-default text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
+                title="檢視選項"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                View
+                <ChevronDown
+                  className={`w-3.5 h-3.5 transition-transform ${viewDropdownOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+              {viewDropdownOpen && (
+                <div
+                  className="absolute right-0 top-full mt-1 z-30 min-w-[200px] bg-bg-primary border border-border-default rounded-lg shadow-lg py-2"
+                  role="menu"
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFreezeHeader(false);
+                      setViewDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                      !freezeHeader
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 font-medium'
+                        : 'text-text-primary hover:bg-bg-secondary'
+                    }`}
+                  >
+                    不凍結標題列
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFreezeHeader(true);
+                      setViewDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                      freezeHeader
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 font-medium'
+                        : 'text-text-primary hover:bg-bg-secondary'
+                    }`}
+                  >
+                    凍結標題列
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[800px] text-xs border-collapse" style={{ tableLayout: 'fixed' }}>
+        <div
+          className={`overflow-x-auto ${TABLE_H_ALIGN_CLASSES[tableAlignH]} ${TABLE_V_ALIGN_CLASSES[tableAlignV]} [&_th]:whitespace-normal [&_td]:whitespace-normal [&_th]:break-words [&_td]:break-words`}
+        >
+          <table className="w-full text-xs border-collapse" style={{ tableLayout: 'fixed' }}>
             <colgroup>
               {columnWidths.map((w, i) => (
                 <col key={i} style={{ width: w }} />
               ))}
             </colgroup>
-            <thead>
+            <thead className={freezeHeader ? 'sticky top-0 z-10 bg-bg-tertiary' : undefined}>
               <tr className="border-b border-border-subtle bg-bg-tertiary">
-                <th className="text-left py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group">
+                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top">
                   <span>已選</span>
                   <div
                     role="separator"
@@ -684,7 +808,7 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                <th className="text-left py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group">
+                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top">
                   <span>公司名稱</span>
                   <div
                     role="separator"
@@ -693,7 +817,7 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                <th className="text-left py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group">
+                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top">
                   <span>模型名稱與版本型號</span>
                   <div
                     role="separator"
@@ -702,7 +826,7 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                <th className="text-left py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group">
+                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top">
                   <span>模型分類</span>
                   <div
                     role="separator"
@@ -711,7 +835,7 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                <th className="text-left py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group">
+                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top">
                   <span>狀態</span>
                   <div
                     role="separator"
@@ -720,7 +844,7 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                <th className="text-left py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top">
+                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top overflow-hidden">
                   <input
                     type="text"
                     value={promptColumnLabel}
@@ -743,7 +867,7 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                <th className="text-right py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group">
+                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top">
                   <span>prompt測試</span>
                   <div
                     role="separator"
@@ -752,7 +876,7 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                <th className="text-left py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group whitespace-nowrap">
+                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top">
                   <span>Prompt output</span>
                   <div
                     role="separator"
@@ -761,7 +885,7 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                <th className="text-left py-3 px-3 font-semibold text-text-secondary relative group border-r border-border-subtle">
+                <th className="py-3 px-3 font-semibold text-text-secondary relative group border-r border-border-subtle align-top">
                   <span>測試日期</span>
                   <div
                     role="separator"
@@ -773,13 +897,6 @@ export function ModelEvaluator({
                 {FEATURE_MODULES.map((mod: FeatureModule, colIdx: number) => {
                   const Icon = MODULE_ICON_MAP[mod.icon] ?? Settings2;
                   const colors = MODULE_CATEGORY_COLORS[mod.category];
-                  const state = moduleStates[mod.key];
-                  const saving = moduleSavingSet.has(mod.key);
-                  const assignedInFiltered = rowsAfterCategoryFilter.filter((r) =>
-                    state.assignments.some((a) => a.provider === r.providerId && a.model === r.modelId)
-                  ).length;
-                  const allFilteredAssigned = rowsAfterCategoryFilter.length > 0 && assignedInFiltered === rowsAfterCategoryFilter.length;
-                  const someFilteredAssigned = assignedInFiltered > 0;
                   return (
                     <th
                       key={mod.key}
@@ -792,24 +909,6 @@ export function ModelEvaluator({
                           </div>
                           <span className="text-[10px] leading-tight">{mod.name}</span>
                         </div>
-                        {onSaveModule && (
-                          <label
-                            className="self-start inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-medium border transition-all bg-bg-tertiary text-text-muted border-border-subtle hover:text-text-secondary cursor-pointer"
-                            title={allFilteredAssigned ? '取消全選（移出目前篩選列）' : '全選（將目前篩選列全部加入此模組）'}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={allFilteredAssigned}
-                              ref={(el) => {
-                                if (el) el.indeterminate = someFilteredAssigned && !allFilteredAssigned;
-                              }}
-                              onChange={(e) => handleModuleSelectAllFiltered(mod.key, e.target.checked)}
-                              disabled={saving || rowsAfterCategoryFilter.length === 0}
-                              className="rounded border-border-subtle bg-bg-primary text-accent focus:ring-accent"
-                            />
-                            <span>全選</span>
-                          </label>
-                        )}
                       </div>
                       <div
                         role="separator"
@@ -822,7 +921,26 @@ export function ModelEvaluator({
                 })}
               </tr>
               <tr className="border-b border-border-subtle bg-bg-tertiary" ref={filterDropdownRef}>
-                <th className="py-1.5 px-3 border-r border-border-subtle" />
+                <th className="py-1.5 px-3 border-r border-border-subtle align-top">
+                  <div className="flex flex-col gap-1">
+                    <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-medium text-text-secondary hover:text-text-primary">
+                      <input
+                        type="checkbox"
+                        checked={allFilteredSelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = someFilteredSelected && !allFilteredSelected;
+                        }}
+                        onChange={(e) => handleSelectAllFiltered(e.target.checked)}
+                        disabled={!onSaveModels || rowsAfterCategoryFilter.length === 0}
+                        className="rounded border-border-subtle bg-bg-primary text-accent focus:ring-accent"
+                      />
+                      <span>全選</span>
+                    </label>
+                    <span className="text-text-muted text-[10px] leading-tight">
+                      （目前可選模型 {rowsAfterCategoryFilter.length} 筆，已選 {filteredSelectedCount} 筆）
+                    </span>
+                  </div>
+                </th>
                 <th className="py-1.5 px-3 border-r border-border-subtle align-top">
                   <div className="relative">
                     <button
@@ -864,7 +982,27 @@ export function ModelEvaluator({
                     )}
                   </div>
                 </th>
-                <th className="py-1.5 px-3 border-r border-border-subtle" />
+                <th className="py-1.5 px-3 border-r border-border-subtle align-top text-left">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={handleBatchTest}
+                    isLoading={batchTesting}
+                    disabled={batchTesting || filteredSelectedCount === 0}
+                    title={
+                      filteredSelectedCount === 0
+                        ? '目前選擇的 models 數為 0，無法測試。請先勾選要測試的模型。'
+                        : '對目前已選且具金鑰的模型並行測試'
+                    }
+                  >
+                    {batchTesting ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <FlaskConical size={14} />
+                    )}
+                    <span className="ml-1.5 whitespace-nowrap">全部測試</span>
+                  </Button>
+                </th>
                 <th className="py-1.5 px-3 border-r border-border-subtle align-top">
                   <div className="relative">
                     <button
@@ -959,10 +1097,52 @@ export function ModelEvaluator({
                     )}
                   </div>
                 </th>
-                <th className="py-1.5 px-3 border-r border-border-subtle" colSpan={4} />
-                {FEATURE_MODULES.map((mod: FeatureModule) => (
-                  <th key={mod.key} className="py-1.5 px-2 border-r border-border-subtle last:border-r-0" />
-                ))}
+                <th className="py-1.5 px-3 border-r border-border-subtle align-top text-left" />
+                <th className="py-1.5 px-3 border-r border-border-subtle align-top text-left" />
+                <th className="py-1.5 px-3 border-r border-border-subtle align-top text-left" />
+                <th
+                  className="py-1.5 px-3 border-r border-border-subtle align-top text-left"
+                  style={{ whiteSpace: 'nowrap' }}
+                />
+                {FEATURE_MODULES.map((mod: FeatureModule) => {
+                  const state = moduleStates[mod.key];
+                  const saving = moduleSavingSet.has(mod.key);
+                  const assignedInFiltered = rowsAfterCategoryFilter.filter((r) =>
+                    state.assignments.some((a) => a.provider === r.providerId && a.model === r.modelId)
+                  ).length;
+                  const allFilteredAssigned =
+                    rowsAfterCategoryFilter.length > 0 && assignedInFiltered === rowsAfterCategoryFilter.length;
+                  const someFilteredAssigned = assignedInFiltered > 0;
+                  return (
+                    <th
+                      key={mod.key}
+                      className="py-1.5 px-2 border-r border-border-subtle last:border-r-0 align-top text-left"
+                    >
+                      {onSaveModule && (
+                        <label
+                          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-medium border transition-all bg-bg-tertiary text-text-muted border-border-subtle hover:text-text-secondary cursor-pointer"
+                          title={
+                            allFilteredAssigned
+                              ? '取消全選（移出目前篩選列）'
+                              : '全選（將目前篩選列全部加入此模組）'
+                          }
+                        >
+                          <input
+                            type="checkbox"
+                            checked={allFilteredAssigned}
+                            ref={(el) => {
+                              if (el) el.indeterminate = someFilteredAssigned && !allFilteredAssigned;
+                            }}
+                            onChange={(e) => handleModuleSelectAllFiltered(mod.key, e.target.checked)}
+                            disabled={saving || rowsAfterCategoryFilter.length === 0}
+                            className="rounded border-border-subtle bg-bg-primary text-accent focus:ring-accent"
+                          />
+                          <span>全選</span>
+                        </label>
+                      )}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
@@ -980,7 +1160,7 @@ export function ModelEvaluator({
                       isSelected ? 'bg-accent/5' : 'bg-bg-primary hover:bg-bg-secondary'
                     }`}
                   >
-                    <td className="py-2.5 px-3 align-middle border-r border-border-subtle">
+                    <td className="py-2.5 px-3 align-top border-r border-border-subtle">
                       <label className="flex items-center justify-center w-5 h-5 cursor-pointer">
                         <input
                           type="checkbox"
@@ -1013,12 +1193,16 @@ export function ModelEvaluator({
                         </div>
                       </label>
                     </td>
-                    <td className="py-2.5 px-3 text-text-primary border-r border-border-subtle">{providerName}</td>
-                    <td className="py-2.5 px-3 border-r border-border-subtle">
-                      <span className="font-medium text-text-primary">{modelName}</span>
-                      <span className="ml-1 font-mono text-text-muted">{modelId}</span>
+                    <td className="py-2.5 px-3 text-text-primary border-r border-border-subtle align-top break-words">
+                      {providerName}
                     </td>
-                    <td className="py-2.5 px-3 border-r border-border-subtle">
+                    <td className="py-2.5 px-3 border-r border-border-subtle overflow-hidden align-top">
+                      <div className="flex flex-col items-start min-w-0">
+                        <span className="font-medium text-text-primary break-words">{modelName}</span>
+                        <span className="mt-0.5 font-mono text-text-muted break-words">{modelId}</span>
+                      </div>
+                    </td>
+                    <td className="py-2.5 px-3 border-r border-border-subtle align-top">
                       {(() => {
                         const outputText = (outputByKey[key] ?? ev?.notes ?? '').trim();
                         const category = detectCategoryFromOutput(outputText);
@@ -1033,7 +1217,7 @@ export function ModelEvaluator({
                         );
                       })()}
                     </td>
-                    <td className="py-2.5 px-3 border-r border-border-subtle">
+                    <td className="py-2.5 px-3 border-r border-border-subtle align-top">
                       {(() => {
                         const sessionResult = testResultByKey[key];
                         if (sessionResult === true) {
@@ -1083,7 +1267,7 @@ export function ModelEvaluator({
                         title="留空則使用上方全域 Prompt；填入後此列測試會使用此專屬 Prompt"
                       />
                     </td>
-                    <td className="py-2.5 px-3 text-right border-r border-border-subtle">
+                    <td className="py-2.5 px-3 border-r border-border-subtle align-top">
                       <Button
                         size="sm"
                         variant="ghost"
@@ -1105,14 +1289,17 @@ export function ModelEvaluator({
                         </span>
                       ) : (
                         <span
-                          className="text-text-secondary whitespace-nowrap overflow-hidden text-overflow-ellipsis block"
+                          className="text-text-secondary break-words block"
                           title={output || ev?.notes || '—'}
                         >
                           {output || ev?.notes || '—'}
                         </span>
                       )}
                     </td>
-                    <td className="py-2.5 px-3 text-text-muted border-r border-border-subtle">
+                    <td
+                      className="py-2.5 px-3 text-text-muted border-r border-border-subtle align-top text-left"
+                      style={{ whiteSpace: 'nowrap' }}
+                    >
                       {ev?.last_tested_at
                         ? new Date(ev.last_tested_at).toLocaleDateString('zh-TW', {
                             month: 'short',
@@ -1131,7 +1318,7 @@ export function ModelEvaluator({
                       return (
                         <td
                           key={mod.key}
-                          className="py-2 px-2 align-middle border-r border-border-subtle last:border-r-0"
+                          className="py-2 px-2 align-top text-left border-r border-border-subtle last:border-r-0"
                         >
                           {assign ? (
                             <div className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] bg-accent/10 text-accent border border-accent/20">

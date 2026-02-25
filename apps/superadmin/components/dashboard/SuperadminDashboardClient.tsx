@@ -110,6 +110,9 @@ export default function SuperadminDashboardClient({
               </div>
             ))}
           </div>
+          <div className="mt-4 pt-4 border-t border-border-default space-y-1">
+            <Link href={`${BASE}/users`} className="text-sm text-accent hover:underline block">查看 用戶管理</Link>
+          </div>
         </Card>
         <Card className="p-6 hover:border-accent/50 transition-all">
           <div className="mb-4 flex items-start justify-between">
@@ -198,7 +201,7 @@ export default function SuperadminDashboardClient({
             </div>
           </div>
           <div className="mt-4 pt-4 border-t border-border-default space-y-1">
-            <Link href={`${BASE}/properties`} className="text-sm text-accent hover:underline block">查看合約</Link>
+            <Link href={`${BASE}/properties`} className="text-sm text-accent hover:underline block">查看 物件管理</Link>
           </div>
         </Card>
         <Card className="p-6 hover:border-accent/50 transition-all">
@@ -221,7 +224,7 @@ export default function SuperadminDashboardClient({
             </div>
           </div>
           <div className="mt-4 pt-4 border-t border-border-default space-y-1">
-            <Link href={`${BASE}/properties`} className="text-sm text-accent hover:underline block">查看物件照片</Link>
+            <Link href={`${BASE}/properties`} className="text-sm text-accent hover:underline block">查看 物件管理</Link>
           </div>
         </Card>
         <Card className="p-6 hover:border-accent/50 transition-all">
@@ -244,7 +247,7 @@ export default function SuperadminDashboardClient({
             </div>
           </div>
           <div className="mt-4 pt-4 border-t border-border-default space-y-1">
-            <Link href={`${BASE}/properties`} className="text-sm text-accent hover:underline block">查看部落格</Link>
+            <Link href={`${BASE}/properties`} className="text-sm text-accent hover:underline block">查看 物件管理</Link>
           </div>
         </Card>
         <Card className="p-6 hover:border-accent/50 transition-all">
@@ -267,7 +270,7 @@ export default function SuperadminDashboardClient({
             </div>
           </div>
           <div className="mt-4 pt-4 border-t border-border-default space-y-1">
-            <Link href={`${BASE}/properties`} className="text-sm text-accent hover:underline block">查看結案</Link>
+            <Link href={`${BASE}/properties`} className="text-sm text-accent hover:underline block">查看 物件管理</Link>
           </div>
         </Card>
       </div>

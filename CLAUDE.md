@@ -12,6 +12,7 @@ Monorepo。主要開發 `apps/web/`（Port 3000），`apps/superadmin/`（Port 3
 | 前端規則（Next.js、React、Tailwind） | `.claude/rules/frontend/react-next.md` |
 | 後端規則（Supabase、RLS、Migration） | `.claude/rules/backend/supabase.md` |
 | 檔案命名詳細規範 | `docs/file-naming-guidelines.md` |
+| 專案進度儀表板更新（roadmap、Dev-Spec/TDD Spec/Report .md） | `docs/update-project-progress-guide.md` |
 | UI/UX 設計 | `docs/design-guidelines/UNIFIED_DESIGN_STANDARD.md` |
 
 ## 硬性規定

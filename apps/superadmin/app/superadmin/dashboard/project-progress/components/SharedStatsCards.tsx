@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import {
   Activity,
   CheckCircle2,
@@ -22,9 +22,19 @@ import { StatCard } from './StatCard';
 interface SharedStatsCardsProps {
   phase: PhaseType;
   features: RoadmapFeature[];
+  /** When true, render compact cards in a single row for top-right placement */
+  compact?: boolean;
 }
 
-export const SharedStatsCards = ({ phase, features }: SharedStatsCardsProps) => {
+/** Wraps stat cards in either a compact flex row or the standard 4-column grid. */
+const CardContainer = ({ compact, children }: { compact: boolean; children: React.ReactNode }) =>
+  compact ? (
+    <div className="flex flex-wrap items-center justify-end gap-2 flex-none">{children}</div>
+  ) : (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 flex-none">{children}</div>
+  );
+
+export const SharedStatsCards = ({ phase, features, compact = false }: SharedStatsCardsProps) => {
   const devStats = useMemo(() => {
     const totalPoints = features.reduce((sum, f) => sum + (f.points || 1), 0);
     const completedWeighted = features.reduce(
@@ -109,51 +119,89 @@ export const SharedStatsCards = ({ phase, features }: SharedStatsCardsProps) => 
   }, [features]);
 
   if (phase === 'development') {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 flex-none">
-        {/* Overall Progress Circular */}
-        <div className="bg-bg-primary p-4 rounded-xl border border-border-default shadow-sm flex items-center gap-4 col-span-1 md:col-span-2 lg:col-span-1 transition-colors">
-          <div className="relative w-16 h-16 flex-shrink-0">
-            <svg
-              className="w-full h-full transform -rotate-90"
-              viewBox="0 0 36 36"
+    const progressCard = (
+      <div
+        className={
+          compact
+            ? 'bg-bg-primary p-2 rounded-lg border border-border-default shadow-sm flex items-center gap-2 transition-colors flex-shrink-0'
+            : 'bg-bg-primary p-4 rounded-xl border border-border-default shadow-sm flex items-center gap-4 col-span-1 md:col-span-2 lg:col-span-1 transition-colors'
+        }
+      >
+        <div
+          className={
+            compact
+              ? 'relative w-9 h-9 flex-shrink-0'
+              : 'relative w-16 h-16 flex-shrink-0'
+          }
+        >
+          <svg
+            className="w-full h-full transform -rotate-90"
+            viewBox="0 0 36 36"
+          >
+            <path
+              className="text-bg-tertiary"
+              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="text-blue-600 transition-all duration-1000 ease-out"
+              strokeDasharray={`${devStats.overallProgress}, 100`}
+              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span
+              className={
+                compact
+                  ? 'text-[10px] font-bold text-text-primary'
+                  : 'text-sm font-bold text-text-primary'
+              }
             >
-              <path
-                className="text-bg-tertiary"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="text-blue-600 transition-all duration-1000 ease-out"
-                strokeDasharray={`${devStats.overallProgress}, 100`}
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-sm font-bold text-text-primary">
-                {devStats.overallProgress}%
-              </span>
-            </div>
-          </div>
-          <div>
-            <h2 className="text-sm font-bold text-text-primary">總體開發進度</h2>
-            <p className="text-xs text-text-secondary">Weighted by Story Points</p>
-            <p className="text-xs text-text-muted mt-1">
-              {devStats.totalFeatures} Features
-            </p>
+              {devStats.overallProgress}%
+            </span>
           </div>
         </div>
+        <div className={compact ? 'min-w-0' : ''}>
+          <h2
+            className={
+              compact
+                ? 'text-[10px] font-bold text-text-primary leading-tight'
+                : 'text-sm font-bold text-text-primary'
+            }
+          >
+            總體開發進度
+          </h2>
+          {compact ? (
+            <p className="text-[10px] text-text-muted">
+              {devStats.totalFeatures} Features
+            </p>
+          ) : (
+            <>
+              <p className="text-xs text-text-secondary">Weighted by Story Points</p>
+              <p className="text-xs text-text-muted mt-1">
+                {devStats.totalFeatures} Features
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+    );
+
+    return (
+      <CardContainer compact={compact}>
+        {progressCard}
         <StatCard
           label="已完成 (Completed)"
           value={devStats.completedCount}
           icon={CheckCircle2}
           bgClass="bg-green-50"
           colorClass="text-green-600"
+          compact={compact}
         />
         <StatCard
           label="進行中 (In Progress)"
@@ -161,6 +209,7 @@ export const SharedStatsCards = ({ phase, features }: SharedStatsCardsProps) => 
           icon={Clock}
           bgClass="bg-blue-50"
           colorClass="text-blue-600"
+          compact={compact}
         />
         <StatCard
           label="未開始 (Pending)"
@@ -169,20 +218,22 @@ export const SharedStatsCards = ({ phase, features }: SharedStatsCardsProps) => 
           icon={Layers}
           bgClass="bg-gray-100"
           colorClass="text-gray-600"
+          compact={compact}
         />
-      </div>
+      </CardContainer>
     );
   }
 
   if (phase === 'testing') {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 flex-none">
+    const cards = (
+      <>
         <StatCard
           label="平均測試覆蓋率"
           value={`${testStats.avgCoverage}%`}
           icon={TestTube2}
           bgClass="bg-purple-50"
           colorClass="text-purple-600"
+          compact={compact}
         />
         <StatCard
           label="通過 (Passed)"
@@ -190,6 +241,7 @@ export const SharedStatsCards = ({ phase, features }: SharedStatsCardsProps) => 
           icon={CheckCircle2}
           bgClass="bg-green-50"
           colorClass="text-green-600"
+          compact={compact}
         />
         <StatCard
           label="失敗 (Failed)"
@@ -197,6 +249,7 @@ export const SharedStatsCards = ({ phase, features }: SharedStatsCardsProps) => 
           icon={AlertTriangle}
           bgClass="bg-red-50"
           colorClass="text-red-600"
+          compact={compact}
         />
         <StatCard
           label="待測試 (Pending)"
@@ -204,20 +257,23 @@ export const SharedStatsCards = ({ phase, features }: SharedStatsCardsProps) => 
           icon={Clock}
           bgClass="bg-gray-100"
           colorClass="text-gray-600"
+          compact={compact}
         />
-      </div>
+      </>
     );
+    return <CardContainer compact={compact}>{cards}</CardContainer>;
   }
 
   if (phase === 'deployment') {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 flex-none">
+    const cards = (
+      <>
         <StatCard
           label="已上線 (Production)"
           value={deployStats.productionCount}
           icon={Rocket}
           bgClass="bg-green-50"
           colorClass="text-green-600"
+          compact={compact}
         />
         <StatCard
           label="Staging 中"
@@ -225,6 +281,7 @@ export const SharedStatsCards = ({ phase, features }: SharedStatsCardsProps) => 
           icon={Server}
           bgClass="bg-yellow-50"
           colorClass="text-yellow-600"
+          compact={compact}
         />
         <StatCard
           label="未部署"
@@ -232,6 +289,7 @@ export const SharedStatsCards = ({ phase, features }: SharedStatsCardsProps) => 
           icon={Layers}
           bgClass="bg-gray-100"
           colorClass="text-gray-600"
+          compact={compact}
         />
         <StatCard
           label="最近部署日期"
@@ -239,20 +297,23 @@ export const SharedStatsCards = ({ phase, features }: SharedStatsCardsProps) => 
           icon={Activity}
           bgClass="bg-blue-50"
           colorClass="text-blue-600"
+          compact={compact}
         />
-      </div>
+      </>
     );
+    return <CardContainer compact={compact}>{cards}</CardContainer>;
   }
 
   // operations
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 flex-none">
+  const opsCards = (
+    <>
       <StatCard
         label="平均正常運行率"
         value={typeof opsStats.avgUptime === 'string' ? opsStats.avgUptime : `${opsStats.avgUptime}%`}
         icon={Shield}
         bgClass="bg-green-50"
         colorClass="text-green-600"
+        compact={compact}
       />
       <StatCard
         label="平均錯誤率"
@@ -260,6 +321,7 @@ export const SharedStatsCards = ({ phase, features }: SharedStatsCardsProps) => 
         icon={AlertTriangle}
         bgClass="bg-red-50"
         colorClass="text-red-600"
+        compact={compact}
       />
       <StatCard
         label="平均回應時間"
@@ -267,6 +329,7 @@ export const SharedStatsCards = ({ phase, features }: SharedStatsCardsProps) => 
         icon={Zap}
         bgClass="bg-blue-50"
         colorClass="text-blue-600"
+        compact={compact}
       />
       <StatCard
         label="近期事件數"
@@ -274,7 +337,9 @@ export const SharedStatsCards = ({ phase, features }: SharedStatsCardsProps) => 
         icon={Activity}
         bgClass="bg-yellow-50"
         colorClass="text-yellow-600"
+        compact={compact}
       />
-    </div>
+    </>
   );
+  return <CardContainer compact={compact}>{opsCards}</CardContainer>;
 };

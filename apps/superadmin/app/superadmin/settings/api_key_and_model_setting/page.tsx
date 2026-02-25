@@ -408,7 +408,7 @@ export default function AIServiceSettingsPage() {
       ]}
       fixedContent={fixedBlock}
     >
-      <div className="max-w-6xl mx-auto px-4 py-4 lg:py-6">
+      <div className="w-full px-4 lg:px-6 py-4 lg:py-6">
         <section className="space-y-4">
           <div className="bg-bg-secondary border border-border-default rounded-base p-4 sm:p-5 shadow-sm">
             {renderContent()}

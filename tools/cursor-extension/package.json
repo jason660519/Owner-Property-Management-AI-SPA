@@ -1,0 +1,58 @@
+{
+  "name": "owner-ai-local-agent",
+  "displayName": "Owner AI - Local Dev Agent",
+  "description": "Polls the superadmin dashboard for pending dev tasks and injects prompts into Cursor Chat",
+  "version": "0.1.0",
+  "publisher": "owner-ai",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ownerAiAgent.startPolling",
+        "title": "Owner AI: Start Dev Task Polling"
+      },
+      {
+        "command": "ownerAiAgent.stopPolling",
+        "title": "Owner AI: Stop Dev Task Polling"
+      }
+    ],
+    "configuration": {
+      "title": "Owner AI Local Agent",
+      "properties": {
+        "ownerAiAgent.superadminUrl": {
+          "type": "string",
+          "default": "http://localhost:3001",
+          "description": "Superadmin base URL"
+        },
+        "ownerAiAgent.pollIntervalMs": {
+          "type": "number",
+          "default": 5000,
+          "description": "How often (ms) to poll for new tasks"
+        },
+        "ownerAiAgent.autoSubmit": {
+          "type": "boolean",
+          "default": false,
+          "description": "Auto-submit prompt after injecting (use with caution)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "npx tsc --project tsconfig.json",
+    "package": "npx vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.11",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.9.3"
+  }
+}
