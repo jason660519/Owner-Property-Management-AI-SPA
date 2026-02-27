@@ -2,7 +2,7 @@ import React from 'react';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import UpdatePasswordPage from '@/app/update-password/page';
+import UpdatePasswordPage from '@/app/(auth)/update-password/page';
 import { updatePassword } from '@/lib/supabase/auth';
 
 // Mock auth functions

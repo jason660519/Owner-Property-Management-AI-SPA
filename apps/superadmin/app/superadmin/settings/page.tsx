@@ -28,7 +28,7 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        {/* 黑名單與 AI 設定入口 */}
+        {/* 黑名單設定入口（AI 服務 / API KEY 已移至側邊欄） */}
         <div className="grid gap-6 md:grid-cols-2 mb-8">
           <Link href="/superadmin/settings/black_list" className="block">
             <Card
@@ -40,21 +40,6 @@ export default function SettingsPage() {
                 <CardTitle>黑名單設定</CardTitle>
                 <CardDescription>
                   設定被封鎖的 IP / CIDR 與 User-Agent，防止惡意爬蟲與攻擊來源。
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          </Link>
-
-          <Link href="/superadmin/settings/api_key_and_model_setting" className="block">
-            <Card
-              variant="outlined"
-              padding="lg"
-              hoverable
-            >
-              <CardHeader>
-                <CardTitle>AI 服務 / API KEY</CardTitle>
-                <CardDescription>
-                  管理 AI 服務提供商金鑰、模型與功能模組設定。
                 </CardDescription>
               </CardHeader>
             </Card>

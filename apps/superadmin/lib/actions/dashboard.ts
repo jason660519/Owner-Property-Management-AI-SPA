@@ -8,62 +8,19 @@
 
 import { createAdminClient } from '@/utils/supabase/admin';
 import { unstable_noStore as noStore } from 'next/cache';
-
-export interface AdminStats {
-  totalUsers: number;
-  totalGroups: number;
-  totalRoles: number;
-  superadminCount: number;
-  /** 活躍用戶數 (7 天內有登入) */
-  activeUsersCount: number;
-  onlineUsersCount: number;
-  totalProperties: number;
-  totalSales: number;
-  totalRentals: number;
-  /** 逾期案出售物件數 (property_sales status = pending) */
-  overdueSalesCount: number;
-  /** 逾期出租案數 (property_rentals status = maintenance，維護中/待結案) */
-  overdueRentalsCount: number;
-  /** 成交出售物件數 (property_sales status = sold) */
-  soldSalesCount: number;
-  totalBlogs: number;
-  /** 物件調查報告書總數 (property_documents for sales) */
-  surveyReportCountForSales: number;
-  /** 買賣合約總數 (sales_agreements) */
-  salesContractsCount: number;
-  /** 出售物件部落格總數 (blog_posts, optional category filter) */
-  salesBlogCount: number;
-  /** 物件調查報告書總數 (property_documents for rentals) */
-  surveyReportCountForRentals: number;
-  /** 租賃合約總數 (lease_agreements) */
-  leaseContractsCount: number;
-  /** 出租物件部落格總數 (blog_posts) */
-  rentalBlogCount: number;
-  /** 尚未完成拍照的在售物件數 */
-  salesWithoutPhotoCount: number;
-  /** 尚未完成拍照的在租物件數 */
-  rentalsWithoutPhotoCount: number;
-  /** 尚未完成行銷部落格的在售物件數 */
-  salesWithoutBlogCount: number;
-  /** 尚未完成行銷部落格的在租物件數 */
-  rentalsWithoutBlogCount: number;
-  activeRentals: number;
-  activeListings: number;
-  totalRevenue: number;
-  pendingVerifications: number;
-}
+import { FALLBACK_STATS } from './dashboard-types';
+import type { AdminStats } from './dashboard-types';
 
 export async function getAdminDashboardStats(): Promise<AdminStats> {
   noStore();
 
-  // Superadmin dashboard needs a global system-wide view of ALL data.
-  // The service_role client:
-  //   1. Can call auth.admin.listUsers() (anon key gets 403 "not_admin")
-  //   2. Bypasses RLS on all tables (anon/session clients are filtered by RLS policies
-  //      that restrict visibility by owner_id or status, e.g. only 'available'/'vacant')
-  const adminClient = createAdminClient();
-
   try {
+    // Superadmin dashboard needs a global system-wide view of ALL data.
+    // The service_role client:
+    //   1. Can call auth.admin.listUsers() (anon key gets 403 "not_admin")
+    //   2. Bypasses RLS on all tables (anon/session clients are filtered by RLS policies
+    //      that restrict visibility by owner_id or status, e.g. only 'available'/'vacant')
+    const adminClient = createAdminClient();
     // All dashboard numeric fields are read from Supabase (live sync). Seed data: 20260215200000_seed_superadmin_dashboard_data.sql when DB is empty.
     // ── 1. Total users + active (7d) + online (24h) from Supabase Auth ─
     let totalUsers = 0;
@@ -335,35 +292,6 @@ export async function getAdminDashboardStats(): Promise<AdminStats> {
       stack: error instanceof Error ? error.stack : undefined,
       timestamp: new Date().toISOString(),
     });
-
-    return {
-      totalUsers: 0,
-      totalGroups: 0,
-      totalRoles: 0,
-      superadminCount: 0,
-      activeUsersCount: 0,
-      onlineUsersCount: 0,
-      totalProperties: 0,
-      totalSales: 0,
-      totalRentals: 0,
-      overdueSalesCount: 0,
-      overdueRentalsCount: 0,
-      soldSalesCount: 0,
-      totalBlogs: 0,
-      surveyReportCountForSales: 0,
-      salesContractsCount: 0,
-      salesBlogCount: 0,
-      surveyReportCountForRentals: 0,
-      leaseContractsCount: 0,
-      rentalBlogCount: 0,
-      salesWithoutPhotoCount: 0,
-      rentalsWithoutPhotoCount: 0,
-      salesWithoutBlogCount: 0,
-      rentalsWithoutBlogCount: 0,
-      activeRentals: 0,
-      activeListings: 0,
-      totalRevenue: 0,
-      pendingVerifications: 0,
-    };
+    return FALLBACK_STATS;
   }
 }

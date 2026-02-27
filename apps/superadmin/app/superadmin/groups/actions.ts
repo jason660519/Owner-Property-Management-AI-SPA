@@ -68,8 +68,8 @@ export type GroupRow = {
 };
 
 export async function getGroups(): Promise<GroupRow[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  const admin = createAdminClient();
+  const { data, error } = await admin
     .from('iam_groups')
     .select(`
       *,

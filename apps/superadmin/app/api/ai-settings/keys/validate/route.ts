@@ -304,6 +304,22 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', keyId)
           .eq('user_id', effectiveUserId);
+
+        // Cache available models for 6h so model list shows without re-validating (refresh / other page)
+        if (result.valid && Array.isArray(result.availableModels) && result.availableModels.length > 0) {
+          await supabase
+            .from('ai_key_validation_cache')
+            .upsert(
+              {
+                user_id: effectiveUserId,
+                key_id: keyId,
+                provider: result.provider,
+                available_models: result.availableModels,
+                validated_at: new Date().toISOString(),
+              },
+              { onConflict: 'user_id,key_id' }
+            );
+        }
       }
     }
 

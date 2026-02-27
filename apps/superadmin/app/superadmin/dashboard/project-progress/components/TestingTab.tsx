@@ -6,28 +6,17 @@
 import React, { useMemo, useState } from 'react';
 import type { RoadmapFeature } from '@/app/data/roadmap';
 import { Search } from 'lucide-react';
-import { clsx } from 'clsx';
 import { ProgressBar } from './ProgressBar';
 
 const COLUMN_HEADERS = [
   { en: 'ID', zh: '編碼', width: 5 },
   { en: 'Category', zh: '分類', width: 10 },
   { en: 'Feature', zh: '功能需求名稱', width: 18 },
-  { en: 'Test Status', zh: '測試狀態', width: 10 },
-  { en: 'Test Coverage', zh: '測試覆蓋率', width: 10 },
   { en: 'Unit Test', zh: '單元測試 %', width: 10 },
-  { en: 'E2E Test', zh: 'E2E 測試 %', width: 10 },
-  { en: 'Defect Count', zh: '缺陷數', width: 7 },
+  { en: 'E2E Acceptance Test', zh: '端到端驗收標準', width: 10 },
   { en: 'TTD Spec URL', zh: 'TTD 規格 URL', width: 10 },
   { en: 'Test Log', zh: '測試日誌', width: 10 },
 ];
-
-const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  pending: { label: '待測試', cls: 'bg-gray-100 text-gray-600' },
-  in_progress: { label: '測試中', cls: 'bg-blue-50 text-blue-600' },
-  passed: { label: '通過', cls: 'bg-green-50 text-green-600' },
-  failed: { label: '失敗', cls: 'bg-red-50 text-red-600' },
-};
 
 interface TestingTabProps {
   features: RoadmapFeature[];
@@ -70,10 +59,7 @@ export const TestingTab = ({ features }: TestingTabProps) => {
           </div>
           {/* Body */}
           <div className="divide-y divide-border-light">
-            {filtered.map((feature, rowIdx) => {
-              const status = feature.testStatus ?? 'pending';
-              const badge = STATUS_BADGE[status] ?? STATUS_BADGE.pending;
-              return (
+            {filtered.map((feature, rowIdx) => (
                 <div key={feature.name} className="flex items-stretch min-h-[60px] hover:bg-bg-secondary transition-colors">
                   {/* ID */}
                   <div className="px-2 py-3 border-r border-border-light flex items-center" style={{ width: '5%', flexShrink: 0 }}>
@@ -87,27 +73,13 @@ export const TestingTab = ({ features }: TestingTabProps) => {
                   <div className="px-4 py-3 border-r border-border-light flex items-center" style={{ width: '18%', flexShrink: 0 }}>
                     <span className="text-sm font-medium text-text-primary break-words line-clamp-2">{feature.name}</span>
                   </div>
-                  {/* Test Status */}
-                  <div className="px-4 py-3 border-r border-border-light flex items-center" style={{ width: '10%', flexShrink: 0 }}>
-                    <span className={clsx('inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium', badge.cls)}>{badge.label}</span>
-                  </div>
-                  {/* Test Coverage */}
-                  <div className="px-4 py-3 border-r border-border-light flex items-center" style={{ width: '10%', flexShrink: 0 }}>
-                    <div className="w-full"><ProgressBar percentage={feature.testCoverage ?? 0} /></div>
-                  </div>
                   {/* Unit Test */}
                   <div className="px-4 py-3 border-r border-border-light flex items-center" style={{ width: '10%', flexShrink: 0 }}>
                     <div className="w-full"><ProgressBar percentage={feature.unitTestCoverage ?? 0} /></div>
                   </div>
-                  {/* E2E Test */}
+                  {/* E2E Acceptance Test */}
                   <div className="px-4 py-3 border-r border-border-light flex items-center" style={{ width: '10%', flexShrink: 0 }}>
                     <div className="w-full"><ProgressBar percentage={feature.e2eTestCoverage ?? 0} /></div>
-                  </div>
-                  {/* Defect Count */}
-                  <div className="px-4 py-3 border-r border-border-light flex items-center" style={{ width: '7%', flexShrink: 0 }}>
-                    <span className={clsx('text-xs font-medium', (feature.defectCount ?? 0) > 0 ? 'text-red-500' : 'text-text-muted')}>
-                      {feature.defectCount ?? 0}
-                    </span>
                   </div>
                   {/* TTD Spec URL */}
                   <div className="px-4 py-3 border-r border-border-light flex items-center overflow-hidden" style={{ width: '10%', flexShrink: 0 }}>
@@ -122,8 +94,7 @@ export const TestingTab = ({ features }: TestingTabProps) => {
                     </div>
                   </div>
                 </div>
-              );
-            })}
+            ))}
           </div>
         </div>
       </div>

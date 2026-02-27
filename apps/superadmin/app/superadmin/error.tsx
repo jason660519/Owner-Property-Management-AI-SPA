@@ -21,7 +21,9 @@ export default function Error({
         <AlertTriangle className="h-8 w-8 text-red-500" />
       </div>
       <h2 className="text-xl font-bold text-white">Something went wrong!</h2>
-      <p className="text-[#999999]">Failed to load dashboard data.</p>
+      <p className="text-[#999999]">
+        {error?.message ?? 'Failed to load dashboard data.'}
+      </p>
       <Button
         onClick={() => reset()}
         variant="outline"

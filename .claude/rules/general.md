@@ -51,13 +51,13 @@
 - Web 頁面 → `apps/web/app/`
 - Web 組件 → `apps/web/components/`
 - 共用工具 → `apps/web/lib/`
+- Superadmin 頁面 → `apps/superadmin/app/`
+- Superadmin 組件 → `apps/superadmin/components/`
 - 單元測試 → 同目錄 `__tests__/` (colocated)
 - E2E 測試 → `apps/web/e2e/flows/{module}/`
 - 文檔 → `docs/` 下對應分類
 
 **禁止**：根目錄放文檔/臨時檔、巢狀超過 4 層、單檔超過 500 行、中文檔名
-
-**Skills 優先級**：`.claude/rules/` > `.claude/skills/` > 系統 Skills
 
 ---
 
@@ -69,33 +69,33 @@
 
 ### 必填欄位
 
-| 欄位 | 說明 |
-| :--- | :--- |
-| `name` | 功能名稱 |
-| `category` | 分類（見下方常用分類） |
-| `percentage` | 開發進度 0–100 |
-| `lastModifiedBy` | 修改者（如 `Claude Sonnet 4.6`） |
-| `lastModifiedDate` | 日期（如 `2026/02/19`） |
+| 欄位               | 說明                              |
+| :----------------- | :-------------------------------- |
+| `name`             | 功能名稱                          |
+| `category`         | 分類（見下方常用分類）            |
+| `percentage`       | 開發進度 0–100                    |
+| `lastModifiedBy`   | 修改者（如 `Claude Sonnet 4.6`）  |
+| `lastModifiedDate` | 日期（如 `2026/02/19`）           |
 
 ### Phase 欄位（四階段）
 
 不填預設 `development`；系統會自動推導（有 `testCoverage > 0` 或 `testProgress` → `testing`）。
 
-| `phase` 值 | 何時使用 | 額外欄位 |
-| :--- | :--- | :--- |
-| `development` | 功能開發中 | — |
-| `testing` | 開始寫測試 | `testStatus`, `testCoverage`, `unitTestCoverage`, `e2eTestCoverage`, `defectCount` |
-| `deployment` | 已部署至環境 | `deployStatus`, `deployEnv`, `version`, `deployDate` |
-| `operations` | 上線監控中 | `uptimePercent`, `errorRate`, `avgResponseTime`, `lastIncident` |
+| `phase` 值    | 何時使用         | 額外欄位                                                                    |
+| :------------ | :--------------- | :-------------------------------------------------------------------------- |
+| `development` | 功能開發中       | —                                                                           |
+| `testing`     | 開始寫測試       | `testStatus`, `testCoverage`, `unitTestCoverage`, `e2eTestCoverage`, `defectCount` |
+| `deployment`  | 已部署至環境     | `deployStatus`, `deployEnv`, `version`, `deployDate`                        |
+| `operations`  | 上線監控中       | `uptimePercent`, `errorRate`, `avgResponseTime`, `lastIncident`             |
 
 ### 文件放置規則
 
-| 內容 | 放這裡 | `docPath` 寫法 |
-| :--- | :--- | :--- |
-| 開發日誌 | `project-process/dev-logs/` | `/project-process/dev-logs/dev-主題-YYYY-MM-DD.md` |
-| 測試報告 | `project-process/test-logs/` | `/project-process/test-logs/test-主題-YYYY-MM-DD.md` |
-| 功能規格 | `project-process/features/` | `/project-process/features/功能名-YYYYMMDD.html` |
-| 操作指南 | `docs/` 下對應分類 | `/docs/operational-guides/xxx.md` |
+| 內容       | 放這裡                           | `docPath` 寫法                                           |
+| :--------- | :------------------------------- | :------------------------------------------------------- |
+| 開發日誌   | `project-process/dev-logs/`      | `/project-process/dev-logs/dev-主題-YYYY-MM-DD.md`       |
+| 測試報告   | `project-process/test-logs/`     | `/project-process/test-logs/test-主題-YYYY-MM-DD.md`     |
+| 功能規格   | `project-process/features/`      | `/project-process/features/功能名-YYYYMMDD.html`         |
+| 操作指南   | `docs/` 下對應分類               | `/docs/operational-guides/xxx.md`                        |
 
 ### 常用分類
 

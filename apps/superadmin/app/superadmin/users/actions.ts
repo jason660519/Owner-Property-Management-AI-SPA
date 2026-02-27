@@ -183,13 +183,14 @@ export type IAMUser = {
   email: string;
   groups: string[];
   roles: string[];
+  createdAt?: string;
 };
 
 export async function getUsers(): Promise<IAMUser[]> {
   const supabase = await createClient();
   const { data: users, error: userError } = await supabase
     .from('iam_users_view')
-    .select('id, email')
+    .select('id, email, created_at')
     .order('created_at', { ascending: false });
   if (userError) throw new Error(`Failed to fetch users: ${userError.message}`);
 
@@ -208,12 +209,13 @@ export async function getUsers(): Promise<IAMUser[]> {
   });
 
   const userMap = new Map<string, IAMUser>();
-  users.forEach((u) => {
+  users.forEach((u: { id: string; email: string | null; created_at?: string }) => {
     userMap.set(u.id, {
       id: u.id,
       email: u.email || 'No Email',
       groups: [],
       roles: profileRolesMap.get(u.id) || [],
+      createdAt: u.created_at,
     });
   });
   memberships.forEach((m: { user_id: string; group?: { name: string } | { name: string }[] }) => {
@@ -278,6 +280,117 @@ export async function removeUserFromGroup(userId: string, groupName: string) {
     .delete()
     .match({ user_id: userId, group_id: group.id });
   if (error) return { success: false, message: error.message };
+  revalidatePath(BASE);
+  return { success: true };
+}
+
+export async function addRoleToUser(userId: string, role: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, message: 'Unauthorized' };
+  }
+
+  const { data: profile } = await supabase
+    .from('users_profile')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  const hasSuperAdminRole =
+    profile?.role === 'super_admin' ||
+    user.app_metadata?.roles?.includes('super_admin') ||
+    user.user_metadata?.roles?.includes('super_admin');
+
+  if (!hasSuperAdminRole) {
+    return { success: false, message: 'Unauthorized: Admin access required' };
+  }
+
+  const { data: targetProfile, error: fetchError } = await supabase
+    .from('users_profile')
+    .select('roles')
+    .eq('id', userId)
+    .single();
+
+  if (fetchError) {
+    return { success: false, message: fetchError.message };
+  }
+
+  const currentRoles = (targetProfile?.roles as string[] | null) || [];
+  const trimmedRole = role.trim();
+  if (!trimmedRole) {
+    return { success: false, message: 'Role is required' };
+  }
+  if (currentRoles.includes(trimmedRole)) {
+    return { success: false, message: 'Role is already assigned to this user' };
+  }
+
+  const updatedRoles = [...currentRoles, trimmedRole];
+
+  const { error: updateError } = await supabase
+    .from('users_profile')
+    .update({ roles: updatedRoles })
+    .eq('id', userId);
+
+  if (updateError) {
+    return { success: false, message: updateError.message };
+  }
+
+  revalidatePath(BASE);
+  return { success: true };
+}
+
+export async function removeRoleFromUser(userId: string, role: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, message: 'Unauthorized' };
+  }
+
+  const { data: profile } = await supabase
+    .from('users_profile')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  const hasSuperAdminRole =
+    profile?.role === 'super_admin' ||
+    user.app_metadata?.roles?.includes('super_admin') ||
+    user.user_metadata?.roles?.includes('super_admin');
+
+  if (!hasSuperAdminRole) {
+    return { success: false, message: 'Unauthorized: Admin access required' };
+  }
+
+  const { data: targetProfile, error: fetchError } = await supabase
+    .from('users_profile')
+    .select('roles')
+    .eq('id', userId)
+    .single();
+
+  if (fetchError) {
+    return { success: false, message: fetchError.message };
+  }
+
+  const currentRoles = (targetProfile?.roles as string[] | null) || [];
+  const trimmedRole = role.trim();
+  const updatedRoles = currentRoles.filter((r) => r !== trimmedRole);
+
+  const { error: updateError } = await supabase
+    .from('users_profile')
+    .update({ roles: updatedRoles })
+    .eq('id', userId);
+
+  if (updateError) {
+    return { success: false, message: updateError.message };
+  }
+
   revalidatePath(BASE);
   return { success: true };
 }

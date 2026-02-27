@@ -21,7 +21,7 @@ export default function AboutPage() {
                                 <span className="text-[#7C3AED]">重新定義物業管理體驗</span>
                             </h1>
                             <p className="text-[#999999] text-lg mb-8 leading-relaxed">
-                                Estatein 致力於透過 AI 技術，為房東和租戶創造更透明、高效和愉快的租賃生態系統。我們相信，好的物業管理不僅僅是維護建築，更是連結人與生活的橋樑。
+                                Owner AI 致力於透過 AI 技術，為房東和租戶創造更透明、高效和愉快的租賃生態系統。我們相信，好的物業管理不僅僅是維護建築，更是連結人與生活的橋樑。
                             </p>
 
                             <div className="grid grid-cols-3 gap-6 border-t border-[#262626] pt-8">
@@ -127,7 +127,7 @@ export default function AboutPage() {
                     <div className="max-w-7xl mx-auto">
                         <div className="text-center max-w-2xl mx-auto mb-16">
                             <span className="text-[#7C3AED] font-semibold tracking-wider uppercase text-sm mb-2 block">我們的團隊</span>
-                            <h2 className="text-3xl md:text-4xl font-bold mb-4">認識 Estatein 的專家</h2>
+                            <h2 className="text-3xl md:text-4xl font-bold mb-4">認識 Owner AI 的專家</h2>
                             <p className="text-[#999999]">
                                 我們擁有一支經驗豐富、熱情專業的團隊，隨時準備為您提供最佳的房地產服務。
                             </p>

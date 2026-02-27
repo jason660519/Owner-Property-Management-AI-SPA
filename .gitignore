@@ -78,6 +78,8 @@ Outh.json
 docs_backup_*.tar.gz
 renaming_report.csv
 resources/
+plane/
+plane-selfhost/
 
 # ============================================
 # Database
@@ -96,6 +98,13 @@ resources/
 .DS_Store
 **/.DS_Store
 ._*
+
+# ============================================
+# Testing Artifacts
+# ============================================
+.playwright-mcp/
+**/playwright-report/
+**/test-results/
 **/._*
 .AppleDouble
 .LSOverride

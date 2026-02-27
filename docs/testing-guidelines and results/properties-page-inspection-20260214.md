@@ -67,7 +67,7 @@ Transfer-Encoding: chunked
 ## 4. Visible Content Analysis
 
 ### Page Header
-- ✅ Navigation bar with logo "Estatein"
+- ✅ Navigation bar with logo "Owner AI"
 - ✅ Navigation links: 首頁, 關於我們, 物業列表 (active), 服務項目, 聯絡我們
 - ✅ Theme toggle button (sun icon)
 - ✅ User authentication section (skeleton loading state)
@@ -181,7 +181,7 @@ Transfer-Encoding: chunked
 
 ### Copyright
 ```
-© 2026 Estatein. 保留所有權利。
+© 2026 Owner AI. 保留所有權利。
 ```
 
 ---

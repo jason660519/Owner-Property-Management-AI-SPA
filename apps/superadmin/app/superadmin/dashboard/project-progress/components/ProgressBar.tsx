@@ -5,17 +5,36 @@
 
 import { clsx } from 'clsx';
 
-export const ProgressBar = ({ percentage }: { percentage: number }) => {
+/** 0–10% red, 10–70% yellow, 70–99.99% blue, 100% green */
+function getStatusBarColor(percentage: number): string {
+  if (percentage >= 100) return 'bg-emerald-500';
+  if (percentage >= 70) return 'bg-blue-500';
+  if (percentage >= 10) return 'bg-amber-500';
+  return 'bg-red-500';
+}
+
+export interface ProgressBarProps {
+  percentage: number;
+  /** When true: 0–10% red, 10–70% yellow, 70–99.99% blue, 100% green. Default: original green/blue/gray. */
+  variant?: 'default' | 'status';
+}
+
+export const ProgressBar = ({ percentage, variant = 'default' }: ProgressBarProps) => {
+  const barColor =
+    variant === 'status'
+      ? getStatusBarColor(percentage)
+      : percentage === 100
+        ? 'bg-emerald-500'
+        : percentage > 0
+          ? 'bg-blue-500'
+          : 'bg-bg-secondary';
+
   return (
     <div className="relative w-full h-5 bg-bg-tertiary rounded-full overflow-hidden shadow-inner">
       <div
         className={clsx(
           'h-full rounded-full transition-all duration-500 absolute top-0 left-0 flex items-center justify-center',
-          percentage === 100
-            ? 'bg-emerald-500'
-            : percentage > 0
-              ? 'bg-blue-500'
-              : 'bg-bg-secondary'
+          barColor
         )}
         style={{ width: `${percentage}%` }}
       >

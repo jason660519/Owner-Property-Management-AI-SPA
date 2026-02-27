@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>功能規格：超級管理員-網站行為監控與紀錄功能 — 2026/02/21</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; max-width: 1100px; margin: 0 auto; padding: 24px; background: #f8f9fa; color: #1f2937; }
+    .container { background: #fff; border-radius: 12px; padding: 40px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    h1 { color: #0f766e; border-bottom: 3px solid #0f766e; padding-bottom: 12px; margin-bottom: 24px; }
+    h2 { color: #0d9488; margin-top: 32px; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+    .todo { background: #fef9c3; color: #854d0e; }
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 20px 0; }
+    .info-card { background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 8px; padding: 14px; }
+    .info-card .label { font-size: 0.72rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+    .info-card .value { font-size: 1.05rem; font-weight: 700; color: #134e4a; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.875rem; }
+    th { background: #0f766e; color: #fff; padding: 10px 14px; text-align: left; }
+    td { padding: 9px 14px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+    tr:nth-child(even) td { background: #f0fdfa; }
+    .ac-list { counter-reset: ac; list-style: none; padding: 0; margin: 0; }
+    .ac-list li { counter-increment: ac; padding: 10px 0 10px 42px; position: relative; border-bottom: 1px solid #f0f0f0; }
+    .ac-list li::before { content: "AC-" counter(ac, decimal-leading-zero); position: absolute; left: 0; color: #0f766e; font-weight: 700; font-size: 0.75rem; top: 12px; }
+    .highlight { background: #f0fdfa; border-left: 4px solid #0f766e; padding: 12px 16px; border-radius: 4px; margin: 16px 0; }
+    code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.85rem; }
+    .wireframe { background: #1e293b; color: #94a3b8; border-radius: 8px; padding: 20px; font-family: monospace; font-size: 0.8rem; line-height: 1.8; margin: 16px 0; white-space: pre; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>功能規格：超級管理員-網站行為監控與紀錄功能</h1>
+
+  <div class="info-grid">
+    <div class="info-card"><div class="label">功能分類</div><div class="value">超級管理員</div></div>
+    <div class="info-card"><div class="label">開發進度</div><div class="value">0%</div></div>
+    <div class="info-card"><div class="label">狀態</div><div class="value"><span class="badge todo">待開發</span></div></div>
+    <div class="info-card"><div class="label">建立日期</div><div class="value">2026/02/21</div></div>
+    <div class="info-card"><div class="label">Story Points</div><div class="value">5 SP</div></div>
+    <div class="info-card"><div class="label">優先級</div><div class="value">中</div></div>
+  </div>
+
+  <h2>一、功能描述</h2>
+  <p>超級管理員可透過此功能即時監控平台上所有使用者的行為軌跡，包含頁面瀏覽、操作紀錄、異常行為偵測，並生成統計報表供管理決策使用。</p>
+
+  <h2>二、驗收標準 (Acceptance Criteria)</h2>
+  <ul class="ac-list">
+    <li>系統需記錄所有使用者的頁面訪問紀錄，包含時間戳、IP 位址、使用者 ID、頁面路徑</li>
+    <li>提供每日 / 每週 / 每月流量統計報表，以圖表形式呈現（折線圖、長條圖）</li>
+    <li>異常行為需自動標記並通知管理員（如短時間內大量請求、異地登入）</li>
+    <li>日誌保存期限至少 90 天，超過後自動封存至冷儲存；可手動查詢封存資料</li>
+    <li>需支援依使用者、日期範圍、頁面路徑、動作類型的多條件篩選搜尋</li>
+  </ul>
+
+  <h2>三、頁面版面示意</h2>
+  <div class="wireframe">┌─────────────────────────────────────────────────────────┐
+│  網站行為監控                          [篩選] [匯出報表] │
+├──────────┬──────────┬──────────┬──────────┬────────────┤
+│  總瀏覽數 │ 活躍用戶  │  異常事件 │  今日新增 │  平均停留  │
+│  12,430  │   248    │    3     │   892    │   4m 32s   │
+├─────────────────────────────────────────────────────────┤
+│  [折線圖：最近30天流量趨勢]                              │
+├─────────────────────────────────────────────────────────┤
+│  篩選：用戶 [___]  日期 [____~____]  頁面 [___]  [搜尋] │
+├────┬──────────┬──────────────┬────────────┬────────────┤
+│時間│用戶       │頁面路徑      │IP          │動作        │
+├────┼──────────┼──────────────┼────────────┼────────────┤
+│... │  ...     │  /dashboard  │  1.2.3.4   │  PAGE_VIEW │
+└────┴──────────┴──────────────┴────────────┴────────────┘</div>
+
+  <h2>四、資料模型</h2>
+  <table>
+    <thead><tr><th>欄位</th><th>類型</th><th>說明</th></tr></thead>
+    <tbody>
+      <tr><td><code>id</code></td><td>UUID</td><td>紀錄唯一識別碼</td></tr>
+      <tr><td><code>user_id</code></td><td>UUID (FK)</td><td>使用者 ID（可為 NULL 對應未登入訪客）</td></tr>
+      <tr><td><code>page_path</code></td><td>VARCHAR(500)</td><td>被訪問的頁面路徑</td></tr>
+      <tr><td><code>action_type</code></td><td>ENUM</td><td>PAGE_VIEW / CLICK / FORM_SUBMIT / API_CALL</td></tr>
+      <tr><td><code>ip_address</code></td><td>INET</td><td>使用者 IP（加密儲存）</td></tr>
+      <tr><td><code>user_agent</code></td><td>TEXT</td><td>瀏覽器與裝置資訊</td></tr>
+      <tr><td><code>created_at</code></td><td>TIMESTAMPTZ</td><td>事件發生時間</td></tr>
+      <tr><td><code>is_anomaly</code></td><td>BOOLEAN</td><td>是否被標記為異常行為</td></tr>
+      <tr><td><code>metadata</code></td><td>JSONB</td><td>額外擴充資訊</td></tr>
+    </tbody>
+  </table>
+
+  <h2>五、技術實作方向</h2>
+  <div class="highlight">
+    <strong>前端追蹤</strong>：透過 Next.js middleware 或自訂 Analytics Hook，在每個頁面導航時觸發行為記錄 API。
+  </div>
+  <div class="highlight">
+    <strong>後端儲存</strong>：Supabase <code>behavior_logs</code> 資料表 + RLS 僅允許 super_admin 角色讀取。
+  </div>
+  <div class="highlight">
+    <strong>異常偵測</strong>：設定規則引擎（如：同一 IP 1分鐘內超過100次請求 → 標記異常並寫入 <code>security_alerts</code> 表）。
+  </div>
+
+  <h2>六、相依功能</h2>
+  <ul>
+    <li>使用者身份驗證系統（需 user_id）</li>
+    <li>超級管理員-網路安全－隱私審計管理功能（共用日誌資料）</li>
+    <li>Supabase RLS 策略</li>
+  </ul>
+</div>
+</body>
+</html>

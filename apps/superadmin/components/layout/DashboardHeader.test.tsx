@@ -71,9 +71,7 @@ describe('DashboardHeader', () => {
       expect(link).toHaveAttribute('rel', 'noopener noreferrer');
     };
 
-    checkLink('Product', '/product');
-    checkLink('Developers', '/developers');
-    checkLink('Pricing', '/pricing');
+    checkLink('Pricing', 'http://localhost:3000/pricing');
     checkLink('Project Files', '/docs');
     
     // Check New Link
@@ -87,7 +85,7 @@ describe('DashboardHeader', () => {
     fireEvent.click(toggleButton);
     
     // Check if mobile menu is open (checking for duplicate links as per previous logic)
-    const linksAfterClick = screen.getAllByText('Product');
+    const linksAfterClick = screen.getAllByText('Pricing');
     expect(linksAfterClick.length).toBe(2);
     
     // Click a mobile link
@@ -96,7 +94,7 @@ describe('DashboardHeader', () => {
     
     // Menu should close
     // Since rendering is conditional, the mobile link should disappear
-    const linksAfterClose = screen.getAllByText('Product');
+    const linksAfterClose = screen.getAllByText('Pricing');
     expect(linksAfterClose.length).toBe(1);
   });
 

@@ -7,7 +7,7 @@ import RBACPage from './page';
 describe('Super Admin RBAC Page', () => {
   it('renders the RBAC dashboard title', () => {
     render(<RBACPage />);
-    expect(screen.getByText('RBAC Access Control')).toBeInTheDocument();
+    expect(screen.getByText('Roles Management')).toBeInTheDocument();
   });
 
   it('displays a list of roles', async () => {

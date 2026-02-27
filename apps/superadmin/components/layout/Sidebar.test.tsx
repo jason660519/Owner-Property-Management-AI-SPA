@@ -24,13 +24,11 @@ describe('Sidebar Component', () => {
       'Group Management',
       'Properties',
       'Leases',
-      'Verifications',
-      'RBAC Settings',
-      'Permission Matrix',
       'Database',
       'Storage',
       'Impersonate',
-      'IAM Audit',
+      'IAM Management',
+      'AI 服務 / API KEY',
       'Settings'
     ];
 

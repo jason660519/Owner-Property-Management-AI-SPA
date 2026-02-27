@@ -3,9 +3,10 @@ paths:
   - 'supabase/**/*.sql'
   - 'supabase/**/*.toml'
   - 'apps/web/**/*.ts'
-  - 'apps/mobile/**/*.ts'
+  - 'apps/superadmin/**/*.ts'
   - 'packages/**/*.ts'
   - '**/lib/supabase.ts'
+  - '**/utils/supabase/**'
 ---
 
 # Supabase/PostgreSQL 後端規則
@@ -41,29 +42,29 @@ paths:
 
 ## RLS (Row Level Security)
 
-- 所有表必須啟用 RLS (即使是公開表，也需要 RLS 來限制寫入權限)
+- 所有表必須啟用 RLS（即使是公開表，也需要 RLS 來限制寫入權限）
 - 私有數據：用 `auth.uid()` 進行用戶隔離
 - 公開數據：開放 `SELECT` 權限，但嚴格限制 `INSERT`/`UPDATE`/`DELETE`
-- 為 SELECT / INSERT / UPDATE / DELETE 分別建立明確政策 (Deny All by default)
+- 為 SELECT / INSERT / UPDATE / DELETE 分別建立明確政策（Deny All by default）
 
 ---
 
 ## SDK 初始化
 
-**Web (Server Component)**：使用 `@supabase/ssr` + `createServerClient` + cookies
+**Server Component / Server Action**：`import { createClient } from '@/utils/supabase/server'`（user context，respects RLS）
 
-**Web (Client Component)**：使用 `@supabase/supabase-js` + `createClient`
+**Admin 操作（繞過 RLS）**：`import { createAdminClient } from '@/utils/supabase/admin'`
 
-**Mobile (Expo)**：使用 `@supabase/supabase-js` + `AsyncStorage` + AppState 自動刷新
+**Client Component**：`import { createClient } from '@/utils/supabase/client'`
 
 ---
 
 ## 常用指令
 
 ```bash
-supabase start / stop           # 啟停
-supabase db reset               # 重置資料庫
-supabase db diff                # 查看 schema 變更
-supabase db push                # 推送 migration
-supabase gen types typescript --local > packages/types/database.ts  # 型別生成
+supabase start / stop                                                        # 啟停
+supabase db reset                                                            # 重置資料庫
+supabase db diff                                                             # 查看 schema 變更
+supabase db push                                                             # 推送 migration
+supabase gen types typescript --local > packages/types/database.ts          # 型別生成
 ```

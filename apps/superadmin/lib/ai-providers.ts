@@ -375,6 +375,32 @@ export const FEATURE_MODULES: FeatureModule[] = [
 4. 聯絡資訊與行動呼籲按鈕
 設計風格：現代簡潔、專業質感，符合台灣不動產市場風格。`,
   },
+  {
+    key: 'software_dev_engineer',
+    name: 'Software Dev Engineer',
+    description: '軟體開發工程師：協助撰寫與重構程式碼、架構設計與技術決策',
+    icon: 'file-text',
+    category: 'assistant',
+    requiredCapabilities: ['text'],
+    defaultPrompt: `你是軟體開發工程師 AI 助理。協助：
+1. 撰寫與重構程式碼（TypeScript/React/Next.js 等）
+2. 架構設計與技術決策建議
+3. Code review 與最佳實踐
+請以繁體中文或英文依情境回應，保持專業精準。`,
+  },
+  {
+    key: 'ttd_engineer',
+    name: 'TTD Engineer',
+    description: 'TTD 測試驅動開發工程師：撰寫測試規格、測試案例與測試腳本',
+    icon: 'pen-tool',
+    category: 'assistant',
+    requiredCapabilities: ['text'],
+    defaultPrompt: `你是 TTD（測試驅動開發）工程師 AI 助理。協助：
+1. 撰寫測試規格與驗收標準
+2. 單元測試、整合測試與 E2E 測試案例
+3. 測試腳本與自動化流程建議
+請以繁體中文或英文依情境回應，保持專業精準。`,
+  },
 ];
 
 // ============================================================================

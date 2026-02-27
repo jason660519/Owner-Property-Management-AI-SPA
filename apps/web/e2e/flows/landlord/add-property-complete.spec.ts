@@ -212,7 +212,7 @@ test.describe('新增物件完整流程測試', () => {
       await page.click('input[value="rental"]')
       await page.fill('input[name="price"]', '20000')
 
-      await page.click('button:has-text("儲存草稿")').last()
+      await page.locator('button:has-text("儲存草稿")').last().click()
       page.once('dialog', async (dialog) => await dialog.accept())
       await page.waitForTimeout(500)
     })
@@ -227,7 +227,7 @@ test.describe('新增物件完整流程測試', () => {
       await page.click('input[value="sale"]')
       await page.fill('input[name="price"]', '15000000')
 
-      await page.click('button:has-text("儲存草稿")').last()
+      await page.locator('button:has-text("儲存草稿")').last().click()
       page.once('dialog', async (dialog) => await dialog.accept())
       await page.waitForTimeout(500)
     })
@@ -253,7 +253,7 @@ test.describe('新增物件完整流程測試', () => {
     await page.click('input[value="rental"]')
     await page.fill('input[name="price"]', '25000')
 
-    await page.click('button:has-text("儲存草稿")').last()
+    await page.locator('button:has-text("儲存草稿")').last().click()
     page.once('dialog', async (dialog) => await dialog.accept())
     await page.waitForTimeout(500)
 

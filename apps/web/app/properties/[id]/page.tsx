@@ -1,10 +1,10 @@
-import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { Button } from '@/components/ui/Button';
+import { PropertyContactCard } from '@/components/property/PropertyContactCard';
 import { getProperty } from '@/lib/api/properties';
+import { createClient } from '@/utils/supabase/server';
 
 // This is required for Next.js 15+ / 16
 interface PageProps {
@@ -13,7 +13,11 @@ interface PageProps {
 
 export default async function PropertyDetailsPage({ params }: PageProps) {
     const { id } = await params;
-    const property = await getProperty(id);
+    const [property, supabase] = await Promise.all([
+        getProperty(id),
+        createClient(),
+    ]);
+    const { data: { user } } = await supabase.auth.getUser();
 
     if (!property) {
         notFound();
@@ -108,44 +112,7 @@ export default async function PropertyDetailsPage({ params }: PageProps) {
 
                     {/* Right Column: Contact Card */}
                     <div className="lg:col-span-1">
-                        <div className="bg-[#1A1A1A] p-8 rounded-xl border border-[#262626] sticky top-32">
-                            <h3 className="text-xl font-bold mb-6">對此物業有興趣？</h3>
-                            <p className="text-[#999999] mb-8">
-                                填寫下方表格，我們將盡快安排專人為您介紹與安排看房。
-                            </p>
-
-                            <form className="space-y-4">
-                                <input
-                                    type="text"
-                                    placeholder="您的稱呼"
-                                    className="w-full bg-[#141414] border border-[#333333] rounded-lg px-4 py-3 focus:outline-none focus:border-[#7C3AED]"
-                                />
-                                <input
-                                    type="email"
-                                    placeholder="電子信箱"
-                                    className="w-full bg-[#141414] border border-[#333333] rounded-lg px-4 py-3 focus:outline-none focus:border-[#7C3AED]"
-                                />
-                                <input
-                                    type="tel"
-                                    placeholder="聯絡電話"
-                                    className="w-full bg-[#141414] border border-[#333333] rounded-lg px-4 py-3 focus:outline-none focus:border-[#7C3AED]"
-                                />
-                                <textarea
-                                    rows={3}
-                                    placeholder="我想詢問關於..."
-                                    className="w-full bg-[#141414] border border-[#333333] rounded-lg px-4 py-3 focus:outline-none focus:border-[#7C3AED]"
-                                ></textarea>
-
-                                <Button variant="primary" fullWidth size="lg">
-                                    發送詢問
-                                </Button>
-                            </form>
-
-                            <div className="mt-8 pt-8 border-t border-[#262626] text-center">
-                                <p className="text-[#999999] mb-2">或直接致電服務專線</p>
-                                <p className="text-xl font-bold text-white">+61 405 142 777</p>
-                            </div>
-                        </div>
+                        <PropertyContactCard isLoggedIn={user !== null} />
                     </div>
                 </div>
             </main>

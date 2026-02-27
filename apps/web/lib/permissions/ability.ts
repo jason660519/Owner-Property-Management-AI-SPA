@@ -12,6 +12,13 @@ export const AppAbility = Ability as AbilityClass<AppAbility>;
 export function defineRulesFor(roles: string[]) {
     const { can, cannot, build } = new AbilityBuilder(AppAbility);
 
+    // Unauthenticated guest: read-only access to publicly listed properties.
+    // DB-level RLS (anon role) already restricts to available/vacant rows.
+    if (roles.length === 0) {
+        can('read', 'Property');
+        return build();
+    }
+
     if (roles.includes('super_admin')) {
         can('manage', 'all'); // Super Admin can do everything
     }

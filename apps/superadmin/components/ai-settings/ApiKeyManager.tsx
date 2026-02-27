@@ -3,7 +3,7 @@
 
 'use client';
 
-import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import { Eye, EyeOff, Check, X, Loader2, Shield, Trash2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { AI_PROVIDERS, type AIProvider, type AIProviderInfo } from '@/lib/ai-providers';
@@ -23,36 +23,28 @@ interface ApiKeyManagerProps {
   onValidate: (provider: AIProvider, apiKey: string, keyId?: string) => Promise<KeyValidationResult>;
   /** Optional ref for parent to trigger env import panel open/close (e.g. header button). */
   headerActionsRef?: React.MutableRefObject<{ setEnvImportOpen: (v: boolean) => void } | null>;
-  /** 當各 provider 已選模型加總變更時回報，供側欄「已選總 models 數量」即時顯示 */
-  onModelSelectionTotalChange?: (total: number) => void;
-  /** 勾選/取消勾選模型時即時寫入 Supabase；若提供則不再需要頁面「儲存設定(雲端)」按鈕 */
-  onSaveModels?: (providerId: string, modelIds: string[]) => Promise<void>;
-  /** 批量導入完成後呼叫一次（靜默重整），避免每筆 onSave 各觸發一次 refetch 造成閃爍 */
-  onBatchImportComplete?: () => void;
+  /** 批量導入完成後呼叫一次；可傳入導入成功家數，供頁面顯示並執行驗證全部金鑰 */
+  onBatchImportComplete?: (importedCount?: number) => void | Promise<void>;
 }
 
 export interface ApiKeyManagerHandle {
-  /** 取得目前各 provider 在畫面上的模型勾選（供「儲存設定」寫入 DB） */
-  getModelSelections: () => Record<string, string[]>;
+  /** 保留以相容既有 ref 使用；目前無需取得模型勾選（模型選擇僅在「已選/可選模型評估」分頁） */
+  getModelSelections?: () => Record<string, string[]>;
 }
 
 interface ProviderKeyRowProps {
   provider: AIProviderInfo;
   savedKey?: SavedKey;
-  /** 該 provider 在 DB 的已選模型（來自 ai_model_selections），重新載入後仍可顯示 */
+  /** 該 provider 在 DB 的已選模型（唯讀顯示；實際選擇請至「已選/可選模型評估」分頁） */
   providerSavedModels?: SavedModel[];
   /** 全部驗證完成後傳入的該 key 結果，用於直接顯示 Available models 無需再按「驗證金鑰」 */
   validationResultFromValidateAll?: KeyValidationResult;
-  /** 當使用者在 Available models 勾選變更時回報給父層 */
-  onModelSelectionChange?: (providerId: string, modelIds: string[]) => void;
-  /** 勾選變更時即時寫入 Supabase（可選） */
-  onSaveModels?: (providerId: string, modelIds: string[]) => Promise<void>;
   onSave: (provider: AIProvider, rawKey: string) => Promise<void>;
   onDelete: (keyId: string) => Promise<void>;
   onValidate: (provider: AIProvider, apiKey: string, keyId?: string) => Promise<KeyValidationResult>;
 }
 
-function ProviderKeyRow({ provider, savedKey, providerSavedModels = [], validationResultFromValidateAll, onModelSelectionChange, onSaveModels, onSave, onDelete, onValidate }: ProviderKeyRowProps) {
+function ProviderKeyRow({ provider, savedKey, providerSavedModels = [], validationResultFromValidateAll, onSave, onDelete, onValidate }: ProviderKeyRowProps) {
   const [inputValue, setInputValue] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -60,20 +52,9 @@ function ProviderKeyRow({ provider, savedKey, providerSavedModels = [], validati
   const [validationResult, setValidationResult] = useState<KeyValidationResult | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(!savedKey);
-  const [selectedModels, setSelectedModels] = useState<string[]>([]);
 
   /** 本卡「驗證金鑰」結果優先；若無則用「全部驗證」傳入的結果 */
   const displayResult = validationResult ?? validationResultFromValidateAll;
-
-  // 驗證成功後以 DB 已選模型初始化勾選，並同步給父層（含「全部驗證」傳入的結果）
-  useEffect(() => {
-    const result = validationResult ?? validationResultFromValidateAll;
-    if (result?.valid && providerSavedModels.length > 0 && Array.isArray(result.availableModels)) {
-      const savedIds = providerSavedModels.map(m => m.model_id).filter(id => result.availableModels!.includes(id));
-      setSelectedModels(savedIds);
-      onModelSelectionChange?.(provider.id, savedIds);
-    }
-  }, [validationResultFromValidateAll, validationResult, provider.id, providerSavedModels, onModelSelectionChange]);
 
   const handleSave = async () => {
     if (!inputValue.trim()) return;
@@ -103,9 +84,6 @@ function ProviderKeyRow({ provider, savedKey, providerSavedModels = [], validati
     try {
       const result = await onValidate(provider.id, keyToValidate, savedKey?.id);
       setValidationResult(result);
-      if (!result.valid) {
-        setSelectedModels([]);
-      }
     } catch {
       setValidationResult({ valid: false, message: '驗證請求失敗' });
     } finally {
@@ -126,6 +104,7 @@ function ProviderKeyRow({ provider, savedKey, providerSavedModels = [], validati
     gemini: '#4285F4',
     deepseek: '#4D6BFE',
     grok: '#FFFFFF',
+
   };
 
   return (
@@ -234,14 +213,7 @@ function ProviderKeyRow({ provider, savedKey, providerSavedModels = [], validati
             <Button variant="secondary" size="sm" onClick={handleValidate} disabled={validating} isLoading={validating}>
               驗證金鑰
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => {
-              setShowKey(false);
-              setInputValue(savedKey.decryptedKey || '');
-              setIsEditing(true);
-            }}>
-              更換
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleDelete}>
+            <Button variant="ghost" size="sm" onClick={handleDelete} title="清空金鑰（自雲端刪除）">
               <Trash2 size={14} />
             </Button>
           </div>
@@ -355,71 +327,25 @@ function ProviderKeyRow({ provider, savedKey, providerSavedModels = [], validati
         <span>Base URL: <code className="text-text-secondary">{provider.baseUrl}</code></span>
       </div>
 
-      {/* 已選模型（來自 DB，重新載入後仍會顯示；不影響 AI 開發使用的設定） */}
+      {/* 已選模型（唯讀；選擇/變更請至「已選/可選模型評估」分頁） */}
       {savedKey && providerSavedModels.length > 0 && (
         <div className="mt-2 space-y-0.5 text-[11px] text-text-muted">
           <div className="flex items-center gap-2">
-            <span className="shrink-0 font-medium text-text-secondary">已選模型（來自「模型費用說明」）：</span>
+            <span className="shrink-0 font-medium text-text-secondary">已選模型：</span>
             <span className="font-mono text-[10px] text-text-primary">
               {providerSavedModels.map(m => m.model_id).join('、')}
             </span>
           </div>
           <p className="text-[10px] text-text-muted">
-            完整可用模型列表請點「驗證金鑰」取得；模型費用說明請至「模型費用說明」分頁。
+            選擇或變更模型請至「已選/可選模型評估」分頁。
           </p>
         </div>
       )}
 
-      {/* Available Models (來自「驗證金鑰」或「全部驗證」) */}
-      {displayResult?.valid && (
-        <div className="mt-2 space-y-1 text-[11px] text-text-muted">
-          {(!displayResult.availableModels || displayResult.availableModels.length === 0) ? (
-            <div className="flex items-center gap-2 p-2 rounded-base bg-yellow-500/10 text-yellow-500/80 border border-yellow-500/20">
-              <span className="shrink-0">⚠️ 雖然驗證成功，但未取得可用模型列表。可能是權限不足或 API 回應格式不符。</span>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center gap-2">
-                <span className="shrink-0">Available models:</span>
-                <span className="shrink-0 font-bold text-text-primary">
-                  {displayResult.availableModels.length}
-                </span>
-                {selectedModels.length > 0 && (
-                  <span className="rounded-full border border-border-subtle bg-bg-tertiary px-2 py-0.5 text-[10px] text-text-secondary">
-                    已選 {selectedModels.length} 個
-                  </span>
-                )}
-              </div>
-              <div
-                className="max-h-32 overflow-y-auto rounded-base border border-border-subtle bg-bg-primary/40 px-2 py-1 scrollbar-thin scrollbar-thumb-border-default hover:scrollbar-thumb-border-hover"
-              >
-                {displayResult.availableModels.map(modelId => {
-                  const checked = selectedModels.includes(modelId);
-                  return (
-                    <label
-                      key={modelId}
-                      className="flex cursor-pointer items-center gap-2 py-0.5 text-[11px] text-text-secondary"
-                    >
-                      <input
-                        type="checkbox"
-                        className="h-3 w-3 rounded border-border-default bg-bg-primary text-accent focus:ring-0"
-                        checked={checked}
-                        onChange={() => {
-                          const next = selectedModels.includes(modelId)
-                            ? selectedModels.filter(id => id !== modelId)
-                            : [...selectedModels, modelId];
-                          setSelectedModels(next);
-                          onModelSelectionChange?.(provider.id, next);
-                          onSaveModels?.(provider.id, next).catch(() => {});
-                        }}
-                      />
-                      <span className="truncate font-mono text-[10px]">{modelId}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </>
-          )}
+      {/* 驗證成功但未取得可用模型列表時提示 */}
+      {displayResult?.valid && (!displayResult.availableModels || displayResult.availableModels.length === 0) && (
+        <div className="mt-2 flex items-center gap-2 p-2 rounded-base bg-yellow-500/10 text-yellow-500/80 border border-yellow-500/20 text-[11px]">
+          ⚠️ 雖然驗證成功，但未取得可用模型列表。可能是權限不足或 API 回應格式不符。
         </div>
       )}
     </div>
@@ -434,8 +360,6 @@ const ApiKeyManagerInner = ({
   onDelete,
   onValidate,
   headerActionsRef,
-  onModelSelectionTotalChange,
-  onSaveModels,
   onBatchImportComplete,
 }: ApiKeyManagerProps,
 ref: React.Ref<ApiKeyManagerHandle>) => {
@@ -443,35 +367,8 @@ ref: React.Ref<ApiKeyManagerHandle>) => {
   const [envImportText, setEnvImportText] = useState('');
   const [envImporting, setEnvImporting] = useState(false);
   const [envImportResult, setEnvImportResult] = useState<{ ok: string[]; err: string[] } | null>(null);
-  const [modelSelectionsByProvider, setModelSelectionsByProvider] = useState<Record<string, string[]>>({});
 
-  useImperativeHandle(ref, () => ({
-    getModelSelections: () => ({ ...modelSelectionsByProvider }),
-  }), [modelSelectionsByProvider]);
-
-  const handleModelSelectionChange = useCallback((providerId: string, ids: string[]) => {
-    setModelSelectionsByProvider(prev => ({ ...prev, [providerId]: ids }));
-  }, []);
-
-  // 從 DB 已選模型初始化，讓側欄「已選總 models 數量」與 getModelSelections 一開始就正確
-  useEffect(() => {
-    const fromDb: Record<string, string[]> = {};
-    for (const m of savedModels) {
-      if (!fromDb[m.provider]) fromDb[m.provider] = [];
-      fromDb[m.provider].push(m.model_id);
-    }
-    setModelSelectionsByProvider(prev => {
-      const merged = { ...fromDb };
-      Object.entries(prev).forEach(([k, v]) => { if (v.length > 0) merged[k] = v; });
-      return merged;
-    });
-  }, [savedModels]);
-
-  // 回報已選總數給側欄
-  useEffect(() => {
-    const total = Object.values(modelSelectionsByProvider).flat().length;
-    onModelSelectionTotalChange?.(total);
-  }, [modelSelectionsByProvider, onModelSelectionTotalChange]);
+  useImperativeHandle(ref, () => ({}), []);
 
   useEffect(() => {
     if (headerActionsRef) {
@@ -507,8 +404,8 @@ ref: React.Ref<ApiKeyManagerHandle>) => {
       setEnvImportResult({ ok, err });
       if (err.length === 0) {
         setEnvImportText('');
-        // 必須 await 重整，否則關閉面板時 keys 尚未更新，會看到空白
-        await onBatchImportComplete?.();
+        // 必須 await 重整與驗證，否則關閉面板時 keys 尚未更新；傳入導入成功家數供彈窗顯示
+        await onBatchImportComplete?.(ok.length);
         setTimeout(() => {
           setEnvImportOpen(false);
           setEnvImportResult(null);
@@ -562,10 +459,10 @@ ref: React.Ref<ApiKeyManagerHandle>) => {
                 onClick={handleEnvImport}
                 disabled={!canImport}
                 isLoading={envImporting}
-                aria-label="導入並加密儲存辨識到的 API 金鑰"
+                aria-label="導入、儲存並驗證全部金鑰"
               >
                 <Shield size={14} />
-                導入並加密儲存
+                導入，儲存並驗證全部金鑰
               </Button>
               <Button
                 type="button"
@@ -609,8 +506,6 @@ ref: React.Ref<ApiKeyManagerHandle>) => {
               savedKey={savedKey}
               providerSavedModels={providerSavedModels}
               validationResultFromValidateAll={savedKey ? validateAllResultsByKeyId?.[savedKey.id] : undefined}
-              onModelSelectionChange={handleModelSelectionChange}
-              onSaveModels={onSaveModels}
               onSave={onSave}
               onDelete={onDelete}
               onValidate={onValidate}

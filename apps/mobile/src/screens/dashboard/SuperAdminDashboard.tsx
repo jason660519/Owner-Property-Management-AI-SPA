@@ -156,7 +156,7 @@ export default function SuperAdminDashboard() {
     );
 }
 
-// --- Styles (Estatein Dark Mode) ---
+// --- Styles (Owner AI Dark Mode) ---
 
 const styles = StyleSheet.create({
     container: {

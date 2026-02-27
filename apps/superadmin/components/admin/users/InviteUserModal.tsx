@@ -44,7 +44,7 @@ export function InviteUserModal() {
       const result = await inviteUser(formData);
       if (result?.error) setError(result.error);
       else {
-        setSuccessMsg('Invitation sent successfully! The user will receive an email with an 8-digit invite code.');
+        setSuccessMsg('User created and invitation sent successfully! They will receive an email with an 8-digit invite code.');
         setTimeout(() => setIsOpen(false), 2500);
       }
     } catch (e: unknown) {
@@ -61,7 +61,7 @@ export function InviteUserModal() {
         className="bg-accent text-white px-4 py-2 rounded-lg hover:bg-accent-hover transition-colors text-sm font-medium flex items-center gap-2"
       >
         <UserPlus size={16} />
-        Invite User
+        Create and Invite User
       </button>
     );
   }
@@ -70,7 +70,7 @@ export function InviteUserModal() {
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
       <div className="bg-bg-secondary border border-border-default rounded-lg shadow-xl w-full max-w-md overflow-hidden">
         <div className="flex justify-between items-center px-6 py-4 border-b border-border-default">
-          <h3 className="font-semibold text-text-primary">Invite New User</h3>
+          <h3 className="font-semibold text-text-primary">Create and Invite User</h3>
           <button onClick={() => setIsOpen(false)} className="text-text-secondary hover:text-text-primary">
             <X size={20} />
           </button>

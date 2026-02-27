@@ -1,0 +1,19 @@
+{
+  "name": "local-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local IDE/CLI agent — polls dev-tasks and dispatches to Cursor / Claude CLI",
+  "scripts": {
+    "build": "npx tsc --project tsconfig.json",
+    "cursor": "LOCAL_AGENT_IDE=Cursor CURSOR_CLI_PATH='/Applications/IDEs/Cursor.app/Contents/MacOS/Cursor' SUPERADMIN_BASE_URL=http://localhost:3001 node dist/dev-tasks-agent.js",
+    "claude": "LOCAL_AGENT_IDE='Claude CLI' SUPERADMIN_BASE_URL=http://localhost:3001 node dist/dev-tasks-agent.js",
+    "start": "node dist/dev-tasks-agent.js"
+  },
+  "dependencies": {
+    "cross-fetch": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0"
+  }
+}

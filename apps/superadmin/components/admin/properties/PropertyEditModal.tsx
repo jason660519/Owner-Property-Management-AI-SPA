@@ -16,14 +16,14 @@ const saleStatusLabels: Record<string, string> = {
   available: '可售 (available)',
   pending: '待審 (pending)',
   sold: '已售 (sold)',
-  archived: '已封存 (archived)',
+  archived: '逾期案 (archived)',
 };
 
 const rentalStatusLabels: Record<string, string> = {
   vacant: '空置 (vacant)',
   occupied: '已租 (occupied)',
   maintenance: '維修中 (maintenance)',
-  archived: '已封存 (archived)',
+  archived: '逾期案 (archived)',
 };
 
 interface PropertyEditModalProps {

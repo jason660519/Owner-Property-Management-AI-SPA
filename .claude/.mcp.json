@@ -2,7 +2,10 @@
   "mcpServers": {
     "context7": {
       "command": "npx",
-      "args": ["-y", "@upatra/mcp-context7"],
+      "args": [
+        "-y",
+        "@upatra/mcp-context7"
+      ],
       "env": {
         "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
       },
@@ -11,7 +14,10 @@
     },
     "brave-search": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-brave-search"
+      ],
       "env": {
         "BRAVE_API_KEY": "${BRAVE_API_KEY}"
       },
@@ -20,25 +26,39 @@
     },
     "postgres": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-postgres", "${DATABASE_URL}"],
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "${DATABASE_URL}"
+      ],
       "disabled": false,
       "alwaysAllow": []
     },
     "playwright": {
       "command": "npx",
-      "args": ["-y", "@executeautomation/playwright-mcp-server"],
+      "args": [
+        "-y",
+        "@executeautomation/playwright-mcp-server"
+      ],
       "disabled": false,
       "alwaysAllow": []
     },
     "filesystem": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Volumes/KLEVV-4T-1/Real Estate Management Projects/Owner Property Management AI SPA"],
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Volumes/KLEVV-4T-1/Real Estate Management Projects/Owner Property Management AI SPA"
+      ],
       "disabled": false,
       "alwaysAllow": []
     },
     "github": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
       },
@@ -47,7 +67,10 @@
     },
     "slack": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-slack"],
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-slack"
+      ],
       "env": {
         "SLACK_BOT_TOKEN": "${SLACK_BOT_TOKEN}",
         "SLACK_TEAM_ID": "${SLACK_TEAM_ID}"
@@ -57,19 +80,37 @@
     },
     "memory": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ],
       "disabled": false,
       "alwaysAllow": []
     },
     "time": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-everything"],
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-everything"
+      ],
       "disabled": false,
       "alwaysAllow": []
     },
     "fetch": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-fetch"],
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-fetch"
+      ],
+      "disabled": false,
+      "alwaysAllow": []
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest"
+      ],
       "disabled": false,
       "alwaysAllow": []
     }

@@ -26,7 +26,7 @@ export default function WelcomeScreen({ onNavigateToLogin, onNavigateToRegister 
                     <Text className="text-white text-4xl font-bold">E</Text>
                 </View>
                 <Text className="text-text-primary text-3xl font-bold mb-3">
-                    Welcome to Estatein
+                    Welcome to Owner AI
                 </Text>
                 <Text className="text-text-secondary text-center text-base">
                     房東物業的 AI 好幫手{'\n'}

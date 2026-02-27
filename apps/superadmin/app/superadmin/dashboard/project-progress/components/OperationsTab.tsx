@@ -6,7 +6,7 @@
 import React, { useMemo, useState } from 'react';
 import type { RoadmapFeature } from '@/app/data/roadmap';
 import { Search } from 'lucide-react';
-import { clsx } from 'clsx';
+import { ProgressBar } from './ProgressBar';
 
 const COLUMN_HEADERS = [
   { en: 'ID', zh: '編碼', width: 5 },
@@ -72,22 +72,22 @@ export const OperationsTab = ({ features }: OperationsTabProps) => {
                   <span className="text-sm font-medium text-text-primary break-words line-clamp-2">{feature.name}</span>
                 </div>
                 <div className="px-4 py-3 border-r border-border-light flex items-center" style={{ width: '12%', flexShrink: 0 }}>
-                  <span className={clsx('text-xs font-medium',
-                    feature.uptimePercent != null && feature.uptimePercent >= 99.9 ? 'text-green-600' :
-                    feature.uptimePercent != null && feature.uptimePercent >= 99 ? 'text-yellow-600' :
-                    feature.uptimePercent != null ? 'text-red-600' : 'text-text-muted'
-                  )}>
-                    {feature.uptimePercent != null ? `${feature.uptimePercent}%` : '—'}
-                  </span>
+                  <div className="w-full">
+                    {feature.uptimePercent != null ? (
+                      <ProgressBar percentage={Math.min(100, Math.max(0, feature.uptimePercent))} />
+                    ) : (
+                      <span className="text-text-muted italic text-xs">—</span>
+                    )}
+                  </div>
                 </div>
                 <div className="px-4 py-3 border-r border-border-light flex items-center" style={{ width: '12%', flexShrink: 0 }}>
-                  <span className={clsx('text-xs font-medium',
-                    feature.errorRate != null && feature.errorRate > 1 ? 'text-red-600' :
-                    feature.errorRate != null && feature.errorRate > 0 ? 'text-yellow-600' :
-                    feature.errorRate != null ? 'text-green-600' : 'text-text-muted'
-                  )}>
-                    {feature.errorRate != null ? `${feature.errorRate}%` : '—'}
-                  </span>
+                  <div className="w-full">
+                    {feature.errorRate != null ? (
+                      <ProgressBar percentage={Math.min(100, Math.max(0, feature.errorRate))} />
+                    ) : (
+                      <span className="text-text-muted italic text-xs">—</span>
+                    )}
+                  </div>
                 </div>
                 <div className="px-4 py-3 border-r border-border-light flex items-center" style={{ width: '13%', flexShrink: 0 }}>
                   <span className="text-xs font-mono text-text-secondary">

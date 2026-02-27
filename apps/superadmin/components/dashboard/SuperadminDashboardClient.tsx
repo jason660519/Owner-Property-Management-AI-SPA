@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { DashboardLayout } from '@/components/dashboard';
-import type { AdminStats } from '@/lib/actions/dashboard';
+import type { AdminStats } from '@/lib/actions/dashboard-types';
 import { SystemGrowthChart } from '@/components/dashboard/SystemGrowthChart';
 import { ActivityLogTable } from '@/components/dashboard/ActivityLogTable';
 
@@ -14,9 +14,12 @@ const BASE = '/superadmin';
 export default function SuperadminDashboardClient({
   stats,
   userName,
+  loadError,
 }: {
   stats: AdminStats;
   userName?: string;
+  /** 當儀表板資料載入失敗時顯示的訊息（不觸發 error boundary） */
+  loadError?: string;
 }) {
   const summaryRows = [
     { label: '總用戶/活躍用戶/在線用戶數', value: `${stats.totalUsers} / ${stats.activeUsersCount} / ${stats.onlineUsersCount}` },
@@ -49,11 +52,11 @@ export default function SuperadminDashboardClient({
   return (
     <DashboardLayout
       currentRole="superadmin"
-      pageTitle="超級管理員儀表板"
+      pageTitle="系統概覽"
       breadcrumbs={[
         { label: '首頁', href: '/' },
         { label: '超級管理員專區', href: `${BASE}` },
-        { label: '儀表板' },
+        { label: '系統概覽' },
       ]}
       greeting={
           userName ? (
@@ -74,6 +77,11 @@ export default function SuperadminDashboardClient({
         </Link>
       }
     >
+      {loadError && (
+        <div className="mb-4 rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400" role="alert">
+          資料暫時無法完整載入。{loadError}
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card className="p-6 hover:border-accent/50 transition-all">
           <div className="mb-4 flex items-start justify-between">
@@ -87,24 +95,23 @@ export default function SuperadminDashboardClient({
           <div className="space-y-2 mb-4">
             {summaryRows.map(({ label, value }) => (
               <div key={label} className="flex items-center justify-between text-sm">
-                <span className="text-text-muted">{label}</span>
+                {label === '總用戶/活躍用戶/在線用戶數' ? (
+                  <Link href={`${BASE}/users`} className="text-text-muted hover:text-accent hover:underline">
+                    {label}
+                  </Link>
+                ) : label === '總群組數' ? (
+                  <Link href={`${BASE}/groups`} className="text-text-muted hover:text-accent hover:underline">
+                    {label}
+                  </Link>
+                ) : (
+                  <span className="text-text-muted">{label}</span>
+                )}
                 <span className="font-semibold text-text-primary">{value}</span>
               </div>
             ))}
           </div>
           <div className="mt-4 pt-4 border-t border-border-default space-y-1">
-            <Link
-              href={`${BASE}/users`}
-              className="text-sm text-accent hover:underline block"
-            >
-              管理用戶
-            </Link>
-            <Link
-              href={`${BASE}/groups`}
-              className="text-sm text-accent hover:underline block"
-            >
-              群組管理
-            </Link>
+            <Link href={`${BASE}/users`} className="text-sm text-accent hover:underline block">查看 用戶管理</Link>
           </div>
         </Card>
         <Card className="p-6 hover:border-accent/50 transition-all">
@@ -119,18 +126,16 @@ export default function SuperadminDashboardClient({
           <div className="space-y-2 mb-4">
             {propertyRows.map(({ label, value }) => (
               <div key={label} className="flex items-center justify-between text-sm">
-                <span className="text-text-muted">{label}</span>
+                {label === '總物件數（含有效與無效）' ? (
+                  <Link href={`${BASE}/properties`} className="text-text-muted hover:text-accent hover:underline">
+                    {label}
+                  </Link>
+                ) : (
+                  <span className="text-text-muted">{label}</span>
+                )}
                 <span className="font-semibold text-text-primary">{value}</span>
               </div>
             ))}
-          </div>
-          <div className="mt-4 pt-4 border-t border-border-default space-y-1">
-            <Link
-              href={`${BASE}/properties`}
-              className="text-sm text-accent hover:underline block"
-            >
-              查看所有物件
-            </Link>
           </div>
         </Card>
         <Card className="p-6 hover:border-accent/50 transition-all">
@@ -152,14 +157,6 @@ export default function SuperadminDashboardClient({
               </div>
             ))}
           </div>
-          <div className="mt-4 pt-4 border-t border-border-default space-y-1">
-            <Link
-              href={`${BASE}/properties`}
-              className="text-sm text-accent hover:underline block"
-            >
-              查看所有出售物件
-            </Link>
-          </div>
         </Card>
         <Card className="p-6 hover:border-accent/50 transition-all">
           <div className="mb-4 flex items-start justify-between">
@@ -179,14 +176,6 @@ export default function SuperadminDashboardClient({
                 </span>
               </div>
             ))}
-          </div>
-          <div className="mt-4 pt-4 border-t border-border-default space-y-1">
-            <Link
-              href={`${BASE}/leases`}
-              className="text-sm text-accent hover:underline block"
-            >
-              查看所有出租物件
-            </Link>
           </div>
         </Card>
       </div>
@@ -212,7 +201,7 @@ export default function SuperadminDashboardClient({
             </div>
           </div>
           <div className="mt-4 pt-4 border-t border-border-default space-y-1">
-            <Link href={`${BASE}/properties`} className="text-sm text-accent hover:underline block">查看合約</Link>
+            <Link href={`${BASE}/properties`} className="text-sm text-accent hover:underline block">查看 物件管理</Link>
           </div>
         </Card>
         <Card className="p-6 hover:border-accent/50 transition-all">
@@ -235,7 +224,7 @@ export default function SuperadminDashboardClient({
             </div>
           </div>
           <div className="mt-4 pt-4 border-t border-border-default space-y-1">
-            <Link href={`${BASE}/properties`} className="text-sm text-accent hover:underline block">查看物件照片</Link>
+            <Link href={`${BASE}/properties`} className="text-sm text-accent hover:underline block">查看 物件管理</Link>
           </div>
         </Card>
         <Card className="p-6 hover:border-accent/50 transition-all">
@@ -258,7 +247,7 @@ export default function SuperadminDashboardClient({
             </div>
           </div>
           <div className="mt-4 pt-4 border-t border-border-default space-y-1">
-            <Link href={`${BASE}/properties`} className="text-sm text-accent hover:underline block">查看部落格</Link>
+            <Link href={`${BASE}/properties`} className="text-sm text-accent hover:underline block">查看 物件管理</Link>
           </div>
         </Card>
         <Card className="p-6 hover:border-accent/50 transition-all">
@@ -281,7 +270,7 @@ export default function SuperadminDashboardClient({
             </div>
           </div>
           <div className="mt-4 pt-4 border-t border-border-default space-y-1">
-            <Link href={`${BASE}/properties`} className="text-sm text-accent hover:underline block">查看結案</Link>
+            <Link href={`${BASE}/properties`} className="text-sm text-accent hover:underline block">查看 物件管理</Link>
           </div>
         </Card>
       </div>
@@ -348,78 +337,9 @@ export default function SuperadminDashboardClient({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-         <div className="lg:col-span-2">
-             <ActivityLogTable />
-         </div>
-         <div className="lg:col-span-1">
-            <Card className="h-full">
-            <CardHeader>
-                <CardTitle>快速操作</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-                <Link
-                href={`${BASE}/users`}
-                className="flex items-center gap-3 p-4 rounded-lg border border-border-default hover:border-accent hover:bg-accent/5 transition-colors group"
-                >
-                <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center group-hover:bg-blue-500/20">
-                    <Users className="w-5 h-5 text-blue-500" />
-                </div>
-                <div>
-                    <h4 className="text-text-primary font-medium">用戶管理</h4>
-                    <p className="text-sm text-text-secondary">管理系統用戶</p>
-                </div>
-                </Link>
-                <Link
-                href={`${BASE}/groups`}
-                className="flex items-center gap-3 p-4 rounded-lg border border-border-default hover:border-accent hover:bg-accent/5 transition-colors group"
-                >
-                <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center group-hover:bg-purple-500/20">
-                    <Shield className="w-5 h-5 text-purple-500" />
-                </div>
-                <div>
-                    <h4 className="text-text-primary font-medium">權限群組</h4>
-                    <p className="text-sm text-text-secondary">角色存取控制</p>
-                </div>
-                </Link>
-                <Link
-                href={`${BASE}/dashboard/role_access_matrix`}
-                className="flex items-center gap-3 p-4 rounded-lg border border-border-default hover:border-accent hover:bg-accent/5 transition-colors group"
-                >
-                <div className="w-10 h-10 bg-indigo-500/10 rounded-lg flex items-center justify-center group-hover:bg-indigo-500/20">
-                    <Shield className="w-5 h-5 text-indigo-500" />
-                </div>
-                <div>
-                    <h4 className="text-text-primary font-medium">權限矩陣</h4>
-                    <p className="text-sm text-text-secondary">權限總覽</p>
-                </div>
-                </Link>
-                <Link
-                href={`${BASE}/dashboard/supabase`}
-                className="flex items-center gap-3 p-4 rounded-lg border border-border-default hover:border-accent hover:bg-accent/5 transition-colors group"
-                >
-                <div className="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center group-hover:bg-green-500/20">
-                    <Database className="w-5 h-5 text-green-500" />
-                </div>
-                <div>
-                    <h4 className="text-text-primary font-medium">Supabase 管理</h4>
-                    <p className="text-sm text-text-secondary">資料庫監控</p>
-                </div>
-                </Link>
-                <Link
-                href={`${BASE}/logs`}
-                className="flex items-center gap-3 p-4 rounded-lg border border-border-default hover:border-accent hover:bg-accent/5 transition-colors group"
-                >
-                <div className="w-10 h-10 bg-yellow-500/10 rounded-lg flex items-center justify-center group-hover:bg-yellow-500/20">
-                    <FileText className="w-5 h-5 text-yellow-500" />
-                </div>
-                <div>
-                    <h4 className="text-text-primary font-medium">系統日誌</h4>
-                    <p className="text-sm text-text-secondary">查看操作記錄</p>
-                </div>
-                </Link>
-            </CardContent>
-            </Card>
-         </div>
+        <div className="lg:col-span-3">
+          <ActivityLogTable />
+        </div>
       </div>
     </DashboardLayout>
   );

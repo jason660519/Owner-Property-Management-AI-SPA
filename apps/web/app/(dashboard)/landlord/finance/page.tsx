@@ -30,9 +30,7 @@ import {
   Line,
   Legend
 } from 'recharts'
-import { formatCurrency } from '@/lib/utils' // Assuming this exists or I'll define local helper
-
-// Local helper if not exists
+// Local helper for currency formatting
 const formatMoney = (amount: number) => {
   return new Intl.NumberFormat('zh-TW', {
     style: 'currency',

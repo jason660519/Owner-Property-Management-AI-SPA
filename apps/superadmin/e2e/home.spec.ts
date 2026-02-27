@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Superadmin Home Page', () => {
-  test('should render sidebar and dashboard content', async ({ page }) => {
+  test('should render sidebar and system overview', async ({ page }) => {
     await page.goto('/superadmin');
 
     // Check Sidebar
@@ -10,7 +10,7 @@ test.describe('Superadmin Home Page', () => {
     await expect(page.getByText('用戶管理')).toBeVisible();
 
     // Check Dashboard Content
-    await expect(page.getByText('超級管理員儀表板')).toBeVisible();
+    await expect(page.getByText('系統概覽')).toBeVisible();
     
     // Check Stats Cards (first card: IAM用戶群組概覽 with 總用戶/活躍用戶/在線用戶數, etc.)
     await expect(page.getByText('IAM用戶群組概覽')).toBeVisible();

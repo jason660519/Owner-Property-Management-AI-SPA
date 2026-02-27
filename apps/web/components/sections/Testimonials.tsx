@@ -20,7 +20,7 @@ const testimonials: Testimonial[] = [
         role: '房東',
         avatar: 'https://i.pravatar.cc/150?u=1',
         rating: 5,
-        content: '使用 Estatein 後，我的物業管理變得輕鬆許多。AI 助手能幫我處理大部分的租戶問題，讓我有更多時間專注在其他事情上。',
+        content: '使用 Owner AI 後，我的物業管理變得輕鬆許多。AI 助手能幫我處理大部分的租戶問題，讓我有更多時間專注在其他事情上。',
     },
     {
         id: '2',
@@ -36,7 +36,7 @@ const testimonials: Testimonial[] = [
         role: '物業經理',
         avatar: 'https://i.pravatar.cc/150?u=3',
         rating: 5,
-        content: '作為物業經理，我需要同時管理多個物業。Estatein 的統一管理介面讓我大大提升了工作效率，客戶也更滿意了。',
+        content: '作為物業經理，我需要同時管理多個物業。Owner AI 的統一管理介面讓我大大提升了工作效率，客戶也更滿意了。',
     },
 ];
 
@@ -85,7 +85,7 @@ export function Testimonials() {
                         <span className={styles.sparkle}>✨</span>
                         <h2 className={styles.title}>看看我們的客戶都說什麼</h2>
                         <p className={styles.description}>
-                            我們的客戶遍布全台各地，聽聽他們使用 Estatein 的真實體驗。
+                            我們的客戶遍布全台各地，聽聽他們使用 Owner AI 的真實體驗。
                         </p>
                     </div>
                     <div className={styles.viewAll}>

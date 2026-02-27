@@ -194,10 +194,11 @@ describe('inviteUser', () => {
 
     // Execute
     const result = await inviteUser(formData);
+    const anyResult = result as any;
 
     // Assert
-    expect(result.success).toBe(true);
-    expect(result.warning).toContain('User already exists');
+    expect(anyResult.success).toBe(true);
+    expect(anyResult.warning).toContain('User already exists');
     expect(mockSupabaseAdmin.from).toHaveBeenCalledWith('iam_group_members');
     // Check that we didn't call inviteUserByEmail
     expect(mockSupabaseAdmin.auth.admin.inviteUserByEmail).not.toHaveBeenCalled();
