@@ -50,6 +50,21 @@ export interface ModelEvaluatorProps {
     assignedModels: AssignedModel[],
     config?: Record<string, unknown>
   ) => Promise<void>;
+  /** 由頁首控制的全域測試 Prompt 與檔案（提升 state 以便顯示在固定標題區） */
+  globalTestPrompt: string;
+  onChangeGlobalTestPrompt: (value: string) => void;
+  uploadedFile: File | null;
+  onChangeUploadedFile: (file: File | null) => void;
+  /** 頁首摘要：已選/可選模型數，顯示在表格工具列左側 */
+  summarySelectedCount: number;
+  summaryTotalCount: number;
+  /** 由頁首固定區塊觸發的動作（例如「全部測試」按鈕） */
+  headerActionsRef?: React.Ref<{
+    runBatchTest: () => void;
+    batchTesting: boolean;
+    canBatchTest: boolean;
+    tooltip: string;
+  }>;
 }
 
 type TableHAlign = 'left' | 'center' | 'right';
@@ -131,10 +146,16 @@ export function ModelEvaluator({
   onTestModel,
   savedModules = [],
   onSaveModule,
+  globalTestPrompt,
+  onChangeGlobalTestPrompt,
+  uploadedFile,
+  onChangeUploadedFile,
+  summarySelectedCount,
+  summaryTotalCount,
+  headerActionsRef,
 }: ModelEvaluatorProps) {
   /** 與表格內每列 Prompt 欄位同步的預設文字（未編輯時顯示同一內容） */
   const DEFAULT_TEST_PROMPT = '請根據我上傳的檔案，解析出所有權人是誰，如果你看不到檔案，就回答：我看不到檔案';
-  const [testPrompt, setTestPrompt] = useState(DEFAULT_TEST_PROMPT);
   /** 表頭「Prompt input」欄位名稱，使用者可自訂；從 localStorage 還原避免重繪後遺失 */
   const STORAGE_KEY_PROMPT_COLUMN_LABEL = 'superadmin-model-evaluator-prompt-column-label';
   const STORAGE_KEY_COLUMN_WIDTHS = 'superadmin-model-evaluator-column-widths';
@@ -214,8 +235,6 @@ export function ModelEvaluator({
   }, []);
   /** Per-row custom prompts; empty string means "use global testPrompt" */
   const [rowPrompts, setRowPrompts] = useState<Record<string, string>>({});
-  /** Single uploaded file for prompt test (shared across all rows) */
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [outputByKey, setOutputByKey] = useState<Record<string, string>>({});
   /** 本頁測試結果（優先於 DB 的 savedEvaluations 顯示在「狀態」欄） */
   const [testResultByKey, setTestResultByKey] = useState<Record<string, boolean>>({});
@@ -537,7 +556,7 @@ export function ModelEvaluator({
   const runTest = useCallback(
     async (providerId: string, modelId: string, modelName: string) => {
       const key = `${providerId}::${modelId}`;
-      const effectivePrompt = (rowPrompts[key] ?? '').trim() || testPrompt.trim() || undefined;
+      const effectivePrompt = (rowPrompts[key] ?? '').trim() || globalTestPrompt.trim() || undefined;
       setTestingKey(key);
       setOutputByKey((prev) => ({ ...prev, [key]: '' }));
       try {
@@ -570,7 +589,7 @@ export function ModelEvaluator({
         setTestingKey(null);
       }
     },
-    [onTestModel, testPrompt, rowPrompts, onSave, evaluationMap, uploadedFile]
+    [onTestModel, globalTestPrompt, rowPrompts, onSave, evaluationMap, uploadedFile]
   );
 
   useClickOutsideClose(alignDropdownRef, alignDropdownOpen, setAlignDropdownOpen);
@@ -595,7 +614,7 @@ export function ModelEvaluator({
     await Promise.all(
       toTest.map(async ({ providerId, modelId, modelName }) => {
         const key = `${providerId}::${modelId}`;
-        const effectivePrompt = (rowPrompts[key] ?? '').trim() || testPrompt.trim() || undefined;
+        const effectivePrompt = (rowPrompts[key] ?? '').trim() || globalTestPrompt.trim() || undefined;
         setOutputByKey((prev) => ({ ...prev, [key]: '' }));
         try {
           const result = await onTestModel(providerId, modelId, effectivePrompt, uploadedFile);
@@ -631,50 +650,43 @@ export function ModelEvaluator({
       }
     }
     setBatchTesting(false);
-  }, [rowsAfterCategoryFilter, selectedSet, validProviders, onTestModel, testPrompt, rowPrompts, onSave, evaluationMap, uploadedFile]);
+  }, [rowsAfterCategoryFilter, selectedSet, validProviders, onTestModel, globalTestPrompt, rowPrompts, onSave, evaluationMap, uploadedFile]);
+
+  // 將「全部測試」狀態與觸發方法暴露給頁首固定區塊使用
+  useEffect(() => {
+    if (!headerActionsRef) return;
+    const canBatchTest = filteredSelectedCount > 0;
+    const tooltip = canBatchTest
+      ? '對目前已選且具金鑰的模型並行測試'
+      : '目前選擇的 models 數為 0，無法測試。請先勾選要測試的模型。';
+    if (typeof headerActionsRef === 'function') {
+      headerActionsRef({
+        runBatchTest: handleBatchTest,
+        batchTesting,
+        canBatchTest,
+        tooltip,
+      });
+    } else if (headerActionsRef && 'current' in headerActionsRef) {
+      // eslint-disable-next-line no-param-reassign
+      headerActionsRef.current = {
+        runBatchTest: handleBatchTest,
+        batchTesting,
+        canBatchTest,
+        tooltip,
+      };
+    }
+  }, [headerActionsRef, handleBatchTest, batchTesting, filteredSelectedCount]);
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-border-subtle bg-bg-tertiary p-3">
-        <div className="mb-3">
-          <label className="block text-xs font-semibold text-text-secondary mb-1.5">檔案上傳</label>
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="inline-flex items-center gap-1.5 cursor-pointer text-sm text-text-secondary hover:text-text-primary rounded border border-border-subtle bg-bg-primary px-3 py-2">
-              <Upload size={16} className="shrink-0" />
-              <span>選擇檔案</span>
-              <input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.txt,.md"
-                className="sr-only"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  setUploadedFile(f ?? null);
-                  e.target.value = '';
-                }}
-                title="上傳 PDF、圖片或文字檔"
-              />
-            </label>
-            {uploadedFile && (
-              <span className="text-sm text-text-muted" title={uploadedFile.name}>
-                {uploadedFile.name}
-              </span>
-            )}
-          </div>
-        </div>
-        <label className="block text-xs font-semibold text-text-secondary mb-1.5">
-          測試用 Prompt（可自訂內容，輸入後點該列「測試」可取得該模型回覆）
-        </label>
-        <textarea
-          value={testPrompt}
-          onChange={(e) => setTestPrompt(e.target.value)}
-          placeholder={`例如：${DEFAULT_TEST_PROMPT}`}
-          rows={2}
-          className="w-full rounded border border-border-subtle bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent resize-y min-h-[60px]"
-          title="輸入任意 prompt，每列測試時會使用此內容"
-        />
-      </div>
       <div className="rounded-lg border border-border-subtle overflow-hidden bg-bg-primary">
-        <div className="relative z-20 flex flex-wrap items-center justify-end gap-3 px-3 py-2 border-b border-border-subtle bg-bg-tertiary">
+        <div className="relative z-20 flex flex-wrap items-center justify-between gap-3 px-3 py-2 border-b border-border-subtle bg-bg-tertiary">
+          <div className="text-xs text-text-secondary">
+            已選/可選 models 數量{' '}
+            <span className="font-medium text-text-primary">
+              {summarySelectedCount}/{summaryTotalCount}
+            </span>
+          </div>
           <div className="flex items-center gap-2">
             <div className="relative" ref={alignDropdownRef}>
               <button
@@ -932,77 +944,69 @@ export function ModelEvaluator({
                         }}
                         onChange={(e) => handleSelectAllFiltered(e.target.checked)}
                         disabled={!onSaveModels || rowsAfterCategoryFilter.length === 0}
-                        className="rounded border-border-subtle bg-bg-primary text-accent focus:ring-accent"
+                        className="sr-only peer"
                       />
+                      <div className="w-5 h-5 rounded border border-border-subtle bg-bg-primary peer-checked:bg-accent peer-checked:border-accent flex items-center justify-center transition-colors">
+                        {allFilteredSelected && (
+                          <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
+                            <path
+                              d="M1 5L4 8L11 1"
+                              stroke="white"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        )}
+                      </div>
                       <span>全選</span>
                     </label>
-                    <span className="text-text-muted text-[10px] leading-tight">
-                      （目前可選模型 {rowsAfterCategoryFilter.length} 筆，已選 {filteredSelectedCount} 筆）
-                    </span>
                   </div>
                 </th>
                 <th className="py-1.5 px-3 border-r border-border-subtle align-top">
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setOpenFilterDropdown((v) => (v === 'provider' ? null : 'provider'))}
-                      className="w-full rounded border border-border-subtle bg-bg-primary px-2 py-1 text-xs text-left text-text-primary focus:outline-none focus:ring-1 focus:ring-accent min-w-0 flex items-center justify-between gap-1"
-                      title="依公司篩選（可複選）"
-                    >
-                      <span className="truncate">
-                        {filterProviderIds.length === 0
-                          ? '全部公司'
-                          : filterProviderIds.length === 1
-                            ? providersInTable.find(([id]) => id === filterProviderIds[0])?.[1] ?? filterProviderIds[0]
-                            : `已選 ${filterProviderIds.length} 項`}
-                      </span>
-                      <span className="shrink-0 text-text-muted">▾</span>
-                    </button>
-                    {openFilterDropdown === 'provider' && (
-                      <div className="absolute left-0 top-full z-10 mt-0.5 min-w-[140px] rounded border border-border-subtle bg-bg-primary py-1 shadow-lg max-h-48 overflow-y-auto">
-                        {providersInTable.map(([id, name]) => (
-                          <label
-                            key={id}
-                            className="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-bg-secondary"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={filterProviderIds.includes(id)}
-                              onChange={(e) => {
-                                setFilterProviderIds((prev) =>
-                                  e.target.checked ? [...prev, id] : prev.filter((x) => x !== id)
-                                );
-                              }}
-                              className="rounded border-border-subtle text-accent focus:ring-accent"
-                            />
-                            <span className="truncate">{name}</span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
+                  <div className="flex flex-col gap-1">
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setOpenFilterDropdown((v) => (v === 'provider' ? null : 'provider'))}
+                        className="w-full rounded border border-border-subtle bg-bg-primary px-2 py-1 text-xs text-left text-text-primary focus:outline-none focus:ring-1 focus:ring-accent min-w-0 flex items-center justify-between gap-1"
+                        title="依公司篩選（可複選）"
+                      >
+                        <span className="truncate">
+                          {filterProviderIds.length === 0
+                            ? '全部公司'
+                            : filterProviderIds.length === 1
+                              ? providersInTable.find(([id]) => id === filterProviderIds[0])?.[1] ?? filterProviderIds[0]
+                              : `已選 ${filterProviderIds.length} 項`}
+                        </span>
+                        <span className="shrink-0 text-text-muted">▾</span>
+                      </button>
+                      {openFilterDropdown === 'provider' && (
+                        <div className="absolute left-0 top-full z-10 mt-0.5 min-w-[140px] rounded border border-border-subtle bg-bg-primary py-1 shadow-lg max-h-48 overflow-y-auto">
+                          {providersInTable.map(([id, name]) => (
+                            <label
+                              key={id}
+                              className="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-bg-secondary"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={filterProviderIds.includes(id)}
+                                onChange={(e) => {
+                                  setFilterProviderIds((prev) =>
+                                    e.target.checked ? [...prev, id] : prev.filter((x) => x !== id)
+                                  );
+                                }}
+                                className="rounded border-border-subtle text-accent focus:ring-accent"
+                              />
+                              <span className="truncate">{name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </th>
-                <th className="py-1.5 px-3 border-r border-border-subtle align-top text-left">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={handleBatchTest}
-                    isLoading={batchTesting}
-                    disabled={batchTesting || filteredSelectedCount === 0}
-                    title={
-                      filteredSelectedCount === 0
-                        ? '目前選擇的 models 數為 0，無法測試。請先勾選要測試的模型。'
-                        : '對目前已選且具金鑰的模型並行測試'
-                    }
-                  >
-                    {batchTesting ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <FlaskConical size={14} />
-                    )}
-                    <span className="ml-1.5 whitespace-nowrap">全部測試</span>
-                  </Button>
-                </th>
+                <th className="py-1.5 px-3 border-r border-border-subtle align-top text-left" />
                 <th className="py-1.5 px-3 border-r border-border-subtle align-top">
                   <div className="relative">
                     <button
@@ -1257,7 +1261,7 @@ export function ModelEvaluator({
                     </td>
                     <td className="py-1.5 px-3 align-top max-w-[200px] border-r border-border-subtle">
                       <textarea
-                        value={(rowPrompts[key]?.trim() ?? '') ? (rowPrompts[key] ?? '') : testPrompt}
+                        value={(rowPrompts[key]?.trim() ?? '') ? (rowPrompts[key] ?? '') : globalTestPrompt}
                         onChange={(e) =>
                           setRowPrompts((prev) => ({ ...prev, [key]: e.target.value }))
                         }

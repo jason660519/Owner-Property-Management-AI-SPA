@@ -25,19 +25,33 @@ COMMENT ON COLUMN ai_model_evaluations.is_candidate  IS '是否被選為後續 A
 
 ALTER TABLE ai_model_evaluations ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can manage own model evaluations"
-  ON ai_model_evaluations
-  FOR ALL
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'ai_model_evaluations'
+    AND policyname = 'Users can manage own model evaluations'
+  ) THEN
+    EXECUTE 'CREATE POLICY "Users can manage own model evaluations"
+      ON ai_model_evaluations FOR ALL
+      USING (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id)';
+  END IF;
+END $$;
 
-CREATE POLICY "Service role full access to model evaluations"
-  ON ai_model_evaluations
-  FOR ALL
-  USING (auth.role() = 'service_role');
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'ai_model_evaluations'
+    AND policyname = 'Service role full access to model evaluations'
+  ) THEN
+    EXECUTE 'CREATE POLICY "Service role full access to model evaluations"
+      ON ai_model_evaluations FOR ALL
+      USING (auth.role() = ''service_role'')';
+  END IF;
+END $$;
 
-CREATE INDEX idx_ai_model_evaluations_user    ON ai_model_evaluations(user_id);
-CREATE INDEX idx_ai_model_evaluations_candidate ON ai_model_evaluations(user_id, is_candidate) WHERE is_candidate = true;
+CREATE INDEX IF NOT EXISTS idx_ai_model_evaluations_user    ON ai_model_evaluations(user_id);
+CREATE INDEX IF NOT EXISTS idx_ai_model_evaluations_candidate ON ai_model_evaluations(user_id, is_candidate) WHERE is_candidate = true;
 
 CREATE OR REPLACE FUNCTION update_ai_model_evaluations_updated_at()
 RETURNS TRIGGER AS $$
@@ -47,6 +61,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_ai_model_evaluations_updated_at ON ai_model_evaluations;
 CREATE TRIGGER trg_ai_model_evaluations_updated_at
   BEFORE UPDATE ON ai_model_evaluations
   FOR EACH ROW

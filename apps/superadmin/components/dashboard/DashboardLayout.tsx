@@ -14,6 +14,7 @@ export function DashboardLayout({
   headerActions,
   currentRole, // Added currentRole
   fixedContent,
+  contentFullHeight = false,
   className = '',
 }: {
   pageTitle: string;
@@ -24,6 +25,13 @@ export function DashboardLayout({
   currentRole?: string; // Added type definition
   /** 固定區塊，不參與捲動，插在麵包屑與捲動內容之間 */
   fixedContent?: React.ReactNode;
+  /**
+   * When true, the content area becomes a flex column that fills all remaining height
+   * (same pattern as project-progress page). Children should use flex-1 min-h-0
+   * to fill the space. Use this when the page needs its own internal scroll container
+   * (e.g., for sticky table headers with a single scroll track).
+   */
+  contentFullHeight?: boolean;
   className?: string;
 }) {
   return (
@@ -56,9 +64,17 @@ export function DashboardLayout({
         </div>
       </div>
       {fixedContent != null ? <div className="shrink-0">{fixedContent}</div> : null}
-      <div className="flex-1 min-h-0 min-w-0 overflow-y-auto">
-        <div className="w-full px-6 py-8">{children}</div>
-      </div>
+      {contentFullHeight ? (
+        // Full-height mode: content area is a flex column, no page-level scroll.
+        // Children manage their own internal scroll (e.g. overflow-y-auto flex-1 min-h-0).
+        <div className="flex-1 min-h-0 min-w-0 flex flex-col px-6 pt-6 pb-0 overflow-hidden">
+          {children}
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0 min-w-0 overflow-y-auto">
+          <div className="w-full px-6 py-8">{children}</div>
+        </div>
+      )}
     </div>
   );
 }

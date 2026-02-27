@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Key, Puzzle, MessageSquareText, FlaskConical,
-  Loader2, RefreshCw, Trash2, ShieldCheck,
+  Loader2, RefreshCw, Trash2, ShieldCheck, Upload,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Button } from '@/components/ui/Button';
@@ -30,7 +30,7 @@ function getTabFromHash(): SettingsTab | null {
 
 const TABS: { id: SettingsTab; label: string; icon: React.ElementType; description: string }[] = [
   { id: 'keys', label: 'API 金鑰管理', icon: Key, description: '管理各 AI 服務提供商的 API 金鑰' },
-  { id: 'evaluations', label: '已選/可選模型評估', icon: FlaskConical, description: '評估各模型的運作狀態與強項，建立 AI 功能候選名單' },
+  { id: 'evaluations', label: '已選/可選模型評估', icon: FlaskConical, description: '' },
   { id: 'modules', label: '功能模組配置', icon: Puzzle, description: '啟用與配置 AI 功能模組' },
 ];
 
@@ -46,9 +46,21 @@ export default function AIServiceSettingsPage() {
   /** 全部驗證完成後各 key 的結果，供每張 card 直接顯示 Available models，無需再按「驗證金鑰」 */
   const [validateAllResultsByKeyId, setValidateAllResultsByKeyId] = useState<Record<string, KeyValidationResult>>({});
   const keysRef = useRef(settings.keys);
+  const modelEvaluatorHeaderActionsRef = useRef<{
+    runBatchTest: () => void;
+    batchTesting: boolean;
+    canBatchTest: boolean;
+    tooltip: string;
+  } | null>(null);
   useEffect(() => {
     keysRef.current = settings.keys;
   }, [settings.keys]);
+
+  // 已選/可選模型評估：全域測試 Prompt 與共用檔案（供 ModelEvaluator 使用）
+  const DEFAULT_EVALUATION_PROMPT =
+    '請根據我上傳的檔案，解析出所有權人是誰，如果你看不到檔案，就回答：我看不到檔案';
+  const [globalTestPrompt, setGlobalTestPrompt] = useState<string>(DEFAULT_EVALUATION_PROMPT);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   useEffect(() => {
     const tab = getTabFromHash();
@@ -221,6 +233,13 @@ export default function AIServiceSettingsPage() {
             onSaveModule={async (moduleKey, isEnabled, assignedModels, config) => {
               await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
             }}
+            summarySelectedCount={selectedModelCount}
+            summaryTotalCount={totalAvailableModels}
+            globalTestPrompt={globalTestPrompt}
+            onChangeGlobalTestPrompt={setGlobalTestPrompt}
+            uploadedFile={uploadedFile}
+            onChangeUploadedFile={setUploadedFile}
+            headerActionsRef={modelEvaluatorHeaderActionsRef}
           />
         );
       case 'modules':
@@ -305,7 +324,9 @@ export default function AIServiceSettingsPage() {
             {React.createElement(currentTab.icon, { size: 18, className: 'text-accent shrink-0' })}
             <div className="min-w-0">
               <h2 className="text-sm font-semibold text-text-primary">{currentTab.label}</h2>
-              <p className="text-[11px] text-text-muted">{currentTab.description}</p>
+              {currentTab.description && (
+                <p className="text-[11px] text-text-muted">{currentTab.description}</p>
+              )}
             </div>
             {activeTab === 'keys' && (
               <>
@@ -345,14 +366,40 @@ export default function AIServiceSettingsPage() {
               </>
             )}
             {activeTab === 'evaluations' && !settings.loading && (
-              <div className="flex flex-col gap-0.5 shrink-0 text-xs text-text-secondary">
-                <span>
-                  已選/可選 models 數量{' '}
-                  <span className="font-medium text-text-primary">
-                    {selectedModelCount}/{totalAvailableModels}
-                  </span>
-                  <span className="text-text-muted ml-1">（與 API 金鑰管理同步）</span>
-                </span>
+              <div className="flex flex-col gap-1 shrink-0 text-xs text-text-secondary">
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer text-sm text-text-secondary hover:text-text-primary rounded border border-border-subtle bg-bg-primary px-3 py-2">
+                    <Upload size={16} className="shrink-0" />
+                    <span>選擇檔案</span>
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.txt,.md"
+                      className="sr-only"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0] ?? null;
+                        setUploadedFile(f);
+                        if (e.target) e.target.value = '';
+                      }}
+                      title="上傳 PDF、圖片或文字檔"
+                    />
+                  </label>
+                  {uploadedFile && (
+                    <span
+                      className="text-sm text-text-muted truncate max-w-[160px]"
+                      title={uploadedFile.name}
+                    >
+                      {uploadedFile.name}
+                    </span>
+                  )}
+                  <textarea
+                    value={globalTestPrompt}
+                    onChange={(e) => setGlobalTestPrompt(e.target.value)}
+                    placeholder={`例如：${DEFAULT_EVALUATION_PROMPT}`}
+                    rows={2}
+                    className="rounded border border-border-subtle bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent resize-x min-h-[60px] min-w-[520px]"
+                    title="輸入任意 prompt，每列測試時會使用此內容"
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -391,6 +438,31 @@ export default function AIServiceSettingsPage() {
               </Button>
             </div>
           )}
+          {activeTab === 'evaluations' && !settings.loading && (
+            <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => modelEvaluatorHeaderActionsRef.current?.runBatchTest()}
+                isLoading={modelEvaluatorHeaderActionsRef.current?.batchTesting}
+                disabled={
+                  !modelEvaluatorHeaderActionsRef.current?.canBatchTest ||
+                  !!modelEvaluatorHeaderActionsRef.current?.batchTesting
+                }
+                title={
+                  modelEvaluatorHeaderActionsRef.current?.tooltip ??
+                  '對目前已選且具金鑰的模型並行測試'
+                }
+              >
+                {modelEvaluatorHeaderActionsRef.current?.batchTesting ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <FlaskConical size={14} />
+                )}
+                <span className="ml-1.5 whitespace-nowrap">全部測試</span>
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -399,7 +471,6 @@ export default function AIServiceSettingsPage() {
   return (
     <DashboardLayout
       currentRole="superadmin"
-      pageTitle="Model and API key Settings"
       breadcrumbs={[
         { label: '首頁', href: '/' },
         { label: '超級管理員專區', href: '/superadmin' },
@@ -408,7 +479,7 @@ export default function AIServiceSettingsPage() {
       ]}
       fixedContent={fixedBlock}
     >
-      <div className="w-full px-4 lg:px-6 py-4 lg:py-6">
+      <div className="w-full px-4 lg:px-6 py-3 lg:py-4">
         <section className="space-y-4">
           <div className="bg-bg-secondary border border-border-default rounded-base p-4 sm:p-5 shadow-sm">
             {renderContent()}

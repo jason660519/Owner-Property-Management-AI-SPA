@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   flexRender,
   getCoreRowModel,
@@ -12,7 +12,12 @@ import {
 import { User, Plus } from 'lucide-react';
 import { Search } from 'lucide-react';
 import type { IAMUser } from '@/app/superadmin/users/actions';
-import { addUserToGroup, removeUserFromGroup } from '@/app/superadmin/users/actions';
+import {
+  addUserToGroup,
+  removeUserFromGroup,
+  addRoleToUser,
+  removeRoleFromUser,
+} from '@/app/superadmin/users/actions';
 
 type GroupOption = { id: string; name: string };
 
@@ -28,6 +33,16 @@ export function UserList({
   const [selectedUser, setSelectedUser] = useState<IAMUser | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState(availableGroups[0]?.id || '');
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({
+    category: 140,
+    email: 320,
+    roles: 220,
+    groups: 360,
+    id: 200,
+    createdAt: 220,
+  });
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [newRole, setNewRole] = useState('');
 
   const handleAddGroup = async () => {
     if (!selectedUser || !selectedGroupId) return;
@@ -43,7 +58,80 @@ export function UserList({
     window.location.reload();
   };
 
+  const handleAddRole = async () => {
+    if (!selectedUser || !newRole.trim()) return;
+    const result = await addRoleToUser(selectedUser.id, newRole.trim());
+    if (!result.success) {
+      alert(result.message);
+    } else {
+      window.location.reload();
+    }
+    setShowRoleModal(false);
+    setNewRole('');
+  };
+
+  const handleRemoveRole = async (userId: string, role: string) => {
+    if (!confirm(`Remove role "${role}" from this user?`)) return;
+    const result = await removeRoleFromUser(userId, role);
+    if (!result.success) {
+      alert(result.message);
+      return;
+    }
+    window.location.reload();
+  };
+
+  const handleColumnResizeStart = (columnId: string, event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const startX = event.clientX;
+    const startWidth =
+      columnWidths[columnId] ??
+      (event.currentTarget.parentElement?.getBoundingClientRect().width ?? 0);
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = e.clientX - startX;
+      const nextWidth = Math.max(120, startWidth + delta);
+      setColumnWidths(prev => ({
+        ...prev,
+        [columnId]: nextWidth,
+      }));
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
   const columns: ColumnDef<IAMUser>[] = [
+    {
+      id: 'category',
+      header: '分類',
+      cell: (info) => {
+        const roles = info.row.original.roles || [];
+        const isPostgresBuiltin = roles.some((role) =>
+          role === 'postgres' || role.startsWith('pg_')
+        );
+        const label = isPostgresBuiltin ? 'Postgres內建' : '自定義';
+        const baseClasses =
+          'inline-flex items-center px-2 py-1 rounded-full text-xs border';
+        return (
+          <span
+            className={
+              label === '自定義'
+                ? `${baseClasses} bg-purple-500/10 text-purple-300 border-purple-500/40`
+                : `${baseClasses} bg-blue-500/10 text-blue-300 border-blue-500/40`
+            }
+          >
+            {label}
+          </span>
+        );
+      },
+    },
     {
       accessorKey: 'email',
       header: 'User',
@@ -59,22 +147,42 @@ export function UserList({
     {
       accessorKey: 'roles',
       header: 'Assigned Role',
-      cell: (info) => (
-        <div className="flex flex-wrap gap-1 items-center">
-          {((info.getValue() as string[]) || []).length > 0
-            ? ((info.getValue() as string[]) || []).map((role) => (
+      cell: (info) => {
+        const roles = (info.getValue() as string[]) || [];
+        return (
+          <div className="flex flex-wrap gap-1 items-center">
+            {roles.length > 0 ? (
+              roles.map((role) => (
                 <span
                   key={role}
-                  className="px-2 py-1 bg-amber-500/20 text-amber-400 text-xs rounded-full border border-amber-500/30"
+                  className="group relative px-2 py-1 bg-amber-500/20 text-amber-400 text-xs rounded-full border border-amber-500/30 flex items-center gap-1"
                 >
                   {role}
+                  <button
+                    onClick={() => handleRemoveRole(info.row.original.id, role)}
+                    className="hover:text-red-400 hidden group-hover:inline-block ml-1"
+                  >
+                    ×
+                  </button>
                 </span>
               ))
-            : (
+            ) : (
               <span className="text-text-muted text-xs">—</span>
             )}
-        </div>
-      ),
+            <button
+              onClick={() => {
+                setSelectedUser(info.row.original);
+                setNewRole('');
+                setShowRoleModal(true);
+              }}
+              className="p-1 hover:bg-bg-secondary rounded-full text-text-secondary hover:text-accent transition-colors"
+              title="Assign Role"
+            >
+              <Plus size={14} />
+            </button>
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'groups',
@@ -116,6 +224,25 @@ export function UserList({
         <span className="text-xs text-text-muted font-mono">{(info.getValue() as string).slice(0, 8)}...</span>
       ),
     },
+    {
+      accessorKey: 'createdAt',
+      header: 'Create Time',
+      cell: (info) => {
+        const value = info.getValue() as string | undefined;
+        if (!value) {
+          return <span className="text-xs text-text-muted">—</span>;
+        }
+        const date = new Date(value);
+        const formatted = Number.isNaN(date.getTime())
+          ? value
+          : date.toLocaleString();
+        return (
+          <span className="text-xs text-text-secondary whitespace-nowrap">
+            {formatted}
+          </span>
+        );
+      },
+    },
   ];
 
   const table = useReactTable({
@@ -145,8 +272,21 @@ export function UserList({
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <th key={header.id} className="px-6 py-3 font-medium text-text-secondary">
-                    {flexRender(header.column.columnDef.header, header.getContext())}
+                  <th
+                    key={header.id}
+                    className="relative px-6 py-3 font-medium text-text-secondary border-r border-border-default last:border-r-0"
+                    style={{
+                      width: columnWidths[header.column.id] ?? undefined,
+                      minWidth: 120,
+                    }}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span>{flexRender(header.column.columnDef.header, header.getContext())}</span>
+                      <div
+                        onMouseDown={(event) => handleColumnResizeStart(header.column.id, event)}
+                        className="h-full w-1 cursor-col-resize hover:bg-border-default absolute top-0 right-0"
+                      />
+                    </div>
                   </th>
                 ))}
               </tr>
@@ -156,7 +296,14 @@ export function UserList({
             {table.getRowModel().rows.map((row) => (
               <tr key={row.id} className="hover:bg-bg-tertiary/30 transition-colors">
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-6 py-4 text-text-primary">
+                  <td
+                    key={cell.id}
+                    className="px-6 py-4 text-text-primary border-r border-border-default last:border-r-0"
+                    style={{
+                      width: columnWidths[cell.column.id] ?? undefined,
+                      minWidth: 120,
+                    }}
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
@@ -211,6 +358,41 @@ export function UserList({
               <button
                 onClick={handleAddGroup}
                 className="px-4 py-2 bg-accent text-white hover:bg-accent-hover rounded-md"
+              >
+                Assign
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showRoleModal && selectedUser && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+          <div className="bg-bg-secondary border border-border-default rounded-lg shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-bold text-text-primary mb-4">Assign Role to User</h3>
+            <p className="text-text-secondary mb-4 text-sm">
+              User: <span className="font-mono bg-bg-tertiary px-1 text-text-primary">{selectedUser.email}</span>
+            </p>
+            <label className="block text-sm font-medium text-text-secondary mb-2">Role Name</label>
+            <input
+              className="w-full border border-border-default rounded-md p-2 mb-6 bg-bg-primary text-text-primary placeholder-text-muted"
+              placeholder="e.g. landlord, potential_tenant"
+              value={newRole}
+              onChange={(e) => setNewRole(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setShowRoleModal(false);
+                  setNewRole('');
+                }}
+                className="px-4 py-2 text-text-secondary hover:bg-bg-tertiary rounded-md"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddRole}
+                disabled={!newRole.trim()}
+                className="px-4 py-2 bg-accent text-white hover:bg-accent-hover rounded-md disabled:opacity-50"
               >
                 Assign
               </button>

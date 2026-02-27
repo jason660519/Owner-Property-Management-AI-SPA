@@ -52,11 +52,11 @@ export default function SuperadminDashboardClient({
   return (
     <DashboardLayout
       currentRole="superadmin"
-      pageTitle="超級管理員儀表板"
+      pageTitle="系統概覽"
       breadcrumbs={[
         { label: '首頁', href: '/' },
         { label: '超級管理員專區', href: `${BASE}` },
-        { label: '儀表板' },
+        { label: '系統概覽' },
       ]}
       greeting={
           userName ? (
@@ -337,78 +337,9 @@ export default function SuperadminDashboardClient({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-         <div className="lg:col-span-2">
-             <ActivityLogTable />
-         </div>
-         <div className="lg:col-span-1">
-            <Card className="h-full">
-            <CardHeader>
-                <CardTitle>快速操作</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-                <Link
-                href={`${BASE}/users`}
-                className="flex items-center gap-3 p-4 rounded-lg border border-border-default hover:border-accent hover:bg-accent/5 transition-colors group"
-                >
-                <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center group-hover:bg-blue-500/20">
-                    <Users className="w-5 h-5 text-blue-500" />
-                </div>
-                <div>
-                    <h4 className="text-text-primary font-medium">用戶管理</h4>
-                    <p className="text-sm text-text-secondary">管理系統用戶</p>
-                </div>
-                </Link>
-                <Link
-                href={`${BASE}/groups`}
-                className="flex items-center gap-3 p-4 rounded-lg border border-border-default hover:border-accent hover:bg-accent/5 transition-colors group"
-                >
-                <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center group-hover:bg-purple-500/20">
-                    <Shield className="w-5 h-5 text-purple-500" />
-                </div>
-                <div>
-                    <h4 className="text-text-primary font-medium">權限群組</h4>
-                    <p className="text-sm text-text-secondary">角色存取控制</p>
-                </div>
-                </Link>
-                <Link
-                href={`${BASE}/dashboard/role_access_matrix`}
-                className="flex items-center gap-3 p-4 rounded-lg border border-border-default hover:border-accent hover:bg-accent/5 transition-colors group"
-                >
-                <div className="w-10 h-10 bg-indigo-500/10 rounded-lg flex items-center justify-center group-hover:bg-indigo-500/20">
-                    <Shield className="w-5 h-5 text-indigo-500" />
-                </div>
-                <div>
-                    <h4 className="text-text-primary font-medium">權限矩陣</h4>
-                    <p className="text-sm text-text-secondary">權限總覽</p>
-                </div>
-                </Link>
-                <Link
-                href={`${BASE}/dashboard/supabase`}
-                className="flex items-center gap-3 p-4 rounded-lg border border-border-default hover:border-accent hover:bg-accent/5 transition-colors group"
-                >
-                <div className="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center group-hover:bg-green-500/20">
-                    <Database className="w-5 h-5 text-green-500" />
-                </div>
-                <div>
-                    <h4 className="text-text-primary font-medium">Supabase 管理</h4>
-                    <p className="text-sm text-text-secondary">資料庫監控</p>
-                </div>
-                </Link>
-                <Link
-                href={`${BASE}/logs`}
-                className="flex items-center gap-3 p-4 rounded-lg border border-border-default hover:border-accent hover:bg-accent/5 transition-colors group"
-                >
-                <div className="w-10 h-10 bg-yellow-500/10 rounded-lg flex items-center justify-center group-hover:bg-yellow-500/20">
-                    <FileText className="w-5 h-5 text-yellow-500" />
-                </div>
-                <div>
-                    <h4 className="text-text-primary font-medium">系統日誌</h4>
-                    <p className="text-sm text-text-secondary">查看操作記錄</p>
-                </div>
-                </Link>
-            </CardContent>
-            </Card>
-         </div>
+        <div className="lg:col-span-3">
+          <ActivityLogTable />
+        </div>
       </div>
     </DashboardLayout>
   );

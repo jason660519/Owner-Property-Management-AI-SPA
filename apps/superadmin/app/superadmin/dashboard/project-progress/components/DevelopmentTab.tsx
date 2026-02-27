@@ -48,9 +48,28 @@ type SelectionType = 'cell' | 'column' | 'row' | 'all' | null;
 
 type IDEOption = '' | 'Cursor' | 'VSCode' | 'Antigravity' | 'Claude CLI' | 'TRAE';
 
+type RowStatus = '' | 'completed' | 'in_progress' | 'not_started' | 'on_hold';
+
 // --- Constants ---
 
-const INITIAL_WIDTHS = [4, 4, 6, 6, 22, 19, 10, 8, 10, 8, 8, 13, 8]; // sum = 126 → normalized to 100（含 備註）
+function deriveRowStatus(feature: RoadmapFeature): RowStatus {
+  const progressText = `${feature.developmentProgress ?? ''} ${feature.testProgress ?? ''}`.toLowerCase();
+  if (progressText.match(/暫緩|暫停|on hold/)) return 'on_hold';
+
+  const pct = typeof feature.percentage === 'number' ? feature.percentage : undefined;
+  if (pct != null) {
+    if (pct >= 100) return 'completed';
+    if (pct > 0) return 'in_progress';
+  }
+
+  // 若沒有百分比資訊，根據 phase / testStatus 做粗略推斷
+  if (feature.phase === 'operations' || feature.phase === 'deployment') return 'completed';
+  if (feature.phase === 'testing' || feature.testStatus === 'in_progress') return 'in_progress';
+
+  return 'not_started';
+}
+
+const INITIAL_WIDTHS = [4, 4, 6, 6, 22, 19, 10, 8, 10, 8, 8, 13, 6, 8]; // sum = 136 → normalized to 100（含 狀態 + 備註）
 
 const COLUMN_HEADERS = [
   { en: 'ID', zh: '編碼' },
@@ -65,6 +84,7 @@ const COLUMN_HEADERS = [
   { en: 'TDD Progress', zh: 'TDD進度' },
   { en: 'E2E Test Progress', zh: 'E2E測試進度' },
   { en: 'Prompt and IDE Setting', zh: 'Prompt 與 IDE 設定' },
+  { en: 'Status', zh: '狀態' },
   { en: 'Notes', zh: '備註' },
 ];
 
@@ -286,9 +306,6 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   const tableRef = useRef<HTMLDivElement>(null);
   const currentWidthsRef = useRef<number[]>(INITIAL_WIDTHS);
 
-  const [devInProgressIds, setDevInProgressIds] = useState<Set<string>>(new Set());
-  const [testInProgressIds, setTestInProgressIds] = useState<Set<string>>(new Set());
-
   const [headerHeight, setHeaderHeight] = useState(DEFAULT_HEADER_HEIGHT);
   const headerHeightRef = useRef(DEFAULT_HEADER_HEIGHT);
   headerHeightRef.current = headerHeight;
@@ -330,6 +347,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   const isAllSelected = selectionType === 'all';
 
   const [ideSelections, setIdeSelections] = useState<Record<string, IDEOption>>({});
+  const [statusSelections, setStatusSelections] = useState<Record<string, RowStatus>>({});
 
   const [promptConfigFeature, setPromptConfigFeature] = useState<{
     feature: RoadmapFeature;
@@ -343,6 +361,19 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   const [currentTaskStatus, setCurrentTaskStatus] = useState<'queued' | 'running' | 'succeeded' | 'failed' | null>(null);
   const [currentTaskLogs, setCurrentTaskLogs] = useState<string[]>([]);
   const [promptError, setPromptError] = useState<string | null>(null);
+
+  // Auto-derive default row status from feature data
+  useEffect(() => {
+    setStatusSelections(prev => {
+      const next: Record<string, RowStatus> = { ...prev };
+      for (const feature of features) {
+        const key = feature.name;
+        if (next[key]) continue;
+        next[key] = deriveRowStatus(feature);
+      }
+      return next;
+    });
+  }, [features]);
 
   // Load settings
   useEffect(() => {
@@ -1212,7 +1243,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
           </div>
 
           {/* Body */}
-          <div className="divide-y divide-border-light">
+          <div className="divide-y divide-border-default border-b border-border-default">
             {filteredFeatures.map((feature, rowIdx) => {
               const isRowSelected = selectionType === 'row' && selectedRow === rowIdx;
               return (
@@ -1372,8 +1403,28 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                         <span className="truncate">設定 Prompt / 執行</span>
                       </button>
                     </CellWrapper>
-                    {/* 13. 備註 */}
+                    {/* 13. 狀態 */}
                     <CellWrapper colIdx={12} rowIdx={rowIdx}>
+                      <select
+                        className="w-full rounded-md border border-border-default bg-bg-secondary px-2 py-1 text-xs text-text-primary focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                        value={statusSelections[feature.name] ?? ''}
+                        onChange={e => {
+                          const value = e.target.value as RowStatus;
+                          setStatusSelections(prev => ({
+                            ...prev,
+                            [feature.name]: value,
+                          }));
+                        }}
+                      >
+                        <option value="">—</option>
+                        <option value="completed">已完成</option>
+                        <option value="in_progress">進行中</option>
+                        <option value="not_started">未開始</option>
+                        <option value="on_hold">暫緩</option>
+                      </select>
+                    </CellWrapper>
+                    {/* 14. 備註 */}
+                    <CellWrapper colIdx={13} rowIdx={rowIdx}>
                       <span className="text-sm text-text-muted truncate max-w-full block">—</span>
                     </CellWrapper>
                   </div>

@@ -84,7 +84,7 @@ export default function SupabaseDashboardClient({
       </div>
 
       {/* Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="bg-[#2A2A2A] border-[#333333]">
           <CardContent className="p-5 flex items-center gap-4">
             <div className={`p-3 rounded-lg ${healthy ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
@@ -117,18 +117,6 @@ export default function SupabaseDashboardClient({
             <div>
               <p className="text-sm text-gray-400">監控資料表數</p>
               <p className="text-2xl font-bold text-white mt-1">{tablestats.length}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-[#2A2A2A] border-[#333333]">
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="p-3 rounded-lg bg-purple-500/10">
-              <Users className="w-5 h-5 text-purple-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-400">群組成員記錄</p>
-              <p className="text-2xl font-bold text-white mt-1">{userCount.toLocaleString()}</p>
             </div>
           </CardContent>
         </Card>

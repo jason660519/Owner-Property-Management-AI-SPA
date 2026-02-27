@@ -274,7 +274,7 @@ cd apps/superadmin && npm run build
 
 ### 優先度：中
 4. **Feature 5（Access Matrix）**：`role_access_matrix/page.tsx` 已存在（60%），確認功能缺口並補強
-5. **Feature 9（網路安全/隱私稽核）**：`iam-audit/page.tsx` 是 mock data，接真實 `audit_logs` 資料表
+5. **Feature 9（網路安全/隱私稽核）**：`iam-management/page.tsx` 是 mock data，接真實 `audit_logs` 資料表
 6. **RBAC Permission Matrix 持久化**：建立 `iam_role_permissions` 資料表，讓 Permission Matrix 的勾選儲存到 DB
 
 ### 優先度：低

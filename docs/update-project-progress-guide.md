@@ -34,33 +34,39 @@ http://localhost:3001/superadmin/dashboard/project-progress#testing
 
 ---
 
-## 🎯 Development Tab 欄位（2026-02-25 重構，共 9 欄）
+## 🎯 Development Tab 欄位（2026-02-25 重構，共 14 欄）
 
-> ⚠️ **與舊版差異**：欄位已大幅重構，不再顯示進度條、測試覆蓋率、Mode/Model/Last Modified；新增 Category 2、Prompt Engineer。**IDE 改在「設定 Prompt / 執行」Modal 內選擇，表格不再重複顯示 IDE 欄。**
+> ⚠️ **與舊版差異**：欄位已大幅重構，新增 Located Page（`locatedPage`）、Feature 名稱欄獨立、TDD/E2E 進度條、Status 欄（記憶體狀態）、Notes 備註。**IDE 改在「設定 Prompt / 執行」Modal 內選擇，表格不再重複顯示 IDE 欄。**
 
 | 欄 | 表頭 (EN / ZH) | 資料來源 | 說明 |
 |:--:|:---|:---|:---|
 | 1 | **ID / 編碼** | 自動產生 | Row 順序，格式 `001`, `002`… |
-| 2 | **Category 1 (Role/General) / 分類1** | `category` | 按 Role 或通用分類（見常用分類） |
-| 3 | **Category 2 (Feature) / 分類2** | `workCategory` | 按功能需求細分（可自訂） |
-| 4 | **DEV-SPEC (.md) / 功能規格 .md** | `name` + `featureSpecDocPath` | 功能名稱；若有 `featureSpecDocPath` 則同欄附上 `001-Dev-Spec.md` 連結 |
-| 5 | **TDD Spec (.md) / TDD 規格說明書 .md** | `tddSpecDocPath` | TDD 規格說明書連結，顯示為 `001-TDD-Spec.md` |
-| 6 | **TDD Progress Report (.md) / TDD 進度報告 .md** | `docPath` | TDD 進度報告連結，顯示為 `001-TDD-Report.md` |
-| 7 | **Unit and Integration Test Script Folder Name** | 自動產生 | 固定路徑 `apps/superadmin/unit_and_integration_test/001`（依 Row ID） |
-| 8 | **E2E Acceptance Test Script Folder** | 自動產生 | 固定路徑 `apps/superadmin/e2e/001`（依 Row ID） |
-| 9 | **Prompt Engineer** | UI 操作按鈕 | 點擊開啟「設定 Prompt / 執行」Modal，在 Modal 內選擇 IDE、今日工作類別並編輯 Prompt（**不存入** roadmap.ts） |
+| 2 | **Role/General / 按Role或通用分類** | `category` | 按 Role 或通用分類（見常用分類），以 pill badge 顯示 |
+| 3 | **Located Page / 按所屬頁面分類** | `locatedPage` | 功能所屬頁面路徑（可不填，顯示 `—`） |
+| 4 | **Feature / 按功能需求分類** | `name` | 功能需求名稱 |
+| 5 | **DEV-SPEC (.md) / 功能規格 .md** | `featureSpecDocPath` | Dev-Spec (.md) 連結，顯示為 `001-Dev-Spec.md` |
+| 6 | **TDD Spec (.md) / TDD 規格說明書 .md** | `tddSpecDocPath` | TDD Spec (.md) 連結，顯示為 `001-TDD-Spec.md` |
+| 7 | **TDD Progress Report (.md) / TDD 進度報告 .md** | `docPath` | TDD Progress Report (.md) 連結，顯示為 `001-TDD-Report.md` |
+| 8 | **Unit and Integration Test Script Folder Name** | 自動產生 | 固定路徑 `apps/superadmin/unit_and_integration_test/001`（依 Row ID） |
+| 9 | **E2E Acceptance Test Script Folder Name** | 自動產生 | 固定路徑 `apps/superadmin/e2e/001`（依 Row ID） |
+| 10 | **TDD Progress / TDD進度** | `percentage` | 進度條，顯示 `feature.percentage %` |
+| 11 | **E2E Test Progress / E2E測試進度** | `e2eTestCoverage` / `testCoverage` | 進度條，優先用 `e2eTestCoverage`，fallback `testCoverage` |
+| 12 | **Prompt and IDE Setting / Prompt 與 IDE 設定** | UI 操作按鈕 | 點擊開啟「設定 Prompt / 執行」Modal，在 Modal 內選擇 IDE、今日工作類別並編輯 Prompt（**不存入** roadmap.ts） |
+| 13 | **Status / 狀態** | `statusSelections`（記憶體） | 下拉選擇列狀態（已完成/進行中/未開始/暫緩），頁面初次載入由 `deriveRowStatus()` 自動推導，**不寫入** roadmap.ts |
+| 14 | **Notes / 備註** | — | 備註欄（目前顯示 `—`，預留擴充） |
 
 ### 欄位與 roadmap.ts 對應摘要
 
 | `roadmap.ts` 欄位 | 儀表板用途 |
 |:---|:---|
-| `name` | 欄4：功能名稱 |
-| `category` | 欄2：分類1 |
-| `workCategory` | 欄3：分類2（可不填，顯示 `—`） |
-| `featureSpecDocPath` | 欄4：嵌入 Dev-Spec (.md) 連結（顯示為 `001-Dev-Spec.md`） |
-| `tddSpecDocPath` | 欄5：TDD Spec (.md) 連結（顯示為 `001-TDD-Spec.md`） |
-| `docPath` | 欄6：TDD Progress Report (.md) 連結（顯示為 `001-TDD-Report.md`） |
-| `percentage` | 不在 Development Tab 顯示（但仍建議填寫，其他 Tab 或統計可用） |
+| `name` | 欄4：功能需求名稱 |
+| `category` | 欄2：Role/General 分類（badge） |
+| `locatedPage` | 欄3：所屬頁面路徑（可不填） |
+| `featureSpecDocPath` | 欄5：Dev-Spec (.md) 連結（顯示為 `001-Dev-Spec.md`） |
+| `tddSpecDocPath` | 欄6：TDD Spec (.md) 連結（顯示為 `001-TDD-Spec.md`） |
+| `docPath` | 欄7：TDD Progress Report (.md) 連結（顯示為 `001-TDD-Report.md`） |
+| `percentage` | 欄10：TDD 進度條（同時供統計卡片使用） |
+| `e2eTestCoverage` / `testCoverage` | 欄11：E2E 進度條 |
 | `lastModifiedBy` / `lastModifiedDate` | 不在 Development Tab 顯示（仍建議填寫） |
 
 ### 送出 Prompt 與本地 Agent 流程（全自動化到 TDD + 測試 + git push）
@@ -156,7 +162,7 @@ http://localhost:3001/superadmin/dashboard/project-progress#testing
 | 單元與整合測試 | `apps/superadmin/unit_and_integration_test/{ID}/` | `apps/superadmin/unit_and_integration_test/002/` |
 | E2E 測試 | `apps/superadmin/e2e/{ID}/` | `apps/superadmin/e2e/002/` |
 
-> Row ID 對應 `RAW_FEATURES` 陣列順序（1-based），儀表板欄7/欄8 自動產生對應連結。
+> Row ID 對應 `RAW_FEATURES` 陣列順序（1-based），儀表板**欄8/欄9** 自動產生對應連結。
 
 ---
 
@@ -178,7 +184,7 @@ http://localhost:3001/superadmin/dashboard/project-progress#testing
 
 5. **必填欄位**：`name`、`category`、`percentage`、`lastModifiedBy`、`lastModifiedDate`
 
-6. **選填但建議填寫**：`workCategory`、`featureSpecDocPath`、`tddSpecDocPath`、`docPath`
+6. **選填但建議填寫**：`locatedPage`、`featureSpecDocPath`、`tddSpecDocPath`、`docPath`、`percentage`、`e2eTestCoverage`
 
 ---
 
@@ -230,7 +236,7 @@ apps/superadmin/app/superadmin/dashboard/project-progress/
     ├── SharedStatsCards.tsx    # 各階段差異化統計卡片
     ├── ProgressBar.tsx         # 通用進度條
     ├── StatCard.tsx            # 通用統計卡片
-    ├── DevelopmentTab.tsx      # 開發 Tab（10 欄，含 IDE 選擇、Prompt Engineer Modal）
+    ├── DevelopmentTab.tsx      # 開發 Tab（14 欄：ID/Role/LocatedPage/Feature/DEV-SPEC/TDD-Spec/TDD-Report/Unit-Folder/E2E-Folder/TDD進度/E2E進度/Prompt/Status/Notes）
     ├── TestingTab.tsx          # 測試 Tab（testStatus/coverage/defect）
     ├── DeploymentTab.tsx       # 部署 Tab（deployStatus/env/version）
     └── OperationsTab.tsx       # 運維 Tab（uptime/errorRate/responseTime）

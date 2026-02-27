@@ -5,8 +5,19 @@
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
-  Cloud, MessageCircle, FileText, PenTool, Layout, Settings2,
-  Plus, X, Cog, Filter,
+  Cloud,
+  MessageCircle,
+  FileText,
+  PenTool,
+  Layout,
+  Settings2,
+  Plus,
+  X,
+  Cog,
+  Filter,
+  AlignLeft,
+  Eye,
+  ChevronDown,
 } from 'lucide-react';
 import { FEATURE_MODULES, AI_PROVIDERS } from '@/lib/ai-providers';
 import type { FeatureModule } from '@/lib/ai-providers';
@@ -65,6 +76,21 @@ const DEFAULT_FIRST_COL_WIDTH = 180;
 const DEFAULT_MODULE_COL_WIDTH = 140;
 const MIN_COL_WIDTH = 80;
 const MAX_COL_WIDTH = 480;
+
+type TableHAlign = 'left' | 'center' | 'right';
+type TableVAlign = 'top' | 'middle' | 'bottom';
+
+const TABLE_H_ALIGN_CLASSES: Record<TableHAlign, string> = {
+  left: '[&_th]:text-left [&_td]:text-left',
+  center: '[&_th]:text-center [&_td]:text-center',
+  right: '[&_th]:text-right [&_td]:text-right',
+};
+
+const TABLE_V_ALIGN_CLASSES: Record<TableVAlign, string> = {
+  top: '[&_th]:align-top [&_td]:align-top',
+  middle: '[&_th]:align-middle [&_td]:align-middle',
+  bottom: '[&_th]:align-bottom [&_td]:align-bottom',
+};
 
 interface ModuleRowState {
   isEnabled: boolean;
@@ -139,6 +165,14 @@ export function FeatureModuleSelector({
     modelId: string;
     modelName: string;
   } | null>(null);
+
+  const [tableAlignH, setTableAlignH] = useState<TableHAlign>('left');
+  const [tableAlignV, setTableAlignV] = useState<TableVAlign>('middle');
+  const [alignDropdownOpen, setAlignDropdownOpen] = useState(false);
+  const [viewDropdownOpen, setViewDropdownOpen] = useState(false);
+  const [freezeHeader, setFreezeHeader] = useState(false);
+  const alignDropdownRef = useRef<HTMLDivElement | null>(null);
+  const viewDropdownRef = useRef<HTMLDivElement | null>(null);
 
   const markSaving = useCallback((key: string, on: boolean) => {
     setSavingSet((prev) => {
@@ -352,6 +386,112 @@ export function FeatureModuleSelector({
         </div>
       </div>
 
+      {/* Layout / View controls for modules table */}
+      <div className="flex items-center justify-end gap-2">
+        <div className="relative" ref={alignDropdownRef}>
+          <button
+            type="button"
+            onClick={() => setAlignDropdownOpen((open) => !open)}
+            aria-expanded={alignDropdownOpen}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border whitespace-nowrap bg-bg-primary border-border-default text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
+            title="表格文字排版"
+          >
+            <AlignLeft className="w-3.5 h-3.5" />
+            排版
+            <ChevronDown
+              className={`w-3.5 h-3.5 transition-transform ${alignDropdownOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
+          {alignDropdownOpen && (
+            <div className="absolute right-0 top-full mt-1 z-50 min-w-[200px] bg-bg-primary border border-border-default rounded-lg shadow-lg p-3">
+              <p className="text-[10px] text-text-muted mb-2">套用至整個表格（所有 col）</p>
+              <p className="text-xs font-medium text-text-secondary mb-1">水平</p>
+              <div className="flex gap-1 mb-3">
+                {(['left', 'center', 'right'] as TableHAlign[]).map((h) => (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => setTableAlignH(h)}
+                    className={`flex-1 px-2 py-1.5 rounded text-xs border transition-colors ${
+                      tableAlignH === h
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-700 dark:text-emerald-300'
+                        : 'bg-bg-secondary border-border-default text-text-secondary hover:bg-bg-secondary/80'
+                    }`}
+                  >
+                    {h === 'left' ? '靠左' : h === 'center' ? '左右置中' : '靠右'}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs font-medium text-text-secondary mb-1">垂直</p>
+              <div className="flex gap-1">
+                {(['top', 'middle', 'bottom'] as TableVAlign[]).map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setTableAlignV(v)}
+                    className={`flex-1 px-2 py-1.5 rounded text-xs border transition-colors ${
+                      tableAlignV === v
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-700 dark:text-emerald-300'
+                        : 'bg-bg-secondary border-border-default text-text-secondary hover:bg-bg-secondary/80'
+                    }`}
+                  >
+                    {v === 'top' ? '靠上' : v === 'middle' ? '上下置中' : '靠下'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="relative" ref={viewDropdownRef}>
+          <button
+            type="button"
+            onClick={() => setViewDropdownOpen((open) => !open)}
+            aria-expanded={viewDropdownOpen}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border whitespace-nowrap bg-bg-primary border-border-default text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
+            title="檢視選項"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            View
+            <ChevronDown
+              className={`w-3.5 h-3.5 transition-transform ${viewDropdownOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
+          {viewDropdownOpen && (
+            <div className="absolute right-0 top-full mt-1 z-50 min-w-[200px] bg-bg-primary border border-border-default rounded-lg shadow-lg py-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setFreezeHeader(false);
+                  setViewDropdownOpen(false);
+                }}
+                className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                  !freezeHeader
+                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 font-medium'
+                    : 'text-text-primary hover:bg-bg-secondary'
+                }`}
+              >
+                不凍結標題列
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFreezeHeader(true);
+                  setViewDropdownOpen(false);
+                }}
+                className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                  freezeHeader
+                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 font-medium'
+                    : 'text-text-primary hover:bg-bg-secondary'
+                }`}
+              >
+                凍結標題列
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* ── Notice when no models are configured ── */}
       {!hasAnyModels && (
         <div className="rounded-base border border-amber-300/40 bg-amber-50/10 px-4 py-2.5 text-xs text-amber-400">
@@ -360,7 +500,9 @@ export function FeatureModuleSelector({
       )}
 
       {/* ── Modules table: 第一欄 = 已選 model，同一列 = 7 個功能模組；欄寬可拖曳調整 ── */}
-      <div className="rounded-lg border border-border-default overflow-hidden bg-bg-primary">
+      <div
+        className={`rounded-lg border border-border-default overflow-hidden bg-bg-primary ${TABLE_H_ALIGN_CLASSES[tableAlignH]} ${TABLE_V_ALIGN_CLASSES[tableAlignV]}`}
+      >
         <div className="overflow-x-auto">
           <table
             className="text-xs border-collapse table-fixed"
@@ -381,7 +523,7 @@ export function FeatureModuleSelector({
                 <col key={mod.key} style={{ width: columnWidths[mod.key] ?? DEFAULT_MODULE_COL_WIDTH }} />
               ))}
             </colgroup>
-            <thead>
+            <thead className={freezeHeader ? 'sticky top-0 z-10 bg-bg-tertiary' : undefined}>
               <tr className="border-b border-border-subtle bg-bg-tertiary">
                 <th className="text-left py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative align-top">
                   <span>已選</span>

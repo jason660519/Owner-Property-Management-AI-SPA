@@ -3,61 +3,21 @@
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import {
-  Home,
-  Users,
-  Lock,
-  Building,
-  FileText,
-  ShieldCheck,
-  Shield,
-  Grid,
-  Database,
-  HardDrive,
-  VenetianMask,
-  FileBarChart,
-  Settings,
-  Bot,
-  BookOpen,
-  Key,
-  Activity,
-  Gauge,
-  Brain
-} from 'lucide-react';
-import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { navItems } from './nav-items';
 
-interface NavItem {
-  name: string;
-  href: string;
-  icon: React.ElementType;
+interface SidebarProps {
+  accessibleHrefs?: string[];
 }
 
-const navItems: NavItem[] = [
-  { name: 'Overview', href: '/superadmin', icon: Home },
-  { name: 'User Management', href: '/superadmin/users', icon: Users },
-  { name: 'Group Management', href: '/superadmin/groups', icon: Lock },
-  { name: 'Properties', href: '/superadmin/properties', icon: Building },
-  { name: 'Leases', href: '/superadmin/leases', icon: FileText },
-  { name: 'Verifications', href: '/superadmin/verifications', icon: ShieldCheck },
-  { name: 'RBAC Settings', href: '/superadmin/dashboard/rbac_access_control', icon: Shield },
-  { name: 'Permission Matrix', href: '/superadmin/dashboard/role_access_matrix', icon: Grid },
-  { name: 'Database', href: '/superadmin/dashboard/supabase', icon: Database },
-  { name: 'Storage', href: '/superadmin/dashboard/storage', icon: HardDrive },
-  { name: 'Impersonate', href: '/superadmin/role-simulation', icon: VenetianMask },
-  { name: 'IAM Audit', href: '/superadmin/dashboard/iam-audit', icon: FileBarChart },
-  { name: 'Behavior Monitor', href: '/superadmin/dashboard/behavior-monitoring', icon: Activity },
-  { name: 'Performance Monitor', href: '/superadmin/dashboard/performance', icon: Gauge },
-  { name: 'AI LLM Monitor', href: '/superadmin/dashboard/llm-monitor', icon: Brain },
-  { name: 'Project Progress Dashboard', href: '/superadmin/dashboard/project-progress', icon: FileText },
-  { name: 'Project Files', href: '/superadmin/docs', icon: BookOpen },
-  { name: 'AI 服務 / API KEY', href: '/superadmin/settings/api_key_and_model_setting', icon: Key },
-  { name: 'Settings', href: '/superadmin/settings', icon: Settings },
-];
-
-export function Sidebar() {
+export function Sidebar({ accessibleHrefs }: SidebarProps) {
   const pathname = usePathname();
   const [isHovered, setIsHovered] = useState(false);
+
+  // Filter nav items if accessibleHrefs is provided; otherwise show all
+  const visibleItems = accessibleHrefs
+    ? navItems.filter(item => accessibleHrefs.includes(item.href))
+    : navItems;
 
   return (
     <aside
@@ -72,32 +32,32 @@ export function Sidebar() {
     >
       <div className="flex flex-col flex-1 py-4 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-gray-700">
         <nav className="flex-1 space-y-1 px-2">
-          {navItems.map((item) => {
+          {visibleItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/superadmin' && pathname?.startsWith(item.href));
-            
+
             return (
               <Link
                 key={item.name}
                 href={item.href}
                 className={twMerge(
                   "group flex items-center px-3 py-2.5 rounded-md transition-colors duration-200",
-                  isActive 
-                    ? "bg-emerald-500/10 text-emerald-500" 
+                  isActive
+                    ? "bg-emerald-500/10 text-emerald-500"
                     : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
                 )}
                 title={!isHovered ? item.name : undefined}
               >
-                <item.icon 
+                <item.icon
                   className={twMerge(
                     "flex-shrink-0 w-5 h-5 transition-colors",
                     isActive ? "text-emerald-500" : "text-text-secondary group-hover:text-text-primary"
-                  )} 
+                  )}
                 />
-                <span 
+                <span
                   className={twMerge(
                     "ml-3 whitespace-nowrap transition-all duration-300",
-                    isHovered 
-                      ? "opacity-100 translate-x-0" 
+                    isHovered
+                      ? "opacity-100 translate-x-0"
                       : "opacity-0 -translate-x-4 w-0 overflow-hidden"
                   )}
                 >

@@ -131,6 +131,84 @@ export async function createRole(
   return { success: true };
 }
 
+// --- Role Permissions ---
+
+export interface RolePermission {
+  role_id: string;
+  resource: string;
+  actions: string[];
+  scope: 'all' | 'own' | 'assigned';
+}
+
+export async function getAllRolePermissions(): Promise<RolePermission[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('iam_role_permissions')
+    .select('role_id, resource, actions, scope');
+
+  if (error) {
+    console.error('Error fetching all role permissions:', error);
+    return [];
+  }
+  return (data as RolePermission[]) ?? [];
+}
+
+export async function getRolePermissions(roleId: string): Promise<RolePermission[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('iam_role_permissions')
+    .select('role_id, resource, actions')
+    .eq('role_id', roleId);
+
+  if (error) {
+    console.error('Error fetching role permissions:', error);
+    return [];
+  }
+  return (data as RolePermission[]) ?? [];
+}
+
+export async function saveRolePermissions(
+  roleId: string,
+  permissions: { resource: string; actions: string[]; scope?: 'all' | 'own' | 'assigned' }[]
+): Promise<{ success?: boolean; error?: string }> {
+  const admin = createAdminClient();
+
+  // Upsert each resource permission
+  const rows = permissions.map(p => ({
+    role_id: roleId,
+    resource: p.resource,
+    actions: p.actions,
+    scope: p.scope ?? 'all',
+  }));
+
+  if (rows.length === 0) {
+    // Delete all permissions for this role if empty
+    const { error } = await admin
+      .from('iam_role_permissions')
+      .delete()
+      .eq('role_id', roleId);
+    if (error) return { error: error.message };
+    return { success: true };
+  }
+
+  const { error } = await admin
+    .from('iam_role_permissions')
+    .upsert(rows, { onConflict: 'role_id,resource' });
+
+  if (error) return { error: error.message };
+
+  // Remove resources not in the new list
+  const resourcesKept = rows.map(r => r.resource);
+  await admin
+    .from('iam_role_permissions')
+    .delete()
+    .eq('role_id', roleId)
+    .not('resource', 'in', `(${resourcesKept.map(r => `"${r}"`).join(',')})`);
+
+  revalidatePath(BASE);
+  return { success: true };
+}
+
 export async function updateRole(
   formData: FormData
 ): Promise<{ success?: boolean; error?: string }> {
