@@ -11,7 +11,7 @@ export interface PropertyDetails {
     bedrooms: number;
     bathrooms: number;
     area: number;
-    type: string; // '公寓', '別墅', '套房', '華廈', etc.
+    type: string; // '公寓', '大楼', '華廈', '套房', '别墅/透天', '辦公', '倉庫', '店面', '廠房', '土地', '單售車位', '其他'
     images?: string[];
 }
 

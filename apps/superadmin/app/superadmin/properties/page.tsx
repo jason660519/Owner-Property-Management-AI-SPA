@@ -15,13 +15,11 @@ export default async function SuperadminPropertiesPage() {
   return (
     <DashboardLayout
       currentRole="superadmin"
-      pageTitle="物件管理"
       breadcrumbs={[
         { label: '首頁', href: '/' },
         { label: '超級管理員專區', href: BASE },
         { label: '物件管理' },
       ]}
-      greeting={`共 ${data.properties.length} 筆物件（出售 ${data.totalSales} / 出租 ${data.totalRentals}）`}
     >
       <PropertiesList data={data} />
       <div className="mt-6">

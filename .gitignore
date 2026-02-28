@@ -105,6 +105,15 @@ plane-selfhost/
 .playwright-mcp/
 **/playwright-report/
 **/test-results/
+
+# ============================================
+# Secrets & Credentials
+# ============================================
+gcp-oauth.keys.json
+gcp-oauth.keys.json.json
+.gdrive-server-credentials.json
+.mcp.json
+
 **/._*
 .AppleDouble
 .LSOverride

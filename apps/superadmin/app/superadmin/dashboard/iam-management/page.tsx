@@ -22,9 +22,12 @@ function getTabFromHash(): IAMTab {
 }
 
 export default function IAMManagementPage() {
-  const [activeTab, setActiveTab] = useState<IAMTab>(getTabFromHash);
+  // Initialize with 'overview' so SSR and client hydration match,
+  // then read the hash after mount to avoid hydration mismatch.
+  const [activeTab, setActiveTab] = useState<IAMTab>('overview');
 
   useEffect(() => {
+    setActiveTab(getTabFromHash());
     const onHashChange = () => setActiveTab(getTabFromHash());
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);

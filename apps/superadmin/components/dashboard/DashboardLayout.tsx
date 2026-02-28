@@ -17,7 +17,7 @@ export function DashboardLayout({
   contentFullHeight = false,
   className = '',
 }: {
-  pageTitle: string;
+  pageTitle?: string;
   breadcrumbs: { label: string; href?: string }[];
   greeting?: React.ReactNode;
   children: React.ReactNode;
@@ -53,10 +53,14 @@ export function DashboardLayout({
             ))}
           </nav>
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-text-primary mb-1">{pageTitle}</h1>
-              {greeting && <p className="text-sm text-text-secondary">{greeting}</p>}
-            </div>
+            {(pageTitle != null && pageTitle !== '') || greeting ? (
+              <div>
+                {pageTitle != null && pageTitle !== '' && (
+                  <h1 className="text-2xl font-bold text-text-primary mb-1">{pageTitle}</h1>
+                )}
+                {greeting && <p className="text-sm text-text-secondary">{greeting}</p>}
+              </div>
+            ) : null}
             <div className="flex items-center gap-4">
               {headerActions}
             </div>
