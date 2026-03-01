@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { resolveUserId } from '@/lib/resolve-ai-settings-user';
 
+const VALID_DISPLAY_STATUS_OVERRIDE = [
+  'vlm_ok', 'llm_ok', 'working', 'not_working', 'untested',
+] as const;
+
 interface EvaluationPayload {
   provider: string;
   model_id: string;
@@ -11,6 +15,7 @@ interface EvaluationPayload {
   is_candidate: boolean;
   notes?: string;
   last_tested_at?: string | null;
+  display_status_override?: string | null;
 }
 
 export async function GET(request: NextRequest) {
@@ -66,17 +71,25 @@ export async function POST(request: NextRequest) {
       'reasoning', 'vision', 'general',
     ];
 
-    const rows = evaluations.map((e) => ({
-      user_id: userId,
-      provider: e.provider,
-      model_id: e.model_id,
-      model_name: e.model_name,
-      is_working: e.is_working,
-      specialties: (e.specialties ?? []).filter((s: string) => VALID_SPECIALTIES.includes(s)),
-      is_candidate: e.is_candidate,
-      notes: e.notes ?? '',
-      last_tested_at: e.last_tested_at ?? null,
-    }));
+    const rows = evaluations.map((e) => {
+      const override = e.display_status_override;
+      const display_status_override =
+        override && VALID_DISPLAY_STATUS_OVERRIDE.includes(override as (typeof VALID_DISPLAY_STATUS_OVERRIDE)[number])
+          ? override
+          : null;
+      return {
+        user_id: userId,
+        provider: e.provider,
+        model_id: e.model_id,
+        model_name: e.model_name,
+        is_working: e.is_working,
+        specialties: (e.specialties ?? []).filter((s: string) => VALID_SPECIALTIES.includes(s)),
+        is_candidate: e.is_candidate,
+        notes: e.notes ?? '',
+        last_tested_at: e.last_tested_at ?? null,
+        display_status_override,
+      };
+    });
 
     const { data, error } = await supabase
       .from('ai_model_evaluations')

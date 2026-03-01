@@ -81,6 +81,9 @@ export interface ValidationSummary {
   updatedAt: string | null;
 }
 
+/** 使用者手動覆寫的顯示狀態（AI 判斷錯誤時可自行修正） */
+export type DisplayStatusOverride = 'vlm_ok' | 'llm_ok' | 'working' | 'not_working' | 'untested';
+
 export interface ModelEvaluation {
   id?: string;
   provider: string;
@@ -91,6 +94,8 @@ export interface ModelEvaluation {
   is_candidate: boolean;
   notes: string;
   last_tested_at: string | null;
+  /** 使用者手動設定的狀態，有值時優先於 AI 推斷顯示 */
+  display_status_override?: DisplayStatusOverride | null;
 }
 
 export function useAISettings() {
@@ -298,6 +303,7 @@ export function useAISettings() {
   }, [userId, fetchAll]);
 
   // ---- Module Operations ----
+  /** 靜默重整，避免綁定/解除綁定模型時觸發 loading 導致 ModelEvaluator 卸載、篩選與勾選狀態被重置 */
   const saveModule = useCallback(async (
     moduleKey: string,
     isEnabled: boolean,
@@ -316,7 +322,7 @@ export function useAISettings() {
       body: JSON.stringify({ userId, moduleKey, isEnabled, assignedModels, config }),
     });
     if (!res.ok) throw new Error('儲存模組設定失敗');
-    await fetchAll();
+    await fetchAll(true);
   }, [userId, fetchAll]);
 
   // ---- Prompt Operations ----

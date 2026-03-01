@@ -5,7 +5,7 @@ import { CheckCircle2, XCircle, Loader2, FlaskConical, Upload, Cloud, MessageCir
 import { Button } from '@/components/ui/Button';
 import { AI_PROVIDERS, FEATURE_MODULES } from '@/lib/ai-providers';
 import type { FeatureModule } from '@/lib/ai-providers';
-import type { SavedKey, SavedModel, ModelEvaluation, KeyValidationResult, SavedModule, AssignedModel } from '@/lib/hooks/useAISettings';
+import type { SavedKey, SavedModel, ModelEvaluation, KeyValidationResult, SavedModule, AssignedModel, DisplayStatusOverride } from '@/lib/hooks/useAISettings';
 import { getAvailableModelsList } from '@/lib/utils/total-available-models';
 
 const MODULE_ICON_MAP: Record<string, React.ElementType> = {
@@ -112,7 +112,7 @@ function getModelDisplayName(providerId: string, modelId: string): string {
   return m?.name ?? modelId;
 }
 
-/** 從 Prompt output 自動推斷模型分類：成功解析檔案內容視為 VLM，有回應但未解析視為 LLM */
+/** 從 Prompt output 自動推斷模型分類：成功解析檔案內容視為 VLM，有回應但未解析（如「看不到檔案」）視為 LLM */
 function detectCategoryFromOutput(output: string | undefined): 'VLM' | 'LLM' | 'unknown' {
   const text = (output ?? '').trim();
   if (!text) return 'unknown';
@@ -135,6 +135,59 @@ function detectCategoryFromOutput(output: string | undefined): 'VLM' | 'LLM' | '
   return 'unknown';
 }
 
+/** 依測試輸出區分狀態顯示：僅成功解析檔案內容算 VLM 可用，「我看不到檔案」等僅算 LLM 可用 */
+type StatusDisplay = { type: 'vlm_ok' | 'llm_ok' | 'working' | 'not_working' | 'untested'; label: string; title: string };
+
+/** 五種狀態選項，供使用者手動修正 AI 判斷 */
+const STATUS_OVERRIDE_OPTIONS: { value: DisplayStatusOverride; label: string }[] = [
+  { value: 'vlm_ok', label: 'VLM 可用' },
+  { value: 'llm_ok', label: 'LLM 可用' },
+  { value: 'working', label: '通用模型可用' },
+  { value: 'not_working', label: '不可用' },
+  { value: 'untested', label: '尚未測試' },
+];
+
+function getStatusDisplayByType(type: DisplayStatusOverride): StatusDisplay {
+  const map: Record<DisplayStatusOverride, StatusDisplay> = {
+    vlm_ok: { type: 'vlm_ok', label: 'VLM 可用', title: '手動設定：VLM 可用' },
+    llm_ok: { type: 'llm_ok', label: 'LLM 可用', title: '手動設定：LLM 可用' },
+    working: { type: 'working', label: '通用模型可用', title: '手動設定：通用模型可用' },
+    not_working: { type: 'not_working', label: '不可用', title: '手動設定：不可用' },
+    untested: { type: 'untested', label: '尚未測試', title: '手動設定：尚未測試' },
+  };
+  return map[type];
+}
+
+function getStatusDisplay(
+  key: string,
+  ev: ModelEvaluation | undefined,
+  testResultByKey: Record<string, boolean>,
+  outputByKey: Record<string, string>
+): StatusDisplay {
+  if (ev?.display_status_override) return getStatusDisplayByType(ev.display_status_override);
+
+  const outputText = (outputByKey[key] ?? ev?.notes ?? '').trim();
+  const sessionSuccess = testResultByKey[key];
+  const persistedWorking = ev?.is_working;
+  const success = sessionSuccess === true || (sessionSuccess !== false && persistedWorking);
+
+  if (!outputText) {
+    if (success) return { type: 'working', label: '可用', title: 'API 連線成功（無輸出內容可推斷 VLM/LLM）' };
+    if (sessionSuccess === false || (ev && !ev.is_working))
+      return { type: 'not_working', label: '不可用', title: '測試失敗或未通過' };
+    return { type: 'untested', label: '未測試', title: '尚未執行檔案解析測試' };
+  }
+
+  const category = detectCategoryFromOutput(outputText);
+  if (category === 'VLM' && success)
+    return { type: 'vlm_ok', label: 'VLM 可用', title: '依本測試輸出：已成功解析檔案內容，視為 VLM 可用' };
+  if (category === 'LLM' && success)
+    return { type: 'llm_ok', label: 'LLM 可用', title: '依本測試輸出：有文字回應但未解析檔案（如「看不到檔案」），僅算 LLM 可用，不算 VLM 可用' };
+  if (category === 'unknown' && success)
+    return { type: 'working', label: '可用', title: 'API 有回應，但無法從輸出推斷是否具 VLM 能力' };
+  return { type: 'not_working', label: '不可用', title: '測試失敗或無有效輸出' };
+}
+
 export function ModelEvaluator({
   savedKeys,
   savedModels = [],
@@ -155,12 +208,15 @@ export function ModelEvaluator({
   headerActionsRef,
 }: ModelEvaluatorProps) {
   /** 與表格內每列 Prompt 欄位同步的預設文字（未編輯時顯示同一內容） */
-  const DEFAULT_TEST_PROMPT = '請根據我上傳的檔案，解析出所有權人是誰，如果你看不到檔案，就回答：我看不到檔案';
+  const DEFAULT_TEST_PROMPT = '請根據我提供的文件資料，解析並轉換成結構化 JSON（謄本資訊／建物標示部／建物所有權部）';
   /** 表頭「Prompt input」欄位名稱，使用者可自訂；從 localStorage 還原避免重繪後遺失 */
   const STORAGE_KEY_PROMPT_COLUMN_LABEL = 'superadmin-model-evaluator-prompt-column-label';
   const STORAGE_KEY_COLUMN_WIDTHS = 'superadmin-model-evaluator-column-widths';
-  // Cols 0-8: fixed table cols; cols 9-15: one per FEATURE_MODULE (7 total)
-  const DEFAULT_COLUMN_WIDTHS = [48, 120, 220, 100, 80, 140, 72, 200, 110, 88, 88, 88, 88, 88, 88, 88];
+  const FREEZE_ROW_STORAGE_KEY = 'superadmin-model-evaluator-freeze-row-v1';
+  const FROZEN_COL_STORAGE_KEY = 'superadmin-model-evaluator-frozen-col-v1';
+  // Cols 0-7: fixed table cols (已選,公司,模型,模型分類與狀態,Prompt,prompt測試,output,測試日期); cols 8-14: one per FEATURE_MODULE (7)
+  const DEFAULT_COLUMN_WIDTHS = [48, 120, 220, 80, 140, 72, 200, 110, 88, 88, 88, 88, 88, 88, 88];
+  const TABLE_COLUMN_COUNT = DEFAULT_COLUMN_WIDTHS.length;
   const [columnWidths, setColumnWidthsState] = useState<number[]>(() => {
     if (typeof window === 'undefined') return [...DEFAULT_COLUMN_WIDTHS];
     try {
@@ -168,11 +224,13 @@ export function ModelEvaluator({
       if (raw) {
         const parsed = JSON.parse(raw) as number[];
         if (Array.isArray(parsed) && parsed.every((x) => typeof x === 'number')) {
-          // Extend with defaults if new module columns were added
-          if (parsed.length < DEFAULT_COLUMN_WIDTHS.length) {
-            return [...parsed, ...DEFAULT_COLUMN_WIDTHS.slice(parsed.length)];
+          // Migrate from old 16-col layout (drop former 模型分類 col at index 3)
+          const normalized =
+            parsed.length === 16 ? [...parsed.slice(0, 3), ...parsed.slice(4)] : parsed;
+          if (normalized.length < DEFAULT_COLUMN_WIDTHS.length) {
+            return [...normalized, ...DEFAULT_COLUMN_WIDTHS.slice(normalized.length)];
           }
-          return parsed;
+          return normalized.length > DEFAULT_COLUMN_WIDTHS.length ? normalized.slice(0, DEFAULT_COLUMN_WIDTHS.length) : normalized;
         }
       }
     } catch {
@@ -246,7 +304,84 @@ export function ModelEvaluator({
   const alignDropdownRef = useRef<HTMLDivElement | null>(null);
   const [viewDropdownOpen, setViewDropdownOpen] = useState(false);
   const viewDropdownRef = useRef<HTMLDivElement | null>(null);
-  const [freezeHeader, setFreezeHeader] = useState<boolean>(true);
+  const [freezeRowCount, setFreezeRowCount] = useState<0 | 1>(() => {
+    if (typeof window === 'undefined') return 1;
+    try {
+      const v = window.localStorage.getItem(FREEZE_ROW_STORAGE_KEY);
+      if (v === '0' || v === '1') return Number(v) as 0 | 1;
+    } catch {
+      // ignore
+    }
+    return 1;
+  });
+  const [frozenColCount, setFrozenColCount] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0;
+    try {
+      const v = window.localStorage.getItem(FROZEN_COL_STORAGE_KEY);
+      if (v !== null) {
+        const n = parseInt(v, 10);
+        if (Number.isInteger(n) && n >= 0 && n <= TABLE_COLUMN_COUNT) return n;
+      }
+    } catch {
+      // ignore
+    }
+    return 0;
+  });
+  /** 哪一列的「模型分類與狀態」下拉已展開（row key = providerId::modelId） */
+  const [openStatusDropdownKey, setOpenStatusDropdownKey] = useState<string | null>(null);
+  const statusDropdownRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const frozenColLeftOffsets = useMemo(() => {
+    const offsets: number[] = [];
+    let acc = 0;
+    for (let i = 0; i < columnWidths.length; i++) {
+      offsets.push(acc);
+      acc += columnWidths[i] ?? DEFAULT_COLUMN_WIDTHS[i] ?? 80;
+    }
+    return offsets;
+  }, [columnWidths]);
+
+  const getFrozenThClass = useCallback(
+    (colIdx: number) => {
+      const isFrozen = colIdx < frozenColCount;
+      const isBoundary =
+        frozenColCount > 0 && colIdx === frozenColCount - 1;
+      return [
+        isFrozen && 'sticky bg-bg-tertiary',
+        isBoundary && 'border-r-4 border-gray-300 dark:border-gray-600',
+      ]
+        .filter(Boolean)
+        .join(' ');
+    },
+    [frozenColCount]
+  );
+  const getFrozenThStyle = useCallback(
+    (colIdx: number): React.CSSProperties =>
+      colIdx < frozenColCount
+        ? { left: frozenColLeftOffsets[colIdx], zIndex: 11 }
+        : {},
+    [frozenColCount, frozenColLeftOffsets]
+  );
+  const getFrozenTdClass = useCallback(
+    (colIdx: number) => {
+      const isFrozen = colIdx < frozenColCount;
+      const isBoundary =
+        frozenColCount > 0 && colIdx === frozenColCount - 1;
+      return [
+        isFrozen && 'sticky bg-bg-primary',
+        isBoundary && 'border-r-4 border-gray-300 dark:border-gray-600',
+      ]
+        .filter(Boolean)
+        .join(' ');
+    },
+    [frozenColCount]
+  );
+  const getFrozenTdStyle = useCallback(
+    (colIdx: number): React.CSSProperties =>
+      colIdx < frozenColCount
+        ? { left: frozenColLeftOffsets[colIdx], zIndex: 1 }
+        : {},
+    [frozenColCount, frozenColLeftOffsets]
+  );
 
   // ── Feature module state (integrated from #modules) ──────────────────────
   interface ModuleRowState { isEnabled: boolean; assignments: AssignedModel[] }
@@ -403,16 +538,17 @@ export function ModelEvaluator({
     return map;
   }, [savedEvaluations]);
 
-  /** 再依狀態篩選（可複選：可用/不可用/尚未測試） */
+  /** 再依狀態篩選（可複選：VLM可用/LLM可用/不可用/尚未測試） */
   const rowsAfterStatusFilter = useMemo(() => {
     if (filterStatuses.length === 0) return filteredRows;
     const set = new Set(filterStatuses);
     return filteredRows.filter((r) => {
       const key = `${r.providerId}::${r.modelId}`;
       const ev = evaluationMap.get(key);
-      return set.has(getRowStatus(key, ev));
+      const statusDisplay = getStatusDisplay(key, ev, testResultByKey, outputByKey);
+      return set.has(statusDisplay.type);
     });
-  }, [filteredRows, filterStatuses, evaluationMap, getRowStatus]);
+  }, [filteredRows, filterStatuses, evaluationMap, testResultByKey, outputByKey]);
 
   /** 再依模型分類篩選（可複選：VLM / LLM / 未知） */
   const rowsAfterCategoryFilter = useMemo(() => {
@@ -595,6 +731,47 @@ export function ModelEvaluator({
   useClickOutsideClose(alignDropdownRef, alignDropdownOpen, setAlignDropdownOpen);
   useClickOutsideClose(viewDropdownRef, viewDropdownOpen, setViewDropdownOpen);
 
+  useEffect(() => {
+    const key = openStatusDropdownKey;
+    if (!key) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const el = statusDropdownRefs.current[key];
+      if (el?.contains(e.target as Node)) return;
+      setOpenStatusDropdownKey(null);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [openStatusDropdownKey]);
+
+  const handleSaveStatusOverride = useCallback(
+    async (rowKey: string, value: DisplayStatusOverride) => {
+      const [providerId, modelId] = rowKey.split('::');
+      if (!providerId || !modelId) return;
+      const ev = evaluationMap.get(rowKey);
+      const modelName = ev?.model_name ?? allRows.find((r) => r.providerId === providerId && r.modelId === modelId)?.modelName ?? modelId;
+      const updated: ModelEvaluation = {
+        ...(ev ?? {
+          provider: providerId,
+          model_id: modelId,
+          model_name: modelName,
+          is_working: false,
+          specialties: [],
+          is_candidate: false,
+          notes: '',
+          last_tested_at: null,
+        }),
+        display_status_override: value,
+      };
+      const merged = Array.from(evaluationMap.entries()).map(([k, e]) =>
+        k === rowKey ? updated : e
+      );
+      if (!evaluationMap.has(rowKey)) merged.push(updated);
+      await onSave(merged);
+      setOpenStatusDropdownKey(null);
+    },
+    [evaluationMap, allRows, onSave]
+  );
+
   /** 全部測試：僅對「已選」且「有金鑰」的模型並行測試，完成後一次批量寫入 DB */
   const handleBatchTest = useCallback(async () => {
     const selectedInFiltered = rowsAfterCategoryFilter.filter((r) =>
@@ -684,8 +861,13 @@ export function ModelEvaluator({
           <div className="text-xs text-text-secondary">
             已選/可選 models 數量{' '}
             <span className="font-medium text-text-primary">
-              {summarySelectedCount}/{summaryTotalCount}
+              {filteredSelectedCount}/{rowsAfterCategoryFilter.length}
             </span>
+            {rowsAfterCategoryFilter.length !== allRows.length && (
+              <span className="ml-1.5 text-text-muted" title="目前為篩選後數量；未篩選時與總數一致">
+                （篩選中）
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <div className="relative" ref={alignDropdownRef}>
@@ -767,34 +949,75 @@ export function ModelEvaluator({
                   className="absolute right-0 top-full mt-1 z-30 min-w-[200px] bg-bg-primary border border-border-default rounded-lg shadow-lg py-2"
                   role="menu"
                 >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFreezeHeader(false);
-                      setViewDropdownOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-2 text-sm transition-colors ${
-                      !freezeHeader
-                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 font-medium'
-                        : 'text-text-primary hover:bg-bg-secondary'
-                    }`}
-                  >
-                    不凍結標題列
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFreezeHeader(true);
-                      setViewDropdownOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-2 text-sm transition-colors ${
-                      freezeHeader
-                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 font-medium'
-                        : 'text-text-primary hover:bg-bg-secondary'
-                    }`}
-                  >
-                    凍結標題列
-                  </button>
+                  <div className="px-3 py-1.5 text-[10px] font-medium text-text-muted uppercase tracking-wide">
+                    凍結窗格
+                  </div>
+                  <div className="border-t border-border-default mt-1 pt-1">
+                    <div className="px-3 py-1 text-[10px] text-text-muted">列</div>
+                    {([0, 1] as const).map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setFreezeRowCount(n);
+                          try {
+                            window.localStorage.setItem(FREEZE_ROW_STORAGE_KEY, String(n));
+                          } catch {
+                            // ignore
+                          }
+                          setViewDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                          freezeRowCount === n
+                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 font-medium'
+                            : 'text-text-primary hover:bg-bg-secondary'
+                        }`}
+                      >
+                        {n === 0 ? '不凍結列' : '凍結第 1 row'}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="border-t border-border-default mt-1 pt-1">
+                    <div className="px-3 py-1 text-[10px] text-text-muted">
+                      col（亦可拖曳凍結線）
+                    </div>
+                    <div className="max-h-[240px] overflow-y-auto">
+                      {[
+                        { n: 0, label: '不凍結col' },
+                        ...Array.from({ length: TABLE_COLUMN_COUNT }, (_, i) => ({
+                          n: i + 1,
+                          label:
+                            i === 0 ? '凍結第 1 col' : `凍結第 1 ~ ${i + 1} col`,
+                        })),
+                      ].map(({ n, label }) => (
+                        <button
+                          key={n}
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setFrozenColCount(n);
+                            try {
+                              window.localStorage.setItem(
+                                FROZEN_COL_STORAGE_KEY,
+                                String(n)
+                              );
+                            } catch {
+                              // ignore
+                            }
+                            setViewDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                            frozenColCount === n
+                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 font-medium'
+                              : 'text-text-primary hover:bg-bg-secondary'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -809,9 +1032,18 @@ export function ModelEvaluator({
                 <col key={i} style={{ width: w }} />
               ))}
             </colgroup>
-            <thead className={freezeHeader ? 'sticky top-0 z-10 bg-bg-tertiary' : undefined}>
+            <thead
+              className={
+                freezeRowCount > 0
+                  ? 'sticky top-0 z-10 border-b-4 border-gray-300 dark:border-gray-600 bg-bg-tertiary'
+                  : undefined
+              }
+            >
               <tr className="border-b border-border-subtle bg-bg-tertiary">
-                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top">
+                <th
+                  className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(0)}`}
+                  style={getFrozenThStyle(0)}
+                >
                   <span>已選</span>
                   <div
                     role="separator"
@@ -820,7 +1052,10 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top">
+                <th
+                  className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(1)}`}
+                  style={getFrozenThStyle(1)}
+                >
                   <span>公司名稱</span>
                   <div
                     role="separator"
@@ -829,7 +1064,10 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top">
+                <th
+                  className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(2)}`}
+                  style={getFrozenThStyle(2)}
+                >
                   <span>模型名稱與版本型號</span>
                   <div
                     role="separator"
@@ -838,8 +1076,11 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top">
-                  <span>模型分類</span>
+                <th
+                  className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(3)}`}
+                  style={getFrozenThStyle(3)}
+                >
+                  <span>模型分類與狀態</span>
                   <div
                     role="separator"
                     aria-label="調整欄寬"
@@ -847,16 +1088,10 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top">
-                  <span>狀態</span>
-                  <div
-                    role="separator"
-                    aria-label="調整欄寬"
-                    onMouseDown={handleResizeStart(4)}
-                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
-                  />
-                </th>
-                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top overflow-hidden">
+                <th
+                  className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top overflow-hidden ${getFrozenThClass(4)}`}
+                  style={getFrozenThStyle(4)}
+                >
                   <input
                     type="text"
                     value={promptColumnLabel}
@@ -875,12 +1110,27 @@ export function ModelEvaluator({
                   <div
                     role="separator"
                     aria-label="調整欄寬"
+                    onMouseDown={handleResizeStart(4)}
+                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
+                  />
+                </th>
+                <th
+                  className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(5)}`}
+                  style={getFrozenThStyle(5)}
+                >
+                  <span>prompt測試</span>
+                  <div
+                    role="separator"
+                    aria-label="調整欄寬"
                     onMouseDown={handleResizeStart(5)}
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top">
-                  <span>prompt測試</span>
+                <th
+                  className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(6)}`}
+                  style={getFrozenThStyle(6)}
+                >
+                  <span>Prompt output</span>
                   <div
                     role="separator"
                     aria-label="調整欄寬"
@@ -888,8 +1138,11 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top">
-                  <span>Prompt output</span>
+                <th
+                  className={`py-3 px-3 font-semibold text-text-secondary relative group border-r border-border-subtle align-top ${getFrozenThClass(7)}`}
+                  style={getFrozenThStyle(7)}
+                >
+                  <span>測試日期</span>
                   <div
                     role="separator"
                     aria-label="調整欄寬"
@@ -897,22 +1150,15 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                <th className="py-3 px-3 font-semibold text-text-secondary relative group border-r border-border-subtle align-top">
-                  <span>測試日期</span>
-                  <div
-                    role="separator"
-                    aria-label="調整欄寬"
-                    onMouseDown={handleResizeStart(8)}
-                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
-                  />
-                </th>
                 {FEATURE_MODULES.map((mod: FeatureModule, colIdx: number) => {
                   const Icon = MODULE_ICON_MAP[mod.icon] ?? Settings2;
                   const colors = MODULE_CATEGORY_COLORS[mod.category];
+                  const thColIdx = 8 + colIdx;
                   return (
                     <th
                       key={mod.key}
-                      className="py-2 px-2 font-semibold text-text-secondary border-r border-border-subtle last:border-r-0 relative group align-top min-w-[88px]"
+                      className={`py-2 px-2 font-semibold text-text-secondary border-r border-border-subtle last:border-r-0 relative group align-top min-w-[88px] ${getFrozenThClass(thColIdx)}`}
+                      style={getFrozenThStyle(thColIdx)}
                     >
                       <div className="flex flex-col gap-1">
                         <div className="flex items-start gap-1">
@@ -925,7 +1171,7 @@ export function ModelEvaluator({
                       <div
                         role="separator"
                         aria-label="調整欄寬"
-                        onMouseDown={handleResizeStart(9 + colIdx)}
+                        onMouseDown={handleResizeStart(8 + colIdx)}
                         className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                       />
                     </th>
@@ -933,7 +1179,10 @@ export function ModelEvaluator({
                 })}
               </tr>
               <tr className="border-b border-border-subtle bg-bg-tertiary" ref={filterDropdownRef}>
-                <th className="py-1.5 px-3 border-r border-border-subtle align-top">
+                <th
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top ${getFrozenThClass(0)}`}
+                  style={getFrozenThStyle(0)}
+                >
                   <div className="flex flex-col gap-1">
                     <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-medium text-text-secondary hover:text-text-primary">
                       <input
@@ -963,7 +1212,10 @@ export function ModelEvaluator({
                     </label>
                   </div>
                 </th>
-                <th className="py-1.5 px-3 border-r border-border-subtle align-top">
+                <th
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top ${getFrozenThClass(1)}`}
+                  style={getFrozenThStyle(1)}
+                >
                   <div className="flex flex-col gap-1">
                     <div className="relative">
                       <button
@@ -1006,109 +1258,85 @@ export function ModelEvaluator({
                     </div>
                   </div>
                 </th>
-                <th className="py-1.5 px-3 border-r border-border-subtle align-top text-left" />
-                <th className="py-1.5 px-3 border-r border-border-subtle align-top">
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setOpenFilterDropdown((v) => (v === 'category' ? null : 'category'))}
-                      className="w-full rounded border border-border-subtle bg-bg-primary px-2 py-1 text-xs text-left text-text-primary focus:outline-none focus:ring-1 focus:ring-accent min-w-0 flex items-center justify-between gap-1"
-                      title="依模型分類篩選（可複選）"
-                    >
-                      <span className="truncate">
-                        {filterCategories.length === 0
-                          ? '全部分類'
-                          : filterCategories.length === 1
-                            ? filterCategories[0] === 'unknown' ? '未知' : filterCategories[0]
-                            : `已選 ${filterCategories.length} 項`}
-                      </span>
-                      <span className="shrink-0 text-text-muted">▾</span>
-                    </button>
-                    {openFilterDropdown === 'category' && (
-                      <div className="absolute left-0 top-full z-10 mt-0.5 min-w-[100px] rounded border border-border-subtle bg-bg-primary py-1 shadow-lg">
-                        {[
-                          { value: 'VLM', label: 'VLM' },
-                          { value: 'LLM', label: 'LLM' },
-                          { value: 'unknown', label: '未知' },
-                        ].map(({ value, label }) => (
-                          <label
-                            key={value}
-                            className="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-bg-secondary"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={filterCategories.includes(value)}
-                              onChange={(e) => {
-                                setFilterCategories((prev) =>
-                                  e.target.checked ? [...prev, value] : prev.filter((x) => x !== value)
-                                );
-                              }}
-                              className="rounded border-border-subtle text-accent focus:ring-accent"
-                            />
-                            <span>{label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </th>
-                <th className="py-1.5 px-3 border-r border-border-subtle align-top">
+                <th
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top text-left ${getFrozenThClass(2)}`}
+                  style={getFrozenThStyle(2)}
+                />
+                <th
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top ${getFrozenThClass(3)}`}
+                  style={getFrozenThStyle(3)}
+                >
                   <div className="relative">
                     <button
                       type="button"
                       onClick={() => setOpenFilterDropdown((v) => (v === 'status' ? null : 'status'))}
-                      className="w-full rounded border border-border-subtle bg-bg-primary px-2 py-1 text-xs text-left text-text-primary focus:outline-none focus:ring-1 focus:ring-accent min-w-0 flex items-center justify-between gap-1"
-                      title="依狀態篩選（可複選）"
+                      className="rounded border border-border-subtle bg-bg-primary px-2 py-1 text-xs text-left text-text-primary focus:outline-none focus:ring-1 focus:ring-accent min-w-0 flex items-center justify-between gap-1"
+                      title="依分類與狀態篩選（可複選）"
                     >
                       <span className="truncate">
                         {filterStatuses.length === 0
-                          ? '全部狀態'
+                          ? '分類與狀態'
                           : filterStatuses.length === 1
-                            ? filterStatuses[0] === 'working'
-                              ? '可用'
-                              : filterStatuses[0] === 'not_working'
-                                ? '不可用'
-                                : '尚未測試'
-                            : `已選 ${filterStatuses.length} 項`}
+                            ? filterStatuses[0] === 'vlm_ok'
+                              ? 'VLM可用'
+                              : filterStatuses[0] === 'llm_ok'
+                                ? 'LLM可用'
+                                : filterStatuses[0] === 'working'
+                                  ? '通用模型可用'
+                                  : filterStatuses[0] === 'not_working'
+                                    ? '不可用'
+                                    : '尚未測試'
+                            : `分類與狀態 ${filterStatuses.length}`}
                       </span>
                       <span className="shrink-0 text-text-muted">▾</span>
                     </button>
                     {openFilterDropdown === 'status' && (
-                      <div className="absolute left-0 top-full z-10 mt-0.5 min-w-[100px] rounded border border-border-subtle bg-bg-primary py-1 shadow-lg">
-                        {[
-                          { value: 'working', label: '可用' },
-                          { value: 'not_working', label: '不可用' },
-                          { value: 'untested', label: '尚未測試' },
-                        ].map(({ value, label }) => (
-                          <label
-                            key={value}
-                            className="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-bg-secondary"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={filterStatuses.includes(value)}
-                              onChange={(e) => {
-                                setFilterStatuses((prev) =>
-                                  e.target.checked ? [...prev, value] : prev.filter((x) => x !== value)
-                                );
-                              }}
-                              className="rounded border-border-subtle text-accent focus:ring-accent"
-                            />
-                            <span>{label}</span>
-                          </label>
-                        ))}
+                      <div className="absolute left-0 top-full z-10 mt-0.5 min-w-[120px] rounded border border-border-subtle bg-bg-primary py-1 shadow-lg">
+                          {[
+                            { value: 'vlm_ok', label: 'VLM可用' },
+                            { value: 'llm_ok', label: 'LLM可用' },
+                            { value: 'working', label: '通用模型可用' },
+                            { value: 'not_working', label: '不可用' },
+                            { value: 'untested', label: '尚未測試' },
+                          ].map(({ value, label }) => (
+                            <label
+                              key={value}
+                              className="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-bg-secondary"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={filterStatuses.includes(value)}
+                                onChange={(e) => {
+                                  setFilterStatuses((prev) =>
+                                    e.target.checked ? [...prev, value] : prev.filter((x) => x !== value)
+                                  );
+                                }}
+                                className="rounded border-border-subtle text-accent focus:ring-accent"
+                              />
+                              <span>{label}</span>
+                            </label>
+                          ))}
                       </div>
                     )}
                   </div>
                 </th>
-                <th className="py-1.5 px-3 border-r border-border-subtle align-top text-left" />
-                <th className="py-1.5 px-3 border-r border-border-subtle align-top text-left" />
-                <th className="py-1.5 px-3 border-r border-border-subtle align-top text-left" />
                 <th
-                  className="py-1.5 px-3 border-r border-border-subtle align-top text-left"
-                  style={{ whiteSpace: 'nowrap' }}
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top text-left ${getFrozenThClass(4)}`}
+                  style={getFrozenThStyle(4)}
                 />
-                {FEATURE_MODULES.map((mod: FeatureModule) => {
+                <th
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top text-left ${getFrozenThClass(5)}`}
+                  style={getFrozenThStyle(5)}
+                />
+                <th
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top text-left ${getFrozenThClass(6)}`}
+                  style={getFrozenThStyle(6)}
+                />
+                <th
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top text-left ${getFrozenThClass(7)}`}
+                  style={{ whiteSpace: 'nowrap', ...getFrozenThStyle(7) }}
+                />
+                {FEATURE_MODULES.map((mod: FeatureModule, filterColIdx: number) => {
                   const state = moduleStates[mod.key];
                   const saving = moduleSavingSet.has(mod.key);
                   const assignedInFiltered = rowsAfterCategoryFilter.filter((r) =>
@@ -1117,10 +1345,12 @@ export function ModelEvaluator({
                   const allFilteredAssigned =
                     rowsAfterCategoryFilter.length > 0 && assignedInFiltered === rowsAfterCategoryFilter.length;
                   const someFilteredAssigned = assignedInFiltered > 0;
+                  const filterThColIdx = 8 + filterColIdx;
                   return (
                     <th
                       key={mod.key}
-                      className="py-1.5 px-2 border-r border-border-subtle last:border-r-0 align-top text-left"
+                      className={`py-1.5 px-2 border-r border-border-subtle last:border-r-0 align-top text-left ${getFrozenThClass(filterThColIdx)}`}
+                      style={getFrozenThStyle(filterThColIdx)}
                     >
                       {onSaveModule && (
                         <label
@@ -1164,7 +1394,10 @@ export function ModelEvaluator({
                       isSelected ? 'bg-accent/5' : 'bg-bg-primary hover:bg-bg-secondary'
                     }`}
                   >
-                    <td className="py-2.5 px-3 align-top border-r border-border-subtle">
+                    <td
+                      className={`py-2.5 px-3 align-top border-r border-border-subtle ${getFrozenTdClass(0)}`}
+                      style={getFrozenTdStyle(0)}
+                    >
                       <label className="flex items-center justify-center w-5 h-5 cursor-pointer">
                         <input
                           type="checkbox"
@@ -1197,69 +1430,98 @@ export function ModelEvaluator({
                         </div>
                       </label>
                     </td>
-                    <td className="py-2.5 px-3 text-text-primary border-r border-border-subtle align-top break-words">
+                    <td
+                      className={`py-2.5 px-3 text-text-primary border-r border-border-subtle align-top break-words ${getFrozenTdClass(1)}`}
+                      style={getFrozenTdStyle(1)}
+                    >
                       {providerName}
                     </td>
-                    <td className="py-2.5 px-3 border-r border-border-subtle overflow-hidden align-top">
+                    <td
+                      className={`py-2.5 px-3 border-r border-border-subtle overflow-hidden align-top ${getFrozenTdClass(2)}`}
+                      style={getFrozenTdStyle(2)}
+                    >
                       <div className="flex flex-col items-start min-w-0">
                         <span className="font-medium text-text-primary break-words">{modelName}</span>
                         <span className="mt-0.5 font-mono text-text-muted break-words">{modelId}</span>
                       </div>
                     </td>
-                    <td className="py-2.5 px-3 border-r border-border-subtle align-top">
+                    <td
+                      className={`py-2.5 px-3 border-r border-border-subtle align-top ${getFrozenTdClass(3)}`}
+                      style={getFrozenTdStyle(3)}
+                    >
                       {(() => {
                         const outputText = (outputByKey[key] ?? ev?.notes ?? '').trim();
                         const category = detectCategoryFromOutput(outputText);
-                        const label = category === 'unknown' ? '未知' : category;
+                        const categoryLabel = category === 'unknown' ? '未知' : category;
+                        if (!hasKey)
+                          return <span className="text-text-muted">—</span>;
+                        const status = getStatusDisplay(key, ev, testResultByKey, outputByKey);
+                        const title = `${categoryLabel} · ${status.title}`;
+                        const statusColorClass =
+                          status.type === 'vlm_ok' || status.type === 'working'
+                            ? 'text-green-400'
+                            : status.type === 'llm_ok'
+                              ? 'text-blue-400'
+                              : status.type === 'not_working'
+                                ? 'text-amber-500'
+                                : 'text-text-muted';
+                        const StatusIcon = status.type === 'not_working' ? XCircle : CheckCircle2;
+                        const isOpen = openStatusDropdownKey === key;
                         return (
-                          <span
-                            className="text-xs font-medium text-text-secondary"
-                            title="依本列 Prompt output 自動偵測：成功解析檔案→VLM，有回應但未解析→LLM"
+                          <div
+                            className="relative inline-block min-w-0"
+                            ref={(el) => {
+                              statusDropdownRefs.current[key] = el;
+                            }}
                           >
-                            {label}
-                          </span>
+                            <button
+                              type="button"
+                              onClick={() => setOpenStatusDropdownKey((k) => (k === key ? null : key))}
+                              className={`inline-flex items-center gap-1 rounded border border-transparent px-1 -mx-1 py-0.5 hover:border-border-subtle hover:bg-bg-secondary ${statusColorClass}`}
+                              title={`${title} · 點擊可手動修正`}
+                            >
+                              {status.type !== 'untested' && status.type !== 'not_working' ? (
+                                <StatusIcon size={12} aria-hidden />
+                              ) : status.type === 'not_working' ? (
+                                <XCircle size={12} aria-hidden />
+                              ) : null}
+                              <span className="truncate max-w-[140px]">
+                                {categoryLabel} · {status.label}
+                              </span>
+                              <ChevronDown
+                                size={12}
+                                className={`shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                                aria-hidden
+                              />
+                            </button>
+                            {isOpen && (
+                              <div
+                                className="absolute left-0 top-full z-20 mt-0.5 min-w-[160px] rounded border border-border-default bg-bg-primary py-1 shadow-lg"
+                                role="listbox"
+                                aria-label="手動設定模型狀態"
+                              >
+                                {STATUS_OVERRIDE_OPTIONS.map((opt) => (
+                                  <button
+                                    key={opt.value}
+                                    type="button"
+                                    role="option"
+                                    aria-selected={status.type === opt.value}
+                                    onClick={() => handleSaveStatusOverride(key, opt.value)}
+                                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-bg-secondary focus:bg-bg-secondary focus:outline-none"
+                                  >
+                                    {opt.label}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         );
                       })()}
                     </td>
-                    <td className="py-2.5 px-3 border-r border-border-subtle align-top">
-                      {(() => {
-                        const sessionResult = testResultByKey[key];
-                        if (sessionResult === true) {
-                          return (
-                            <span className="inline-flex items-center gap-1 text-green-400">
-                              <CheckCircle2 size={12} /> 可用
-                            </span>
-                          );
-                        }
-                        if (sessionResult === false) {
-                          return (
-                            <span className="inline-flex items-center gap-1 text-amber-500">
-                              <XCircle size={12} /> 不可用
-                            </span>
-                          );
-                        }
-                        if (ev?.is_working) {
-                          return (
-                            <span className="inline-flex items-center gap-1 text-green-400">
-                              <CheckCircle2 size={12} /> 可用
-                            </span>
-                          );
-                        }
-                        if (ev && !ev.is_working) {
-                          return (
-                            <span className="inline-flex items-center gap-1 text-amber-500">
-                              <XCircle size={12} /> 不可用
-                            </span>
-                          );
-                        }
-                        return (
-                          <span className="text-text-muted">
-                            {hasKey ? '未測試' : '—'}
-                          </span>
-                        );
-                      })()}
-                    </td>
-                    <td className="py-1.5 px-3 align-top max-w-[200px] border-r border-border-subtle">
+                    <td
+                      className={`py-1.5 px-3 align-top max-w-[200px] border-r border-border-subtle ${getFrozenTdClass(4)}`}
+                      style={getFrozenTdStyle(4)}
+                    >
                       <textarea
                         value={(rowPrompts[key]?.trim() ?? '') ? (rowPrompts[key] ?? '') : globalTestPrompt}
                         onChange={(e) =>
@@ -1271,7 +1533,10 @@ export function ModelEvaluator({
                         title="留空則使用上方全域 Prompt；填入後此列測試會使用此專屬 Prompt"
                       />
                     </td>
-                    <td className="py-2.5 px-3 border-r border-border-subtle align-top">
+                    <td
+                      className={`py-2.5 px-3 border-r border-border-subtle align-top ${getFrozenTdClass(5)}`}
+                      style={getFrozenTdStyle(5)}
+                    >
                       <Button
                         size="sm"
                         variant="ghost"
@@ -1286,7 +1551,10 @@ export function ModelEvaluator({
                         )}
                       </Button>
                     </td>
-                    <td className="py-2.5 px-3 align-top border-r border-border-subtle overflow-hidden min-w-0">
+                    <td
+                      className={`py-2.5 px-3 align-top border-r border-border-subtle overflow-hidden min-w-0 ${getFrozenTdClass(6)}`}
+                      style={getFrozenTdStyle(6)}
+                    >
                       {isTesting ? (
                         <span className="inline-flex items-center gap-1 text-text-muted">
                           <Loader2 size={12} className="animate-spin" /> 測試中…
@@ -1301,8 +1569,8 @@ export function ModelEvaluator({
                       )}
                     </td>
                     <td
-                      className="py-2.5 px-3 text-text-muted border-r border-border-subtle align-top text-left"
-                      style={{ whiteSpace: 'nowrap' }}
+                      className={`py-2.5 px-3 text-text-muted border-r border-border-subtle align-top text-left ${getFrozenTdClass(7)}`}
+                      style={{ whiteSpace: 'nowrap', ...getFrozenTdStyle(7) }}
                     >
                       {ev?.last_tested_at
                         ? new Date(ev.last_tested_at).toLocaleDateString('zh-TW', {
@@ -1313,16 +1581,18 @@ export function ModelEvaluator({
                           })
                         : '—'}
                     </td>
-                    {FEATURE_MODULES.map((mod: FeatureModule) => {
+                    {FEATURE_MODULES.map((mod: FeatureModule, tdColIdx: number) => {
                       const modState = moduleStates[mod.key];
                       const assign = modState?.assignments.find(
                         (a) => a.provider === providerId && a.model === modelId
                       );
                       const saving = moduleSavingSet.has(mod.key);
+                      const tdFrozenColIdx = 8 + tdColIdx;
                       return (
                         <td
                           key={mod.key}
-                          className="py-2 px-2 align-top text-left border-r border-border-subtle last:border-r-0"
+                          className={`py-2 px-2 align-top text-left border-r border-border-subtle last:border-r-0 ${getFrozenTdClass(tdFrozenColIdx)}`}
+                          style={getFrozenTdStyle(tdFrozenColIdx)}
                         >
                           {assign ? (
                             <div className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] bg-accent/10 text-accent border border-accent/20">

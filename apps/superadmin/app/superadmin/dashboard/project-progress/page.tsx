@@ -46,7 +46,7 @@ export default function ProjectProgressPage() {
   const allFeatures = ROADMAP_DATA.features;
 
   return (
-    <div className="space-y-4 h-[calc(100vh-100px)] flex flex-col">
+    <div className="space-y-4 flex-1 min-h-0 flex flex-col">
       {/* Header row: title left, stats compact top-right */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 flex-none">
         <div className="flex flex-col gap-1 min-w-0">
