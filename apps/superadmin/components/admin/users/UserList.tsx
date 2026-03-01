@@ -17,6 +17,7 @@ import {
   removeUserFromGroup,
   addRoleToUser,
   removeRoleFromUser,
+  updateUserDisplayName,
 } from '@/app/superadmin/users/actions';
 
 type GroupOption = { id: string; name: string };
@@ -36,6 +37,7 @@ export function UserList({
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({
     category: 140,
     email: 320,
+    displayName: 220,
     roles: 220,
     groups: 360,
     id: 200,
@@ -43,6 +45,8 @@ export function UserList({
   });
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [newRole, setNewRole] = useState('');
+  const [showDisplayNameModal, setShowDisplayNameModal] = useState(false);
+  const [editDisplayName, setEditDisplayName] = useState('');
 
   const handleAddGroup = async () => {
     if (!selectedUser || !selectedGroupId) return;
@@ -77,6 +81,25 @@ export function UserList({
       alert(result.message);
       return;
     }
+    window.location.reload();
+  };
+
+  const handleOpenDisplayNameModal = (user: IAMUser) => {
+    setSelectedUser(user);
+    setEditDisplayName(user.displayName ?? user.email ?? '');
+    setShowDisplayNameModal(true);
+  };
+
+  const handleSaveDisplayName = async () => {
+    if (!selectedUser || !editDisplayName.trim()) return;
+    const result = await updateUserDisplayName(selectedUser.id, editDisplayName.trim());
+    if (!result.success) {
+      alert(result.message);
+      return;
+    }
+    setShowDisplayNameModal(false);
+    setSelectedUser(null);
+    setEditDisplayName('');
     window.location.reload();
   };
 
@@ -143,6 +166,28 @@ export function UserList({
           <span className="font-medium text-text-primary">{info.getValue() as string}</span>
         </div>
       ),
+    },
+    {
+      id: 'displayName',
+      accessorKey: 'displayName',
+      header: 'Display Name',
+      cell: (info) => {
+        const user = info.row.original;
+        const name = user.displayName ?? user.email ?? '—';
+        return (
+          <div className="flex items-center gap-2">
+            <span className="text-text-primary">{name}</span>
+            <button
+              type="button"
+              onClick={() => handleOpenDisplayNameModal(user)}
+              className="p-1 hover:bg-bg-secondary rounded text-text-muted hover:text-accent text-xs"
+              title="Edit display name"
+            >
+              Edit
+            </button>
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'roles',
@@ -395,6 +440,44 @@ export function UserList({
                 className="px-4 py-2 bg-accent text-white hover:bg-accent-hover rounded-md disabled:opacity-50"
               >
                 Assign
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showDisplayNameModal && selectedUser && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+          <div className="bg-bg-secondary border border-border-default rounded-lg shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-bold text-text-primary mb-4">Edit Display Name</h3>
+            <p className="text-text-secondary mb-4 text-sm">
+              User: <span className="font-mono bg-bg-tertiary px-1 text-text-primary">{selectedUser.email}</span>
+            </p>
+            <label className="block text-sm font-medium text-text-secondary mb-2">Display Name</label>
+            <input
+              className="w-full border border-border-default rounded-md p-2 mb-6 bg-bg-primary text-text-primary placeholder-text-muted"
+              placeholder="e.g. Super_admin a0405"
+              value={editDisplayName}
+              onChange={(e) => setEditDisplayName(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDisplayNameModal(false);
+                  setSelectedUser(null);
+                  setEditDisplayName('');
+                }}
+                className="px-4 py-2 text-text-secondary hover:bg-bg-tertiary rounded-md"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveDisplayName}
+                disabled={!editDisplayName.trim()}
+                className="px-4 py-2 bg-accent text-white hover:bg-accent-hover rounded-md disabled:opacity-50"
+              >
+                Save
               </button>
             </div>
           </div>

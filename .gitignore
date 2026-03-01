@@ -23,7 +23,12 @@ __pycache__/
 .DS_Store
 .vscode/
 .idea/
-.claude/
+.claude/*
+!.claude/memory/
+!.claude/rules/
+!.claude/settings.json
+!.claude/.mcp.json
+!.claude/skills/
 *.swp
 *.swo
 *~

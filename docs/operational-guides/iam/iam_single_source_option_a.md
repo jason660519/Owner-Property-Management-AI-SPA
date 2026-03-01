@@ -41,7 +41,7 @@
 
 ### Phase 5：驗證與稽核
 
-- [x] **5.1** 回歸測試：房東/仲介/租客/買方/廠商/稽核等情境之 CRUD 與可見範圍符合權限矩陣。→ **已建立檢查表**：[IAM_OPTION_A_REGRESSION_CHECKLIST.md](./IAM_OPTION_A_REGRESSION_CHECKLIST.md)，可手動勾選或依此撰寫 E2E。
+- [x] **5.1** 回歸測試：房東/仲介/租客/買方/廠商/稽核等情境之 CRUD 與可見範圍符合權限矩陣。→ **已整合至綜合指南**：[ROLES_OPERATIONS_GUIDE.md](./ROLES_OPERATIONS_GUIDE.md) § 回歸測試檢查表，可手動勾選或依此撰寫 E2E。
 - [x] **5.2** Superadmin IAM 稽核：確認 `get_postgres_roles_count()` 僅用於報表。→ **已確認**：僅在 [apps/superadmin/app/api/iam/audit/route.ts](../../../apps/superadmin/app/api/iam/audit/route.ts) 用於 `stats.postgresPredefinedRolesCount` 顯示，未參與任何權限邏輯。
 
 ---

@@ -77,8 +77,8 @@ function formatRent(rent: number | null): string {
 
 const FREEZE_ROW_STORAGE_KEY = 'properties_list_freeze_row_v1';
 const FROZEN_COL_STORAGE_KEY = 'properties_list_frozen_col_count_v1';
-/** Pixel widths: 狀態, 物件名稱, 縣市, 區, 路/街, 門牌, 樓層, 單位, 物件類型, 價格, 面積, 格局, 車位數, 所有者, 建立日期, 操作 */
-const COLUMN_WIDTHS_PX = [90, 200, 88, 88, 130, 72, 52, 52, 92, 100, 72, 110, 64, 100, 92, 92];
+/** Pixel widths: 狀態, 物件名稱, 縣市, 區, 路/街, 門牌, 樓層, 單位, 物件類型, 價格, 總面積(坪), 格局, 車位數, 創建人, 所有權人, 操作, 建立日期, 下架日期 */
+const COLUMN_WIDTHS_PX = [90, 200, 88, 88, 130, 72, 52, 52, 92, 100, 72, 110, 64, 100, 100, 92, 92, 92];
 const PROPERTIES_COLUMN_COUNT = COLUMN_WIDTHS_PX.length;
 
 export function PropertiesList({ data: result }: { data: PropertiesResult }) {
@@ -104,7 +104,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
 
   // Table layout / view controls
   const [tableAlignH, setTableAlignH] = useState<TableHAlign>('left');
-  const [tableAlignV, setTableAlignV] = useState<TableVAlign>('middle');
+  const [tableAlignV, setTableAlignV] = useState<TableVAlign>('top');
   const [alignDropdownOpen, setAlignDropdownOpen] = useState(false);
   const [viewDropdownOpen, setViewDropdownOpen] = useState(false);
   const [freezeRowCount, setFreezeRowCount] = useState<0 | 1>(() => {
@@ -235,7 +235,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
       size: COLUMN_WIDTHS_PX[1],
       header: '物件名稱',
       cell: (info) => (
-        <span className="font-medium text-text-primary text-sm block min-w-[200px]">
+        <span className="font-medium text-text-primary text-sm block min-w-0 max-w-full break-words">
           {(info.getValue() as string) || '—'}
         </span>
       ),
@@ -264,7 +264,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
       ),
       enableSorting: true,
       cell: (info) => (
-        <span className="text-sm text-text-secondary whitespace-nowrap">{(info.getValue() as string) || '—'}</span>
+        <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
       ),
     },
     {
@@ -289,22 +289,22 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
       ),
       enableSorting: true,
       cell: (info) => (
-        <span className="text-sm text-text-secondary whitespace-nowrap">{(info.getValue() as string) || '—'}</span>
+        <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
       ),
     },
     { accessorKey: 'addressStreet', size: COLUMN_WIDTHS_PX[4], header: '路／街', cell: (info) => (
-        <span className="text-sm text-text-secondary block truncate max-w-[120px]" title={(info.getValue() as string) || ''}>
+        <span className="text-sm text-text-secondary block min-w-0 max-w-full break-words" title={(info.getValue() as string) || ''}>
           {(info.getValue() as string) || '—'}
         </span>
       ) },
     { accessorKey: 'addressNumber', size: COLUMN_WIDTHS_PX[5], header: '門牌', cell: (info) => (
-        <span className="text-sm text-text-secondary whitespace-nowrap">{(info.getValue() as string) || '—'}</span>
+        <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
       ) },
     { accessorKey: 'addressFloor', size: COLUMN_WIDTHS_PX[6], header: '樓層', cell: (info) => (
-        <span className="text-sm text-text-secondary whitespace-nowrap">{(info.getValue() as string) || '—'}</span>
+        <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
       ) },
     { accessorKey: 'addressUnit', size: COLUMN_WIDTHS_PX[7], header: '單位', cell: (info) => (
-        <span className="text-sm text-text-secondary whitespace-nowrap">{(info.getValue() as string) || '—'}</span>
+        <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
       ) },
     {
       accessorKey: 'propertyType',
@@ -393,7 +393,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
       cell: (info) => {
         const row = info.row.original;
         return (
-          <span className="text-sm font-medium text-text-primary whitespace-nowrap">
+          <span className="text-sm font-medium text-text-primary">
             {row.type === 'sale' ? formatPrice(row.price) : formatRent(row.monthlyRent)}
           </span>
         );
@@ -402,12 +402,15 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
     {
       accessorKey: 'area',
       size: COLUMN_WIDTHS_PX[10],
-      header: '面積',
+      header: '總面積(坪)',
       cell: (info) => {
-        const value = info.getValue() as number | null;
+        // details.area 存的是平方公尺 (m²)，換算為坪顯示：1 m² = 0.3025 坪
+        const areaSqm = info.getValue() as number | null;
+        if (areaSqm == null || areaSqm <= 0) return <span className="text-sm text-text-secondary">-</span>;
+        const ping = Number((areaSqm * 0.3025).toFixed(2));
         return (
-          <span className="text-sm text-text-secondary whitespace-nowrap">
-            {value ? `${value}坪` : '-'}
+          <span className="text-sm text-text-secondary">
+            {ping} 坪
           </span>
         );
       },
@@ -423,7 +426,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
         if (row.livingRooms) parts.push(`${row.livingRooms}廳`);
         if (row.bathrooms) parts.push(`${row.bathrooms}衛`);
         return (
-          <span className="text-sm text-text-secondary whitespace-nowrap">{parts.join(' / ') || '-'}</span>
+          <span className="text-sm text-text-secondary">{parts.join(' / ') || '-'}</span>
         );
       },
     },
@@ -441,21 +444,20 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
       },
     },
     {
-      accessorKey: 'ownerName',
+      id: 'creatorName',
+      accessorKey: 'creatorName',
       size: COLUMN_WIDTHS_PX[13],
-      header: '所有者',
+      header: '創建人',
       cell: (info) => (
-        <span className="text-sm text-text-secondary">{(info.getValue() as string) || '-'}</span>
+        <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
       ),
     },
     {
-      accessorKey: 'createdAt',
+      accessorKey: 'ownerName',
       size: COLUMN_WIDTHS_PX[14],
-      header: '建立日期',
+      header: '所有權人',
       cell: (info) => (
-        <span className="text-xs text-text-muted whitespace-nowrap">
-          {new Date(info.getValue() as string).toLocaleDateString('zh-TW')}
-        </span>
+        <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
       ),
     },
     {
@@ -485,6 +487,30 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
               {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
             </button>
           </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'createdAt',
+      size: COLUMN_WIDTHS_PX[16],
+      header: '建立日期',
+      cell: (info) => (
+        <span className="text-xs text-text-muted">
+          {new Date(info.getValue() as string).toLocaleDateString('zh-TW')}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'delistedAt',
+      size: COLUMN_WIDTHS_PX[17],
+      header: '下架日期',
+      cell: (info) => {
+        const val = info.getValue() as string | null | undefined;
+        if (!val) return <span className="text-xs text-text-muted">-</span>;
+        return (
+          <span className="text-xs text-text-muted">
+            {new Date(val).toLocaleDateString('zh-TW')}
+          </span>
         );
       },
     },
@@ -689,11 +715,12 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table: 內層需保留 overflow-auto + max-h，讓 thead 的 sticky 有正確的 scroll 祖先，View 凍結列才會生效 */}
+      {/* Cells: 靠左+靠上+自動換行，不穿透隔壁 — break-words + min-w-0 + overflow-hidden */}
       <div
-        className={`bg-bg-secondary border border-border-default rounded-lg overflow-hidden ${TABLE_H_ALIGN_CLASSES[tableAlignH]} ${TABLE_V_ALIGN_CLASSES[tableAlignV]}`}
+        className={`bg-bg-secondary border border-border-default rounded-lg overflow-hidden [&_th]:whitespace-normal [&_td]:whitespace-normal [&_th]:break-words [&_td]:break-words [&_th]:min-w-0 [&_td]:min-w-0 [&_th]:overflow-hidden [&_td]:overflow-hidden ${TABLE_H_ALIGN_CLASSES[tableAlignH]} ${TABLE_V_ALIGN_CLASSES[tableAlignV]}`}
       >
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[calc(100vh-280px)] min-h-[400px]">
           <table
             className="w-full text-left text-sm table-fixed"
             style={{

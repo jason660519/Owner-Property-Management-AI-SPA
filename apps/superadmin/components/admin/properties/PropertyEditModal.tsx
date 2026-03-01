@@ -177,7 +177,15 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
   const [monthlyRent, setMonthlyRent] = useState(property.monthlyRent ?? 0);
   const [leaseTerm, setLeaseTerm] = useState(12);
   const [propertyType, setPropertyType] = useState(property.propertyType ?? '');
-  const [area, setArea] = useState(property.area ?? 0);
+  // 面積用字串 state，允許清空後再輸入（Number('') 會變成 0 導致無法刪除 0）
+  const [areaInput, setAreaInput] = useState(
+    property.area != null ? String(property.area) : ''
+  );
+  const areaNum = (() => {
+    if (areaInput.trim() === '') return 0;
+    const n = Number(areaInput);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  })();
   const [bedrooms, setBedrooms] = useState(property.bedrooms ?? 0);
   const [bathrooms, setBathrooms] = useState(property.bathrooms ?? 0);
   const [livingRooms, setLivingRooms] = useState(property.livingRooms ?? 0);
@@ -212,7 +220,13 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
       addressUnit: addressUnit || undefined,
       status,
       propertyType: propertyType || undefined,
-      area: area || null,
+      area:
+        areaInput.trim() === ''
+          ? null
+          : (() => {
+              const n = Number(areaInput);
+              return Number.isFinite(n) && n >= 0 ? n : null;
+            })(),
       bedrooms: bedrooms || null,
       bathrooms: bathrooms || null,
       livingRooms: livingRooms || null,
@@ -494,35 +508,21 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
             </div>
           )}
 
-          {/* Row 4: Property type + Area */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1.5">
-                物件類型
-              </label>
-              <select
-                value={propertyType}
-                onChange={(e) => setPropertyType(e.target.value)}
-                className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
-              >
-                <option value="">請選擇物件類型</option>
-                {PROPERTY_TYPES.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1.5">
-                面積 (平方公尺)
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={area}
-                onChange={(e) => setArea(Number(e.target.value))}
-                className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
-              />
-            </div>
+          {/* Row 4: Property type */}
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1.5">
+              物件類型
+            </label>
+            <select
+              value={propertyType}
+              onChange={(e) => setPropertyType(e.target.value)}
+              className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
+            >
+              <option value="">請選擇物件類型</option>
+              {PROPERTY_TYPES.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
           </div>
 
           {/* Row 5: 格局 – 房/廳/衛/車位 */}
@@ -548,7 +548,35 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
             </div>
           </div>
 
-          {/* Row 5: Description */}
+          {/* Row 6: 總面積 (平方公尺) + 總坪數（自動換算 1 m² = 0.3025 坪） */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1.5">
+                總面積 (平方公尺)
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={areaInput}
+                onChange={(e) => setAreaInput(e.target.value)}
+                placeholder="0"
+                className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1.5">
+                總坪數
+              </label>
+              <div
+                className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-tertiary text-text-primary text-sm"
+                aria-live="polite"
+              >
+                {(areaNum * 0.3025).toFixed(2)} 坪
+              </div>
+            </div>
+          </div>
+
+          {/* Row 7: Description */}
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1.5">
               描述 <span className="text-text-muted font-normal">(留空則保留原有描述)</span>
@@ -564,7 +592,7 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
 
           {/* Info line */}
           <div className="text-xs text-text-muted">
-            所有者：{property.ownerName} &middot; 建立日期：
+            所有權人：{property.ownerName} &middot; 建立日期：
             {new Date(property.createdAt).toLocaleDateString('zh-TW')}
           </div>
           </>

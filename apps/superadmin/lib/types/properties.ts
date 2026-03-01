@@ -53,6 +53,8 @@ export interface PropertyItem {
   status: string;
   price: number | null;
   monthlyRent: number | null;
+  /** 創建人顯示名稱（若後端有 created_by 可填入） */
+  creatorName?: string | null;
   ownerName: string | null;
   ownerId: string;
   area: number | null;
@@ -62,6 +64,8 @@ export interface PropertyItem {
   livingRooms: number | null;
   parkingSpaces: number | null;
   createdAt: string;
+  /** 下架日期（可選，若 DB 有 delisted_at 再填入） */
+  delistedAt?: string | null;
 }
 
 export interface PropertiesResult {
