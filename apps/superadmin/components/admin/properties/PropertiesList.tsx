@@ -77,8 +77,8 @@ function formatRent(rent: number | null): string {
 
 const FREEZE_ROW_STORAGE_KEY = 'properties_list_freeze_row_v1';
 const FROZEN_COL_STORAGE_KEY = 'properties_list_frozen_col_count_v1';
-/** Pixel widths: 狀態, 物件名稱, 縣市, 區, 路/街, 門牌, 樓層, 單位, 物件類型, 價格, 總面積(坪), 格局, 車位數, 創建人, 所有權人, 操作, 建立日期, 下架日期 */
-const COLUMN_WIDTHS_PX = [90, 200, 88, 88, 130, 72, 52, 52, 92, 100, 72, 110, 64, 100, 100, 92, 92, 92];
+/** Pixel widths: 狀態, 物件名稱, 主照片小圖示, 縣市, 區, 路/街, 門牌, 樓層, 單位, 物件類型, 價格, 總面積(坪), 格局, 車位數, 創建人, 所有權人, 操作, 建立日期, 下架日期 */
+const COLUMN_WIDTHS_PX = [90, 200, 72, 88, 88, 130, 72, 52, 52, 92, 100, 72, 110, 64, 100, 100, 92, 92, 92];
 const PROPERTIES_COLUMN_COUNT = COLUMN_WIDTHS_PX.length;
 
 export function PropertiesList({ data: result }: { data: PropertiesResult }) {
@@ -241,8 +241,33 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
       ),
     },
     {
-      accessorKey: 'addressCity',
+      id: 'mainPhoto',
+      accessorKey: 'mainPhotoUrl',
       size: COLUMN_WIDTHS_PX[2],
+      header: '主照片小圖示',
+      enableSorting: false,
+      cell: (info) => {
+        const url = info.getValue() as string | null | undefined;
+        if (!url) {
+          return (
+            <span className="inline-flex items-center justify-center w-10 h-10 rounded bg-bg-tertiary text-text-muted text-xs" title="無主圖">
+              —
+            </span>
+          );
+        }
+        return (
+          <img
+            src={url}
+            alt="主圖"
+            className="w-10 h-10 rounded object-cover border border-border-default bg-bg-tertiary"
+            title="主照片"
+          />
+        );
+      },
+    },
+    {
+      accessorKey: 'addressCity',
+      size: COLUMN_WIDTHS_PX[3],
       header: () => (
         <div className="flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
           <span>縣市</span>
@@ -269,7 +294,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
     },
     {
       accessorKey: 'addressDistrict',
-      size: COLUMN_WIDTHS_PX[3],
+      size: COLUMN_WIDTHS_PX[4],
       header: () => (
         <div className="flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
           <span>區</span>
@@ -292,23 +317,23 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
         <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
       ),
     },
-    { accessorKey: 'addressStreet', size: COLUMN_WIDTHS_PX[4], header: '路／街', cell: (info) => (
+    { accessorKey: 'addressStreet', size: COLUMN_WIDTHS_PX[5], header: '路／街', cell: (info) => (
         <span className="text-sm text-text-secondary block min-w-0 max-w-full break-words" title={(info.getValue() as string) || ''}>
           {(info.getValue() as string) || '—'}
         </span>
       ) },
-    { accessorKey: 'addressNumber', size: COLUMN_WIDTHS_PX[5], header: '門牌', cell: (info) => (
+    { accessorKey: 'addressNumber', size: COLUMN_WIDTHS_PX[6], header: '門牌', cell: (info) => (
         <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
       ) },
-    { accessorKey: 'addressFloor', size: COLUMN_WIDTHS_PX[6], header: '樓層', cell: (info) => (
+    { accessorKey: 'addressFloor', size: COLUMN_WIDTHS_PX[7], header: '樓層', cell: (info) => (
         <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
       ) },
-    { accessorKey: 'addressUnit', size: COLUMN_WIDTHS_PX[7], header: '單位', cell: (info) => (
+    { accessorKey: 'addressUnit', size: COLUMN_WIDTHS_PX[8], header: '單位', cell: (info) => (
         <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
       ) },
     {
       accessorKey: 'propertyType',
-      size: COLUMN_WIDTHS_PX[8],
+      size: COLUMN_WIDTHS_PX[9],
       header: () => (
         <div className="flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
           <span>物件類型</span>
@@ -387,7 +412,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
     },
     {
       id: 'priceOrRent',
-      size: COLUMN_WIDTHS_PX[9],
+      size: COLUMN_WIDTHS_PX[10],
       header: '價格',
       accessorFn: (row) => row.price ?? row.monthlyRent ?? 0,
       cell: (info) => {
@@ -401,7 +426,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
     },
     {
       accessorKey: 'area',
-      size: COLUMN_WIDTHS_PX[10],
+      size: COLUMN_WIDTHS_PX[11],
       header: '總面積(坪)',
       cell: (info) => {
         // details.area 存的是平方公尺 (m²)，換算為坪顯示：1 m² = 0.3025 坪
@@ -417,7 +442,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
     },
     {
       id: 'specs',
-      size: COLUMN_WIDTHS_PX[11],
+      size: COLUMN_WIDTHS_PX[12],
       header: '格局',
       cell: (info) => {
         const row = info.row.original;
@@ -432,7 +457,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
     },
     {
       accessorKey: 'parkingSpaces',
-      size: COLUMN_WIDTHS_PX[12],
+      size: COLUMN_WIDTHS_PX[13],
       header: '車位數',
       cell: (info) => {
         const value = info.getValue() as number | null;
@@ -446,7 +471,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
     {
       id: 'creatorName',
       accessorKey: 'creatorName',
-      size: COLUMN_WIDTHS_PX[13],
+      size: COLUMN_WIDTHS_PX[14],
       header: '創建人',
       cell: (info) => (
         <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
@@ -454,7 +479,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
     },
     {
       accessorKey: 'ownerName',
-      size: COLUMN_WIDTHS_PX[14],
+      size: COLUMN_WIDTHS_PX[15],
       header: '所有權人',
       cell: (info) => (
         <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
@@ -462,7 +487,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
     },
     {
       id: 'actions',
-      size: COLUMN_WIDTHS_PX[15],
+      size: COLUMN_WIDTHS_PX[16],
       header: '操作',
       enableSorting: false,
       enableResizing: false,
@@ -492,7 +517,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
     },
     {
       accessorKey: 'createdAt',
-      size: COLUMN_WIDTHS_PX[16],
+      size: COLUMN_WIDTHS_PX[17],
       header: '建立日期',
       cell: (info) => (
         <span className="text-xs text-text-muted">
@@ -502,7 +527,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
     },
     {
       accessorKey: 'delistedAt',
-      size: COLUMN_WIDTHS_PX[17],
+      size: COLUMN_WIDTHS_PX[18],
       header: '下架日期',
       cell: (info) => {
         const val = info.getValue() as string | null | undefined;

@@ -66,6 +66,8 @@ export interface PropertyItem {
   createdAt: string;
   /** 下架日期（可選，若 DB 有 delisted_at 再填入） */
   delistedAt?: string | null;
+  /** 主照片 URL（用於列表縮圖，來自 details.imageUrl 或 property_photos 主圖） */
+  mainPhotoUrl?: string | null;
 }
 
 export interface PropertiesResult {

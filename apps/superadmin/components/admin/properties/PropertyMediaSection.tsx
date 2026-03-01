@@ -1,10 +1,10 @@
 // filepath: apps/superadmin/components/admin/properties/PropertyMediaSection.tsx
 // created: 2026-03-01 | creator: Claude Sonnet 4.6
-// Photo & document (謄本/權狀) upload + delete section used inside PropertyEditModal.
+// Photo & document (謄本／權狀／合約／部落格) upload + delete section used inside PropertyEditModal.
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Trash2, FileText, Star, ExternalLink, Loader2, Upload } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Trash2, FileText, Star, ExternalLink, Loader2, Upload, Brain, Copy, Download } from 'lucide-react';
 import {
   getPropertyPhotos,
   getPropertyDocuments,
@@ -13,27 +13,60 @@ import {
   deletePropertyPhoto,
   deletePropertyDocument,
 } from '@/lib/actions/properties';
+import { parseTranscriptWithAI } from '@/lib/actions/parse-transcript';
+import { useAISettings } from '@/lib/hooks/useAISettings';
 import type { PropertyPhotoItem, PropertyDocumentItem } from '@/lib/types/properties';
+import type { LandRegistryParsedResult } from '@/lib/types/transcript';
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   land_registry_transcript: '謄本',
   building_title: '建物權狀',
   land_title: '土地權狀',
+  lease_contract: '租約',
+  sales_contract: '買賣合約',
+  blog: '部落格',
 };
 
-type DocType = 'land_registry_transcript' | 'building_title' | 'land_title';
+export type DocumentSectionMode = 'photos' | 'transcript' | 'title' | 'contract' | 'blog';
+
+/** document_type 依分區：謄本 / 權狀(建物+土地) / 合約(租約+買賣) / 部落格 */
+const DOC_TYPES_BY_MODE: Record<Exclude<DocumentSectionMode, 'photos'>, string[]> = {
+  transcript: ['land_registry_transcript'],
+  title: ['building_title', 'land_title'],
+  contract: ['lease_contract', 'sales_contract'],
+  blog: ['blog'],
+};
+
+type DocType =
+  | 'land_registry_transcript'
+  | 'building_title'
+  | 'land_title'
+  | 'lease_contract'
+  | 'sales_contract'
+  | 'blog';
 
 interface Props {
   propertyId: string;
   propertyType: 'sale' | 'rental';
   ownerId: string;
   /** Which section to display. When omitted, renders both with internal tabs (legacy). */
-  mode?: 'photos' | 'documents';
+  mode?: DocumentSectionMode | 'documents';
 }
 
+const DEFAULT_DOC_TYPE_BY_MODE: Record<Exclude<DocumentSectionMode, 'photos'>, DocType> = {
+  transcript: 'land_registry_transcript',
+  title: 'building_title',
+  contract: 'lease_contract',
+  blog: 'blog',
+};
+
 export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }: Props) {
-  const [activeTab, setActiveTab] = useState<'photos' | 'documents'>(mode ?? 'photos');
-  const effectiveTab = mode ?? activeTab;
+  const [activeTab, setActiveTab] = useState<'photos' | 'documents'>(mode === 'photos' || !mode ? 'photos' : 'documents');
+  const isPhotoMode = mode === 'photos' || (!mode && activeTab === 'photos');
+  const isDocMode = mode === 'documents' || mode === 'transcript' || mode === 'title' || mode === 'contract' || mode === 'blog' || (!mode && activeTab === 'documents');
+  const docSectionMode: Exclude<DocumentSectionMode, 'photos'> | null = mode && mode !== 'photos' && mode !== 'documents' ? mode : null;
+  const effectiveTab = mode === 'photos' ? 'photos' : isDocMode ? 'documents' : (mode ?? activeTab);
+
   const [photos, setPhotos] = useState<PropertyPhotoItem[]>([]);
   const [documents, setDocuments] = useState<PropertyDocumentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,17 +74,42 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
     null
   );
 
+  // Document types allowed in current section (when docSectionMode is set)
+  const filteredDocuments = useMemo(() => {
+    if (!docSectionMode) return documents;
+    const allowed = DOC_TYPES_BY_MODE[docSectionMode];
+    return documents.filter((d) => allowed.includes(d.documentType));
+  }, [documents, docSectionMode]);
+  const defaultDocType = docSectionMode ? DEFAULT_DOC_TYPE_BY_MODE[docSectionMode] : 'land_registry_transcript';
+  const uploadDocTypeOptions: DocType[] = docSectionMode ? (DOC_TYPES_BY_MODE[docSectionMode] as DocType[]) : ['land_registry_transcript', 'building_title', 'land_title', 'lease_contract', 'sales_contract', 'blog'];
+
   // Photo upload state
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [isPrimary, setIsPrimary] = useState(false);
   const [isPhotoUploading, setIsPhotoUploading] = useState(false);
 
-  // Document upload state
+  // Document upload state (default by section when mode is transcript/title/contract/blog)
   const docInputRef = useRef<HTMLInputElement>(null);
   const [docFile, setDocFile] = useState<File | null>(null);
-  const [docType, setDocType] = useState<DocType>('land_registry_transcript');
+  const [docType, setDocType] = useState<DocType>(defaultDocType);
   const [isDocUploading, setIsDocUploading] = useState(false);
+
+  useEffect(() => {
+    if (docSectionMode) setDocType(DEFAULT_DOC_TYPE_BY_MODE[docSectionMode]);
+  }, [docSectionMode]);
+  const displayDocuments = docSectionMode ? filteredDocuments : documents;
+
+  // AI 解析謄本：僅在「文件」區顯示，且僅對謄本類型文件提供
+  const { userId: aiUserId } = useAISettings();
+  const transcriptDocs = useMemo(
+    () => displayDocuments.filter((d) => d.documentType === 'land_registry_transcript'),
+    [displayDocuments]
+  );
+  const [selectedTranscriptDocId, setSelectedTranscriptDocId] = useState<string>('');
+  const [isParsing, setIsParsing] = useState(false);
+  const [parseResult, setParseResult] = useState<LandRegistryParsedResult | null>(null);
+  const [parseError, setParseError] = useState<string | null>(null);
 
   // Load photos & documents on mount
   useEffect(() => {
@@ -127,10 +185,49 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
     }
   }
 
+  // 當謄本列表變更時，若目前選中的不在列表中則選第一筆
+  useEffect(() => {
+    if (transcriptDocs.length > 0 && !transcriptDocs.some((d) => d.id === selectedTranscriptDocId)) {
+      setSelectedTranscriptDocId(transcriptDocs[0].id);
+    }
+  }, [transcriptDocs, selectedTranscriptDocId]);
+
+  async function handleParseTranscript() {
+    if (!selectedTranscriptDocId || !aiUserId) return;
+    setIsParsing(true);
+    setParseError(null);
+    setParseResult(null);
+    const result = await parseTranscriptWithAI(selectedTranscriptDocId, aiUserId);
+    setIsParsing(false);
+    if (result.success) {
+      setParseResult(result.data);
+    } else {
+      setParseError(result.message);
+    }
+  }
+
+  function handleCopyParseResult() {
+    if (!parseResult) return;
+    const json = JSON.stringify(parseResult, null, 2);
+    void navigator.clipboard.writeText(json).then(() => showFeedback('success', '已複製到剪貼簿'));
+  }
+
+  function handleDownloadParseResult() {
+    if (!parseResult) return;
+    const json = JSON.stringify(parseResult, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `謄本解析_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="space-y-3">
-      {/* Internal tab headers – only rendered when no external mode is provided */}
-      {!mode && (
+      {/* Internal tab headers – only when parent does not pass mode (legacy combined view) */}
+      {mode === undefined && (
         <div className="sticky top-0 z-10 -mx-6 px-6 py-0 bg-bg-secondary border-b border-border-default flex gap-1">
           <button
             type="button"
@@ -152,7 +249,7 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
                 : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}
           >
-            文件（謄本/權狀）{documents.length > 0 ? ` (${documents.length})` : ''}
+            文件（謄本/權狀/合約/部落格）{documents.length > 0 ? ` (${documents.length})` : ''}
           </button>
         </div>
       )}
@@ -174,7 +271,7 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
         <div className="flex items-center gap-2 text-text-muted text-sm py-3">
           <Loader2 size={14} className="animate-spin" /> 載入中…
         </div>
-      ) : effectiveTab === 'photos' ? (
+      ) : isPhotoMode ? (
         /* ── Photos ── */
         <div className="space-y-4">
           {photos.length === 0 ? (
@@ -243,13 +340,13 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
           </div>
         </div>
       ) : (
-        /* ── Documents ── */
+        /* ── Documents (謄本／權狀／合約／部落格) ── */
         <div className="space-y-4">
-          {documents.length === 0 ? (
+          {displayDocuments.length === 0 ? (
             <p className="text-text-muted text-xs">尚無文件</p>
           ) : (
             <ul className="space-y-1.5">
-              {documents.map((doc) => (
+              {displayDocuments.map((doc) => (
                 <li
                   key={doc.id}
                   className="flex items-center gap-2 px-3 py-2 rounded-md bg-bg-tertiary border border-border-default"
@@ -295,9 +392,11 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
                 onChange={(e) => setDocType(e.target.value as DocType)}
                 className="w-full border border-border-default rounded-md px-2 py-1.5 bg-bg-primary text-text-primary text-xs focus:outline-none focus:border-accent"
               >
-                <option value="land_registry_transcript">謄本</option>
-                <option value="building_title">建物權狀</option>
-                <option value="land_title">土地權狀</option>
+                {uploadDocTypeOptions.map((t) => (
+                  <option key={t} value={t}>
+                    {DOC_TYPE_LABELS[t] ?? t}
+                  </option>
+                ))}
               </select>
             </div>
             <input
@@ -321,6 +420,82 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
               {isDocUploading ? '上傳中…' : '上傳文件'}
             </button>
           </div>
+
+          {/* AI 解析謄本：選擇已上傳的謄本，呼叫指定 AI 輸出 key-value JSON */}
+          {transcriptDocs.length > 0 && (
+            <div className="border border-dashed border-border-default rounded-md p-3 space-y-2.5">
+              <p className="text-xs font-medium text-text-secondary flex items-center gap-1.5">
+                <Brain size={14} className="text-accent" />
+                AI 解析謄本
+              </p>
+              <p className="text-xs text-text-muted">
+                選擇已上傳的謄本，由「雲端OCR謄本解析」指定之 AI 解析，輸出重要資訊 key-value JSON。
+              </p>
+              <div>
+                <label className="block text-xs text-text-muted mb-1">選擇謄本文件</label>
+                <select
+                  value={selectedTranscriptDocId}
+                  onChange={(e) => {
+                    setSelectedTranscriptDocId(e.target.value);
+                    setParseResult(null);
+                    setParseError(null);
+                  }}
+                  className="w-full border border-border-default rounded-md px-2 py-1.5 bg-bg-primary text-text-primary text-xs focus:outline-none focus:border-accent"
+                >
+                  <option value="">請選擇</option>
+                  {transcriptDocs.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.documentName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="button"
+                onClick={handleParseTranscript}
+                disabled={!selectedTranscriptDocId || isParsing}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-xs rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40"
+              >
+                {isParsing ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Brain size={12} />
+                )}
+                {isParsing ? '解析中…' : '解析謄本'}
+              </button>
+              {parseError && (
+                <p className="text-xs text-red-500 bg-red-500/10 border border-red-500/20 rounded px-2 py-1.5">
+                  {parseError}
+                </p>
+              )}
+              {parseResult && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-text-secondary">解析結果 (JSON)</span>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={handleCopyParseResult}
+                        className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-border-default hover:bg-bg-tertiary text-text-secondary"
+                      >
+                        <Copy size={12} /> 複製
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDownloadParseResult}
+                        className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-border-default hover:bg-bg-tertiary text-text-secondary"
+                      >
+                        <Download size={12} /> 下載 JSON
+                      </button>
+                    </div>
+                  </div>
+                  <pre className="text-xs bg-bg-tertiary border border-border-default rounded-md p-3 overflow-x-auto overflow-y-auto max-h-64 whitespace-pre-wrap break-words">
+                    {JSON.stringify(parseResult, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

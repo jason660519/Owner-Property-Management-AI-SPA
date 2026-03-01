@@ -158,7 +158,7 @@ interface PropertyEditModalProps {
 
 export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditModalProps) {
   const [isPending, startTransition] = useTransition();
-  const [activeTab, setActiveTab] = useState<'edit' | 'photos' | 'documents'>('edit');
+  const [activeTab, setActiveTab] = useState<'edit' | 'photos' | 'transcript' | 'title' | 'contract' | 'blog'>('edit');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null
   );
@@ -288,12 +288,15 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
         </div>
 
         {/* Tab bar – fixed below header, never scrolls */}
-        <div className="shrink-0 bg-bg-secondary border-b border-border-default px-6 flex gap-1">
-          {(['edit', 'photos', 'documents'] as const).map((tab) => {
+        <div className="shrink-0 bg-bg-secondary border-b border-border-default px-6 flex gap-1 flex-wrap">
+          {(['edit', 'photos', 'transcript', 'title', 'contract', 'blog'] as const).map((tab) => {
             const labels: Record<typeof tab, string> = {
               edit: '物件基本資訊',
               photos: '物件照片',
-              documents: '文件（謄本/權狀）',
+              transcript: '謄本',
+              title: '權狀',
+              contract: '合約',
+              blog: '部落格',
             };
             return (
               <button
@@ -327,8 +330,8 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
             </div>
           )}
 
-          {/* ── Photos / Documents tabs ── */}
-          {activeTab !== 'edit' && (
+          {/* ── Photos / Documents (謄本／權狀／合約／部落格) tabs ── */}
+          {(activeTab === 'photos' || activeTab === 'transcript' || activeTab === 'title' || activeTab === 'contract' || activeTab === 'blog') && (
             <PropertyMediaSection
               propertyId={property.id}
               propertyType={property.type}

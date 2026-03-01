@@ -45,7 +45,7 @@ export default async function SuperadminLayout({
       <DashboardHeader userRoles={userRoles} />
       <Sidebar accessibleHrefs={accessibleHrefs} />
       <div className="ml-16 pt-16 transition-all duration-300 ease-in-out h-screen flex flex-col min-w-0 overflow-hidden">
-        <main className="flex-1 min-h-0 flex flex-col p-6 overflow-hidden">
+        <main className="flex-1 min-h-0 flex flex-col p-6 overflow-y-auto overflow-x-hidden">
           {children}
         </main>
       </div>

@@ -292,9 +292,9 @@ export default function AIServiceSettingsPage() {
   const selectedModelCount = Math.min(selectedModelCountRaw, totalAvailableModels);
 
   const fixedBlock = (
-    <div className="max-w-7xl mx-auto px-6 py-4 bg-bg-secondary border-b border-border-subtle">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="mb-5 border-b border-border-subtle">
+    <div className="w-full px-4 lg:px-6 py-3 bg-bg-secondary border-b border-border-subtle">
+      <div className="w-full">
+        <div className="mb-3 border-b border-border-subtle">
           <div className="flex items-center justify-between gap-2 overflow-x-auto pb-2">
             <div className="flex gap-2 overflow-x-auto shrink-0">
               {TABS.map(tab => {
@@ -319,8 +319,8 @@ export default function AIServiceSettingsPage() {
             </div>
           </div>
         </div>
-        <div className="flex items-center justify-between">
-          <div className="flex flex-wrap items-center gap-2 gap-y-1">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2 gap-y-1 min-w-0">
             {React.createElement(currentTab.icon, { size: 18, className: 'text-accent shrink-0' })}
             <div className="min-w-0">
               <h2 className="text-sm font-semibold text-text-primary">{currentTab.label}</h2>
@@ -365,43 +365,6 @@ export default function AIServiceSettingsPage() {
                 )}
               </>
             )}
-            {activeTab === 'evaluations' && !settings.loading && (
-              <div className="flex flex-col gap-1 shrink-0 text-xs text-text-secondary">
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="inline-flex items-center gap-1.5 cursor-pointer text-sm text-text-secondary hover:text-text-primary rounded border border-border-subtle bg-bg-primary px-3 py-2">
-                    <Upload size={16} className="shrink-0" />
-                    <span>選擇檔案</span>
-                    <input
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.txt,.md"
-                      className="sr-only"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0] ?? null;
-                        setUploadedFile(f);
-                        if (e.target) e.target.value = '';
-                      }}
-                      title="上傳 PDF、圖片或文字檔"
-                    />
-                  </label>
-                  {uploadedFile && (
-                    <span
-                      className="text-sm text-text-muted truncate max-w-[160px]"
-                      title={uploadedFile.name}
-                    >
-                      {uploadedFile.name}
-                    </span>
-                  )}
-                  <textarea
-                    value={globalTestPrompt}
-                    onChange={(e) => setGlobalTestPrompt(e.target.value)}
-                    placeholder={`例如：${DEFAULT_EVALUATION_PROMPT}`}
-                    rows={2}
-                    className="rounded border border-border-subtle bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent resize-x min-h-[60px] min-w-[520px]"
-                    title="輸入任意 prompt，每列測試時會使用此內容"
-                  />
-                </div>
-              </div>
-            )}
           </div>
           {activeTab === 'keys' && (
             <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
@@ -438,31 +401,6 @@ export default function AIServiceSettingsPage() {
               </Button>
             </div>
           )}
-          {activeTab === 'evaluations' && !settings.loading && (
-            <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => modelEvaluatorHeaderActionsRef.current?.runBatchTest()}
-                isLoading={modelEvaluatorHeaderActionsRef.current?.batchTesting}
-                disabled={
-                  !modelEvaluatorHeaderActionsRef.current?.canBatchTest ||
-                  !!modelEvaluatorHeaderActionsRef.current?.batchTesting
-                }
-                title={
-                  modelEvaluatorHeaderActionsRef.current?.tooltip ??
-                  '對目前已選且具金鑰的模型並行測試'
-                }
-              >
-                {modelEvaluatorHeaderActionsRef.current?.batchTesting ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <FlaskConical size={14} />
-                )}
-                <span className="ml-1.5 whitespace-nowrap">全部測試</span>
-              </Button>
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -478,10 +416,68 @@ export default function AIServiceSettingsPage() {
         { label: 'Model and API key Settings' },
       ]}
       fixedContent={fixedBlock}
+      contentFullHeight
     >
-      <div className="w-full px-4 lg:px-6 py-3 lg:py-4">
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden w-full px-2 sm:px-4 lg:px-6 py-3 lg:py-4 min-w-0">
+          {activeTab === 'evaluations' && !settings.loading && (
+          <div className="mb-4 flex flex-wrap items-end gap-3 rounded-base border border-border-subtle bg-bg-secondary p-3 shadow-sm">
+            <label className="inline-flex items-center gap-1.5 cursor-pointer text-sm text-text-secondary hover:text-text-primary rounded border border-border-subtle bg-bg-primary px-3 py-2 shrink-0">
+              <Upload size={16} className="shrink-0" />
+              <span>選擇檔案</span>
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.txt,.md"
+                className="sr-only"
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null;
+                  setUploadedFile(f);
+                  if (e.target) (e.target as HTMLInputElement).value = '';
+                }}
+                title="上傳 PDF、圖片或文字檔"
+              />
+            </label>
+            {uploadedFile && (
+              <span className="text-sm text-text-muted truncate max-w-[160px]" title={uploadedFile.name}>
+                {uploadedFile.name}
+              </span>
+            )}
+            <div className="flex-1 min-w-0">
+              <textarea
+                value={globalTestPrompt}
+                onChange={(e) => setGlobalTestPrompt(e.target.value)}
+                placeholder={`例如：${DEFAULT_EVALUATION_PROMPT}`}
+                rows={2}
+                className="w-full rounded border border-border-subtle bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent resize-y min-h-[52px]"
+                title="輸入任意 prompt，每列測試時會使用此內容"
+              />
+            </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => modelEvaluatorHeaderActionsRef.current?.runBatchTest()}
+              isLoading={modelEvaluatorHeaderActionsRef.current?.batchTesting}
+              disabled={
+                !modelEvaluatorHeaderActionsRef.current?.canBatchTest ||
+                !!modelEvaluatorHeaderActionsRef.current?.batchTesting
+              }
+              title={
+                modelEvaluatorHeaderActionsRef.current?.tooltip ??
+                '對目前已選且具金鑰的模型並行測試'
+              }
+              className="shrink-0"
+            >
+              {modelEvaluatorHeaderActionsRef.current?.batchTesting ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <FlaskConical size={14} />
+              )}
+              <span className="ml-1.5 whitespace-nowrap">全部測試</span>
+            </Button>
+          </div>
+        )}
         <section className="space-y-4">
-          <div className="bg-bg-secondary border border-border-default rounded-base p-4 sm:p-5 shadow-sm">
+          <div className="bg-bg-secondary border border-border-default rounded-base p-4 sm:p-5 shadow-sm min-w-0">
             {renderContent()}
           </div>
         </section>
@@ -511,6 +507,7 @@ export default function AIServiceSettingsPage() {
             </div>
           </div>
         )}
+        </div>
       </div>
     </DashboardLayout>
   );

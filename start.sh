@@ -48,6 +48,8 @@ check_dependencies() {
 
 ensure_supabase_running() {
     echo -e "${BLUE}🐘 檢查 Supabase 狀態...${NC}"
+    # 確保本地 Storage 持久化目錄存在（config.toml objects_path 使用）
+    mkdir -p "$PROJECT_ROOT/supabase/storage-data/property-photos" "$PROJECT_ROOT/supabase/storage-data/property-documents"
     if docker ps --format '{{.Names}}' | grep -q "supabase_db_"; then
         echo -e "${GREEN}✅ Supabase 已在運行${NC}"
     else

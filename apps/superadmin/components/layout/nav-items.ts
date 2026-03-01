@@ -25,7 +25,7 @@ export interface NavItem {
 export const navItems: NavItem[] = [
   { name: 'Overview', href: '/superadmin', icon: Home },
   { name: 'IAM Management', href: '/superadmin/dashboard/iam-management', icon: Shield },
-  { name: 'Properties', href: '/superadmin/properties', icon: Building },
+  { name: 'Properties Management', href: '/superadmin/properties', icon: Building },
   { name: 'Leases', href: '/superadmin/leases', icon: FileText },
   { name: 'Database', href: '/superadmin/dashboard/supabase', icon: Database },
   { name: 'Storage', href: '/superadmin/dashboard/storage', icon: HardDrive },

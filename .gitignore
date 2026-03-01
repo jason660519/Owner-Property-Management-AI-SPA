@@ -93,6 +93,12 @@ plane-selfhost/
 *.sqlite
 *.sqlite3
 
+# Supabase 本地 Storage 實際檔案（持久化目錄，不提交上傳內容）
+supabase/storage-data/
+
+# 備份產出（scripts/backup-supabase.sh）
+backups/
+
 # ============================================
 # Large Files (exceeds GitHub 100MB limit)
 # ============================================

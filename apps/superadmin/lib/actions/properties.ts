@@ -111,6 +111,10 @@ export async function getAllProperties(): Promise<PropertiesResult> {
         livingRooms: (details.livingRooms as number | null) ?? null,
         parkingSpaces: (details.parkingSpaces as number | null) ?? null,
         createdAt: s.created_at,
+        mainPhotoUrl:
+          (details.imageUrl as string) ||
+          (Array.isArray(details.images) && (details.images[0] as string)) ||
+          null,
       };
     });
 
@@ -141,6 +145,10 @@ export async function getAllProperties(): Promise<PropertiesResult> {
         livingRooms: (details.livingRooms as number | null) ?? null,
         parkingSpaces: (details.parkingSpaces as number | null) ?? null,
         createdAt: r.created_at,
+        mainPhotoUrl:
+          (details.imageUrl as string) ||
+          (Array.isArray(details.images) && (details.images[0] as string)) ||
+          null,
       };
     });
 
@@ -417,12 +425,21 @@ export async function uploadPropertyPhoto(
   return { success: true, message: '照片已上傳', storagePath: uploadData.path };
 }
 
-/** 上傳物件文件（謄本或權狀）；formData 需含 file (File)，documentType: 'land_registry_transcript' | 'building_title' | 'land_title' */
+const DOC_TYPE_NAME: Record<string, string> = {
+  land_registry_transcript: '謄本',
+  building_title: '建物權狀',
+  land_title: '土地權狀',
+  lease_contract: '租約',
+  sales_contract: '買賣合約',
+  blog: '部落格',
+};
+
+/** 上傳物件文件（謄本／權狀／合約／部落格）；formData 需含 file (File) */
 export async function uploadPropertyDocument(
   propertyId: string,
   propertyType: 'sale' | 'rental',
   ownerId: string,
-  documentType: 'land_registry_transcript' | 'building_title' | 'land_title',
+  documentType: 'land_registry_transcript' | 'building_title' | 'land_title' | 'lease_contract' | 'sales_contract' | 'blog',
   formData: FormData
 ): Promise<ActionResult> {
   const file = formData.get('file');
@@ -450,7 +467,7 @@ export async function uploadPropertyDocument(
   }
 
   const docType = propertyType === 'sale' ? 'sales' : 'rentals';
-  const documentName = documentType === 'land_registry_transcript' ? '謄本' : documentType === 'building_title' ? '建物權狀' : '土地權狀';
+  const documentName = DOC_TYPE_NAME[documentType] ?? documentType;
   const { error: insertError } = await adminClient.from('property_documents').insert({
     property_id: propertyId,
     property_type: docType,

@@ -22,7 +22,7 @@ describe('Sidebar Component', () => {
       'Overview',
       'User Management',
       'Group Management',
-      'Properties',
+      'Properties Management',
       'Leases',
       'Database',
       'Storage',

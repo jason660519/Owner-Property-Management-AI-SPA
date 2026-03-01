@@ -314,12 +314,12 @@ export function ModelEvaluator({
 
   // ─────────────────────────────────────────────────────────────────────────
 
-  /** 依公司篩選：空陣列 = 全部，否則為勾選的 providerId 列表；預設 Anthropic + Google */
-  const [filterProviderIds, setFilterProviderIds] = useState<string[]>(['anthropic', 'gemini']);
-  /** 依狀態篩選：空陣列 = 全部，否則為勾選的 working / not_working / untested；預設可用 */
-  const [filterStatuses, setFilterStatuses] = useState<string[]>(['working']);
-  /** 依模型分類篩選：空陣列 = 全部，否則為勾選的 VLM / LLM / unknown；預設 VLM */
-  const [filterCategories, setFilterCategories] = useState<string[]>(['VLM']);
+  /** 依公司篩選：空陣列 = 全部，否則為勾選的 providerId 列表；預設全部公司以利「全選」可用 */
+  const [filterProviderIds, setFilterProviderIds] = useState<string[]>([]);
+  /** 依狀態篩選：空陣列 = 全部，否則為勾選的 working / not_working / untested；預設全部以利「全選」可用 */
+  const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  /** 依模型分類篩選：空陣列 = 全部，否則為勾選的 VLM / LLM / unknown；預設全部以利「全選」可用 */
+  const [filterCategories, setFilterCategories] = useState<string[]>([]);
   /** 哪一個篩選下拉已展開（點擊外側會關閉） */
   const [openFilterDropdown, setOpenFilterDropdown] = useState<'provider' | 'status' | 'category' | null>(null);
   const filterDropdownRef = useRef<HTMLTableRowElement | null>(null);

@@ -105,12 +105,19 @@ enabled = true
 # The maximum file size allowed (e.g. "5MB", "500KB").
 file_size_limit = "50MiB"
 
-# Uncomment to configure local storage buckets
-# [storage.buckets.images]
-# public = false
-# file_size_limit = "50MiB"
-# allowed_mime_types = ["image/png", "image/jpeg"]
-# objects_path = "./images"
+# Local persistence: 物件照片、文件儲存於專案目錄，重啟 IDE / start.sh 後仍保留
+# 路徑相對 supabase/，實際目錄為 supabase/storage-data/*
+[storage.buckets.property-photos]
+public = true
+file_size_limit = "10MiB"
+allowed_mime_types = ["image/jpeg", "image/jpg", "image/png", "image/webp"]
+objects_path = "./storage-data/property-photos"
+
+[storage.buckets.property-documents]
+public = true
+file_size_limit = "20MiB"
+allowed_mime_types = ["application/pdf", "image/jpeg", "image/jpg", "image/png", "image/webp"]
+objects_path = "./storage-data/property-documents"
 
 # Allow connections via S3 compatible clients
 [storage.s3_protocol]
