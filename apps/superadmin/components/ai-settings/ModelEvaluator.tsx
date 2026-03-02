@@ -7,6 +7,10 @@ import { AI_PROVIDERS, FEATURE_MODULES } from '@/lib/ai-providers';
 import type { FeatureModule } from '@/lib/ai-providers';
 import type { SavedKey, SavedModel, ModelEvaluation, KeyValidationResult, SavedModule, AssignedModel, DisplayStatusOverride } from '@/lib/hooks/useAISettings';
 import { getAvailableModelsList } from '@/lib/utils/total-available-models';
+import { readSessionStorage, writeSessionStorage } from '@/lib/utils/storage-state';
+
+const SS_FILTER_STATUSES  = 'ai-eval-filter:statuses';
+const SS_FILTER_PROVIDERS = 'ai-eval-filter:providerIds';
 
 const MODULE_ICON_MAP: Record<string, React.ElementType> = {
   cloud: Cloud, 'hard-drive': Settings2, 'message-circle': MessageCircle,
@@ -81,6 +85,95 @@ const TABLE_V_ALIGN_CLASSES: Record<TableVAlign, string> = {
   middle: '[&_th]:align-middle [&_td]:align-middle',
   bottom: '[&_th]:align-bottom [&_td]:align-bottom',
 };
+
+/** 模組排序欄位顯示用：類型代碼（例 OCR-001） */
+const MODULE_SORT_LABEL: Record<string, string> = {
+  online_ocr: 'OCR',
+  online_ocr_parse: 'OCP',
+  online_ocr_judge: 'OCJ',
+  web_assistant: 'WAS',
+  contract_assistant: 'CAS',
+  blog_generator: 'GEN',
+  ad_generator: 'AD',
+  software_dev_engineer: 'SDE',
+  ttd_engineer: 'TTD',
+};
+
+/**
+ * 對每個功能模組，預先計算「理論上允許綁定」的 provider::model 清單，
+ * 例如 online_ocr 只接受具備 vision 能力的模型。
+ */
+const MODULE_ELIGIBLE_KEYS: Record<string, Set<string>> = (() => {
+  const result: Record<string, Set<string>> = {};
+  for (const mod of FEATURE_MODULES) {
+    const needed = (mod.requiredCapabilities ?? []) as string[];
+    const keySet = new Set<string>();
+    // 沒有特別需求時，不強制限制（保留舊資料）
+    if (needed.length === 0) {
+      result[mod.key] = keySet;
+      continue;
+    }
+    for (const provider of AI_PROVIDERS) {
+      for (const model of provider.models) {
+        const caps = model.capabilities ?? [];
+        if (needed.every((cap) => caps.includes(cap))) {
+          keySet.add(`${provider.id}::${model.id}`);
+        }
+      }
+    }
+    result[mod.key] = keySet;
+  }
+  return result;
+})();
+
+/**
+ * Normalize priorities for a module's assigned models so they are always 1..N.
+ * Any missing/invalid priority is treated as lowest priority; ties are broken
+ * deterministically by provider+model to keep ordering stable.
+ */
+function normalizeAssignments(assignments: AssignedModel[]): AssignedModel[] {
+  if (assignments.length === 0) return [];
+  const copied = [...assignments];
+  copied.sort((a, b) => {
+    const pa = typeof a.priority === 'number' && a.priority >= 1 ? a.priority : Number.MAX_SAFE_INTEGER;
+    const pb = typeof b.priority === 'number' && b.priority >= 1 ? b.priority : Number.MAX_SAFE_INTEGER;
+    if (pa !== pb) return pa - pb;
+    const ak = `${a.provider}::${a.model}`;
+    const bk = `${b.provider}::${b.model}`;
+    return ak.localeCompare(bk);
+  });
+  return copied.map((a, index) => ({ ...a, priority: index + 1 }));
+}
+
+/**
+ * Reorder a single assignment to the requested priority, shifting others and
+ * keeping priorities normalized to 1..N.
+ */
+function reorderAssignment(
+  assignments: AssignedModel[],
+  providerId: string,
+  modelId: string,
+  requestedPriority: number,
+): AssignedModel[] {
+  if (assignments.length === 0) return assignments;
+
+  // Always operate on a normalized copy so priorities are consecutive.
+  const list = normalizeAssignments(assignments);
+
+  const fromIndex = list.findIndex(
+    (a) => a.provider === providerId && a.model === modelId,
+  );
+  if (fromIndex === -1) return list;
+
+  const maxIndex = list.length - 1;
+  const toIndex = Math.min(Math.max(requestedPriority - 1, 0), maxIndex);
+  if (fromIndex === toIndex) return list;
+
+  const [target] = list.splice(fromIndex, 1);
+  list.splice(toIndex, 0, target);
+
+  return normalizeAssignments(list);
+}
 
 /** Closes a dropdown when clicking outside its ref element or pressing Escape. */
 function useClickOutsideClose(
@@ -207,8 +300,8 @@ export function ModelEvaluator({
   summaryTotalCount,
   headerActionsRef,
 }: ModelEvaluatorProps) {
-  /** 與表格內每列 Prompt 欄位同步的預設文字（未編輯時顯示同一內容） */
-  const DEFAULT_TEST_PROMPT = '請根據我提供的文件資料，解析並轉換成結構化 JSON（謄本資訊／建物標示部／建物所有權部）';
+  /** 表格內每列使用「全域 Prompt」時的變量，僅顯示此短字串不重複儲存/渲染長內容，省記憶體 */
+  const DEFAULT_PROMPT_PLACEHOLDER = '{預設prompt}';
   /** 表頭「Prompt input」欄位名稱，使用者可自訂；從 localStorage 還原避免重繪後遺失 */
   const STORAGE_KEY_PROMPT_COLUMN_LABEL = 'superadmin-model-evaluator-prompt-column-label';
   const STORAGE_KEY_COLUMN_WIDTHS = 'superadmin-model-evaluator-column-widths';
@@ -385,26 +478,50 @@ export function ModelEvaluator({
 
   // ── Feature module state (integrated from #modules) ──────────────────────
   interface ModuleRowState { isEnabled: boolean; assignments: AssignedModel[] }
-  const [moduleStates, setModuleStates] = useState<Record<string, ModuleRowState>>(() => {
-    const init: Record<string, ModuleRowState> = {};
-    for (const mod of FEATURE_MODULES) {
-      const saved = savedModules.find((s) => s.module_key === mod.key);
-      init[mod.key] = {
-        isEnabled: saved?.is_enabled ?? false,
-        assignments: Array.isArray(saved?.assigned_models) ? [...saved.assigned_models] : [],
-      };
-    }
-    return init;
-  });
+  /** 從 saved 建出 state，並將 priority 正規化為 1,2,3…（避免後端存成 100 或 173 等歷史值） */
+  const buildModuleStatesFromSaved = useCallback(
+    (modules: typeof savedModules): Record<string, ModuleRowState> => {
+      const init: Record<string, ModuleRowState> = {};
+      for (const mod of FEATURE_MODULES) {
+        const saved = modules.find((s) => s.module_key === mod.key);
+        // Trust what's persisted in DB; do not filter by static capability list here,
+        // as that would silently strip user-assigned models after every save.
+        const raw: AssignedModel[] = Array.isArray(saved?.assigned_models)
+          ? saved.assigned_models
+          : [];
+        const assignments = normalizeAssignments(raw);
+        init[mod.key] = {
+          isEnabled: saved?.is_enabled ?? false,
+          assignments,
+        };
+      }
+      return init;
+    },
+    [],
+  );
+  const [moduleStates, setModuleStates] = useState<Record<string, ModuleRowState>>(() =>
+    buildModuleStatesFromSaved(savedModules)
+  );
   const [moduleSavingSet, setModuleSavingSet] = useState<Set<string>>(new Set());
+  // savedModules 晚載入（API 回傳）時重新同步並正規化，否則會一直顯示 100；依內容變更才同步，避免父層 re-render 就覆寫
+  const savedModulesSignature = useMemo(
+    () =>
+      JSON.stringify(
+        (savedModules ?? []).map((m) => ({
+          key: m.module_key,
+          enabled: m.is_enabled,
+          count: m.assigned_models?.length ?? 0,
+          priorities: (m.assigned_models ?? []).map((a) => a.priority ?? 0),
+        })),
+      ),
+    [savedModules],
+  );
+  useEffect(() => {
+    setModuleStates(buildModuleStatesFromSaved(savedModules));
+  }, [savedModulesSignature, savedModules, buildModuleStatesFromSaved]);
 
   const markModuleSaving = useCallback((key: string, on: boolean) => {
     setModuleSavingSet((prev) => { const s = new Set(prev); on ? s.add(key) : s.delete(key); return s; });
-  }, []);
-
-  const getModuleNextPriority = useCallback((assignments: AssignedModel[]) => {
-    if (assignments.length === 0) return 1;
-    return Math.min(Math.max(...assignments.map((a) => a.priority ?? 0)) + 1, 100);
   }, []);
 
   const handleToggleModuleEnabled = useCallback(async (moduleKey: string) => {
@@ -422,25 +539,35 @@ export function ModelEvaluator({
   ) => {
     if (!onSaveModule) return;
     const cur = moduleStates[moduleKey];
-    const exists = cur.assignments.some((a) => a.provider === providerId && a.model === modelId);
-    const next = exists
-      ? cur.assignments.filter((a) => !(a.provider === providerId && a.model === modelId))
-      : [...cur.assignments, { provider: providerId, model: modelId, priority: getModuleNextPriority(cur.assignments) }];
+    const idx = cur.assignments.findIndex(
+      (a) => a.provider === providerId && a.model === modelId,
+    );
+    let next: AssignedModel[];
+    if (idx >= 0) {
+      // Unassign: 移除後重新正規化 priority 為 1..N
+      const remaining = cur.assignments.filter((_, i) => i !== idx);
+      next = normalizeAssignments(remaining);
+    } else {
+      // Assign: 附加在列表尾端，再統一正規化
+      const appended: AssignedModel[] = [
+        ...cur.assignments,
+        { provider: providerId, model: modelId, priority: cur.assignments.length + 1 },
+      ];
+      next = normalizeAssignments(appended);
+    }
     setModuleStates((p) => ({ ...p, [moduleKey]: { ...p[moduleKey], assignments: next } }));
     markModuleSaving(moduleKey, true);
     try { await onSaveModule(moduleKey, cur.isEnabled, next); }
     finally { markModuleSaving(moduleKey, false); }
-  }, [moduleStates, onSaveModule, markModuleSaving, getModuleNextPriority]);
+  }, [moduleStates, onSaveModule, markModuleSaving]);
 
   const handleModulePriorityChange = useCallback(async (
     moduleKey: string, providerId: string, modelId: string, newPriority: number
   ) => {
     if (!onSaveModule) return;
     const cur = moduleStates[moduleKey];
-    const num = Math.max(1, Math.min(100, Math.round(newPriority)));
-    const next = cur.assignments.map((a) =>
-      a.provider === providerId && a.model === modelId ? { ...a, priority: num } : a
-    );
+    const next = reorderAssignment(cur.assignments, providerId, modelId, newPriority);
+
     setModuleStates((p) => ({ ...p, [moduleKey]: { ...p[moduleKey], assignments: next } }));
     markModuleSaving(moduleKey, true);
     try { await onSaveModule(moduleKey, cur.isEnabled, next); }
@@ -450,11 +577,23 @@ export function ModelEvaluator({
   // ─────────────────────────────────────────────────────────────────────────
 
   /** 依公司篩選：空陣列 = 全部，否則為勾選的 providerId 列表；預設全部公司以利「全選」可用 */
-  const [filterProviderIds, setFilterProviderIds] = useState<string[]>([]);
+  const [filterProviderIds, setFilterProviderIds] = useState<string[]>(
+    () => readSessionStorage<string[]>(SS_FILTER_PROVIDERS, [])
+  );
   /** 依狀態篩選：空陣列 = 全部，否則為勾選的 working / not_working / untested；預設全部以利「全選」可用 */
-  const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  const [filterStatuses, setFilterStatuses] = useState<string[]>(
+    () => readSessionStorage<string[]>(SS_FILTER_STATUSES, [])
+  );
   /** 依模型分類篩選：空陣列 = 全部，否則為勾選的 VLM / LLM / unknown；預設全部以利「全選」可用 */
   const [filterCategories, setFilterCategories] = useState<string[]>([]);
+  // ── Persist filter state to sessionStorage on change ─────────────────────
+  useEffect(() => {
+    writeSessionStorage(SS_FILTER_STATUSES, filterStatuses);
+  }, [filterStatuses]);
+  useEffect(() => {
+    writeSessionStorage(SS_FILTER_PROVIDERS, filterProviderIds);
+  }, [filterProviderIds]);
+  // ─────────────────────────────────────────────────────────────────────────
   /** 哪一個篩選下拉已展開（點擊外側會關閉） */
   const [openFilterDropdown, setOpenFilterDropdown] = useState<'provider' | 'status' | 'category' | null>(null);
   const filterDropdownRef = useRef<HTMLTableRowElement | null>(null);
@@ -572,34 +711,63 @@ export function ModelEvaluator({
     return Array.from(seen.entries()).sort((a, b) => a[1].localeCompare(b[1]));
   }, [allRows]);
 
-  /** 模組欄「全選」：將目前篩選列全部加入/移出該模組 */
-  const handleModuleSelectAllFiltered = useCallback(async (moduleKey: string, checked: boolean) => {
-    if (!onSaveModule) return;
-    const cur = moduleStates[moduleKey];
-    const filterSet = new Set(rowsAfterCategoryFilter.map((r) => `${r.providerId}::${r.modelId}`));
-    let next: AssignedModel[];
-    if (checked) {
-      const existingSet = new Set(cur.assignments.map((a) => `${a.provider}::${a.model}`));
-      const toAdd = rowsAfterCategoryFilter.filter((r) => !existingSet.has(`${r.providerId}::${r.modelId}`));
-      next = [...cur.assignments];
-      for (const r of toAdd) {
-        next.push({
-          provider: r.providerId,
-          model: r.modelId,
-          priority: getModuleNextPriority(next),
-        });
+  /**
+   * 模組欄「全選」：將目前篩選列全部加入/移出該模組。
+   * `targetRowKeys` 會在呼叫端先依目前可見列與模組適用性過濾，
+   * 若未提供則 fallback 為所有 rowsAfterCategoryFilter。
+   */
+  const handleModuleSelectAllFiltered = useCallback(
+    async (moduleKey: string, checked: boolean, targetRowKeys?: string[]) => {
+      if (!onSaveModule) return;
+      const cur = moduleStates[moduleKey];
+      if (!cur) return;
+
+      const effectiveKeys =
+        targetRowKeys && targetRowKeys.length > 0
+          ? targetRowKeys
+          : rowsAfterCategoryFilter.map((r) => `${r.providerId}::${r.modelId}`);
+
+      if (effectiveKeys.length === 0) return;
+
+      const filterSet = new Set(effectiveKeys);
+      let next: AssignedModel[];
+
+      if (checked) {
+        const existingSet = new Set(cur.assignments.map((a) => `${a.provider}::${a.model}`));
+        const toAddKeys = effectiveKeys.filter((key) => !existingSet.has(key));
+        const toAdd: AssignedModel[] = toAddKeys
+          .map((key) => {
+            const [providerId, modelId] = key.split('::');
+            if (!providerId || !modelId) return null;
+            return {
+              provider: providerId,
+              model: modelId,
+              // 具體數值會在 normalizeAssignments 中重新編號
+              priority: cur.assignments.length + 1,
+            } as AssignedModel;
+          })
+          .filter((v): v is AssignedModel => v !== null);
+
+        if (toAdd.length === 0) return;
+
+        next = normalizeAssignments([...cur.assignments, ...toAdd]);
+      } else {
+        const remaining = cur.assignments.filter(
+          (a) => !filterSet.has(`${a.provider}::${a.model}`),
+        );
+        next = normalizeAssignments(remaining);
       }
-    } else {
-      next = cur.assignments.filter((a) => !filterSet.has(`${a.provider}::${a.model}`));
-    }
-    setModuleStates((p) => ({ ...p, [moduleKey]: { ...p[moduleKey], assignments: next } }));
-    markModuleSaving(moduleKey, true);
-    try {
-      await onSaveModule(moduleKey, cur.isEnabled, next);
-    } finally {
-      markModuleSaving(moduleKey, false);
-    }
-  }, [moduleStates, onSaveModule, markModuleSaving, getModuleNextPriority, rowsAfterCategoryFilter]);
+
+      setModuleStates((p) => ({ ...p, [moduleKey]: { ...p[moduleKey], assignments: next } }));
+      markModuleSaving(moduleKey, true);
+      try {
+        await onSaveModule(moduleKey, cur.isEnabled, next);
+      } finally {
+        markModuleSaving(moduleKey, false);
+      }
+    },
+    [moduleStates, onSaveModule, markModuleSaving, rowsAfterCategoryFilter],
+  );
 
   const selectedSet = useMemo(
     () => new Set(savedModels.map((m) => `${m.provider}::${m.model_id}`)),
@@ -689,10 +857,20 @@ export function ModelEvaluator({
     [onSaveModels, rowsAfterCategoryFilter, savedModels]
   );
 
+  /** 解析該列實際使用的 prompt：留空或 {預設prompt} 時使用全域，否則使用該列自訂內容 */
+  const getEffectivePromptForRow = useCallback(
+    (rowKey: string): string => {
+      const row = (rowPrompts[rowKey] ?? '').trim();
+      if (!row || row === DEFAULT_PROMPT_PLACEHOLDER) return globalTestPrompt.trim();
+      return row;
+    },
+    [rowPrompts, globalTestPrompt]
+  );
+
   const runTest = useCallback(
     async (providerId: string, modelId: string, modelName: string) => {
       const key = `${providerId}::${modelId}`;
-      const effectivePrompt = (rowPrompts[key] ?? '').trim() || globalTestPrompt.trim() || undefined;
+      const effectivePrompt = getEffectivePromptForRow(key) || undefined;
       setTestingKey(key);
       setOutputByKey((prev) => ({ ...prev, [key]: '' }));
       try {
@@ -725,7 +903,7 @@ export function ModelEvaluator({
         setTestingKey(null);
       }
     },
-    [onTestModel, globalTestPrompt, rowPrompts, onSave, evaluationMap, uploadedFile]
+    [onTestModel, getEffectivePromptForRow, onSave, evaluationMap, uploadedFile]
   );
 
   useClickOutsideClose(alignDropdownRef, alignDropdownOpen, setAlignDropdownOpen);
@@ -791,7 +969,7 @@ export function ModelEvaluator({
     await Promise.all(
       toTest.map(async ({ providerId, modelId, modelName }) => {
         const key = `${providerId}::${modelId}`;
-        const effectivePrompt = (rowPrompts[key] ?? '').trim() || globalTestPrompt.trim() || undefined;
+        const effectivePrompt = getEffectivePromptForRow(key) || undefined;
         setOutputByKey((prev) => ({ ...prev, [key]: '' }));
         try {
           const result = await onTestModel(providerId, modelId, effectivePrompt, uploadedFile);
@@ -827,7 +1005,7 @@ export function ModelEvaluator({
       }
     }
     setBatchTesting(false);
-  }, [rowsAfterCategoryFilter, selectedSet, validProviders, onTestModel, globalTestPrompt, rowPrompts, onSave, evaluationMap, uploadedFile]);
+  }, [rowsAfterCategoryFilter, selectedSet, validProviders, onTestModel, getEffectivePromptForRow, onSave, evaluationMap, uploadedFile]);
 
   // 將「全部測試」狀態與觸發方法暴露給頁首固定區塊使用
   useEffect(() => {
@@ -1044,7 +1222,7 @@ export function ModelEvaluator({
                   className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(0)}`}
                   style={getFrozenThStyle(0)}
                 >
-                  <span>已選</span>
+                  <span>已選模型</span>
                   <div
                     role="separator"
                     aria-label="調整欄寬"
@@ -1165,7 +1343,9 @@ export function ModelEvaluator({
                           <div className={`w-4 h-4 shrink-0 rounded flex items-center justify-center ${colors.bg}`}>
                             <Icon size={10} className={colors.text} />
                           </div>
-                          <span className="text-[10px] leading-tight">{mod.name}</span>
+                          <span className="text-[10px] leading-tight">
+                            {mod.key === 'online_ocr' ? `${mod.name} 模型排序` : mod.name}
+                          </span>
                         </div>
                       </div>
                       <div
@@ -1339,13 +1519,25 @@ export function ModelEvaluator({
                 {FEATURE_MODULES.map((mod: FeatureModule, filterColIdx: number) => {
                   const state = moduleStates[mod.key];
                   const saving = moduleSavingSet.has(mod.key);
-                  const assignedInFiltered = rowsAfterCategoryFilter.filter((r) =>
-                    state.assignments.some((a) => a.provider === r.providerId && a.model === r.modelId)
+
+                  // Only include rows whose model is checked in the "已選" column.
+                  // Unselected models must not be assignable to any feature module.
+                  const filteredRowKeysForModule = rowsAfterCategoryFilter
+                    .filter((r) => selectedSet.has(`${r.providerId}::${r.modelId}`))
+                    .map((r) => `${r.providerId}::${r.modelId}`);
+
+                  const assignedInFiltered = filteredRowKeysForModule.filter((key) =>
+                    state.assignments.some(
+                      (a) => `${a.provider}::${a.model}` === key,
+                    ),
                   ).length;
+
                   const allFilteredAssigned =
-                    rowsAfterCategoryFilter.length > 0 && assignedInFiltered === rowsAfterCategoryFilter.length;
+                    filteredRowKeysForModule.length > 0 &&
+                    assignedInFiltered === filteredRowKeysForModule.length;
                   const someFilteredAssigned = assignedInFiltered > 0;
                   const filterThColIdx = 8 + filterColIdx;
+
                   return (
                     <th
                       key={mod.key}
@@ -1367,8 +1559,14 @@ export function ModelEvaluator({
                             ref={(el) => {
                               if (el) el.indeterminate = someFilteredAssigned && !allFilteredAssigned;
                             }}
-                            onChange={(e) => handleModuleSelectAllFiltered(mod.key, e.target.checked)}
-                            disabled={saving || rowsAfterCategoryFilter.length === 0}
+                            onChange={(e) =>
+                              handleModuleSelectAllFiltered(
+                                mod.key,
+                                e.target.checked,
+                                filteredRowKeysForModule,
+                              )
+                            }
+                            disabled={saving || filteredRowKeysForModule.length === 0}
                             className="rounded border-border-subtle bg-bg-primary text-accent focus:ring-accent"
                           />
                           <span>全選</span>
@@ -1456,6 +1654,11 @@ export function ModelEvaluator({
                         if (!hasKey)
                           return <span className="text-text-muted">—</span>;
                         const status = getStatusDisplay(key, ev, testResultByKey, outputByKey);
+                        const shouldShowCategoryPrefix =
+                          categoryLabel.length > 0 && !status.label.startsWith(categoryLabel);
+                        const displayText = shouldShowCategoryPrefix
+                          ? `${categoryLabel} · ${status.label}`
+                          : status.label;
                         const title = `${categoryLabel} · ${status.title}`;
                         const statusColorClass =
                           status.type === 'vlm_ok' || status.type === 'working'
@@ -1486,7 +1689,7 @@ export function ModelEvaluator({
                                 <XCircle size={12} aria-hidden />
                               ) : null}
                               <span className="truncate max-w-[140px]">
-                                {categoryLabel} · {status.label}
+                                {displayText}
                               </span>
                               <ChevronDown
                                 size={12}
@@ -1523,14 +1726,14 @@ export function ModelEvaluator({
                       style={getFrozenTdStyle(4)}
                     >
                       <textarea
-                        value={(rowPrompts[key]?.trim() ?? '') ? (rowPrompts[key] ?? '') : globalTestPrompt}
+                        value={(rowPrompts[key]?.trim() ?? '') ? (rowPrompts[key] ?? '') : DEFAULT_PROMPT_PLACEHOLDER}
                         onChange={(e) =>
                           setRowPrompts((prev) => ({ ...prev, [key]: e.target.value }))
                         }
-                        placeholder={`例如：${DEFAULT_TEST_PROMPT}`}
+                        placeholder={`留空或 ${DEFAULT_PROMPT_PLACEHOLDER} 使用全域 Prompt；可輸入自訂`}
                         rows={2}
                         className="w-full rounded border border-border-subtle bg-transparent px-2 py-1 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent resize-y min-h-[44px]"
-                        title="留空則使用上方全域 Prompt；填入後此列測試會使用此專屬 Prompt"
+                        title="留空或 {預設prompt} 使用上方全域 Prompt；填入其他內容則此列使用專屬 Prompt"
                       />
                     </td>
                     <td
@@ -1583,7 +1786,9 @@ export function ModelEvaluator({
                     </td>
                     {FEATURE_MODULES.map((mod: FeatureModule, tdColIdx: number) => {
                       const modState = moduleStates[mod.key];
-                      const assign = modState?.assignments.find(
+                      // 渲染前再做一次正規化，避免舊資料殘留 173/178 等歷史 priority
+                      const normalizedAssignments = normalizeAssignments(modState?.assignments ?? []);
+                      const assign = normalizedAssignments.find(
                         (a) => a.provider === providerId && a.model === modelId
                       );
                       const saving = moduleSavingSet.has(mod.key);
@@ -1594,21 +1799,45 @@ export function ModelEvaluator({
                           className={`py-2 px-2 align-top text-left border-r border-border-subtle last:border-r-0 ${getFrozenTdClass(tdFrozenColIdx)}`}
                           style={getFrozenTdStyle(tdFrozenColIdx)}
                         >
-                          {assign ? (
-                            <div className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] bg-accent/10 text-accent border border-accent/20">
+                          {!isSelected ? (
+                            // Model not in "已選" — module assignment is locked
+                            assign ? (
+                              <div
+                                className="inline-flex items-center gap-1 rounded-full pl-2 pr-1 py-0.5 min-w-[5.5rem] text-[10px] opacity-30 bg-bg-tertiary text-text-muted border border-border-subtle cursor-not-allowed"
+                                title="請先在「已選」欄勾選此模型，才能設定模組排序"
+                              >
+                                <span className="shrink-0 font-medium">
+                                  {MODULE_SORT_LABEL[mod.key] ?? mod.key.slice(0, 3).toUpperCase()}-
+                                </span>
+                                <span className="w-7 text-center font-mono tabular-nums">
+                                  {String(Math.min(Math.max(normalizedAssignments.length, 1), Math.max(1, assign.priority ?? 1))).padStart(3, '0')}
+                                </span>
+                              </div>
+                            ) : null
+                          ) : assign ? (() => {
+                            const maxP = Math.max(normalizedAssignments.length, 1);
+                            const displayPriority = Math.min(maxP, Math.max(1, assign.priority ?? 1));
+                            return (
+                            <div className="inline-flex items-center gap-1 rounded-full pl-2 pr-1 py-0.5 min-w-[5.5rem] text-[10px] bg-accent/10 text-accent border border-accent/20">
+                              <span className="shrink-0 font-medium">
+                                {MODULE_SORT_LABEL[mod.key] ?? mod.key.slice(0, 3).toUpperCase()}-
+                              </span>
                               <input
-                                type="number"
-                                min={1}
-                                max={100}
-                                value={assign.priority ?? 1}
+                                type="text"
+                                inputMode="numeric"
+                                minLength={1}
+                                maxLength={3}
+                                value={String(displayPriority).padStart(3, '0')}
                                 onChange={(e) => {
-                                  const n = parseInt(e.target.value, 10);
-                                  if (!Number.isNaN(n) && n >= 1 && n <= 100) {
+                                  const raw = e.target.value.replace(/\D/g, '');
+                                  if (raw === '') return;
+                                  const n = parseInt(raw, 10);
+                                  if (!Number.isNaN(n) && n >= 1 && n <= maxP) {
                                     setModuleStates((p) => ({
                                       ...p,
                                       [mod.key]: {
                                         ...p[mod.key],
-                                        assignments: p[mod.key].assignments.map((a) =>
+                                        assignments: normalizedAssignments.map((a) =>
                                           a.provider === providerId && a.model === modelId
                                             ? { ...a, priority: n }
                                             : a
@@ -1618,15 +1847,26 @@ export function ModelEvaluator({
                                   }
                                 }}
                                 onBlur={(e) => {
-                                  const n = parseInt(e.target.value, 10);
-                                  handleModulePriorityChange(
-                                    mod.key, providerId, modelId,
-                                    Number.isNaN(n) ? 1 : n
-                                  );
+                                  const n = parseInt(e.target.value.replace(/\D/g, '') || '1', 10);
+                                  const clamped = Math.min(maxP, Math.max(1, Number.isNaN(n) ? 1 : n));
+                                  if (clamped !== (assign.priority ?? 1)) {
+                                    setModuleStates((p) => ({
+                                      ...p,
+                                      [mod.key]: {
+                                        ...p[mod.key],
+                                        assignments: normalizedAssignments.map((a) =>
+                                          a.provider === providerId && a.model === modelId
+                                            ? { ...a, priority: clamped }
+                                            : a
+                                        ),
+                                      },
+                                    }));
+                                    handleModulePriorityChange(mod.key, providerId, modelId, clamped);
+                                  }
                                 }}
                                 disabled={saving}
-                                className="w-5 bg-transparent border-none text-center text-[10px] focus:outline-none p-0"
-                                title="1=主模型，2~100=備選"
+                                className="w-7 bg-transparent border-none text-center text-[10px] font-mono focus:outline-none p-0 tabular-nums"
+                                title={`1=主模型，2~${maxP}=備選`}
                               />
                               <button
                                 type="button"
@@ -1638,7 +1878,8 @@ export function ModelEvaluator({
                                 <X size={9} />
                               </button>
                             </div>
-                          ) : (
+                            );
+                          })() : (
                             onSaveModule && (
                               <button
                                 type="button"

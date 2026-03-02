@@ -158,7 +158,7 @@ interface PropertyEditModalProps {
 
 export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditModalProps) {
   const [isPending, startTransition] = useTransition();
-  const [activeTab, setActiveTab] = useState<'edit' | 'photos' | 'transcript' | 'title' | 'contract' | 'blog'>('edit');
+  const [activeTab, setActiveTab] = useState<'edit' | 'photos' | 'blog' | 'transcript' | 'title' | 'contract'>('edit');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null
   );
@@ -289,14 +289,14 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
 
         {/* Tab bar – fixed below header, never scrolls */}
         <div className="shrink-0 bg-bg-secondary border-b border-border-default px-6 flex gap-1 flex-wrap">
-          {(['edit', 'photos', 'transcript', 'title', 'contract', 'blog'] as const).map((tab) => {
+          {(['edit', 'photos', 'blog', 'transcript', 'title', 'contract'] as const).map((tab) => {
             const labels: Record<typeof tab, string> = {
               edit: '物件基本資訊',
               photos: '物件照片',
+              blog: '部落格',
               transcript: '謄本',
               title: '權狀',
               contract: '合約',
-              blog: '部落格',
             };
             return (
               <button

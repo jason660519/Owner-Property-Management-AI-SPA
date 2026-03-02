@@ -100,6 +100,34 @@ export interface UpdatePropertyInput {
   description?: string;
 }
 
+export interface CreatePropertyInput {
+  ownerId: string;
+  title: string;
+  address: string;
+  addressCity?: string;
+  addressDistrict?: string;
+  addressStreet?: string;
+  addressNumber?: string;
+  addressFloor?: string;
+  addressUnit?: string;
+  status: string;
+  price?: number;
+  monthlyRent?: number;
+  leaseTerm?: number;
+  propertyType?: string;
+  area?: number | null;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  livingRooms?: number | null;
+  parkingSpaces?: number | null;
+  description?: string;
+}
+
+export interface OwnerOption {
+  id: string;
+  displayName: string;
+}
+
 export interface ActionResult {
   success: boolean;
   message: string;

@@ -4,7 +4,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Trash2, FileText, Star, ExternalLink, Loader2, Upload, Brain, Copy, Download } from 'lucide-react';
+import { Trash2, FileText, Star, ExternalLink, Loader2, Upload, Brain, Copy, Download, AlertTriangle, CheckCircle2, Scale } from 'lucide-react';
 import {
   getPropertyPhotos,
   getPropertyDocuments,
@@ -14,9 +14,10 @@ import {
   deletePropertyDocument,
 } from '@/lib/actions/properties';
 import { parseTranscriptWithAI } from '@/lib/actions/parse-transcript';
+import { parseTranscriptWithConsensus } from '@/lib/actions/consensus-parse';
 import { useAISettings } from '@/lib/hooks/useAISettings';
 import type { PropertyPhotoItem, PropertyDocumentItem } from '@/lib/types/properties';
-import type { LandRegistryParsedResult } from '@/lib/types/transcript';
+import type { LandRegistryParsedResult, ConsensusMetadata, ConflictDetail } from '@/lib/types/transcript';
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   land_registry_transcript: '謄本',
@@ -108,8 +109,11 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
   );
   const [selectedTranscriptDocId, setSelectedTranscriptDocId] = useState<string>('');
   const [isParsing, setIsParsing] = useState(false);
+  const [parsePhase, setParsePhase] = useState<string>('');
   const [parseResult, setParseResult] = useState<LandRegistryParsedResult | null>(null);
+  const [parseMetadata, setParseMetadata] = useState<ConsensusMetadata | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [showConflicts, setShowConflicts] = useState(false);
 
   // Load photos & documents on mount
   useEffect(() => {
@@ -197,10 +201,15 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
     setIsParsing(true);
     setParseError(null);
     setParseResult(null);
-    const result = await parseTranscriptWithAI(selectedTranscriptDocId, aiUserId);
+    setParseMetadata(null);
+    setShowConflicts(false);
+    setParsePhase('解析中…');
+    const result = await parseTranscriptWithConsensus(selectedTranscriptDocId, aiUserId);
     setIsParsing(false);
+    setParsePhase('');
     if (result.success) {
       setParseResult(result.data);
+      setParseMetadata(result.metadata);
     } else {
       setParseError(result.message);
     }
@@ -461,7 +470,7 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
                 ) : (
                   <Brain size={12} />
                 )}
-                {isParsing ? '解析中…' : '解析謄本'}
+                {isParsing ? parsePhase : '雲端解析謄本'}
               </button>
               {parseError && (
                 <p className="text-xs text-red-500 bg-red-500/10 border border-red-500/20 rounded px-2 py-1.5">
@@ -470,6 +479,48 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
               )}
               {parseResult && (
                 <div className="space-y-2">
+                  {/* Consensus metadata header */}
+                  {parseMetadata && (
+                    <div className="flex items-center flex-wrap gap-2 text-xs">
+                      <ConfidenceBadge confidence={parseMetadata.total_confidence} />
+                      <span className="text-text-muted">
+                        策略: {parseMetadata.strategy === 'consensus' ? '多模型共識' : '單模型'}
+                      </span>
+                      <span className="text-text-muted">
+                        耗時: {(parseMetadata.total_duration_ms / 1000).toFixed(1)}s
+                      </span>
+                      <span className="text-text-muted">
+                        模型: {parseMetadata.models_used.map((m) => `${m.provider}/${m.model}`).join(', ')}
+                      </span>
+                      {parseMetadata.judge_used && (
+                        <span className="text-amber-600 flex items-center gap-0.5">
+                          <Scale size={10} />
+                          裁判: {parseMetadata.judge_used.provider}/{parseMetadata.judge_used.model}
+                        </span>
+                      )}
+                      {parseMetadata.conflicts.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setShowConflicts(!showConflicts)}
+                          className="flex items-center gap-0.5 text-amber-600 hover:text-amber-700 underline"
+                        >
+                          <AlertTriangle size={10} />
+                          {parseMetadata.conflicts.length} 個衝突欄位
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {/* Conflict details panel */}
+                  {showConflicts && parseMetadata && parseMetadata.conflicts.length > 0 && (
+                    <div className="bg-amber-500/5 border border-amber-500/20 rounded-md p-2 space-y-1.5">
+                      <p className="text-xs font-medium text-amber-700 flex items-center gap-1">
+                        <AlertTriangle size={12} /> 衝突欄位詳情
+                      </p>
+                      {parseMetadata.conflicts.map((c, i) => (
+                        <ConflictItem key={i} conflict={c} confidence={parseMetadata.field_confidences[c.field_path]} />
+                      ))}
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-medium text-text-secondary">解析結果 (JSON)</span>
                     <div className="flex gap-1">
@@ -498,6 +549,61 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ============================================================================
+// Sub-components for consensus UI
+// ============================================================================
+
+function ConfidenceBadge({ confidence }: { confidence: number }) {
+  const pct = Math.round(confidence * 100);
+  let colorClass = 'bg-red-500/10 text-red-600 border-red-500/20';
+  let icon = <AlertTriangle size={10} />;
+  if (confidence >= 0.8) {
+    colorClass = 'bg-green-500/10 text-green-600 border-green-500/20';
+    icon = <CheckCircle2 size={10} />;
+  } else if (confidence >= 0.5) {
+    colorClass = 'bg-amber-500/10 text-amber-600 border-amber-500/20';
+    icon = <AlertTriangle size={10} />;
+  }
+  return (
+    <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs border ${colorClass}`}>
+      {icon} 信心 {pct}%
+    </span>
+  );
+}
+
+function ConflictItem({ conflict, confidence }: { conflict: ConflictDetail; confidence?: number }) {
+  return (
+    <div className="bg-bg-primary rounded p-1.5 text-xs space-y-0.5">
+      <div className="flex items-center gap-1.5">
+        <span className="font-mono text-accent">{conflict.field_path}</span>
+        {confidence !== undefined && <ConfidenceBadge confidence={confidence} />}
+        <span className={`px-1 py-0.5 rounded text-[10px] ${
+          conflict.resolved_by === 'judge'
+            ? 'bg-blue-500/10 text-blue-600'
+            : conflict.resolved_by === 'majority'
+              ? 'bg-green-500/10 text-green-600'
+              : 'bg-red-500/10 text-red-600'
+        }`}>
+          {conflict.resolved_by === 'judge' ? '裁判判定' : conflict.resolved_by === 'majority' ? '多數決' : '未解決'}
+        </span>
+      </div>
+      <div className="pl-2 space-y-0.5">
+        {conflict.values.map((v, j) => (
+          <div key={j} className="text-text-muted">
+            <span className="text-text-secondary">{v.provider}/{v.model}:</span>{' '}
+            <span className="font-mono">{JSON.stringify(v.value)}</span>
+          </div>
+        ))}
+        {conflict.final_value !== undefined && (
+          <div className="text-green-600 font-medium">
+            → 最終值: <span className="font-mono">{JSON.stringify(conflict.final_value)}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

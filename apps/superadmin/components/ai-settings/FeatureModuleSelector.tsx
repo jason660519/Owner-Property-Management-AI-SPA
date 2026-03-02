@@ -577,6 +577,13 @@ export function FeatureModuleSelector({
                           />
                           {state.isEnabled ? '啟用' : '停用'}
                         </button>
+                        {(mod.key === 'online_ocr_parse' || mod.key === 'online_ocr_judge') && (
+                          <p className="text-[9px] leading-tight text-text-muted mt-0.5">
+                            {mod.key === 'online_ocr_parse'
+                              ? '建議配置 2~3 個 vision 模型以啟用共識模式'
+                              : '可選配置，僅在有衝突時呼叫'}
+                          </p>
+                        )}
                       </div>
                       <button
                         type="button"

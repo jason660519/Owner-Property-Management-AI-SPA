@@ -1,6 +1,6 @@
 // filepath: apps/superadmin/app/superadmin/properties/page.tsx
 // created: 2026-02-14 | creator: Claude Opus 4.6
-import { getAllProperties } from '@/lib/actions/properties';
+import { getAllProperties, getOwnersList } from '@/lib/actions/properties';
 import { PropertiesList } from '@/components/admin/properties/PropertiesList';
 import { DashboardLayout } from '@/components/dashboard';
 import Link from 'next/link';
@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 const BASE = '/superadmin';
 
 export default async function SuperadminPropertiesPage() {
-  const data = await getAllProperties();
+  const [data, owners] = await Promise.all([getAllProperties(), getOwnersList()]);
 
   return (
     <DashboardLayout
@@ -21,7 +21,7 @@ export default async function SuperadminPropertiesPage() {
         { label: '物件管理' },
       ]}
     >
-      <PropertiesList data={data} />
+      <PropertiesList data={data} owners={owners} />
       <div className="mt-6">
         <Link href={BASE} className="text-[#7C3AED] hover:underline text-sm">
           ← 返回儀表板

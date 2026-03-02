@@ -48,7 +48,7 @@ export default function SupabaseDashboardClient({
 }: SupabaseDashboardClientProps) {
   const dashboardUrl = projectRef
     ? `https://supabase.com/dashboard/project/${projectRef}`
-    : 'https://supabase.com/dashboard';
+    : 'http://localhost:54323/project/default';
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6 bg-[#1A1A1A] min-h-screen text-white">

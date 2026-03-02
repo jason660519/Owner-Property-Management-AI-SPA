@@ -3,8 +3,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Key, Puzzle, MessageSquareText, FlaskConical,
-  Loader2, RefreshCw, Trash2, ShieldCheck, Upload,
+  Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download,
 } from 'lucide-react';
+import { readLocalStorage, writeLocalStorage } from '@/lib/utils/storage-state';
 import { DashboardLayout } from '@/components/dashboard';
 import { Button } from '@/components/ui/Button';
 import {
@@ -22,42 +23,11 @@ type SettingsTab = 'keys' | 'evaluations' | 'modules';
 
 const TAB_IDS: SettingsTab[] = ['keys', 'evaluations', 'modules'];
 
-function getTabFromHash(): SettingsTab | null {
-  if (typeof window === 'undefined') return null;
-  const hash = window.location.hash.slice(1).toLowerCase();
-  return (TAB_IDS as string[]).includes(hash) ? (hash as SettingsTab) : null;
-}
+const LS_GLOBAL_PROMPT = 'ai-settings:globalTestPrompt';
 
-const TABS: { id: SettingsTab; label: string; icon: React.ElementType; description: string }[] = [
-  { id: 'keys', label: 'API 金鑰管理', icon: Key, description: '管理各 AI 服務提供商的 API 金鑰' },
-  { id: 'evaluations', label: '已選/可選模型評估', icon: FlaskConical, description: '' },
-  { id: 'modules', label: '功能模組配置', icon: Puzzle, description: '啟用與配置 AI 功能模組' },
-];
-
-const ENV_IMPORT_TOOLTIP = `從 .env 或 JSON 導入\n支援兩種格式：\n• .env：KEY=value 或 export KEY=value\n• JSON：{"OPENAI_API_KEY":"sk-..."} 等頂層 key\n變數名大小寫不拘、拼寫需正確；僅下列金鑰會被辨識：${SUPPORTED_AI_ENV_KEY_NAMES.join('、')}`;
-
-export default function AIServiceSettingsPage() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>(() => getTabFromHash() ?? 'keys');
-  const [envImportButtonHover, setEnvImportButtonHover] = useState(false);
-  const settings = useAISettings();
-  const apiKeyHeaderActionsRef = useRef<{ setEnvImportOpen: (v: boolean) => void } | null>(null);
-  const apiKeyManagerRef = useRef<ApiKeyManagerHandle | null>(null);
-  const [validateAllLoading, setValidateAllLoading] = useState(false);
-  /** 全部驗證完成後各 key 的結果，供每張 card 直接顯示 Available models，無需再按「驗證金鑰」 */
-  const [validateAllResultsByKeyId, setValidateAllResultsByKeyId] = useState<Record<string, KeyValidationResult>>({});
-  const keysRef = useRef(settings.keys);
-  const modelEvaluatorHeaderActionsRef = useRef<{
-    runBatchTest: () => void;
-    batchTesting: boolean;
-    canBatchTest: boolean;
-    tooltip: string;
-  } | null>(null);
-  useEffect(() => {
-    keysRef.current = settings.keys;
-  }, [settings.keys]);
-
-  // 已選/可選模型評估：全域測試 Prompt 與共用檔案（供 ModelEvaluator 使用）
-  const DEFAULT_EVALUATION_PROMPT = `請根據我提供的文件資料，無論其格式為何（PDF、JPG、掃描後的 OCR 文字、或直接複製的文字），完整解析並轉換成結構化的 JSON 格式，以便將來餵給資料庫使用。
+// Default evaluation prompt for OCR transcript parsing — kept at module level so
+// readLocalStorage can reference it as a fallback before the component mounts.
+const DEFAULT_EVALUATION_PROMPT = `請根據我提供的文件資料，無論其格式為何（PDF、JPG、掃描後的 OCR 文字、或直接複製的文字），完整解析並轉換成結構化的 JSON 格式，以便將來餵給資料庫使用。
 具體來說，我將執行以下步驟：
 內容分區： 將謄本內容細分為「謄本資訊」、「建物標示部」和「建物所有權部」等明確區塊，確保資料結構清晰。
 資訊提取： 從各區塊中精確提取所有相關資訊，包括但不限於：
@@ -140,8 +110,89 @@ json
   },
   "備註": "本謄本僅係建物標示及所有權部節本，詳細權利狀態請參閱全部謄本"
 }`;
-  const [globalTestPrompt, setGlobalTestPrompt] = useState<string>(DEFAULT_EVALUATION_PROMPT);
+
+function getTabFromHash(): SettingsTab | null {
+  if (typeof window === 'undefined') return null;
+  const hash = window.location.hash.slice(1).toLowerCase();
+  return (TAB_IDS as string[]).includes(hash) ? (hash as SettingsTab) : null;
+}
+
+const TABS: { id: SettingsTab; label: string; icon: React.ElementType; description: string }[] = [
+  { id: 'keys', label: 'API 金鑰管理', icon: Key, description: '管理各 AI 服務提供商的 API 金鑰' },
+  { id: 'evaluations', label: '已選/可選模型評估', icon: FlaskConical, description: '' },
+  { id: 'modules', label: '功能模組配置', icon: Puzzle, description: '啟用與配置 AI 功能模組' },
+];
+
+const ENV_IMPORT_TOOLTIP = `從 .env 或 JSON 導入\n支援兩種格式：\n• .env：KEY=value 或 export KEY=value\n• JSON：{"OPENAI_API_KEY":"sk-..."} 等頂層 key\n變數名大小寫不拘、拼寫需正確；僅下列金鑰會被辨識：${SUPPORTED_AI_ENV_KEY_NAMES.join('、')}`;
+
+export default function AIServiceSettingsPage() {
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() => getTabFromHash() ?? 'keys');
+  const [envImportButtonHover, setEnvImportButtonHover] = useState(false);
+  const settings = useAISettings();
+  const apiKeyHeaderActionsRef = useRef<{ setEnvImportOpen: (v: boolean) => void } | null>(null);
+  const apiKeyManagerRef = useRef<ApiKeyManagerHandle | null>(null);
+  const [validateAllLoading, setValidateAllLoading] = useState(false);
+  /** 全部驗證完成後各 key 的結果，供每張 card 直接顯示 Available models，無需再按「驗證金鑰」 */
+  const [validateAllResultsByKeyId, setValidateAllResultsByKeyId] = useState<Record<string, KeyValidationResult>>({});
+  const keysRef = useRef(settings.keys);
+  const modelEvaluatorHeaderActionsRef = useRef<{
+    runBatchTest: () => void;
+    batchTesting: boolean;
+    canBatchTest: boolean;
+    tooltip: string;
+  } | null>(null);
+  useEffect(() => {
+    keysRef.current = settings.keys;
+  }, [settings.keys]);
+
+  // 已選/可選模型評估：全域測試 Prompt 與共用檔案（供 ModelEvaluator 使用）
+  // DEFAULT_EVALUATION_PROMPT is defined at module level (see below)
+  const [globalTestPrompt, setGlobalTestPrompt] = useState<string>(
+    () => readLocalStorage(LS_GLOBAL_PROMPT, DEFAULT_EVALUATION_PROMPT)
+  );
+  // ── Persist globalTestPrompt to localStorage whenever it changes ──────────
+  useEffect(() => {
+    writeLocalStorage(LS_GLOBAL_PROMPT, globalTestPrompt);
+  }, [globalTestPrompt]);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  /** ref to the hidden file-input used by "載入設定" button */
+  const importFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [exportingSettings, setExportingSettings] = useState(false);
+  const [importingSettings, setImportingSettings] = useState(false);
+
+  const handleExportSettings = useCallback(async () => {
+    setExportingSettings(true);
+    try {
+      const data = await settings.exportSettings();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ai-settings-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '匯出失敗';
+      if (typeof window !== 'undefined') window.alert(msg);
+    } finally {
+      setExportingSettings(false);
+    }
+  }, [settings]);
+
+  const handleImportSettings = useCallback(async (file: File) => {
+    setImportingSettings(true);
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text) as unknown;
+      await settings.importSettings(data);
+      if (typeof window !== 'undefined') window.alert('載入設定成功！頁面資料已更新。');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '載入失敗，請確認檔案格式正確';
+      if (typeof window !== 'undefined') window.alert(msg);
+    } finally {
+      setImportingSettings(false);
+    }
+  }, [settings]);
 
   useEffect(() => {
     const tab = getTabFromHash();
@@ -527,7 +578,7 @@ json
               <textarea
                 value={globalTestPrompt}
                 onChange={(e) => setGlobalTestPrompt(e.target.value)}
-                placeholder="例如：請根據我提供的文件資料，解析並轉換成結構化 JSON（見上方預設內容）"
+                placeholder="全域 Prompt，每列可留空或填 {預設prompt} 使用此內容；可自訂每列專屬 Prompt"
                 rows={2}
                 className="w-full rounded border border-border-subtle bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent resize-y min-h-[52px]"
                 title="輸入任意 prompt，每列測試時會使用此內容"
@@ -555,6 +606,43 @@ json
               )}
               <span className="ml-1.5 whitespace-nowrap">全部測試</span>
             </Button>
+            {/* ── Export / Import settings ────────────────────────── */}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleExportSettings}
+              isLoading={exportingSettings}
+              disabled={exportingSettings || importingSettings}
+              title="將目前所有 AI 設定（金鑰除外）匯出為 JSON 檔案"
+              className="shrink-0"
+            >
+              <Download size={14} />
+              <span className="ml-1.5 whitespace-nowrap">匯出設定</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => importFileInputRef.current?.click()}
+              isLoading={importingSettings}
+              disabled={exportingSettings || importingSettings}
+              title="從 JSON 檔案載入設定（覆蓋目前設定）"
+              className="shrink-0"
+            >
+              <Upload size={14} />
+              <span className="ml-1.5 whitespace-nowrap">載入設定</span>
+            </Button>
+            {/* Hidden file input for import */}
+            <input
+              ref={importFileInputRef}
+              type="file"
+              accept=".json,application/json"
+              className="sr-only"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleImportSettings(file);
+                if (e.target) (e.target as HTMLInputElement).value = '';
+              }}
+            />
           </div>
         )}
         <section className="space-y-4">

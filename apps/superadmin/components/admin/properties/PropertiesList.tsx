@@ -20,10 +20,11 @@ import {
 import { Search, Home, ArrowUpDown, Pencil, Trash2, Loader2, AlignLeft, Eye, ChevronDown, Check } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { deleteProperty } from '@/lib/actions/properties';
-import type { PropertyItem, PropertiesResult } from '@/lib/types/properties';
+import type { PropertyItem, PropertiesResult, OwnerOption } from '@/lib/types/properties';
 import { PROPERTY_TYPES } from '@/lib/types/properties';
 import { TAIWAN_CITIES, getDistrictsByCity } from '@/lib/data/taiwan-address';
 import { PropertyEditModal } from './PropertyEditModal';
+import { PropertyCreateModal } from './PropertyCreateModal';
 
 const statusVariantMap: Record<string, 'success' | 'warning' | 'error' | 'info' | 'default'> = {
   for_sale: 'success',
@@ -81,7 +82,7 @@ const FROZEN_COL_STORAGE_KEY = 'properties_list_frozen_col_count_v1';
 const COLUMN_WIDTHS_PX = [90, 200, 72, 88, 88, 130, 72, 52, 52, 92, 100, 72, 110, 64, 100, 100, 92, 92, 92];
 const PROPERTIES_COLUMN_COUNT = COLUMN_WIDTHS_PX.length;
 
-export function PropertiesList({ data: result }: { data: PropertiesResult }) {
+export function PropertiesList({ data: result, owners = [] }: { data: PropertiesResult; owners?: OwnerOption[] }) {
   const router = useRouter();
   const { properties, totalSales, totalRentals } = result;
   const [globalFilter, setGlobalFilter] = useState('');
@@ -94,6 +95,9 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
   const [propertyTypeFilter, setPropertyTypeFilter] = useState<string[]>([]);
   const [propertyTypeDropdownOpen, setPropertyTypeDropdownOpen] = useState(false);
   const propertyTypeDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // Create modal state
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Edit modal state
   const [editingProperty, setEditingProperty] = useState<PropertyItem | null>(null);
@@ -573,6 +577,13 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={() => setShowCreateModal(true)}
+            className="px-3 py-1.5 text-sm rounded-md border transition-colors bg-accent text-white border-accent hover:bg-accent-hover"
+          >
+            新增物件
+          </button>
+          <button
+            type="button"
             onClick={() => setTypeFilter('all')}
             className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
               typeFilter === 'all'
@@ -871,6 +882,15 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
           </div>
         </div>
       </div>
+
+      {/* Create Modal */}
+      {showCreateModal && (
+        <PropertyCreateModal
+          owners={owners}
+          onClose={() => setShowCreateModal(false)}
+          onCreated={() => router.refresh()}
+        />
+      )}
 
       {/* Edit Modal */}
       {editingProperty && (

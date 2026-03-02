@@ -435,6 +435,29 @@ const RAW_FEATURES: RoadmapFeature[] = [
             lastModifiedBy: "Claude Sonnet 4.6",
             lastModifiedDate: "2026/02/27",
             devLog: "### 完成項目（Phase B）\n- config.toml：確認 Supabase CLI 不支援 scopes 鍵；改以 Dashboard UI 或 GOTRUE_EXTERNAL_*_SCOPES 環境變數設定 OAuth Scope（已在 config.toml 加入說明注解）\n- migration 20260227100000：users_profile 新增 avatar_url TEXT 欄位；從 auth.users.raw_user_meta_data 回填現有 OAuth 用戶（Google: avatar_url/picture，Facebook: avatar_url）\n- apps/web/lib/actions/onboarding.ts：createUserProfile() 新增 avatarUrl 提取（metadata.avatar_url || metadata.picture），寫入 users_profile.avatar_url"
+        },
+        {
+            name: "超級管理員-物件管理（新增物件含媒體上傳）",
+            locatedPage: "superadmin/properties",
+            category: "超級管理員 (Super Admin)",
+            percentage: 90,
+            phase: "development",
+            lastModifiedBy: "Claude Sonnet 4.6",
+            lastModifiedDate: "2026/03/02",
+            devLog: "### 完成項目\n- getOwnersList() / createProperty() server actions（lib/actions/properties.ts）\n- CreatePropertyInput / OwnerOption 型別（lib/types/properties.ts）\n- PropertyCreateModal.tsx：含完整 6 頁籤（物件基本資訊 / 物件照片 / 謄本 / 權狀 / 合約 / 部落格）；兩段式建立流程：第一次儲存建立物件取得 ID，後續 tabs 接入 PropertyMediaSection；物件類型與所有權人建立後鎖定\n- PropertiesList.tsx：新增物件按鈕接入 PropertyCreateModal，onCreated 觸發 router.refresh()\n- properties/page.tsx：並行 fetch getAllProperties() + getOwnersList() 後傳入 PropertiesList",
+            developmentProgress: "物件列表與編輯功能（含 PropertyEditModal + PropertyMediaSection）已完成；本次新增物件建立功能，6-tab create modal 完成。待補強：表單欄位前端 validation、建立後自動跳至媒體頁籤。"
+        },
+        {
+            name: "雲端 OCR 多模型共識謄本解析",
+            locatedPage: "superadmin/properties",
+            category: "超級管理員 (Super Admin)",
+            percentage: 85,
+            phase: "development",
+            lastModifiedBy: "Claude Opus 4.6",
+            lastModifiedDate: "2026/03/02",
+            docPath: "/docs/implementation-plans/consensus-transcript-parsing-plan.md",
+            devLog: "### 完成項目\n- DB Migration：ocr_parse_results 表 + property_documents 新增 consensus_metadata / parse_strategy 欄位\n- TypeScript 型別：ModelParseResult / ConsensusMetadata / ConflictDetail / JudgeResolution\n- Feature Module：拆分 online_ocr → online_ocr_parse（解析組）+ online_ocr_judge（裁判組）\n- 共識演算法：transcript-consensus.ts — 多模型 majority vote、台灣特規正規化、信心分數\n- AI API 共用呼叫器：ai-api-callers.ts — 支援 OpenAI/Anthropic/Gemini/DeepSeek/Grok\n- 共識引擎 Server Action：consensus-parse.ts — 平行呼叫 → 共識投票 → 裁判仲裁 三階段流程\n- 向下相容：parse-transcript.ts 改為 wrapper 委派至共識引擎\n- UI 更新：PropertyMediaSection 新增信心徽章、衝突明細面板、共識 metadata 顯示\n- FeatureModuleSelector 提示文字：解析組建議 2~3 模型、裁判組為可選配置",
+            developmentProgress: "核心架構與 UI 已完成。待辦：整合測試、Migration 套用驗證、實際多模型端對端測試。"
         }
 ];
 

@@ -11,6 +11,8 @@ import type {
   PropertyItem,
   PropertiesResult,
   UpdatePropertyInput,
+  CreatePropertyInput,
+  OwnerOption,
   ActionResult,
   SaleStatus,
   RentalStatus,
@@ -174,6 +176,107 @@ export async function getAllProperties(): Promise<PropertiesResult> {
       timestamp: new Date().toISOString(),
     });
     return { properties: [], totalSales: 0, totalRentals: 0 };
+  }
+}
+
+// ── Get Owners List ──────────────────────────────────────────────────────
+export async function getOwnersList(): Promise<OwnerOption[]> {
+  const adminClient = createAdminClient();
+  const { data: profiles } = await adminClient
+    .from('users_profile')
+    .select('id, display_name')
+    .order('display_name', { ascending: true });
+
+  if (!profiles?.length) return [];
+  return profiles
+    .filter((p) => p.display_name)
+    .map((p) => ({ id: p.id, displayName: p.display_name as string }));
+}
+
+// ── Create Property ──────────────────────────────────────────────────────
+export async function createProperty(
+  type: 'sale' | 'rental',
+  input: CreatePropertyInput
+): Promise<ActionResult & { propertyId?: string }> {
+  const adminClient = createAdminClient();
+  const table = type === 'sale' ? 'property_sales' : 'property_rentals';
+
+  try {
+    if (!input.ownerId) {
+      return { success: false, message: '請選擇所有權人' };
+    }
+    if (!input.address?.trim()) {
+      return { success: false, message: '地址不得為空' };
+    }
+    if (type === 'sale' && (input.price ?? 0) < 0) {
+      return { success: false, message: '價格不能為負數' };
+    }
+    if (type === 'rental' && (input.monthlyRent ?? 0) < 0) {
+      return { success: false, message: '月租金不能為負數' };
+    }
+
+    const details: Record<string, unknown> = {};
+    if (input.title) details.title = input.title;
+    if (input.addressCity) details.addressCity = input.addressCity;
+    if (input.addressDistrict) details.addressDistrict = input.addressDistrict;
+    if (input.addressStreet) details.addressStreet = input.addressStreet;
+    if (input.addressNumber) details.addressNumber = input.addressNumber;
+    if (input.addressFloor) details.addressFloor = input.addressFloor;
+    if (input.addressUnit) details.addressUnit = input.addressUnit;
+    if (input.propertyType) details.type = input.propertyType;
+    if (input.area != null) details.area = input.area;
+    if (input.bedrooms != null) details.bedrooms = input.bedrooms;
+    if (input.bathrooms != null) details.bathrooms = input.bathrooms;
+    if (input.livingRooms != null) details.livingRooms = input.livingRooms;
+    if (input.parkingSpaces != null) details.parkingSpaces = input.parkingSpaces;
+    if (input.description) details.description = input.description;
+
+    const insertPayload: Record<string, unknown> = {
+      owner_id: input.ownerId,
+      address: input.address,
+      status: input.status || 'pending',
+      details,
+    };
+    if (input.title) insertPayload.title = input.title;
+    if (input.addressCity) insertPayload.address_city = input.addressCity;
+    if (input.addressDistrict) insertPayload.address_district = input.addressDistrict;
+    if (input.addressStreet) insertPayload.address_street = input.addressStreet;
+    if (input.addressNumber) insertPayload.address_number = input.addressNumber;
+    if (input.addressFloor) insertPayload.address_floor = input.addressFloor;
+    if (input.addressUnit) insertPayload.address_unit = input.addressUnit;
+
+    if (type === 'sale') {
+      insertPayload.price = input.price ?? 0;
+    } else {
+      insertPayload.monthly_rent = input.monthlyRent ?? 0;
+      insertPayload.lease_term = input.leaseTerm ?? 12;
+    }
+
+    const { data, error } = await adminClient
+      .from(table)
+      .insert(insertPayload)
+      .select('id')
+      .single();
+
+    if (error) {
+      console.error(`[Properties] Error inserting into ${table}:`, error);
+      return { success: false, message: `新增失敗：${error.message}` };
+    }
+
+    console.log(`[Properties] Created ${table} id=${data.id}`, {
+      timestamp: new Date().toISOString(),
+    });
+
+    revalidatePath('/superadmin/properties');
+    revalidatePath('/superadmin');
+
+    return { success: true, message: '物件已成功新增', propertyId: data.id };
+  } catch (error) {
+    console.error('[Properties] Unexpected error in createProperty:', error);
+    return {
+      success: false,
+      message: `新增失敗：${error instanceof Error ? error.message : '未知錯誤'}`,
+    };
   }
 }
 

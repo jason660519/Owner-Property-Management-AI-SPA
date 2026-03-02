@@ -308,9 +308,9 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
 
 export const FEATURE_MODULES: FeatureModule[] = [
   {
-    key: 'online_ocr',
-    name: '雲端OCR謄本解析',
-    description: '透過雲端 AI API 進行謄本文件的光學字元辨識與結構化解析',
+    key: 'online_ocr_parse',
+    name: '雲端OCR謄本解析（解析組）',
+    description: '透過雲端 AI API 進行謄本文件的光學字元辨識與結構化解析。建議配置 2~3 個 vision 模型以啟用多模型共識模式。',
     icon: 'cloud',
     category: 'ocr',
     requiredCapabilities: ['vision'],
@@ -319,6 +319,15 @@ export const FEATURE_MODULES: FeatureModule[] = [
 2. 所有權部：所有權人、權利範圍、取得日期
 3. 他項權利部：抵押權、地上權等設定
 請以結構化 JSON 格式輸出結果。`,
+  },
+  {
+    key: 'online_ocr_judge',
+    name: '雲端OCR謄本裁判（審核組）',
+    description: '當多模型解析結果有衝突時，由裁判模型對照原始文件判定正確值。可選配置，僅在解析結果有衝突時才會呼叫。',
+    icon: 'scale',
+    category: 'ocr',
+    requiredCapabilities: ['vision'],
+    defaultPrompt: `你是台灣不動產謄本解析的品質審核專家。\n你收到一份謄本原始文件，以及多個 AI 模型對同一文件的解析結果。\n\n你的任務是：\n1. 審查每個「有爭議的欄位」\n2. 對照原始文件，判斷哪個模型的解析最正確\n3. 若所有模型都錯，提供你自己的正確解析\n\n回傳格式（僅輸出有爭議的欄位，格式為嚴格 JSON）：\n{\n  "resolutions": [\n    {\n      "field_path": "建物標示部.總面積",\n      "correct_value": "125.67平方公尺",\n      "chosen_from": "model_a",\n      "reason": "模型 A 的面積數值與原始文件第 3 行的記載一致"\n    }\n  ]\n}\n\n注意事項：\n- 面積請保留原始單位（平方公尺），精確到小數點後兩位\n- 日期格式統一為「民國 YYY 年 MM 月 DD 日」\n- 地號/建號格式為「XXXX-XXXX」\n- 若原始文件模糊無法辨識，在 reason 中說明，correct_value 設為 null`,
   },
   {
     key: 'web_assistant',
