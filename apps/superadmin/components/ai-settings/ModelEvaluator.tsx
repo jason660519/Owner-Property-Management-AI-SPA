@@ -54,6 +54,8 @@ export interface ModelEvaluatorProps {
     assignedModels: AssignedModel[],
     config?: Record<string, unknown>
   ) => Promise<void>;
+  /** Optional: hide specific feature module columns in this page only */
+  hiddenModuleKeys?: string[];
   /** 由頁首控制的全域測試 Prompt 與檔案（提升 state 以便顯示在固定標題區） */
   globalTestPrompt: string;
   onChangeGlobalTestPrompt: (value: string) => void;
@@ -292,6 +294,7 @@ export function ModelEvaluator({
   onTestModel,
   savedModules = [],
   onSaveModule,
+  hiddenModuleKeys = [],
   globalTestPrompt,
   onChangeGlobalTestPrompt,
   uploadedFile,
@@ -474,6 +477,12 @@ export function ModelEvaluator({
         ? { left: frozenColLeftOffsets[colIdx], zIndex: 1 }
         : {},
     [frozenColCount, frozenColLeftOffsets]
+  );
+
+  const hiddenModuleKeySet = useMemo(() => new Set(hiddenModuleKeys), [hiddenModuleKeys]);
+  const visibleFeatureModules = useMemo(
+    () => FEATURE_MODULES.filter((mod) => !hiddenModuleKeySet.has(mod.key)),
+    [hiddenModuleKeySet]
   );
 
   // ── Feature module state (integrated from #modules) ──────────────────────
@@ -1202,7 +1211,8 @@ export function ModelEvaluator({
           </div>
         </div>
         <div
-          className={`overflow-x-auto ${TABLE_H_ALIGN_CLASSES[tableAlignH]} ${TABLE_V_ALIGN_CLASSES[tableAlignV]} [&_th]:whitespace-normal [&_td]:whitespace-normal [&_th]:break-words [&_td]:break-words`}
+          className={`${TABLE_H_ALIGN_CLASSES[tableAlignH]} ${TABLE_V_ALIGN_CLASSES[tableAlignV]} [&_th]:whitespace-normal [&_td]:whitespace-normal [&_th]:break-words [&_td]:break-words`}
+          style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 340px)', minHeight: '400px' }}
         >
           <table className="w-full text-xs border-collapse" style={{ tableLayout: 'fixed' }}>
             <colgroup>
@@ -1213,11 +1223,11 @@ export function ModelEvaluator({
             <thead
               className={
                 freezeRowCount > 0
-                  ? 'sticky top-0 z-10 border-b-4 border-gray-300 dark:border-gray-600 bg-bg-tertiary'
+                  ? 'sticky top-0 z-10 bg-bg-tertiary'
                   : undefined
               }
             >
-              <tr className="border-b border-border-subtle bg-bg-tertiary">
+              <tr className="bg-bg-tertiary">
                 <th
                   className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(0)}`}
                   style={getFrozenThStyle(0)}
@@ -1328,7 +1338,7 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                {FEATURE_MODULES.map((mod: FeatureModule, colIdx: number) => {
+                {visibleFeatureModules.map((mod: FeatureModule, colIdx: number) => {
                   const Icon = MODULE_ICON_MAP[mod.icon] ?? Settings2;
                   const colors = MODULE_CATEGORY_COLORS[mod.category];
                   const thColIdx = 8 + colIdx;
@@ -1358,7 +1368,7 @@ export function ModelEvaluator({
                   );
                 })}
               </tr>
-              <tr className="border-b border-border-subtle bg-bg-tertiary" ref={filterDropdownRef}>
+              <tr className={`bg-bg-tertiary ${freezeRowCount > 0 ? 'shadow-[0_4px_0_0_#d1d5db] dark:shadow-[0_4px_0_0_#4b5563]' : 'border-b border-border-subtle'}`} ref={filterDropdownRef}>
                 <th
                   className={`py-1.5 px-3 border-r border-border-subtle align-top ${getFrozenThClass(0)}`}
                   style={getFrozenThStyle(0)}
@@ -1516,7 +1526,7 @@ export function ModelEvaluator({
                   className={`py-1.5 px-3 border-r border-border-subtle align-top text-left ${getFrozenThClass(7)}`}
                   style={{ whiteSpace: 'nowrap', ...getFrozenThStyle(7) }}
                 />
-                {FEATURE_MODULES.map((mod: FeatureModule, filterColIdx: number) => {
+                {visibleFeatureModules.map((mod: FeatureModule, filterColIdx: number) => {
                   const state = moduleStates[mod.key];
                   const saving = moduleSavingSet.has(mod.key);
 
@@ -1784,7 +1794,7 @@ export function ModelEvaluator({
                           })
                         : '—'}
                     </td>
-                    {FEATURE_MODULES.map((mod: FeatureModule, tdColIdx: number) => {
+                    {visibleFeatureModules.map((mod: FeatureModule, tdColIdx: number) => {
                       const modState = moduleStates[mod.key];
                       // 渲染前再做一次正規化，避免舊資料殘留 173/178 等歷史 priority
                       const normalizedAssignments = normalizeAssignments(modState?.assignments ?? []);

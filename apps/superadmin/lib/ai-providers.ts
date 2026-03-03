@@ -344,7 +344,7 @@ export const FEATURE_MODULES: FeatureModule[] = [
   },
   {
     key: 'contract_assistant',
-    name: '合約解說 AI 助理',
+    name: '合約生成AI助理',
     description: '分析與解讀不動產相關合約條款，提供專業見解',
     icon: 'file-text',
     category: 'assistant',

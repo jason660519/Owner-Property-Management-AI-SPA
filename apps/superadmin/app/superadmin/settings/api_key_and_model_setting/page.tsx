@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Key, Puzzle, MessageSquareText, FlaskConical,
+  Key, FlaskConical, ScanText, Globe, FileSignature, BookOpen,
   Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download,
 } from 'lucide-react';
 import { readLocalStorage, writeLocalStorage } from '@/lib/utils/storage-state';
@@ -12,16 +12,16 @@ import {
   ApiKeyManager,
   type ApiKeyManagerHandle,
   ModelEvaluator,
-  FeatureModuleSelector,
 } from '@/components/ai-settings';
 import { useAISettings, type KeyValidationResult } from '@/lib/hooks/useAISettings';
 import { getTotalAvailableModels, getSelectedCountInAvailable } from '@/lib/utils/total-available-models';
 import { getProviderById, AI_PROVIDERS } from '@/lib/ai-providers';
 import { SUPPORTED_AI_ENV_KEY_NAMES } from '@/lib/parse-env-keys';
 
-type SettingsTab = 'keys' | 'evaluations' | 'modules';
 
-const TAB_IDS: SettingsTab[] = ['keys', 'evaluations', 'modules'];
+type SettingsTab = 'keys' | 'evaluations' | 'ocr' | 'static-ad' | 'contract' | 'blog';
+
+const TAB_IDS: SettingsTab[] = ['keys', 'evaluations', 'ocr', 'static-ad', 'contract', 'blog'];
 
 const LS_GLOBAL_PROMPT = 'ai-settings:globalTestPrompt';
 
@@ -120,10 +120,54 @@ function getTabFromHash(): SettingsTab | null {
 const TABS: { id: SettingsTab; label: string; icon: React.ElementType; description: string }[] = [
   { id: 'keys', label: 'API 金鑰管理', icon: Key, description: '管理各 AI 服務提供商的 API 金鑰' },
   { id: 'evaluations', label: '已選/可選模型評估', icon: FlaskConical, description: '' },
-  { id: 'modules', label: '功能模組配置', icon: Puzzle, description: '啟用與配置 AI 功能模組' },
+  { id: 'ocr', label: 'OCR解析設定', icon: ScanText, description: '設定 OCR 解析模型與參數' },
+  { id: 'static-ad', label: '靜態網頁廣告生成器 AI 助理', icon: Globe, description: '自動生成不動產靜態網頁廣告' },
+  { id: 'contract', label: '合約生成AI助理', icon: FileSignature, description: '自動生成不動產合約文件' },
+  { id: 'blog', label: '部落格生成 AI 助理設定', icon: BookOpen, description: '自動生成不動產部落格文章' },
 ];
 
 const ENV_IMPORT_TOOLTIP = `從 .env 或 JSON 導入\n支援兩種格式：\n• .env：KEY=value 或 export KEY=value\n• JSON：{"OPENAI_API_KEY":"sk-..."} 等頂層 key\n變數名大小寫不拘、拼寫需正確；僅下列金鑰會被辨識：${SUPPORTED_AI_ENV_KEY_NAMES.join('、')}`;
+
+const OCR_HIDDEN_MODULE_KEYS = [
+  'web_assistant',
+  'contract_assistant',
+  'blog_generator',
+  'ad_generator',
+  'software_dev_engineer',
+  'ttd_engineer',
+];
+
+const STATIC_AD_HIDDEN_MODULE_KEYS = [
+  'online_ocr_parse',
+  'online_ocr_judge',
+  'web_assistant',
+  'contract_assistant',
+  'blog_generator',
+  'software_dev_engineer',
+  'ttd_engineer',
+];
+
+const CONTRACT_HIDDEN_MODULE_KEYS = [
+  'online_ocr_parse',
+  'online_ocr_judge',
+  'web_assistant',
+  'blog_generator',
+  'ad_generator',
+  'software_dev_engineer',
+  'ttd_engineer',
+];
+
+const BLOG_HIDDEN_MODULE_KEYS = [
+  'online_ocr_parse',
+  'online_ocr_judge',
+  'web_assistant',
+  'contract_assistant',
+  'ad_generator',
+  'software_dev_engineer',
+  'ttd_engineer',
+];
+
+
 
 export default function AIServiceSettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => getTabFromHash() ?? 'keys');
@@ -374,18 +418,128 @@ export default function AIServiceSettingsPage() {
             headerActionsRef={modelEvaluatorHeaderActionsRef}
           />
         );
-      case 'modules':
+      case 'ocr':
         return (
-          <FeatureModuleSelector
-            savedModules={settings.modules}
+          <ModelEvaluator
             savedKeys={settings.keys}
             savedModels={settings.models}
-            onSave={async (moduleKey, isEnabled, assignedModels, config) => {
+            savedEvaluations={settings.evaluations}
+            validateAllResultsByKeyId={validateAllResultsByKeyId}
+            currentKeys={settings.keys.map((k) => ({ id: k.id, provider: k.provider }))}
+            onSave={settings.saveEvaluations}
+            onTestModel={settings.testModel}
+            onSaveModels={async (providerId, selections) => {
+              await settings.saveModels(
+                providerId as Parameters<typeof settings.saveModels>[0],
+                selections
+              );
+            }}
+            savedModules={settings.modules}
+            hiddenModuleKeys={OCR_HIDDEN_MODULE_KEYS}
+            onSaveModule={async (moduleKey, isEnabled, assignedModels, config) => {
               await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
             }}
-            onTestModel={settings.testModel}
+            summarySelectedCount={selectedModelCount}
+            summaryTotalCount={totalAvailableModels}
+            globalTestPrompt={globalTestPrompt}
+            onChangeGlobalTestPrompt={setGlobalTestPrompt}
+            uploadedFile={uploadedFile}
+            onChangeUploadedFile={setUploadedFile}
+            headerActionsRef={modelEvaluatorHeaderActionsRef}
           />
         );
+      case 'static-ad':
+        return (
+          <ModelEvaluator
+            savedKeys={settings.keys}
+            savedModels={settings.models}
+            savedEvaluations={settings.evaluations}
+            validateAllResultsByKeyId={validateAllResultsByKeyId}
+            currentKeys={settings.keys.map((k) => ({ id: k.id, provider: k.provider }))}
+            onSave={settings.saveEvaluations}
+            onTestModel={settings.testModel}
+            onSaveModels={async (providerId, selections) => {
+              await settings.saveModels(
+                providerId as Parameters<typeof settings.saveModels>[0],
+                selections
+              );
+            }}
+            savedModules={settings.modules}
+            hiddenModuleKeys={STATIC_AD_HIDDEN_MODULE_KEYS}
+            onSaveModule={async (moduleKey, isEnabled, assignedModels, config) => {
+              await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
+            }}
+            summarySelectedCount={selectedModelCount}
+            summaryTotalCount={totalAvailableModels}
+            globalTestPrompt={globalTestPrompt}
+            onChangeGlobalTestPrompt={setGlobalTestPrompt}
+            uploadedFile={uploadedFile}
+            onChangeUploadedFile={setUploadedFile}
+            headerActionsRef={modelEvaluatorHeaderActionsRef}
+          />
+        );
+
+      case 'contract':
+        return (
+          <ModelEvaluator
+            savedKeys={settings.keys}
+            savedModels={settings.models}
+            savedEvaluations={settings.evaluations}
+            validateAllResultsByKeyId={validateAllResultsByKeyId}
+            currentKeys={settings.keys.map((k) => ({ id: k.id, provider: k.provider }))}
+            onSave={settings.saveEvaluations}
+            onTestModel={settings.testModel}
+            onSaveModels={async (providerId, selections) => {
+              await settings.saveModels(
+                providerId as Parameters<typeof settings.saveModels>[0],
+                selections
+              );
+            }}
+            savedModules={settings.modules}
+            hiddenModuleKeys={CONTRACT_HIDDEN_MODULE_KEYS}
+            onSaveModule={async (moduleKey, isEnabled, assignedModels, config) => {
+              await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
+            }}
+            summarySelectedCount={selectedModelCount}
+            summaryTotalCount={totalAvailableModels}
+            globalTestPrompt={globalTestPrompt}
+            onChangeGlobalTestPrompt={setGlobalTestPrompt}
+            uploadedFile={uploadedFile}
+            onChangeUploadedFile={setUploadedFile}
+            headerActionsRef={modelEvaluatorHeaderActionsRef}
+          />
+        );
+      case 'blog':
+        return (
+          <ModelEvaluator
+            savedKeys={settings.keys}
+            savedModels={settings.models}
+            savedEvaluations={settings.evaluations}
+            validateAllResultsByKeyId={validateAllResultsByKeyId}
+            currentKeys={settings.keys.map((k) => ({ id: k.id, provider: k.provider }))}
+            onSave={settings.saveEvaluations}
+            onTestModel={settings.testModel}
+            onSaveModels={async (providerId, selections) => {
+              await settings.saveModels(
+                providerId as Parameters<typeof settings.saveModels>[0],
+                selections
+              );
+            }}
+            savedModules={settings.modules}
+            hiddenModuleKeys={BLOG_HIDDEN_MODULE_KEYS}
+            onSaveModule={async (moduleKey, isEnabled, assignedModels, config) => {
+              await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
+            }}
+            summarySelectedCount={selectedModelCount}
+            summaryTotalCount={totalAvailableModels}
+            globalTestPrompt={globalTestPrompt}
+            onChangeGlobalTestPrompt={setGlobalTestPrompt}
+            uploadedFile={uploadedFile}
+            onChangeUploadedFile={setUploadedFile}
+            headerActionsRef={modelEvaluatorHeaderActionsRef}
+          />
+        );
+
       default:
         return null;
     }
@@ -534,26 +688,9 @@ export default function AIServiceSettingsPage() {
             </div>
           )}
         </div>
-      </div>
-    </div>
-  );
-
-  return (
-    <DashboardLayout
-      currentRole="superadmin"
-      breadcrumbs={[
-        { label: '首頁', href: '/' },
-        { label: '超級管理員專區', href: '/superadmin' },
-        { label: '設定', href: '/superadmin/settings' },
-        { label: 'Model and API key Settings' },
-      ]}
-      fixedContent={fixedBlock}
-      contentFullHeight
-    >
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden w-full px-2 sm:px-4 lg:px-6 py-3 lg:py-4 min-w-0">
-          {activeTab === 'evaluations' && !settings.loading && (
-          <div className="mb-4 flex flex-wrap items-end gap-3 rounded-base border border-border-subtle bg-bg-secondary p-3 shadow-sm">
+        {/* ── Evaluations / OCR tab: toolbar (file upload / prompt / batch test / export-import) ── */}
+        {(activeTab === 'evaluations' || activeTab === 'ocr' || activeTab === 'static-ad' || activeTab === 'contract' || activeTab === 'blog') && !settings.loading && (
+          <div className="mt-3 flex flex-wrap items-end gap-3">
             <label className="inline-flex items-center gap-1.5 cursor-pointer text-sm text-text-secondary hover:text-text-primary rounded border border-border-subtle bg-bg-primary px-3 py-2 shrink-0">
               <Upload size={16} className="shrink-0" />
               <span>選擇檔案</span>
@@ -645,6 +782,25 @@ export default function AIServiceSettingsPage() {
             />
           </div>
         )}
+      </div>
+    </div>
+  );
+
+  return (
+    <DashboardLayout
+      currentRole="superadmin"
+      breadcrumbs={[
+        { label: '首頁', href: '/' },
+        { label: '超級管理員專區', href: '/superadmin' },
+        { label: '設定', href: '/superadmin/settings' },
+        { label: 'Model and API key Settings' },
+      ]}
+      fixedContent={fixedBlock}
+      contentFullHeight
+    >
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden w-full px-2 sm:px-4 lg:px-6 py-3 lg:py-4 min-w-0">
+          {/* Evaluations toolbar moved to fixedBlock header */}
         <section className="space-y-4">
           <div className="bg-bg-secondary border border-border-default rounded-base p-4 sm:p-5 shadow-sm min-w-0">
             {renderContent()}
@@ -670,8 +826,7 @@ export default function AIServiceSettingsPage() {
               </p>
               <ol className="list-decimal list-inside space-y-1 text-xs text-text-secondary">
                 <li>在「API 金鑰管理」新增各提供商的 API 金鑰；可用「驗證金鑰」確認可用性並取得可選模型清單。</li>
-                <li>在「已選/可選模型評估」勾選要納入候選的模型（可測試連線）；這些模型將可在功能模組中綁定。</li>
-                <li>在「功能模組配置」啟用所需模組，並為各模組綁定主模型（1）與備援模型（2～100），必要時可設定 LLM 參數與 System Prompt。</li>
+                <li>在「已選/可選模型評估」勾選要納入候選的模型（可測試連線）。</li>
               </ol>
             </div>
           </div>

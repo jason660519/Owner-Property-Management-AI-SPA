@@ -53,5 +53,31 @@ describe('ModelEvaluator View controls', () => {
     expect(screen.getByRole('menuitem', { name: '凍結第 1 col' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: '凍結第 1 ~ 2 col' })).toBeInTheDocument();
   });
+
+  it('hides specific feature module columns when hiddenModuleKeys is provided', () => {
+    render(
+      <ModelEvaluator
+        {...baseProps}
+        hiddenModuleKeys={[
+          'web_assistant',
+          'contract_assistant',
+          'blog_generator',
+          'ad_generator',
+          'software_dev_engineer',
+          'ttd_engineer',
+        ]}
+      />
+    );
+
+    expect(screen.getByText('雲端OCR謄本解析（解析組） 模型排序')).toBeInTheDocument();
+    expect(screen.getByText('雲端OCR謄本裁判（審核組） 模型排序')).toBeInTheDocument();
+
+    expect(screen.queryByText('網頁功能解說 AI 助理')).not.toBeInTheDocument();
+    expect(screen.queryByText('合約生成AI助理')).not.toBeInTheDocument();
+    expect(screen.queryByText('部落格生成器 AI 助理')).not.toBeInTheDocument();
+    expect(screen.queryByText('靜態網頁廣告生成器 AI 助理')).not.toBeInTheDocument();
+    expect(screen.queryByText('Software Dev Engineer')).not.toBeInTheDocument();
+    expect(screen.queryByText('TTD Engineer')).not.toBeInTheDocument();
+  });
 });
 
