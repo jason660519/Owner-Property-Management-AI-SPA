@@ -4,7 +4,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Trash2, FileText, Star, ExternalLink, Loader2, Upload, Brain, Copy, Download, AlertTriangle, CheckCircle2, Scale } from 'lucide-react';
+import { Trash2, FileText, Star, ExternalLink, Loader2, Upload } from 'lucide-react';
 import {
   getPropertyPhotos,
   getPropertyDocuments,
@@ -13,11 +13,8 @@ import {
   deletePropertyPhoto,
   deletePropertyDocument,
 } from '@/lib/actions/properties';
-import { parseTranscriptWithAI } from '@/lib/actions/parse-transcript';
-import { parseTranscriptWithConsensus } from '@/lib/actions/consensus-parse';
-import { useAISettings } from '@/lib/hooks/useAISettings';
 import type { PropertyPhotoItem, PropertyDocumentItem } from '@/lib/types/properties';
-import type { LandRegistryParsedResult, ConsensusMetadata, ConflictDetail } from '@/lib/types/transcript';
+import { TranscriptParseSection } from './TranscriptParseSection';
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   land_registry_transcript: '謄本',
@@ -101,19 +98,11 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
   }, [docSectionMode]);
   const displayDocuments = docSectionMode ? filteredDocuments : documents;
 
-  // AI 解析謄本：僅在「文件」區顯示，且僅對謄本類型文件提供
-  const { userId: aiUserId } = useAISettings();
+  // AI 解析謄本 — filtered doc list passed to TranscriptParseSection
   const transcriptDocs = useMemo(
     () => displayDocuments.filter((d) => d.documentType === 'land_registry_transcript'),
     [displayDocuments]
   );
-  const [selectedTranscriptDocId, setSelectedTranscriptDocId] = useState<string>('');
-  const [isParsing, setIsParsing] = useState(false);
-  const [parsePhase, setParsePhase] = useState<string>('');
-  const [parseResult, setParseResult] = useState<LandRegistryParsedResult | null>(null);
-  const [parseMetadata, setParseMetadata] = useState<ConsensusMetadata | null>(null);
-  const [parseError, setParseError] = useState<string | null>(null);
-  const [showConflicts, setShowConflicts] = useState(false);
 
   // Load photos & documents on mount
   useEffect(() => {
@@ -187,50 +176,6 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
     } else {
       showFeedback('error', result.message);
     }
-  }
-
-  // 當謄本列表變更時，若目前選中的不在列表中則選第一筆
-  useEffect(() => {
-    if (transcriptDocs.length > 0 && !transcriptDocs.some((d) => d.id === selectedTranscriptDocId)) {
-      setSelectedTranscriptDocId(transcriptDocs[0].id);
-    }
-  }, [transcriptDocs, selectedTranscriptDocId]);
-
-  async function handleParseTranscript() {
-    if (!selectedTranscriptDocId || !aiUserId) return;
-    setIsParsing(true);
-    setParseError(null);
-    setParseResult(null);
-    setParseMetadata(null);
-    setShowConflicts(false);
-    setParsePhase('解析中…');
-    const result = await parseTranscriptWithConsensus(selectedTranscriptDocId, aiUserId);
-    setIsParsing(false);
-    setParsePhase('');
-    if (result.success) {
-      setParseResult(result.data);
-      setParseMetadata(result.metadata);
-    } else {
-      setParseError(result.message);
-    }
-  }
-
-  function handleCopyParseResult() {
-    if (!parseResult) return;
-    const json = JSON.stringify(parseResult, null, 2);
-    void navigator.clipboard.writeText(json).then(() => showFeedback('success', '已複製到剪貼簿'));
-  }
-
-  function handleDownloadParseResult() {
-    if (!parseResult) return;
-    const json = JSON.stringify(parseResult, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `謄本解析_${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
   }
 
   return (
@@ -430,122 +375,9 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
             </button>
           </div>
 
-          {/* AI 解析謄本：選擇已上傳的謄本，呼叫指定 AI 輸出 key-value JSON */}
+          {/* AI 解析謄本 — extracted to TranscriptParseSection */}
           {transcriptDocs.length > 0 && (
-            <div className="border border-dashed border-border-default rounded-md p-3 space-y-2.5">
-              <p className="text-xs font-medium text-text-secondary flex items-center gap-1.5">
-                <Brain size={14} className="text-accent" />
-                AI 解析謄本
-              </p>
-              <p className="text-xs text-text-muted">
-                選擇已上傳的謄本，由「雲端OCR謄本解析」指定之 AI 解析，輸出重要資訊 key-value JSON。
-              </p>
-              <div>
-                <label className="block text-xs text-text-muted mb-1">選擇謄本文件</label>
-                <select
-                  value={selectedTranscriptDocId}
-                  onChange={(e) => {
-                    setSelectedTranscriptDocId(e.target.value);
-                    setParseResult(null);
-                    setParseError(null);
-                  }}
-                  className="w-full border border-border-default rounded-md px-2 py-1.5 bg-bg-primary text-text-primary text-xs focus:outline-none focus:border-accent"
-                >
-                  <option value="">請選擇</option>
-                  {transcriptDocs.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.documentName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <button
-                type="button"
-                onClick={handleParseTranscript}
-                disabled={!selectedTranscriptDocId || isParsing}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-xs rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40"
-              >
-                {isParsing ? (
-                  <Loader2 size={12} className="animate-spin" />
-                ) : (
-                  <Brain size={12} />
-                )}
-                {isParsing ? parsePhase : '雲端解析謄本'}
-              </button>
-              {parseError && (
-                <p className="text-xs text-red-500 bg-red-500/10 border border-red-500/20 rounded px-2 py-1.5">
-                  {parseError}
-                </p>
-              )}
-              {parseResult && (
-                <div className="space-y-2">
-                  {/* Consensus metadata header */}
-                  {parseMetadata && (
-                    <div className="flex items-center flex-wrap gap-2 text-xs">
-                      <ConfidenceBadge confidence={parseMetadata.total_confidence} />
-                      <span className="text-text-muted">
-                        策略: {parseMetadata.strategy === 'consensus' ? '多模型共識' : '單模型'}
-                      </span>
-                      <span className="text-text-muted">
-                        耗時: {(parseMetadata.total_duration_ms / 1000).toFixed(1)}s
-                      </span>
-                      <span className="text-text-muted">
-                        模型: {parseMetadata.models_used.map((m) => `${m.provider}/${m.model}`).join(', ')}
-                      </span>
-                      {parseMetadata.judge_used && (
-                        <span className="text-amber-600 flex items-center gap-0.5">
-                          <Scale size={10} />
-                          裁判: {parseMetadata.judge_used.provider}/{parseMetadata.judge_used.model}
-                        </span>
-                      )}
-                      {parseMetadata.conflicts.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setShowConflicts(!showConflicts)}
-                          className="flex items-center gap-0.5 text-amber-600 hover:text-amber-700 underline"
-                        >
-                          <AlertTriangle size={10} />
-                          {parseMetadata.conflicts.length} 個衝突欄位
-                        </button>
-                      )}
-                    </div>
-                  )}
-                  {/* Conflict details panel */}
-                  {showConflicts && parseMetadata && parseMetadata.conflicts.length > 0 && (
-                    <div className="bg-amber-500/5 border border-amber-500/20 rounded-md p-2 space-y-1.5">
-                      <p className="text-xs font-medium text-amber-700 flex items-center gap-1">
-                        <AlertTriangle size={12} /> 衝突欄位詳情
-                      </p>
-                      {parseMetadata.conflicts.map((c, i) => (
-                        <ConflictItem key={i} conflict={c} confidence={parseMetadata.field_confidences[c.field_path]} />
-                      ))}
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-text-secondary">解析結果 (JSON)</span>
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        onClick={handleCopyParseResult}
-                        className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-border-default hover:bg-bg-tertiary text-text-secondary"
-                      >
-                        <Copy size={12} /> 複製
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleDownloadParseResult}
-                        className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-border-default hover:bg-bg-tertiary text-text-secondary"
-                      >
-                        <Download size={12} /> 下載 JSON
-                      </button>
-                    </div>
-                  </div>
-                  <pre className="text-xs bg-bg-tertiary border border-border-default rounded-md p-3 overflow-x-auto overflow-y-auto max-h-64 whitespace-pre-wrap break-words">
-                    {JSON.stringify(parseResult, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
+            <TranscriptParseSection transcriptDocs={transcriptDocs} />
           )}
         </div>
       )}
@@ -553,57 +385,3 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
   );
 }
 
-// ============================================================================
-// Sub-components for consensus UI
-// ============================================================================
-
-function ConfidenceBadge({ confidence }: { confidence: number }) {
-  const pct = Math.round(confidence * 100);
-  let colorClass = 'bg-red-500/10 text-red-600 border-red-500/20';
-  let icon = <AlertTriangle size={10} />;
-  if (confidence >= 0.8) {
-    colorClass = 'bg-green-500/10 text-green-600 border-green-500/20';
-    icon = <CheckCircle2 size={10} />;
-  } else if (confidence >= 0.5) {
-    colorClass = 'bg-amber-500/10 text-amber-600 border-amber-500/20';
-    icon = <AlertTriangle size={10} />;
-  }
-  return (
-    <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs border ${colorClass}`}>
-      {icon} 信心 {pct}%
-    </span>
-  );
-}
-
-function ConflictItem({ conflict, confidence }: { conflict: ConflictDetail; confidence?: number }) {
-  return (
-    <div className="bg-bg-primary rounded p-1.5 text-xs space-y-0.5">
-      <div className="flex items-center gap-1.5">
-        <span className="font-mono text-accent">{conflict.field_path}</span>
-        {confidence !== undefined && <ConfidenceBadge confidence={confidence} />}
-        <span className={`px-1 py-0.5 rounded text-[10px] ${
-          conflict.resolved_by === 'judge'
-            ? 'bg-blue-500/10 text-blue-600'
-            : conflict.resolved_by === 'majority'
-              ? 'bg-green-500/10 text-green-600'
-              : 'bg-red-500/10 text-red-600'
-        }`}>
-          {conflict.resolved_by === 'judge' ? '裁判判定' : conflict.resolved_by === 'majority' ? '多數決' : '未解決'}
-        </span>
-      </div>
-      <div className="pl-2 space-y-0.5">
-        {conflict.values.map((v, j) => (
-          <div key={j} className="text-text-muted">
-            <span className="text-text-secondary">{v.provider}/{v.model}:</span>{' '}
-            <span className="font-mono">{JSON.stringify(v.value)}</span>
-          </div>
-        ))}
-        {conflict.final_value !== undefined && (
-          <div className="text-green-600 font-medium">
-            → 最終值: <span className="font-mono">{JSON.stringify(conflict.final_value)}</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}

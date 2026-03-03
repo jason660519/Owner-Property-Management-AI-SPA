@@ -6,6 +6,7 @@ import { useState, useTransition, useMemo, useRef, useEffect } from 'react';
 import { X, Loader2, Building2, Key, ChevronDown } from 'lucide-react';
 import { updateProperty } from '@/lib/actions/properties';
 import { PropertyMediaSection } from './PropertyMediaSection';
+import { PropertyInvestigationReportSection } from './PropertyInvestigationReportSection';
 import {
   PROPERTY_STATUSES,
   PROPERTY_TYPES,
@@ -158,7 +159,7 @@ interface PropertyEditModalProps {
 
 export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditModalProps) {
   const [isPending, startTransition] = useTransition();
-  const [activeTab, setActiveTab] = useState<'edit' | 'photos' | 'blog' | 'transcript' | 'title' | 'contract'>('edit');
+  const [activeTab, setActiveTab] = useState<'edit' | 'photos' | 'blog' | 'transcript' | 'title' | 'contract' | 'investigation'>('edit');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null
   );
@@ -289,7 +290,7 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
 
         {/* Tab bar – fixed below header, never scrolls */}
         <div className="shrink-0 bg-bg-secondary border-b border-border-default px-6 flex gap-1 flex-wrap">
-          {(['edit', 'photos', 'blog', 'transcript', 'title', 'contract'] as const).map((tab) => {
+          {(['edit', 'photos', 'blog', 'transcript', 'title', 'contract', 'investigation'] as const).map((tab) => {
             const labels: Record<typeof tab, string> = {
               edit: '物件基本資訊',
               photos: '物件照片',
@@ -297,6 +298,7 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
               transcript: '謄本',
               title: '權狀',
               contract: '合約',
+              investigation: '調查報告書',
             };
             return (
               <button
@@ -338,6 +340,11 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
               ownerId={property.ownerId}
               mode={activeTab}
             />
+          )}
+
+          {/* ── 物件調查報告書 ── */}
+          {activeTab === 'investigation' && (
+            <PropertyInvestigationReportSection propertyId={property.id} property={property} />
           )}
 
           {/* ── Edit form ── */}

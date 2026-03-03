@@ -338,17 +338,20 @@ const RAW_FEATURES: RoadmapFeature[] = [
         {
             name: "超級管理員-AI 服務設定（API 金鑰與模型費用）",
             locatedPage: "superadmin/settings/api_key_and_model_setting",
-            percentage: 85,
+            percentage: 86,
             acceptanceCriteria: "1. API 金鑰管理：從 .env 導入、單筆/全部刪除、金鑰驗證。\n2. 未登入時以 resolveUserId fallback 寫入/讀取 Supabase（keys/models/modules/prompts）。\n3. 側欄組態概況：已選總 models 數量即時反映各 provider 勾選加總。\n4. 儲存設定按鈕：將畫面上已選模型寫入 ai_model_selections。\n5. 分頁命名：模型費用說明；說明文案導向「模型費用說明」分頁。",
             docPath: "/docs/update-project-progress-guide.md",
             featureSpecDocPath: "/project-process/features/tdd-ai-settings-20260221.md",
             tddSpecDocPath: "/project-process/features/tdd-ai-settings-20260221.md",
             category: "超級管理員 (Super Admin)",
             points: 5,
-            testProgress: "手動驗證：從 .env 導入、全部清空、單筆刪除、驗證金鑰、儲存設定、側欄數字更新。",
-            testCoverage: 0,
-            lastModifiedBy: "Claude (Auto)",
-            lastModifiedDate: "2026/02/18"
+            devLog: "### 2026-03-04 更新\n- 修復 統一prompt測試 功能無限重渲染 bug（Maximum update depth exceeded）。\n- 根本原因：page.tsx 每次渲染時 currentKeys 產生新陣列引用，導致 allRows→handleBatchTest→headerActionsRef useEffect 形成無限迴圈。\n- 修復方案（雙重防護）：(1) ModelEvaluator.tsx 使用 stable ref 模式（handleBatchTestRef + stableRunBatchTest），移除 handleBatchTest 作為 useEffect dep；(2) page.tsx 以 useMemo 穩定 currentKeys 引用。\n- TDD：新增 5 個批次測試執行行為測試案例，共 28 個測試全部通過。",
+            testProgress: "TDD: 28/28 tests passing（含 統一/單一 prompt 測試功能完整測試）",
+            testCoverage: 15,
+            testScriptCount: 28,
+            testScriptPassedCount: 28,
+            lastModifiedBy: "Claude Sonnet 4.6",
+            lastModifiedDate: "2026/03/04"
         },
 
         // === 2026-02-21 新增任務 ===
@@ -451,13 +454,13 @@ const RAW_FEATURES: RoadmapFeature[] = [
             name: "雲端 OCR 多模型共識謄本解析",
             locatedPage: "superadmin/properties",
             category: "超級管理員 (Super Admin)",
-            percentage: 85,
+            percentage: 92,
             phase: "development",
-            lastModifiedBy: "Claude Opus 4.6",
-            lastModifiedDate: "2026/03/02",
+            lastModifiedBy: "Claude Sonnet 4.6",
+            lastModifiedDate: "2026/03/04",
             docPath: "/docs/implementation-plans/consensus-transcript-parsing-plan.md",
-            devLog: "### 完成項目\n- DB Migration：ocr_parse_results 表 + property_documents 新增 consensus_metadata / parse_strategy 欄位\n- TypeScript 型別：ModelParseResult / ConsensusMetadata / ConflictDetail / JudgeResolution\n- Feature Module：拆分 online_ocr → online_ocr_parse（解析組）+ online_ocr_judge（裁判組）\n- 共識演算法：transcript-consensus.ts — 多模型 majority vote、台灣特規正規化、信心分數\n- AI API 共用呼叫器：ai-api-callers.ts — 支援 OpenAI/Anthropic/Gemini/DeepSeek/Grok\n- 共識引擎 Server Action：consensus-parse.ts — 平行呼叫 → 共識投票 → 裁判仲裁 三階段流程\n- 向下相容：parse-transcript.ts 改為 wrapper 委派至共識引擎\n- UI 更新：PropertyMediaSection 新增信心徽章、衝突明細面板、共識 metadata 顯示\n- FeatureModuleSelector 提示文字：解析組建議 2~3 模型、裁判組為可選配置",
-            developmentProgress: "核心架構與 UI 已完成。待辦：整合測試、Migration 套用驗證、實際多模型端對端測試。"
+            devLog: "### 完成項目\n- DB Migration：ocr_parse_results 表 + property_documents 新增 consensus_metadata / parse_strategy 欄位\n- TypeScript 型別：ModelParseResult / ConsensusMetadata / ConflictDetail / JudgeResolution\n- Feature Module：拆分 online_ocr → online_ocr_parse（解析組）+ online_ocr_judge（裁判組）\n- 共識演算法：transcript-consensus.ts — 多模型 majority vote、台灣特規正規化、信心分數\n- AI API 共用呼叫器：ai-api-callers.ts — 支援 OpenAI/Anthropic/Gemini/DeepSeek/Grok\n- 共識引擎 Server Action：consensus-parse.ts — 平行呼叫 → 共識投票 → 裁判仲裁 三階段流程\n- 向下相容：parse-transcript.ts 改為 wrapper 委派至共識引擎\n- UI 更新：PropertyMediaSection 新增信心徽章、衝突明細面板、共識 metadata 顯示\n- FeatureModuleSelector 提示文字：解析組建議 2~3 模型、裁判組為可選配置\n### 2026-03-04 新增\n- SSE 串流 API：/api/transcript-parse/stream — POST 端點，以 ReadableStream 逐模型即時回傳解析進度事件\n- TranscriptParseSection 元件：從 PropertyMediaSection 拆出（原 610 行降至 387 行），新增：(1) 可收折「解析設定」面板（顯示已設定之解析/裁判模型、一次性 Prompt 覆寫欄位、跳轉 AI 設定連結）；(2) 解析中以逐模型進度列表取代單一轉圈，即時顯示各模型狀態（等待/解析中/完成/失敗）及耗時",
+            developmentProgress: "核心架構與 UI 全部完成。待辦：整合測試、Migration 套用驗證。"
         }
 ];
 

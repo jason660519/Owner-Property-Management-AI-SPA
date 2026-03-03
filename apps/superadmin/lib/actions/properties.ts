@@ -570,7 +570,10 @@ export async function uploadPropertyDocument(
   }
 
   const docType = propertyType === 'sale' ? 'sales' : 'rentals';
-  const documentName = DOC_TYPE_NAME[documentType] ?? documentType;
+  // Build display name: "類型-原檔名", e.g. "謄本-仁愛路四段122號.pdf"
+  const typeLabel = DOC_TYPE_NAME[documentType] ?? documentType;
+  const originalBasename = file.name.replace(/\.[^.]+$/, ''); // strip extension
+  const documentName = `${typeLabel}-${originalBasename}`;
   const { error: insertError } = await adminClient.from('property_documents').insert({
     property_id: propertyId,
     property_type: docType,

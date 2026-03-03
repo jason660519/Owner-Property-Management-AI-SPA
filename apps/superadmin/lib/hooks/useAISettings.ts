@@ -341,6 +341,16 @@ export function useAISettings() {
     await fetchAll();
   }, [userId, fetchAll]);
 
+  const deletePrompt = useCallback(async (promptId: string) => {
+    const res = await fetch('/api/ai-settings/prompts', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, promptId }),
+    });
+    if (!res.ok) throw new Error('刪除 Prompt 失敗');
+    await fetchAll(true);
+  }, [userId, fetchAll]);
+
   // ---- Export / Import ----
   const exportSettings = async () => {
     const res = await fetch('/api/ai-settings/export', {
@@ -404,11 +414,24 @@ export function useAISettings() {
         body.mimeType = mimeType;
         if (fileName) body.fileName = fileName;
       }
-      const res = await fetch('/api/ai-settings/models/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
-        body: JSON.stringify(body),
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 65000); // 65s timeout
+      let res: Response;
+      try {
+        res = await fetch('/api/ai-settings/models/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
+      } catch (fetchErr) {
+        clearTimeout(timeoutId);
+        const msg = fetchErr instanceof Error && fetchErr.name === 'AbortError'
+          ? '請求逾時（65 秒），請檢查網路或稍後再試'
+          : `連線失敗: ${fetchErr instanceof Error ? fetchErr.message : 'Unknown'}`;
+        return { success: false, message: msg };
+      }
+      clearTimeout(timeoutId);
       const data = (await res.json()) as { success?: boolean; message?: string; output?: string };
       return { success: data.success ?? false, message: data.message, output: data.output };
     },
@@ -445,7 +468,7 @@ export function useAISettings() {
     loading, error,
     saveKey, deleteKey, validateKey,
     saveModels, saveModule, testModel,
-    savePrompt, saveEvaluations,
+    savePrompt, deletePrompt, saveEvaluations,
     exportSettings, importSettings,
     clearAll,
     saveValidationSummary,

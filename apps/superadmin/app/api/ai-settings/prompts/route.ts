@@ -46,26 +46,29 @@ export async function POST(request: NextRequest) {
     if (!userId || !moduleKey || !provider) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
+    const effectiveName = promptName || 'default';
 
-    // Get current max version
+    // Get current max version (per module+provider+name)
     const { data: existing } = await supabase
       .from('ai_system_prompts')
       .select('version')
       .eq('user_id', userId)
       .eq('module_key', moduleKey)
       .eq('provider', provider)
+      .eq('prompt_name', effectiveName)
       .order('version', { ascending: false })
       .limit(1);
 
     const nextVersion = (existing?.[0]?.version || 0) + 1;
 
-    // Deactivate previous versions
+    // Deactivate previous versions for the SAME prompt_name
     await supabase
       .from('ai_system_prompts')
       .update({ is_active: false })
       .eq('user_id', userId)
       .eq('module_key', moduleKey)
-      .eq('provider', provider);
+      .eq('provider', provider)
+      .eq('prompt_name', effectiveName);
 
     // Insert new version
     const { data, error } = await supabase
@@ -74,7 +77,7 @@ export async function POST(request: NextRequest) {
         user_id: userId,
         module_key: moduleKey,
         provider,
-        prompt_name: promptName || 'default',
+        prompt_name: effectiveName,
         prompt_content: promptContent || '',
         version: nextVersion,
         is_active: true,
@@ -89,5 +92,26 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error('[AI Settings] POST prompt error:', err);
     return NextResponse.json({ error: 'Failed to save prompt' }, { status: 500 });
+  }
+}
+
+// DELETE: Soft-delete (deactivate) a specific prompt by id
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = createAdminClient();
+    const { userId, promptId } = await request.json();
+    if (!userId || !promptId) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+    const { error } = await supabase
+      .from('ai_system_prompts')
+      .update({ is_active: false })
+      .eq('id', promptId)
+      .eq('user_id', userId);
+    if (error) throw error;
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error('[AI Settings] DELETE prompt error:', err);
+    return NextResponse.json({ error: 'Failed to delete prompt' }, { status: 500 });
   }
 }

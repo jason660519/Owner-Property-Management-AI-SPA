@@ -22,7 +22,12 @@ function getPromptAndMaxTokens(prompt?: string): { prompt: string; max_tokens: n
 
 const IMAGE_MIMES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
 function isImageMime(mime: string): boolean {
-  return IMAGE_MIMES.has(mime.toLowerCase());
+return IMAGE_MIMES.has(mime.toLowerCase());
+}
+
+/** AbortSignal with 55-second timeout for all external AI provider calls. */
+function providerSignal(): AbortSignal {
+  return AbortSignal.timeout(55_000);
 }
 
 function extractOpenAIOutput(data: unknown): string {
@@ -55,6 +60,7 @@ async function testOpenAI(
         messages: [{ role: 'user', content }],
         max_tokens,
       }),
+      signal: providerSignal(),
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok) return { success: true, message: '連線成功', output: extractOpenAIOutput(data) || '（無輸出）' };
@@ -110,6 +116,7 @@ async function testAnthropic(
         max_tokens,
         messages: [{ role: 'user', content: contentBlocks }],
       }),
+      signal: providerSignal(),
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok) return { success: true, message: '連線成功', output: extractAnthropicOutput(data) || '（無輸出）' };
@@ -148,6 +155,7 @@ async function testGemini(
           contents: [{ parts }],
           generationConfig: { maxOutputTokens: max_tokens },
         }),
+        signal: providerSignal(),
       }
     );
     const data = await res.json().catch(() => ({}));
@@ -182,6 +190,7 @@ async function testDeepSeek(
         messages: [{ role: 'user', content }],
         max_tokens,
       }),
+      signal: providerSignal(),
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok) return { success: true, message: '連線成功', output: extractOpenAIOutput(data) || '（無輸出）' };
@@ -215,6 +224,7 @@ async function testGrok(
         messages: [{ role: 'user', content }],
         max_tokens,
       }),
+      signal: providerSignal(),
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok) return { success: true, message: '連線成功', output: extractOpenAIOutput(data) || '（無輸出）' };

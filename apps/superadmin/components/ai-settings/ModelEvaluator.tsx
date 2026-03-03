@@ -3,6 +3,13 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { CheckCircle2, XCircle, Loader2, FlaskConical, Upload, Cloud, MessageCircle, FileText, PenTool, Layout, Settings2, Plus, X, AlignLeft, Eye, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/Sheet';
 import { AI_PROVIDERS, FEATURE_MODULES } from '@/lib/ai-providers';
 import type { FeatureModule } from '@/lib/ai-providers';
 import type { SavedKey, SavedModel, ModelEvaluation, KeyValidationResult, SavedModule, AssignedModel, DisplayStatusOverride } from '@/lib/hooks/useAISettings';
@@ -25,6 +32,13 @@ const MODULE_CATEGORY_COLORS: Record<string, { text: string; bg: string }> = {
 export interface KeyWithId {
   id: string;
   provider: string;
+}
+
+export interface BatchProgress {
+  tested: number;
+  total: number;
+  succeeded: number;
+  failed: number;
 }
 
 export interface ModelEvaluatorProps {
@@ -64,13 +78,29 @@ export interface ModelEvaluatorProps {
   /** 頁首摘要：已選/可選模型數，顯示在表格工具列左側 */
   summarySelectedCount: number;
   summaryTotalCount: number;
-  /** 由頁首固定區塊觸發的動作（例如「全部測試」按鈕） */
-  headerActionsRef?: React.Ref<{
-    runBatchTest: () => void;
-    batchTesting: boolean;
-    canBatchTest: boolean;
-    tooltip: string;
-  }>;
+  /** 由頁首雲端 Prompt 下拉選單決定的變數名稱，例如 {OCR Engineer-1}（僅顯示用） */
+  promptVariableLabel?: string;
+  /** 由頁首固定區塊觸發的動作（例如「全部測試」按鈕）
+   * 支援傳入 React.Dispatch<SetStateAction<...>> 或 RefObject 兩種模式 */
+  headerActionsRef?:
+    | React.Dispatch<React.SetStateAction<{
+        runBatchTest: () => void;
+        batchTesting: boolean;
+        canBatchTest: boolean;
+        tooltip: string;
+        batchProgress: BatchProgress | null;
+        testableCount: number;
+      } | null>>
+    | React.RefObject<{
+        runBatchTest: () => void;
+        batchTesting: boolean;
+        canBatchTest: boolean;
+        tooltip: string;
+        batchProgress: BatchProgress | null;
+        testableCount: number;
+      } | null>;
+  /** 由外層控制的「統一測試 / 全域 Prompt 設定」面板開啟動作 */
+  onOpenGlobalTestPanel?: () => void;
 }
 
 type TableHAlign = 'left' | 'center' | 'right';
@@ -302,9 +332,16 @@ export function ModelEvaluator({
   summarySelectedCount,
   summaryTotalCount,
   headerActionsRef,
+  promptVariableLabel,
+  onOpenGlobalTestPanel,
 }: ModelEvaluatorProps) {
-  /** 表格內每列使用「全域 Prompt」時的變量，僅顯示此短字串不重複儲存/渲染長內容，省記憶體 */
+  /** 內部判斷是否使用全域 Prompt 的保留字（不隨顯示名稱變動） */
   const DEFAULT_PROMPT_PLACEHOLDER = '{預設prompt}';
+  /** 在欄位與 placeholder 中顯示給使用者看的變數名稱，例如 {OCR Engineer-1} */
+  const effectivePromptVariableLabel =
+    (promptVariableLabel && promptVariableLabel.trim().length > 0
+      ? promptVariableLabel.trim()
+      : DEFAULT_PROMPT_PLACEHOLDER);
   /** 表頭「Prompt input」欄位名稱，使用者可自訂；從 localStorage 還原避免重繪後遺失 */
   const STORAGE_KEY_PROMPT_COLUMN_LABEL = 'superadmin-model-evaluator-prompt-column-label';
   const STORAGE_KEY_COLUMN_WIDTHS = 'superadmin-model-evaluator-column-widths';
@@ -394,6 +431,18 @@ export function ModelEvaluator({
   const [testResultByKey, setTestResultByKey] = useState<Record<string, boolean>>({});
   const [testingKey, setTestingKey] = useState<string | null>(null);
   const [batchTesting, setBatchTesting] = useState(false);
+  const batchTestingRef = useRef(false);
+  const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
+  const [rowTestPanel, setRowTestPanel] = useState<{
+    key: string;
+    providerId: string;
+    modelId: string;
+    modelName: string;
+  } | null>(null);
+  const [rowTestPrompt, setRowTestPrompt] = useState<string>('');
+  /** True when the user has manually typed in the single-test prompt textarea; suppresses auto-sync. */
+  const [rowTestPromptDirty, setRowTestPromptDirty] = useState(false);
+  const [rowTestFile, setRowTestFile] = useState<File | null>(null);
   const [tableAlignH, setTableAlignH] = useState<TableHAlign>('left');
   const [tableAlignV, setTableAlignV] = useState<TableVAlign>('top');
   const [alignDropdownOpen, setAlignDropdownOpen] = useState(false);
@@ -484,6 +533,8 @@ export function ModelEvaluator({
     () => FEATURE_MODULES.filter((mod) => !hiddenModuleKeySet.has(mod.key)),
     [hiddenModuleKeySet]
   );
+  // 目前實際顯示的欄位數量：8 個固定欄 + 每個可見模組 1 欄，避免多餘 col 造成右側空白區
+  const effectiveColumnCount = 8 + visibleFeatureModules.length;
 
   // ── Feature module state (integrated from #modules) ──────────────────────
   interface ModuleRowState { isEnabled: boolean; assignments: AssignedModel[] }
@@ -820,6 +871,14 @@ export function ModelEvaluator({
     () => rowsAfterCategoryFilter.filter((r) => selectedSet.has(`${r.providerId}::${r.modelId}`)).length,
     [rowsAfterCategoryFilter, selectedSet]
   );
+  /** 已選 + 有效金鑰 → 實際可測試的模型數量 */
+  const testableCount = useMemo(
+    () =>
+      rowsAfterCategoryFilter.filter(
+        (r) => selectedSet.has(`${r.providerId}::${r.modelId}`) && validProviders.has(r.providerId),
+      ).length,
+    [rowsAfterCategoryFilter, selectedSet, validProviders],
+  );
   const allFilteredSelected = rowsAfterCategoryFilter.length > 0 && filteredSelectedCount === rowsAfterCategoryFilter.length;
   const someFilteredSelected = filteredSelectedCount > 0;
 
@@ -870,20 +929,39 @@ export function ModelEvaluator({
   const getEffectivePromptForRow = useCallback(
     (rowKey: string): string => {
       const row = (rowPrompts[rowKey] ?? '').trim();
-      if (!row || row === DEFAULT_PROMPT_PLACEHOLDER) return globalTestPrompt.trim();
+      if (
+        !row ||
+        row === DEFAULT_PROMPT_PLACEHOLDER ||
+        row === effectivePromptVariableLabel
+      ) {
+        return globalTestPrompt.trim();
+      }
       return row;
     },
-    [rowPrompts, globalTestPrompt]
+    [rowPrompts, globalTestPrompt, effectivePromptVariableLabel]
   );
 
   const runTest = useCallback(
-    async (providerId: string, modelId: string, modelName: string) => {
+    async (
+      providerId: string,
+      modelId: string,
+      modelName: string,
+      options?: { overridePrompt?: string; overrideFile?: File | null },
+    ) => {
       const key = `${providerId}::${modelId}`;
-      const effectivePrompt = getEffectivePromptForRow(key) || undefined;
+      const basePrompt =
+        typeof options?.overridePrompt === 'string'
+          ? options.overridePrompt
+          : getEffectivePromptForRow(key);
+      const effectivePrompt = basePrompt && basePrompt.trim().length > 0 ? basePrompt.trim() : undefined;
+      const fileToUse =
+        options && Object.prototype.hasOwnProperty.call(options, 'overrideFile')
+          ? options.overrideFile
+          : uploadedFile;
       setTestingKey(key);
       setOutputByKey((prev) => ({ ...prev, [key]: '' }));
       try {
-        const result = await onTestModel(providerId, modelId, effectivePrompt, uploadedFile);
+        const result = await onTestModel(providerId, modelId, effectivePrompt, fileToUse ?? null);
         setTestResultByKey((prev) => ({ ...prev, [key]: result.success }));
         const output = result.output ?? (result.message && !result.success ? `錯誤：${result.message}` : '');
         setOutputByKey((prev) => ({ ...prev, [key]: output }));
@@ -917,6 +995,14 @@ export function ModelEvaluator({
 
   useClickOutsideClose(alignDropdownRef, alignDropdownOpen, setAlignDropdownOpen);
   useClickOutsideClose(viewDropdownRef, viewDropdownOpen, setViewDropdownOpen);
+
+  // Sync single-test panel prompt when globalTestPrompt changes, unless user has manually edited it.
+  useEffect(() => {
+    if (!rowTestPanel || rowTestPromptDirty) return;
+    const currentEffective = getEffectivePromptForRow(rowTestPanel.key);
+    const newPrompt = currentEffective || globalTestPrompt;
+    setRowTestPrompt(newPrompt);
+  }, [rowTestPanel, globalTestPrompt, rowTestPromptDirty, getEffectivePromptForRow]);
 
   useEffect(() => {
     const key = openStatusDropdownKey;
@@ -961,6 +1047,8 @@ export function ModelEvaluator({
 
   /** 全部測試：僅對「已選」且「有金鑰」的模型並行測試，完成後一次批量寫入 DB */
   const handleBatchTest = useCallback(async () => {
+    if (batchTestingRef.current) return;
+
     const selectedInFiltered = rowsAfterCategoryFilter.filter((r) =>
       selectedSet.has(`${r.providerId}::${r.modelId}`)
     );
@@ -973,48 +1061,81 @@ export function ModelEvaluator({
       window.alert('所選模型皆無有效 API 金鑰，無法測試。請先至 API 金鑰設定該供應商金鑰。');
       return;
     }
-    setBatchTesting(true);
-    const toSave: ModelEvaluation[] = [];
-    await Promise.all(
-      toTest.map(async ({ providerId, modelId, modelName }) => {
-        const key = `${providerId}::${modelId}`;
-        const effectivePrompt = getEffectivePromptForRow(key) || undefined;
-        setOutputByKey((prev) => ({ ...prev, [key]: '' }));
-        try {
-          const result = await onTestModel(providerId, modelId, effectivePrompt, uploadedFile);
-          setTestResultByKey((prev) => ({ ...prev, [key]: result.success }));
-          const output =
-            result.output ?? (result.message && !result.success ? `錯誤：${result.message}` : '');
-          setOutputByKey((prev) => ({ ...prev, [key]: output }));
 
-          const existing = evaluationMap.get(key);
-          toSave.push({
-            ...(existing?.id ? { id: existing.id } : {}),
-            provider: providerId,
-            model_id: modelId,
-            model_name: existing?.model_name ?? modelName,
-            is_working: result.success,
-            specialties: existing?.specialties ?? [],
-            is_candidate: existing?.is_candidate ?? false,
-            notes: output || existing?.notes || '',
-            last_tested_at: new Date().toISOString(),
-          });
-        } catch {
-          setTestResultByKey((prev) => ({ ...prev, [key]: false }));
-          setOutputByKey((prev) => ({ ...prev, [key]: '請求失敗' }));
+    batchTestingRef.current = true;
+    setBatchTesting(true);
+
+    const total = toTest.length;
+    let succeeded = 0;
+    let failed = 0;
+
+    setBatchProgress({ tested: 0, total, succeeded: 0, failed: 0 });
+
+    try {
+      const toSave: ModelEvaluation[] = [];
+      await Promise.all(
+        toTest.map(async ({ providerId, modelId, modelName }) => {
+          const key = `${providerId}::${modelId}`;
+          const effectivePrompt = getEffectivePromptForRow(key) || undefined;
+          setOutputByKey((prev) => ({ ...prev, [key]: '' }));
+          try {
+            const result = await onTestModel(providerId, modelId, effectivePrompt, uploadedFile);
+            setTestResultByKey((prev) => ({ ...prev, [key]: result.success }));
+            const output =
+              result.output ?? (result.message && !result.success ? `錯誤：${result.message}` : '');
+            setOutputByKey((prev) => ({ ...prev, [key]: output }));
+
+            if (result.success) succeeded++; else failed++;
+            setBatchProgress({ tested: succeeded + failed, total, succeeded, failed });
+
+            const existing = evaluationMap.get(key);
+            toSave.push({
+              ...(existing?.id ? { id: existing.id } : {}),
+              provider: providerId,
+              model_id: modelId,
+              model_name: existing?.model_name ?? modelName,
+              is_working: result.success,
+              specialties: existing?.specialties ?? [],
+              is_candidate: existing?.is_candidate ?? false,
+              notes: output || existing?.notes || '',
+              last_tested_at: new Date().toISOString(),
+            });
+          } catch {
+            failed++;
+            setBatchProgress({ tested: succeeded + failed, total, succeeded, failed });
+            setTestResultByKey((prev) => ({ ...prev, [key]: false }));
+            setOutputByKey((prev) => ({ ...prev, [key]: '請求失敗' }));
+          }
+        }),
+      );
+
+      if (toSave.length > 0) {
+        try {
+          await onSave(toSave);
+        } catch (saveErr) {
+          console.warn('[ModelEvaluator] 批次測試結果儲存失敗', saveErr);
         }
-      }),
-    );
-    // Batch save all results at once
-    if (toSave.length > 0) {
-      try {
-        await onSave(toSave);
-      } catch (saveErr) {
-        console.warn('[ModelEvaluator] 批次測試結果儲存失敗', saveErr);
       }
+
+      if (typeof window !== 'undefined') {
+        const lines: string[] = [];
+        lines.push(`全部測試完成。共測試 ${total} 個模型：`);
+        lines.push(`成功 ${succeeded} 個，失敗 ${failed} 個。`);
+        window.alert(lines.join('\n'));
+      }
+    } finally {
+      batchTestingRef.current = false;
+      setBatchTesting(false);
+      setBatchProgress(null);
     }
-    setBatchTesting(false);
   }, [rowsAfterCategoryFilter, selectedSet, validProviders, onTestModel, getEffectivePromptForRow, onSave, evaluationMap, uploadedFile]);
+
+  // Stable ref to the latest handleBatchTest — avoids including handleBatchTest in the
+  // headerActionsRef useEffect deps, which would cause infinite re-renders when parent
+  // passes currentKeys={keys.map(...)} (new array reference on each render).
+  const handleBatchTestRef = useRef(handleBatchTest);
+  handleBatchTestRef.current = handleBatchTest;
+  const stableRunBatchTest = useCallback(() => handleBatchTestRef.current(), []);
 
   // 將「全部測試」狀態與觸發方法暴露給頁首固定區塊使用
   useEffect(() => {
@@ -1023,23 +1144,21 @@ export function ModelEvaluator({
     const tooltip = canBatchTest
       ? '對目前已選且具金鑰的模型並行測試'
       : '目前選擇的 models 數為 0，無法測試。請先勾選要測試的模型。';
+    const payload = {
+      runBatchTest: stableRunBatchTest,
+      batchTesting,
+      canBatchTest,
+      tooltip,
+      batchProgress,
+      testableCount,
+    };
     if (typeof headerActionsRef === 'function') {
-      headerActionsRef({
-        runBatchTest: handleBatchTest,
-        batchTesting,
-        canBatchTest,
-        tooltip,
-      });
+      headerActionsRef(payload);
     } else if (headerActionsRef && 'current' in headerActionsRef) {
       // eslint-disable-next-line no-param-reassign
-      headerActionsRef.current = {
-        runBatchTest: handleBatchTest,
-        batchTesting,
-        canBatchTest,
-        tooltip,
-      };
+      headerActionsRef.current = payload;
     }
-  }, [headerActionsRef, handleBatchTest, batchTesting, filteredSelectedCount]);
+  }, [headerActionsRef, stableRunBatchTest, batchTesting, filteredSelectedCount, batchProgress, testableCount]);
 
   return (
     <div className="space-y-4">
@@ -1216,7 +1335,7 @@ export function ModelEvaluator({
         >
           <table className="w-full text-xs border-collapse" style={{ tableLayout: 'fixed' }}>
             <colgroup>
-              {columnWidths.map((w, i) => (
+              {columnWidths.slice(0, effectiveColumnCount).map((w, i) => (
                 <col key={i} style={{ width: w }} />
               ))}
             </colgroup>
@@ -1306,7 +1425,24 @@ export function ModelEvaluator({
                   className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(5)}`}
                   style={getFrozenThStyle(5)}
                 >
-                  <span>prompt測試</span>
+                  <div className="flex flex-col gap-1">
+                    <span>單一prompt測試</span>
+                    {onOpenGlobalTestPanel && (
+                      <div className="pt-0.5">
+                        <Button
+                          size="xs"
+                          variant="secondary"
+                          type="button"
+                          className="w-full justify-center"
+                          onClick={onOpenGlobalTestPanel}
+                          title="開啟統一測試與全域 Prompt 設定面板"
+                        >
+                          <FlaskConical size={12} className="mr-1" />
+                          統一測試
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                   <div
                     role="separator"
                     aria-label="調整欄寬"
@@ -1327,7 +1463,7 @@ export function ModelEvaluator({
                   />
                 </th>
                 <th
-                  className={`py-3 px-3 font-semibold text-text-secondary relative group border-r border-border-subtle align-top ${getFrozenThClass(7)}`}
+                  className={`py-3 px-3 font-semibold text-text-secondary text-center relative group border-r border-border-subtle align-top ${getFrozenThClass(7)}`}
                   style={getFrozenThStyle(7)}
                 >
                   <span>測試日期</span>
@@ -1354,7 +1490,7 @@ export function ModelEvaluator({
                             <Icon size={10} className={colors.text} />
                           </div>
                           <span className="text-[10px] leading-tight">
-                            {mod.key === 'online_ocr' ? `${mod.name} 模型排序` : mod.name}
+                            {['online_ocr', 'online_ocr_parse', 'online_ocr_judge'].includes(mod.key) ? `${mod.name} 模型排序` : mod.name}
                           </span>
                         </div>
                       </div>
@@ -1523,7 +1659,7 @@ export function ModelEvaluator({
                   style={getFrozenThStyle(6)}
                 />
                 <th
-                  className={`py-1.5 px-3 border-r border-border-subtle align-top text-left ${getFrozenThClass(7)}`}
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top text-center ${getFrozenThClass(7)}`}
                   style={{ whiteSpace: 'nowrap', ...getFrozenThStyle(7) }}
                 />
                 {visibleFeatureModules.map((mod: FeatureModule, filterColIdx: number) => {
@@ -1736,11 +1872,28 @@ export function ModelEvaluator({
                       style={getFrozenTdStyle(4)}
                     >
                       <textarea
-                        value={(rowPrompts[key]?.trim() ?? '') ? (rowPrompts[key] ?? '') : DEFAULT_PROMPT_PLACEHOLDER}
-                        onChange={(e) =>
-                          setRowPrompts((prev) => ({ ...prev, [key]: e.target.value }))
-                        }
-                        placeholder={`留空或 ${DEFAULT_PROMPT_PLACEHOLDER} 使用全域 Prompt；可輸入自訂`}
+                        value={(rowPrompts[key]?.trim() ?? '')
+                          ? (rowPrompts[key] ?? '')
+                          : effectivePromptVariableLabel}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          const trimmed = raw.trim();
+                          // 若使用者輸入的內容剛好等於顯示變數名稱，視為「使用全域 Prompt」，不另外儲存
+                          if (
+                            trimmed === '' ||
+                            trimmed === DEFAULT_PROMPT_PLACEHOLDER ||
+                            trimmed === effectivePromptVariableLabel
+                          ) {
+                            setRowPrompts((prev) => {
+                              const next = { ...prev };
+                              delete next[key];
+                              return next;
+                            });
+                          } else {
+                            setRowPrompts((prev) => ({ ...prev, [key]: raw }));
+                          }
+                        }}
+                        placeholder={`留空或 ${effectivePromptVariableLabel} 使用全域 Prompt；可輸入自訂`}
                         rows={2}
                         className="w-full rounded border border-border-subtle bg-transparent px-2 py-1 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent resize-y min-h-[44px]"
                         title="留空或 {預設prompt} 使用上方全域 Prompt；填入其他內容則此列使用專屬 Prompt"
@@ -1753,9 +1906,23 @@ export function ModelEvaluator({
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => runTest(providerId, modelId, modelName)}
-                        disabled={!hasKey || isTesting}
-                        title={hasKey ? '用上方 Prompt 測試此模型' : '需先設定 API 金鑰'}
+                        onClick={() => {
+                          if (!isSelected || !hasKey || isTesting) return;
+                          const rowKey = `${providerId}::${modelId}`;
+                          const initialPrompt = getEffectivePromptForRow(rowKey) || globalTestPrompt;
+                          setRowTestPrompt(initialPrompt);
+                          setRowTestPromptDirty(false);
+                          setRowTestFile(uploadedFile);
+                          setRowTestPanel({ key: rowKey, providerId, modelId, modelName });
+                        }}
+                        disabled={!isSelected || !hasKey || isTesting}
+                        title={
+                          !isSelected
+                            ? '請先勾選此模型才能測試'
+                            : !hasKey
+                              ? '需先設定 API 金鑰'
+                              : '開啟單一測試設定（可調整 Prompt 與檔案）'
+                        }
                       >
                         {isTesting ? (
                           <Loader2 size={14} className="animate-spin" />
@@ -1765,7 +1932,7 @@ export function ModelEvaluator({
                       </Button>
                     </td>
                     <td
-                      className={`py-2.5 px-3 align-top border-r border-border-subtle overflow-hidden min-w-0 ${getFrozenTdClass(6)}`}
+                      className={`py-2.5 px-3 align-top border-r border-border-subtle overflow-x-auto overflow-y-hidden min-w-0 ${getFrozenTdClass(6)}`}
                       style={getFrozenTdStyle(6)}
                     >
                       {isTesting ? (
@@ -1774,7 +1941,7 @@ export function ModelEvaluator({
                         </span>
                       ) : (
                         <span
-                          className="text-text-secondary break-words block"
+                          className="text-text-secondary whitespace-nowrap inline-block"
                           title={output || ev?.notes || '—'}
                         >
                           {output || ev?.notes || '—'}
@@ -1782,7 +1949,7 @@ export function ModelEvaluator({
                       )}
                     </td>
                     <td
-                      className={`py-2.5 px-3 text-text-muted border-r border-border-subtle align-top text-left ${getFrozenTdClass(7)}`}
+                      className={`py-2.5 px-3 text-text-muted border-r border-border-subtle align-top text-center ${getFrozenTdClass(7)}`}
                       style={{ whiteSpace: 'nowrap', ...getFrozenTdStyle(7) }}
                     >
                       {ev?.last_tested_at
@@ -1912,6 +2079,138 @@ export function ModelEvaluator({
           </table>
         </div>
       </div>
+      {rowTestPanel && (
+        <Sheet
+          open={!!rowTestPanel}
+          onOpenChange={(open) => {
+            if (!open) setRowTestPanel(null);
+          }}
+        >
+          <SheetContent className="sm:max-w-xl">
+            <SheetHeader>
+              <div>
+                <SheetTitle className="flex items-center gap-2">
+                  <FlaskConical className="w-5 h-5" />
+                  單一模型測試設定
+                </SheetTitle>
+                <SheetDescription>
+                  {rowTestPanel.modelName}（{rowTestPanel.providerId} · {rowTestPanel.modelId}）
+                </SheetDescription>
+              </div>
+            </SheetHeader>
+            <div className="p-4 space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-text-secondary">
+                  測試 Prompt
+                </label>
+                <textarea
+                  value={rowTestPrompt}
+                  onChange={(e) => {
+                    setRowTestPromptDirty(true);
+                    setRowTestPrompt(e.target.value);
+                  }}
+                  placeholder="預設為此列有效 Prompt；可在此針對本次單一測試調整內容"
+                  rows={8}
+                  className="w-full rounded border border-border-subtle bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent resize-y min-h-[160px]"
+                />
+                <p className="text-[11px] text-text-muted">
+                  若留空，實際執行時會自動 fallback 至此列設定的 Prompt 或全域測試 Prompt。
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-text-secondary">
+                  測試檔案（選填）
+                </label>
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer text-sm text-text-secondary hover:text-text-primary rounded border border-border-subtle bg-bg-primary px-3 py-2 shrink-0">
+                    <Upload size={16} className="shrink-0" />
+                    <span>選擇檔案</span>
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.txt,.md"
+                      className="sr-only"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0] ?? null;
+                        setRowTestFile(f);
+                        if (e.target) (e.target as HTMLInputElement).value = '';
+                      }}
+                      title="上傳 PDF、圖片或文字檔作為本次單一測試附件"
+                    />
+                  </label>
+                  {rowTestFile && (
+                    <span
+                      className="text-sm text-text-muted truncate max-w-[240px]"
+                      title={rowTestFile.name}
+                    >
+                      {rowTestFile.name}
+                    </span>
+                  )}
+                </div>
+                {!rowTestFile && uploadedFile && (
+                  <p className="text-[11px] text-text-muted">
+                    若未另外選擇檔案，將會沿用目前全域測試面板中的檔案：{uploadedFile.name}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  type="button"
+                  onClick={() => setRowTestPanel(null)}
+                >
+                  取消
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  type="button"
+                  onClick={async () => {
+                    if (!rowTestPanel) return;
+                    const overridePrompt = rowTestPrompt.trim().length > 0 ? rowTestPrompt : undefined;
+                    const fileToUse = rowTestFile ?? uploadedFile ?? null;
+                    await runTest(
+                      rowTestPanel.providerId,
+                      rowTestPanel.modelId,
+                      rowTestPanel.modelName,
+                      { overridePrompt, overrideFile: fileToUse },
+                    );
+                  }}
+                  isLoading={testingKey === rowTestPanel.key}
+                  disabled={testingKey === rowTestPanel.key}
+                >
+                  {testingKey === rowTestPanel.key ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <FlaskConical size={14} />
+                  )}
+                  <span className="ml-1.5 whitespace-nowrap">執行單一測試</span>
+                </Button>
+              </div>
+
+              {/* Test result output — shown after execution completes */}
+              {rowTestPanel && (outputByKey[rowTestPanel.key] !== undefined || testResultByKey[rowTestPanel.key] !== undefined) && (
+                <div className="space-y-2 border-t border-border-subtle pt-4">
+                  <p className="text-xs font-medium text-text-secondary">測試結果</p>
+                  <div
+                    className={`rounded border px-3 py-2 text-xs whitespace-pre-wrap break-words max-h-[280px] overflow-y-auto ${
+                      testResultByKey[rowTestPanel.key] === true
+                        ? 'border-green-500/30 bg-green-500/5 text-green-300'
+                        : testResultByKey[rowTestPanel.key] === false
+                          ? 'border-red-500/30 bg-red-500/5 text-red-400'
+                          : 'border-border-subtle bg-bg-secondary text-text-secondary'
+                    }`}
+                  >
+                    {outputByKey[rowTestPanel.key] || '（無輸出）'}
+                  </div>
+                </div>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
     </div>
   );
 }
