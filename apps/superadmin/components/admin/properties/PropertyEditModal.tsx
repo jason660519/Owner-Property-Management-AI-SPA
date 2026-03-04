@@ -602,7 +602,7 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
 
           {/* Info line */}
           <div className="text-xs text-text-muted">
-            所有權人：{property.ownerName} &middot; 建立日期：
+            創建人：{property.creatorName} &middot; 建立日期：
             {new Date(property.createdAt).toLocaleDateString('zh-TW')}
           </div>
           </>

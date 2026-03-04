@@ -21,62 +21,86 @@ import type {
 } from '@/lib/types/properties';
 import { SALE_STATUSES, RENTAL_STATUSES } from '@/lib/types/properties';
 
+/**
+ * Paginated fetch: Supabase/PostgREST caps each request at `max_rows` (default 1000).
+ * This helper fetches all rows by iterating with `.range()`.
+ */
+async function fetchAllRows<T extends Record<string, unknown>>(
+  client: ReturnType<typeof createAdminClient>,
+  table: string,
+  orderCol = 'created_at',
+): Promise<{ data: T[]; error: Error | null }> {
+  const PAGE = 1000;
+  const allRows: T[] = [];
+  let from = 0;
+
+  for (;;) {
+    const { data, error } = await client
+      .from(table)
+      .select('*')
+      .order(orderCol, { ascending: false })
+      .range(from, from + PAGE - 1);
+
+    if (error) return { data: allRows, error };
+    if (!data || data.length === 0) break;
+    allRows.push(...(data as T[]));
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+
+  return { data: allRows, error: null };
+}
+
 export async function getAllProperties(): Promise<PropertiesResult> {
   noStore();
   const adminClient = createAdminClient();
 
   try {
-    // Fetch all sales
-    const { data: salesData, error: salesError } = await adminClient
-      .from('property_sales')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { data: salesData, error: salesError } = await fetchAllRows(
+      adminClient, 'property_sales',
+    );
 
     if (salesError) {
       console.error('[Properties] Error fetching property_sales:', salesError);
     }
 
-    // Fetch all rentals
-    const { data: rentalsData, error: rentalsError } = await adminClient
-      .from('property_rentals')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { data: rentalsData, error: rentalsError } = await fetchAllRows(
+      adminClient, 'property_rentals',
+    );
 
     if (rentalsError) {
       console.error('[Properties] Error fetching property_rentals:', rentalsError);
     }
 
-    // Collect unique owner IDs to resolve display names
-    const ownerIds = new Set<string>();
-    (salesData || []).forEach((s) => ownerIds.add(s.owner_id));
-    (rentalsData || []).forEach((r) => ownerIds.add(r.owner_id));
+    // Collect unique owner IDs (system creator) to resolve display names
+    const creatorIds = new Set<string>();
+    (salesData || []).forEach((s) => typeof s.owner_id === 'string' && creatorIds.add(s.owner_id));
+    (rentalsData || []).forEach((r) => typeof r.owner_id === 'string' && creatorIds.add(r.owner_id));
 
-    // Fetch owner display names from users_profile
-    // Note: users_profile has display_name but no email; fall back to auth.users for email
-    let ownerMap: Record<string, string> = {};
-    if (ownerIds.size > 0) {
+    // creatorMap: system user who created/imported the property
+    const creatorMap: Record<string, string> = {};
+    if (creatorIds.size > 0) {
       const { data: profiles } = await adminClient
         .from('users_profile')
         .select('id, display_name')
-        .in('id', Array.from(ownerIds));
+        .in('id', Array.from(creatorIds));
 
       if (profiles) {
         for (const p of profiles) {
           if (p.display_name) {
-            ownerMap[p.id] = p.display_name;
+            creatorMap[p.id] = p.display_name;
           }
         }
       }
     }
 
-    // Fill in missing names from auth.users (email / user_metadata)
-    const missingOwners = Array.from(ownerIds).filter((id) => !ownerMap[id]);
-    if (missingOwners.length > 0) {
+    const missingCreators = Array.from(creatorIds).filter((id) => !creatorMap[id]);
+    if (missingCreators.length > 0) {
       const { data: authData } = await adminClient.auth.admin.listUsers();
       if (authData?.users) {
         for (const u of authData.users) {
-          if (missingOwners.includes(u.id)) {
-            ownerMap[u.id] =
+          if (missingCreators.includes(u.id)) {
+            creatorMap[u.id] =
               u.user_metadata?.display_name ||
               u.user_metadata?.name ||
               u.email ||
@@ -86,73 +110,93 @@ export async function getAllProperties(): Promise<PropertiesResult> {
       }
     }
 
-    // Normalize sales (title + address from columns or details fallback)
-    const salesProperties: PropertyItem[] = (salesData || []).map((s) => {
-      const details = (s.details || {}) as Record<string, unknown>;
-      const row = s as Record<string, unknown>;
-      return {
-        id: s.id,
-        type: 'sale' as const,
-        title: (row.title as string) ?? (details.title as string) ?? s.address,
-        address: s.address,
-        addressCity: (row.address_city as string) ?? (details.addressCity as string) ?? undefined,
-        addressDistrict: (row.address_district as string) ?? (details.addressDistrict as string) ?? undefined,
-        addressStreet: (row.address_street as string) ?? (details.addressStreet as string) ?? undefined,
-        addressNumber: (row.address_number as string) ?? (details.addressNumber as string) ?? undefined,
-        addressFloor: (row.address_floor as string) ?? (details.addressFloor as string) ?? undefined,
-        addressUnit: (row.address_unit as string) ?? (details.addressUnit as string) ?? undefined,
-        status: s.status,
-        price: s.price,
-        monthlyRent: null,
-        ownerName: ownerMap[s.owner_id] || s.owner_id.slice(0, 8),
-        ownerId: s.owner_id,
-        area: (details.area as number | null) ?? null,
-        propertyType: (details.type as string | null) ?? null,
-        bedrooms: (details.bedrooms as number | null) ?? null,
-        bathrooms: (details.bathrooms as number | null) ?? null,
-        livingRooms: (details.livingRooms as number | null) ?? null,
-        parkingSpaces: (details.parkingSpaces as number | null) ?? null,
-        createdAt: s.created_at,
-        mainPhotoUrl:
-          (details.imageUrl as string) ||
-          (Array.isArray(details.images) && (details.images[0] as string)) ||
-          null,
-      };
-    });
+    // Fetch real property owners from property_owners table
+    // realOwnerMap: property_id → first owner_name (the actual legal owner)
+    const realOwnerMap: Record<string, string> = {};
+    const { data: ownersData } = await adminClient
+      .from('property_owners')
+      .select('property_id, owner_name')
+      .order('created_at', { ascending: true });
 
-    // Normalize rentals
-    const rentalProperties: PropertyItem[] = (rentalsData || []).map((r) => {
-      const details = (r.details || {}) as Record<string, unknown>;
-      const row = r as Record<string, unknown>;
+    if (ownersData) {
+      for (const o of ownersData) {
+        if (!realOwnerMap[o.property_id]) {
+          realOwnerMap[o.property_id] = o.owner_name;
+        }
+      }
+    }
+
+    // Helper: normalize a DB row into PropertyItem
+    function toPropertyItem(
+      row: Record<string, unknown>,
+      type: 'sale' | 'rental'
+    ): PropertyItem {
+      const details = (row.details || {}) as Record<string, unknown>;
+      const propertyId = row.id as string;
+      const systemUserId = row.owner_id as string;
       return {
-        id: r.id,
-        type: 'rental' as const,
-        title: (row.title as string) ?? (details.title as string) ?? r.address,
-        address: r.address,
-        addressCity: (row.address_city as string) ?? (details.addressCity as string) ?? undefined,
-        addressDistrict: (row.address_district as string) ?? (details.addressDistrict as string) ?? undefined,
-        addressStreet: (row.address_street as string) ?? (details.addressStreet as string) ?? undefined,
-        addressNumber: (row.address_number as string) ?? (details.addressNumber as string) ?? undefined,
-        addressFloor: (row.address_floor as string) ?? (details.addressFloor as string) ?? undefined,
-        addressUnit: (row.address_unit as string) ?? (details.addressUnit as string) ?? undefined,
-        status: r.status,
-        price: null,
-        monthlyRent: r.monthly_rent,
-        ownerName: ownerMap[r.owner_id] || r.owner_id.slice(0, 8),
-        ownerId: r.owner_id,
-        area: (details.area as number | null) ?? null,
-        propertyType: (details.type as string | null) ?? null,
-        bedrooms: (details.bedrooms as number | null) ?? null,
-        bathrooms: (details.bathrooms as number | null) ?? null,
-        livingRooms: (details.livingRooms as number | null) ?? null,
-        parkingSpaces: (details.parkingSpaces as number | null) ?? null,
-        createdAt: r.created_at,
+        id: propertyId,
+        type,
+        title:
+          (row.title as string) ?? (details.title as string) ?? (row.address as string),
+        address: row.address as string,
+        addressCity:
+          (row.address_city as string) ?? (details.addressCity as string) ?? undefined,
+        addressDistrict:
+          (row.address_district as string) ?? (details.addressDistrict as string) ?? undefined,
+        addressStreet:
+          (row.address_street as string) ?? (details.addressStreet as string) ?? undefined,
+        addressNumber:
+          (row.address_number as string) ?? (details.addressNumber as string) ?? undefined,
+        addressFloor:
+          (row.address_floor as string) ?? (details.addressFloor as string) ?? undefined,
+        addressUnit:
+          (row.address_unit as string) ?? (details.addressUnit as string) ?? undefined,
+        status: row.status as string,
+        price: type === 'sale' ? (row.price as number) : null,
+        monthlyRent: type === 'rental' ? (row.monthly_rent as number) : null,
+        creatorName: creatorMap[systemUserId] || systemUserId.slice(0, 8),
+        ownerName: realOwnerMap[propertyId] || null,
+        ownerId: systemUserId,
+        area:
+          (row.area_registered as number | null) ??
+          (details.area as number | null) ??
+          null,
+        propertyType:
+          (row.building_type as string | null) ??
+          (details.type as string | null) ??
+          null,
+        bedrooms:
+          (row.layout_rooms as number | null) ??
+          (details.bedrooms as number | null) ??
+          null,
+        bathrooms:
+          (row.layout_bathrooms as number | null) ??
+          (details.bathrooms as number | null) ??
+          null,
+        livingRooms:
+          (row.layout_living_rooms as number | null) ??
+          (details.livingRooms as number | null) ??
+          null,
+        parkingSpaces:
+          (row.has_parking as boolean)
+            ? 1
+            : (details.parkingSpaces as number | null) ?? null,
+        createdAt: row.created_at as string,
         mainPhotoUrl:
           (details.imageUrl as string) ||
           (Array.isArray(details.images) && (details.images[0] as string)) ||
           null,
       };
-    });
+    }
+
+    const salesProperties: PropertyItem[] = (salesData || []).map((s) =>
+      toPropertyItem(s as Record<string, unknown>, 'sale')
+    );
+
+    const rentalProperties: PropertyItem[] = (rentalsData || []).map((r) =>
+      toPropertyItem(r as Record<string, unknown>, 'rental')
+    );
 
     const properties = [...salesProperties, ...rentalProperties].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()

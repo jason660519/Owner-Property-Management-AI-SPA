@@ -126,13 +126,14 @@ beforeEach(() => {
 /**
  * The FlaskConical button in the "單一prompt測試" column is a <button> element.
  * We locate it by title attribute which changes based on disabled reason.
+ * allRows may include static models from all providers, so use queryAll and pick the first.
  */
 function getSingleTestButton() {
-  // Try all possible title variants
   return (
-    screen.queryByTitle('開啟單一測試設定（可調整 Prompt 與檔案）') ??
-    screen.queryByTitle('需先設定 API 金鑰') ??
-    screen.queryByTitle('請先勾選此模型才能測試')
+    screen.queryAllByTitle('開啟單一測試設定（可調整 Prompt 與檔案）')[0] ??
+    screen.queryAllByTitle('需先設定 API 金鑰')[0] ??
+    screen.queryAllByTitle('請先勾選此模型才能測試')[0] ??
+    null
   );
 }
 
@@ -150,7 +151,9 @@ describe('單一prompt測試 — button enable/disable', () => {
 
   it('button title indicates "請先勾選" when model is not selected', () => {
     render(<ModelEvaluator {...propsNotSelected} />);
-    expect(screen.getByTitle('請先勾選此模型才能測試')).toBeInTheDocument();
+    const buttons = screen.getAllByTitle('請先勾選此模型才能測試');
+    expect(buttons.length).toBeGreaterThan(0);
+    expect(buttons[0]).toBeInTheDocument();
   });
 
   it('button is disabled when model is selected but provider has no valid key', () => {
@@ -683,8 +686,7 @@ describe('全部測試 — batchTesting 狀態轉換', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('全部測試 — 完成摘要', () => {
-  it('shows alert with success count after batch completes', async () => {
-    const alertMock = jest.spyOn(window, 'alert').mockImplementation(() => {});
+  it('shows batch results modal with success count after batch completes', async () => {
     const mockRef = jest.fn();
     render(
       <ModelEvaluator
@@ -703,17 +705,16 @@ describe('全部測試 — 完成摘要', () => {
       await runBatchTest();
     });
 
-    expect(alertMock).toHaveBeenCalled();
-    const msg = alertMock.mock.calls.at(-1)?.[0] as string;
-    expect(msg).toMatch(/測試完成/);
-    expect(msg).toMatch(/成功.*1/);
-
-    alertMock.mockRestore();
+    // BatchResultsModal should appear with success summary
+    await waitFor(() => {
+      expect(screen.getByText(/成功/)).toBeInTheDocument();
+    });
+    // Confirm success count = 1 and failure = 0
+    expect(screen.getByText(/1 成功/)).toBeInTheDocument();
+    expect(screen.getByText(/0 失敗/)).toBeInTheDocument();
   });
 
-  it('shows alert with both success and failure counts for mixed results', async () => {
-    const alertMock = jest.spyOn(window, 'alert').mockImplementation(() => {});
-
+  it('shows batch results modal with both success and failure counts for mixed results', async () => {
     mockOnTestModel
       .mockResolvedValueOnce({ success: true, output: 'Anthropic OK' })
       .mockResolvedValueOnce({ success: false, message: 'Rate limit exceeded' });
@@ -736,13 +737,11 @@ describe('全部測試 — 完成摘要', () => {
       await runBatchTest();
     });
 
-    expect(alertMock).toHaveBeenCalled();
-    const msg = alertMock.mock.calls.at(-1)?.[0] as string;
-    expect(msg).toMatch(/測試完成/);
-    expect(msg).toMatch(/成功.*1/);
-    expect(msg).toMatch(/失敗.*1/);
-
-    alertMock.mockRestore();
+    // BatchResultsModal should show 1 success and 1 failure
+    await waitFor(() => {
+      expect(screen.getByText(/1 成功/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/1 失敗/)).toBeInTheDocument();
   });
 });
 

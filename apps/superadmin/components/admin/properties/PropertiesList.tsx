@@ -4,7 +4,8 @@
 // Properties table with edit/delete actions synced to Supabase
 'use client';
 
-import { useState, useTransition, useRef, useEffect, useMemo } from 'react';
+import { useState, useTransition, useRef, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
   flexRender,
@@ -78,8 +79,8 @@ function formatRent(rent: number | null): string {
 
 const FREEZE_ROW_STORAGE_KEY = 'properties_list_freeze_row_v1';
 const FROZEN_COL_STORAGE_KEY = 'properties_list_frozen_col_count_v1';
-/** Pixel widths: 狀態, 物件名稱, 主照片小圖示, 縣市, 區, 路/街, 門牌, 樓層, 單位, 物件類型, 價格, 總面積(坪), 格局, 車位數, 創建人, 所有權人, 操作, 建立日期, 下架日期 */
-const COLUMN_WIDTHS_PX = [90, 200, 72, 88, 88, 130, 72, 52, 52, 92, 100, 72, 110, 64, 100, 100, 92, 92, 92];
+/** Pixel widths: 物件編號, 狀態, 物件名稱, 主照片小圖示, 縣市, 區, 路/街, 門牌, 樓層, 單位, 物件類型, 價格, 總面積(坪), 格局, 車位數, 創建人, 所有權人, 操作, 建立日期, 下架日期 */
+const COLUMN_WIDTHS_PX = [72, 90, 200, 72, 88, 88, 130, 72, 52, 52, 92, 100, 72, 110, 64, 100, 100, 92, 92, 92];
 const PROPERTIES_COLUMN_COUNT = COLUMN_WIDTHS_PX.length;
 
 export function PropertiesList({ data: result, owners = [] }: { data: PropertiesResult; owners?: OwnerOption[] }) {
@@ -95,6 +96,9 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
   const [propertyTypeFilter, setPropertyTypeFilter] = useState<string[]>([]);
   const [propertyTypeDropdownOpen, setPropertyTypeDropdownOpen] = useState(false);
   const propertyTypeDropdownRef = useRef<HTMLDivElement | null>(null);
+  const propertyTypeMenuRef = useRef<HTMLDivElement | null>(null);
+  const propertyTypeBtnRef = useRef<HTMLButtonElement | null>(null);
+  const [propertyTypeDropdownPos, setPropertyTypeDropdownPos] = useState<{ top: number; left: number } | null>(null);
 
   // Create modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -125,17 +129,35 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
   const alignDropdownRef = useRef<HTMLDivElement | null>(null);
   const viewDropdownRef = useRef<HTMLDivElement | null>(null);
 
-  // Close property type filter dropdown on click outside or Escape
+  const recalcPropertyTypeDropdownPos = useCallback(() => {
+    if (propertyTypeBtnRef.current) {
+      const rect = propertyTypeBtnRef.current.getBoundingClientRect();
+      setPropertyTypeDropdownPos({ top: rect.bottom + 4, left: rect.left });
+    }
+  }, []);
+
+  // Close property type filter dropdown on click outside or Escape; reposition on scroll/resize
   useEffect(() => {
     if (!propertyTypeDropdownOpen) return;
     const handleClick = (e: MouseEvent) => {
-      if (propertyTypeDropdownRef.current && !propertyTypeDropdownRef.current.contains(e.target as Node)) setPropertyTypeDropdownOpen(false);
+      const target = e.target as Node;
+      const insideButton = propertyTypeDropdownRef.current?.contains(target);
+      const insideMenu = propertyTypeMenuRef.current?.contains(target);
+      if (!insideButton && !insideMenu) setPropertyTypeDropdownOpen(false);
     };
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPropertyTypeDropdownOpen(false); };
+    const handleScrollOrResize = () => recalcPropertyTypeDropdownPos();
     document.addEventListener('mousedown', handleClick);
     document.addEventListener('keydown', handleKey);
-    return () => { document.removeEventListener('mousedown', handleClick); document.removeEventListener('keydown', handleKey); };
-  }, [propertyTypeDropdownOpen]);
+    window.addEventListener('resize', handleScrollOrResize);
+    document.addEventListener('scroll', handleScrollOrResize, true);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+      window.removeEventListener('resize', handleScrollOrResize);
+      document.removeEventListener('scroll', handleScrollOrResize, true);
+    };
+  }, [propertyTypeDropdownOpen, recalcPropertyTypeDropdownPos]);
 
   const frozenColLeftOffsets = useMemo(() => {
     const offsets: number[] = [];
@@ -206,8 +228,23 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
 
   const columns: ColumnDef<PropertyItem>[] = [
     {
-      accessorKey: 'status',
+      id: 'rowNumber',
       size: COLUMN_WIDTHS_PX[0],
+      header: '物件編號',
+      enableSorting: false,
+      enableResizing: false,
+      cell: (info) => {
+        const pageIndex = table.getState().pagination.pageIndex;
+        const pageSize = table.getState().pagination.pageSize;
+        const rowIdx = pageIndex * pageSize + info.row.index + 1;
+        return (
+          <span className="text-xs text-text-muted font-mono">{rowIdx}</span>
+        );
+      },
+    },
+    {
+      accessorKey: 'status',
+      size: COLUMN_WIDTHS_PX[1],
       header: () => (
         <div className="flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
           <span>狀態</span>
@@ -236,7 +273,7 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
     },
     {
       accessorKey: 'title',
-      size: COLUMN_WIDTHS_PX[1],
+      size: COLUMN_WIDTHS_PX[2],
       header: '物件名稱',
       cell: (info) => (
         <span className="font-medium text-text-primary text-sm block min-w-0 max-w-full break-words">
@@ -247,7 +284,7 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
     {
       id: 'mainPhoto',
       accessorKey: 'mainPhotoUrl',
-      size: COLUMN_WIDTHS_PX[2],
+      size: COLUMN_WIDTHS_PX[3],
       header: '主照片小圖示',
       enableSorting: false,
       cell: (info) => {
@@ -271,7 +308,7 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
     },
     {
       accessorKey: 'addressCity',
-      size: COLUMN_WIDTHS_PX[3],
+      size: COLUMN_WIDTHS_PX[4],
       header: () => (
         <div className="flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
           <span>縣市</span>
@@ -298,7 +335,7 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
     },
     {
       accessorKey: 'addressDistrict',
-      size: COLUMN_WIDTHS_PX[4],
+      size: COLUMN_WIDTHS_PX[5],
       header: () => (
         <div className="flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
           <span>區</span>
@@ -321,30 +358,36 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
         <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
       ),
     },
-    { accessorKey: 'addressStreet', size: COLUMN_WIDTHS_PX[5], header: '路／街', cell: (info) => (
+    { accessorKey: 'addressStreet', size: COLUMN_WIDTHS_PX[6], header: '路／街', cell: (info) => (
         <span className="text-sm text-text-secondary block min-w-0 max-w-full break-words" title={(info.getValue() as string) || ''}>
           {(info.getValue() as string) || '—'}
         </span>
       ) },
-    { accessorKey: 'addressNumber', size: COLUMN_WIDTHS_PX[6], header: '門牌', cell: (info) => (
+    { accessorKey: 'addressNumber', size: COLUMN_WIDTHS_PX[7], header: '門牌', cell: (info) => (
         <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
       ) },
-    { accessorKey: 'addressFloor', size: COLUMN_WIDTHS_PX[7], header: '樓層', cell: (info) => (
+    { accessorKey: 'addressFloor', size: COLUMN_WIDTHS_PX[8], header: '樓層', cell: (info) => (
         <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
       ) },
-    { accessorKey: 'addressUnit', size: COLUMN_WIDTHS_PX[8], header: '單位', cell: (info) => (
+    { accessorKey: 'addressUnit', size: COLUMN_WIDTHS_PX[9], header: '單位', cell: (info) => (
         <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
       ) },
     {
       accessorKey: 'propertyType',
-      size: COLUMN_WIDTHS_PX[9],
+      size: COLUMN_WIDTHS_PX[10],
       header: () => (
         <div className="flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
           <span>物件類型</span>
           <div ref={propertyTypeDropdownRef} className="relative">
             <button
+              ref={propertyTypeBtnRef}
               type="button"
-              onClick={() => setPropertyTypeDropdownOpen((o) => !o)}
+              onClick={() => {
+                setPropertyTypeDropdownOpen((o) => {
+                  if (!o) recalcPropertyTypeDropdownPos();
+                  return !o;
+                });
+              }}
               className="w-full max-w-[120px] text-xs bg-bg-primary border border-border-default rounded px-1.5 py-1 text-text-primary focus:outline-none focus:border-accent text-left flex items-center justify-between gap-1"
               title="篩選物件類型（可複選）"
             >
@@ -357,49 +400,6 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
               </span>
               <ChevronDown className={`w-3 h-3 shrink-0 transition-transform ${propertyTypeDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
-            {propertyTypeDropdownOpen && (
-              <div className="absolute z-50 top-full left-0 mt-1 min-w-[140px] bg-bg-primary border border-border-default rounded-md shadow-lg max-h-60 overflow-y-auto">
-                <button
-                  type="button"
-                  onClick={() => setPropertyTypeFilter([])}
-                  className={`w-full text-left px-2.5 py-1.5 text-xs border-b border-border-default transition-colors ${
-                    propertyTypeFilter.length === 0
-                      ? 'bg-accent/10 text-accent font-medium'
-                      : 'text-text-primary hover:bg-bg-secondary'
-                  }`}
-                >
-                  全部（清除篩選）
-                </button>
-                {PROPERTY_TYPES.map((t) => {
-                  const isChecked = propertyTypeFilter.includes(t);
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => {
-                        setPropertyTypeFilter((prev) =>
-                          isChecked ? prev.filter((v) => v !== t) : [...prev, t]
-                        );
-                      }}
-                      className={`w-full text-left px-2.5 py-1.5 text-xs flex items-center gap-1.5 transition-colors ${
-                        isChecked
-                          ? 'bg-accent/10 text-accent font-medium'
-                          : 'text-text-primary hover:bg-bg-secondary'
-                      }`}
-                    >
-                      <span className={`flex items-center justify-center w-3.5 h-3.5 rounded-sm border ${
-                        isChecked
-                          ? 'bg-accent border-accent text-white'
-                          : 'border-border-default'
-                      }`}>
-                        {isChecked && <Check className="w-2.5 h-2.5" />}
-                      </span>
-                      {t}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
           </div>
         </div>
       ),
@@ -416,7 +416,7 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
     },
     {
       id: 'priceOrRent',
-      size: COLUMN_WIDTHS_PX[10],
+      size: COLUMN_WIDTHS_PX[11],
       header: '價格',
       accessorFn: (row) => row.price ?? row.monthlyRent ?? 0,
       cell: (info) => {
@@ -430,7 +430,7 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
     },
     {
       accessorKey: 'area',
-      size: COLUMN_WIDTHS_PX[11],
+      size: COLUMN_WIDTHS_PX[12],
       header: '總面積(坪)',
       cell: (info) => {
         // details.area 存的是平方公尺 (m²)，換算為坪顯示：1 m² = 0.3025 坪
@@ -446,7 +446,7 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
     },
     {
       id: 'specs',
-      size: COLUMN_WIDTHS_PX[12],
+      size: COLUMN_WIDTHS_PX[13],
       header: '格局',
       cell: (info) => {
         const row = info.row.original;
@@ -461,13 +461,13 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
     },
     {
       accessorKey: 'parkingSpaces',
-      size: COLUMN_WIDTHS_PX[13],
+      size: COLUMN_WIDTHS_PX[14],
       header: '車位數',
       cell: (info) => {
         const value = info.getValue() as number | null;
         return (
           <span className="text-sm text-text-secondary">
-            {value != null && value > 0 ? value : '-'}
+            {value != null && value > 0 ? `車位 ${value}` : '-'}
           </span>
         );
       },
@@ -475,7 +475,7 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
     {
       id: 'creatorName',
       accessorKey: 'creatorName',
-      size: COLUMN_WIDTHS_PX[14],
+      size: COLUMN_WIDTHS_PX[15],
       header: '創建人',
       cell: (info) => (
         <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
@@ -483,7 +483,7 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
     },
     {
       accessorKey: 'ownerName',
-      size: COLUMN_WIDTHS_PX[15],
+      size: COLUMN_WIDTHS_PX[16],
       header: '所有權人',
       cell: (info) => (
         <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
@@ -491,7 +491,7 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
     },
     {
       id: 'actions',
-      size: COLUMN_WIDTHS_PX[16],
+      size: COLUMN_WIDTHS_PX[17],
       header: '操作',
       enableSorting: false,
       enableResizing: false,
@@ -521,7 +521,7 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
     },
     {
       accessorKey: 'createdAt',
-      size: COLUMN_WIDTHS_PX[17],
+      size: COLUMN_WIDTHS_PX[18],
       header: '建立日期',
       cell: (info) => (
         <span className="text-xs text-text-muted">
@@ -531,7 +531,7 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
     },
     {
       accessorKey: 'delistedAt',
-      size: COLUMN_WIDTHS_PX[18],
+      size: COLUMN_WIDTHS_PX[19],
       header: '下架日期',
       cell: (info) => {
         const val = info.getValue() as string | null | undefined;
@@ -562,9 +562,9 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
   });
 
   return (
-    <div className="space-y-4">
+    <div className="flex-1 min-h-0 flex flex-col gap-4">
       {/* Summary + Filters */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="shrink-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-2 bg-bg-secondary border border-border-default p-2 rounded-lg w-full sm:max-w-sm">
           <Search size={18} className="text-text-secondary flex-shrink-0" />
           <input
@@ -619,7 +619,7 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
       </div>
 
       {/* Layout / View controls */}
-      <div className="flex items-center justify-end gap-2">
+      <div className="shrink-0 flex items-center justify-end gap-2">
         {/* Alignment dropdown */}
         <div className="relative" ref={alignDropdownRef}>
           <button
@@ -751,12 +751,11 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
         </div>
       </div>
 
-      {/* Table: 內層需保留 overflow-auto + max-h，讓 thead 的 sticky 有正確的 scroll 祖先，View 凍結列才會生效 */}
-      {/* Cells: 靠左+靠上+自動換行，不穿透隔壁 — break-words + min-w-0 + overflow-hidden */}
+      {/* Table: single scroll container (flex-1 min-h-0) so thead sticky works correctly */}
       <div
-        className={`bg-bg-secondary border border-border-default rounded-lg overflow-hidden [&_th]:whitespace-normal [&_td]:whitespace-normal [&_th]:break-words [&_td]:break-words [&_th]:min-w-0 [&_td]:min-w-0 [&_th]:overflow-hidden [&_td]:overflow-hidden ${TABLE_H_ALIGN_CLASSES[tableAlignH]} ${TABLE_V_ALIGN_CLASSES[tableAlignV]}`}
+        className={`flex-1 min-h-0 flex flex-col bg-bg-secondary border border-border-default rounded-lg overflow-hidden [&_th]:whitespace-normal [&_td]:whitespace-normal [&_th]:break-words [&_td]:break-words [&_th]:min-w-0 [&_td]:min-w-0 [&_th]:overflow-hidden [&_td]:overflow-hidden ${TABLE_H_ALIGN_CLASSES[tableAlignH]} ${TABLE_V_ALIGN_CLASSES[tableAlignV]}`}
       >
-        <div className="overflow-auto max-h-[calc(100vh-280px)] min-h-[400px]">
+        <div className="overflow-auto flex-1 min-h-0">
           <table
             className="w-full text-left text-sm table-fixed"
             style={{
@@ -856,7 +855,7 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
         </div>
 
         {/* Pagination */}
-        <div className="p-4 border-t border-border-default flex items-center justify-between text-sm text-text-secondary">
+        <div className="shrink-0 p-4 border-t border-border-default flex items-center justify-between text-sm text-text-secondary">
           <div>
             顯示 {table.getRowModel().rows.length} 筆（共{' '}
             {filteredData.length} 筆）
@@ -899,6 +898,56 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
           onClose={() => setEditingProperty(null)}
           onSaved={() => router.refresh()}
         />
+      )}
+
+      {/* Property Type Filter Dropdown (portal to avoid overflow clipping) */}
+      {propertyTypeDropdownOpen && propertyTypeDropdownPos && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={propertyTypeMenuRef}
+          className="fixed z-[9999] min-w-[140px] bg-bg-primary border border-border-default rounded-md shadow-lg max-h-60 overflow-y-auto"
+          style={{ top: propertyTypeDropdownPos.top, left: propertyTypeDropdownPos.left }}
+        >
+          <button
+            type="button"
+            onClick={() => setPropertyTypeFilter([])}
+            className={`w-full text-left px-2.5 py-1.5 text-xs border-b border-border-default transition-colors ${
+              propertyTypeFilter.length === 0
+                ? 'bg-accent/10 text-accent font-medium'
+                : 'text-text-primary hover:bg-bg-secondary'
+            }`}
+          >
+            全部（清除篩選）
+          </button>
+          {PROPERTY_TYPES.map((t) => {
+            const isChecked = propertyTypeFilter.includes(t);
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => {
+                  setPropertyTypeFilter((prev) =>
+                    isChecked ? prev.filter((v) => v !== t) : [...prev, t]
+                  );
+                }}
+                className={`w-full text-left px-2.5 py-1.5 text-xs flex items-center gap-1.5 transition-colors ${
+                  isChecked
+                    ? 'bg-accent/10 text-accent font-medium'
+                    : 'text-text-primary hover:bg-bg-secondary'
+                }`}
+              >
+                <span className={`flex items-center justify-center w-3.5 h-3.5 rounded-sm border ${
+                  isChecked
+                    ? 'bg-accent border-accent text-white'
+                    : 'border-border-default'
+                }`}>
+                  {isChecked && <Check className="w-2.5 h-2.5" />}
+                </span>
+                {t}
+              </button>
+            );
+          })}
+        </div>,
+        document.body
       )}
     </div>
   );

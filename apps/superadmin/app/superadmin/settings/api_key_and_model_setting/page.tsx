@@ -215,6 +215,10 @@ export default function AIServiceSettingsPage() {
     tooltip: string;
     batchProgress: { tested: number; total: number; succeeded: number; failed: number } | null;
     testableCount: number;
+    selectedCount: number;
+    totalCount: number;
+    filteredTotal: number;
+    filteredSelectedCount: number;
   } | null>(null);
   useEffect(() => {
     keysRef.current = settings.keys;
@@ -478,6 +482,9 @@ export default function AIServiceSettingsPage() {
           if (results[i]) byKeyId[k.id] = results[i] as KeyValidationResult;
         });
         setValidateAllResultsByKeyId(byKeyId);
+        // Reset stale ModelEvaluator header cache so the page header uses
+        // the freshly computed totalAvailableModels instead of stale totalCount.
+        setModelEvaluatorHeaderActions(null);
         try {
           await settings.saveValidationSummary(successCount, totalModels);
         } catch (saveErr) {
@@ -828,9 +835,26 @@ export default function AIServiceSettingsPage() {
                 {!settings.loading && (
                   <div className="flex flex-col gap-0.5 shrink-0 text-xs text-text-secondary">
                     <span>
-                      已驗證/可設定金鑰家數{' '}
+                      全部公司可選模型數：
                       <span className="font-medium text-text-primary">
-                        {settings.keys.filter((k) => k.is_valid === true).length}/{AI_PROVIDERS.length}
+                        {modelEvaluatorHeaderActions?.totalCount ?? totalAvailableModels}
+                      </span>
+                      {modelEvaluatorHeaderActions != null &&
+                        modelEvaluatorHeaderActions.filteredTotal !== modelEvaluatorHeaderActions.totalCount && (
+                        <>
+                          ，篩選後可選模型數：
+                          <span className="font-medium text-text-primary">
+                            {modelEvaluatorHeaderActions.filteredTotal}
+                          </span>
+                        </>
+                      )}
+                      ，已選模型數：
+                      <span className="font-medium text-text-primary">
+                        {modelEvaluatorHeaderActions != null
+                          ? modelEvaluatorHeaderActions.filteredTotal !== modelEvaluatorHeaderActions.totalCount
+                            ? modelEvaluatorHeaderActions.filteredSelectedCount
+                            : modelEvaluatorHeaderActions.selectedCount
+                          : selectedModelCount}
                       </span>
                     </span>
                   </div>
@@ -926,7 +950,7 @@ export default function AIServiceSettingsPage() {
                         <span>
                           已選/可選{' '}
                           <span className="font-semibold text-text-primary tabular-nums">
-                            {selectedModelCount}/{totalAvailableModels}
+                            {modelEvaluatorHeaderActions?.selectedCount ?? selectedModelCount}/{modelEvaluatorHeaderActions?.totalCount ?? totalAvailableModels}
                           </span>
                         </span>
                         {modelEvaluatorHeaderActions != null && (

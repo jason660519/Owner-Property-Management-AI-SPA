@@ -95,6 +95,11 @@
 }
 
 /* Sizes */
+.xs {
+    font-size: var(--text-xs);
+    padding: 4px 8px;
+}
+
 .sm {
     font-size: var(--text-sm);
     padding: 10px 16px;

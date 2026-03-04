@@ -9,7 +9,7 @@ import type { AIProvider } from '@/lib/ai-providers';
 
 const DEFAULT_TEST_PROMPT = '請用一句話回覆：你好，我是{你的模型名稱與型號}，可以正常接收並回應。';
 
-type TestResult = { success: boolean; message: string; output?: string };
+type TestResult = { success: boolean; message: string; output?: string; output_image_url?: string };
 
 /** Optional file attachment (base64 + mime) for vision/PDF. */
 export type FileAttachment = { fileBase64: string; mimeType: string; fileName?: string };
@@ -126,10 +126,30 @@ async function testAnthropic(
   }
 }
 
-function extractGeminiOutput(data: unknown): string {
-  const parts = (data as { candidates?: { content?: { parts?: { text?: string }[] } }[] })?.candidates?.[0]?.content?.parts;
-  const text = parts?.[0]?.text;
-  return typeof text === 'string' ? text.trim() : '';
+type GeminiPart =
+  | { text: string }
+  | { inlineData: { mimeType: string; data: string } };
+
+function extractGeminiResult(data: unknown): { output: string; imageDataUrl?: string } {
+  const parts = (data as { candidates?: { content?: { parts?: GeminiPart[] } }[] })
+    ?.candidates?.[0]?.content?.parts;
+  if (!Array.isArray(parts)) return { output: '' };
+
+  let output = '';
+  let imageDataUrl: string | undefined;
+
+  for (const part of parts) {
+    if ('text' in part && typeof part.text === 'string') {
+      output += part.text;
+    } else if ('inlineData' in part && typeof part.inlineData === 'object' && part.inlineData) {
+      const { mimeType, data } = part.inlineData;
+      if (typeof mimeType === 'string' && typeof data === 'string' && !imageDataUrl) {
+        imageDataUrl = `data:${mimeType};base64,${data}`;
+      }
+    }
+  }
+
+  return { output: output.trim(), imageDataUrl };
 }
 
 async function testGemini(
@@ -144,6 +164,8 @@ async function testGemini(
     parts.push({ inlineData: { mimeType: file.mimeType, data: file.fileBase64 } });
   }
   parts.push({ text: prompt });
+  // Request image output modality when a file is attached (image editing/generation context)
+  const responseModalities = file && isImageMime(file.mimeType) ? ['TEXT', 'IMAGE'] : undefined;
   try {
     const name = modelId.startsWith('models/') ? modelId : `models/${modelId}`;
     const res = await fetch(
@@ -153,13 +175,24 @@ async function testGemini(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts }],
-          generationConfig: { maxOutputTokens: max_tokens },
+          generationConfig: {
+            maxOutputTokens: max_tokens,
+            ...(responseModalities ? { responseModalities } : {}),
+          },
         }),
         signal: providerSignal(),
       }
     );
     const data = await res.json().catch(() => ({}));
-    if (res.ok) return { success: true, message: '連線成功', output: extractGeminiOutput(data) || '（無輸出）' };
+    if (res.ok) {
+      const { output, imageDataUrl } = extractGeminiResult(data);
+      return {
+        success: true,
+        message: '連線成功',
+        output: output || '（無輸出）',
+        ...(imageDataUrl ? { output_image_url: imageDataUrl } : {}),
+      };
+    }
     return { success: false, message: (data as { error?: { message?: string } }).error?.message ?? `HTTP ${res.status}` };
   } catch (e) {
     return { success: false, message: `連線失敗: ${e instanceof Error ? e.message : 'Unknown'}` };
@@ -234,6 +267,40 @@ async function testGrok(
   }
 }
 
+async function testTogether(
+  apiKey: string,
+  modelId: string,
+  userPrompt?: string,
+  file?: FileAttachment
+): Promise<TestResult> {
+  const { prompt, max_tokens } = getPromptAndMaxTokens(userPrompt);
+  let content: string | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> = prompt;
+  if (file && isImageMime(file.mimeType)) {
+    const dataUrl = `data:${file.mimeType};base64,${file.fileBase64}`;
+    content = [
+      { type: 'image_url' as const, image_url: { url: dataUrl } },
+      { type: 'text' as const, text: prompt },
+    ];
+  }
+  try {
+    const res = await fetch('https://api.together.xyz/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: modelId,
+        messages: [{ role: 'user', content }],
+        max_tokens,
+      }),
+      signal: providerSignal(),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) return { success: true, message: '連線成功', output: extractOpenAIOutput(data) || '（無輸出）' };
+    return { success: false, message: (data as { error?: { message?: string } }).error?.message ?? `HTTP ${res.status}` };
+  } catch (e) {
+    return { success: false, message: `連線失敗: ${e instanceof Error ? e.message : 'Unknown'}` };
+  }
+}
+
 type TesterFn = (key: string, modelId: string, userPrompt?: string, file?: FileAttachment) => Promise<TestResult>;
 const testers: Record<AIProvider, TesterFn> = {
   openai: testOpenAI,
@@ -241,6 +308,7 @@ const testers: Record<AIProvider, TesterFn> = {
   gemini: testGemini,
   deepseek: testDeepSeek,
   grok: testGrok,
+  together: testTogether,
 };
 
 export async function POST(request: NextRequest) {

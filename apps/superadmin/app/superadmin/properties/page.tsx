@@ -20,12 +20,15 @@ export default async function SuperadminPropertiesPage() {
         { label: '超級管理員專區', href: BASE },
         { label: '物件管理' },
       ]}
+      contentFullHeight
     >
-      <PropertiesList data={data} owners={owners} />
-      <div className="mt-6">
-        <Link href={BASE} className="text-[#7C3AED] hover:underline text-sm">
-          ← 返回儀表板
-        </Link>
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <PropertiesList data={data} owners={owners} />
+        <div className="shrink-0 px-1 py-3">
+          <Link href={BASE} className="text-[#7C3AED] hover:underline text-sm">
+            ← 返回儀表板
+          </Link>
+        </div>
       </div>
     </DashboardLayout>
   );

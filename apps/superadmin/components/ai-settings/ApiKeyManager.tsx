@@ -104,7 +104,7 @@ function ProviderKeyRow({ provider, savedKey, providerSavedModels = [], validati
     gemini: '#4285F4',
     deepseek: '#4D6BFE',
     grok: '#FFFFFF',
-
+    together: '#6366F1',
   };
 
   return (
@@ -341,12 +341,49 @@ function ProviderKeyRow({ provider, savedKey, providerSavedModels = [], validati
           </p>
         </div>
       )}
-
-      {/* 驗證成功但未取得可用模型列表時提示 */}
-      {displayResult?.valid && (!displayResult.availableModels || displayResult.availableModels.length === 0) && (
-        <div className="mt-2 flex items-center gap-2 p-2 rounded-base bg-yellow-500/10 text-yellow-500/80 border border-yellow-500/20 text-[11px]">
-          ⚠️ 雖然驗證成功，但未取得可用模型列表。可能是權限不足或 API 回應格式不符。
+      {savedKey && providerSavedModels.length === 0 && (
+        <div className="mt-2 space-y-0.5 text-[11px] text-text-muted">
+          <p className="text-[10px] text-text-muted">
+            尚未選擇模型 — 前往「已選/可選模型評估」分頁選擇。
+          </p>
         </div>
+      )}
+
+      {/* 驗證後可用模型清單（顯示 API 回傳的完整模型列表） */}
+      {displayResult?.valid && Array.isArray(displayResult.availableModels) && displayResult.availableModels.length > 0 && (
+        <div className="mt-2 text-[11px] text-text-muted">
+          <span className="font-medium text-text-secondary">
+            可選模型（共 {displayResult.availableModels.length} 個）：
+          </span>
+          <div className="mt-1 max-h-28 overflow-y-auto rounded-base border border-border-default bg-bg-secondary p-2">
+            <span className="font-mono text-[10px] text-text-primary leading-relaxed break-all">
+              {displayResult.availableModels.join(' · ')}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* 驗證成功但未取得可用模型列表時：顯示靜態模型清單作為 fallback */}
+      {displayResult?.valid && (!displayResult.availableModels || displayResult.availableModels.length === 0) && (
+        (() => {
+          const staticModels = provider.models ?? [];
+          return staticModels.length > 0 ? (
+            <div className="mt-2 p-2 rounded-base bg-bg-secondary border border-border-default text-[11px] text-text-muted">
+              <span className="font-medium text-text-secondary">靜態模型清單（共 {staticModels.length} 個，請重新驗證以取得即時清單）：</span>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {staticModels.map((m) => (
+                  <span key={m.id} className="px-1.5 py-0.5 bg-bg-tertiary rounded text-[10px] border border-border-default">
+                    {m.name ?? m.id}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="mt-2 flex items-center gap-2 p-2 rounded-base bg-yellow-500/10 text-yellow-500/80 border border-yellow-500/20 text-[11px]">
+              ⚠️ 雖然驗證成功，但未取得可用模型列表。可能是權限不足或 API 回應格式不符。
+            </div>
+          );
+        })()
       )}
     </div>
   );

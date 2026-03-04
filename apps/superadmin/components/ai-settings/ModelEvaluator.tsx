@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle2, XCircle, Loader2, FlaskConical, Upload, Cloud, MessageCircle, FileText, PenTool, Layout, Settings2, Plus, X, AlignLeft, Eye, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import {
@@ -41,6 +42,17 @@ export interface BatchProgress {
   failed: number;
 }
 
+export interface BatchResultEntry {
+  key: string;
+  providerId: string;
+  providerName: string;
+  modelId: string;
+  modelName: string;
+  success: boolean;
+  output: string;
+  imageUrl?: string;
+}
+
 export interface ModelEvaluatorProps {
   savedKeys: SavedKey[];
   savedModels?: SavedModel[];
@@ -54,7 +66,7 @@ export interface ModelEvaluatorProps {
     modelId: string,
     prompt?: string,
     file?: File | null
-  ) => Promise<{ success: boolean; message?: string; output?: string }>;
+  ) => Promise<{ success: boolean; message?: string; output?: string; output_image_url?: string }>;
   /** 可選：在此分頁勾選/取消「已選」時寫回 ai_model_selections，與 API 金鑰管理同步 */
   onSaveModels?: (
     providerId: string,
@@ -90,6 +102,10 @@ export interface ModelEvaluatorProps {
         tooltip: string;
         batchProgress: BatchProgress | null;
         testableCount: number;
+        selectedCount: number;
+        totalCount: number;
+        filteredTotal: number;
+        filteredSelectedCount: number;
       } | null>>
     | React.RefObject<{
         runBatchTest: () => void;
@@ -98,6 +114,10 @@ export interface ModelEvaluatorProps {
         tooltip: string;
         batchProgress: BatchProgress | null;
         testableCount: number;
+        selectedCount: number;
+        totalCount: number;
+        filteredTotal: number;
+        filteredSelectedCount: number;
       } | null>;
   /** 由外層控制的「統一測試 / 全域 Prompt 設定」面板開啟動作 */
   onOpenGlobalTestPanel?: () => void;
@@ -237,7 +257,35 @@ function getModelDisplayName(providerId: string, modelId: string): string {
   return m?.name ?? modelId;
 }
 
-/** 從 Prompt output 自動推斷模型分類：成功解析檔案內容視為 VLM，有回應但未解析（如「看不到檔案」）視為 LLM */
+/** Extract the first image URL found in model output text (markdown ![]() or bare URL ending in image extension) */
+function extractImageUrlFromOutput(output: string): string | undefined {
+  if (!output) return undefined;
+  // markdown image: ![alt](url)
+  const mdMatch = output.match(/!\[.*?\]\((https?:\/\/[^\s)]+)\)/i);
+  if (mdMatch) return mdMatch[1];
+  // bare URL ending in image extension
+  const bareMatch = output.match(/https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp)(?:[?#]\S*)?/i);
+  if (bareMatch) return bareMatch[0];
+  return undefined;
+}
+
+/** 從 provider::model key 查詢是否具備 vision 能力：先查靜態定義，若不在靜態列表則依 model ID 啟發式推斷 */
+function hasVisionCapability(key: string): boolean {
+  const [providerId, modelId] = key.split('::');
+  const provider = AI_PROVIDERS.find((p) => p.id === providerId);
+  const model = provider?.models.find((m) => m.id === modelId);
+  if (model) return model.capabilities?.includes('vision') ?? false;
+  // 動態載入的模型（來自 API 驗證）不在靜態列表，以 model ID 啟發式推斷
+  const lower = (modelId ?? '').toLowerCase();
+  if (lower.includes('vision') || lower.includes('-vl-') || lower.includes('-vl ')) return true;
+  // OpenAI / Anthropic / Gemini 的主力多模態模型通常含 vision（4o, claude-3, gemini）
+  if (providerId === 'openai' && (lower.includes('gpt-4o') || lower.includes('gpt-4-turbo'))) return true;
+  if (providerId === 'anthropic' && lower.includes('claude-3')) return true;
+  if (providerId === 'gemini' && lower.includes('gemini')) return true;
+  return false;
+}
+
+/** 從 Prompt output text 自動推斷模型分類：成功解析檔案內容視為 VLM，有回應但未解析（如「看不到檔案」）視為 LLM */
 function detectCategoryFromOutput(output: string | undefined): 'VLM' | 'LLM' | 'unknown' {
   const text = (output ?? '').trim();
   if (!text) return 'unknown';
@@ -263,11 +311,10 @@ function detectCategoryFromOutput(output: string | undefined): 'VLM' | 'LLM' | '
 /** 依測試輸出區分狀態顯示：僅成功解析檔案內容算 VLM 可用，「我看不到檔案」等僅算 LLM 可用 */
 type StatusDisplay = { type: 'vlm_ok' | 'llm_ok' | 'working' | 'not_working' | 'untested'; label: string; title: string };
 
-/** 五種狀態選項，供使用者手動修正 AI 判斷 */
+/** 四種狀態選項，供使用者手動修正 AI 判斷（移除模糊的「通用模型可用」，強制明確 VLM/LLM） */
 const STATUS_OVERRIDE_OPTIONS: { value: DisplayStatusOverride; label: string }[] = [
   { value: 'vlm_ok', label: 'VLM 可用' },
   { value: 'llm_ok', label: 'LLM 可用' },
-  { value: 'working', label: '通用模型可用' },
   { value: 'not_working', label: '不可用' },
   { value: 'untested', label: '尚未測試' },
 ];
@@ -296,8 +343,14 @@ function getStatusDisplay(
   const persistedWorking = ev?.is_working;
   const success = sessionSuccess === true || (sessionSuccess !== false && persistedWorking);
 
+  const isVisionModel = hasVisionCapability(key);
+
   if (!outputText) {
-    if (success) return { type: 'working', label: '可用', title: 'API 連線成功（無輸出內容可推斷 VLM/LLM）' };
+    if (success) {
+      if (isVisionModel)
+        return { type: 'vlm_ok', label: 'VLM 可用', title: 'API 連線成功，依模型靜態定義具 vision 能力，判定為 VLM 可用' };
+      return { type: 'llm_ok', label: 'LLM 可用', title: 'API 連線成功，依模型靜態定義無 vision 能力，判定為 LLM 可用' };
+    }
     if (sessionSuccess === false || (ev && !ev.is_working))
       return { type: 'not_working', label: '不可用', title: '測試失敗或未通過' };
     return { type: 'untested', label: '未測試', title: '尚未執行檔案解析測試' };
@@ -308,8 +361,11 @@ function getStatusDisplay(
     return { type: 'vlm_ok', label: 'VLM 可用', title: '依本測試輸出：已成功解析檔案內容，視為 VLM 可用' };
   if (category === 'LLM' && success)
     return { type: 'llm_ok', label: 'LLM 可用', title: '依本測試輸出：有文字回應但未解析檔案（如「看不到檔案」），僅算 LLM 可用，不算 VLM 可用' };
-  if (category === 'unknown' && success)
-    return { type: 'working', label: '可用', title: 'API 有回應，但無法從輸出推斷是否具 VLM 能力' };
+  if (category === 'unknown' && success) {
+    if (isVisionModel)
+      return { type: 'vlm_ok', label: 'VLM 可用', title: 'API 有回應，輸出無法明確推斷，依模型靜態定義具 vision 能力，判定為 VLM 可用' };
+    return { type: 'llm_ok', label: 'LLM 可用', title: 'API 有回應，輸出無法明確推斷，依模型靜態定義無 vision 能力，判定為 LLM 可用' };
+  }
   return { type: 'not_working', label: '不可用', title: '測試失敗或無有效輸出' };
 }
 
@@ -347,8 +403,8 @@ export function ModelEvaluator({
   const STORAGE_KEY_COLUMN_WIDTHS = 'superadmin-model-evaluator-column-widths';
   const FREEZE_ROW_STORAGE_KEY = 'superadmin-model-evaluator-freeze-row-v1';
   const FROZEN_COL_STORAGE_KEY = 'superadmin-model-evaluator-frozen-col-v1';
-  // Cols 0-7: fixed table cols (已選,公司,模型,模型分類與狀態,Prompt,prompt測試,output,測試日期); cols 8-14: one per FEATURE_MODULE (7)
-  const DEFAULT_COLUMN_WIDTHS = [48, 120, 220, 80, 140, 72, 200, 110, 88, 88, 88, 88, 88, 88, 88];
+  // Cols 0-8: fixed table cols (已選,公司,模型,模型分類與狀態,Prompt,prompt測試,output text,output jpg,測試日期); cols 9-15: one per FEATURE_MODULE (7)
+  const DEFAULT_COLUMN_WIDTHS = [48, 120, 220, 80, 140, 72, 200, 140, 110, 88, 88, 88, 88, 88, 88, 88];
   const TABLE_COLUMN_COUNT = DEFAULT_COLUMN_WIDTHS.length;
   const [columnWidths, setColumnWidthsState] = useState<number[]>(() => {
     if (typeof window === 'undefined') return [...DEFAULT_COLUMN_WIDTHS];
@@ -427,12 +483,14 @@ export function ModelEvaluator({
   /** Per-row custom prompts; empty string means "use global testPrompt" */
   const [rowPrompts, setRowPrompts] = useState<Record<string, string>>({});
   const [outputByKey, setOutputByKey] = useState<Record<string, string>>({});
+  const [imageOutputByKey, setImageOutputByKey] = useState<Record<string, string>>({});
   /** 本頁測試結果（優先於 DB 的 savedEvaluations 顯示在「狀態」欄） */
   const [testResultByKey, setTestResultByKey] = useState<Record<string, boolean>>({});
   const [testingKey, setTestingKey] = useState<string | null>(null);
   const [batchTesting, setBatchTesting] = useState(false);
   const batchTestingRef = useRef(false);
   const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
+  const [batchResults, setBatchResults] = useState<BatchResultEntry[] | null>(null);
   const [rowTestPanel, setRowTestPanel] = useState<{
     key: string;
     providerId: string;
@@ -474,7 +532,9 @@ export function ModelEvaluator({
   });
   /** 哪一列的「模型分類與狀態」下拉已展開（row key = providerId::modelId） */
   const [openStatusDropdownKey, setOpenStatusDropdownKey] = useState<string | null>(null);
+  const [statusDropdownPos, setStatusDropdownPos] = useState<{ top: number; left: number } | null>(null);
   const statusDropdownRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const statusBtnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const frozenColLeftOffsets = useMemo(() => {
     const offsets: number[] = [];
     let acc = 0;
@@ -533,8 +593,8 @@ export function ModelEvaluator({
     () => FEATURE_MODULES.filter((mod) => !hiddenModuleKeySet.has(mod.key)),
     [hiddenModuleKeySet]
   );
-  // 目前實際顯示的欄位數量：8 個固定欄 + 每個可見模組 1 欄，避免多餘 col 造成右側空白區
-  const effectiveColumnCount = 8 + visibleFeatureModules.length;
+  // 目前實際顯示的欄位數量：9 個固定欄 + 每個可見模組 1 欄，避免多餘 col 造成右側空白區
+  const effectiveColumnCount = 9 + visibleFeatureModules.length;
 
   // ── Feature module state (integrated from #modules) ──────────────────────
   interface ModuleRowState { isEnabled: boolean; assignments: AssignedModel[] }
@@ -640,9 +700,10 @@ export function ModelEvaluator({
   const [filterProviderIds, setFilterProviderIds] = useState<string[]>(
     () => readSessionStorage<string[]>(SS_FILTER_PROVIDERS, [])
   );
-  /** 依狀態篩選：空陣列 = 全部，否則為勾選的 working / not_working / untested；預設全部以利「全選」可用 */
+  /** 依狀態篩選：空陣列 = 全部，否則為勾選的 vlm_ok / llm_ok / not_working / untested */
+  const VALID_STATUS_VALUES = new Set(['vlm_ok', 'llm_ok', 'not_working', 'untested']);
   const [filterStatuses, setFilterStatuses] = useState<string[]>(
-    () => readSessionStorage<string[]>(SS_FILTER_STATUSES, [])
+    () => readSessionStorage<string[]>(SS_FILTER_STATUSES, []).filter((v) => VALID_STATUS_VALUES.has(v))
   );
   /** 依模型分類篩選：空陣列 = 全部，否則為勾選的 VLM / LLM / unknown；預設全部以利「全選」可用 */
   const [filterCategories, setFilterCategories] = useState<string[]>([]);
@@ -671,29 +732,30 @@ export function ModelEvaluator({
     [savedKeys],
   );
 
-  /** 可選模型列：與頁首「可選」同一來源（驗證結果）；無驗證時 fallback 為 AI_PROVIDERS */
+  /** 可選模型列：有驗證結果的 provider 用驗證資料，其餘 fallback 為 AI_PROVIDERS 靜態模型 */
   const allRows = useMemo(() => {
     const fromValidation = getAvailableModelsList(validateAllResultsByKeyId, currentKeys);
-    if (fromValidation.length > 0) {
-      const providerOrder: string[] = AI_PROVIDERS.map((p) => p.id);
-      return fromValidation
-        .map(({ providerId, modelId }) => ({
-          providerId,
-          providerName: AI_PROVIDERS.find((p) => p.id === providerId)?.name ?? providerId,
-          modelId,
-          modelName: getModelDisplayName(providerId, modelId),
-        }))
-        .sort((a, b) => {
-          const orderA = providerOrder.indexOf(a.providerId);
-          const orderB = providerOrder.indexOf(b.providerId);
-          if (orderA !== orderB) return orderA - orderB;
-          return (a.modelName || a.modelId).localeCompare(b.modelName || b.modelId);
-        });
+    const validatedProviderIds = new Set(fromValidation.map((r) => r.providerId));
+    const providerOrder: string[] = AI_PROVIDERS.map((p) => p.id);
+
+    type Row = { providerId: string; providerName: string; modelId: string; modelName: string };
+    const rows: Row[] = [];
+
+    // Validated providers: use their API-returned model list
+    for (const { providerId, modelId } of fromValidation) {
+      rows.push({
+        providerId,
+        providerName: AI_PROVIDERS.find((p) => p.id === providerId)?.name ?? providerId,
+        modelId,
+        modelName: getModelDisplayName(providerId, modelId),
+      });
     }
-    const fallback: { providerId: string; providerName: string; modelId: string; modelName: string }[] = [];
+
+    // Providers without validation data: fall back to static AI_PROVIDERS models
     for (const p of AI_PROVIDERS) {
+      if (validatedProviderIds.has(p.id)) continue;
       for (const m of p.models) {
-        fallback.push({
+        rows.push({
           providerId: p.id,
           providerName: p.name,
           modelId: m.id,
@@ -701,11 +763,12 @@ export function ModelEvaluator({
         });
       }
     }
-    return fallback.sort((a, b) => {
-      const orderA = AI_PROVIDERS.findIndex((x) => x.id === a.providerId);
-      const orderB = AI_PROVIDERS.findIndex((x) => x.id === b.providerId);
+
+    return rows.sort((a, b) => {
+      const orderA = providerOrder.indexOf(a.providerId);
+      const orderB = providerOrder.indexOf(b.providerId);
       if (orderA !== orderB) return orderA - orderB;
-      return a.modelName.localeCompare(b.modelName);
+      return (a.modelName || a.modelId).localeCompare(b.modelName || b.modelId);
     });
   }, [validateAllResultsByKeyId, currentKeys]);
 
@@ -749,7 +812,7 @@ export function ModelEvaluator({
     });
   }, [filteredRows, filterStatuses, evaluationMap, testResultByKey, outputByKey]);
 
-  /** 再依模型分類篩選（可複選：VLM / LLM / 未知） */
+  /** 再依模型分類篩選（可複選：VLM / LLM / unknown） */
   const rowsAfterCategoryFilter = useMemo(() => {
     if (filterCategories.length === 0) return rowsAfterStatusFilter;
     const set = new Set(filterCategories);
@@ -871,13 +934,18 @@ export function ModelEvaluator({
     () => rowsAfterCategoryFilter.filter((r) => selectedSet.has(`${r.providerId}::${r.modelId}`)).length,
     [rowsAfterCategoryFilter, selectedSet]
   );
-  /** 已選 + 有效金鑰 → 實際可測試的模型數量 */
+  /** 全部模型（不受篩選）中已選的數量，供右側面板「全部測試」按鈕使用 */
+  const allSelectedCount = useMemo(
+    () => allRows.filter((r) => selectedSet.has(`${r.providerId}::${r.modelId}`)).length,
+    [allRows, selectedSet]
+  );
+  /** 已選 + 有效金鑰 → 實際可測試的模型數量（基於全部模型，不受篩選影響） */
   const testableCount = useMemo(
     () =>
-      rowsAfterCategoryFilter.filter(
+      allRows.filter(
         (r) => selectedSet.has(`${r.providerId}::${r.modelId}`) && validProviders.has(r.providerId),
       ).length,
-    [rowsAfterCategoryFilter, selectedSet, validProviders],
+    [allRows, selectedSet, validProviders],
   );
   const allFilteredSelected = rowsAfterCategoryFilter.length > 0 && filteredSelectedCount === rowsAfterCategoryFilter.length;
   const someFilteredSelected = filteredSelectedCount > 0;
@@ -965,6 +1033,10 @@ export function ModelEvaluator({
         setTestResultByKey((prev) => ({ ...prev, [key]: result.success }));
         const output = result.output ?? (result.message && !result.success ? `錯誤：${result.message}` : '');
         setOutputByKey((prev) => ({ ...prev, [key]: output }));
+        const imgUrl = result.output_image_url ?? (output ? extractImageUrlFromOutput(output) : undefined);
+        if (imgUrl) {
+          setImageOutputByKey((prev) => ({ ...prev, [key]: imgUrl }));
+        }
 
         // Auto-save result to DB so next page load shows cached result without re-testing
         const existing = evaluationMap.get(key);
@@ -1004,17 +1076,34 @@ export function ModelEvaluator({
     setRowTestPrompt(newPrompt);
   }, [rowTestPanel, globalTestPrompt, rowTestPromptDirty, getEffectivePromptForRow]);
 
+  const statusPortalRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const key = openStatusDropdownKey;
     if (!key) return;
     const onPointerDown = (e: PointerEvent) => {
       const el = statusDropdownRefs.current[key];
       if (el?.contains(e.target as Node)) return;
+      if (statusPortalRef.current?.contains(e.target as Node)) return;
       setOpenStatusDropdownKey(null);
     };
     document.addEventListener('pointerdown', onPointerDown);
     return () => document.removeEventListener('pointerdown', onPointerDown);
   }, [openStatusDropdownKey]);
+
+  const toggleStatusDropdown = useCallback((key: string) => {
+    setOpenStatusDropdownKey((prev) => {
+      if (prev === key) {
+        setStatusDropdownPos(null);
+        return null;
+      }
+      const btn = statusBtnRefs.current[key];
+      if (btn) {
+        const rect = btn.getBoundingClientRect();
+        setStatusDropdownPos({ top: rect.bottom + 2, left: rect.left });
+      }
+      return key;
+    });
+  }, []);
 
   const handleSaveStatusOverride = useCallback(
     async (rowKey: string, value: DisplayStatusOverride) => {
@@ -1045,18 +1134,19 @@ export function ModelEvaluator({
     [evaluationMap, allRows, onSave]
   );
 
-  /** 全部測試：僅對「已選」且「有金鑰」的模型並行測試，完成後一次批量寫入 DB */
+  /** 全部測試：對「已選」且「有金鑰」的全部模型並行測試（不受篩選影響），完成後一次批量寫入 DB */
   const handleBatchTest = useCallback(async () => {
     if (batchTestingRef.current) return;
 
-    const selectedInFiltered = rowsAfterCategoryFilter.filter((r) =>
+    // Use allRows (not rowsAfterCategoryFilter) so filters don't prevent testing selected models
+    const selectedInAll = allRows.filter((r) =>
       selectedSet.has(`${r.providerId}::${r.modelId}`)
     );
-    if (selectedInFiltered.length === 0) {
+    if (selectedInAll.length === 0) {
       window.alert('目前選擇的 models 數為 0，無法測試。請先勾選要測試的模型。');
       return;
     }
-    const toTest = selectedInFiltered.filter((r) => validProviders.has(r.providerId));
+    const toTest = selectedInAll.filter((r) => validProviders.has(r.providerId));
     if (toTest.length === 0) {
       window.alert('所選模型皆無有效 API 金鑰，無法測試。請先至 API 金鑰設定該供應商金鑰。');
       return;
@@ -1073,17 +1163,27 @@ export function ModelEvaluator({
 
     try {
       const toSave: ModelEvaluation[] = [];
+      const collectedResults: BatchResultEntry[] = [];
       await Promise.all(
-        toTest.map(async ({ providerId, modelId, modelName }) => {
+        toTest.map(async ({ providerId, providerName, modelId, modelName }) => {
           const key = `${providerId}::${modelId}`;
           const effectivePrompt = getEffectivePromptForRow(key) || undefined;
           setOutputByKey((prev) => ({ ...prev, [key]: '' }));
+          const entry: BatchResultEntry = { key, providerId, providerName, modelId, modelName, success: false, output: '' };
           try {
             const result = await onTestModel(providerId, modelId, effectivePrompt, uploadedFile);
             setTestResultByKey((prev) => ({ ...prev, [key]: result.success }));
             const output =
               result.output ?? (result.message && !result.success ? `錯誤：${result.message}` : '');
             setOutputByKey((prev) => ({ ...prev, [key]: output }));
+            const imgUrl = result.output_image_url ?? (output ? extractImageUrlFromOutput(output) : undefined);
+            if (imgUrl) {
+              setImageOutputByKey((prev) => ({ ...prev, [key]: imgUrl }));
+            }
+
+            entry.success = result.success;
+            entry.output = output;
+            entry.imageUrl = imgUrl;
 
             if (result.success) succeeded++; else failed++;
             setBatchProgress({ tested: succeeded + failed, total, succeeded, failed });
@@ -1102,10 +1202,12 @@ export function ModelEvaluator({
             });
           } catch {
             failed++;
+            entry.output = '請求失敗';
             setBatchProgress({ tested: succeeded + failed, total, succeeded, failed });
             setTestResultByKey((prev) => ({ ...prev, [key]: false }));
             setOutputByKey((prev) => ({ ...prev, [key]: '請求失敗' }));
           }
+          collectedResults.push(entry);
         }),
       );
 
@@ -1117,18 +1219,25 @@ export function ModelEvaluator({
         }
       }
 
-      if (typeof window !== 'undefined') {
-        const lines: string[] = [];
-        lines.push(`全部測試完成。共測試 ${total} 個模型：`);
-        lines.push(`成功 ${succeeded} 個，失敗 ${failed} 個。`);
-        window.alert(lines.join('\n'));
-      }
+      // Reset status/category filters so tested models remain visible.
+      // If filterStatuses was e.g. ['untested'], all just-tested models would disappear
+      // from the table after onSave() updates evaluationMap. Clear filters to prevent the
+      // page appearing stuck (provider filter is intentional — leave it unchanged).
+      setFilterStatuses([]);
+      setFilterCategories([]);
+
+      // Show detailed results panel instead of window.alert
+      setBatchResults(collectedResults.sort((a, b) => {
+        // Sort: success first, then by providerName + modelName
+        if (a.success !== b.success) return a.success ? -1 : 1;
+        return `${a.providerName}${a.modelName}`.localeCompare(`${b.providerName}${b.modelName}`);
+      }));
     } finally {
       batchTestingRef.current = false;
       setBatchTesting(false);
       setBatchProgress(null);
     }
-  }, [rowsAfterCategoryFilter, selectedSet, validProviders, onTestModel, getEffectivePromptForRow, onSave, evaluationMap, uploadedFile]);
+  }, [allRows, selectedSet, validProviders, onTestModel, getEffectivePromptForRow, onSave, evaluationMap, uploadedFile]);
 
   // Stable ref to the latest handleBatchTest — avoids including handleBatchTest in the
   // headerActionsRef useEffect deps, which would cause infinite re-renders when parent
@@ -1138,12 +1247,14 @@ export function ModelEvaluator({
   const stableRunBatchTest = useCallback(() => handleBatchTestRef.current(), []);
 
   // 將「全部測試」狀態與觸發方法暴露給頁首固定區塊使用
+  // canBatchTest 與 testableCount 基於 allRows（全部模型），不受篩選影響，
+  // 避免篩選後顯示 0 但實際上有已選模型可測試的誤導情形。
   useEffect(() => {
     if (!headerActionsRef) return;
-    const canBatchTest = filteredSelectedCount > 0;
+    const canBatchTest = allSelectedCount > 0;
     const tooltip = canBatchTest
-      ? '對目前已選且具金鑰的模型並行測試'
-      : '目前選擇的 models 數為 0，無法測試。請先勾選要測試的模型。';
+      ? '對全部已選且具有效金鑰的模型並行測試（不受目前篩選影響）'
+      : '目前無已選的模型，無法測試。請先勾選要測試的模型。';
     const payload = {
       runBatchTest: stableRunBatchTest,
       batchTesting,
@@ -1151,6 +1262,10 @@ export function ModelEvaluator({
       tooltip,
       batchProgress,
       testableCount,
+      selectedCount: allSelectedCount,
+      totalCount: allRows.length,
+      filteredTotal: rowsAfterCategoryFilter.length,
+      filteredSelectedCount,
     };
     if (typeof headerActionsRef === 'function') {
       headerActionsRef(payload);
@@ -1158,21 +1273,27 @@ export function ModelEvaluator({
       // eslint-disable-next-line no-param-reassign
       headerActionsRef.current = payload;
     }
-  }, [headerActionsRef, stableRunBatchTest, batchTesting, filteredSelectedCount, batchProgress, testableCount]);
+  }, [headerActionsRef, stableRunBatchTest, batchTesting, allSelectedCount, batchProgress, testableCount, allRows.length, rowsAfterCategoryFilter.length, filteredSelectedCount]);
 
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-border-subtle overflow-hidden bg-bg-primary">
         <div className="relative z-20 flex flex-wrap items-center justify-between gap-3 px-3 py-2 border-b border-border-subtle bg-bg-tertiary">
           <div className="text-xs text-text-secondary">
-            已選/可選 models 數量{' '}
-            <span className="font-medium text-text-primary">
-              {filteredSelectedCount}/{rowsAfterCategoryFilter.length}
-            </span>
-            {rowsAfterCategoryFilter.length !== allRows.length && (
-              <span className="ml-1.5 text-text-muted" title="目前為篩選後數量；未篩選時與總數一致">
-                （篩選中）
-              </span>
+            全部公司可選模型數：
+            <span className="font-medium text-text-primary">{allRows.length}</span>
+            {rowsAfterCategoryFilter.length !== allRows.length ? (
+              <>
+                ，篩選後可選模型數：
+                <span className="font-medium text-text-primary">{rowsAfterCategoryFilter.length}</span>
+                ，已選模型數：
+                <span className="font-medium text-text-primary">{filteredSelectedCount}</span>
+              </>
+            ) : (
+              <>
+                ，已選模型數：
+                <span className="font-medium text-text-primary">{allSelectedCount}</span>
+              </>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -1454,7 +1575,7 @@ export function ModelEvaluator({
                   className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(6)}`}
                   style={getFrozenThStyle(6)}
                 >
-                  <span>Prompt output</span>
+                  <span>Prompt output text</span>
                   <div
                     role="separator"
                     aria-label="調整欄寬"
@@ -1463,10 +1584,10 @@ export function ModelEvaluator({
                   />
                 </th>
                 <th
-                  className={`py-3 px-3 font-semibold text-text-secondary text-center relative group border-r border-border-subtle align-top ${getFrozenThClass(7)}`}
+                  className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(7)}`}
                   style={getFrozenThStyle(7)}
                 >
-                  <span>測試日期</span>
+                  <span>Prompt output jpg</span>
                   <div
                     role="separator"
                     aria-label="調整欄寬"
@@ -1474,10 +1595,22 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
+                <th
+                  className={`py-3 px-3 font-semibold text-text-secondary text-center relative group border-r border-border-subtle align-top ${getFrozenThClass(8)}`}
+                  style={getFrozenThStyle(8)}
+                >
+                  <span>測試日期</span>
+                  <div
+                    role="separator"
+                    aria-label="調整欄寬"
+                    onMouseDown={handleResizeStart(8)}
+                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
+                  />
+                </th>
                 {visibleFeatureModules.map((mod: FeatureModule, colIdx: number) => {
                   const Icon = MODULE_ICON_MAP[mod.icon] ?? Settings2;
                   const colors = MODULE_CATEGORY_COLORS[mod.category];
-                  const thColIdx = 8 + colIdx;
+                  const thColIdx = 9 + colIdx;
                   return (
                     <th
                       key={mod.key}
@@ -1497,7 +1630,7 @@ export function ModelEvaluator({
                       <div
                         role="separator"
                         aria-label="調整欄寬"
-                        onMouseDown={handleResizeStart(8 + colIdx)}
+                        onMouseDown={handleResizeStart(9 + colIdx)}
                         className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                       />
                     </th>
@@ -1607,11 +1740,9 @@ export function ModelEvaluator({
                               ? 'VLM可用'
                               : filterStatuses[0] === 'llm_ok'
                                 ? 'LLM可用'
-                                : filterStatuses[0] === 'working'
-                                  ? '通用模型可用'
-                                  : filterStatuses[0] === 'not_working'
-                                    ? '不可用'
-                                    : '尚未測試'
+                                : filterStatuses[0] === 'not_working'
+                                  ? '不可用'
+                                  : '尚未測試'
                             : `分類與狀態 ${filterStatuses.length}`}
                       </span>
                       <span className="shrink-0 text-text-muted">▾</span>
@@ -1621,7 +1752,6 @@ export function ModelEvaluator({
                           {[
                             { value: 'vlm_ok', label: 'VLM可用' },
                             { value: 'llm_ok', label: 'LLM可用' },
-                            { value: 'working', label: '通用模型可用' },
                             { value: 'not_working', label: '不可用' },
                             { value: 'untested', label: '尚未測試' },
                           ].map(({ value, label }) => (
@@ -1659,8 +1789,12 @@ export function ModelEvaluator({
                   style={getFrozenThStyle(6)}
                 />
                 <th
-                  className={`py-1.5 px-3 border-r border-border-subtle align-top text-center ${getFrozenThClass(7)}`}
-                  style={{ whiteSpace: 'nowrap', ...getFrozenThStyle(7) }}
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top text-left ${getFrozenThClass(7)}`}
+                  style={getFrozenThStyle(7)}
+                />
+                <th
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top text-center ${getFrozenThClass(8)}`}
+                  style={{ whiteSpace: 'nowrap', ...getFrozenThStyle(8) }}
                 />
                 {visibleFeatureModules.map((mod: FeatureModule, filterColIdx: number) => {
                   const state = moduleStates[mod.key];
@@ -1682,7 +1816,7 @@ export function ModelEvaluator({
                     filteredRowKeysForModule.length > 0 &&
                     assignedInFiltered === filteredRowKeysForModule.length;
                   const someFilteredAssigned = assignedInFiltered > 0;
-                  const filterThColIdx = 8 + filterColIdx;
+                  const filterThColIdx = 9 + filterColIdx;
 
                   return (
                     <th
@@ -1796,7 +1930,7 @@ export function ModelEvaluator({
                       {(() => {
                         const outputText = (outputByKey[key] ?? ev?.notes ?? '').trim();
                         const category = detectCategoryFromOutput(outputText);
-                        const categoryLabel = category === 'unknown' ? '未知' : category;
+                        const categoryLabel = category === 'unknown' ? '' : category;
                         if (!hasKey)
                           return <span className="text-text-muted">—</span>;
                         const status = getStatusDisplay(key, ev, testResultByKey, outputByKey);
@@ -1805,7 +1939,9 @@ export function ModelEvaluator({
                         const displayText = shouldShowCategoryPrefix
                           ? `${categoryLabel} · ${status.label}`
                           : status.label;
-                        const title = `${categoryLabel} · ${status.title}`;
+                        const title = categoryLabel
+                          ? `${categoryLabel} · ${status.title}`
+                          : status.title;
                         const statusColorClass =
                           status.type === 'vlm_ok' || status.type === 'working'
                             ? 'text-green-400'
@@ -1818,14 +1954,15 @@ export function ModelEvaluator({
                         const isOpen = openStatusDropdownKey === key;
                         return (
                           <div
-                            className="relative inline-block min-w-0"
+                            className="inline-block min-w-0"
                             ref={(el) => {
                               statusDropdownRefs.current[key] = el;
                             }}
                           >
                             <button
                               type="button"
-                              onClick={() => setOpenStatusDropdownKey((k) => (k === key ? null : key))}
+                              ref={(el) => { statusBtnRefs.current[key] = el; }}
+                              onClick={() => toggleStatusDropdown(key)}
                               className={`inline-flex items-center gap-1 rounded border border-transparent px-1 -mx-1 py-0.5 hover:border-border-subtle hover:bg-bg-secondary ${statusColorClass}`}
                               title={`${title} · 點擊可手動修正`}
                             >
@@ -1843,26 +1980,6 @@ export function ModelEvaluator({
                                 aria-hidden
                               />
                             </button>
-                            {isOpen && (
-                              <div
-                                className="absolute left-0 top-full z-20 mt-0.5 min-w-[160px] rounded border border-border-default bg-bg-primary py-1 shadow-lg"
-                                role="listbox"
-                                aria-label="手動設定模型狀態"
-                              >
-                                {STATUS_OVERRIDE_OPTIONS.map((opt) => (
-                                  <button
-                                    key={opt.value}
-                                    type="button"
-                                    role="option"
-                                    aria-selected={status.type === opt.value}
-                                    onClick={() => handleSaveStatusOverride(key, opt.value)}
-                                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-bg-secondary focus:bg-bg-secondary focus:outline-none"
-                                  >
-                                    {opt.label}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
                           </div>
                         );
                       })()}
@@ -1949,8 +2066,33 @@ export function ModelEvaluator({
                       )}
                     </td>
                     <td
-                      className={`py-2.5 px-3 text-text-muted border-r border-border-subtle align-top text-center ${getFrozenTdClass(7)}`}
-                      style={{ whiteSpace: 'nowrap', ...getFrozenTdStyle(7) }}
+                      className={`py-2.5 px-3 align-top border-r border-border-subtle min-w-0 ${getFrozenTdClass(7)}`}
+                      style={getFrozenTdStyle(7)}
+                    >
+                      {isTesting ? (
+                        <span className="inline-flex items-center gap-1 text-text-muted">
+                          <Loader2 size={12} className="animate-spin" />
+                        </span>
+                      ) : imageOutputByKey[key] ? (
+                        <a
+                          href={imageOutputByKey[key]}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block"
+                        >
+                          <img
+                            src={imageOutputByKey[key]}
+                            alt="VLM output"
+                            className="max-h-16 max-w-[120px] rounded border border-border-subtle object-contain hover:opacity-80 transition-opacity"
+                          />
+                        </a>
+                      ) : (
+                        <span className="text-text-muted">—</span>
+                      )}
+                    </td>
+                    <td
+                      className={`py-2.5 px-3 text-text-muted border-r border-border-subtle align-top text-center ${getFrozenTdClass(8)}`}
+                      style={{ whiteSpace: 'nowrap', ...getFrozenTdStyle(8) }}
                     >
                       {ev?.last_tested_at
                         ? new Date(ev.last_tested_at).toLocaleDateString('zh-TW', {
@@ -1969,7 +2111,7 @@ export function ModelEvaluator({
                         (a) => a.provider === providerId && a.model === modelId
                       );
                       const saving = moduleSavingSet.has(mod.key);
-                      const tdFrozenColIdx = 8 + tdColIdx;
+                      const tdFrozenColIdx = 9 + tdColIdx;
                       return (
                         <td
                           key={mod.key}
@@ -2211,6 +2353,170 @@ export function ModelEvaluator({
           </SheetContent>
         </Sheet>
       )}
+
+      {/* Batch test results modal */}
+      {batchResults && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setBatchResults(null); }}
+        >
+          <div className="relative flex flex-col bg-bg-primary border border-border-default rounded-lg shadow-2xl w-[min(900px,95vw)] max-h-[85vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between gap-4 px-5 py-4 border-b border-border-subtle shrink-0">
+              <div>
+                <h2 className="text-base font-semibold text-text-primary">批次測試結果</h2>
+                <p className="text-xs text-text-muted mt-0.5">
+                  共 {batchResults.length} 個模型 ·&nbsp;
+                  <span className="text-green-400">{batchResults.filter(r => r.success).length} 成功</span>
+                  &nbsp;·&nbsp;
+                  <span className="text-amber-500">{batchResults.filter(r => !r.success).length} 失敗</span>
+                  &nbsp;·&nbsp;點擊「模型分類與狀態」欄可手動覆寫系統判斷
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBatchResults(null)}
+                className="shrink-0 p-1.5 rounded hover:bg-bg-secondary text-text-muted hover:text-text-primary transition-colors"
+                aria-label="關閉"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            {/* Table */}
+            <div className="overflow-auto flex-1 min-h-0">
+              <table className="w-full text-xs border-collapse">
+                <thead className="sticky top-0 bg-bg-secondary z-10">
+                  <tr>
+                    <th className="text-left px-3 py-2.5 font-medium text-text-muted border-b border-border-subtle whitespace-nowrap">供應商</th>
+                    <th className="text-left px-3 py-2.5 font-medium text-text-muted border-b border-border-subtle whitespace-nowrap">模型</th>
+                    <th className="text-left px-3 py-2.5 font-medium text-text-muted border-b border-border-subtle w-[280px]">Output text</th>
+                    <th className="text-left px-3 py-2.5 font-medium text-text-muted border-b border-border-subtle whitespace-nowrap">Output 圖片</th>
+                    <th className="text-left px-3 py-2.5 font-medium text-text-muted border-b border-border-subtle whitespace-nowrap">模型分類與狀態</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {batchResults.map((entry) => {
+                    const ev = evaluationMap.get(entry.key);
+                    const status = getStatusDisplay(entry.key, ev, testResultByKey, outputByKey);
+                    const statusColorClass =
+                      status.type === 'vlm_ok' || status.type === 'working'
+                        ? 'text-green-400'
+                        : status.type === 'llm_ok'
+                          ? 'text-blue-400'
+                          : status.type === 'not_working'
+                            ? 'text-amber-500'
+                            : 'text-text-muted';
+                    const StatusIcon = status.type === 'not_working' ? XCircle : CheckCircle2;
+                    return (
+                      <tr
+                        key={entry.key}
+                        className={`border-b border-border-subtle ${entry.success ? 'hover:bg-green-500/5' : 'hover:bg-amber-500/5'}`}
+                      >
+                        <td className="px-3 py-2 align-top text-text-secondary whitespace-nowrap">{entry.providerName}</td>
+                        <td className="px-3 py-2 align-top">
+                          <div className="font-medium text-text-primary">{entry.modelName}</div>
+                          <div className="text-text-muted font-mono mt-0.5">{entry.modelId}</div>
+                        </td>
+                        <td className="px-3 py-2 align-top">
+                          {entry.output ? (
+                            <div
+                              className={`max-h-[80px] overflow-y-auto whitespace-pre-wrap break-words rounded px-2 py-1 border ${
+                                entry.success
+                                  ? 'border-green-500/20 bg-green-500/5 text-green-300'
+                                  : 'border-red-500/20 bg-red-500/5 text-red-400'
+                              }`}
+                            >
+                              {entry.output}
+                            </div>
+                          ) : (
+                            <span className="text-text-muted">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 align-top">
+                          {entry.imageUrl ? (
+                            <a href={entry.imageUrl} target="_blank" rel="noopener noreferrer" className="block">
+                              <img
+                                src={entry.imageUrl}
+                                alt="output"
+                                className="max-h-16 max-w-[100px] rounded border border-border-subtle object-contain hover:opacity-80 transition-opacity"
+                              />
+                            </a>
+                          ) : (
+                            <span className="text-text-muted">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 align-top">
+                          <div
+                            className="inline-block"
+                            ref={(el) => { statusDropdownRefs.current[`modal::${entry.key}`] = el; }}
+                          >
+                            <button
+                              type="button"
+                              ref={(el) => { statusBtnRefs.current[`modal::${entry.key}`] = el; }}
+                              onClick={() => toggleStatusDropdown(`modal::${entry.key}`)}
+                              className={`inline-flex items-center gap-1 rounded border border-transparent px-1 py-0.5 hover:border-border-subtle hover:bg-bg-secondary ${statusColorClass}`}
+                              title={`${status.title} · 點擊可手動修正`}
+                            >
+                              {status.type !== 'untested' ? (
+                                <StatusIcon size={12} aria-hidden />
+                              ) : null}
+                              <span>{status.label}</span>
+                              <ChevronDown size={12} className={`shrink-0 transition-transform ${openStatusDropdownKey === `modal::${entry.key}` ? 'rotate-180' : ''}`} aria-hidden />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {/* Footer */}
+            <div className="flex justify-end gap-2 px-5 py-3 border-t border-border-subtle shrink-0">
+              <Button variant="secondary" size="sm" onClick={() => setBatchResults(null)}>
+                關閉
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Portal: status override dropdown rendered outside the table to bypass overflow/stacking context */}
+      {openStatusDropdownKey && statusDropdownPos && typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            ref={statusPortalRef}
+            role="listbox"
+            aria-label="手動設定模型狀態"
+            className="min-w-[160px] rounded border border-border-default bg-bg-primary py-1 shadow-lg"
+            style={{
+              position: 'fixed',
+              top: statusDropdownPos.top,
+              left: statusDropdownPos.left,
+              zIndex: 9999,
+            }}
+          >
+            {STATUS_OVERRIDE_OPTIONS.map((opt) => {
+              const actualKey = openStatusDropdownKey.startsWith('modal::')
+                ? openStatusDropdownKey.slice('modal::'.length)
+                : openStatusDropdownKey;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="option"
+                  aria-selected={false}
+                  onClick={() => handleSaveStatusOverride(actualKey, opt.value)}
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-bg-secondary focus:bg-bg-secondary focus:outline-none"
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>,
+          document.body
+        )
+      }
     </div>
   );
 }
