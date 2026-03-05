@@ -19,6 +19,7 @@ import { readSessionStorage, writeSessionStorage } from '@/lib/utils/storage-sta
 
 const SS_FILTER_STATUSES  = 'ai-eval-filter:statuses';
 const SS_FILTER_PROVIDERS = 'ai-eval-filter:providerIds';
+const LS_RECENT_BATCH_REPORT = 'ai-eval:last-batch-report';
 
 const MODULE_ICON_MAP: Record<string, React.ElementType> = {
   cloud: Cloud, 'hard-drive': Settings2, 'message-circle': MessageCircle,
@@ -51,6 +52,51 @@ export interface BatchResultEntry {
   success: boolean;
   output: string;
   imageUrl?: string;
+}
+
+function inferStatusOverrideFromBatchEntry(entry: BatchResultEntry): DisplayStatusOverride {
+  if (!entry.success) return 'not_working';
+  const category = detectCategoryFromOutput(entry.output);
+  if (category === 'VLM') return 'vlm_ok';
+  if (category === 'LLM') return 'llm_ok';
+  return hasVisionCapability(entry.key) ? 'vlm_ok' : 'llm_ok';
+}
+
+type RecentBatchReport = {
+  savedAt: string;
+  total: number;
+  succeeded: number;
+  failed: number;
+  entries: BatchResultEntry[];
+};
+
+function readRecentBatchReport(): RecentBatchReport | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(LS_RECENT_BATCH_REPORT);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<RecentBatchReport>;
+    if (!Array.isArray(parsed.entries)) return null;
+    return {
+      savedAt: typeof parsed.savedAt === 'string' ? parsed.savedAt : new Date().toISOString(),
+      total: typeof parsed.total === 'number' ? parsed.total : parsed.entries.length,
+      succeeded: typeof parsed.succeeded === 'number' ? parsed.succeeded : parsed.entries.filter((r) => !!r?.success).length,
+      failed: typeof parsed.failed === 'number' ? parsed.failed : parsed.entries.filter((r) => !r?.success).length,
+      entries: parsed.entries,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeRecentBatchReport(report: RecentBatchReport): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    window.localStorage.setItem(LS_RECENT_BATCH_REPORT, JSON.stringify(report));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export interface ModelEvaluatorProps {
@@ -106,6 +152,10 @@ export interface ModelEvaluatorProps {
         totalCount: number;
         filteredTotal: number;
         filteredSelectedCount: number;
+        hasRecentBatchReport?: boolean;
+        openRecentBatchReport?: () => void;
+        applyRecentBatchReport?: () => Promise<void>;
+        applyingRecentBatchReport?: boolean;
       } | null>>
     | React.RefObject<{
         runBatchTest: () => void;
@@ -118,9 +168,11 @@ export interface ModelEvaluatorProps {
         totalCount: number;
         filteredTotal: number;
         filteredSelectedCount: number;
+        hasRecentBatchReport?: boolean;
+        openRecentBatchReport?: () => void;
+        applyRecentBatchReport?: () => Promise<void>;
+        applyingRecentBatchReport?: boolean;
       } | null>;
-  /** 由外層控制的「統一測試 / 全域 Prompt 設定」面板開啟動作 */
-  onOpenGlobalTestPanel?: () => void;
   /** 狀態標籤顯示模式：一般分頁顯示 VLM/LLM，OCR 分頁顯示 OCR 可用 */
   statusLabelMode?: 'vlm' | 'ocr';
 }
@@ -414,7 +466,6 @@ export function ModelEvaluator({
   summaryTotalCount,
   headerActionsRef,
   promptVariableLabel,
-  onOpenGlobalTestPanel,
   statusLabelMode = 'vlm',
 }: ModelEvaluatorProps) {
   /** 內部判斷是否使用全域 Prompt 的保留字（不隨顯示名稱變動） */
@@ -515,9 +566,11 @@ export function ModelEvaluator({
   const [testResultByKey, setTestResultByKey] = useState<Record<string, boolean>>({});
   const [testingKey, setTestingKey] = useState<string | null>(null);
   const [batchTesting, setBatchTesting] = useState(false);
+  const [applyingRecentBatchReport, setApplyingRecentBatchReport] = useState(false);
   const batchTestingRef = useRef(false);
   const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
   const [batchResults, setBatchResults] = useState<BatchResultEntry[] | null>(null);
+  const [hasRecentBatchReport, setHasRecentBatchReport] = useState(false);
   const [rowTestPanel, setRowTestPanel] = useState<{
     key: string;
     providerId: string;
@@ -616,6 +669,36 @@ export function ModelEvaluator({
   );
 
   const hiddenModuleKeySet = useMemo(() => new Set(hiddenModuleKeys), [hiddenModuleKeys]);
+
+  useEffect(() => {
+    setHasRecentBatchReport(readRecentBatchReport() !== null);
+  }, []);
+
+  const saveRecentBatchReport = useCallback((entries: BatchResultEntry[]) => {
+    const report: RecentBatchReport = {
+      savedAt: new Date().toISOString(),
+      total: entries.length,
+      succeeded: entries.filter((r) => r.success).length,
+      failed: entries.filter((r) => !r.success).length,
+      entries,
+    };
+    const ok = writeRecentBatchReport(report);
+    setHasRecentBatchReport(ok);
+  }, []);
+
+  const openRecentBatchReport = useCallback(() => {
+    const report = readRecentBatchReport();
+    if (!report) {
+      setHasRecentBatchReport(false);
+      if (typeof window !== 'undefined') {
+        window.alert('目前沒有可檢視的最近報告。');
+      }
+      return;
+    }
+    setHasRecentBatchReport(true);
+    setBatchResults(report.entries);
+  }, []);
+
   const visibleFeatureModules = useMemo(
     () => FEATURE_MODULES.filter((mod) => !hiddenModuleKeySet.has(mod.key)),
     [hiddenModuleKeySet]
@@ -826,6 +909,80 @@ export function ModelEvaluator({
     }
     return map;
   }, [savedEvaluations]);
+
+  const applyRecentBatchReport = useCallback(async () => {
+    const report = readRecentBatchReport();
+    if (!report) {
+      setHasRecentBatchReport(false);
+      if (typeof window !== 'undefined') {
+        window.alert('目前沒有可套用的最近報告。');
+      }
+      return;
+    }
+    if (report.entries.length === 0) {
+      if (typeof window !== 'undefined') {
+        window.alert('最近報告沒有任何模型結果，無法套用。');
+      }
+      return;
+    }
+
+    setApplyingRecentBatchReport(true);
+    try {
+      const mergedMap = new Map(evaluationMap);
+      const nextTestResultByKey: Record<string, boolean> = {};
+      const nextOutputByKey: Record<string, string> = {};
+      const nextImageByKey: Record<string, string> = {};
+
+      for (const entry of report.entries) {
+        const rowKey = entry.key;
+        const existing = mergedMap.get(rowKey);
+        const statusOverride = inferStatusOverrideFromBatchEntry(entry);
+        const inferredSpecialties = statusOverride === 'vlm_ok' ? ['vision'] : ['general'];
+        const next: ModelEvaluation = {
+          ...(existing ?? {
+            provider: entry.providerId,
+            model_id: entry.modelId,
+            model_name: entry.modelName,
+            is_working: entry.success,
+            specialties: inferredSpecialties,
+            is_candidate: false,
+            notes: '',
+            last_tested_at: null,
+          }),
+          provider: entry.providerId,
+          model_id: entry.modelId,
+          model_name: existing?.model_name ?? entry.modelName,
+          is_working: entry.success,
+          specialties:
+            existing?.specialties && existing.specialties.length > 0
+              ? existing.specialties
+              : inferredSpecialties,
+          notes: entry.output || existing?.notes || '',
+          last_tested_at: report.savedAt,
+          display_status_override: statusOverride,
+        };
+        mergedMap.set(rowKey, next);
+        nextTestResultByKey[rowKey] = entry.success;
+        nextOutputByKey[rowKey] = entry.output;
+        if (entry.imageUrl) {
+          nextImageByKey[rowKey] = entry.imageUrl;
+        }
+      }
+
+      await onSave(Array.from(mergedMap.values()));
+      setTestResultByKey((prev) => ({ ...prev, ...nextTestResultByKey }));
+      setOutputByKey((prev) => ({ ...prev, ...nextOutputByKey }));
+      if (Object.keys(nextImageByKey).length > 0) {
+        setImageOutputByKey((prev) => ({ ...prev, ...nextImageByKey }));
+      }
+      setHasRecentBatchReport(true);
+      if (typeof window !== 'undefined') {
+        window.alert(`已依最近報告更新 ${report.entries.length} 個模型的分類與狀態。`);
+      }
+    } finally {
+      setApplyingRecentBatchReport(false);
+    }
+  }, [evaluationMap, onSave]);
 
   /** 再依狀態篩選（可複選：VLM可用/LLM可用/不可用/尚未測試） */
   const rowsAfterStatusFilter = useMemo(() => {
@@ -1254,17 +1411,19 @@ export function ModelEvaluator({
       setFilterCategories([]);
 
       // Show detailed results panel instead of window.alert
-      setBatchResults(collectedResults.sort((a, b) => {
+      const sortedResults = collectedResults.sort((a, b) => {
         // Sort: success first, then by providerName + modelName
         if (a.success !== b.success) return a.success ? -1 : 1;
         return `${a.providerName}${a.modelName}`.localeCompare(`${b.providerName}${b.modelName}`);
-      }));
+      });
+      setBatchResults(sortedResults);
+      saveRecentBatchReport(sortedResults);
     } finally {
       batchTestingRef.current = false;
       setBatchTesting(false);
       setBatchProgress(null);
     }
-  }, [allRows, selectedSet, validProviders, onTestModel, getEffectivePromptForRow, onSave, evaluationMap, uploadedFile]);
+  }, [allRows, selectedSet, validProviders, onTestModel, getEffectivePromptForRow, onSave, evaluationMap, uploadedFile, saveRecentBatchReport]);
 
   // Stable ref to the latest handleBatchTest — avoids including handleBatchTest in the
   // headerActionsRef useEffect deps, which would cause infinite re-renders when parent
@@ -1293,6 +1452,10 @@ export function ModelEvaluator({
       totalCount: allRows.length,
       filteredTotal: rowsAfterCategoryFilter.length,
       filteredSelectedCount,
+      hasRecentBatchReport,
+      openRecentBatchReport,
+      applyRecentBatchReport,
+      applyingRecentBatchReport,
     };
     if (typeof headerActionsRef === 'function') {
       headerActionsRef(payload);
@@ -1300,7 +1463,7 @@ export function ModelEvaluator({
       // eslint-disable-next-line no-param-reassign
       headerActionsRef.current = payload;
     }
-  }, [headerActionsRef, stableRunBatchTest, batchTesting, allSelectedCount, batchProgress, testableCount, allRows.length, rowsAfterCategoryFilter.length, filteredSelectedCount]);
+  }, [headerActionsRef, stableRunBatchTest, openRecentBatchReport, applyRecentBatchReport, hasRecentBatchReport, applyingRecentBatchReport, batchTesting, allSelectedCount, batchProgress, testableCount, allRows.length, rowsAfterCategoryFilter.length, filteredSelectedCount]);
 
   return (
     <div className="space-y-4">
@@ -1573,24 +1736,7 @@ export function ModelEvaluator({
                   className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(5)}`}
                   style={getFrozenThStyle(5)}
                 >
-                  <div className="flex flex-col gap-1">
-                    <span>單一prompt測試</span>
-                    {onOpenGlobalTestPanel && (
-                      <div className="pt-0.5">
-                        <Button
-                          size="xs"
-                          variant="secondary"
-                          type="button"
-                          className="w-full justify-center"
-                          onClick={onOpenGlobalTestPanel}
-                          title="開啟統一測試與全域 Prompt 設定面板"
-                        >
-                          <FlaskConical size={12} className="mr-1" />
-                          統一測試
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                  <span>單一prompt測試</span>
                   <div
                     role="separator"
                     aria-label="調整欄寬"

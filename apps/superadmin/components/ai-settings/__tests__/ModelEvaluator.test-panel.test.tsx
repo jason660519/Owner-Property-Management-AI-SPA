@@ -510,44 +510,7 @@ describe('統一prompt測試 — batch test execution', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 7. 統一prompt測試 — UI button for opening global panel
-// ═══════════════════════════════════════════════════════════════════════════
-
-describe('統一prompt測試 — UI button behaviour', () => {
-  it('does NOT render the 統一測試 button when onOpenGlobalTestPanel is not provided', () => {
-    render(<ModelEvaluator {...baseProps} />);
-    expect(screen.queryByRole('button', { name: /統一測試/ })).toBeNull();
-  });
-
-  it('renders the 統一測試 button when onOpenGlobalTestPanel is provided', () => {
-    const mockOpenGlobal = jest.fn();
-    render(
-      <ModelEvaluator
-        {...baseProps}
-        onOpenGlobalTestPanel={mockOpenGlobal}
-      />
-    );
-    expect(screen.getByRole('button', { name: /統一測試/ })).toBeInTheDocument();
-  });
-
-  it('calls onOpenGlobalTestPanel when 統一測試 button is clicked', async () => {
-    const user = userEvent.setup();
-    const mockOpenGlobal = jest.fn();
-    render(
-      <ModelEvaluator
-        {...baseProps}
-        onOpenGlobalTestPanel={mockOpenGlobal}
-      />
-    );
-
-    const btn = screen.getByRole('button', { name: /統一測試/ });
-    await user.click(btn);
-    expect(mockOpenGlobal).toHaveBeenCalledTimes(1);
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// 8. 全部測試 — 防止重複觸發 (concurrent execution guard)
+// 7. 全部測試 — 防止重複觸發 (concurrent execution guard)
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('全部測試 — 防止重複觸發', () => {
