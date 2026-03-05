@@ -24,7 +24,6 @@ import { deleteProperty } from '@/lib/actions/properties';
 import type { PropertyItem, PropertiesResult, OwnerOption } from '@/lib/types/properties';
 import { PROPERTY_TYPES } from '@/lib/types/properties';
 import { TAIWAN_CITIES, getDistrictsByCity } from '@/lib/data/taiwan-address';
-import { PropertyEditModal } from './PropertyEditModal';
 import { PropertyCreateModal } from './PropertyCreateModal';
 
 const statusVariantMap: Record<string, 'success' | 'warning' | 'error' | 'info' | 'default'> = {
@@ -102,9 +101,6 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
 
   // Create modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
-
-  // Edit modal state
-  const [editingProperty, setEditingProperty] = useState<PropertyItem | null>(null);
 
   // Delete state
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -501,8 +497,8 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
         return (
           <div className="flex items-center gap-1">
             <button
-              onClick={() => setEditingProperty(row)}
-              title="編輯"
+              onClick={() => window.open(`/superadmin/properties/${row.id}/edit`, '_blank')}
+              title="編輯（在新分頁開啟）"
               className="p-1.5 rounded-md hover:bg-accent/10 text-text-secondary hover:text-accent transition-colors"
             >
               <Pencil size={14} />
@@ -888,15 +884,6 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
           owners={owners}
           onClose={() => setShowCreateModal(false)}
           onCreated={() => router.refresh()}
-        />
-      )}
-
-      {/* Edit Modal */}
-      {editingProperty && (
-        <PropertyEditModal
-          property={editingProperty}
-          onClose={() => setEditingProperty(null)}
-          onSaved={() => router.refresh()}
         />
       )}
 

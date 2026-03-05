@@ -68,6 +68,10 @@ export interface PropertyItem {
   delistedAt?: string | null;
   /** 主照片 URL（用於列表縮圖，來自 details.imageUrl 或 property_photos 主圖） */
   mainPhotoUrl?: string | null;
+  /** 建物全部謄本資料（儲存於 details.buildingTranscript） */
+  buildingTranscript?: BuildingTranscriptData | null;
+  /** 土地全部謄本資料（儲存於 details.landTranscript） */
+  landTranscript?: LandTranscriptData | null;
 }
 
 export interface PropertiesResult {
@@ -190,4 +194,142 @@ export interface PropertyDocumentItem {
   documentName: string;
   filePath: string;
   url: string;
+}
+
+// ── Transcript / Register Data Types ─────────────────────────────────────
+
+/** 謄本封面資訊（建物 / 土地通用） */
+export interface TranscriptHeader {
+  /** 謄本種類 e.g. 建物登記第二類謄本（建號全部） */
+  transcriptType: string;
+  /** 建號或地號全稱 e.g. 大安區仁愛段二小段 01659-000建號 */
+  documentTitle: string;
+  /** 列印時間 e.g. 民國100年02月18日15時53分 */
+  printTime: string;
+  /** 頁字 / 頁次 */
+  pageInfo: string;
+  /** 謄本列印人 e.g. 願景不動產仲介股份有限公司 */
+  printer: string;
+  /** 謄本檢查號 e.g. 100AF001281REG... */
+  checkNumber: string;
+  /** 謄本字第號 e.g. 大安電謄字第001281號 */
+  documentNumber: string;
+  /** 資料管轄機關 e.g. 臺北市大安地政事務所 */
+  dataJurisdiction: string;
+  /** 謄本核發機關 */
+  issuingAuthority: string;
+  /** 注意事項 */
+  transcriptNotes: string;
+}
+
+export interface AnnexedBuilding {
+  use: string;
+  area: string;
+}
+
+export interface CommonAreaEntry {
+  buildingNumber: string;
+  area: string;
+  ratio: string;
+}
+
+export interface BuildingDescription {
+  buildingNumber: string;
+  regDate: string;
+  regReason: string;
+  doorAddress: string;
+  landParcelNumber: string;
+  mainUse: string;
+  mainMaterial: string;
+  totalFloors: string;
+  totalArea: string;
+  floorLevel: string;
+  floorArea: string;
+  completionDate: string;
+  annexedBuildings: AnnexedBuilding[];
+  commonAreas: CommonAreaEntry[];
+  notes: string;
+}
+
+export interface LandDescription {
+  landNumber: string;
+  regDate: string;
+  regReason: string;
+  landCategory: string;
+  grade: string;
+  area: string;
+  useZone: string;
+  useCategory: string;
+  announcedValueYear: string;
+  announcedValuePerSqm: string;
+  buildingsOnLand: string;
+  notes: string;
+}
+
+export interface OwnershipRecord {
+  id: string;
+  seq: string;
+  regDate: string;
+  regReason: string;
+  causeDate: string;
+  ownerName: string;
+  ownerAddress: string;
+  ownershipRatio: string;
+  titleNumber: string;
+  relatedEncumbranceSeq: string;
+  notes: string;
+}
+
+export interface LandOwnershipRecord extends OwnershipRecord {
+  currentDeclaredLandValueYear: string;
+  currentDeclaredLandValuePerSqm: string;
+  prevTransferValueYear: string;
+  prevTransferValuePerSqm: string;
+  historicalRatios: string;
+}
+
+export interface EncumbranceRecord {
+  id: string;
+  seq: string;
+  encumbranceType: string;
+  /** 收件日期 e.g. 民國091年07月04日 */
+  receiptDate: string;
+  receiptNumber: string;
+  regDate: string;
+  regReason: string;
+  creditorName: string;
+  creditorAddress: string;
+  debtRatio: string;
+  totalDebt: string;
+  duration: string;
+  repaymentDate: string;
+  interest: string;
+  lateInterest: string;
+  penalty: string;
+  debtorAndRatio: string;
+  rightsSubject: string;
+  targetSeq: string;
+  settleRightsRatio: string;
+  certNumber: string;
+  settlor: string;
+  jointGuaranteeLandNumbers: string;
+  jointGuaranteeBuildingNumbers: string;
+  notes: string;
+  debtScope?: string;
+  debtConfirmDate?: string;
+  otherGuaranteeScope?: string;
+}
+
+export interface BuildingTranscriptData {
+  header: TranscriptHeader;
+  description: BuildingDescription;
+  ownership: OwnershipRecord[];
+  encumbrances: EncumbranceRecord[];
+}
+
+export interface LandTranscriptData {
+  header: TranscriptHeader;
+  description: LandDescription;
+  ownership: LandOwnershipRecord[];
+  encumbrances: EncumbranceRecord[];
 }

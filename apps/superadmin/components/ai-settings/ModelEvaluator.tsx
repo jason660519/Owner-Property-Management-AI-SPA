@@ -121,6 +121,8 @@ export interface ModelEvaluatorProps {
       } | null>;
   /** 由外層控制的「統一測試 / 全域 Prompt 設定」面板開啟動作 */
   onOpenGlobalTestPanel?: () => void;
+  /** 狀態標籤顯示模式：一般分頁顯示 VLM/LLM，OCR 分頁顯示 OCR 可用 */
+  statusLabelMode?: 'vlm' | 'ocr';
 }
 
 type TableHAlign = 'left' | 'center' | 'right';
@@ -311,17 +313,21 @@ function detectCategoryFromOutput(output: string | undefined): 'VLM' | 'LLM' | '
 /** 依測試輸出區分狀態顯示：僅成功解析檔案內容算 VLM 可用，「我看不到檔案」等僅算 LLM 可用 */
 type StatusDisplay = { type: 'vlm_ok' | 'llm_ok' | 'working' | 'not_working' | 'untested'; label: string; title: string };
 
-/** 四種狀態選項，供使用者手動修正 AI 判斷（移除模糊的「通用模型可用」，強制明確 VLM/LLM） */
-const STATUS_OVERRIDE_OPTIONS: { value: DisplayStatusOverride; label: string }[] = [
-  { value: 'vlm_ok', label: 'VLM 可用' },
-  { value: 'llm_ok', label: 'LLM 可用' },
-  { value: 'not_working', label: '不可用' },
-  { value: 'untested', label: '尚未測試' },
-];
+/** 四種狀態選項，供使用者手動修正 AI 判斷（移除模糊的「通用模型可用」，強制明確 VLM/LLM/OCR） */
+function getStatusOverrideOptions(isOcrMode: boolean): { value: DisplayStatusOverride; label: string }[] {
+  const vlmLabel = isOcrMode ? 'OCR可用' : 'VLM 可用';
+  return [
+    { value: 'vlm_ok', label: vlmLabel },
+    { value: 'llm_ok', label: 'LLM 可用' },
+    { value: 'not_working', label: '不可用' },
+    { value: 'untested', label: '尚未測試' },
+  ];
+}
 
-function getStatusDisplayByType(type: DisplayStatusOverride): StatusDisplay {
+function getStatusDisplayByType(type: DisplayStatusOverride, isOcrMode: boolean): StatusDisplay {
+  const vlmLabel = isOcrMode ? 'OCR可用' : 'VLM 可用';
   const map: Record<DisplayStatusOverride, StatusDisplay> = {
-    vlm_ok: { type: 'vlm_ok', label: 'VLM 可用', title: '手動設定：VLM 可用' },
+    vlm_ok: { type: 'vlm_ok', label: vlmLabel, title: `手動設定：${vlmLabel}` },
     llm_ok: { type: 'llm_ok', label: 'LLM 可用', title: '手動設定：LLM 可用' },
     working: { type: 'working', label: '通用模型可用', title: '手動設定：通用模型可用' },
     not_working: { type: 'not_working', label: '不可用', title: '手動設定：不可用' },
@@ -334,9 +340,10 @@ function getStatusDisplay(
   key: string,
   ev: ModelEvaluation | undefined,
   testResultByKey: Record<string, boolean>,
-  outputByKey: Record<string, string>
+  outputByKey: Record<string, string>,
+  isOcrMode: boolean
 ): StatusDisplay {
-  if (ev?.display_status_override) return getStatusDisplayByType(ev.display_status_override);
+  if (ev?.display_status_override) return getStatusDisplayByType(ev.display_status_override, isOcrMode);
 
   const outputText = (outputByKey[key] ?? ev?.notes ?? '').trim();
   const sessionSuccess = testResultByKey[key];
@@ -348,7 +355,13 @@ function getStatusDisplay(
   if (!outputText) {
     if (success) {
       if (isVisionModel)
-        return { type: 'vlm_ok', label: 'VLM 可用', title: 'API 連線成功，依模型靜態定義具 vision 能力，判定為 VLM 可用' };
+        return {
+          type: 'vlm_ok',
+          label: isOcrMode ? 'OCR可用' : 'VLM 可用',
+          title: isOcrMode
+            ? 'API 連線成功，依模型靜態定義具 vision 能力，判定為 OCR 可用'
+            : 'API 連線成功，依模型靜態定義具 vision 能力，判定為 VLM 可用',
+        };
       return { type: 'llm_ok', label: 'LLM 可用', title: 'API 連線成功，依模型靜態定義無 vision 能力，判定為 LLM 可用' };
     }
     if (sessionSuccess === false || (ev && !ev.is_working))
@@ -358,12 +371,24 @@ function getStatusDisplay(
 
   const category = detectCategoryFromOutput(outputText);
   if (category === 'VLM' && success)
-    return { type: 'vlm_ok', label: 'VLM 可用', title: '依本測試輸出：已成功解析檔案內容，視為 VLM 可用' };
+    return {
+      type: 'vlm_ok',
+      label: isOcrMode ? 'OCR可用' : 'VLM 可用',
+      title: isOcrMode
+        ? '依本測試輸出：已成功解析檔案內容，視為 OCR 可用'
+        : '依本測試輸出：已成功解析檔案內容，視為 VLM 可用',
+    };
   if (category === 'LLM' && success)
     return { type: 'llm_ok', label: 'LLM 可用', title: '依本測試輸出：有文字回應但未解析檔案（如「看不到檔案」），僅算 LLM 可用，不算 VLM 可用' };
   if (category === 'unknown' && success) {
     if (isVisionModel)
-      return { type: 'vlm_ok', label: 'VLM 可用', title: 'API 有回應，輸出無法明確推斷，依模型靜態定義具 vision 能力，判定為 VLM 可用' };
+      return {
+        type: 'vlm_ok',
+        label: isOcrMode ? 'OCR可用' : 'VLM 可用',
+        title: isOcrMode
+          ? 'API 有回應，輸出無法明確推斷，依模型靜態定義具 vision 能力，暫判定為 OCR 可用'
+          : 'API 有回應，輸出無法明確推斷，依模型靜態定義具 vision 能力，判定為 VLM 可用',
+      };
     return { type: 'llm_ok', label: 'LLM 可用', title: 'API 有回應，輸出無法明確推斷，依模型靜態定義無 vision 能力，判定為 LLM 可用' };
   }
   return { type: 'not_working', label: '不可用', title: '測試失敗或無有效輸出' };
@@ -390,6 +415,7 @@ export function ModelEvaluator({
   headerActionsRef,
   promptVariableLabel,
   onOpenGlobalTestPanel,
+  statusLabelMode = 'vlm',
 }: ModelEvaluatorProps) {
   /** 內部判斷是否使用全域 Prompt 的保留字（不隨顯示名稱變動） */
   const DEFAULT_PROMPT_PLACEHOLDER = '{預設prompt}';
@@ -403,9 +429,10 @@ export function ModelEvaluator({
   const STORAGE_KEY_COLUMN_WIDTHS = 'superadmin-model-evaluator-column-widths';
   const FREEZE_ROW_STORAGE_KEY = 'superadmin-model-evaluator-freeze-row-v1';
   const FROZEN_COL_STORAGE_KEY = 'superadmin-model-evaluator-frozen-col-v1';
-  // Cols 0-8: fixed table cols (已選,公司,模型,模型分類與狀態,Prompt,prompt測試,output text,output jpg,測試日期); cols 9-15: one per FEATURE_MODULE (7)
-  const DEFAULT_COLUMN_WIDTHS = [48, 120, 220, 80, 140, 72, 200, 140, 110, 88, 88, 88, 88, 88, 88, 88];
+  // Cols 0-8: fixed table cols (公司,模型分類與狀態,模型,已選,Prompt,prompt測試,output text,output jpg,測試日期); cols 9-15: one per FEATURE_MODULE (7)
+  const DEFAULT_COLUMN_WIDTHS = [120, 80, 220, 48, 140, 72, 200, 140, 110, 88, 88, 88, 88, 88, 88, 88];
   const TABLE_COLUMN_COUNT = DEFAULT_COLUMN_WIDTHS.length;
+  const isOcrMode = statusLabelMode === 'ocr';
   const [columnWidths, setColumnWidthsState] = useState<number[]>(() => {
     if (typeof window === 'undefined') return [...DEFAULT_COLUMN_WIDTHS];
     try {
@@ -807,10 +834,10 @@ export function ModelEvaluator({
     return filteredRows.filter((r) => {
       const key = `${r.providerId}::${r.modelId}`;
       const ev = evaluationMap.get(key);
-      const statusDisplay = getStatusDisplay(key, ev, testResultByKey, outputByKey);
+      const statusDisplay = getStatusDisplay(key, ev, testResultByKey, outputByKey, isOcrMode);
       return set.has(statusDisplay.type);
     });
-  }, [filteredRows, filterStatuses, evaluationMap, testResultByKey, outputByKey]);
+  }, [filteredRows, filterStatuses, evaluationMap, testResultByKey, outputByKey, isOcrMode]);
 
   /** 再依模型分類篩選（可複選：VLM / LLM / unknown） */
   const rowsAfterCategoryFilter = useMemo(() => {
@@ -1286,12 +1313,12 @@ export function ModelEvaluator({
               <>
                 ，篩選後可選模型數：
                 <span className="font-medium text-text-primary">{rowsAfterCategoryFilter.length}</span>
-                ，已選模型數：
+                ，已選被測模型數：
                 <span className="font-medium text-text-primary">{filteredSelectedCount}</span>
               </>
             ) : (
               <>
-                ，已選模型數：
+                ，已選被測模型數：
                 <span className="font-medium text-text-primary">{allSelectedCount}</span>
               </>
             )}
@@ -1472,7 +1499,7 @@ export function ModelEvaluator({
                   className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(0)}`}
                   style={getFrozenThStyle(0)}
                 >
-                  <span>已選模型</span>
+                  <span>公司名稱</span>
                   <div
                     role="separator"
                     aria-label="調整欄寬"
@@ -1484,7 +1511,7 @@ export function ModelEvaluator({
                   className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(1)}`}
                   style={getFrozenThStyle(1)}
                 >
-                  <span>公司名稱</span>
+                  <span>模型分類與狀態</span>
                   <div
                     role="separator"
                     aria-label="調整欄寬"
@@ -1508,7 +1535,7 @@ export function ModelEvaluator({
                   className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(3)}`}
                   style={getFrozenThStyle(3)}
                 >
-                  <span>模型分類與狀態</span>
+                  <span>勾選被測模型</span>
                   <div
                     role="separator"
                     aria-label="調整欄寬"
@@ -1638,9 +1665,175 @@ export function ModelEvaluator({
                 })}
               </tr>
               <tr className={`bg-bg-tertiary ${freezeRowCount > 0 ? 'shadow-[0_4px_0_0_#d1d5db] dark:shadow-[0_4px_0_0_#4b5563]' : 'border-b border-border-subtle'}`} ref={filterDropdownRef}>
+                {/* 公司名稱欄：公司篩選 */}
                 <th
                   className={`py-1.5 px-3 border-r border-border-subtle align-top ${getFrozenThClass(0)}`}
                   style={getFrozenThStyle(0)}
+                >
+                  <div className="flex flex-col gap-1">
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setOpenFilterDropdown((v) => (v === 'provider' ? null : 'provider'))}
+                        className="w-full rounded border border-border-subtle bg-bg-primary px-2 py-1 text-xs text-left text-text-primary focus:outline-none focus:ring-1 focus:ring-accent min-w-0 flex items-center justify-between gap-1"
+                        title="依公司篩選（可複選）"
+                      >
+                        <span className="truncate">
+                          {filterProviderIds.length === 0
+                            ? '全部公司'
+                            : filterProviderIds.length === 1
+                              ? providersInTable.find(([id]) => id === filterProviderIds[0])?.[1] ?? filterProviderIds[0]
+                              : `已選 ${filterProviderIds.length} 項`}
+                        </span>
+                        <span className="shrink-0 text-text-muted">▾</span>
+                      </button>
+                      {openFilterDropdown === 'provider' && (
+                        <div className="absolute left-0 top-full z-10 mt-0.5 min-w-[140px] rounded border border-border-subtle bg-bg-primary py-1 shadow-lg max-h-48 overflow-y-auto">
+                          <label className="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-bg-secondary font-medium text-text-secondary">
+                            <input
+                              type="checkbox"
+                              checked={
+                                providersInTable.length > 0 &&
+                                providersInTable.every(([id]) => filterProviderIds.includes(id))
+                              }
+                              ref={(el) => {
+                                if (!el) return;
+                                const total = providersInTable.length;
+                                const selectedCount = providersInTable.filter(([id]) =>
+                                  filterProviderIds.includes(id),
+                                ).length;
+                                el.indeterminate = selectedCount > 0 && selectedCount < total;
+                              }}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  // 顯式選取目前列表中的所有公司
+                                  setFilterProviderIds(providersInTable.map(([id]) => id));
+                                } else {
+                                  // 取消勾選時回到「不套用公司篩選」= 顯示全部
+                                  setFilterProviderIds([]);
+                                }
+                              }}
+                              className="rounded border-border-subtle text-accent focus:ring-accent"
+                            />
+                            <span className="truncate">全選</span>
+                          </label>
+                          {providersInTable.map(([id, name]) => (
+                            <label
+                              key={id}
+                              className="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-bg-secondary"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={filterProviderIds.includes(id)}
+                                onChange={(e) => {
+                                  setFilterProviderIds((prev) =>
+                                    e.target.checked ? [...prev, id] : prev.filter((x) => x !== id)
+                                  );
+                                }}
+                                className="rounded border-border-subtle text-accent focus:ring-accent"
+                              />
+                              <span className="truncate">{name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </th>
+                {/* 模型分類與狀態欄：分類/狀態篩選 */}
+                <th
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top ${getFrozenThClass(1)}`}
+                  style={getFrozenThStyle(1)}
+                >
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setOpenFilterDropdown((v) => (v === 'status' ? null : 'status'))}
+                      className="rounded border border-border-subtle bg-bg-primary px-2 py-1 text-xs text-left text-text-primary focus:outline-none focus:ring-1 focus:ring-accent min-w-0 flex items-center justify-between gap-1"
+                      title="依分類與狀態篩選（可複選）"
+                    >
+                      <span className="truncate">
+                        {filterStatuses.length === 0
+                          ? '分類與狀態'
+                          : filterStatuses.length === 1
+                            ? filterStatuses[0] === 'vlm_ok'
+                              ? 'OCR可用'
+                              : filterStatuses[0] === 'llm_ok'
+                                ? 'LLM可用'
+                                : filterStatuses[0] === 'not_working'
+                                  ? '不可用'
+                                  : '尚未測試'
+                            : `分類與狀態 ${filterStatuses.length}`}
+                      </span>
+                      <span className="shrink-0 text-text-muted">▾</span>
+                    </button>
+                    {openFilterDropdown === 'status' && (
+                      <div className="absolute left-0 top-full z-10 mt-0.5 min-w-[120px] rounded border border-border-subtle bg-bg-primary py-1 shadow-lg">
+                        <label className="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-bg-secondary font-medium text-text-secondary">
+                          <input
+                            type="checkbox"
+                            checked={
+                              ['vlm_ok', 'llm_ok', 'not_working', 'untested'].every((v) =>
+                                filterStatuses.includes(v),
+                              )
+                            }
+                            ref={(el) => {
+                              if (!el) return;
+                              const allValues = ['vlm_ok', 'llm_ok', 'not_working', 'untested'] as const;
+                              const total = allValues.length;
+                              const selectedCount = allValues.filter((v) =>
+                                filterStatuses.includes(v),
+                              ).length;
+                              el.indeterminate = selectedCount > 0 && selectedCount < total;
+                            }}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFilterStatuses(['vlm_ok', 'llm_ok', 'not_working', 'untested']);
+                              } else {
+                                // 取消勾選時回到「不套用分類/狀態篩選」= 顯示全部
+                                setFilterStatuses([]);
+                              }
+                            }}
+                            className="rounded border-border-subtle text-accent focus:ring-accent"
+                          />
+                          <span>全選</span>
+                        </label>
+                        {[
+                          { value: 'vlm_ok', label: 'OCR可用' },
+                          { value: 'llm_ok', label: 'LLM可用' },
+                          { value: 'not_working', label: '不可用' },
+                          { value: 'untested', label: '尚未測試' },
+                        ].map(({ value, label }) => (
+                          <label
+                            key={value}
+                            className="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-bg-secondary"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={filterStatuses.includes(value)}
+                              onChange={(e) => {
+                                setFilterStatuses((prev) =>
+                                  e.target.checked ? [...prev, value] : prev.filter((x) => x !== value)
+                                );
+                              }}
+                              className="rounded border-border-subtle text-accent focus:ring-accent"
+                            />
+                            <span>{label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </th>
+                {/* 模型名稱與版本型號欄：目前無篩選，保留空白佔位 */}
+                <th
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top text-left ${getFrozenThClass(2)}`}
+                  style={getFrozenThStyle(2)}
+                />
+                {/* 請選擇被測模型欄：全選/取消全選 */}
+                <th
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top ${getFrozenThClass(3)}`}
+                  style={getFrozenThStyle(3)}
                 >
                   <div className="flex flex-col gap-1">
                     <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-medium text-text-secondary hover:text-text-primary">
@@ -1669,111 +1862,6 @@ export function ModelEvaluator({
                       </div>
                       <span>全選</span>
                     </label>
-                  </div>
-                </th>
-                <th
-                  className={`py-1.5 px-3 border-r border-border-subtle align-top ${getFrozenThClass(1)}`}
-                  style={getFrozenThStyle(1)}
-                >
-                  <div className="flex flex-col gap-1">
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setOpenFilterDropdown((v) => (v === 'provider' ? null : 'provider'))}
-                        className="w-full rounded border border-border-subtle bg-bg-primary px-2 py-1 text-xs text-left text-text-primary focus:outline-none focus:ring-1 focus:ring-accent min-w-0 flex items-center justify-between gap-1"
-                        title="依公司篩選（可複選）"
-                      >
-                        <span className="truncate">
-                          {filterProviderIds.length === 0
-                            ? '全部公司'
-                            : filterProviderIds.length === 1
-                              ? providersInTable.find(([id]) => id === filterProviderIds[0])?.[1] ?? filterProviderIds[0]
-                              : `已選 ${filterProviderIds.length} 項`}
-                        </span>
-                        <span className="shrink-0 text-text-muted">▾</span>
-                      </button>
-                      {openFilterDropdown === 'provider' && (
-                        <div className="absolute left-0 top-full z-10 mt-0.5 min-w-[140px] rounded border border-border-subtle bg-bg-primary py-1 shadow-lg max-h-48 overflow-y-auto">
-                          {providersInTable.map(([id, name]) => (
-                            <label
-                              key={id}
-                              className="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-bg-secondary"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={filterProviderIds.includes(id)}
-                                onChange={(e) => {
-                                  setFilterProviderIds((prev) =>
-                                    e.target.checked ? [...prev, id] : prev.filter((x) => x !== id)
-                                  );
-                                }}
-                                className="rounded border-border-subtle text-accent focus:ring-accent"
-                              />
-                              <span className="truncate">{name}</span>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </th>
-                <th
-                  className={`py-1.5 px-3 border-r border-border-subtle align-top text-left ${getFrozenThClass(2)}`}
-                  style={getFrozenThStyle(2)}
-                />
-                <th
-                  className={`py-1.5 px-3 border-r border-border-subtle align-top ${getFrozenThClass(3)}`}
-                  style={getFrozenThStyle(3)}
-                >
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setOpenFilterDropdown((v) => (v === 'status' ? null : 'status'))}
-                      className="rounded border border-border-subtle bg-bg-primary px-2 py-1 text-xs text-left text-text-primary focus:outline-none focus:ring-1 focus:ring-accent min-w-0 flex items-center justify-between gap-1"
-                      title="依分類與狀態篩選（可複選）"
-                    >
-                      <span className="truncate">
-                        {filterStatuses.length === 0
-                          ? '分類與狀態'
-                          : filterStatuses.length === 1
-                            ? filterStatuses[0] === 'vlm_ok'
-                              ? 'VLM可用'
-                              : filterStatuses[0] === 'llm_ok'
-                                ? 'LLM可用'
-                                : filterStatuses[0] === 'not_working'
-                                  ? '不可用'
-                                  : '尚未測試'
-                            : `分類與狀態 ${filterStatuses.length}`}
-                      </span>
-                      <span className="shrink-0 text-text-muted">▾</span>
-                    </button>
-                    {openFilterDropdown === 'status' && (
-                      <div className="absolute left-0 top-full z-10 mt-0.5 min-w-[120px] rounded border border-border-subtle bg-bg-primary py-1 shadow-lg">
-                          {[
-                            { value: 'vlm_ok', label: 'VLM可用' },
-                            { value: 'llm_ok', label: 'LLM可用' },
-                            { value: 'not_working', label: '不可用' },
-                            { value: 'untested', label: '尚未測試' },
-                          ].map(({ value, label }) => (
-                            <label
-                              key={value}
-                              className="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-bg-secondary"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={filterStatuses.includes(value)}
-                                onChange={(e) => {
-                                  setFilterStatuses((prev) =>
-                                    e.target.checked ? [...prev, value] : prev.filter((x) => x !== value)
-                                  );
-                                }}
-                                className="rounded border-border-subtle text-accent focus:ring-accent"
-                              />
-                              <span>{label}</span>
-                            </label>
-                          ))}
-                      </div>
-                    )}
                   </div>
                 </th>
                 <th
@@ -1873,8 +1961,91 @@ export function ModelEvaluator({
                     }`}
                   >
                     <td
-                      className={`py-2.5 px-3 align-top border-r border-border-subtle ${getFrozenTdClass(0)}`}
+                      className={`py-2.5 px-3 text-text-primary border-r border-border-subtle align-top break-words ${getFrozenTdClass(0)}`}
                       style={getFrozenTdStyle(0)}
+                    >
+                      {providerName}
+                    </td>
+                    <td
+                      className={`py-2.5 px-3 border-r border-border-subtle align-top ${getFrozenTdClass(1)}`}
+                      style={getFrozenTdStyle(1)}
+                    >
+                      {(() => {
+                        if (!hasKey)
+                          return <span className="text-text-muted">—</span>;
+                        const status = getStatusDisplay(key, ev, testResultByKey, outputByKey, isOcrMode);
+                        const statusLabel =
+                          status.type === 'vlm_ok' || status.type === 'working'
+                            ? 'OCR可用'
+                            : status.type === 'llm_ok'
+                              ? 'LLM可用'
+                              : status.type === 'not_working'
+                                ? '不可用'
+                                : '尚未測試';
+                        const statusTitle =
+                          status.type === 'vlm_ok' || status.type === 'working'
+                            ? 'OCR可用'
+                            : status.type === 'llm_ok'
+                              ? 'LLM可用'
+                              : status.type === 'not_working'
+                                ? '不可用'
+                                : '尚未測試';
+                        const statusColorClass =
+                          status.type === 'vlm_ok' || status.type === 'working'
+                            ? 'text-green-400'
+                            : status.type === 'llm_ok'
+                              ? 'text-blue-400'
+                              : status.type === 'not_working'
+                                ? 'text-amber-500'
+                                : 'text-text-muted';
+                        const StatusIcon = status.type === 'not_working' ? XCircle : CheckCircle2;
+                        const isOpen = openStatusDropdownKey === key;
+                        return (
+                          <div
+                            className="inline-block min-w-0"
+                            ref={(el) => {
+                              statusDropdownRefs.current[key] = el;
+                            }}
+                          >
+                            <button
+                              type="button"
+                              ref={(el) => {
+                                statusBtnRefs.current[key] = el;
+                              }}
+                              onClick={() => toggleStatusDropdown(key)}
+                              className={`inline-flex items-center gap-1 rounded border border-transparent px-1 -mx-1 py-0.5 hover:border-border-subtle hover:bg-bg-secondary ${statusColorClass}`}
+                              title={`${statusTitle} · 點擊可手動修正`}
+                            >
+                              {status.type !== 'untested' && status.type !== 'not_working' ? (
+                                <StatusIcon size={12} aria-hidden />
+                              ) : status.type === 'not_working' ? (
+                                <XCircle size={12} aria-hidden />
+                              ) : null}
+                              <span className="truncate max-w-[140px]">
+                                {statusLabel}
+                              </span>
+                              <ChevronDown
+                                size={12}
+                                className={`shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                                aria-hidden
+                              />
+                            </button>
+                          </div>
+                        );
+                      })()}
+                    </td>
+                    <td
+                      className={`py-2.5 px-3 border-r border-border-subtle overflow-hidden align-top ${getFrozenTdClass(2)}`}
+                      style={getFrozenTdStyle(2)}
+                    >
+                      <div className="flex flex-col items-start min-w-0">
+                        <span className="font-medium text-text-primary break-words">{modelName}</span>
+                        <span className="mt-0.5 font-mono text-text-muted break-words">{modelId}</span>
+                      </div>
+                    </td>
+                    <td
+                      className={`py-2.5 px-3 align-top border-r border-border-subtle ${getFrozenTdClass(3)}`}
+                      style={getFrozenTdStyle(3)}
                     >
                       <label className="flex items-center justify-center w-5 h-5 cursor-pointer">
                         <input
@@ -1907,82 +2078,6 @@ export function ModelEvaluator({
                           )}
                         </div>
                       </label>
-                    </td>
-                    <td
-                      className={`py-2.5 px-3 text-text-primary border-r border-border-subtle align-top break-words ${getFrozenTdClass(1)}`}
-                      style={getFrozenTdStyle(1)}
-                    >
-                      {providerName}
-                    </td>
-                    <td
-                      className={`py-2.5 px-3 border-r border-border-subtle overflow-hidden align-top ${getFrozenTdClass(2)}`}
-                      style={getFrozenTdStyle(2)}
-                    >
-                      <div className="flex flex-col items-start min-w-0">
-                        <span className="font-medium text-text-primary break-words">{modelName}</span>
-                        <span className="mt-0.5 font-mono text-text-muted break-words">{modelId}</span>
-                      </div>
-                    </td>
-                    <td
-                      className={`py-2.5 px-3 border-r border-border-subtle align-top ${getFrozenTdClass(3)}`}
-                      style={getFrozenTdStyle(3)}
-                    >
-                      {(() => {
-                        const outputText = (outputByKey[key] ?? ev?.notes ?? '').trim();
-                        const category = detectCategoryFromOutput(outputText);
-                        const categoryLabel = category === 'unknown' ? '' : category;
-                        if (!hasKey)
-                          return <span className="text-text-muted">—</span>;
-                        const status = getStatusDisplay(key, ev, testResultByKey, outputByKey);
-                        const shouldShowCategoryPrefix =
-                          categoryLabel.length > 0 && !status.label.startsWith(categoryLabel);
-                        const displayText = shouldShowCategoryPrefix
-                          ? `${categoryLabel} · ${status.label}`
-                          : status.label;
-                        const title = categoryLabel
-                          ? `${categoryLabel} · ${status.title}`
-                          : status.title;
-                        const statusColorClass =
-                          status.type === 'vlm_ok' || status.type === 'working'
-                            ? 'text-green-400'
-                            : status.type === 'llm_ok'
-                              ? 'text-blue-400'
-                              : status.type === 'not_working'
-                                ? 'text-amber-500'
-                                : 'text-text-muted';
-                        const StatusIcon = status.type === 'not_working' ? XCircle : CheckCircle2;
-                        const isOpen = openStatusDropdownKey === key;
-                        return (
-                          <div
-                            className="inline-block min-w-0"
-                            ref={(el) => {
-                              statusDropdownRefs.current[key] = el;
-                            }}
-                          >
-                            <button
-                              type="button"
-                              ref={(el) => { statusBtnRefs.current[key] = el; }}
-                              onClick={() => toggleStatusDropdown(key)}
-                              className={`inline-flex items-center gap-1 rounded border border-transparent px-1 -mx-1 py-0.5 hover:border-border-subtle hover:bg-bg-secondary ${statusColorClass}`}
-                              title={`${title} · 點擊可手動修正`}
-                            >
-                              {status.type !== 'untested' && status.type !== 'not_working' ? (
-                                <StatusIcon size={12} aria-hidden />
-                              ) : status.type === 'not_working' ? (
-                                <XCircle size={12} aria-hidden />
-                              ) : null}
-                              <span className="truncate max-w-[140px]">
-                                {displayText}
-                              </span>
-                              <ChevronDown
-                                size={12}
-                                className={`shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-                                aria-hidden
-                              />
-                            </button>
-                          </div>
-                        );
-                      })()}
                     </td>
                     <td
                       className={`py-1.5 px-3 align-top max-w-[200px] border-r border-border-subtle ${getFrozenTdClass(4)}`}
@@ -2397,7 +2492,7 @@ export function ModelEvaluator({
                 <tbody>
                   {batchResults.map((entry) => {
                     const ev = evaluationMap.get(entry.key);
-                    const status = getStatusDisplay(entry.key, ev, testResultByKey, outputByKey);
+                    const status = getStatusDisplay(entry.key, ev, testResultByKey, outputByKey, isOcrMode);
                     const statusColorClass =
                       status.type === 'vlm_ok' || status.type === 'working'
                         ? 'text-green-400'
@@ -2496,7 +2591,7 @@ export function ModelEvaluator({
               zIndex: 9999,
             }}
           >
-            {STATUS_OVERRIDE_OPTIONS.map((opt) => {
+            {getStatusOverrideOptions(isOcrMode).map((opt) => {
               const actualKey = openStatusDropdownKey.startsWith('modal::')
                 ? openStatusDropdownKey.slice('modal::'.length)
                 : openStatusDropdownKey;

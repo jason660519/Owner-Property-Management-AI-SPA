@@ -18,6 +18,8 @@ import type {
   RentalStatus,
   PropertyPhotoItem,
   PropertyDocumentItem,
+  BuildingTranscriptData,
+  LandTranscriptData,
 } from '@/lib/types/properties';
 import { SALE_STATUSES, RENTAL_STATUSES } from '@/lib/types/properties';
 
@@ -220,6 +222,168 @@ export async function getAllProperties(): Promise<PropertiesResult> {
       timestamp: new Date().toISOString(),
     });
     return { properties: [], totalSales: 0, totalRentals: 0 };
+  }
+}
+
+// ── Get Single Property ───────────────────────────────────────────────────
+export async function getPropertyById(id: string): Promise<PropertyItem | null> {
+  noStore();
+  const adminClient = createAdminClient();
+
+  // Try sale table first, then rental
+  const { data: saleRow } = await adminClient
+    .from('property_sales')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+
+  let row: Record<string, unknown> | null = null;
+  let type: 'sale' | 'rental' = 'sale';
+
+  if (saleRow) {
+    row = saleRow as Record<string, unknown>;
+    type = 'sale';
+  } else {
+    const { data: rentalRow } = await adminClient
+      .from('property_rentals')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (!rentalRow) return null;
+    row = rentalRow as Record<string, unknown>;
+    type = 'rental';
+  }
+
+  const systemUserId = row.owner_id as string;
+
+  // Resolve creator display name
+  let creatorName = systemUserId.slice(0, 8);
+  const { data: profile } = await adminClient
+    .from('users_profile')
+    .select('display_name')
+    .eq('id', systemUserId)
+    .maybeSingle();
+  if (profile?.display_name) {
+    creatorName = profile.display_name as string;
+  } else {
+    const { data: authData } = await adminClient.auth.admin.getUserById(systemUserId);
+    if (authData?.user) {
+      creatorName =
+        (authData.user.user_metadata?.display_name as string) ||
+        (authData.user.user_metadata?.name as string) ||
+        authData.user.email ||
+        systemUserId.slice(0, 8);
+    }
+  }
+
+  // Resolve real owner name
+  const { data: ownerData } = await adminClient
+    .from('property_owners')
+    .select('owner_name')
+    .eq('property_id', id)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const ownerName = (ownerData?.owner_name as string) ?? null;
+
+  const details = (row.details || {}) as Record<string, unknown>;
+
+  return {
+    id,
+    type,
+    title: (row.title as string) ?? (details.title as string) ?? (row.address as string),
+    address: row.address as string,
+    addressCity: (row.address_city as string) ?? (details.addressCity as string) ?? undefined,
+    addressDistrict: (row.address_district as string) ?? (details.addressDistrict as string) ?? undefined,
+    addressStreet: (row.address_street as string) ?? (details.addressStreet as string) ?? undefined,
+    addressNumber: (row.address_number as string) ?? (details.addressNumber as string) ?? undefined,
+    addressFloor: (row.address_floor as string) ?? (details.addressFloor as string) ?? undefined,
+    addressUnit: (row.address_unit as string) ?? (details.addressUnit as string) ?? undefined,
+    status: row.status as string,
+    price: type === 'sale' ? (row.price as number) : null,
+    monthlyRent: type === 'rental' ? (row.monthly_rent as number) : null,
+    creatorName,
+    ownerName,
+    ownerId: systemUserId,
+    area:
+      (row.area_registered as number | null) ??
+      (details.area as number | null) ??
+      null,
+    propertyType:
+      (row.building_type as string | null) ??
+      (details.type as string | null) ??
+      null,
+    bedrooms:
+      (row.layout_rooms as number | null) ??
+      (details.bedrooms as number | null) ??
+      null,
+    bathrooms:
+      (row.layout_bathrooms as number | null) ??
+      (details.bathrooms as number | null) ??
+      null,
+    livingRooms:
+      (row.layout_living_rooms as number | null) ??
+      (details.livingRooms as number | null) ??
+      null,
+    parkingSpaces:
+      (row.has_parking as boolean)
+        ? 1
+        : (details.parkingSpaces as number | null) ?? null,
+    createdAt: row.created_at as string,
+    mainPhotoUrl:
+      (details.imageUrl as string) ||
+      (Array.isArray(details.images) && (details.images[0] as string)) ||
+      null,
+    buildingTranscript: (details.buildingTranscript as BuildingTranscriptData) ?? null,
+    landTranscript: (details.landTranscript as LandTranscriptData) ?? null,
+  };
+}
+
+// ── Save Transcript Data ──────────────────────────────────────────────────
+export async function savePropertyTranscriptData(
+  id: string,
+  type: 'sale' | 'rental',
+  data: { buildingTranscript?: BuildingTranscriptData; landTranscript?: LandTranscriptData }
+): Promise<ActionResult> {
+  const adminClient = createAdminClient();
+  const table = type === 'sale' ? 'property_sales' : 'property_rentals';
+
+  try {
+    const { data: existing, error: fetchError } = await adminClient
+      .from(table)
+      .select('details')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      return { success: false, message: `找不到物件：${fetchError.message}` };
+    }
+
+    const existingDetails = (existing?.details || {}) as Record<string, unknown>;
+    const updatedDetails = { ...existingDetails };
+    if (data.buildingTranscript !== undefined) {
+      updatedDetails.buildingTranscript = data.buildingTranscript;
+    }
+    if (data.landTranscript !== undefined) {
+      updatedDetails.landTranscript = data.landTranscript;
+    }
+
+    const { error } = await adminClient
+      .from(table)
+      .update({ details: updatedDetails })
+      .eq('id', id);
+
+    if (error) {
+      return { success: false, message: `儲存失敗：${error.message}` };
+    }
+
+    revalidatePath(`/superadmin/properties/${id}/edit`);
+    return { success: true, message: '謄本資料已成功儲存' };
+  } catch (error) {
+    return {
+      success: false,
+      message: `儲存失敗：${error instanceof Error ? error.message : '未知錯誤'}`,
+    };
   }
 }
 

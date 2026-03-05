@@ -7,6 +7,7 @@ import { X, Loader2, Building2, Key, ChevronDown } from 'lucide-react';
 import { updateProperty } from '@/lib/actions/properties';
 import { PropertyMediaSection } from './PropertyMediaSection';
 import { PropertyInvestigationReportSection } from './PropertyInvestigationReportSection';
+import { PropertyBlogGenerator } from './PropertyBlogGenerator';
 import {
   PROPERTY_STATUSES,
   PROPERTY_TYPES,
@@ -332,13 +333,22 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
             </div>
           )}
 
-          {/* ── Photos / Documents (謄本／權狀／合約／部落格) tabs ── */}
-          {(activeTab === 'photos' || activeTab === 'transcript' || activeTab === 'title' || activeTab === 'contract' || activeTab === 'blog') && (
+          {/* ── Photos / Documents (謄本／權狀／合約) tabs ── */}
+          {(activeTab === 'photos' || activeTab === 'transcript' || activeTab === 'title' || activeTab === 'contract') && (
             <PropertyMediaSection
               propertyId={property.id}
               propertyType={property.type}
               ownerId={property.ownerId}
               mode={activeTab}
+            />
+          )}
+
+          {/* ── 部落格生成器 ── */}
+          {activeTab === 'blog' && (
+            <PropertyBlogGenerator
+              propertyId={property.id}
+              propertyType={property.type}
+              ownerId={property.ownerId}
             />
           )}
 
