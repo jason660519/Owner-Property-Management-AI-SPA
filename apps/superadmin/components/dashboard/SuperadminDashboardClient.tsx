@@ -1,11 +1,13 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Users, Home, Key, Shield, FileText, Settings, Activity, Database, Server, Cpu, BarChart3, FileSignature, Image, BookOpen, CircleCheck } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { DashboardLayout } from '@/components/dashboard';
 import type { AdminStats } from '@/lib/actions/dashboard-types';
+import type { SystemHealthResponse } from '@/app/api/system-health/route';
 import { SystemGrowthChart } from '@/components/dashboard/SystemGrowthChart';
 import { ActivityLogTable } from '@/components/dashboard/ActivityLogTable';
 
@@ -21,6 +23,40 @@ export default function SuperadminDashboardClient({
   /** 當儀表板資料載入失敗時顯示的訊息（不觸發 error boundary） */
   loadError?: string;
 }) {
+  const [systemHealth, setSystemHealth] = useState<SystemHealthResponse | null>(null);
+  const [systemHealthError, setSystemHealthError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchHealth = async () => {
+      try {
+        const res = await fetch('/api/system-health');
+        if (!res.ok) {
+          throw new Error(`Failed to fetch system health: ${res.status}`);
+        }
+        const data = (await res.json()) as SystemHealthResponse;
+        if (!cancelled) {
+          setSystemHealth(data);
+          setSystemHealthError(null);
+        }
+      } catch (error) {
+        console.error('[SuperadminDashboard] Failed to fetch system health:', error);
+        if (!cancelled) {
+          setSystemHealth(null);
+          setSystemHealthError('無法載入系統健康狀態');
+        }
+      }
+    };
+
+    fetchHealth();
+    const intervalId = setInterval(fetchHealth, 15000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, []);
   const summaryRows = [
     { label: '總用戶/活躍用戶/在線用戶數', value: `${stats.totalUsers} / ${stats.activeUsersCount} / ${stats.onlineUsersCount}` },
     { label: '總群組數', value: stats.totalGroups },
@@ -279,60 +315,169 @@ export default function SuperadminDashboardClient({
         <div className="lg:col-span-2">
             <SystemGrowthChart />
         </div>
-        <div className="lg:col-span-1">
-             <Card className="h-full">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Activity className="w-5 h-5" />
-                    系統健康狀態
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg">
-                    <div className="flex items-center gap-3">
+        <div className="lg:col-span-1 space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="w-5 h-5" />
+                系統健康狀態
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {systemHealthError && (
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+                    {systemHealthError}
+                  </div>
+                )}
+
+                {!systemHealth && !systemHealthError && (
+                  <div className="text-sm text-text-muted">載入中...</div>
+                )}
+
+                {systemHealth && (
+                  <>
+                    <div className="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg">
+                      <div className="flex items-center gap-3">
                         <Server className="w-4 h-4 text-text-muted" />
                         <span className="text-sm text-text-secondary">API 伺服器</span>
+                      </div>
+                      <span
+                        className={`text-sm font-medium flex items-center gap-2 ${
+                          systemHealth.apiServer.status === 'up' ? 'text-green-500' : 'text-red-500'
+                        }`}
+                      >
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            systemHealth.apiServer.status === 'up' ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+                          }`}
+                        />
+                        {systemHealth.apiServer.message}
+                      </span>
                     </div>
-                    <span className="text-sm font-medium text-green-500 flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                        正常運作
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg">
-                    <div className="flex items-center gap-3">
+
+                    <div className="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg">
+                      <div className="flex items-center gap-3">
                         <Database className="w-4 h-4 text-text-muted" />
                         <span className="text-sm text-text-secondary">資料庫連線</span>
+                      </div>
+                      <span
+                        className={`text-sm font-medium flex items-center gap-2 ${
+                          systemHealth.database.status === 'up' ? 'text-green-500' : 'text-red-500'
+                        }`}
+                      >
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            systemHealth.database.status === 'up' ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+                          }`}
+                        />
+                        {systemHealth.database.status === 'up'
+                          ? `已連線 (${systemHealth.database.latencyMs ?? 0}ms)`
+                          : '連線失敗'}
+                      </span>
                     </div>
-                    <span className="text-sm font-medium text-green-500 flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                        已連線 (12ms)
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg">
-                    <div className="flex items-center gap-3">
+
+                    <div className="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg">
+                      <div className="flex items-center gap-3">
                         <Cpu className="w-4 h-4 text-text-muted" />
                         <span className="text-sm text-text-secondary">CPU 使用率</span>
+                      </div>
+                      <span className="text-sm font-medium text-text-primary">
+                        {systemHealth.cpu.usagePercent !== null ? `${systemHealth.cpu.usagePercent}%` : '—'}
+                      </span>
                     </div>
-                    <span className="text-sm font-medium text-text-primary">12%</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg">
-                    <div className="flex items-center gap-3">
+
+                    <div className="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg">
+                      <div className="flex items-center gap-3">
                         <Server className="w-4 h-4 text-text-muted" />
                         <span className="text-sm text-text-secondary">記憶體使用</span>
+                      </div>
+                      <span className="text-sm font-medium text-text-primary">
+                        {systemHealth.memory.usedGb !== null && systemHealth.memory.totalGb !== null
+                          ? `${systemHealth.memory.usedGb} GB / ${systemHealth.memory.totalGb} GB`
+                          : '—'}
+                      </span>
                     </div>
-                    <span className="text-sm font-medium text-text-primary">4.2 GB / 16 GB</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg">
-                     <div className="flex items-center gap-3">
+
+                    <div className="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg">
+                      <div className="flex items-center gap-3">
                         <Database className="w-4 h-4 text-text-muted" />
                         <span className="text-sm text-text-secondary">儲存空間</span>
+                      </div>
+                      <span className="text-sm font-medium text-text-primary">
+                        {systemHealth.disk.usedGb !== null && systemHealth.disk.totalGb !== null
+                          ? `${systemHealth.disk.usedGb} GB / ${systemHealth.disk.totalGb} GB`
+                          : '—'}
+                      </span>
                     </div>
-                    <span className="text-sm font-medium text-text-primary">45.2 GB / 1 TB</span>
-                  </div>
+
+                    {systemHealth.extraDisks.length > 0 && (
+                      <div className="border-t border-border-default pt-3 mt-1 space-y-1">
+                        <div className="text-xs font-medium text-text-secondary">外接磁碟 / 其他磁碟</div>
+                        <div className="space-y-1">
+                          {systemHealth.extraDisks.map((disk) => (
+                            <div key={disk.mountPoint ?? 'unknown'} className="flex items-center justify-between text-xs text-text-secondary">
+                              <span className="truncate max-w-[55%]">
+                                {disk.mountPoint
+                                  ? disk.mountPoint.startsWith('/Volumes/')
+                                    ? disk.mountPoint.replace('/Volumes/', '')
+                                    : disk.mountPoint
+                                  : '未知掛載點'}
+                              </span>
+                              <span className="font-medium text-text-primary">
+                                {disk.usedGb !== null && disk.totalGb !== null
+                                  ? `${disk.usedGb} GB / ${disk.totalGb} GB`
+                                  : '—'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Server className="w-5 h-5" />
+                開發服務連線狀態
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!systemHealth && !systemHealthError && (
+                <div className="text-sm text-text-muted">載入中...</div>
+              )}
+
+              {systemHealth && (
+                <div className="space-y-2">
+                  {systemHealth.devServices.map((svc) => (
+                    <div key={svc.name} className="flex items-center justify-between rounded-lg bg-bg-tertiary px-3 py-2">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium text-text-secondary">{svc.name}</span>
+                        <span className="text-[11px] text-text-muted truncate max-w-[180px]">{svc.url}</span>
+                      </div>
+                      <span
+                        className={`text-xs font-semibold flex items-center gap-1 ${
+                          svc.status === 'up' ? 'text-green-500' : 'text-red-500'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            svc.status === 'up' ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+                          }`}
+                        />
+                        {svc.status === 'up' ? '正常' : '無法連線'}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
 

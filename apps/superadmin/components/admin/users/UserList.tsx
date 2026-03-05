@@ -11,13 +11,16 @@ import {
 } from '@tanstack/react-table';
 import { User, Plus } from 'lucide-react';
 import { Search } from 'lucide-react';
+import { clsx } from 'clsx';
 import type { IAMUser } from '@/app/superadmin/users/actions';
 import {
   addUserToGroup,
   removeUserFromGroup,
   addRoleToUser,
   removeRoleFromUser,
+  updateUserDisplayName,
 } from '@/app/superadmin/users/actions';
+import { useIamViewSettings } from '@/app/superadmin/dashboard/iam-management/components/viewSettings';
 
 type GroupOption = { id: string; name: string };
 
@@ -36,6 +39,7 @@ export function UserList({
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({
     category: 140,
     email: 320,
+    displayName: 220,
     roles: 220,
     groups: 360,
     id: 200,
@@ -43,6 +47,13 @@ export function UserList({
   });
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [newRole, setNewRole] = useState('');
+  const [showDisplayNameModal, setShowDisplayNameModal] = useState(false);
+  const [editDisplayName, setEditDisplayName] = useState('');
+
+  const { freezeRowCount, frozenColCount } = useIamViewSettings();
+
+  const getColumnBaseWidth = (columnId: string): number =>
+    columnWidths[columnId] ?? 120;
 
   const handleAddGroup = async () => {
     if (!selectedUser || !selectedGroupId) return;
@@ -77,6 +88,25 @@ export function UserList({
       alert(result.message);
       return;
     }
+    window.location.reload();
+  };
+
+  const handleOpenDisplayNameModal = (user: IAMUser) => {
+    setSelectedUser(user);
+    setEditDisplayName(user.displayName ?? user.email ?? '');
+    setShowDisplayNameModal(true);
+  };
+
+  const handleSaveDisplayName = async () => {
+    if (!selectedUser || !editDisplayName.trim()) return;
+    const result = await updateUserDisplayName(selectedUser.id, editDisplayName.trim());
+    if (!result.success) {
+      alert(result.message);
+      return;
+    }
+    setShowDisplayNameModal(false);
+    setSelectedUser(null);
+    setEditDisplayName('');
     window.location.reload();
   };
 
@@ -143,6 +173,28 @@ export function UserList({
           <span className="font-medium text-text-primary">{info.getValue() as string}</span>
         </div>
       ),
+    },
+    {
+      id: 'displayName',
+      accessorKey: 'displayName',
+      header: 'Display Name',
+      cell: (info) => {
+        const user = info.row.original;
+        const name = user.displayName ?? user.email ?? '—';
+        return (
+          <div className="flex items-center gap-2">
+            <span className="text-text-primary">{name}</span>
+            <button
+              type="button"
+              onClick={() => handleOpenDisplayNameModal(user)}
+              className="p-1 hover:bg-bg-secondary rounded text-text-muted hover:text-accent text-xs"
+              title="Edit display name"
+            >
+              Edit
+            </button>
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'roles',
@@ -255,6 +307,40 @@ export function UserList({
     onGlobalFilterChange: setGlobalFilter,
   });
 
+  const headerGroups = table.getHeaderGroups();
+  const firstHeaderGroup = headerGroups[0];
+
+  const FREEZE_LINE = '3px solid #555555';
+
+  const frozenMeta: Record<
+    string,
+    { isFrozen: boolean; left: number; isLastFrozen: boolean }
+  > = {};
+
+  if (firstHeaderGroup) {
+    let leftOffset = 0;
+    firstHeaderGroup.headers.forEach((header, index) => {
+      const columnId = header.column.id;
+      const width = getColumnBaseWidth(columnId);
+      const isFrozen = index < frozenColCount;
+
+      if (isFrozen) {
+        frozenMeta[columnId] = {
+          isFrozen: true,
+          left: leftOffset,
+          isLastFrozen: index === frozenColCount - 1,
+        };
+        leftOffset += width;
+      } else {
+        frozenMeta[columnId] = {
+          isFrozen: false,
+          left: 0,
+          isLastFrozen: false,
+        };
+      }
+    });
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 bg-bg-secondary border border-border-default p-2 rounded-lg max-w-sm">
@@ -266,51 +352,95 @@ export function UserList({
           className="outline-none text-sm w-full bg-transparent text-text-primary placeholder-text-muted"
         />
       </div>
-      <div className="bg-bg-secondary border border-border-default rounded-lg overflow-hidden">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-bg-tertiary border-b border-border-default">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    className="relative px-6 py-3 font-medium text-text-secondary border-r border-border-default last:border-r-0"
-                    style={{
-                      width: columnWidths[header.column.id] ?? undefined,
-                      minWidth: 120,
-                    }}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span>{flexRender(header.column.columnDef.header, header.getContext())}</span>
-                      <div
-                        onMouseDown={(event) => handleColumnResizeStart(header.column.id, event)}
-                        className="h-full w-1 cursor-col-resize hover:bg-border-default absolute top-0 right-0"
-                      />
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody className="divide-y divide-border-default">
-            {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="hover:bg-bg-tertiary/30 transition-colors">
-                {row.getVisibleCells().map((cell) => (
-                  <td
-                    key={cell.id}
-                    className="px-6 py-4 text-text-primary border-r border-border-default last:border-r-0"
-                    style={{
-                      width: columnWidths[cell.column.id] ?? undefined,
-                      minWidth: 120,
-                    }}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="bg-bg-secondary border border-border-default rounded-lg overflow-hidden flex flex-col max-h-[600px]">
+        <div className="overflow-auto flex-1">
+          <table className="w-full text-left text-sm min-w-max">
+            <thead
+              className={clsx(
+                'bg-bg-tertiary border-b border-border-default',
+                freezeRowCount === 1 && 'sticky top-0 z-20'
+              )}
+            >
+              {table.getHeaderGroups().map((headerGroup) => (
+                <tr key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => {
+                    const meta = frozenMeta[header.column.id];
+                    const isFrozen = meta?.isFrozen ?? false;
+                    const isLastFrozen = meta?.isLastFrozen ?? false;
+
+                    return (
+                      <th
+                        key={header.id}
+                        className={clsx(
+                          'relative px-6 py-3 font-medium text-text-secondary border-r border-border-default last:border-r-0 bg-bg-tertiary',
+                          isFrozen && 'sticky z-20'
+                        )}
+                        style={{
+                          width: columnWidths[header.column.id] ?? undefined,
+                          minWidth: 120,
+                          ...(isFrozen
+                            ? {
+                                left: meta.left,
+                                borderRight: isLastFrozen ? FREEZE_LINE : undefined,
+                              }
+                            : {}),
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span>
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                          </span>
+                          <div
+                            onMouseDown={(event) =>
+                              handleColumnResizeStart(header.column.id, event)
+                            }
+                            className="h-full w-1 cursor-col-resize hover:bg-border-default absolute top-0 right-0"
+                          />
+                        </div>
+                      </th>
+                    );
+                  })}
+                </tr>
+              ))}
+            </thead>
+            <tbody className="divide-y divide-border-default">
+              {table.getRowModel().rows.map((row) => (
+                <tr key={row.id} className="hover:bg-bg-tertiary/30 transition-colors">
+                  {row.getVisibleCells().map((cell) => {
+                    const meta = frozenMeta[cell.column.id];
+                    const isFrozen = meta?.isFrozen ?? false;
+                    const isLastFrozen = meta?.isLastFrozen ?? false;
+
+                    return (
+                      <td
+                        key={cell.id}
+                        className={clsx(
+                          'px-6 py-4 text-text-primary border-r border-border-default last:border-r-0 bg-bg-secondary',
+                          isFrozen && 'sticky z-10'
+                        )}
+                        style={{
+                          width: columnWidths[cell.column.id] ?? undefined,
+                          minWidth: 120,
+                          ...(isFrozen
+                            ? {
+                                left: meta.left,
+                                borderRight: isLastFrozen ? FREEZE_LINE : undefined,
+                              }
+                            : {}),
+                        }}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <div className="p-4 border-t border-border-default flex items-center justify-between text-sm text-text-secondary">
           <div>Showing {table.getRowModel().rows.length} of {initialUsers.length}</div>
           <div className="flex gap-2">
@@ -395,6 +525,44 @@ export function UserList({
                 className="px-4 py-2 bg-accent text-white hover:bg-accent-hover rounded-md disabled:opacity-50"
               >
                 Assign
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showDisplayNameModal && selectedUser && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+          <div className="bg-bg-secondary border border-border-default rounded-lg shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-bold text-text-primary mb-4">Edit Display Name</h3>
+            <p className="text-text-secondary mb-4 text-sm">
+              User: <span className="font-mono bg-bg-tertiary px-1 text-text-primary">{selectedUser.email}</span>
+            </p>
+            <label className="block text-sm font-medium text-text-secondary mb-2">Display Name</label>
+            <input
+              className="w-full border border-border-default rounded-md p-2 mb-6 bg-bg-primary text-text-primary placeholder-text-muted"
+              placeholder="e.g. Super_admin a0405"
+              value={editDisplayName}
+              onChange={(e) => setEditDisplayName(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDisplayNameModal(false);
+                  setSelectedUser(null);
+                  setEditDisplayName('');
+                }}
+                className="px-4 py-2 text-text-secondary hover:bg-bg-tertiary rounded-md"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveDisplayName}
+                disabled={!editDisplayName.trim()}
+                className="px-4 py-2 bg-accent text-white hover:bg-accent-hover rounded-md disabled:opacity-50"
+              >
+                Save
               </button>
             </div>
           </div>

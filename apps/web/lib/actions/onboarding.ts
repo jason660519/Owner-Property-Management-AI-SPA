@@ -49,15 +49,19 @@ export async function createUserProfile(role: UserRole): Promise<CreateProfileRe
       return { success: false, error: '帳號已建立，請直接登入' };
     }
 
-    // Extract display name from user metadata
+    // Extract display name and avatar from user metadata (populated by OAuth scopes)
     const metadata = user.user_metadata || {};
     const displayName =
       metadata.full_name || metadata.name || user.email?.split('@')[0] || 'New User';
+    // Google returns 'avatar_url' (Supabase-normalised) or 'picture'; Facebook returns 'avatar_url'
+    const avatarUrl: string | null =
+      metadata.avatar_url || metadata.picture || null;
 
     // Create profile
     const { error: insertError } = await supabase.from('users_profile').insert({
       id: user.id,
       display_name: displayName,
+      avatar_url: avatarUrl,
       role: role,
       roles: [role],
       primary_role: role,

@@ -1,7 +1,7 @@
 // filepath: apps/superadmin/lib/ai-providers.ts
 // AI Provider definitions, model lists, and configuration data
 
-export type AIProvider = 'openai' | 'anthropic' | 'gemini' | 'deepseek' | 'grok';
+export type AIProvider = 'openai' | 'anthropic' | 'gemini' | 'deepseek' | 'grok' | 'together';
 
 export interface AIProviderInfo {
   id: AIProvider;
@@ -257,6 +257,204 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     ],
   },
   {
+    id: 'together',
+    name: 'Together AI',
+    envKey: 'TOGETHER_AI_API_KEY',
+    sdkPackage: 'openai (compatible)',
+    docsUrl: 'https://docs.together.ai/',
+    apiKeyUrl: 'https://api.together.ai/settings/api-keys',
+    sdkDocsUrl: 'https://docs.together.ai/docs/quickstart',
+    dashboardUrl: 'https://api.together.ai/',
+    sdkDocsLabel: 'Together AI API Doc',
+    dashboardLabel: 'Together AI Dashboard',
+    baseUrl: 'https://api.together.xyz/v1',
+    keyPrefix: '',
+    models: [
+      // ── Llama 4 ──
+      {
+        id: 'meta-llama/Llama-4-Scout-17B-16E-Instruct',
+        name: 'Llama 4 Scout 17B',
+        contextWindow: 524288,
+        maxOutput: 16384,
+        inputPrice: 0.18,
+        outputPrice: 0.18,
+        capabilities: ['text', 'vision', 'function_calling'],
+        recommended: true,
+      },
+      {
+        id: 'meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8',
+        name: 'Llama 4 Maverick 17B',
+        contextWindow: 524288,
+        maxOutput: 16384,
+        inputPrice: 0.27,
+        outputPrice: 0.27,
+        capabilities: ['text', 'vision', 'function_calling'],
+      },
+      // ── Llama 3.3 ──
+      {
+        id: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+        name: 'Llama 3.3 70B Turbo',
+        contextWindow: 131072,
+        maxOutput: 8192,
+        inputPrice: 0.88,
+        outputPrice: 0.88,
+        capabilities: ['text', 'function_calling'],
+        recommended: true,
+      },
+      // ── Llama 3.2 Vision ──
+      {
+        id: 'meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo',
+        name: 'Llama 3.2 11B Vision Turbo',
+        contextWindow: 131072,
+        maxOutput: 8192,
+        inputPrice: 0.18,
+        outputPrice: 0.18,
+        capabilities: ['text', 'vision'],
+      },
+      {
+        id: 'meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo',
+        name: 'Llama 3.2 90B Vision Turbo',
+        contextWindow: 131072,
+        maxOutput: 8192,
+        inputPrice: 0.88,
+        outputPrice: 0.88,
+        capabilities: ['text', 'vision'],
+      },
+      // ── Llama 3.1 ──
+      {
+        id: 'meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo',
+        name: 'Llama 3.1 8B Turbo',
+        contextWindow: 131072,
+        maxOutput: 8192,
+        inputPrice: 0.18,
+        outputPrice: 0.18,
+        capabilities: ['text'],
+      },
+      {
+        id: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
+        name: 'Llama 3.1 70B Turbo',
+        contextWindow: 131072,
+        maxOutput: 8192,
+        inputPrice: 0.88,
+        outputPrice: 0.88,
+        capabilities: ['text', 'function_calling'],
+      },
+      {
+        id: 'meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo',
+        name: 'Llama 3.1 405B Turbo',
+        contextWindow: 131072,
+        maxOutput: 8192,
+        inputPrice: 5.00,
+        outputPrice: 15.00,
+        capabilities: ['text', 'function_calling'],
+      },
+      // ── Qwen ──
+      {
+        id: 'Qwen/Qwen2.5-72B-Instruct-Turbo',
+        name: 'Qwen 2.5 72B Turbo',
+        contextWindow: 32768,
+        maxOutput: 8192,
+        inputPrice: 1.20,
+        outputPrice: 1.20,
+        capabilities: ['text', 'function_calling'],
+      },
+      {
+        id: 'Qwen/Qwen2.5-7B-Instruct-Turbo',
+        name: 'Qwen 2.5 7B Turbo',
+        contextWindow: 32768,
+        maxOutput: 8192,
+        inputPrice: 0.30,
+        outputPrice: 0.30,
+        capabilities: ['text'],
+      },
+      {
+        id: 'Qwen/QwQ-32B',
+        name: 'QwQ 32B (Reasoning)',
+        contextWindow: 131072,
+        maxOutput: 16384,
+        inputPrice: 1.20,
+        outputPrice: 1.20,
+        capabilities: ['text', 'reasoning'],
+      },
+      {
+        id: 'Qwen/Qwen2-VL-72B-Instruct',
+        name: 'Qwen2 VL 72B',
+        contextWindow: 32768,
+        maxOutput: 8192,
+        inputPrice: 1.20,
+        outputPrice: 1.20,
+        capabilities: ['text', 'vision'],
+      },
+      // ── DeepSeek ──
+      {
+        id: 'deepseek-ai/DeepSeek-R1',
+        name: 'DeepSeek R1 (Reasoning)',
+        contextWindow: 65536,
+        maxOutput: 16384,
+        inputPrice: 3.00,
+        outputPrice: 7.00,
+        capabilities: ['text', 'reasoning'],
+      },
+      {
+        id: 'deepseek-ai/DeepSeek-V3',
+        name: 'DeepSeek V3',
+        contextWindow: 65536,
+        maxOutput: 8192,
+        inputPrice: 0.90,
+        outputPrice: 0.90,
+        capabilities: ['text', 'function_calling'],
+      },
+      // ── Google Gemma ──
+      {
+        id: 'google/gemma-2-27b-it',
+        name: 'Gemma 2 27B',
+        contextWindow: 8192,
+        maxOutput: 4096,
+        inputPrice: 0.80,
+        outputPrice: 0.80,
+        capabilities: ['text'],
+      },
+      {
+        id: 'google/gemma-2-9b-it',
+        name: 'Gemma 2 9B',
+        contextWindow: 8192,
+        maxOutput: 4096,
+        inputPrice: 0.30,
+        outputPrice: 0.30,
+        capabilities: ['text'],
+      },
+      // ── Mistral ──
+      {
+        id: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+        name: 'Mixtral 8x7B',
+        contextWindow: 32768,
+        maxOutput: 8192,
+        inputPrice: 0.60,
+        outputPrice: 0.60,
+        capabilities: ['text', 'function_calling'],
+      },
+      {
+        id: 'mistralai/Mistral-Small-24B-Instruct-2501',
+        name: 'Mistral Small 24B',
+        contextWindow: 32768,
+        maxOutput: 8192,
+        inputPrice: 0.80,
+        outputPrice: 0.80,
+        capabilities: ['text', 'function_calling'],
+      },
+      // ── Llama Vision Free (免費方案) ──
+      {
+        id: 'meta-llama/Llama-Vision-Free',
+        name: 'Llama Vision Free',
+        contextWindow: 131072,
+        maxOutput: 8192,
+        inputPrice: 0,
+        outputPrice: 0,
+        capabilities: ['text', 'vision'],
+      },
+    ],
+  },
+  {
     id: 'grok',
     name: 'xAI Grok',
     envKey: 'GROK_API_KEY',
@@ -308,9 +506,9 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
 
 export const FEATURE_MODULES: FeatureModule[] = [
   {
-    key: 'online_ocr',
-    name: '雲端OCR謄本解析',
-    description: '透過雲端 AI API 進行謄本文件的光學字元辨識與結構化解析',
+    key: 'online_ocr_parse',
+    name: '雲端OCR謄本解析（解析組）',
+    description: '透過雲端 AI API 進行謄本文件的光學字元辨識與結構化解析。建議配置 2~3 個 vision 模型以啟用多模型共識模式。',
     icon: 'cloud',
     category: 'ocr',
     requiredCapabilities: ['vision'],
@@ -319,6 +517,15 @@ export const FEATURE_MODULES: FeatureModule[] = [
 2. 所有權部：所有權人、權利範圍、取得日期
 3. 他項權利部：抵押權、地上權等設定
 請以結構化 JSON 格式輸出結果。`,
+  },
+  {
+    key: 'online_ocr_judge',
+    name: '雲端OCR謄本裁判（審核組）',
+    description: '當多模型解析結果有衝突時，由裁判模型對照原始文件判定正確值。可選配置，僅在解析結果有衝突時才會呼叫。',
+    icon: 'scale',
+    category: 'ocr',
+    requiredCapabilities: ['vision'],
+    defaultPrompt: `你是台灣不動產謄本解析的品質審核專家。\n你收到一份謄本原始文件，以及多個 AI 模型對同一文件的解析結果。\n\n你的任務是：\n1. 審查每個「有爭議的欄位」\n2. 對照原始文件，判斷哪個模型的解析最正確\n3. 若所有模型都錯，提供你自己的正確解析\n\n回傳格式（僅輸出有爭議的欄位，格式為嚴格 JSON）：\n{\n  "resolutions": [\n    {\n      "field_path": "建物標示部.總面積",\n      "correct_value": "125.67平方公尺",\n      "chosen_from": "model_a",\n      "reason": "模型 A 的面積數值與原始文件第 3 行的記載一致"\n    }\n  ]\n}\n\n注意事項：\n- 面積請保留原始單位（平方公尺），精確到小數點後兩位\n- 日期格式統一為「民國 YYY 年 MM 月 DD 日」\n- 地號/建號格式為「XXXX-XXXX」\n- 若原始文件模糊無法辨識，在 reason 中說明，correct_value 設為 null`,
   },
   {
     key: 'web_assistant',
@@ -335,7 +542,7 @@ export const FEATURE_MODULES: FeatureModule[] = [
   },
   {
     key: 'contract_assistant',
-    name: '合約解說 AI 助理',
+    name: '合約生成AI助理',
     description: '分析與解讀不動產相關合約條款，提供專業見解',
     icon: 'file-text',
     category: 'assistant',

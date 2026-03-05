@@ -1,1 +1,127 @@
-{"mcpServers":{"context7":{"type":"stdio","command":"npx","args":["-y","@upstash/context7-mcp"]},"github":{"type":"stdio","command":"npx","args":["-y","@anthropic/mcp-github"],"disabled":true,"alwaysAllow":[]},"postgres":{"type":"stdio","command":"npx","args":["-y","@anthropic/mcp-postgres"],"disabled":true,"alwaysAllow":[]},"slack":{"type":"stdio","command":"npx","args":["-y","@anthropic/mcp-slack"],"disabled":true,"alwaysAllow":[]},"notion":{"type":"stdio","command":"npx","args":["-y","@anthropic/mcp-notion"],"disabled":true,"alwaysAllow":[]},"openai":{"type":"stdio","command":"npx","args":["-y","@anthropic/mcp-openai"],"disabled":true,"alwaysAllow":[]},"anthropic":{"type":"stdio","command":"npx","args":["-y","@anthropic/mcp-anthropic"]},"googlemaps":{"type":"stdio","command":"npx","args":["-y","@anthropic/mcp-googlemaps"]},"memory":{"type":"stdio","command":"npx","args":["-y","@anthropic/mcp-memory"]},"docker":{"type":"stdio","command":"npx","args":["-y","@anthropic/mcp-docker"]},"firecrawl":{"type":"stdio","command":"npx","args":["-y","@anthropic/mcp-firecrawl"]},"gdrive":{"type":"stdio","command":"npx","args":["-y","@anthropic/mcp-gdrive"]},"chrome-devtools":{"type":"stdio","command":"npx","args":["-y","chrome-devtools-mcp@latest"]}}}
+{
+  "mcpServers": {
+    "context7": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp"
+      ],
+      "alwaysAllow": []
+    },
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@anthropic/mcp-github"
+      ],
+      "alwaysAllow": []
+    },
+    "postgres": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+      ]
+    },
+    "supabase": {
+      "type": "sse",
+      "url": "http://127.0.0.1:54321/mcp"
+    },
+    "slack": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@anthropic/mcp-slack"
+      ],
+      "alwaysAllow": []
+    },
+    "notion": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@anthropic/mcp-notion"
+      ],
+      "alwaysAllow": []
+    },
+    "openai": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@anthropic/mcp-openai"
+      ],
+      "alwaysAllow": []
+    },
+    "anthropic": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@anthropic/mcp-anthropic"
+      ]
+    },
+    "googlemaps": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@anthropic/mcp-googlemaps"
+      ],
+      "alwaysAllow": []
+    },
+    "memory": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@anthropic/mcp-memory"
+      ]
+    },
+    "docker": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@anthropic/mcp-docker"
+      ],
+      "alwaysAllow": []
+    },
+    "firecrawl": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@anthropic/mcp-firecrawl"
+      ],
+      "alwaysAllow": []
+    },
+    "gdrive": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-gdrive"
+      ],
+      "env": {
+        "GDRIVE_CREDENTIALS_PATH": ".gdrive-server-credentials.json",
+        "GDRIVE_OAUTH_PATH": "gcp-oauth.keys.json"
+      },
+      "alwaysAllow": []
+    },
+    "chrome-devtools": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest"
+      ],
+      "alwaysAllow": []
+    }
+  }
+}

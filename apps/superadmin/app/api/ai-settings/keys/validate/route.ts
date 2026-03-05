@@ -236,12 +236,55 @@ async function validateGrok(apiKey: string): Promise<ValidationResult> {
   }
 }
 
+async function validateTogether(apiKey: string): Promise<ValidationResult> {
+  try {
+    const res = await fetch('https://api.together.xyz/v1/models', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      // Together AI returns the array directly OR nested under `.data`
+      const raw: unknown[] = Array.isArray(data)
+        ? (data as unknown[])
+        : Array.isArray((data as { data?: unknown[] })?.data)
+          ? (data as { data: unknown[] }).data
+          : [];
+      const models: string[] = raw
+        .map((m) => (typeof (m as { id?: string }).id === 'string' ? (m as { id: string }).id : ''))
+        .filter(Boolean);
+
+      const latest = pickLatestModel(models, [
+        m => m.toLowerCase().includes('llama-3.3'),
+        m => m.toLowerCase().includes('llama-3.2'),
+        m => m.toLowerCase().includes('llama-3.1'),
+        m => m.toLowerCase().includes('qwen2.5'),
+        m => m.toLowerCase().includes('deepseek'),
+      ]);
+
+      return {
+        valid: true,
+        provider: 'together',
+        message: '金鑰驗證成功',
+        modelInfo: `最新可用: ${latest}`,
+        availableModels: models,
+      };
+    }
+    if (res.status === 401) {
+      return { valid: false, provider: 'together', message: '金鑰無效或已過期' };
+    }
+    return { valid: false, provider: 'together', message: `HTTP ${res.status}` };
+  } catch (e) {
+    return { valid: false, provider: 'together', message: `連線失敗: ${e instanceof Error ? e.message : 'Unknown'}` };
+  }
+}
+
 const validators: Record<AIProvider, (key: string) => Promise<ValidationResult>> = {
   openai: validateOpenAI,
   anthropic: validateAnthropic,
   gemini: validateGemini,
   deepseek: validateDeepSeek,
   grok: validateGrok,
+  together: validateTogether,
 };
 
 export async function POST(request: NextRequest) {

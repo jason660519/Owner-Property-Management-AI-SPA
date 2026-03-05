@@ -23,7 +23,12 @@ __pycache__/
 .DS_Store
 .vscode/
 .idea/
-.claude/
+.claude/*
+!.claude/memory/
+!.claude/rules/
+!.claude/settings.json
+!.claude/.mcp.json
+!.claude/skills/
 *.swp
 *.swo
 *~
@@ -88,6 +93,12 @@ plane-selfhost/
 *.sqlite
 *.sqlite3
 
+# Supabase 本地 Storage 實際檔案（持久化目錄，不提交上傳內容）
+supabase/storage-data/
+
+# 備份產出（scripts/backup-supabase.sh）
+backups/
+
 # ============================================
 # Large Files (exceeds GitHub 100MB limit)
 # ============================================
@@ -105,6 +116,15 @@ plane-selfhost/
 .playwright-mcp/
 **/playwright-report/
 **/test-results/
+
+# ============================================
+# Secrets & Credentials
+# ============================================
+gcp-oauth.keys.json
+gcp-oauth.keys.json.json
+.gdrive-server-credentials.json
+.mcp.json
+
 **/._*
 .AppleDouble
 .LSOverride

@@ -1,12 +1,24 @@
 'use client';
 
 import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle2, XCircle, Loader2, FlaskConical, Upload, Cloud, MessageCircle, FileText, PenTool, Layout, Settings2, Plus, X, AlignLeft, Eye, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/Sheet';
 import { AI_PROVIDERS, FEATURE_MODULES } from '@/lib/ai-providers';
 import type { FeatureModule } from '@/lib/ai-providers';
-import type { SavedKey, SavedModel, ModelEvaluation, KeyValidationResult, SavedModule, AssignedModel } from '@/lib/hooks/useAISettings';
+import type { SavedKey, SavedModel, ModelEvaluation, KeyValidationResult, SavedModule, AssignedModel, DisplayStatusOverride } from '@/lib/hooks/useAISettings';
 import { getAvailableModelsList } from '@/lib/utils/total-available-models';
+import { readSessionStorage, writeSessionStorage } from '@/lib/utils/storage-state';
+
+const SS_FILTER_STATUSES  = 'ai-eval-filter:statuses';
+const SS_FILTER_PROVIDERS = 'ai-eval-filter:providerIds';
 
 const MODULE_ICON_MAP: Record<string, React.ElementType> = {
   cloud: Cloud, 'hard-drive': Settings2, 'message-circle': MessageCircle,
@@ -23,6 +35,24 @@ export interface KeyWithId {
   provider: string;
 }
 
+export interface BatchProgress {
+  tested: number;
+  total: number;
+  succeeded: number;
+  failed: number;
+}
+
+export interface BatchResultEntry {
+  key: string;
+  providerId: string;
+  providerName: string;
+  modelId: string;
+  modelName: string;
+  success: boolean;
+  output: string;
+  imageUrl?: string;
+}
+
 export interface ModelEvaluatorProps {
   savedKeys: SavedKey[];
   savedModels?: SavedModel[];
@@ -36,7 +66,7 @@ export interface ModelEvaluatorProps {
     modelId: string,
     prompt?: string,
     file?: File | null
-  ) => Promise<{ success: boolean; message?: string; output?: string }>;
+  ) => Promise<{ success: boolean; message?: string; output?: string; output_image_url?: string }>;
   /** 可選：在此分頁勾選/取消「已選」時寫回 ai_model_selections，與 API 金鑰管理同步 */
   onSaveModels?: (
     providerId: string,
@@ -50,6 +80,8 @@ export interface ModelEvaluatorProps {
     assignedModels: AssignedModel[],
     config?: Record<string, unknown>
   ) => Promise<void>;
+  /** Optional: hide specific feature module columns in this page only */
+  hiddenModuleKeys?: string[];
   /** 由頁首控制的全域測試 Prompt 與檔案（提升 state 以便顯示在固定標題區） */
   globalTestPrompt: string;
   onChangeGlobalTestPrompt: (value: string) => void;
@@ -58,13 +90,39 @@ export interface ModelEvaluatorProps {
   /** 頁首摘要：已選/可選模型數，顯示在表格工具列左側 */
   summarySelectedCount: number;
   summaryTotalCount: number;
-  /** 由頁首固定區塊觸發的動作（例如「全部測試」按鈕） */
-  headerActionsRef?: React.Ref<{
-    runBatchTest: () => void;
-    batchTesting: boolean;
-    canBatchTest: boolean;
-    tooltip: string;
-  }>;
+  /** 由頁首雲端 Prompt 下拉選單決定的變數名稱，例如 {OCR Engineer-1}（僅顯示用） */
+  promptVariableLabel?: string;
+  /** 由頁首固定區塊觸發的動作（例如「全部測試」按鈕）
+   * 支援傳入 React.Dispatch<SetStateAction<...>> 或 RefObject 兩種模式 */
+  headerActionsRef?:
+    | React.Dispatch<React.SetStateAction<{
+        runBatchTest: () => void;
+        batchTesting: boolean;
+        canBatchTest: boolean;
+        tooltip: string;
+        batchProgress: BatchProgress | null;
+        testableCount: number;
+        selectedCount: number;
+        totalCount: number;
+        filteredTotal: number;
+        filteredSelectedCount: number;
+      } | null>>
+    | React.RefObject<{
+        runBatchTest: () => void;
+        batchTesting: boolean;
+        canBatchTest: boolean;
+        tooltip: string;
+        batchProgress: BatchProgress | null;
+        testableCount: number;
+        selectedCount: number;
+        totalCount: number;
+        filteredTotal: number;
+        filteredSelectedCount: number;
+      } | null>;
+  /** 由外層控制的「統一測試 / 全域 Prompt 設定」面板開啟動作 */
+  onOpenGlobalTestPanel?: () => void;
+  /** 狀態標籤顯示模式：一般分頁顯示 VLM/LLM，OCR 分頁顯示 OCR 可用 */
+  statusLabelMode?: 'vlm' | 'ocr';
 }
 
 type TableHAlign = 'left' | 'center' | 'right';
@@ -81,6 +139,95 @@ const TABLE_V_ALIGN_CLASSES: Record<TableVAlign, string> = {
   middle: '[&_th]:align-middle [&_td]:align-middle',
   bottom: '[&_th]:align-bottom [&_td]:align-bottom',
 };
+
+/** 模組排序欄位顯示用：類型代碼（例 OCR-001） */
+const MODULE_SORT_LABEL: Record<string, string> = {
+  online_ocr: 'OCR',
+  online_ocr_parse: 'OCP',
+  online_ocr_judge: 'OCJ',
+  web_assistant: 'WAS',
+  contract_assistant: 'CAS',
+  blog_generator: 'GEN',
+  ad_generator: 'AD',
+  software_dev_engineer: 'SDE',
+  ttd_engineer: 'TTD',
+};
+
+/**
+ * 對每個功能模組，預先計算「理論上允許綁定」的 provider::model 清單，
+ * 例如 online_ocr 只接受具備 vision 能力的模型。
+ */
+const MODULE_ELIGIBLE_KEYS: Record<string, Set<string>> = (() => {
+  const result: Record<string, Set<string>> = {};
+  for (const mod of FEATURE_MODULES) {
+    const needed = (mod.requiredCapabilities ?? []) as string[];
+    const keySet = new Set<string>();
+    // 沒有特別需求時，不強制限制（保留舊資料）
+    if (needed.length === 0) {
+      result[mod.key] = keySet;
+      continue;
+    }
+    for (const provider of AI_PROVIDERS) {
+      for (const model of provider.models) {
+        const caps = model.capabilities ?? [];
+        if (needed.every((cap) => caps.includes(cap))) {
+          keySet.add(`${provider.id}::${model.id}`);
+        }
+      }
+    }
+    result[mod.key] = keySet;
+  }
+  return result;
+})();
+
+/**
+ * Normalize priorities for a module's assigned models so they are always 1..N.
+ * Any missing/invalid priority is treated as lowest priority; ties are broken
+ * deterministically by provider+model to keep ordering stable.
+ */
+function normalizeAssignments(assignments: AssignedModel[]): AssignedModel[] {
+  if (assignments.length === 0) return [];
+  const copied = [...assignments];
+  copied.sort((a, b) => {
+    const pa = typeof a.priority === 'number' && a.priority >= 1 ? a.priority : Number.MAX_SAFE_INTEGER;
+    const pb = typeof b.priority === 'number' && b.priority >= 1 ? b.priority : Number.MAX_SAFE_INTEGER;
+    if (pa !== pb) return pa - pb;
+    const ak = `${a.provider}::${a.model}`;
+    const bk = `${b.provider}::${b.model}`;
+    return ak.localeCompare(bk);
+  });
+  return copied.map((a, index) => ({ ...a, priority: index + 1 }));
+}
+
+/**
+ * Reorder a single assignment to the requested priority, shifting others and
+ * keeping priorities normalized to 1..N.
+ */
+function reorderAssignment(
+  assignments: AssignedModel[],
+  providerId: string,
+  modelId: string,
+  requestedPriority: number,
+): AssignedModel[] {
+  if (assignments.length === 0) return assignments;
+
+  // Always operate on a normalized copy so priorities are consecutive.
+  const list = normalizeAssignments(assignments);
+
+  const fromIndex = list.findIndex(
+    (a) => a.provider === providerId && a.model === modelId,
+  );
+  if (fromIndex === -1) return list;
+
+  const maxIndex = list.length - 1;
+  const toIndex = Math.min(Math.max(requestedPriority - 1, 0), maxIndex);
+  if (fromIndex === toIndex) return list;
+
+  const [target] = list.splice(fromIndex, 1);
+  list.splice(toIndex, 0, target);
+
+  return normalizeAssignments(list);
+}
 
 /** Closes a dropdown when clicking outside its ref element or pressing Escape. */
 function useClickOutsideClose(
@@ -112,7 +259,35 @@ function getModelDisplayName(providerId: string, modelId: string): string {
   return m?.name ?? modelId;
 }
 
-/** 從 Prompt output 自動推斷模型分類：成功解析檔案內容視為 VLM，有回應但未解析視為 LLM */
+/** Extract the first image URL found in model output text (markdown ![]() or bare URL ending in image extension) */
+function extractImageUrlFromOutput(output: string): string | undefined {
+  if (!output) return undefined;
+  // markdown image: ![alt](url)
+  const mdMatch = output.match(/!\[.*?\]\((https?:\/\/[^\s)]+)\)/i);
+  if (mdMatch) return mdMatch[1];
+  // bare URL ending in image extension
+  const bareMatch = output.match(/https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp)(?:[?#]\S*)?/i);
+  if (bareMatch) return bareMatch[0];
+  return undefined;
+}
+
+/** 從 provider::model key 查詢是否具備 vision 能力：先查靜態定義，若不在靜態列表則依 model ID 啟發式推斷 */
+function hasVisionCapability(key: string): boolean {
+  const [providerId, modelId] = key.split('::');
+  const provider = AI_PROVIDERS.find((p) => p.id === providerId);
+  const model = provider?.models.find((m) => m.id === modelId);
+  if (model) return model.capabilities?.includes('vision') ?? false;
+  // 動態載入的模型（來自 API 驗證）不在靜態列表，以 model ID 啟發式推斷
+  const lower = (modelId ?? '').toLowerCase();
+  if (lower.includes('vision') || lower.includes('-vl-') || lower.includes('-vl ')) return true;
+  // OpenAI / Anthropic / Gemini 的主力多模態模型通常含 vision（4o, claude-3, gemini）
+  if (providerId === 'openai' && (lower.includes('gpt-4o') || lower.includes('gpt-4-turbo'))) return true;
+  if (providerId === 'anthropic' && lower.includes('claude-3')) return true;
+  if (providerId === 'gemini' && lower.includes('gemini')) return true;
+  return false;
+}
+
+/** 從 Prompt output text 自動推斷模型分類：成功解析檔案內容視為 VLM，有回應但未解析（如「看不到檔案」）視為 LLM */
 function detectCategoryFromOutput(output: string | undefined): 'VLM' | 'LLM' | 'unknown' {
   const text = (output ?? '').trim();
   if (!text) return 'unknown';
@@ -135,6 +310,90 @@ function detectCategoryFromOutput(output: string | undefined): 'VLM' | 'LLM' | '
   return 'unknown';
 }
 
+/** 依測試輸出區分狀態顯示：僅成功解析檔案內容算 VLM 可用，「我看不到檔案」等僅算 LLM 可用 */
+type StatusDisplay = { type: 'vlm_ok' | 'llm_ok' | 'working' | 'not_working' | 'untested'; label: string; title: string };
+
+/** 四種狀態選項，供使用者手動修正 AI 判斷（移除模糊的「通用模型可用」，強制明確 VLM/LLM/OCR） */
+function getStatusOverrideOptions(isOcrMode: boolean): { value: DisplayStatusOverride; label: string }[] {
+  const vlmLabel = isOcrMode ? 'OCR可用' : 'VLM 可用';
+  return [
+    { value: 'vlm_ok', label: vlmLabel },
+    { value: 'llm_ok', label: 'LLM 可用' },
+    { value: 'not_working', label: '不可用' },
+    { value: 'untested', label: '尚未測試' },
+  ];
+}
+
+function getStatusDisplayByType(type: DisplayStatusOverride, isOcrMode: boolean): StatusDisplay {
+  const vlmLabel = isOcrMode ? 'OCR可用' : 'VLM 可用';
+  const map: Record<DisplayStatusOverride, StatusDisplay> = {
+    vlm_ok: { type: 'vlm_ok', label: vlmLabel, title: `手動設定：${vlmLabel}` },
+    llm_ok: { type: 'llm_ok', label: 'LLM 可用', title: '手動設定：LLM 可用' },
+    working: { type: 'working', label: '通用模型可用', title: '手動設定：通用模型可用' },
+    not_working: { type: 'not_working', label: '不可用', title: '手動設定：不可用' },
+    untested: { type: 'untested', label: '尚未測試', title: '手動設定：尚未測試' },
+  };
+  return map[type];
+}
+
+function getStatusDisplay(
+  key: string,
+  ev: ModelEvaluation | undefined,
+  testResultByKey: Record<string, boolean>,
+  outputByKey: Record<string, string>,
+  isOcrMode: boolean
+): StatusDisplay {
+  if (ev?.display_status_override) return getStatusDisplayByType(ev.display_status_override, isOcrMode);
+
+  const outputText = (outputByKey[key] ?? ev?.notes ?? '').trim();
+  const sessionSuccess = testResultByKey[key];
+  const persistedWorking = ev?.is_working;
+  const success = sessionSuccess === true || (sessionSuccess !== false && persistedWorking);
+
+  const isVisionModel = hasVisionCapability(key);
+
+  if (!outputText) {
+    if (success) {
+      if (isVisionModel)
+        return {
+          type: 'vlm_ok',
+          label: isOcrMode ? 'OCR可用' : 'VLM 可用',
+          title: isOcrMode
+            ? 'API 連線成功，依模型靜態定義具 vision 能力，判定為 OCR 可用'
+            : 'API 連線成功，依模型靜態定義具 vision 能力，判定為 VLM 可用',
+        };
+      return { type: 'llm_ok', label: 'LLM 可用', title: 'API 連線成功，依模型靜態定義無 vision 能力，判定為 LLM 可用' };
+    }
+    if (sessionSuccess === false || (ev && !ev.is_working))
+      return { type: 'not_working', label: '不可用', title: '測試失敗或未通過' };
+    return { type: 'untested', label: '未測試', title: '尚未執行檔案解析測試' };
+  }
+
+  const category = detectCategoryFromOutput(outputText);
+  if (category === 'VLM' && success)
+    return {
+      type: 'vlm_ok',
+      label: isOcrMode ? 'OCR可用' : 'VLM 可用',
+      title: isOcrMode
+        ? '依本測試輸出：已成功解析檔案內容，視為 OCR 可用'
+        : '依本測試輸出：已成功解析檔案內容，視為 VLM 可用',
+    };
+  if (category === 'LLM' && success)
+    return { type: 'llm_ok', label: 'LLM 可用', title: '依本測試輸出：有文字回應但未解析檔案（如「看不到檔案」），僅算 LLM 可用，不算 VLM 可用' };
+  if (category === 'unknown' && success) {
+    if (isVisionModel)
+      return {
+        type: 'vlm_ok',
+        label: isOcrMode ? 'OCR可用' : 'VLM 可用',
+        title: isOcrMode
+          ? 'API 有回應，輸出無法明確推斷，依模型靜態定義具 vision 能力，暫判定為 OCR 可用'
+          : 'API 有回應，輸出無法明確推斷，依模型靜態定義具 vision 能力，判定為 VLM 可用',
+      };
+    return { type: 'llm_ok', label: 'LLM 可用', title: 'API 有回應，輸出無法明確推斷，依模型靜態定義無 vision 能力，判定為 LLM 可用' };
+  }
+  return { type: 'not_working', label: '不可用', title: '測試失敗或無有效輸出' };
+}
+
 export function ModelEvaluator({
   savedKeys,
   savedModels = [],
@@ -146,6 +405,7 @@ export function ModelEvaluator({
   onTestModel,
   savedModules = [],
   onSaveModule,
+  hiddenModuleKeys = [],
   globalTestPrompt,
   onChangeGlobalTestPrompt,
   uploadedFile,
@@ -153,14 +413,26 @@ export function ModelEvaluator({
   summarySelectedCount,
   summaryTotalCount,
   headerActionsRef,
+  promptVariableLabel,
+  onOpenGlobalTestPanel,
+  statusLabelMode = 'vlm',
 }: ModelEvaluatorProps) {
-  /** 與表格內每列 Prompt 欄位同步的預設文字（未編輯時顯示同一內容） */
-  const DEFAULT_TEST_PROMPT = '請根據我上傳的檔案，解析出所有權人是誰，如果你看不到檔案，就回答：我看不到檔案';
+  /** 內部判斷是否使用全域 Prompt 的保留字（不隨顯示名稱變動） */
+  const DEFAULT_PROMPT_PLACEHOLDER = '{預設prompt}';
+  /** 在欄位與 placeholder 中顯示給使用者看的變數名稱，例如 {OCR Engineer-1} */
+  const effectivePromptVariableLabel =
+    (promptVariableLabel && promptVariableLabel.trim().length > 0
+      ? promptVariableLabel.trim()
+      : DEFAULT_PROMPT_PLACEHOLDER);
   /** 表頭「Prompt input」欄位名稱，使用者可自訂；從 localStorage 還原避免重繪後遺失 */
   const STORAGE_KEY_PROMPT_COLUMN_LABEL = 'superadmin-model-evaluator-prompt-column-label';
   const STORAGE_KEY_COLUMN_WIDTHS = 'superadmin-model-evaluator-column-widths';
-  // Cols 0-8: fixed table cols; cols 9-15: one per FEATURE_MODULE (7 total)
-  const DEFAULT_COLUMN_WIDTHS = [48, 120, 220, 100, 80, 140, 72, 200, 110, 88, 88, 88, 88, 88, 88, 88];
+  const FREEZE_ROW_STORAGE_KEY = 'superadmin-model-evaluator-freeze-row-v1';
+  const FROZEN_COL_STORAGE_KEY = 'superadmin-model-evaluator-frozen-col-v1';
+  // Cols 0-8: fixed table cols (公司,模型分類與狀態,模型,已選,Prompt,prompt測試,output text,output jpg,測試日期); cols 9-15: one per FEATURE_MODULE (7)
+  const DEFAULT_COLUMN_WIDTHS = [120, 80, 220, 48, 140, 72, 200, 140, 110, 88, 88, 88, 88, 88, 88, 88];
+  const TABLE_COLUMN_COUNT = DEFAULT_COLUMN_WIDTHS.length;
+  const isOcrMode = statusLabelMode === 'ocr';
   const [columnWidths, setColumnWidthsState] = useState<number[]>(() => {
     if (typeof window === 'undefined') return [...DEFAULT_COLUMN_WIDTHS];
     try {
@@ -168,11 +440,13 @@ export function ModelEvaluator({
       if (raw) {
         const parsed = JSON.parse(raw) as number[];
         if (Array.isArray(parsed) && parsed.every((x) => typeof x === 'number')) {
-          // Extend with defaults if new module columns were added
-          if (parsed.length < DEFAULT_COLUMN_WIDTHS.length) {
-            return [...parsed, ...DEFAULT_COLUMN_WIDTHS.slice(parsed.length)];
+          // Migrate from old 16-col layout (drop former 模型分類 col at index 3)
+          const normalized =
+            parsed.length === 16 ? [...parsed.slice(0, 3), ...parsed.slice(4)] : parsed;
+          if (normalized.length < DEFAULT_COLUMN_WIDTHS.length) {
+            return [...normalized, ...DEFAULT_COLUMN_WIDTHS.slice(normalized.length)];
           }
-          return parsed;
+          return normalized.length > DEFAULT_COLUMN_WIDTHS.length ? normalized.slice(0, DEFAULT_COLUMN_WIDTHS.length) : normalized;
         }
       }
     } catch {
@@ -236,40 +510,165 @@ export function ModelEvaluator({
   /** Per-row custom prompts; empty string means "use global testPrompt" */
   const [rowPrompts, setRowPrompts] = useState<Record<string, string>>({});
   const [outputByKey, setOutputByKey] = useState<Record<string, string>>({});
+  const [imageOutputByKey, setImageOutputByKey] = useState<Record<string, string>>({});
   /** 本頁測試結果（優先於 DB 的 savedEvaluations 顯示在「狀態」欄） */
   const [testResultByKey, setTestResultByKey] = useState<Record<string, boolean>>({});
   const [testingKey, setTestingKey] = useState<string | null>(null);
   const [batchTesting, setBatchTesting] = useState(false);
+  const batchTestingRef = useRef(false);
+  const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
+  const [batchResults, setBatchResults] = useState<BatchResultEntry[] | null>(null);
+  const [rowTestPanel, setRowTestPanel] = useState<{
+    key: string;
+    providerId: string;
+    modelId: string;
+    modelName: string;
+  } | null>(null);
+  const [rowTestPrompt, setRowTestPrompt] = useState<string>('');
+  /** True when the user has manually typed in the single-test prompt textarea; suppresses auto-sync. */
+  const [rowTestPromptDirty, setRowTestPromptDirty] = useState(false);
+  const [rowTestFile, setRowTestFile] = useState<File | null>(null);
   const [tableAlignH, setTableAlignH] = useState<TableHAlign>('left');
   const [tableAlignV, setTableAlignV] = useState<TableVAlign>('top');
   const [alignDropdownOpen, setAlignDropdownOpen] = useState(false);
   const alignDropdownRef = useRef<HTMLDivElement | null>(null);
   const [viewDropdownOpen, setViewDropdownOpen] = useState(false);
   const viewDropdownRef = useRef<HTMLDivElement | null>(null);
-  const [freezeHeader, setFreezeHeader] = useState<boolean>(true);
+  const [freezeRowCount, setFreezeRowCount] = useState<0 | 1>(() => {
+    if (typeof window === 'undefined') return 1;
+    try {
+      const v = window.localStorage.getItem(FREEZE_ROW_STORAGE_KEY);
+      if (v === '0' || v === '1') return Number(v) as 0 | 1;
+    } catch {
+      // ignore
+    }
+    return 1;
+  });
+  const [frozenColCount, setFrozenColCount] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0;
+    try {
+      const v = window.localStorage.getItem(FROZEN_COL_STORAGE_KEY);
+      if (v !== null) {
+        const n = parseInt(v, 10);
+        if (Number.isInteger(n) && n >= 0 && n <= TABLE_COLUMN_COUNT) return n;
+      }
+    } catch {
+      // ignore
+    }
+    return 0;
+  });
+  /** 哪一列的「模型分類與狀態」下拉已展開（row key = providerId::modelId） */
+  const [openStatusDropdownKey, setOpenStatusDropdownKey] = useState<string | null>(null);
+  const [statusDropdownPos, setStatusDropdownPos] = useState<{ top: number; left: number } | null>(null);
+  const statusDropdownRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const statusBtnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const frozenColLeftOffsets = useMemo(() => {
+    const offsets: number[] = [];
+    let acc = 0;
+    for (let i = 0; i < columnWidths.length; i++) {
+      offsets.push(acc);
+      acc += columnWidths[i] ?? DEFAULT_COLUMN_WIDTHS[i] ?? 80;
+    }
+    return offsets;
+  }, [columnWidths]);
+
+  const getFrozenThClass = useCallback(
+    (colIdx: number) => {
+      const isFrozen = colIdx < frozenColCount;
+      const isBoundary =
+        frozenColCount > 0 && colIdx === frozenColCount - 1;
+      return [
+        isFrozen && 'sticky bg-bg-tertiary',
+        isBoundary && 'border-r-4 border-gray-300 dark:border-gray-600',
+      ]
+        .filter(Boolean)
+        .join(' ');
+    },
+    [frozenColCount]
+  );
+  const getFrozenThStyle = useCallback(
+    (colIdx: number): React.CSSProperties =>
+      colIdx < frozenColCount
+        ? { left: frozenColLeftOffsets[colIdx], zIndex: 11 }
+        : {},
+    [frozenColCount, frozenColLeftOffsets]
+  );
+  const getFrozenTdClass = useCallback(
+    (colIdx: number) => {
+      const isFrozen = colIdx < frozenColCount;
+      const isBoundary =
+        frozenColCount > 0 && colIdx === frozenColCount - 1;
+      return [
+        isFrozen && 'sticky bg-bg-primary',
+        isBoundary && 'border-r-4 border-gray-300 dark:border-gray-600',
+      ]
+        .filter(Boolean)
+        .join(' ');
+    },
+    [frozenColCount]
+  );
+  const getFrozenTdStyle = useCallback(
+    (colIdx: number): React.CSSProperties =>
+      colIdx < frozenColCount
+        ? { left: frozenColLeftOffsets[colIdx], zIndex: 1 }
+        : {},
+    [frozenColCount, frozenColLeftOffsets]
+  );
+
+  const hiddenModuleKeySet = useMemo(() => new Set(hiddenModuleKeys), [hiddenModuleKeys]);
+  const visibleFeatureModules = useMemo(
+    () => FEATURE_MODULES.filter((mod) => !hiddenModuleKeySet.has(mod.key)),
+    [hiddenModuleKeySet]
+  );
+  // 目前實際顯示的欄位數量：9 個固定欄 + 每個可見模組 1 欄，避免多餘 col 造成右側空白區
+  const effectiveColumnCount = 9 + visibleFeatureModules.length;
 
   // ── Feature module state (integrated from #modules) ──────────────────────
   interface ModuleRowState { isEnabled: boolean; assignments: AssignedModel[] }
-  const [moduleStates, setModuleStates] = useState<Record<string, ModuleRowState>>(() => {
-    const init: Record<string, ModuleRowState> = {};
-    for (const mod of FEATURE_MODULES) {
-      const saved = savedModules.find((s) => s.module_key === mod.key);
-      init[mod.key] = {
-        isEnabled: saved?.is_enabled ?? false,
-        assignments: Array.isArray(saved?.assigned_models) ? [...saved.assigned_models] : [],
-      };
-    }
-    return init;
-  });
+  /** 從 saved 建出 state，並將 priority 正規化為 1,2,3…（避免後端存成 100 或 173 等歷史值） */
+  const buildModuleStatesFromSaved = useCallback(
+    (modules: typeof savedModules): Record<string, ModuleRowState> => {
+      const init: Record<string, ModuleRowState> = {};
+      for (const mod of FEATURE_MODULES) {
+        const saved = modules.find((s) => s.module_key === mod.key);
+        // Trust what's persisted in DB; do not filter by static capability list here,
+        // as that would silently strip user-assigned models after every save.
+        const raw: AssignedModel[] = Array.isArray(saved?.assigned_models)
+          ? saved.assigned_models
+          : [];
+        const assignments = normalizeAssignments(raw);
+        init[mod.key] = {
+          isEnabled: saved?.is_enabled ?? false,
+          assignments,
+        };
+      }
+      return init;
+    },
+    [],
+  );
+  const [moduleStates, setModuleStates] = useState<Record<string, ModuleRowState>>(() =>
+    buildModuleStatesFromSaved(savedModules)
+  );
   const [moduleSavingSet, setModuleSavingSet] = useState<Set<string>>(new Set());
+  // savedModules 晚載入（API 回傳）時重新同步並正規化，否則會一直顯示 100；依內容變更才同步，避免父層 re-render 就覆寫
+  const savedModulesSignature = useMemo(
+    () =>
+      JSON.stringify(
+        (savedModules ?? []).map((m) => ({
+          key: m.module_key,
+          enabled: m.is_enabled,
+          count: m.assigned_models?.length ?? 0,
+          priorities: (m.assigned_models ?? []).map((a) => a.priority ?? 0),
+        })),
+      ),
+    [savedModules],
+  );
+  useEffect(() => {
+    setModuleStates(buildModuleStatesFromSaved(savedModules));
+  }, [savedModulesSignature, savedModules, buildModuleStatesFromSaved]);
 
   const markModuleSaving = useCallback((key: string, on: boolean) => {
     setModuleSavingSet((prev) => { const s = new Set(prev); on ? s.add(key) : s.delete(key); return s; });
-  }, []);
-
-  const getModuleNextPriority = useCallback((assignments: AssignedModel[]) => {
-    if (assignments.length === 0) return 1;
-    return Math.min(Math.max(...assignments.map((a) => a.priority ?? 0)) + 1, 100);
   }, []);
 
   const handleToggleModuleEnabled = useCallback(async (moduleKey: string) => {
@@ -287,25 +686,35 @@ export function ModelEvaluator({
   ) => {
     if (!onSaveModule) return;
     const cur = moduleStates[moduleKey];
-    const exists = cur.assignments.some((a) => a.provider === providerId && a.model === modelId);
-    const next = exists
-      ? cur.assignments.filter((a) => !(a.provider === providerId && a.model === modelId))
-      : [...cur.assignments, { provider: providerId, model: modelId, priority: getModuleNextPriority(cur.assignments) }];
+    const idx = cur.assignments.findIndex(
+      (a) => a.provider === providerId && a.model === modelId,
+    );
+    let next: AssignedModel[];
+    if (idx >= 0) {
+      // Unassign: 移除後重新正規化 priority 為 1..N
+      const remaining = cur.assignments.filter((_, i) => i !== idx);
+      next = normalizeAssignments(remaining);
+    } else {
+      // Assign: 附加在列表尾端，再統一正規化
+      const appended: AssignedModel[] = [
+        ...cur.assignments,
+        { provider: providerId, model: modelId, priority: cur.assignments.length + 1 },
+      ];
+      next = normalizeAssignments(appended);
+    }
     setModuleStates((p) => ({ ...p, [moduleKey]: { ...p[moduleKey], assignments: next } }));
     markModuleSaving(moduleKey, true);
     try { await onSaveModule(moduleKey, cur.isEnabled, next); }
     finally { markModuleSaving(moduleKey, false); }
-  }, [moduleStates, onSaveModule, markModuleSaving, getModuleNextPriority]);
+  }, [moduleStates, onSaveModule, markModuleSaving]);
 
   const handleModulePriorityChange = useCallback(async (
     moduleKey: string, providerId: string, modelId: string, newPriority: number
   ) => {
     if (!onSaveModule) return;
     const cur = moduleStates[moduleKey];
-    const num = Math.max(1, Math.min(100, Math.round(newPriority)));
-    const next = cur.assignments.map((a) =>
-      a.provider === providerId && a.model === modelId ? { ...a, priority: num } : a
-    );
+    const next = reorderAssignment(cur.assignments, providerId, modelId, newPriority);
+
     setModuleStates((p) => ({ ...p, [moduleKey]: { ...p[moduleKey], assignments: next } }));
     markModuleSaving(moduleKey, true);
     try { await onSaveModule(moduleKey, cur.isEnabled, next); }
@@ -314,12 +723,25 @@ export function ModelEvaluator({
 
   // ─────────────────────────────────────────────────────────────────────────
 
-  /** 依公司篩選：空陣列 = 全部，否則為勾選的 providerId 列表；預設 Anthropic + Google */
-  const [filterProviderIds, setFilterProviderIds] = useState<string[]>(['anthropic', 'gemini']);
-  /** 依狀態篩選：空陣列 = 全部，否則為勾選的 working / not_working / untested；預設可用 */
-  const [filterStatuses, setFilterStatuses] = useState<string[]>(['working']);
-  /** 依模型分類篩選：空陣列 = 全部，否則為勾選的 VLM / LLM / unknown；預設 VLM */
-  const [filterCategories, setFilterCategories] = useState<string[]>(['VLM']);
+  /** 依公司篩選：空陣列 = 全部，否則為勾選的 providerId 列表；預設全部公司以利「全選」可用 */
+  const [filterProviderIds, setFilterProviderIds] = useState<string[]>(
+    () => readSessionStorage<string[]>(SS_FILTER_PROVIDERS, [])
+  );
+  /** 依狀態篩選：空陣列 = 全部，否則為勾選的 vlm_ok / llm_ok / not_working / untested */
+  const VALID_STATUS_VALUES = new Set(['vlm_ok', 'llm_ok', 'not_working', 'untested']);
+  const [filterStatuses, setFilterStatuses] = useState<string[]>(
+    () => readSessionStorage<string[]>(SS_FILTER_STATUSES, []).filter((v) => VALID_STATUS_VALUES.has(v))
+  );
+  /** 依模型分類篩選：空陣列 = 全部，否則為勾選的 VLM / LLM / unknown；預設全部以利「全選」可用 */
+  const [filterCategories, setFilterCategories] = useState<string[]>([]);
+  // ── Persist filter state to sessionStorage on change ─────────────────────
+  useEffect(() => {
+    writeSessionStorage(SS_FILTER_STATUSES, filterStatuses);
+  }, [filterStatuses]);
+  useEffect(() => {
+    writeSessionStorage(SS_FILTER_PROVIDERS, filterProviderIds);
+  }, [filterProviderIds]);
+  // ─────────────────────────────────────────────────────────────────────────
   /** 哪一個篩選下拉已展開（點擊外側會關閉） */
   const [openFilterDropdown, setOpenFilterDropdown] = useState<'provider' | 'status' | 'category' | null>(null);
   const filterDropdownRef = useRef<HTMLTableRowElement | null>(null);
@@ -337,29 +759,30 @@ export function ModelEvaluator({
     [savedKeys],
   );
 
-  /** 可選模型列：與頁首「可選」同一來源（驗證結果）；無驗證時 fallback 為 AI_PROVIDERS */
+  /** 可選模型列：有驗證結果的 provider 用驗證資料，其餘 fallback 為 AI_PROVIDERS 靜態模型 */
   const allRows = useMemo(() => {
     const fromValidation = getAvailableModelsList(validateAllResultsByKeyId, currentKeys);
-    if (fromValidation.length > 0) {
-      const providerOrder: string[] = AI_PROVIDERS.map((p) => p.id);
-      return fromValidation
-        .map(({ providerId, modelId }) => ({
-          providerId,
-          providerName: AI_PROVIDERS.find((p) => p.id === providerId)?.name ?? providerId,
-          modelId,
-          modelName: getModelDisplayName(providerId, modelId),
-        }))
-        .sort((a, b) => {
-          const orderA = providerOrder.indexOf(a.providerId);
-          const orderB = providerOrder.indexOf(b.providerId);
-          if (orderA !== orderB) return orderA - orderB;
-          return (a.modelName || a.modelId).localeCompare(b.modelName || b.modelId);
-        });
+    const validatedProviderIds = new Set(fromValidation.map((r) => r.providerId));
+    const providerOrder: string[] = AI_PROVIDERS.map((p) => p.id);
+
+    type Row = { providerId: string; providerName: string; modelId: string; modelName: string };
+    const rows: Row[] = [];
+
+    // Validated providers: use their API-returned model list
+    for (const { providerId, modelId } of fromValidation) {
+      rows.push({
+        providerId,
+        providerName: AI_PROVIDERS.find((p) => p.id === providerId)?.name ?? providerId,
+        modelId,
+        modelName: getModelDisplayName(providerId, modelId),
+      });
     }
-    const fallback: { providerId: string; providerName: string; modelId: string; modelName: string }[] = [];
+
+    // Providers without validation data: fall back to static AI_PROVIDERS models
     for (const p of AI_PROVIDERS) {
+      if (validatedProviderIds.has(p.id)) continue;
       for (const m of p.models) {
-        fallback.push({
+        rows.push({
           providerId: p.id,
           providerName: p.name,
           modelId: m.id,
@@ -367,11 +790,12 @@ export function ModelEvaluator({
         });
       }
     }
-    return fallback.sort((a, b) => {
-      const orderA = AI_PROVIDERS.findIndex((x) => x.id === a.providerId);
-      const orderB = AI_PROVIDERS.findIndex((x) => x.id === b.providerId);
+
+    return rows.sort((a, b) => {
+      const orderA = providerOrder.indexOf(a.providerId);
+      const orderB = providerOrder.indexOf(b.providerId);
       if (orderA !== orderB) return orderA - orderB;
-      return a.modelName.localeCompare(b.modelName);
+      return (a.modelName || a.modelId).localeCompare(b.modelName || b.modelId);
     });
   }, [validateAllResultsByKeyId, currentKeys]);
 
@@ -403,18 +827,19 @@ export function ModelEvaluator({
     return map;
   }, [savedEvaluations]);
 
-  /** 再依狀態篩選（可複選：可用/不可用/尚未測試） */
+  /** 再依狀態篩選（可複選：VLM可用/LLM可用/不可用/尚未測試） */
   const rowsAfterStatusFilter = useMemo(() => {
     if (filterStatuses.length === 0) return filteredRows;
     const set = new Set(filterStatuses);
     return filteredRows.filter((r) => {
       const key = `${r.providerId}::${r.modelId}`;
       const ev = evaluationMap.get(key);
-      return set.has(getRowStatus(key, ev));
+      const statusDisplay = getStatusDisplay(key, ev, testResultByKey, outputByKey, isOcrMode);
+      return set.has(statusDisplay.type);
     });
-  }, [filteredRows, filterStatuses, evaluationMap, getRowStatus]);
+  }, [filteredRows, filterStatuses, evaluationMap, testResultByKey, outputByKey, isOcrMode]);
 
-  /** 再依模型分類篩選（可複選：VLM / LLM / 未知） */
+  /** 再依模型分類篩選（可複選：VLM / LLM / unknown） */
   const rowsAfterCategoryFilter = useMemo(() => {
     if (filterCategories.length === 0) return rowsAfterStatusFilter;
     const set = new Set(filterCategories);
@@ -436,34 +861,63 @@ export function ModelEvaluator({
     return Array.from(seen.entries()).sort((a, b) => a[1].localeCompare(b[1]));
   }, [allRows]);
 
-  /** 模組欄「全選」：將目前篩選列全部加入/移出該模組 */
-  const handleModuleSelectAllFiltered = useCallback(async (moduleKey: string, checked: boolean) => {
-    if (!onSaveModule) return;
-    const cur = moduleStates[moduleKey];
-    const filterSet = new Set(rowsAfterCategoryFilter.map((r) => `${r.providerId}::${r.modelId}`));
-    let next: AssignedModel[];
-    if (checked) {
-      const existingSet = new Set(cur.assignments.map((a) => `${a.provider}::${a.model}`));
-      const toAdd = rowsAfterCategoryFilter.filter((r) => !existingSet.has(`${r.providerId}::${r.modelId}`));
-      next = [...cur.assignments];
-      for (const r of toAdd) {
-        next.push({
-          provider: r.providerId,
-          model: r.modelId,
-          priority: getModuleNextPriority(next),
-        });
+  /**
+   * 模組欄「全選」：將目前篩選列全部加入/移出該模組。
+   * `targetRowKeys` 會在呼叫端先依目前可見列與模組適用性過濾，
+   * 若未提供則 fallback 為所有 rowsAfterCategoryFilter。
+   */
+  const handleModuleSelectAllFiltered = useCallback(
+    async (moduleKey: string, checked: boolean, targetRowKeys?: string[]) => {
+      if (!onSaveModule) return;
+      const cur = moduleStates[moduleKey];
+      if (!cur) return;
+
+      const effectiveKeys =
+        targetRowKeys && targetRowKeys.length > 0
+          ? targetRowKeys
+          : rowsAfterCategoryFilter.map((r) => `${r.providerId}::${r.modelId}`);
+
+      if (effectiveKeys.length === 0) return;
+
+      const filterSet = new Set(effectiveKeys);
+      let next: AssignedModel[];
+
+      if (checked) {
+        const existingSet = new Set(cur.assignments.map((a) => `${a.provider}::${a.model}`));
+        const toAddKeys = effectiveKeys.filter((key) => !existingSet.has(key));
+        const toAdd: AssignedModel[] = toAddKeys
+          .map((key) => {
+            const [providerId, modelId] = key.split('::');
+            if (!providerId || !modelId) return null;
+            return {
+              provider: providerId,
+              model: modelId,
+              // 具體數值會在 normalizeAssignments 中重新編號
+              priority: cur.assignments.length + 1,
+            } as AssignedModel;
+          })
+          .filter((v): v is AssignedModel => v !== null);
+
+        if (toAdd.length === 0) return;
+
+        next = normalizeAssignments([...cur.assignments, ...toAdd]);
+      } else {
+        const remaining = cur.assignments.filter(
+          (a) => !filterSet.has(`${a.provider}::${a.model}`),
+        );
+        next = normalizeAssignments(remaining);
       }
-    } else {
-      next = cur.assignments.filter((a) => !filterSet.has(`${a.provider}::${a.model}`));
-    }
-    setModuleStates((p) => ({ ...p, [moduleKey]: { ...p[moduleKey], assignments: next } }));
-    markModuleSaving(moduleKey, true);
-    try {
-      await onSaveModule(moduleKey, cur.isEnabled, next);
-    } finally {
-      markModuleSaving(moduleKey, false);
-    }
-  }, [moduleStates, onSaveModule, markModuleSaving, getModuleNextPriority, rowsAfterCategoryFilter]);
+
+      setModuleStates((p) => ({ ...p, [moduleKey]: { ...p[moduleKey], assignments: next } }));
+      markModuleSaving(moduleKey, true);
+      try {
+        await onSaveModule(moduleKey, cur.isEnabled, next);
+      } finally {
+        markModuleSaving(moduleKey, false);
+      }
+    },
+    [moduleStates, onSaveModule, markModuleSaving, rowsAfterCategoryFilter],
+  );
 
   const selectedSet = useMemo(
     () => new Set(savedModels.map((m) => `${m.provider}::${m.model_id}`)),
@@ -506,6 +960,19 @@ export function ModelEvaluator({
   const filteredSelectedCount = useMemo(
     () => rowsAfterCategoryFilter.filter((r) => selectedSet.has(`${r.providerId}::${r.modelId}`)).length,
     [rowsAfterCategoryFilter, selectedSet]
+  );
+  /** 全部模型（不受篩選）中已選的數量，供右側面板「全部測試」按鈕使用 */
+  const allSelectedCount = useMemo(
+    () => allRows.filter((r) => selectedSet.has(`${r.providerId}::${r.modelId}`)).length,
+    [allRows, selectedSet]
+  );
+  /** 已選 + 有效金鑰 → 實際可測試的模型數量（基於全部模型，不受篩選影響） */
+  const testableCount = useMemo(
+    () =>
+      allRows.filter(
+        (r) => selectedSet.has(`${r.providerId}::${r.modelId}`) && validProviders.has(r.providerId),
+      ).length,
+    [allRows, selectedSet, validProviders],
   );
   const allFilteredSelected = rowsAfterCategoryFilter.length > 0 && filteredSelectedCount === rowsAfterCategoryFilter.length;
   const someFilteredSelected = filteredSelectedCount > 0;
@@ -553,17 +1020,50 @@ export function ModelEvaluator({
     [onSaveModels, rowsAfterCategoryFilter, savedModels]
   );
 
+  /** 解析該列實際使用的 prompt：留空或 {預設prompt} 時使用全域，否則使用該列自訂內容 */
+  const getEffectivePromptForRow = useCallback(
+    (rowKey: string): string => {
+      const row = (rowPrompts[rowKey] ?? '').trim();
+      if (
+        !row ||
+        row === DEFAULT_PROMPT_PLACEHOLDER ||
+        row === effectivePromptVariableLabel
+      ) {
+        return globalTestPrompt.trim();
+      }
+      return row;
+    },
+    [rowPrompts, globalTestPrompt, effectivePromptVariableLabel]
+  );
+
   const runTest = useCallback(
-    async (providerId: string, modelId: string, modelName: string) => {
+    async (
+      providerId: string,
+      modelId: string,
+      modelName: string,
+      options?: { overridePrompt?: string; overrideFile?: File | null },
+    ) => {
       const key = `${providerId}::${modelId}`;
-      const effectivePrompt = (rowPrompts[key] ?? '').trim() || globalTestPrompt.trim() || undefined;
+      const basePrompt =
+        typeof options?.overridePrompt === 'string'
+          ? options.overridePrompt
+          : getEffectivePromptForRow(key);
+      const effectivePrompt = basePrompt && basePrompt.trim().length > 0 ? basePrompt.trim() : undefined;
+      const fileToUse =
+        options && Object.prototype.hasOwnProperty.call(options, 'overrideFile')
+          ? options.overrideFile
+          : uploadedFile;
       setTestingKey(key);
       setOutputByKey((prev) => ({ ...prev, [key]: '' }));
       try {
-        const result = await onTestModel(providerId, modelId, effectivePrompt, uploadedFile);
+        const result = await onTestModel(providerId, modelId, effectivePrompt, fileToUse ?? null);
         setTestResultByKey((prev) => ({ ...prev, [key]: result.success }));
         const output = result.output ?? (result.message && !result.success ? `錯誤：${result.message}` : '');
         setOutputByKey((prev) => ({ ...prev, [key]: output }));
+        const imgUrl = result.output_image_url ?? (output ? extractImageUrlFromOutput(output) : undefined);
+        if (imgUrl) {
+          setImageOutputByKey((prev) => ({ ...prev, [key]: imgUrl }));
+        }
 
         // Auto-save result to DB so next page load shows cached result without re-testing
         const existing = evaluationMap.get(key);
@@ -589,103 +1089,239 @@ export function ModelEvaluator({
         setTestingKey(null);
       }
     },
-    [onTestModel, globalTestPrompt, rowPrompts, onSave, evaluationMap, uploadedFile]
+    [onTestModel, getEffectivePromptForRow, onSave, evaluationMap, uploadedFile]
   );
 
   useClickOutsideClose(alignDropdownRef, alignDropdownOpen, setAlignDropdownOpen);
   useClickOutsideClose(viewDropdownRef, viewDropdownOpen, setViewDropdownOpen);
 
-  /** 全部測試：僅對「已選」且「有金鑰」的模型並行測試，完成後一次批量寫入 DB */
+  // Sync single-test panel prompt when globalTestPrompt changes, unless user has manually edited it.
+  useEffect(() => {
+    if (!rowTestPanel || rowTestPromptDirty) return;
+    const currentEffective = getEffectivePromptForRow(rowTestPanel.key);
+    const newPrompt = currentEffective || globalTestPrompt;
+    setRowTestPrompt(newPrompt);
+  }, [rowTestPanel, globalTestPrompt, rowTestPromptDirty, getEffectivePromptForRow]);
+
+  const statusPortalRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const key = openStatusDropdownKey;
+    if (!key) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const el = statusDropdownRefs.current[key];
+      if (el?.contains(e.target as Node)) return;
+      if (statusPortalRef.current?.contains(e.target as Node)) return;
+      setOpenStatusDropdownKey(null);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [openStatusDropdownKey]);
+
+  const toggleStatusDropdown = useCallback((key: string) => {
+    setOpenStatusDropdownKey((prev) => {
+      if (prev === key) {
+        setStatusDropdownPos(null);
+        return null;
+      }
+      const btn = statusBtnRefs.current[key];
+      if (btn) {
+        const rect = btn.getBoundingClientRect();
+        setStatusDropdownPos({ top: rect.bottom + 2, left: rect.left });
+      }
+      return key;
+    });
+  }, []);
+
+  const handleSaveStatusOverride = useCallback(
+    async (rowKey: string, value: DisplayStatusOverride) => {
+      const [providerId, modelId] = rowKey.split('::');
+      if (!providerId || !modelId) return;
+      const ev = evaluationMap.get(rowKey);
+      const modelName = ev?.model_name ?? allRows.find((r) => r.providerId === providerId && r.modelId === modelId)?.modelName ?? modelId;
+      const updated: ModelEvaluation = {
+        ...(ev ?? {
+          provider: providerId,
+          model_id: modelId,
+          model_name: modelName,
+          is_working: false,
+          specialties: [],
+          is_candidate: false,
+          notes: '',
+          last_tested_at: null,
+        }),
+        display_status_override: value,
+      };
+      const merged = Array.from(evaluationMap.entries()).map(([k, e]) =>
+        k === rowKey ? updated : e
+      );
+      if (!evaluationMap.has(rowKey)) merged.push(updated);
+      await onSave(merged);
+      setOpenStatusDropdownKey(null);
+    },
+    [evaluationMap, allRows, onSave]
+  );
+
+  /** 全部測試：對「已選」且「有金鑰」的全部模型並行測試（不受篩選影響），完成後一次批量寫入 DB */
   const handleBatchTest = useCallback(async () => {
-    const selectedInFiltered = rowsAfterCategoryFilter.filter((r) =>
+    if (batchTestingRef.current) return;
+
+    // Use allRows (not rowsAfterCategoryFilter) so filters don't prevent testing selected models
+    const selectedInAll = allRows.filter((r) =>
       selectedSet.has(`${r.providerId}::${r.modelId}`)
     );
-    if (selectedInFiltered.length === 0) {
+    if (selectedInAll.length === 0) {
       window.alert('目前選擇的 models 數為 0，無法測試。請先勾選要測試的模型。');
       return;
     }
-    const toTest = selectedInFiltered.filter((r) => validProviders.has(r.providerId));
+    const toTest = selectedInAll.filter((r) => validProviders.has(r.providerId));
     if (toTest.length === 0) {
       window.alert('所選模型皆無有效 API 金鑰，無法測試。請先至 API 金鑰設定該供應商金鑰。');
       return;
     }
-    setBatchTesting(true);
-    const toSave: ModelEvaluation[] = [];
-    await Promise.all(
-      toTest.map(async ({ providerId, modelId, modelName }) => {
-        const key = `${providerId}::${modelId}`;
-        const effectivePrompt = (rowPrompts[key] ?? '').trim() || globalTestPrompt.trim() || undefined;
-        setOutputByKey((prev) => ({ ...prev, [key]: '' }));
-        try {
-          const result = await onTestModel(providerId, modelId, effectivePrompt, uploadedFile);
-          setTestResultByKey((prev) => ({ ...prev, [key]: result.success }));
-          const output =
-            result.output ?? (result.message && !result.success ? `錯誤：${result.message}` : '');
-          setOutputByKey((prev) => ({ ...prev, [key]: output }));
 
-          const existing = evaluationMap.get(key);
-          toSave.push({
-            ...(existing?.id ? { id: existing.id } : {}),
-            provider: providerId,
-            model_id: modelId,
-            model_name: existing?.model_name ?? modelName,
-            is_working: result.success,
-            specialties: existing?.specialties ?? [],
-            is_candidate: existing?.is_candidate ?? false,
-            notes: output || existing?.notes || '',
-            last_tested_at: new Date().toISOString(),
-          });
-        } catch {
-          setTestResultByKey((prev) => ({ ...prev, [key]: false }));
-          setOutputByKey((prev) => ({ ...prev, [key]: '請求失敗' }));
+    batchTestingRef.current = true;
+    setBatchTesting(true);
+
+    const total = toTest.length;
+    let succeeded = 0;
+    let failed = 0;
+
+    setBatchProgress({ tested: 0, total, succeeded: 0, failed: 0 });
+
+    try {
+      const toSave: ModelEvaluation[] = [];
+      const collectedResults: BatchResultEntry[] = [];
+      await Promise.all(
+        toTest.map(async ({ providerId, providerName, modelId, modelName }) => {
+          const key = `${providerId}::${modelId}`;
+          const effectivePrompt = getEffectivePromptForRow(key) || undefined;
+          setOutputByKey((prev) => ({ ...prev, [key]: '' }));
+          const entry: BatchResultEntry = { key, providerId, providerName, modelId, modelName, success: false, output: '' };
+          try {
+            const result = await onTestModel(providerId, modelId, effectivePrompt, uploadedFile);
+            setTestResultByKey((prev) => ({ ...prev, [key]: result.success }));
+            const output =
+              result.output ?? (result.message && !result.success ? `錯誤：${result.message}` : '');
+            setOutputByKey((prev) => ({ ...prev, [key]: output }));
+            const imgUrl = result.output_image_url ?? (output ? extractImageUrlFromOutput(output) : undefined);
+            if (imgUrl) {
+              setImageOutputByKey((prev) => ({ ...prev, [key]: imgUrl }));
+            }
+
+            entry.success = result.success;
+            entry.output = output;
+            entry.imageUrl = imgUrl;
+
+            if (result.success) succeeded++; else failed++;
+            setBatchProgress({ tested: succeeded + failed, total, succeeded, failed });
+
+            const existing = evaluationMap.get(key);
+            toSave.push({
+              ...(existing?.id ? { id: existing.id } : {}),
+              provider: providerId,
+              model_id: modelId,
+              model_name: existing?.model_name ?? modelName,
+              is_working: result.success,
+              specialties: existing?.specialties ?? [],
+              is_candidate: existing?.is_candidate ?? false,
+              notes: output || existing?.notes || '',
+              last_tested_at: new Date().toISOString(),
+            });
+          } catch {
+            failed++;
+            entry.output = '請求失敗';
+            setBatchProgress({ tested: succeeded + failed, total, succeeded, failed });
+            setTestResultByKey((prev) => ({ ...prev, [key]: false }));
+            setOutputByKey((prev) => ({ ...prev, [key]: '請求失敗' }));
+          }
+          collectedResults.push(entry);
+        }),
+      );
+
+      if (toSave.length > 0) {
+        try {
+          await onSave(toSave);
+        } catch (saveErr) {
+          console.warn('[ModelEvaluator] 批次測試結果儲存失敗', saveErr);
         }
-      }),
-    );
-    // Batch save all results at once
-    if (toSave.length > 0) {
-      try {
-        await onSave(toSave);
-      } catch (saveErr) {
-        console.warn('[ModelEvaluator] 批次測試結果儲存失敗', saveErr);
       }
+
+      // Reset status/category filters so tested models remain visible.
+      // If filterStatuses was e.g. ['untested'], all just-tested models would disappear
+      // from the table after onSave() updates evaluationMap. Clear filters to prevent the
+      // page appearing stuck (provider filter is intentional — leave it unchanged).
+      setFilterStatuses([]);
+      setFilterCategories([]);
+
+      // Show detailed results panel instead of window.alert
+      setBatchResults(collectedResults.sort((a, b) => {
+        // Sort: success first, then by providerName + modelName
+        if (a.success !== b.success) return a.success ? -1 : 1;
+        return `${a.providerName}${a.modelName}`.localeCompare(`${b.providerName}${b.modelName}`);
+      }));
+    } finally {
+      batchTestingRef.current = false;
+      setBatchTesting(false);
+      setBatchProgress(null);
     }
-    setBatchTesting(false);
-  }, [rowsAfterCategoryFilter, selectedSet, validProviders, onTestModel, globalTestPrompt, rowPrompts, onSave, evaluationMap, uploadedFile]);
+  }, [allRows, selectedSet, validProviders, onTestModel, getEffectivePromptForRow, onSave, evaluationMap, uploadedFile]);
+
+  // Stable ref to the latest handleBatchTest — avoids including handleBatchTest in the
+  // headerActionsRef useEffect deps, which would cause infinite re-renders when parent
+  // passes currentKeys={keys.map(...)} (new array reference on each render).
+  const handleBatchTestRef = useRef(handleBatchTest);
+  handleBatchTestRef.current = handleBatchTest;
+  const stableRunBatchTest = useCallback(() => handleBatchTestRef.current(), []);
 
   // 將「全部測試」狀態與觸發方法暴露給頁首固定區塊使用
+  // canBatchTest 與 testableCount 基於 allRows（全部模型），不受篩選影響，
+  // 避免篩選後顯示 0 但實際上有已選模型可測試的誤導情形。
   useEffect(() => {
     if (!headerActionsRef) return;
-    const canBatchTest = filteredSelectedCount > 0;
+    const canBatchTest = allSelectedCount > 0;
     const tooltip = canBatchTest
-      ? '對目前已選且具金鑰的模型並行測試'
-      : '目前選擇的 models 數為 0，無法測試。請先勾選要測試的模型。';
+      ? '對全部已選且具有效金鑰的模型並行測試（不受目前篩選影響）'
+      : '目前無已選的模型，無法測試。請先勾選要測試的模型。';
+    const payload = {
+      runBatchTest: stableRunBatchTest,
+      batchTesting,
+      canBatchTest,
+      tooltip,
+      batchProgress,
+      testableCount,
+      selectedCount: allSelectedCount,
+      totalCount: allRows.length,
+      filteredTotal: rowsAfterCategoryFilter.length,
+      filteredSelectedCount,
+    };
     if (typeof headerActionsRef === 'function') {
-      headerActionsRef({
-        runBatchTest: handleBatchTest,
-        batchTesting,
-        canBatchTest,
-        tooltip,
-      });
+      headerActionsRef(payload);
     } else if (headerActionsRef && 'current' in headerActionsRef) {
       // eslint-disable-next-line no-param-reassign
-      headerActionsRef.current = {
-        runBatchTest: handleBatchTest,
-        batchTesting,
-        canBatchTest,
-        tooltip,
-      };
+      headerActionsRef.current = payload;
     }
-  }, [headerActionsRef, handleBatchTest, batchTesting, filteredSelectedCount]);
+  }, [headerActionsRef, stableRunBatchTest, batchTesting, allSelectedCount, batchProgress, testableCount, allRows.length, rowsAfterCategoryFilter.length, filteredSelectedCount]);
 
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-border-subtle overflow-hidden bg-bg-primary">
         <div className="relative z-20 flex flex-wrap items-center justify-between gap-3 px-3 py-2 border-b border-border-subtle bg-bg-tertiary">
           <div className="text-xs text-text-secondary">
-            已選/可選 models 數量{' '}
-            <span className="font-medium text-text-primary">
-              {summarySelectedCount}/{summaryTotalCount}
-            </span>
+            全部公司可選模型數：
+            <span className="font-medium text-text-primary">{allRows.length}</span>
+            {rowsAfterCategoryFilter.length !== allRows.length ? (
+              <>
+                ，篩選後可選模型數：
+                <span className="font-medium text-text-primary">{rowsAfterCategoryFilter.length}</span>
+                ，已選被測模型數：
+                <span className="font-medium text-text-primary">{filteredSelectedCount}</span>
+              </>
+            ) : (
+              <>
+                ，已選被測模型數：
+                <span className="font-medium text-text-primary">{allSelectedCount}</span>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <div className="relative" ref={alignDropdownRef}>
@@ -767,52 +1403,103 @@ export function ModelEvaluator({
                   className="absolute right-0 top-full mt-1 z-30 min-w-[200px] bg-bg-primary border border-border-default rounded-lg shadow-lg py-2"
                   role="menu"
                 >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFreezeHeader(false);
-                      setViewDropdownOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-2 text-sm transition-colors ${
-                      !freezeHeader
-                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 font-medium'
-                        : 'text-text-primary hover:bg-bg-secondary'
-                    }`}
-                  >
-                    不凍結標題列
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFreezeHeader(true);
-                      setViewDropdownOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-2 text-sm transition-colors ${
-                      freezeHeader
-                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 font-medium'
-                        : 'text-text-primary hover:bg-bg-secondary'
-                    }`}
-                  >
-                    凍結標題列
-                  </button>
+                  <div className="px-3 py-1.5 text-[10px] font-medium text-text-muted uppercase tracking-wide">
+                    凍結窗格
+                  </div>
+                  <div className="border-t border-border-default mt-1 pt-1">
+                    <div className="px-3 py-1 text-[10px] text-text-muted">列</div>
+                    {([0, 1] as const).map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setFreezeRowCount(n);
+                          try {
+                            window.localStorage.setItem(FREEZE_ROW_STORAGE_KEY, String(n));
+                          } catch {
+                            // ignore
+                          }
+                          setViewDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                          freezeRowCount === n
+                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 font-medium'
+                            : 'text-text-primary hover:bg-bg-secondary'
+                        }`}
+                      >
+                        {n === 0 ? '不凍結列' : '凍結第 1 row'}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="border-t border-border-default mt-1 pt-1">
+                    <div className="px-3 py-1 text-[10px] text-text-muted">
+                      col（亦可拖曳凍結線）
+                    </div>
+                    <div className="max-h-[240px] overflow-y-auto">
+                      {[
+                        { n: 0, label: '不凍結col' },
+                        ...Array.from({ length: TABLE_COLUMN_COUNT }, (_, i) => ({
+                          n: i + 1,
+                          label:
+                            i === 0 ? '凍結第 1 col' : `凍結第 1 ~ ${i + 1} col`,
+                        })),
+                      ].map(({ n, label }) => (
+                        <button
+                          key={n}
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setFrozenColCount(n);
+                            try {
+                              window.localStorage.setItem(
+                                FROZEN_COL_STORAGE_KEY,
+                                String(n)
+                              );
+                            } catch {
+                              // ignore
+                            }
+                            setViewDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                            frozenColCount === n
+                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 font-medium'
+                              : 'text-text-primary hover:bg-bg-secondary'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
           </div>
         </div>
         <div
-          className={`overflow-x-auto ${TABLE_H_ALIGN_CLASSES[tableAlignH]} ${TABLE_V_ALIGN_CLASSES[tableAlignV]} [&_th]:whitespace-normal [&_td]:whitespace-normal [&_th]:break-words [&_td]:break-words`}
+          className={`${TABLE_H_ALIGN_CLASSES[tableAlignH]} ${TABLE_V_ALIGN_CLASSES[tableAlignV]} [&_th]:whitespace-normal [&_td]:whitespace-normal [&_th]:break-words [&_td]:break-words`}
+          style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 340px)', minHeight: '400px' }}
         >
           <table className="w-full text-xs border-collapse" style={{ tableLayout: 'fixed' }}>
             <colgroup>
-              {columnWidths.map((w, i) => (
+              {columnWidths.slice(0, effectiveColumnCount).map((w, i) => (
                 <col key={i} style={{ width: w }} />
               ))}
             </colgroup>
-            <thead className={freezeHeader ? 'sticky top-0 z-10 bg-bg-tertiary' : undefined}>
-              <tr className="border-b border-border-subtle bg-bg-tertiary">
-                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top">
-                  <span>已選</span>
+            <thead
+              className={
+                freezeRowCount > 0
+                  ? 'sticky top-0 z-10 bg-bg-tertiary'
+                  : undefined
+              }
+            >
+              <tr className="bg-bg-tertiary">
+                <th
+                  className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(0)}`}
+                  style={getFrozenThStyle(0)}
+                >
+                  <span>公司名稱</span>
                   <div
                     role="separator"
                     aria-label="調整欄寬"
@@ -820,8 +1507,11 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top">
-                  <span>公司名稱</span>
+                <th
+                  className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(1)}`}
+                  style={getFrozenThStyle(1)}
+                >
+                  <span>模型分類與狀態</span>
                   <div
                     role="separator"
                     aria-label="調整欄寬"
@@ -829,7 +1519,10 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top">
+                <th
+                  className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(2)}`}
+                  style={getFrozenThStyle(2)}
+                >
                   <span>模型名稱與版本型號</span>
                   <div
                     role="separator"
@@ -838,8 +1531,11 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top">
-                  <span>模型分類</span>
+                <th
+                  className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(3)}`}
+                  style={getFrozenThStyle(3)}
+                >
+                  <span>勾選被測模型</span>
                   <div
                     role="separator"
                     aria-label="調整欄寬"
@@ -847,16 +1543,10 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top">
-                  <span>狀態</span>
-                  <div
-                    role="separator"
-                    aria-label="調整欄寬"
-                    onMouseDown={handleResizeStart(4)}
-                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
-                  />
-                </th>
-                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top overflow-hidden">
+                <th
+                  className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top overflow-hidden ${getFrozenThClass(4)}`}
+                  style={getFrozenThStyle(4)}
+                >
                   <input
                     type="text"
                     value={promptColumnLabel}
@@ -875,12 +1565,44 @@ export function ModelEvaluator({
                   <div
                     role="separator"
                     aria-label="調整欄寬"
+                    onMouseDown={handleResizeStart(4)}
+                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
+                  />
+                </th>
+                <th
+                  className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(5)}`}
+                  style={getFrozenThStyle(5)}
+                >
+                  <div className="flex flex-col gap-1">
+                    <span>單一prompt測試</span>
+                    {onOpenGlobalTestPanel && (
+                      <div className="pt-0.5">
+                        <Button
+                          size="xs"
+                          variant="secondary"
+                          type="button"
+                          className="w-full justify-center"
+                          onClick={onOpenGlobalTestPanel}
+                          title="開啟統一測試與全域 Prompt 設定面板"
+                        >
+                          <FlaskConical size={12} className="mr-1" />
+                          統一測試
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  <div
+                    role="separator"
+                    aria-label="調整欄寬"
                     onMouseDown={handleResizeStart(5)}
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top">
-                  <span>prompt測試</span>
+                <th
+                  className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(6)}`}
+                  style={getFrozenThStyle(6)}
+                >
+                  <span>Prompt output text</span>
                   <div
                     role="separator"
                     aria-label="調整欄寬"
@@ -888,8 +1610,11 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                <th className="py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top">
-                  <span>Prompt output</span>
+                <th
+                  className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(7)}`}
+                  style={getFrozenThStyle(7)}
+                >
+                  <span>Prompt output jpg</span>
                   <div
                     role="separator"
                     aria-label="調整欄寬"
@@ -897,7 +1622,10 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                <th className="py-3 px-3 font-semibold text-text-secondary relative group border-r border-border-subtle align-top">
+                <th
+                  className={`py-3 px-3 font-semibold text-text-secondary text-center relative group border-r border-border-subtle align-top ${getFrozenThClass(8)}`}
+                  style={getFrozenThStyle(8)}
+                >
                   <span>測試日期</span>
                   <div
                     role="separator"
@@ -906,20 +1634,24 @@ export function ModelEvaluator({
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/30 transition-colors"
                   />
                 </th>
-                {FEATURE_MODULES.map((mod: FeatureModule, colIdx: number) => {
+                {visibleFeatureModules.map((mod: FeatureModule, colIdx: number) => {
                   const Icon = MODULE_ICON_MAP[mod.icon] ?? Settings2;
                   const colors = MODULE_CATEGORY_COLORS[mod.category];
+                  const thColIdx = 9 + colIdx;
                   return (
                     <th
                       key={mod.key}
-                      className="py-2 px-2 font-semibold text-text-secondary border-r border-border-subtle last:border-r-0 relative group align-top min-w-[88px]"
+                      className={`py-2 px-2 font-semibold text-text-secondary border-r border-border-subtle last:border-r-0 relative group align-top min-w-[88px] ${getFrozenThClass(thColIdx)}`}
+                      style={getFrozenThStyle(thColIdx)}
                     >
                       <div className="flex flex-col gap-1">
                         <div className="flex items-start gap-1">
                           <div className={`w-4 h-4 shrink-0 rounded flex items-center justify-center ${colors.bg}`}>
                             <Icon size={10} className={colors.text} />
                           </div>
-                          <span className="text-[10px] leading-tight">{mod.name}</span>
+                          <span className="text-[10px] leading-tight">
+                            {['online_ocr', 'online_ocr_parse', 'online_ocr_judge'].includes(mod.key) ? `${mod.name} 模型排序` : mod.name}
+                          </span>
                         </div>
                       </div>
                       <div
@@ -932,8 +1664,177 @@ export function ModelEvaluator({
                   );
                 })}
               </tr>
-              <tr className="border-b border-border-subtle bg-bg-tertiary" ref={filterDropdownRef}>
-                <th className="py-1.5 px-3 border-r border-border-subtle align-top">
+              <tr className={`bg-bg-tertiary ${freezeRowCount > 0 ? 'shadow-[0_4px_0_0_#d1d5db] dark:shadow-[0_4px_0_0_#4b5563]' : 'border-b border-border-subtle'}`} ref={filterDropdownRef}>
+                {/* 公司名稱欄：公司篩選 */}
+                <th
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top ${getFrozenThClass(0)}`}
+                  style={getFrozenThStyle(0)}
+                >
+                  <div className="flex flex-col gap-1">
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setOpenFilterDropdown((v) => (v === 'provider' ? null : 'provider'))}
+                        className="w-full rounded border border-border-subtle bg-bg-primary px-2 py-1 text-xs text-left text-text-primary focus:outline-none focus:ring-1 focus:ring-accent min-w-0 flex items-center justify-between gap-1"
+                        title="依公司篩選（可複選）"
+                      >
+                        <span className="truncate">
+                          {filterProviderIds.length === 0
+                            ? '全部公司'
+                            : filterProviderIds.length === 1
+                              ? providersInTable.find(([id]) => id === filterProviderIds[0])?.[1] ?? filterProviderIds[0]
+                              : `已選 ${filterProviderIds.length} 項`}
+                        </span>
+                        <span className="shrink-0 text-text-muted">▾</span>
+                      </button>
+                      {openFilterDropdown === 'provider' && (
+                        <div className="absolute left-0 top-full z-10 mt-0.5 min-w-[140px] rounded border border-border-subtle bg-bg-primary py-1 shadow-lg max-h-48 overflow-y-auto">
+                          <label className="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-bg-secondary font-medium text-text-secondary">
+                            <input
+                              type="checkbox"
+                              checked={
+                                providersInTable.length > 0 &&
+                                providersInTable.every(([id]) => filterProviderIds.includes(id))
+                              }
+                              ref={(el) => {
+                                if (!el) return;
+                                const total = providersInTable.length;
+                                const selectedCount = providersInTable.filter(([id]) =>
+                                  filterProviderIds.includes(id),
+                                ).length;
+                                el.indeterminate = selectedCount > 0 && selectedCount < total;
+                              }}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  // 顯式選取目前列表中的所有公司
+                                  setFilterProviderIds(providersInTable.map(([id]) => id));
+                                } else {
+                                  // 取消勾選時回到「不套用公司篩選」= 顯示全部
+                                  setFilterProviderIds([]);
+                                }
+                              }}
+                              className="rounded border-border-subtle text-accent focus:ring-accent"
+                            />
+                            <span className="truncate">全選</span>
+                          </label>
+                          {providersInTable.map(([id, name]) => (
+                            <label
+                              key={id}
+                              className="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-bg-secondary"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={filterProviderIds.includes(id)}
+                                onChange={(e) => {
+                                  setFilterProviderIds((prev) =>
+                                    e.target.checked ? [...prev, id] : prev.filter((x) => x !== id)
+                                  );
+                                }}
+                                className="rounded border-border-subtle text-accent focus:ring-accent"
+                              />
+                              <span className="truncate">{name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </th>
+                {/* 模型分類與狀態欄：分類/狀態篩選 */}
+                <th
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top ${getFrozenThClass(1)}`}
+                  style={getFrozenThStyle(1)}
+                >
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setOpenFilterDropdown((v) => (v === 'status' ? null : 'status'))}
+                      className="rounded border border-border-subtle bg-bg-primary px-2 py-1 text-xs text-left text-text-primary focus:outline-none focus:ring-1 focus:ring-accent min-w-0 flex items-center justify-between gap-1"
+                      title="依分類與狀態篩選（可複選）"
+                    >
+                      <span className="truncate">
+                        {filterStatuses.length === 0
+                          ? '分類與狀態'
+                          : filterStatuses.length === 1
+                            ? filterStatuses[0] === 'vlm_ok'
+                              ? 'OCR可用'
+                              : filterStatuses[0] === 'llm_ok'
+                                ? 'LLM可用'
+                                : filterStatuses[0] === 'not_working'
+                                  ? '不可用'
+                                  : '尚未測試'
+                            : `分類與狀態 ${filterStatuses.length}`}
+                      </span>
+                      <span className="shrink-0 text-text-muted">▾</span>
+                    </button>
+                    {openFilterDropdown === 'status' && (
+                      <div className="absolute left-0 top-full z-10 mt-0.5 min-w-[120px] rounded border border-border-subtle bg-bg-primary py-1 shadow-lg">
+                        <label className="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-bg-secondary font-medium text-text-secondary">
+                          <input
+                            type="checkbox"
+                            checked={
+                              ['vlm_ok', 'llm_ok', 'not_working', 'untested'].every((v) =>
+                                filterStatuses.includes(v),
+                              )
+                            }
+                            ref={(el) => {
+                              if (!el) return;
+                              const allValues = ['vlm_ok', 'llm_ok', 'not_working', 'untested'] as const;
+                              const total = allValues.length;
+                              const selectedCount = allValues.filter((v) =>
+                                filterStatuses.includes(v),
+                              ).length;
+                              el.indeterminate = selectedCount > 0 && selectedCount < total;
+                            }}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFilterStatuses(['vlm_ok', 'llm_ok', 'not_working', 'untested']);
+                              } else {
+                                // 取消勾選時回到「不套用分類/狀態篩選」= 顯示全部
+                                setFilterStatuses([]);
+                              }
+                            }}
+                            className="rounded border-border-subtle text-accent focus:ring-accent"
+                          />
+                          <span>全選</span>
+                        </label>
+                        {[
+                          { value: 'vlm_ok', label: 'OCR可用' },
+                          { value: 'llm_ok', label: 'LLM可用' },
+                          { value: 'not_working', label: '不可用' },
+                          { value: 'untested', label: '尚未測試' },
+                        ].map(({ value, label }) => (
+                          <label
+                            key={value}
+                            className="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-bg-secondary"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={filterStatuses.includes(value)}
+                              onChange={(e) => {
+                                setFilterStatuses((prev) =>
+                                  e.target.checked ? [...prev, value] : prev.filter((x) => x !== value)
+                                );
+                              }}
+                              className="rounded border-border-subtle text-accent focus:ring-accent"
+                            />
+                            <span>{label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </th>
+                {/* 模型名稱與版本型號欄：目前無篩選，保留空白佔位 */}
+                <th
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top text-left ${getFrozenThClass(2)}`}
+                  style={getFrozenThStyle(2)}
+                />
+                {/* 請選擇被測模型欄：全選/取消全選 */}
+                <th
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top ${getFrozenThClass(3)}`}
+                  style={getFrozenThStyle(3)}
+                >
                   <div className="flex flex-col gap-1">
                     <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-medium text-text-secondary hover:text-text-primary">
                       <input
@@ -963,164 +1864,53 @@ export function ModelEvaluator({
                     </label>
                   </div>
                 </th>
-                <th className="py-1.5 px-3 border-r border-border-subtle align-top">
-                  <div className="flex flex-col gap-1">
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setOpenFilterDropdown((v) => (v === 'provider' ? null : 'provider'))}
-                        className="w-full rounded border border-border-subtle bg-bg-primary px-2 py-1 text-xs text-left text-text-primary focus:outline-none focus:ring-1 focus:ring-accent min-w-0 flex items-center justify-between gap-1"
-                        title="依公司篩選（可複選）"
-                      >
-                        <span className="truncate">
-                          {filterProviderIds.length === 0
-                            ? '全部公司'
-                            : filterProviderIds.length === 1
-                              ? providersInTable.find(([id]) => id === filterProviderIds[0])?.[1] ?? filterProviderIds[0]
-                              : `已選 ${filterProviderIds.length} 項`}
-                        </span>
-                        <span className="shrink-0 text-text-muted">▾</span>
-                      </button>
-                      {openFilterDropdown === 'provider' && (
-                        <div className="absolute left-0 top-full z-10 mt-0.5 min-w-[140px] rounded border border-border-subtle bg-bg-primary py-1 shadow-lg max-h-48 overflow-y-auto">
-                          {providersInTable.map(([id, name]) => (
-                            <label
-                              key={id}
-                              className="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-bg-secondary"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={filterProviderIds.includes(id)}
-                                onChange={(e) => {
-                                  setFilterProviderIds((prev) =>
-                                    e.target.checked ? [...prev, id] : prev.filter((x) => x !== id)
-                                  );
-                                }}
-                                className="rounded border-border-subtle text-accent focus:ring-accent"
-                              />
-                              <span className="truncate">{name}</span>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </th>
-                <th className="py-1.5 px-3 border-r border-border-subtle align-top text-left" />
-                <th className="py-1.5 px-3 border-r border-border-subtle align-top">
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setOpenFilterDropdown((v) => (v === 'category' ? null : 'category'))}
-                      className="w-full rounded border border-border-subtle bg-bg-primary px-2 py-1 text-xs text-left text-text-primary focus:outline-none focus:ring-1 focus:ring-accent min-w-0 flex items-center justify-between gap-1"
-                      title="依模型分類篩選（可複選）"
-                    >
-                      <span className="truncate">
-                        {filterCategories.length === 0
-                          ? '全部分類'
-                          : filterCategories.length === 1
-                            ? filterCategories[0] === 'unknown' ? '未知' : filterCategories[0]
-                            : `已選 ${filterCategories.length} 項`}
-                      </span>
-                      <span className="shrink-0 text-text-muted">▾</span>
-                    </button>
-                    {openFilterDropdown === 'category' && (
-                      <div className="absolute left-0 top-full z-10 mt-0.5 min-w-[100px] rounded border border-border-subtle bg-bg-primary py-1 shadow-lg">
-                        {[
-                          { value: 'VLM', label: 'VLM' },
-                          { value: 'LLM', label: 'LLM' },
-                          { value: 'unknown', label: '未知' },
-                        ].map(({ value, label }) => (
-                          <label
-                            key={value}
-                            className="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-bg-secondary"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={filterCategories.includes(value)}
-                              onChange={(e) => {
-                                setFilterCategories((prev) =>
-                                  e.target.checked ? [...prev, value] : prev.filter((x) => x !== value)
-                                );
-                              }}
-                              className="rounded border-border-subtle text-accent focus:ring-accent"
-                            />
-                            <span>{label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </th>
-                <th className="py-1.5 px-3 border-r border-border-subtle align-top">
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setOpenFilterDropdown((v) => (v === 'status' ? null : 'status'))}
-                      className="w-full rounded border border-border-subtle bg-bg-primary px-2 py-1 text-xs text-left text-text-primary focus:outline-none focus:ring-1 focus:ring-accent min-w-0 flex items-center justify-between gap-1"
-                      title="依狀態篩選（可複選）"
-                    >
-                      <span className="truncate">
-                        {filterStatuses.length === 0
-                          ? '全部狀態'
-                          : filterStatuses.length === 1
-                            ? filterStatuses[0] === 'working'
-                              ? '可用'
-                              : filterStatuses[0] === 'not_working'
-                                ? '不可用'
-                                : '尚未測試'
-                            : `已選 ${filterStatuses.length} 項`}
-                      </span>
-                      <span className="shrink-0 text-text-muted">▾</span>
-                    </button>
-                    {openFilterDropdown === 'status' && (
-                      <div className="absolute left-0 top-full z-10 mt-0.5 min-w-[100px] rounded border border-border-subtle bg-bg-primary py-1 shadow-lg">
-                        {[
-                          { value: 'working', label: '可用' },
-                          { value: 'not_working', label: '不可用' },
-                          { value: 'untested', label: '尚未測試' },
-                        ].map(({ value, label }) => (
-                          <label
-                            key={value}
-                            className="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-bg-secondary"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={filterStatuses.includes(value)}
-                              onChange={(e) => {
-                                setFilterStatuses((prev) =>
-                                  e.target.checked ? [...prev, value] : prev.filter((x) => x !== value)
-                                );
-                              }}
-                              className="rounded border-border-subtle text-accent focus:ring-accent"
-                            />
-                            <span>{label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </th>
-                <th className="py-1.5 px-3 border-r border-border-subtle align-top text-left" />
-                <th className="py-1.5 px-3 border-r border-border-subtle align-top text-left" />
-                <th className="py-1.5 px-3 border-r border-border-subtle align-top text-left" />
                 <th
-                  className="py-1.5 px-3 border-r border-border-subtle align-top text-left"
-                  style={{ whiteSpace: 'nowrap' }}
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top text-left ${getFrozenThClass(4)}`}
+                  style={getFrozenThStyle(4)}
                 />
-                {FEATURE_MODULES.map((mod: FeatureModule) => {
+                <th
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top text-left ${getFrozenThClass(5)}`}
+                  style={getFrozenThStyle(5)}
+                />
+                <th
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top text-left ${getFrozenThClass(6)}`}
+                  style={getFrozenThStyle(6)}
+                />
+                <th
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top text-left ${getFrozenThClass(7)}`}
+                  style={getFrozenThStyle(7)}
+                />
+                <th
+                  className={`py-1.5 px-3 border-r border-border-subtle align-top text-center ${getFrozenThClass(8)}`}
+                  style={{ whiteSpace: 'nowrap', ...getFrozenThStyle(8) }}
+                />
+                {visibleFeatureModules.map((mod: FeatureModule, filterColIdx: number) => {
                   const state = moduleStates[mod.key];
                   const saving = moduleSavingSet.has(mod.key);
-                  const assignedInFiltered = rowsAfterCategoryFilter.filter((r) =>
-                    state.assignments.some((a) => a.provider === r.providerId && a.model === r.modelId)
+
+                  // Only include rows whose model is checked in the "已選" column.
+                  // Unselected models must not be assignable to any feature module.
+                  const filteredRowKeysForModule = rowsAfterCategoryFilter
+                    .filter((r) => selectedSet.has(`${r.providerId}::${r.modelId}`))
+                    .map((r) => `${r.providerId}::${r.modelId}`);
+
+                  const assignedInFiltered = filteredRowKeysForModule.filter((key) =>
+                    state.assignments.some(
+                      (a) => `${a.provider}::${a.model}` === key,
+                    ),
                   ).length;
+
                   const allFilteredAssigned =
-                    rowsAfterCategoryFilter.length > 0 && assignedInFiltered === rowsAfterCategoryFilter.length;
+                    filteredRowKeysForModule.length > 0 &&
+                    assignedInFiltered === filteredRowKeysForModule.length;
                   const someFilteredAssigned = assignedInFiltered > 0;
+                  const filterThColIdx = 9 + filterColIdx;
+
                   return (
                     <th
                       key={mod.key}
-                      className="py-1.5 px-2 border-r border-border-subtle last:border-r-0 align-top text-left"
+                      className={`py-1.5 px-2 border-r border-border-subtle last:border-r-0 align-top text-left ${getFrozenThClass(filterThColIdx)}`}
+                      style={getFrozenThStyle(filterThColIdx)}
                     >
                       {onSaveModule && (
                         <label
@@ -1137,8 +1927,14 @@ export function ModelEvaluator({
                             ref={(el) => {
                               if (el) el.indeterminate = someFilteredAssigned && !allFilteredAssigned;
                             }}
-                            onChange={(e) => handleModuleSelectAllFiltered(mod.key, e.target.checked)}
-                            disabled={saving || rowsAfterCategoryFilter.length === 0}
+                            onChange={(e) =>
+                              handleModuleSelectAllFiltered(
+                                mod.key,
+                                e.target.checked,
+                                filteredRowKeysForModule,
+                              )
+                            }
+                            disabled={saving || filteredRowKeysForModule.length === 0}
                             className="rounded border-border-subtle bg-bg-primary text-accent focus:ring-accent"
                           />
                           <span>全選</span>
@@ -1164,7 +1960,93 @@ export function ModelEvaluator({
                       isSelected ? 'bg-accent/5' : 'bg-bg-primary hover:bg-bg-secondary'
                     }`}
                   >
-                    <td className="py-2.5 px-3 align-top border-r border-border-subtle">
+                    <td
+                      className={`py-2.5 px-3 text-text-primary border-r border-border-subtle align-top break-words ${getFrozenTdClass(0)}`}
+                      style={getFrozenTdStyle(0)}
+                    >
+                      {providerName}
+                    </td>
+                    <td
+                      className={`py-2.5 px-3 border-r border-border-subtle align-top ${getFrozenTdClass(1)}`}
+                      style={getFrozenTdStyle(1)}
+                    >
+                      {(() => {
+                        if (!hasKey)
+                          return <span className="text-text-muted">—</span>;
+                        const status = getStatusDisplay(key, ev, testResultByKey, outputByKey, isOcrMode);
+                        const statusLabel =
+                          status.type === 'vlm_ok' || status.type === 'working'
+                            ? 'OCR可用'
+                            : status.type === 'llm_ok'
+                              ? 'LLM可用'
+                              : status.type === 'not_working'
+                                ? '不可用'
+                                : '尚未測試';
+                        const statusTitle =
+                          status.type === 'vlm_ok' || status.type === 'working'
+                            ? 'OCR可用'
+                            : status.type === 'llm_ok'
+                              ? 'LLM可用'
+                              : status.type === 'not_working'
+                                ? '不可用'
+                                : '尚未測試';
+                        const statusColorClass =
+                          status.type === 'vlm_ok' || status.type === 'working'
+                            ? 'text-green-400'
+                            : status.type === 'llm_ok'
+                              ? 'text-blue-400'
+                              : status.type === 'not_working'
+                                ? 'text-amber-500'
+                                : 'text-text-muted';
+                        const StatusIcon = status.type === 'not_working' ? XCircle : CheckCircle2;
+                        const isOpen = openStatusDropdownKey === key;
+                        return (
+                          <div
+                            className="inline-block min-w-0"
+                            ref={(el) => {
+                              statusDropdownRefs.current[key] = el;
+                            }}
+                          >
+                            <button
+                              type="button"
+                              ref={(el) => {
+                                statusBtnRefs.current[key] = el;
+                              }}
+                              onClick={() => toggleStatusDropdown(key)}
+                              className={`inline-flex items-center gap-1 rounded border border-transparent px-1 -mx-1 py-0.5 hover:border-border-subtle hover:bg-bg-secondary ${statusColorClass}`}
+                              title={`${statusTitle} · 點擊可手動修正`}
+                            >
+                              {status.type !== 'untested' && status.type !== 'not_working' ? (
+                                <StatusIcon size={12} aria-hidden />
+                              ) : status.type === 'not_working' ? (
+                                <XCircle size={12} aria-hidden />
+                              ) : null}
+                              <span className="truncate max-w-[140px]">
+                                {statusLabel}
+                              </span>
+                              <ChevronDown
+                                size={12}
+                                className={`shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                                aria-hidden
+                              />
+                            </button>
+                          </div>
+                        );
+                      })()}
+                    </td>
+                    <td
+                      className={`py-2.5 px-3 border-r border-border-subtle overflow-hidden align-top ${getFrozenTdClass(2)}`}
+                      style={getFrozenTdStyle(2)}
+                    >
+                      <div className="flex flex-col items-start min-w-0">
+                        <span className="font-medium text-text-primary break-words">{modelName}</span>
+                        <span className="mt-0.5 font-mono text-text-muted break-words">{modelId}</span>
+                      </div>
+                    </td>
+                    <td
+                      className={`py-2.5 px-3 align-top border-r border-border-subtle ${getFrozenTdClass(3)}`}
+                      style={getFrozenTdStyle(3)}
+                    >
                       <label className="flex items-center justify-center w-5 h-5 cursor-pointer">
                         <input
                           type="checkbox"
@@ -1197,87 +2079,62 @@ export function ModelEvaluator({
                         </div>
                       </label>
                     </td>
-                    <td className="py-2.5 px-3 text-text-primary border-r border-border-subtle align-top break-words">
-                      {providerName}
-                    </td>
-                    <td className="py-2.5 px-3 border-r border-border-subtle overflow-hidden align-top">
-                      <div className="flex flex-col items-start min-w-0">
-                        <span className="font-medium text-text-primary break-words">{modelName}</span>
-                        <span className="mt-0.5 font-mono text-text-muted break-words">{modelId}</span>
-                      </div>
-                    </td>
-                    <td className="py-2.5 px-3 border-r border-border-subtle align-top">
-                      {(() => {
-                        const outputText = (outputByKey[key] ?? ev?.notes ?? '').trim();
-                        const category = detectCategoryFromOutput(outputText);
-                        const label = category === 'unknown' ? '未知' : category;
-                        return (
-                          <span
-                            className="text-xs font-medium text-text-secondary"
-                            title="依本列 Prompt output 自動偵測：成功解析檔案→VLM，有回應但未解析→LLM"
-                          >
-                            {label}
-                          </span>
-                        );
-                      })()}
-                    </td>
-                    <td className="py-2.5 px-3 border-r border-border-subtle align-top">
-                      {(() => {
-                        const sessionResult = testResultByKey[key];
-                        if (sessionResult === true) {
-                          return (
-                            <span className="inline-flex items-center gap-1 text-green-400">
-                              <CheckCircle2 size={12} /> 可用
-                            </span>
-                          );
-                        }
-                        if (sessionResult === false) {
-                          return (
-                            <span className="inline-flex items-center gap-1 text-amber-500">
-                              <XCircle size={12} /> 不可用
-                            </span>
-                          );
-                        }
-                        if (ev?.is_working) {
-                          return (
-                            <span className="inline-flex items-center gap-1 text-green-400">
-                              <CheckCircle2 size={12} /> 可用
-                            </span>
-                          );
-                        }
-                        if (ev && !ev.is_working) {
-                          return (
-                            <span className="inline-flex items-center gap-1 text-amber-500">
-                              <XCircle size={12} /> 不可用
-                            </span>
-                          );
-                        }
-                        return (
-                          <span className="text-text-muted">
-                            {hasKey ? '未測試' : '—'}
-                          </span>
-                        );
-                      })()}
-                    </td>
-                    <td className="py-1.5 px-3 align-top max-w-[200px] border-r border-border-subtle">
+                    <td
+                      className={`py-1.5 px-3 align-top max-w-[200px] border-r border-border-subtle ${getFrozenTdClass(4)}`}
+                      style={getFrozenTdStyle(4)}
+                    >
                       <textarea
-                        value={(rowPrompts[key]?.trim() ?? '') ? (rowPrompts[key] ?? '') : globalTestPrompt}
-                        onChange={(e) =>
-                          setRowPrompts((prev) => ({ ...prev, [key]: e.target.value }))
-                        }
-                        placeholder={`例如：${DEFAULT_TEST_PROMPT}`}
+                        value={(rowPrompts[key]?.trim() ?? '')
+                          ? (rowPrompts[key] ?? '')
+                          : effectivePromptVariableLabel}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          const trimmed = raw.trim();
+                          // 若使用者輸入的內容剛好等於顯示變數名稱，視為「使用全域 Prompt」，不另外儲存
+                          if (
+                            trimmed === '' ||
+                            trimmed === DEFAULT_PROMPT_PLACEHOLDER ||
+                            trimmed === effectivePromptVariableLabel
+                          ) {
+                            setRowPrompts((prev) => {
+                              const next = { ...prev };
+                              delete next[key];
+                              return next;
+                            });
+                          } else {
+                            setRowPrompts((prev) => ({ ...prev, [key]: raw }));
+                          }
+                        }}
+                        placeholder={`留空或 ${effectivePromptVariableLabel} 使用全域 Prompt；可輸入自訂`}
                         rows={2}
                         className="w-full rounded border border-border-subtle bg-transparent px-2 py-1 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent resize-y min-h-[44px]"
-                        title="留空則使用上方全域 Prompt；填入後此列測試會使用此專屬 Prompt"
+                        title="留空或 {預設prompt} 使用上方全域 Prompt；填入其他內容則此列使用專屬 Prompt"
                       />
                     </td>
-                    <td className="py-2.5 px-3 border-r border-border-subtle align-top">
+                    <td
+                      className={`py-2.5 px-3 border-r border-border-subtle align-top ${getFrozenTdClass(5)}`}
+                      style={getFrozenTdStyle(5)}
+                    >
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => runTest(providerId, modelId, modelName)}
-                        disabled={!hasKey || isTesting}
-                        title={hasKey ? '用上方 Prompt 測試此模型' : '需先設定 API 金鑰'}
+                        onClick={() => {
+                          if (!isSelected || !hasKey || isTesting) return;
+                          const rowKey = `${providerId}::${modelId}`;
+                          const initialPrompt = getEffectivePromptForRow(rowKey) || globalTestPrompt;
+                          setRowTestPrompt(initialPrompt);
+                          setRowTestPromptDirty(false);
+                          setRowTestFile(uploadedFile);
+                          setRowTestPanel({ key: rowKey, providerId, modelId, modelName });
+                        }}
+                        disabled={!isSelected || !hasKey || isTesting}
+                        title={
+                          !isSelected
+                            ? '請先勾選此模型才能測試'
+                            : !hasKey
+                              ? '需先設定 API 金鑰'
+                              : '開啟單一測試設定（可調整 Prompt 與檔案）'
+                        }
                       >
                         {isTesting ? (
                           <Loader2 size={14} className="animate-spin" />
@@ -1286,14 +2143,17 @@ export function ModelEvaluator({
                         )}
                       </Button>
                     </td>
-                    <td className="py-2.5 px-3 align-top border-r border-border-subtle overflow-hidden min-w-0">
+                    <td
+                      className={`py-2.5 px-3 align-top border-r border-border-subtle overflow-x-auto overflow-y-hidden min-w-0 ${getFrozenTdClass(6)}`}
+                      style={getFrozenTdStyle(6)}
+                    >
                       {isTesting ? (
                         <span className="inline-flex items-center gap-1 text-text-muted">
                           <Loader2 size={12} className="animate-spin" /> 測試中…
                         </span>
                       ) : (
                         <span
-                          className="text-text-secondary break-words block"
+                          className="text-text-secondary whitespace-nowrap inline-block"
                           title={output || ev?.notes || '—'}
                         >
                           {output || ev?.notes || '—'}
@@ -1301,8 +2161,33 @@ export function ModelEvaluator({
                       )}
                     </td>
                     <td
-                      className="py-2.5 px-3 text-text-muted border-r border-border-subtle align-top text-left"
-                      style={{ whiteSpace: 'nowrap' }}
+                      className={`py-2.5 px-3 align-top border-r border-border-subtle min-w-0 ${getFrozenTdClass(7)}`}
+                      style={getFrozenTdStyle(7)}
+                    >
+                      {isTesting ? (
+                        <span className="inline-flex items-center gap-1 text-text-muted">
+                          <Loader2 size={12} className="animate-spin" />
+                        </span>
+                      ) : imageOutputByKey[key] ? (
+                        <a
+                          href={imageOutputByKey[key]}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block"
+                        >
+                          <img
+                            src={imageOutputByKey[key]}
+                            alt="VLM output"
+                            className="max-h-16 max-w-[120px] rounded border border-border-subtle object-contain hover:opacity-80 transition-opacity"
+                          />
+                        </a>
+                      ) : (
+                        <span className="text-text-muted">—</span>
+                      )}
+                    </td>
+                    <td
+                      className={`py-2.5 px-3 text-text-muted border-r border-border-subtle align-top text-center ${getFrozenTdClass(8)}`}
+                      style={{ whiteSpace: 'nowrap', ...getFrozenTdStyle(8) }}
                     >
                       {ev?.last_tested_at
                         ? new Date(ev.last_tested_at).toLocaleDateString('zh-TW', {
@@ -1313,32 +2198,60 @@ export function ModelEvaluator({
                           })
                         : '—'}
                     </td>
-                    {FEATURE_MODULES.map((mod: FeatureModule) => {
+                    {visibleFeatureModules.map((mod: FeatureModule, tdColIdx: number) => {
                       const modState = moduleStates[mod.key];
-                      const assign = modState?.assignments.find(
+                      // 渲染前再做一次正規化，避免舊資料殘留 173/178 等歷史 priority
+                      const normalizedAssignments = normalizeAssignments(modState?.assignments ?? []);
+                      const assign = normalizedAssignments.find(
                         (a) => a.provider === providerId && a.model === modelId
                       );
                       const saving = moduleSavingSet.has(mod.key);
+                      const tdFrozenColIdx = 9 + tdColIdx;
                       return (
                         <td
                           key={mod.key}
-                          className="py-2 px-2 align-top text-left border-r border-border-subtle last:border-r-0"
+                          className={`py-2 px-2 align-top text-left border-r border-border-subtle last:border-r-0 ${getFrozenTdClass(tdFrozenColIdx)}`}
+                          style={getFrozenTdStyle(tdFrozenColIdx)}
                         >
-                          {assign ? (
-                            <div className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] bg-accent/10 text-accent border border-accent/20">
+                          {!isSelected ? (
+                            // Model not in "已選" — module assignment is locked
+                            assign ? (
+                              <div
+                                className="inline-flex items-center gap-1 rounded-full pl-2 pr-1 py-0.5 min-w-[5.5rem] text-[10px] opacity-30 bg-bg-tertiary text-text-muted border border-border-subtle cursor-not-allowed"
+                                title="請先在「已選」欄勾選此模型，才能設定模組排序"
+                              >
+                                <span className="shrink-0 font-medium">
+                                  {MODULE_SORT_LABEL[mod.key] ?? mod.key.slice(0, 3).toUpperCase()}-
+                                </span>
+                                <span className="w-7 text-center font-mono tabular-nums">
+                                  {String(Math.min(Math.max(normalizedAssignments.length, 1), Math.max(1, assign.priority ?? 1))).padStart(3, '0')}
+                                </span>
+                              </div>
+                            ) : null
+                          ) : assign ? (() => {
+                            const maxP = Math.max(normalizedAssignments.length, 1);
+                            const displayPriority = Math.min(maxP, Math.max(1, assign.priority ?? 1));
+                            return (
+                            <div className="inline-flex items-center gap-1 rounded-full pl-2 pr-1 py-0.5 min-w-[5.5rem] text-[10px] bg-accent/10 text-accent border border-accent/20">
+                              <span className="shrink-0 font-medium">
+                                {MODULE_SORT_LABEL[mod.key] ?? mod.key.slice(0, 3).toUpperCase()}-
+                              </span>
                               <input
-                                type="number"
-                                min={1}
-                                max={100}
-                                value={assign.priority ?? 1}
+                                type="text"
+                                inputMode="numeric"
+                                minLength={1}
+                                maxLength={3}
+                                value={String(displayPriority).padStart(3, '0')}
                                 onChange={(e) => {
-                                  const n = parseInt(e.target.value, 10);
-                                  if (!Number.isNaN(n) && n >= 1 && n <= 100) {
+                                  const raw = e.target.value.replace(/\D/g, '');
+                                  if (raw === '') return;
+                                  const n = parseInt(raw, 10);
+                                  if (!Number.isNaN(n) && n >= 1 && n <= maxP) {
                                     setModuleStates((p) => ({
                                       ...p,
                                       [mod.key]: {
                                         ...p[mod.key],
-                                        assignments: p[mod.key].assignments.map((a) =>
+                                        assignments: normalizedAssignments.map((a) =>
                                           a.provider === providerId && a.model === modelId
                                             ? { ...a, priority: n }
                                             : a
@@ -1348,15 +2261,26 @@ export function ModelEvaluator({
                                   }
                                 }}
                                 onBlur={(e) => {
-                                  const n = parseInt(e.target.value, 10);
-                                  handleModulePriorityChange(
-                                    mod.key, providerId, modelId,
-                                    Number.isNaN(n) ? 1 : n
-                                  );
+                                  const n = parseInt(e.target.value.replace(/\D/g, '') || '1', 10);
+                                  const clamped = Math.min(maxP, Math.max(1, Number.isNaN(n) ? 1 : n));
+                                  if (clamped !== (assign.priority ?? 1)) {
+                                    setModuleStates((p) => ({
+                                      ...p,
+                                      [mod.key]: {
+                                        ...p[mod.key],
+                                        assignments: normalizedAssignments.map((a) =>
+                                          a.provider === providerId && a.model === modelId
+                                            ? { ...a, priority: clamped }
+                                            : a
+                                        ),
+                                      },
+                                    }));
+                                    handleModulePriorityChange(mod.key, providerId, modelId, clamped);
+                                  }
                                 }}
                                 disabled={saving}
-                                className="w-5 bg-transparent border-none text-center text-[10px] focus:outline-none p-0"
-                                title="1=主模型，2~100=備選"
+                                className="w-7 bg-transparent border-none text-center text-[10px] font-mono focus:outline-none p-0 tabular-nums"
+                                title={`1=主模型，2~${maxP}=備選`}
                               />
                               <button
                                 type="button"
@@ -1368,7 +2292,8 @@ export function ModelEvaluator({
                                 <X size={9} />
                               </button>
                             </div>
-                          ) : (
+                            );
+                          })() : (
                             onSaveModule && (
                               <button
                                 type="button"
@@ -1391,6 +2316,302 @@ export function ModelEvaluator({
           </table>
         </div>
       </div>
+      {rowTestPanel && (
+        <Sheet
+          open={!!rowTestPanel}
+          onOpenChange={(open) => {
+            if (!open) setRowTestPanel(null);
+          }}
+        >
+          <SheetContent className="sm:max-w-xl">
+            <SheetHeader>
+              <div>
+                <SheetTitle className="flex items-center gap-2">
+                  <FlaskConical className="w-5 h-5" />
+                  單一模型測試設定
+                </SheetTitle>
+                <SheetDescription>
+                  {rowTestPanel.modelName}（{rowTestPanel.providerId} · {rowTestPanel.modelId}）
+                </SheetDescription>
+              </div>
+            </SheetHeader>
+            <div className="p-4 space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-text-secondary">
+                  測試 Prompt
+                </label>
+                <textarea
+                  value={rowTestPrompt}
+                  onChange={(e) => {
+                    setRowTestPromptDirty(true);
+                    setRowTestPrompt(e.target.value);
+                  }}
+                  placeholder="預設為此列有效 Prompt；可在此針對本次單一測試調整內容"
+                  rows={8}
+                  className="w-full rounded border border-border-subtle bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent resize-y min-h-[160px]"
+                />
+                <p className="text-[11px] text-text-muted">
+                  若留空，實際執行時會自動 fallback 至此列設定的 Prompt 或全域測試 Prompt。
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-text-secondary">
+                  測試檔案（選填）
+                </label>
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer text-sm text-text-secondary hover:text-text-primary rounded border border-border-subtle bg-bg-primary px-3 py-2 shrink-0">
+                    <Upload size={16} className="shrink-0" />
+                    <span>選擇檔案</span>
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.txt,.md"
+                      className="sr-only"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0] ?? null;
+                        setRowTestFile(f);
+                        if (e.target) (e.target as HTMLInputElement).value = '';
+                      }}
+                      title="上傳 PDF、圖片或文字檔作為本次單一測試附件"
+                    />
+                  </label>
+                  {rowTestFile && (
+                    <span
+                      className="text-sm text-text-muted truncate max-w-[240px]"
+                      title={rowTestFile.name}
+                    >
+                      {rowTestFile.name}
+                    </span>
+                  )}
+                </div>
+                {!rowTestFile && uploadedFile && (
+                  <p className="text-[11px] text-text-muted">
+                    若未另外選擇檔案，將會沿用目前全域測試面板中的檔案：{uploadedFile.name}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  type="button"
+                  onClick={() => setRowTestPanel(null)}
+                >
+                  取消
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  type="button"
+                  onClick={async () => {
+                    if (!rowTestPanel) return;
+                    const overridePrompt = rowTestPrompt.trim().length > 0 ? rowTestPrompt : undefined;
+                    const fileToUse = rowTestFile ?? uploadedFile ?? null;
+                    await runTest(
+                      rowTestPanel.providerId,
+                      rowTestPanel.modelId,
+                      rowTestPanel.modelName,
+                      { overridePrompt, overrideFile: fileToUse },
+                    );
+                  }}
+                  isLoading={testingKey === rowTestPanel.key}
+                  disabled={testingKey === rowTestPanel.key}
+                >
+                  {testingKey === rowTestPanel.key ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <FlaskConical size={14} />
+                  )}
+                  <span className="ml-1.5 whitespace-nowrap">執行單一測試</span>
+                </Button>
+              </div>
+
+              {/* Test result output — shown after execution completes */}
+              {rowTestPanel && (outputByKey[rowTestPanel.key] !== undefined || testResultByKey[rowTestPanel.key] !== undefined) && (
+                <div className="space-y-2 border-t border-border-subtle pt-4">
+                  <p className="text-xs font-medium text-text-secondary">測試結果</p>
+                  <div
+                    className={`rounded border px-3 py-2 text-xs whitespace-pre-wrap break-words max-h-[280px] overflow-y-auto ${
+                      testResultByKey[rowTestPanel.key] === true
+                        ? 'border-green-500/30 bg-green-500/5 text-green-300'
+                        : testResultByKey[rowTestPanel.key] === false
+                          ? 'border-red-500/30 bg-red-500/5 text-red-400'
+                          : 'border-border-subtle bg-bg-secondary text-text-secondary'
+                    }`}
+                  >
+                    {outputByKey[rowTestPanel.key] || '（無輸出）'}
+                  </div>
+                </div>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {/* Batch test results modal */}
+      {batchResults && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setBatchResults(null); }}
+        >
+          <div className="relative flex flex-col bg-bg-primary border border-border-default rounded-lg shadow-2xl w-[min(900px,95vw)] max-h-[85vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between gap-4 px-5 py-4 border-b border-border-subtle shrink-0">
+              <div>
+                <h2 className="text-base font-semibold text-text-primary">批次測試結果</h2>
+                <p className="text-xs text-text-muted mt-0.5">
+                  共 {batchResults.length} 個模型 ·&nbsp;
+                  <span className="text-green-400">{batchResults.filter(r => r.success).length} 成功</span>
+                  &nbsp;·&nbsp;
+                  <span className="text-amber-500">{batchResults.filter(r => !r.success).length} 失敗</span>
+                  &nbsp;·&nbsp;點擊「模型分類與狀態」欄可手動覆寫系統判斷
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBatchResults(null)}
+                className="shrink-0 p-1.5 rounded hover:bg-bg-secondary text-text-muted hover:text-text-primary transition-colors"
+                aria-label="關閉"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            {/* Table */}
+            <div className="overflow-auto flex-1 min-h-0">
+              <table className="w-full text-xs border-collapse">
+                <thead className="sticky top-0 bg-bg-secondary z-10">
+                  <tr>
+                    <th className="text-left px-3 py-2.5 font-medium text-text-muted border-b border-border-subtle whitespace-nowrap">供應商</th>
+                    <th className="text-left px-3 py-2.5 font-medium text-text-muted border-b border-border-subtle whitespace-nowrap">模型</th>
+                    <th className="text-left px-3 py-2.5 font-medium text-text-muted border-b border-border-subtle w-[280px]">Output text</th>
+                    <th className="text-left px-3 py-2.5 font-medium text-text-muted border-b border-border-subtle whitespace-nowrap">Output 圖片</th>
+                    <th className="text-left px-3 py-2.5 font-medium text-text-muted border-b border-border-subtle whitespace-nowrap">模型分類與狀態</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {batchResults.map((entry) => {
+                    const ev = evaluationMap.get(entry.key);
+                    const status = getStatusDisplay(entry.key, ev, testResultByKey, outputByKey, isOcrMode);
+                    const statusColorClass =
+                      status.type === 'vlm_ok' || status.type === 'working'
+                        ? 'text-green-400'
+                        : status.type === 'llm_ok'
+                          ? 'text-blue-400'
+                          : status.type === 'not_working'
+                            ? 'text-amber-500'
+                            : 'text-text-muted';
+                    const StatusIcon = status.type === 'not_working' ? XCircle : CheckCircle2;
+                    return (
+                      <tr
+                        key={entry.key}
+                        className={`border-b border-border-subtle ${entry.success ? 'hover:bg-green-500/5' : 'hover:bg-amber-500/5'}`}
+                      >
+                        <td className="px-3 py-2 align-top text-text-secondary whitespace-nowrap">{entry.providerName}</td>
+                        <td className="px-3 py-2 align-top">
+                          <div className="font-medium text-text-primary">{entry.modelName}</div>
+                          <div className="text-text-muted font-mono mt-0.5">{entry.modelId}</div>
+                        </td>
+                        <td className="px-3 py-2 align-top">
+                          {entry.output ? (
+                            <div
+                              className={`max-h-[80px] overflow-y-auto whitespace-pre-wrap break-words rounded px-2 py-1 border ${
+                                entry.success
+                                  ? 'border-green-500/20 bg-green-500/5 text-green-300'
+                                  : 'border-red-500/20 bg-red-500/5 text-red-400'
+                              }`}
+                            >
+                              {entry.output}
+                            </div>
+                          ) : (
+                            <span className="text-text-muted">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 align-top">
+                          {entry.imageUrl ? (
+                            <a href={entry.imageUrl} target="_blank" rel="noopener noreferrer" className="block">
+                              <img
+                                src={entry.imageUrl}
+                                alt="output"
+                                className="max-h-16 max-w-[100px] rounded border border-border-subtle object-contain hover:opacity-80 transition-opacity"
+                              />
+                            </a>
+                          ) : (
+                            <span className="text-text-muted">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 align-top">
+                          <div
+                            className="inline-block"
+                            ref={(el) => { statusDropdownRefs.current[`modal::${entry.key}`] = el; }}
+                          >
+                            <button
+                              type="button"
+                              ref={(el) => { statusBtnRefs.current[`modal::${entry.key}`] = el; }}
+                              onClick={() => toggleStatusDropdown(`modal::${entry.key}`)}
+                              className={`inline-flex items-center gap-1 rounded border border-transparent px-1 py-0.5 hover:border-border-subtle hover:bg-bg-secondary ${statusColorClass}`}
+                              title={`${status.title} · 點擊可手動修正`}
+                            >
+                              {status.type !== 'untested' ? (
+                                <StatusIcon size={12} aria-hidden />
+                              ) : null}
+                              <span>{status.label}</span>
+                              <ChevronDown size={12} className={`shrink-0 transition-transform ${openStatusDropdownKey === `modal::${entry.key}` ? 'rotate-180' : ''}`} aria-hidden />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {/* Footer */}
+            <div className="flex justify-end gap-2 px-5 py-3 border-t border-border-subtle shrink-0">
+              <Button variant="secondary" size="sm" onClick={() => setBatchResults(null)}>
+                關閉
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Portal: status override dropdown rendered outside the table to bypass overflow/stacking context */}
+      {openStatusDropdownKey && statusDropdownPos && typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            ref={statusPortalRef}
+            role="listbox"
+            aria-label="手動設定模型狀態"
+            className="min-w-[160px] rounded border border-border-default bg-bg-primary py-1 shadow-lg"
+            style={{
+              position: 'fixed',
+              top: statusDropdownPos.top,
+              left: statusDropdownPos.left,
+              zIndex: 9999,
+            }}
+          >
+            {getStatusOverrideOptions(isOcrMode).map((opt) => {
+              const actualKey = openStatusDropdownKey.startsWith('modal::')
+                ? openStatusDropdownKey.slice('modal::'.length)
+                : openStatusDropdownKey;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="option"
+                  aria-selected={false}
+                  onClick={() => handleSaveStatusOverride(actualKey, opt.value)}
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-bg-secondary focus:bg-bg-secondary focus:outline-none"
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>,
+          document.body
+        )
+      }
     </div>
   );
 }

@@ -338,17 +338,20 @@ const RAW_FEATURES: RoadmapFeature[] = [
         {
             name: "超級管理員-AI 服務設定（API 金鑰與模型費用）",
             locatedPage: "superadmin/settings/api_key_and_model_setting",
-            percentage: 85,
+            percentage: 86,
             acceptanceCriteria: "1. API 金鑰管理：從 .env 導入、單筆/全部刪除、金鑰驗證。\n2. 未登入時以 resolveUserId fallback 寫入/讀取 Supabase（keys/models/modules/prompts）。\n3. 側欄組態概況：已選總 models 數量即時反映各 provider 勾選加總。\n4. 儲存設定按鈕：將畫面上已選模型寫入 ai_model_selections。\n5. 分頁命名：模型費用說明；說明文案導向「模型費用說明」分頁。",
             docPath: "/docs/update-project-progress-guide.md",
             featureSpecDocPath: "/project-process/features/tdd-ai-settings-20260221.md",
             tddSpecDocPath: "/project-process/features/tdd-ai-settings-20260221.md",
             category: "超級管理員 (Super Admin)",
             points: 5,
-            testProgress: "手動驗證：從 .env 導入、全部清空、單筆刪除、驗證金鑰、儲存設定、側欄數字更新。",
-            testCoverage: 0,
-            lastModifiedBy: "Claude (Auto)",
-            lastModifiedDate: "2026/02/18"
+            devLog: "### 2026-03-04 更新\n- 修復 統一prompt測試 功能無限重渲染 bug（Maximum update depth exceeded）。\n- 根本原因：page.tsx 每次渲染時 currentKeys 產生新陣列引用，導致 allRows→handleBatchTest→headerActionsRef useEffect 形成無限迴圈。\n- 修復方案（雙重防護）：(1) ModelEvaluator.tsx 使用 stable ref 模式（handleBatchTestRef + stableRunBatchTest），移除 handleBatchTest 作為 useEffect dep；(2) page.tsx 以 useMemo 穩定 currentKeys 引用。\n- TDD：新增 5 個批次測試執行行為測試案例，共 28 個測試全部通過。\n\n### 2026-03-06 更新\n- 在「已選/可選模型評估」分頁列右側新增「統一測試設定」按鈕。\n- 按鈕重用既有 isEvalToolbarOpen 狀態，僅切換本頁統一測試面板顯示，不影響其他頁面功能。\n- 補上 aria-controls 對應面板 id（global-test-settings-panel），強化可及性。",
+            testProgress: "TDD: 28/28 tests passing（含 統一/單一 prompt 測試功能完整測試）",
+            testCoverage: 15,
+            testScriptCount: 28,
+            testScriptPassedCount: 28,
+            lastModifiedBy: "GPT-5.3-Codex",
+            lastModifiedDate: "2026/03/06"
         },
 
         // === 2026-02-21 新增任務 ===
@@ -410,21 +413,54 @@ const RAW_FEATURES: RoadmapFeature[] = [
             name: "IAM Management Hub（整合）",
             locatedPage: "/superadmin/dashboard/iam-management",
             category: "超級管理員 (Super Admin)",
-            percentage: 95,
+            percentage: 100,
             phase: "development",
             lastModifiedBy: "Claude Sonnet 4.6",
-            lastModifiedDate: "2026/02/26",
-            devLog: "### 完成項目\n- 將 4 個分散頁面（iam-management, users, groups, rbac_access_control）整合為單一 tab 式儀表板\n- 新增 IAMTabBar / OverviewTab / UsersTab / GroupsTab / RolesTab 元件\n- iam-management/page.tsx 改為 hash-based tab shell（'use client'）\n- /superadmin/users、/superadmin/groups、/superadmin/dashboard/rbac_access_control 改為 client-side redirect\n- Sidebar 移除 3 個舊項目，IAM Management 改用 Shield icon\n- 2026/02/26：Roles tab Permission Matrix 完整 DB 持久化（iam_role_permissions 表、CRUD actions、即時儲存 UI）"
+            lastModifiedDate: "2026/02/27",
+            devLog: "### 完成項目\n- 將 4 個分散頁面（iam-management, users, groups, rbac_access_control）整合為單一 tab 式儀表板\n- 新增 IAMTabBar / OverviewTab / UsersTab / GroupsTab / RolesTab 元件\n- iam-management/page.tsx 改為 hash-based tab shell（'use client'）\n- /superadmin/users、/superadmin/groups、/superadmin/dashboard/rbac_access_control 改為 client-side redirect\n- Sidebar 移除 3 個舊項目，IAM Management 改用 Shield icon\n- 2026/02/26：Roles tab Permission Matrix 完整 DB 持久化（iam_role_permissions 表、CRUD actions、即時儲存 UI）\n- 2026/02/27（Phase A）：修復 Hydration Error（useState 初始值從 getTabFromHash 改為 'overview' 常數，hash 讀取移至 useEffect）；刪除孤兒元件 PermissionMatrixTab.tsx（已被 RolesTab DB 版取代）"
         },
         {
             name: "Enterprise RBAC — Resources / Route Permissions / Scope",
             locatedPage: "/superadmin/dashboard/iam-management#roles",
             category: "超級管理員 (Super Admin)",
+            percentage: 100,
+            phase: "development",
+            lastModifiedBy: "Claude Sonnet 4.6",
+            lastModifiedDate: "2026/02/27",
+            devLog: "### 完成項目\n- DB migration 20260226190000：iam_role_permissions 新增 scope 欄位（all/own/assigned）+ CHECK constraint + index；新增 check_user_permission RPC\n- lib/rbac/resources.ts：16 resource 定義，分 5 組（Property/Contracts/Finance/IAM/System），export ResourceId + RESOURCE_DEFINITIONS + RESOURCES\n- lib/rbac/permissions.ts：PermissionScope type、checkUserHasPermission RPC wrapper、ROUTE_PERMISSIONS（21 路由對應）、findRoutePermission（最長前綴匹配）、getAccessibleRoutes\n- actions.ts：RolePermission 加 scope，getAllRolePermissions/saveRolePermissions 同步更新\n- RolesTab.tsx：16 resource 替換舊 7 個、scopeMatrix state、每欄 scope badge 可循環切換、Legend 說明\n- Sidebar.tsx：export navItems + NavItem，新增 accessibleHrefs prop 過濾可見路由\n- layout.tsx：改 async Server Component，呼叫 get_user_roles 判斷 isSuperAdmin，傳 accessibleHrefs 給 Sidebar\n- 2026/02/27（Phase C）：migration 20260227110000 — 5 張核心資料表（property_rentals / property_sales / lease_agreements / rental_ledger / sales_ledger）加入 iam_controlled_read + iam_managed_full_access 加法式 RLS 政策；透過 check_user_permission RPC 回傳 all/own/NULL 控制存取，保留既有 landlord/agent 政策不動\n- 2026/02/27（Phase D）：apps/web/middleware.ts 全面改寫 — 新增 ROUTE_ROLE_GUARDS（最長前綴優先）、getRequiredRoles()；受保護路由使用 get_user_roles() RPC 即時查 IAM 角色，super_admin 繞過全部守衛；role 不符跳轉 /portal?reason=insufficient_role"
+        },
+        {
+            name: "OAuth 用戶入職 — Avatar URL 支援",
+            locatedPage: "/onboarding",
+            category: "通用/系統 (General/System)",
+            percentage: 100,
+            phase: "development",
+            lastModifiedBy: "Claude Sonnet 4.6",
+            lastModifiedDate: "2026/02/27",
+            devLog: "### 完成項目（Phase B）\n- config.toml：確認 Supabase CLI 不支援 scopes 鍵；改以 Dashboard UI 或 GOTRUE_EXTERNAL_*_SCOPES 環境變數設定 OAuth Scope（已在 config.toml 加入說明注解）\n- migration 20260227100000：users_profile 新增 avatar_url TEXT 欄位；從 auth.users.raw_user_meta_data 回填現有 OAuth 用戶（Google: avatar_url/picture，Facebook: avatar_url）\n- apps/web/lib/actions/onboarding.ts：createUserProfile() 新增 avatarUrl 提取（metadata.avatar_url || metadata.picture），寫入 users_profile.avatar_url"
+        },
+        {
+            name: "超級管理員-物件管理（新增物件含媒體上傳）",
+            locatedPage: "superadmin/properties",
+            category: "超級管理員 (Super Admin)",
             percentage: 90,
             phase: "development",
             lastModifiedBy: "Claude Sonnet 4.6",
-            lastModifiedDate: "2026/02/26",
-            devLog: "### 完成項目\n- DB migration 20260226190000：iam_role_permissions 新增 scope 欄位（all/own/assigned）+ CHECK constraint + index；新增 check_user_permission RPC\n- lib/rbac/resources.ts：16 resource 定義，分 5 組（Property/Contracts/Finance/IAM/System），export ResourceId + RESOURCE_DEFINITIONS + RESOURCES\n- lib/rbac/permissions.ts：PermissionScope type、checkUserHasPermission RPC wrapper、ROUTE_PERMISSIONS（21 路由對應）、findRoutePermission（最長前綴匹配）、getAccessibleRoutes\n- actions.ts：RolePermission 加 scope，getAllRolePermissions/saveRolePermissions 同步更新\n- RolesTab.tsx：16 resource 替換舊 7 個、scopeMatrix state、每欄 scope badge 可循環切換、Legend 說明\n- Sidebar.tsx：export navItems + NavItem，新增 accessibleHrefs prop 過濾可見路由\n- layout.tsx：改 async Server Component，呼叫 get_user_roles 判斷 isSuperAdmin，傳 accessibleHrefs 給 Sidebar"
+            lastModifiedDate: "2026/03/02",
+            devLog: "### 完成項目\n- getOwnersList() / createProperty() server actions（lib/actions/properties.ts）\n- CreatePropertyInput / OwnerOption 型別（lib/types/properties.ts）\n- PropertyCreateModal.tsx：含完整 6 頁籤（物件基本資訊 / 物件照片 / 謄本 / 權狀 / 合約 / 部落格）；兩段式建立流程：第一次儲存建立物件取得 ID，後續 tabs 接入 PropertyMediaSection；物件類型與所有權人建立後鎖定\n- PropertiesList.tsx：新增物件按鈕接入 PropertyCreateModal，onCreated 觸發 router.refresh()\n- properties/page.tsx：並行 fetch getAllProperties() + getOwnersList() 後傳入 PropertiesList",
+            developmentProgress: "物件列表與編輯功能（含 PropertyEditModal + PropertyMediaSection）已完成；本次新增物件建立功能，6-tab create modal 完成。待補強：表單欄位前端 validation、建立後自動跳至媒體頁籤。"
+        },
+        {
+            name: "雲端 OCR 多模型共識謄本解析",
+            locatedPage: "superadmin/properties",
+            category: "超級管理員 (Super Admin)",
+            percentage: 92,
+            phase: "development",
+            lastModifiedBy: "Claude Sonnet 4.6",
+            lastModifiedDate: "2026/03/04",
+            docPath: "/docs/implementation-plans/consensus-transcript-parsing-plan.md",
+            devLog: "### 完成項目\n- DB Migration：ocr_parse_results 表 + property_documents 新增 consensus_metadata / parse_strategy 欄位\n- TypeScript 型別：ModelParseResult / ConsensusMetadata / ConflictDetail / JudgeResolution\n- Feature Module：拆分 online_ocr → online_ocr_parse（解析組）+ online_ocr_judge（裁判組）\n- 共識演算法：transcript-consensus.ts — 多模型 majority vote、台灣特規正規化、信心分數\n- AI API 共用呼叫器：ai-api-callers.ts — 支援 OpenAI/Anthropic/Gemini/DeepSeek/Grok\n- 共識引擎 Server Action：consensus-parse.ts — 平行呼叫 → 共識投票 → 裁判仲裁 三階段流程\n- 向下相容：parse-transcript.ts 改為 wrapper 委派至共識引擎\n- UI 更新：PropertyMediaSection 新增信心徽章、衝突明細面板、共識 metadata 顯示\n- FeatureModuleSelector 提示文字：解析組建議 2~3 模型、裁判組為可選配置\n### 2026-03-04 新增\n- SSE 串流 API：/api/transcript-parse/stream — POST 端點，以 ReadableStream 逐模型即時回傳解析進度事件\n- TranscriptParseSection 元件：從 PropertyMediaSection 拆出（原 610 行降至 387 行），新增：(1) 可收折「解析設定」面板（顯示已設定之解析/裁判模型、一次性 Prompt 覆寫欄位、跳轉 AI 設定連結）；(2) 解析中以逐模型進度列表取代單一轉圈，即時顯示各模型狀態（等待/解析中/完成/失敗）及耗時",
+            developmentProgress: "核心架構與 UI 全部完成。待辦：整合測試、Migration 套用驗證。"
         }
 ];
 

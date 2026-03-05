@@ -22,9 +22,12 @@ function getTabFromHash(): IAMTab {
 }
 
 export default function IAMManagementPage() {
-  const [activeTab, setActiveTab] = useState<IAMTab>(getTabFromHash);
+  // Initialize with 'overview' so SSR and client hydration match,
+  // then read the hash after mount to avoid hydration mismatch.
+  const [activeTab, setActiveTab] = useState<IAMTab>('overview');
 
   useEffect(() => {
+    setActiveTab(getTabFromHash());
     const onHashChange = () => setActiveTab(getTabFromHash());
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
@@ -114,8 +117,8 @@ export default function IAMManagementPage() {
               </div>
             )}
           </div>
-          {/* Tab content (flex-1 min-h-0 flex flex-col: fills remaining height; flex col so children can use flex-1) */}
-          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+          {/* Tab content (flex-1 min-h-0 flex flex-col: fills remaining height; overflow-y-auto enables scrolling) */}
+          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
             {activeTab === 'overview' && <OverviewTab />}
             {activeTab === 'users'    && <UsersTab />}
             {activeTab === 'roles'    && <RolesTab />}

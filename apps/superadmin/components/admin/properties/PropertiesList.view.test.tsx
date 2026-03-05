@@ -26,7 +26,7 @@ describe('PropertiesList View controls', () => {
     expect(thead?.className || '').not.toContain('sticky');
 
     fireEvent.click(screen.getByRole('button', { name: /View/i }));
-    fireEvent.click(screen.getByRole('button', { name: '凍結標題列' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: '凍結第 1 row' }));
 
     expect(thead?.className || '').toContain('sticky');
   });

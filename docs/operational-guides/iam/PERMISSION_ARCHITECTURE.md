@@ -47,6 +47,8 @@
 | `vendor` | 被指派的工單（Work Orders）。 |
 | `auditor` | 財務與稽核相關唯讀。 |
 
+> **👉 工程師新增/編輯角色或查詢 iam_roles 表請見**：[ROLES_OPERATIONS_GUIDE.md](./ROLES_OPERATIONS_GUIDE.md)
+
 遷移與實作細節見 [Implementation Plan: IAM as Single Source (Option A)](./iam_single_source_option_a.md)。
 
 ---

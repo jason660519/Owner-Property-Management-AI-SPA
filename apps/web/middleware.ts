@@ -1,6 +1,31 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+// ---------------------------------------------------------------------------
+// Route role guards — most-specific prefix first so /tenant/contracted wins
+// over /tenant.  super_admin always bypasses all guards.
+// ---------------------------------------------------------------------------
+const ROUTE_ROLE_GUARDS: [string, string[]][] = [
+  ['/tenant/contracted', ['tenant', 'contract_tenant', 'contracted_tenant']],
+  ['/tenant/potential',  ['potential_tenant']],
+  ['/tenant',            ['tenant', 'contract_tenant', 'contracted_tenant', 'potential_tenant']],
+  ['/buyer/contracted',  ['buyer', 'contract_buyer', 'contracted_buyer']],
+  ['/buyer/potential',   ['potential_buyer']],
+  ['/buyer',             ['buyer', 'contract_buyer', 'contracted_buyer', 'potential_buyer']],
+  ['/landlord',          ['landlord']],
+  ['/agent',             ['agent']],
+  ['/service-provider',  ['service_provider', 'vendor']],
+  // /portal has no guard — any authenticated user may access it
+];
+
+/** Returns the required roles for a given pathname, or null if no guard applies. */
+function getRequiredRoles(pathname: string): string[] | null {
+  for (const [prefix, roles] of ROUTE_ROLE_GUARDS) {
+    if (pathname.startsWith(prefix)) return roles;
+  }
+  return null;
+}
+
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -26,11 +51,13 @@ export async function middleware(request: NextRequest) {
       },
       cookieOptions: {
         name: 'sb-localhost-auth-token',
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
       },
     }
   );
 
-  // 刷新 session - 重要！這樣 Server Components 就能取得最新的 session
+  // Refresh session — Server Components need the latest session
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -39,22 +66,21 @@ export async function middleware(request: NextRequest) {
   let effectiveRole = user?.user_metadata?.role || 'landlord';
   const simulationRole = request.cookies.get('x-simulation-role')?.value;
 
-  // Verify if the REAL user is actually a super_admin before allowing simulation
-  // This prevents non-admins from spoofing the cookie to escalate privileges
+  // Verify the REAL user is actually a super_admin before allowing simulation.
+  // This prevents non-admins from spoofing the cookie to escalate privileges.
   if (user && simulationRole && user.user_metadata?.role === 'super_admin') {
     effectiveRole = simulationRole;
-    // Inject a header so downstream components know we are simulating
     supabaseResponse.headers.set('x-simulation-mode', 'true');
     supabaseResponse.headers.set('x-effective-role', effectiveRole);
   }
 
-  // 需要認證的路由（超級管理員獨立在 port 3001，此站為房東/租客/買家等）
+  // Protected routes (super admin lives separately on port 3001)
   const protectedRoutes = ['/landlord', '/tenant', '/buyer', '/agent', '/service-provider', '/portal'];
   const isProtectedRoute = protectedRoutes.some((route) =>
     request.nextUrl.pathname.startsWith(route)
   );
 
-  // 如果是受保護的路由但沒有用戶，重導向到登入頁
+  // 1. Unauthenticated → login
   if (isProtectedRoute && !user) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = '/login';
@@ -62,16 +88,44 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // 認證相關路由（已登入時應重定向）
+  // 2. IAM role guard: authenticated user must hold a role allowed on this path.
+  //    Uses get_user_roles() RPC for real-time IAM accuracy (same as superadmin middleware).
+  //    Only fires when the path has a guard (skips /portal and other open paths).
+  if (isProtectedRoute && user) {
+    const requiredRoles = getRequiredRoles(request.nextUrl.pathname);
+    if (requiredRoles) {
+      const { data: roleRows } = await supabase.rpc('get_user_roles', {
+        lookup_user_id: user.id,
+      });
+      const iamRoles: string[] = Array.isArray(roleRows)
+        ? roleRows.map((r: { role_name: string }) => r.role_name)
+        : [];
+
+      // super_admin bypasses all route guards
+      if (!iamRoles.includes('super_admin')) {
+        // When simulation is active use the simulated role; otherwise real IAM roles
+        const activeRoles = simulationRole ? [simulationRole] : iamRoles;
+        const hasAccess = requiredRoles.some((r) => activeRoles.includes(r));
+
+        if (!hasAccess) {
+          const redirectUrl = request.nextUrl.clone();
+          redirectUrl.pathname = '/portal';
+          redirectUrl.searchParams.set('reason', 'insufficient_role');
+          return NextResponse.redirect(redirectUrl);
+        }
+      }
+    }
+  }
+
+  // Auth routes (login / register / forgot-password)
   const authRoutes = ['/login', '/register', '/forgot-password'];
   const isAuthRoute = authRoutes.some((route) => request.nextUrl.pathname.startsWith(route));
 
   // Server Action requests (POST with Next-Action header) should NOT be redirected —
-  // otherwise sequential Server Action calls after login (e.g. getUserRoles) will fail
-  // because the middleware redirects the POST and the client gets HTML instead of RSC payload.
+  // otherwise sequential Server Action calls after login (e.g. getUserRoles) will fail.
   const isServerAction = request.method === 'POST' && request.headers.has('Next-Action');
 
-  // 如果已登入且訪問認證頁面，重導向到對應的儀表板（跳過 Server Action）
+  // 3. Already logged-in user hitting auth pages → redirect to dashboard
   if (user && isAuthRoute && !isServerAction) {
     const role = effectiveRole;
     const roles: string[] = Array.isArray(user.user_metadata?.roles)
@@ -86,7 +140,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // Multi-role users (or super_admin with other roles) → portal for role selection
+    // Multi-role users → portal for role selection
     if (roles.length > 1 && !simulationRole) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = '/portal';
@@ -129,21 +183,8 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * 匹配所有需要認證檢查的路由（超級管理員在 port 3001，不在此站）
-     * - /landlord/*     - 房東儀表板
-     * - /tenant/*       - 租戶儀表板
-     * - /buyer/*        - 買家儀表板
-     * - /agent/*        - 經紀人儀表板
-     * - /service-provider/* - 服務商儀表板
-     * - /portal/*       - 角色選擇入口
-     * - /login          - 登入頁
-     * - /register       - 註冊頁
-     * - /forgot-password - 忘記密碼頁
-     * 
-     * 排除靜態資源:
-     * - /_next/static, /_next/image
-     * - favicon.ico
-     * - 图片文件 (svg, png, jpg, etc.)
+     * Match all routes that need auth checks (super admin is on port 3001).
+     * Excludes static assets: _next/static, _next/image, favicon, images.
      */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],

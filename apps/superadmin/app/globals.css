@@ -411,3 +411,7 @@ html, body, .main-container, .content-wrapper, .inner-page {
 .hljs-selector-tag { color: #7ee787; }
 .hljs-meta { color: #79c0ff; }
 
+@keyframes progress-bar-stripes {
+  0% { background-position: 1rem 0; }
+  100% { background-position: 0 0; }
+}

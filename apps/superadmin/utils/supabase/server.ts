@@ -23,6 +23,8 @@ export async function createClient() {
       },
       cookieOptions: {
         name: 'sb-localhost-auth-token',
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
       },
     }
   );

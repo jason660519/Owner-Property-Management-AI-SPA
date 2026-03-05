@@ -8,7 +8,11 @@ import { Button } from '@/components/ui/Button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { createClient } from '@/utils/supabase/client';
 
-export function DashboardHeader() {
+type DashboardHeaderProps = {
+  userRoles?: string[];
+};
+
+export function DashboardHeader({ userRoles = [] }: DashboardHeaderProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -38,6 +42,14 @@ export function DashboardHeader() {
     } catch (error) {
       console.error('Error signing out:', error);
     }
+  };
+
+  const uniqueRoles = Array.from(new Set(userRoles)).filter(Boolean);
+
+  const handleSwitchRole = (role: string) => {
+    // 導向 Web App Portal 的特定角色入口，交給 /portal/[role] 自行轉址到對應 Dashboard
+    const target = `${MAIN_SITE_URL}/portal/${encodeURIComponent(role)}`;
+    window.location.href = target;
   };
 
   const navLinks = [
@@ -120,6 +132,31 @@ export function DashboardHeader() {
                       <User className="mr-3 h-4 w-4" />
                       Profile
                     </Link>
+                    {uniqueRoles.length > 0 && (
+                      <>
+                        <div className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-text-tertiary">
+                          角色切換
+                        </div>
+                        {uniqueRoles.map((role) => (
+                          <button
+                            key={role}
+                            type="button"
+                            onClick={() => {
+                              setIsUserMenuOpen(false);
+                              handleSwitchRole(role);
+                            }}
+                            className="flex w-full items-center px-4 py-1.5 text-sm text-text-secondary hover:bg-bg-secondary hover:text-text-primary transition-colors"
+                            role="menuitem"
+                          >
+                            <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-purple-60/10 text-[10px] font-semibold text-purple-60 uppercase">
+                              {role === 'super_admin' ? 'SA' : role.charAt(0)}
+                            </span>
+                            <span className="truncate">{role}</span>
+                          </button>
+                        ))}
+                        <div className="my-1 h-px bg-border-default" />
+                      </>
+                    )}
                     <Link
                       href="/superadmin/settings"
                       className="flex items-center px-4 py-2 text-sm text-text-secondary hover:bg-bg-secondary hover:text-text-primary transition-colors"

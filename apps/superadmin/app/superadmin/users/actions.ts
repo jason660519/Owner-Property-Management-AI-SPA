@@ -181,6 +181,7 @@ export async function inviteUser(formData: FormData) {
 export type IAMUser = {
   id: string;
   email: string;
+  displayName?: string | null;
   groups: string[];
   roles: string[];
   createdAt?: string;
@@ -201,11 +202,13 @@ export async function getUsers(): Promise<IAMUser[]> {
 
   const { data: profiles } = await supabase
     .from('users_profile')
-    .select('id, roles');
+    .select('id, roles, display_name');
 
   const profileRolesMap = new Map<string, string[]>();
-  (profiles || []).forEach((p: { id: string; roles: string[] | null }) => {
+  const profileDisplayNameMap = new Map<string, string | null>();
+  (profiles || []).forEach((p: { id: string; roles: string[] | null; display_name: string | null }) => {
     profileRolesMap.set(p.id, p.roles || []);
+    profileDisplayNameMap.set(p.id, p.display_name ?? null);
   });
 
   const userMap = new Map<string, IAMUser>();
@@ -213,6 +216,7 @@ export async function getUsers(): Promise<IAMUser[]> {
     userMap.set(u.id, {
       id: u.id,
       email: u.email || 'No Email',
+      displayName: profileDisplayNameMap.get(u.id) ?? null,
       groups: [],
       roles: profileRolesMap.get(u.id) || [],
       createdAt: u.created_at,
@@ -337,6 +341,69 @@ export async function addRoleToUser(userId: string, role: string) {
 
   if (updateError) {
     return { success: false, message: updateError.message };
+  }
+
+  revalidatePath(BASE);
+  return { success: true };
+}
+
+/**
+ * Update a user's display_name in both Auth user_metadata and users_profile.
+ * Only super_admin can call this. Used from IAM User Management UI.
+ */
+export async function updateUserDisplayName(
+  userId: string,
+  displayName: string
+): Promise<{ success: boolean; message?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, message: 'Unauthorized' };
+  }
+
+  const { data: profile } = await supabase
+    .from('users_profile')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  const hasSuperAdminRole =
+    profile?.role === 'super_admin' ||
+    user.app_metadata?.roles?.includes('super_admin') ||
+    user.user_metadata?.roles?.includes('super_admin');
+
+  if (!hasSuperAdminRole) {
+    return { success: false, message: 'Unauthorized: Admin access required' };
+  }
+
+  const trimmed = displayName.trim();
+  if (!trimmed) {
+    return { success: false, message: 'Display name cannot be empty' };
+  }
+
+  const admin = createAdminClient();
+  const { data: authUser, error: fetchError } = await admin.auth.admin.getUserById(userId);
+  if (fetchError || !authUser?.user) {
+    return { success: false, message: fetchError?.message ?? 'User not found' };
+  }
+
+  const existingMeta = authUser.user.user_metadata ?? {};
+  const { error: updateAuthError } = await admin.auth.admin.updateUserById(userId, {
+    user_metadata: { ...existingMeta, display_name: trimmed },
+  });
+  if (updateAuthError) {
+    return { success: false, message: updateAuthError.message };
+  }
+
+  const { error: updateProfileError } = await admin
+    .from('users_profile')
+    .update({ display_name: trimmed, updated_at: new Date().toISOString() })
+    .eq('id', userId);
+  if (updateProfileError) {
+    return { success: false, message: updateProfileError.message };
   }
 
   revalidatePath(BASE);

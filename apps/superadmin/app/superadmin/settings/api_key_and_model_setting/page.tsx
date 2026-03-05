@@ -1,26 +1,129 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Key, Puzzle, MessageSquareText, FlaskConical,
-  Loader2, RefreshCw, Trash2, ShieldCheck, Upload,
+  Key, FlaskConical, ScanText, Globe, FileSignature, BookOpen,
+  Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download,
 } from 'lucide-react';
+import { readLocalStorage, writeLocalStorage } from '@/lib/utils/storage-state';
 import { DashboardLayout } from '@/components/dashboard';
 import { Button } from '@/components/ui/Button';
 import {
   ApiKeyManager,
   type ApiKeyManagerHandle,
   ModelEvaluator,
-  FeatureModuleSelector,
 } from '@/components/ai-settings';
 import { useAISettings, type KeyValidationResult } from '@/lib/hooks/useAISettings';
 import { getTotalAvailableModels, getSelectedCountInAvailable } from '@/lib/utils/total-available-models';
 import { getProviderById, AI_PROVIDERS } from '@/lib/ai-providers';
 import { SUPPORTED_AI_ENV_KEY_NAMES } from '@/lib/parse-env-keys';
 
-type SettingsTab = 'keys' | 'evaluations' | 'modules';
 
-const TAB_IDS: SettingsTab[] = ['keys', 'evaluations', 'modules'];
+type SettingsTab = 'keys' | 'evaluations' | 'ocr' | 'static-ad' | 'contract' | 'blog';
+
+const TAB_IDS: SettingsTab[] = ['keys', 'evaluations', 'ocr', 'static-ad', 'contract', 'blog'];
+
+const LS_GLOBAL_PROMPT = 'ai-settings:globalTestPrompt';
+const LS_SAVED_PROMPTS = 'ai-settings:savedPrompts';
+const LS_LAST_PROMPT_NAME_BY_MODULE = 'ai-settings:lastPromptNameByModule';
+
+type SavedPromptCategory = 'general' | 'ocr' | 'static-ad' | 'contract' | 'blog';
+
+type SavedPrompt = {
+  id: string;
+  name: string;
+  category: SavedPromptCategory;
+  content: string;
+  updatedAt: string;
+};
+
+type LastPromptNameByModule = Record<string, string>;
+
+// Default evaluation prompt for OCR transcript parsing — kept at module level so
+// readLocalStorage can reference it as a fallback before the component mounts.
+const DEFAULT_EVALUATION_PROMPT = `請根據我提供的文件資料，無論其格式為何（PDF、JPG、掃描後的 OCR 文字、或直接複製的文字），完整解析並轉換成結構化的 JSON 格式，以便將來餵給資料庫使用。
+具體來說，我將執行以下步驟：
+內容分區： 將謄本內容細分為「謄本資訊」、「建物標示部」和「建物所有權部」等明確區塊，確保資料結構清晰。
+資訊提取： 從各區塊中精確提取所有相關資訊，包括但不限於：
+謄本種類
+建物建號
+行政區
+列印時間
+建物門牌
+主要用途
+所有權人
+權利範圍
+以及所有其他相關字段
+格式轉換： 將提取的資訊轉換為 key-value 對的形式，並嚴格按照 JSON 格式進行組織，確保資料庫易於讀取和使用。
+資料清洗： 徹底清理資料，包括去除多餘的空格、修正 OCR 文字識別錯誤、以及處理任何不一致或不完整的數據，以提高資料品質。
+列表處理： 將「其他登記事項」等包含多個項目的資訊轉換為 JSON 陣列，確保所有資訊都以結構化的方式呈現。
+輸出範例：
+json
+{
+  "謄本資訊": {
+    "謄本種類": "建物登記第二類謄本",
+    "建物建號": "01696-000",
+    "行政區": "大安區復興段二小段",
+    "列印時間": "民國102年07月08日14時21分",
+    "頁次": "1",
+    "謄本類型": "網路申領之電子謄本",
+    "列印機構": "弘盛資產管理股份有限公司",
+    "謄本檢查號": "102AF022949REG0F69C7C431A22472C942E9BD12FA301BC",
+    "查驗網址": "http://ttt.land.net.tw",
+    "地政事務所主任": "高麗香",
+    "大安電謄字號": "022949",
+    "資料管轄機關": "臺北市大安地政事務所",
+    "謄本核發機關": "臺北市大安地政事務所"
+  },
+  "建物標示部": {
+    "登記日期": "民國086年06月04日",
+    "登記原因": "門牌整編",
+    "建物門牌": "敦化南路一段236巷7號十一樓",
+    "建物坐落地號": "復興段二小段0007-0000",
+    "主要用途": "住家用",
+    "主要建材": "鋼筋混凝土造",
+    "層數": "014層",
+    "層次": "十一層",
+    "建築完成日期": "民國---年--月--日",
+    "附屬建物用途": "陽台",
+    "總面積": "146.87平方公尺",
+    "層次面積": "146.87平方公尺",
+    "陽台面積": "17.84平方公尺",
+    "共有部分": "復興段二小段01719-000建號2,424.04平方公尺",
+    "權利範圍": "242404分之2249",
+    "其他登記事項": [
+      "1683公設持分110377934188分之1021594009",
+      "1712公設持分110377934188分之1597121304",
+      "1687公設持分110377934188分之1618925080",
+      "1661公設持分110377934188分之1618925080",
+      "1713建號公設持分110377934188分之1597238301",
+      "使用執照字號:67使字155號",
+      "1704建號公設持分110377934188分之1618925080",
+      "1687建號公設持分110377934188分之1618925080",
+      "主建物1712建號權利範圍110377934188分之1597121304",
+      "1679建號公設持分110377934188分之1618925080",
+      "1680建號公設持分110377934188分之1618925080"
+    ]
+  },
+  "建物所有權部": {
+    "登記次序": "0001",
+    "登記日期": "民國080年03月06日",
+    "登記原因": "買賣",
+    "原因發生日期": "民國080年02月04日",
+    "所有權人": "林湘君",
+    "住址": "台北市大安區仁愛里19鄰敦化南路1段236巷7號11樓",
+    "權利範圍": "全部1分之1",
+    "權狀字號": "080北大字第001496號",
+    "相關他項權利登記次序": [
+      "0002-000",
+      "0003-000",
+      "0004-000",
+      "0005-000"
+    ],
+    "其他登記事項": null
+  },
+  "備註": "本謄本僅係建物標示及所有權部節本，詳細權利狀態請參閱全部謄本"
+}`;
 
 function getTabFromHash(): SettingsTab | null {
   if (typeof window === 'undefined') return null;
@@ -31,10 +134,65 @@ function getTabFromHash(): SettingsTab | null {
 const TABS: { id: SettingsTab; label: string; icon: React.ElementType; description: string }[] = [
   { id: 'keys', label: 'API 金鑰管理', icon: Key, description: '管理各 AI 服務提供商的 API 金鑰' },
   { id: 'evaluations', label: '已選/可選模型評估', icon: FlaskConical, description: '' },
-  { id: 'modules', label: '功能模組配置', icon: Puzzle, description: '啟用與配置 AI 功能模組' },
+  { id: 'ocr', label: 'OCR解析設定', icon: ScanText, description: '設定 OCR 解析模型與參數' },
+  { id: 'static-ad', label: '靜態網頁廣告生成器 AI 助理', icon: Globe, description: '自動生成不動產靜態網頁廣告' },
+  { id: 'contract', label: '合約生成AI助理', icon: FileSignature, description: '自動生成不動產合約文件' },
+  { id: 'blog', label: '部落格生成 AI 助理設定', icon: BookOpen, description: '自動生成不動產部落格文章' },
 ];
 
 const ENV_IMPORT_TOOLTIP = `從 .env 或 JSON 導入\n支援兩種格式：\n• .env：KEY=value 或 export KEY=value\n• JSON：{"OPENAI_API_KEY":"sk-..."} 等頂層 key\n變數名大小寫不拘、拼寫需正確；僅下列金鑰會被辨識：${SUPPORTED_AI_ENV_KEY_NAMES.join('、')}`;
+
+const OCR_HIDDEN_MODULE_KEYS = [
+  'web_assistant',
+  'contract_assistant',
+  'blog_generator',
+  'ad_generator',
+  'software_dev_engineer',
+  'ttd_engineer',
+];
+
+const STATIC_AD_HIDDEN_MODULE_KEYS = [
+  'online_ocr_parse',
+  'online_ocr_judge',
+  'web_assistant',
+  'contract_assistant',
+  'blog_generator',
+  'software_dev_engineer',
+  'ttd_engineer',
+];
+
+const CONTRACT_HIDDEN_MODULE_KEYS = [
+  'online_ocr_parse',
+  'online_ocr_judge',
+  'web_assistant',
+  'blog_generator',
+  'ad_generator',
+  'software_dev_engineer',
+  'ttd_engineer',
+];
+
+const BLOG_HIDDEN_MODULE_KEYS = [
+  'online_ocr_parse',
+  'online_ocr_judge',
+  'web_assistant',
+  'contract_assistant',
+  'ad_generator',
+  'software_dev_engineer',
+  'ttd_engineer',
+];
+
+const EVALUATIONS_HIDDEN_MODULE_KEYS = [
+  'online_ocr_parse',
+  'online_ocr_judge',
+  'web_assistant',
+  'contract_assistant',
+  'blog_generator',
+  'ad_generator',
+  'software_dev_engineer',
+  'ttd_engineer',
+];
+
+
 
 export default function AIServiceSettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => getTabFromHash() ?? 'keys');
@@ -46,21 +204,100 @@ export default function AIServiceSettingsPage() {
   /** 全部驗證完成後各 key 的結果，供每張 card 直接顯示 Available models，無需再按「驗證金鑰」 */
   const [validateAllResultsByKeyId, setValidateAllResultsByKeyId] = useState<Record<string, KeyValidationResult>>({});
   const keysRef = useRef(settings.keys);
-  const modelEvaluatorHeaderActionsRef = useRef<{
+  const [modelEvaluatorHeaderActions, setModelEvaluatorHeaderActions] = useState<{
     runBatchTest: () => void;
     batchTesting: boolean;
     canBatchTest: boolean;
     tooltip: string;
+    batchProgress: { tested: number; total: number; succeeded: number; failed: number } | null;
+    testableCount: number;
+    selectedCount: number;
+    totalCount: number;
+    filteredTotal: number;
+    filteredSelectedCount: number;
   } | null>(null);
   useEffect(() => {
     keysRef.current = settings.keys;
   }, [settings.keys]);
 
   // 已選/可選模型評估：全域測試 Prompt 與共用檔案（供 ModelEvaluator 使用）
-  const DEFAULT_EVALUATION_PROMPT =
-    '請根據我上傳的檔案，解析出所有權人是誰，如果你看不到檔案，就回答：我看不到檔案';
-  const [globalTestPrompt, setGlobalTestPrompt] = useState<string>(DEFAULT_EVALUATION_PROMPT);
+  // DEFAULT_EVALUATION_PROMPT is defined at module level (see below)
+  const [globalTestPrompt, setGlobalTestPrompt] = useState<string>(
+    () => readLocalStorage(LS_GLOBAL_PROMPT, DEFAULT_EVALUATION_PROMPT)
+  );
+  const [savedPrompts, setSavedPrompts] = useState<SavedPrompt[]>(
+    () => readLocalStorage<SavedPrompt[]>(LS_SAVED_PROMPTS, [])
+  );
+  const [promptFileName, setPromptFileName] = useState<string>('');
+  const [lastPromptNameByModule, setLastPromptNameByModule] = useState<LastPromptNameByModule>(
+    () => readLocalStorage<LastPromptNameByModule>(LS_LAST_PROMPT_NAME_BY_MODULE, {})
+  );
+  const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
+  const [selectedCloudPromptId, setSelectedCloudPromptId] = useState<string>('');
+  const [isEvalToolbarOpen, setIsEvalToolbarOpen] = useState(false);
+  // ── Persist globalTestPrompt to localStorage whenever it changes ──────────
+  useEffect(() => {
+    writeLocalStorage(LS_GLOBAL_PROMPT, globalTestPrompt);
+  }, [globalTestPrompt]);
+  useEffect(() => {
+    writeLocalStorage<SavedPrompt[]>(LS_SAVED_PROMPTS, savedPrompts);
+  }, [savedPrompts]);
+  useEffect(() => {
+    writeLocalStorage<LastPromptNameByModule>(LS_LAST_PROMPT_NAME_BY_MODULE, lastPromptNameByModule);
+  }, [lastPromptNameByModule]);
+  // 若網址 hash 包含 `*-global-test`，自動切換分頁並打開統一測試頁面（方便從新視窗直接進入）
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const rawHash = window.location.hash.slice(1).toLowerCase();
+    if (!rawHash) return;
+    const suffix = '-global-test';
+    if (rawHash.endsWith(suffix)) {
+      const base = rawHash.slice(0, -suffix.length) as SettingsTab;
+      if ((TAB_IDS as string[]).includes(base)) {
+        setActiveTab(base);
+        setIsEvalToolbarOpen(true);
+      }
+    }
+  }, []);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  /** ref to the hidden file-input used by "載入設定" button */
+  const importFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [exportingSettings, setExportingSettings] = useState(false);
+  const [importingSettings, setImportingSettings] = useState(false);
+
+  const handleExportSettings = useCallback(async () => {
+    setExportingSettings(true);
+    try {
+      const data = await settings.exportSettings();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ai-settings-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '匯出失敗';
+      if (typeof window !== 'undefined') window.alert(msg);
+    } finally {
+      setExportingSettings(false);
+    }
+  }, [settings]);
+
+  const handleImportSettings = useCallback(async (file: File) => {
+    setImportingSettings(true);
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text) as unknown;
+      await settings.importSettings(data);
+      if (typeof window !== 'undefined') window.alert('載入設定成功！頁面資料已更新。');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '載入失敗，請確認檔案格式正確';
+      if (typeof window !== 'undefined') window.alert(msg);
+    } finally {
+      setImportingSettings(false);
+    }
+  }, [settings]);
 
   useEffect(() => {
     const tab = getTabFromHash();
@@ -103,6 +340,168 @@ export default function AIServiceSettingsPage() {
     }
   };
 
+  const getCategoryForTab = (tabId: SettingsTab): SavedPromptCategory => {
+    switch (tabId) {
+      case 'ocr':
+        return 'ocr';
+      case 'static-ad':
+        return 'static-ad';
+      case 'contract':
+        return 'contract';
+      case 'blog':
+        return 'blog';
+      case 'evaluations':
+      case 'keys':
+      default:
+        return 'general';
+    }
+  };
+
+  const currentPromptCategory = getCategoryForTab(activeTab);
+
+  const handleSaveCurrentPrompt = async () => {
+    const trimmed = globalTestPrompt.trim();
+    if (!trimmed) {
+      if (typeof window !== 'undefined') {
+        window.alert('目前的 Prompt 為空白，無法儲存。');
+      }
+      return;
+    }
+    const rawFileName = promptFileName.trim();
+    if (!rawFileName) {
+      if (typeof window !== 'undefined') {
+        window.alert('請先輸入要儲存的檔名。');
+      }
+      return;
+    }
+    if (typeof window === 'undefined') return;
+    const moduleKey = getPromptModuleKeyForTab(activeTab);
+    const name = rawFileName;
+    const downloadFileName = rawFileName.endsWith('.txt') ? rawFileName : `${rawFileName}.txt`;
+    try {
+      const blob = new Blob([trimmed], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = downloadFileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      // 下載失敗不影響雲端儲存
+      // eslint-disable-next-line no-console
+      console.warn('[AI Settings] 下載 Prompt 檔案失敗', err);
+    }
+    try {
+      await settings.savePrompt(
+        moduleKey,
+        'global_eval',
+        trimmed,
+        name
+      );
+      setLastPromptNameByModule((prev) => ({
+        ...prev,
+        [moduleKey]: name,
+      }));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '儲存 Prompt 至雲端失敗，請稍後再試。';
+      window.alert(msg);
+      return;
+    }
+    const id =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const next: SavedPrompt[] = [
+      ...savedPrompts,
+      {
+        id,
+        name,
+        category: currentPromptCategory,
+        content: trimmed,
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+    setSavedPrompts(next);
+    setSelectedPromptId(id);
+    window.alert('已將 Prompt 儲存至本機與雲端。');
+  };
+
+  const handleSelectSavedPrompt = (promptId: string) => {
+    if (!promptId) {
+      setSelectedPromptId(null);
+      return;
+    }
+    const found = savedPrompts.find((p) => p.id === promptId);
+    if (!found) return;
+    setSelectedPromptId(found.id);
+    setGlobalTestPrompt(found.content);
+  };
+
+  const handleDeleteSavedPrompt = (promptId: string) => {
+    if (!promptId) return;
+    if (typeof window !== 'undefined') {
+      const confirmed = window.confirm('確定要刪除此已儲存的 Prompt 嗎？此動作無法復原。');
+      if (!confirmed) return;
+    }
+    setSavedPrompts((prev) => prev.filter((p) => p.id !== promptId));
+    setSelectedPromptId((prev) => (prev === promptId ? null : prev));
+  };
+
+  const getPromptModuleKeyForTab = (tabId: SettingsTab): string => {
+    switch (tabId) {
+      case 'ocr':
+        return 'eval_ocr_global_prompt';
+      case 'static-ad':
+        return 'eval_static_ad_global_prompt';
+      case 'contract':
+        return 'eval_contract_global_prompt';
+      case 'blog':
+        return 'eval_blog_global_prompt';
+      case 'evaluations':
+        return 'eval_models_global_prompt';
+      case 'keys':
+      default:
+        return 'eval_general_global_prompt';
+    }
+  };
+
+  const getCurrentCloudPromptNameForActiveTab = (): string | null => {
+    const moduleKey = getPromptModuleKeyForTab(activeTab);
+    const candidates = settings.prompts.filter(
+      (p) => p.module_key === moduleKey && p.provider === 'global_eval'
+    );
+    if (!candidates.length) return null;
+    if (selectedCloudPromptId) {
+      const found = candidates.find((p) => p.id === selectedCloudPromptId);
+      if (found) return found.prompt_name;
+    }
+    return candidates[0]?.prompt_name ?? null;
+  };
+
+  const currentCloudPromptName = getCurrentCloudPromptNameForActiveTab();
+
+  const handleDeletePromptFromSupabase = async () => {
+    if (!selectedCloudPromptId) {
+      if (typeof window !== 'undefined') {
+        window.alert('請先從下拉選單選擇要刪除的 Prompt。');
+      }
+      return;
+    }
+    if (typeof window !== 'undefined') {
+      const confirmed = window.confirm('確定要刪除此雲端 Prompt 嗎？此動作無法復原。');
+      if (!confirmed) return;
+    }
+    try {
+      await settings.deletePrompt(selectedCloudPromptId);
+      setSelectedCloudPromptId('');
+    } catch (err) {
+      if (typeof window !== 'undefined') {
+        const msg = err instanceof Error ? err.message : '刪除失敗，請稍後再試。';
+        window.alert(msg);
+      }
+    }
+  };
+
   const runValidateAllKeys = useCallback(
     async (keys: typeof settings.keys, importedCount?: number) => {
       if (!keys.length) return;
@@ -134,6 +533,9 @@ export default function AIServiceSettingsPage() {
           if (results[i]) byKeyId[k.id] = results[i] as KeyValidationResult;
         });
         setValidateAllResultsByKeyId(byKeyId);
+        // Reset stale ModelEvaluator header cache so the page header uses
+        // the freshly computed totalAvailableModels instead of stale totalCount.
+        setModelEvaluatorHeaderActions(null);
         try {
           await settings.saveValidationSummary(successCount, totalModels);
         } catch (saveErr) {
@@ -167,6 +569,13 @@ export default function AIServiceSettingsPage() {
       }
     },
     [settings]
+  );
+
+  // Memoize to prevent new array reference on every render — avoids triggering
+  // allRows/handleBatchTest/headerActionsRef useEffect chain that causes infinite re-renders.
+  const memoizedCurrentKeys = useMemo(
+    () => settings.keys.map((k) => ({ id: k.id, provider: k.provider })),
+    [settings.keys]
   );
 
   const renderContent = () => {
@@ -220,7 +629,7 @@ export default function AIServiceSettingsPage() {
             savedModels={settings.models}
             savedEvaluations={settings.evaluations}
             validateAllResultsByKeyId={validateAllResultsByKeyId}
-            currentKeys={settings.keys.map((k) => ({ id: k.id, provider: k.provider }))}
+            currentKeys={memoizedCurrentKeys}
             onSave={settings.saveEvaluations}
             onTestModel={settings.testModel}
             onSaveModels={async (providerId, selections) => {
@@ -230,30 +639,187 @@ export default function AIServiceSettingsPage() {
               );
             }}
             savedModules={settings.modules}
+            hiddenModuleKeys={EVALUATIONS_HIDDEN_MODULE_KEYS}
             onSaveModule={async (moduleKey, isEnabled, assignedModels, config) => {
               await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
             }}
             summarySelectedCount={selectedModelCount}
             summaryTotalCount={totalAvailableModels}
+            promptVariableLabel={currentCloudPromptName ? `{${currentCloudPromptName}}` : undefined}
             globalTestPrompt={globalTestPrompt}
             onChangeGlobalTestPrompt={setGlobalTestPrompt}
             uploadedFile={uploadedFile}
             onChangeUploadedFile={setUploadedFile}
-            headerActionsRef={modelEvaluatorHeaderActionsRef}
+            headerActionsRef={setModelEvaluatorHeaderActions}
+            onOpenGlobalTestPanel={() => {
+              if (typeof window === 'undefined') return;
+              window.open(
+                '/superadmin/settings/api_key_and_model_setting#evaluations-global-test',
+                '_blank',
+                'noopener,noreferrer'
+              );
+            }}
           />
         );
-      case 'modules':
+      case 'ocr':
         return (
-          <FeatureModuleSelector
-            savedModules={settings.modules}
+          <ModelEvaluator
             savedKeys={settings.keys}
             savedModels={settings.models}
-            onSave={async (moduleKey, isEnabled, assignedModels, config) => {
+            savedEvaluations={settings.evaluations}
+            validateAllResultsByKeyId={validateAllResultsByKeyId}
+            currentKeys={memoizedCurrentKeys}
+            onSave={settings.saveEvaluations}
+            onTestModel={settings.testModel}
+            onSaveModels={async (providerId, selections) => {
+              await settings.saveModels(
+                providerId as Parameters<typeof settings.saveModels>[0],
+                selections
+              );
+            }}
+            savedModules={settings.modules}
+            hiddenModuleKeys={OCR_HIDDEN_MODULE_KEYS}
+            onSaveModule={async (moduleKey, isEnabled, assignedModels, config) => {
               await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
             }}
-            onTestModel={settings.testModel}
+            summarySelectedCount={selectedModelCount}
+            summaryTotalCount={totalAvailableModels}
+            promptVariableLabel={currentCloudPromptName ? `{${currentCloudPromptName}}` : undefined}
+            globalTestPrompt={globalTestPrompt}
+            onChangeGlobalTestPrompt={setGlobalTestPrompt}
+            uploadedFile={uploadedFile}
+            onChangeUploadedFile={setUploadedFile}
+            headerActionsRef={setModelEvaluatorHeaderActions}
+            statusLabelMode="ocr"
+            onOpenGlobalTestPanel={() => {
+              if (typeof window === 'undefined') return;
+              window.open(
+                '/superadmin/settings/api_key_and_model_setting#ocr-global-test',
+                '_blank',
+                'noopener,noreferrer'
+              );
+            }}
           />
         );
+      case 'static-ad':
+        return (
+          <ModelEvaluator
+            savedKeys={settings.keys}
+            savedModels={settings.models}
+            savedEvaluations={settings.evaluations}
+            validateAllResultsByKeyId={validateAllResultsByKeyId}
+            currentKeys={memoizedCurrentKeys}
+            onSave={settings.saveEvaluations}
+            onTestModel={settings.testModel}
+            onSaveModels={async (providerId, selections) => {
+              await settings.saveModels(
+                providerId as Parameters<typeof settings.saveModels>[0],
+                selections
+              );
+            }}
+            savedModules={settings.modules}
+            hiddenModuleKeys={STATIC_AD_HIDDEN_MODULE_KEYS}
+            onSaveModule={async (moduleKey, isEnabled, assignedModels, config) => {
+              await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
+            }}
+            summarySelectedCount={selectedModelCount}
+            summaryTotalCount={totalAvailableModels}
+            promptVariableLabel={currentCloudPromptName ? `{${currentCloudPromptName}}` : undefined}
+            globalTestPrompt={globalTestPrompt}
+            onChangeGlobalTestPrompt={setGlobalTestPrompt}
+            uploadedFile={uploadedFile}
+            onChangeUploadedFile={setUploadedFile}
+            headerActionsRef={setModelEvaluatorHeaderActions}
+            onOpenGlobalTestPanel={() => {
+              if (typeof window === 'undefined') return;
+              window.open(
+                '/superadmin/settings/api_key_and_model_setting#static-ad-global-test',
+                '_blank',
+                'noopener,noreferrer'
+              );
+            }}
+          />
+        );
+
+      case 'contract':
+        return (
+          <ModelEvaluator
+            savedKeys={settings.keys}
+            savedModels={settings.models}
+            savedEvaluations={settings.evaluations}
+            validateAllResultsByKeyId={validateAllResultsByKeyId}
+            currentKeys={memoizedCurrentKeys}
+            onSave={settings.saveEvaluations}
+            onTestModel={settings.testModel}
+            onSaveModels={async (providerId, selections) => {
+              await settings.saveModels(
+                providerId as Parameters<typeof settings.saveModels>[0],
+                selections
+              );
+            }}
+            savedModules={settings.modules}
+            hiddenModuleKeys={CONTRACT_HIDDEN_MODULE_KEYS}
+            onSaveModule={async (moduleKey, isEnabled, assignedModels, config) => {
+              await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
+            }}
+            summarySelectedCount={selectedModelCount}
+            summaryTotalCount={totalAvailableModels}
+            promptVariableLabel={currentCloudPromptName ? `{${currentCloudPromptName}}` : undefined}
+            globalTestPrompt={globalTestPrompt}
+            onChangeGlobalTestPrompt={setGlobalTestPrompt}
+            uploadedFile={uploadedFile}
+            onChangeUploadedFile={setUploadedFile}
+            headerActionsRef={setModelEvaluatorHeaderActions}
+            onOpenGlobalTestPanel={() => {
+              if (typeof window === 'undefined') return;
+              window.open(
+                '/superadmin/settings/api_key_and_model_setting#contract-global-test',
+                '_blank',
+                'noopener,noreferrer'
+              );
+            }}
+          />
+        );
+      case 'blog':
+        return (
+          <ModelEvaluator
+            savedKeys={settings.keys}
+            savedModels={settings.models}
+            savedEvaluations={settings.evaluations}
+            validateAllResultsByKeyId={validateAllResultsByKeyId}
+            currentKeys={memoizedCurrentKeys}
+            onSave={settings.saveEvaluations}
+            onTestModel={settings.testModel}
+            onSaveModels={async (providerId, selections) => {
+              await settings.saveModels(
+                providerId as Parameters<typeof settings.saveModels>[0],
+                selections
+              );
+            }}
+            savedModules={settings.modules}
+            hiddenModuleKeys={BLOG_HIDDEN_MODULE_KEYS}
+            onSaveModule={async (moduleKey, isEnabled, assignedModels, config) => {
+              await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
+            }}
+            summarySelectedCount={selectedModelCount}
+            summaryTotalCount={totalAvailableModels}
+            promptVariableLabel={currentCloudPromptName ? `{${currentCloudPromptName}}` : undefined}
+            globalTestPrompt={globalTestPrompt}
+            onChangeGlobalTestPrompt={setGlobalTestPrompt}
+            uploadedFile={uploadedFile}
+            onChangeUploadedFile={setUploadedFile}
+            headerActionsRef={setModelEvaluatorHeaderActions}
+            onOpenGlobalTestPanel={() => {
+              if (typeof window === 'undefined') return;
+              window.open(
+                '/superadmin/settings/api_key_and_model_setting#blog-global-test',
+                '_blank',
+                'noopener,noreferrer'
+              );
+            }}
+          />
+        );
+
       default:
         return null;
     }
@@ -261,10 +827,40 @@ export default function AIServiceSettingsPage() {
 
   const currentTab = TABS.find(t => t.id === activeTab)!;
 
+  // 初始化每個分頁對應的預設檔名
+  useEffect(() => {
+    const moduleKey = getPromptModuleKeyForTab(activeTab);
+    const lastName = lastPromptNameByModule[moduleKey];
+    if (lastName) {
+      setPromptFileName(lastName);
+    } else {
+      setPromptFileName(`${currentTab.label}-prompt`);
+    }
+  }, [activeTab, currentTab.label, lastPromptNameByModule]);
+
+  // 初次載入時，若雲端已有對應模組的 Prompt，帶入最近一次以本功能儲存的名稱內容
+  const [initialCloudPromptLoaded, setInitialCloudPromptLoaded] = useState(false);
+  useEffect(() => {
+    if (initialCloudPromptLoaded) return;
+    const moduleKey = getPromptModuleKeyForTab(activeTab);
+    const lastName = lastPromptNameByModule[moduleKey];
+    if (!lastName) return;
+    const candidate = settings.prompts.find(
+      (p) =>
+        p.module_key === moduleKey &&
+        p.provider === 'global_eval' &&
+        p.prompt_name === lastName
+    );
+    if (!candidate) return;
+    setGlobalTestPrompt(candidate.prompt_content);
+    setSelectedCloudPromptId(candidate.id);
+    setInitialCloudPromptLoaded(true);
+  }, [activeTab, lastPromptNameByModule, settings.prompts, initialCloudPromptLoaded]);
+
   /** 可選 models 總數：只計入「目前仍存在的 key」的驗證結果，刪除金鑰後即時減少 */
   const computedFromValidation = getTotalAvailableModels(
     validateAllResultsByKeyId,
-    settings.keys.map((k) => ({ id: k.id, provider: k.provider }))
+    memoizedCurrentKeys
   );
   const totalAvailableModels =
     settings.keys.length === 0
@@ -277,13 +873,13 @@ export default function AIServiceSettingsPage() {
    * 單一事實來源：已選數量一律來自 Supabase ai_model_selections（settings.models）。
    * 與 API 金鑰管理、已選/可選模型評估 等分頁顯示一致。
    */
-  const currentKeysForUtil = settings.keys.map((k) => ({ id: k.id, provider: k.provider }));
+  const currentKeysForUtil = memoizedCurrentKeys;
   const selectedInAvailable = getSelectedCountInAvailable(
     settings.models,
     validateAllResultsByKeyId,
     currentKeysForUtil
   );
-  const currentProviderIds = new Set(settings.keys.map((k) => k.provider));
+  const currentProviderIds = new Set(memoizedCurrentKeys.map((k) => k.provider));
   const selectedModelsForCurrentKeys = settings.models.filter((m) =>
     currentProviderIds.has(m.provider)
   );
@@ -292,9 +888,9 @@ export default function AIServiceSettingsPage() {
   const selectedModelCount = Math.min(selectedModelCountRaw, totalAvailableModels);
 
   const fixedBlock = (
-    <div className="max-w-7xl mx-auto px-6 py-4 bg-bg-secondary border-b border-border-subtle">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="mb-5 border-b border-border-subtle">
+    <div className="w-full px-4 lg:px-6 py-3 bg-bg-secondary border-b border-border-subtle">
+      <div className="w-full">
+        <div className="mb-3 border-b border-border-subtle">
           <div className="flex items-center justify-between gap-2 overflow-x-auto pb-2">
             <div className="flex gap-2 overflow-x-auto shrink-0">
               {TABS.map(tab => {
@@ -317,10 +913,26 @@ export default function AIServiceSettingsPage() {
                 );
               })}
             </div>
+            {activeTab === 'evaluations' && (
+              <button
+                type="button"
+                onClick={() => setIsEvalToolbarOpen((prev) => !prev)}
+                className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+                  isEvalToolbarOpen
+                    ? 'bg-accent text-white shadow-sm'
+                    : 'bg-bg-secondary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary border border-border-subtle'
+                }`}
+                aria-expanded={isEvalToolbarOpen}
+                aria-controls="global-test-settings-panel"
+              >
+                <FlaskConical size={14} className={isEvalToolbarOpen ? 'text-white' : 'text-text-muted'} />
+                <span>統一測試設定</span>
+              </button>
+            )}
           </div>
         </div>
-        <div className="flex items-center justify-between">
-          <div className="flex flex-wrap items-center gap-2 gap-y-1">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2 gap-y-1 min-w-0">
             {React.createElement(currentTab.icon, { size: 18, className: 'text-accent shrink-0' })}
             <div className="min-w-0">
               <h2 className="text-sm font-semibold text-text-primary">{currentTab.label}</h2>
@@ -356,51 +968,31 @@ export default function AIServiceSettingsPage() {
                 {!settings.loading && (
                   <div className="flex flex-col gap-0.5 shrink-0 text-xs text-text-secondary">
                     <span>
-                      已驗證/可設定金鑰家數{' '}
+                      全部公司可選模型數：
                       <span className="font-medium text-text-primary">
-                        {settings.keys.filter((k) => k.is_valid === true).length}/{AI_PROVIDERS.length}
+                        {modelEvaluatorHeaderActions?.totalCount ?? totalAvailableModels}
+                      </span>
+                      {modelEvaluatorHeaderActions != null &&
+                        modelEvaluatorHeaderActions.filteredTotal !== modelEvaluatorHeaderActions.totalCount && (
+                        <>
+                          ，篩選後可選模型數：
+                          <span className="font-medium text-text-primary">
+                            {modelEvaluatorHeaderActions.filteredTotal}
+                          </span>
+                        </>
+                      )}
+                      ，已選模型數：
+                      <span className="font-medium text-text-primary">
+                        {modelEvaluatorHeaderActions != null
+                          ? modelEvaluatorHeaderActions.filteredTotal !== modelEvaluatorHeaderActions.totalCount
+                            ? modelEvaluatorHeaderActions.filteredSelectedCount
+                            : modelEvaluatorHeaderActions.selectedCount
+                          : selectedModelCount}
                       </span>
                     </span>
                   </div>
                 )}
               </>
-            )}
-            {activeTab === 'evaluations' && !settings.loading && (
-              <div className="flex flex-col gap-1 shrink-0 text-xs text-text-secondary">
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="inline-flex items-center gap-1.5 cursor-pointer text-sm text-text-secondary hover:text-text-primary rounded border border-border-subtle bg-bg-primary px-3 py-2">
-                    <Upload size={16} className="shrink-0" />
-                    <span>選擇檔案</span>
-                    <input
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.txt,.md"
-                      className="sr-only"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0] ?? null;
-                        setUploadedFile(f);
-                        if (e.target) e.target.value = '';
-                      }}
-                      title="上傳 PDF、圖片或文字檔"
-                    />
-                  </label>
-                  {uploadedFile && (
-                    <span
-                      className="text-sm text-text-muted truncate max-w-[160px]"
-                      title={uploadedFile.name}
-                    >
-                      {uploadedFile.name}
-                    </span>
-                  )}
-                  <textarea
-                    value={globalTestPrompt}
-                    onChange={(e) => setGlobalTestPrompt(e.target.value)}
-                    placeholder={`例如：${DEFAULT_EVALUATION_PROMPT}`}
-                    rows={2}
-                    className="rounded border border-border-subtle bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent resize-x min-h-[60px] min-w-[520px]"
-                    title="輸入任意 prompt，每列測試時會使用此內容"
-                  />
-                </div>
-              </div>
             )}
           </div>
           {activeTab === 'keys' && (
@@ -438,32 +1030,275 @@ export default function AIServiceSettingsPage() {
               </Button>
             </div>
           )}
-          {activeTab === 'evaluations' && !settings.loading && (
-            <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => modelEvaluatorHeaderActionsRef.current?.runBatchTest()}
-                isLoading={modelEvaluatorHeaderActionsRef.current?.batchTesting}
-                disabled={
-                  !modelEvaluatorHeaderActionsRef.current?.canBatchTest ||
-                  !!modelEvaluatorHeaderActionsRef.current?.batchTesting
-                }
-                title={
-                  modelEvaluatorHeaderActionsRef.current?.tooltip ??
-                  '對目前已選且具金鑰的模型並行測試'
-                }
-              >
-                {modelEvaluatorHeaderActionsRef.current?.batchTesting ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <FlaskConical size={14} />
-                )}
-                <span className="ml-1.5 whitespace-nowrap">全部測試</span>
-              </Button>
-            </div>
-          )}
         </div>
+        {/* ── Evaluations / OCR tab: 全域測試與 Prompt 面板 ── */}
+        {(activeTab === 'evaluations' ||
+          activeTab === 'ocr' ||
+          activeTab === 'static-ad' ||
+          activeTab === 'contract' ||
+          activeTab === 'blog') &&
+          !settings.loading &&
+          isEvalToolbarOpen && (
+            <section
+              id="global-test-settings-panel"
+              aria-label="全部測試與 Prompt 設定"
+              className="mt-4 rounded-base border border-border-default bg-bg-primary shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-3 border-b border-border-subtle px-4 py-3">
+                <div>
+                  <h2 className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+                    <FlaskConical className="h-5 w-5" />
+                    全部測試與 Prompt 設定
+                  </h2>
+                  <p className="mt-0.5 text-xs text-text-secondary">
+                    上傳測試檔案、設定全域測試 Prompt、管理本地與雲端 Prompt，並一鍵對已選模型執行全部測試。
+                  </p>
+                </div>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  type="button"
+                  onClick={() => setIsEvalToolbarOpen(false)}
+                  className="shrink-0"
+                >
+                  關閉
+                </Button>
+              </div>
+
+              <div className="p-4 space-y-4">
+                <div className="flex flex-wrap items-start gap-3">
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer text-sm text-text-secondary hover:text-text-primary rounded border border-border-subtle bg-bg-primary px-3 py-2 shrink-0">
+                    <Upload size={16} className="shrink-0" />
+                    <span>選擇檔案</span>
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.txt,.md"
+                      className="sr-only"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0] ?? null;
+                        setUploadedFile(f);
+                        if (e.target) (e.target as HTMLInputElement).value = '';
+                      }}
+                      title="上傳 PDF、圖片或文字檔"
+                    />
+                  </label>
+                  {uploadedFile && (
+                    <span
+                      className="text-sm text-text-muted truncate max-w-[240px]"
+                      title={uploadedFile.name}
+                    >
+                      {uploadedFile.name}
+                    </span>
+                  )}
+                  <div className="flex items-center gap-1.5 text-xs text-text-secondary py-2 shrink-0">
+                    <FlaskConical size={13} className="text-text-muted shrink-0" />
+                    <span>
+                      已選/可選{' '}
+                      <span className="font-semibold text-text-primary tabular-nums">
+                        {modelEvaluatorHeaderActions?.selectedCount ?? selectedModelCount}/{modelEvaluatorHeaderActions?.totalCount ?? totalAvailableModels}
+                      </span>
+                    </span>
+                    {modelEvaluatorHeaderActions != null && (
+                      <span
+                        className={`font-medium tabular-nums ${
+                          modelEvaluatorHeaderActions.testableCount > 0
+                            ? 'text-accent'
+                            : 'text-amber-500'
+                        }`}
+                        title={
+                          modelEvaluatorHeaderActions.testableCount > 0
+                            ? `${modelEvaluatorHeaderActions.testableCount} 個模型已選且有金鑰，可進行測試`
+                            : '目前無可測試的模型（需勾選模型且設定有效金鑰）'
+                        }
+                      >
+                        · 可測試 {modelEvaluatorHeaderActions.testableCount}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <textarea
+                    value={globalTestPrompt}
+                    onChange={(e) => setGlobalTestPrompt(e.target.value)}
+                    placeholder="全域 Prompt，每列可留空或填 {預設prompt} 使用此內容；可自訂每列專屬 Prompt"
+                    rows={12}
+                    className="w-full rounded border border-border-subtle bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent resize-y min-h-[240px]"
+                    title="輸入任意 prompt，每列測試時會使用此內容"
+                  />
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
+                    <div className="inline-flex items-center gap-1">
+                      <span className="whitespace-nowrap">已儲存 Prompt：</span>
+                      <select
+                        className="max-w-[260px] rounded border border-border-subtle bg-bg-primary px-2 py-1 text-xs text-text-primary"
+                        value={selectedPromptId ?? ''}
+                        onChange={(e) => handleSelectSavedPrompt(e.target.value)}
+                      >
+                        <option value="">選擇已儲存的 Prompt</option>
+                        {savedPrompts
+                          .filter(
+                            (p) =>
+                              p.category === currentPromptCategory ||
+                              p.category === 'general'
+                          )
+                          .sort((a, b) => (a.name > b.name ? 1 : -1))
+                          .map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    <div className="inline-flex items-center gap-1">
+                      <span className="whitespace-nowrap">檔名：</span>
+                      <input
+                        type="text"
+                        className="max-w-[200px] rounded border border-border-subtle bg-bg-primary px-2 py-1 text-xs text-text-primary"
+                        placeholder="例如：OCR-測試Prompt"
+                        value={promptFileName}
+                        onChange={(e) => setPromptFileName(e.target.value)}
+                      />
+                    </div>
+                    <Button
+                      size="xs"
+                      variant="secondary"
+                      type="button"
+                      onClick={handleSaveCurrentPrompt}
+                      className="shrink-0"
+                    >
+                      儲存目前 Prompt
+                    </Button>
+                    {selectedPromptId && (
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        type="button"
+                        onClick={() => handleDeleteSavedPrompt(selectedPromptId)}
+                        className="shrink-0"
+                      >
+                        刪除選取 Prompt
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
+                    <div className="inline-flex items-center gap-1">
+                      <span className="whitespace-nowrap">雲端 Prompt：</span>
+                      <select
+                        className="max-w-[260px] rounded border border-border-subtle bg-bg-primary px-2 py-1 text-xs text-text-primary"
+                        value={selectedCloudPromptId}
+                        onChange={(e) => setSelectedCloudPromptId(e.target.value)}
+                      >
+                        <option value="">（選擇要載入或覆寫的 Prompt）</option>
+                        {settings.prompts
+                          .filter((p) => p.provider === 'global_eval')
+                          .sort((a, b) => a.prompt_name.localeCompare(b.prompt_name))
+                          .map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.prompt_name}（v{p.version}）
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      type="button"
+                      onClick={handleDeletePromptFromSupabase}
+                      className="shrink-0"
+                      disabled={!selectedCloudPromptId}
+                    >
+                      刪除雲端 Prompt
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => modelEvaluatorHeaderActions?.runBatchTest()}
+                    isLoading={modelEvaluatorHeaderActions?.batchTesting}
+                    disabled={
+                      !modelEvaluatorHeaderActions?.canBatchTest ||
+                      !!modelEvaluatorHeaderActions?.batchTesting
+                    }
+                    title={
+                      modelEvaluatorHeaderActions?.tooltip ??
+                      '對目前已選且具金鑰的模型並行測試'
+                    }
+                    className="shrink-0"
+                  >
+                    {modelEvaluatorHeaderActions?.batchTesting ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <FlaskConical size={14} />
+                    )}
+                    <span className="ml-1.5 whitespace-nowrap">全部測試</span>
+                  </Button>
+                  {modelEvaluatorHeaderActions?.batchProgress && (
+                    <span className="text-xs text-text-secondary tabular-nums">
+                      {modelEvaluatorHeaderActions.batchProgress.tested}/{modelEvaluatorHeaderActions.batchProgress.total}
+                      {' '}
+                      <span className="text-green-500">
+                        {modelEvaluatorHeaderActions.batchProgress.succeeded} 成功
+                      </span>
+                      {modelEvaluatorHeaderActions.batchProgress.failed > 0 && (
+                        <>
+                          {' '}
+                          <span className="text-red-400">
+                            {modelEvaluatorHeaderActions.batchProgress.failed} 失敗
+                          </span>
+                        </>
+                      )}
+                    </span>
+                  )}
+                  {modelEvaluatorHeaderActions &&
+                    !modelEvaluatorHeaderActions.canBatchTest &&
+                    !modelEvaluatorHeaderActions.batchTesting && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        {modelEvaluatorHeaderActions.tooltip}
+                      </p>
+                    )}
+
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleExportSettings}
+                    isLoading={exportingSettings}
+                    disabled={exportingSettings || importingSettings}
+                    title="將目前所有 AI 設定（金鑰除外）匯出為 JSON 檔案"
+                    className="shrink-0"
+                  >
+                    <Download size={14} />
+                    <span className="ml-1.5 whitespace-nowrap">匯出設定</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => importFileInputRef.current?.click()}
+                    isLoading={importingSettings}
+                    disabled={exportingSettings || importingSettings}
+                    title="從 JSON 檔案載入設定（覆蓋目前設定）"
+                    className="shrink-0"
+                  >
+                    <Upload size={14} />
+                    <span className="ml-1.5 whitespace-nowrap">載入設定</span>
+                  </Button>
+                  <input
+                    ref={importFileInputRef}
+                    type="file"
+                    accept=".json,application/json"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImportSettings(file);
+                      if (e.target) (e.target as HTMLInputElement).value = '';
+                    }}
+                  />
+                </div>
+              </div>
+            </section>
+          )}
       </div>
     </div>
   );
@@ -478,10 +1313,13 @@ export default function AIServiceSettingsPage() {
         { label: 'Model and API key Settings' },
       ]}
       fixedContent={fixedBlock}
+      contentFullHeight
     >
-      <div className="w-full px-4 lg:px-6 py-3 lg:py-4">
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden w-full px-2 sm:px-4 lg:px-6 py-3 lg:py-4 min-w-0">
+          {/* Evaluations toolbar moved to fixedBlock header */}
         <section className="space-y-4">
-          <div className="bg-bg-secondary border border-border-default rounded-base p-4 sm:p-5 shadow-sm">
+          <div className="bg-bg-secondary border border-border-default rounded-base p-4 sm:p-5 shadow-sm min-w-0">
             {renderContent()}
           </div>
         </section>
@@ -505,12 +1343,12 @@ export default function AIServiceSettingsPage() {
               </p>
               <ol className="list-decimal list-inside space-y-1 text-xs text-text-secondary">
                 <li>在「API 金鑰管理」新增各提供商的 API 金鑰；可用「驗證金鑰」確認可用性並取得可選模型清單。</li>
-                <li>在「已選/可選模型評估」勾選要納入候選的模型（可測試連線）；這些模型將可在功能模組中綁定。</li>
-                <li>在「功能模組配置」啟用所需模組，並為各模組綁定主模型（1）與備援模型（2～100），必要時可設定 LLM 參數與 System Prompt。</li>
+                <li>在「已選/可選模型評估」勾選要納入候選的模型（可測試連線）。</li>
               </ol>
             </div>
           </div>
         )}
+        </div>
       </div>
     </DashboardLayout>
   );

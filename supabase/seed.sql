@@ -1,0 +1,3 @@
+-- Seed 僅在執行 supabase db reset 時會跑
+-- 注意：db reset 會先清空整個 DB 再跑 migrations，再跑本檔；請勿在未預期時執行 db reset
+-- 若需預填測試資料，可在此撰寫 INSERT；目前留空表示不自動插入種子資料

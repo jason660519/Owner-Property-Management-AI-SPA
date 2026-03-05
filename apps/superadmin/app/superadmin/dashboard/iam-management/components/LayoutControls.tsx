@@ -166,7 +166,7 @@ export function IAMLayoutControls() {
               </div>
             </div>
             <div className="px-3 pt-2 text-[11px] text-text-muted">
-              目前套用至 Roles 矩陣表格（列：{freezeRowCount}，col：{frozenColCount}）。
+              目前套用至 Users 清單與 Roles 矩陣表格（列：{freezeRowCount}，col：{frozenColCount}）。
             </div>
           </div>
         )}

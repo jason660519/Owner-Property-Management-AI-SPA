@@ -17,7 +17,7 @@ export function DashboardLayout({
   contentFullHeight = false,
   className = '',
 }: {
-  pageTitle: string;
+  pageTitle?: string;
   breadcrumbs: { label: string; href?: string }[];
   greeting?: React.ReactNode;
   children: React.ReactNode;
@@ -35,10 +35,10 @@ export function DashboardLayout({
   className?: string;
 }) {
   return (
-    <div className={`flex-1 flex flex-col min-h-0 ${className}`}>
-      <div className="shrink-0 bg-bg-tertiary border-b border-border-default px-6 py-4">
+    <div className={`flex-1 flex flex-col min-h-0 overflow-hidden ${className}`}>
+      <div className="shrink-0 bg-bg-tertiary border-b border-border-default px-6 py-3">
         <div className="w-full">
-          <nav className="flex items-center gap-2 text-sm mb-4">
+          <nav className="flex items-center gap-2 text-sm mb-2">
             {breadcrumbs.map((crumb, index) => (
               <React.Fragment key={index}>
                 {crumb.href ? (
@@ -53,17 +53,25 @@ export function DashboardLayout({
             ))}
           </nav>
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-text-primary mb-1">{pageTitle}</h1>
-              {greeting && <p className="text-sm text-text-secondary">{greeting}</p>}
-            </div>
+            {(pageTitle != null && pageTitle !== '') || greeting ? (
+              <div>
+                {pageTitle != null && pageTitle !== '' && (
+                  <h1 className="text-2xl font-bold text-text-primary mb-1">{pageTitle}</h1>
+                )}
+                {greeting && <p className="text-sm text-text-secondary">{greeting}</p>}
+              </div>
+            ) : null}
             <div className="flex items-center gap-4">
               {headerActions}
             </div>
           </div>
         </div>
       </div>
-      {fixedContent != null ? <div className="shrink-0">{fixedContent}</div> : null}
+      {fixedContent != null ? (
+        <div className="sticky top-0 z-10 shrink-0 bg-bg-secondary">
+          {fixedContent}
+        </div>
+      ) : null}
       {contentFullHeight ? (
         // Full-height mode: content area is a flex column, no page-level scroll.
         // Children manage their own internal scroll (e.g. overflow-y-auto flex-1 min-h-0).
@@ -71,7 +79,7 @@ export function DashboardLayout({
           {children}
         </div>
       ) : (
-        <div className="flex-1 min-h-0 min-w-0 overflow-y-auto">
+        <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">
           <div className="w-full px-6 py-8">{children}</div>
         </div>
       )}

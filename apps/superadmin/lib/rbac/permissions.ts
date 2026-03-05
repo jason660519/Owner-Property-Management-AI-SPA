@@ -35,7 +35,6 @@ export const ROUTE_PERMISSIONS: Record<string, RoutePermission> = {
   '/superadmin/dashboard/iam-management':              { resource: 'iam_users',         action: 'read' },
   '/superadmin/dashboard/rbac_access_control':         { resource: 'iam_roles_groups',  action: 'manage' },
   '/superadmin/dashboard/role_access_matrix':          { resource: 'iam_roles_groups',  action: 'read' },
-  '/superadmin/role-simulation':                       { resource: 'iam_roles_groups',  action: 'manage' },
   '/superadmin/properties':                            { resource: 'rental_properties', action: 'read' },
   '/superadmin/leases':                                { resource: 'lease_contracts',   action: 'read' },
   '/superadmin/dashboard/supabase':                    { resource: 'system_config',     action: 'read' },

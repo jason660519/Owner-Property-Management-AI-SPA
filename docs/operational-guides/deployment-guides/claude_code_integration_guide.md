@@ -224,11 +224,14 @@
 創建一個新的 PR
 ```
 
-#### 7. Memory（AI 記憶系統）
+#### 7. Memory（AI 專案記憶 / auto memory folder）
 ```bash
-# 自動使用，無需配置
-# AI 可記住專案特定知識、慣例和偏好
+# 專案內記憶檔位置：.claude/memory/
+# 檔案：MEMORY.md（索引）、architecture.md、features.md
+# AI 可讀取專案特定知識、慣例與進度，可隨 /memory 指令或規則引用
 ```
+
+**專案記憶路徑**：`<專案根目錄>/.claude/memory/`（已納入版控，與規則同目錄）
 
 **範例**：
 ```

@@ -81,6 +81,9 @@ export interface ValidationSummary {
   updatedAt: string | null;
 }
 
+/** 使用者手動覆寫的顯示狀態（AI 判斷錯誤時可自行修正） */
+export type DisplayStatusOverride = 'vlm_ok' | 'llm_ok' | 'working' | 'not_working' | 'untested';
+
 export interface ModelEvaluation {
   id?: string;
   provider: string;
@@ -91,6 +94,8 @@ export interface ModelEvaluation {
   is_candidate: boolean;
   notes: string;
   last_tested_at: string | null;
+  /** 使用者手動設定的狀態，有值時優先於 AI 推斷顯示 */
+  display_status_override?: DisplayStatusOverride | null;
 }
 
 export function useAISettings() {
@@ -298,6 +303,7 @@ export function useAISettings() {
   }, [userId, fetchAll]);
 
   // ---- Module Operations ----
+  /** 靜默重整，避免綁定/解除綁定模型時觸發 loading 導致 ModelEvaluator 卸載、篩選與勾選狀態被重置 */
   const saveModule = useCallback(async (
     moduleKey: string,
     isEnabled: boolean,
@@ -316,7 +322,7 @@ export function useAISettings() {
       body: JSON.stringify({ userId, moduleKey, isEnabled, assignedModels, config }),
     });
     if (!res.ok) throw new Error('儲存模組設定失敗');
-    await fetchAll();
+    await fetchAll(true);
   }, [userId, fetchAll]);
 
   // ---- Prompt Operations ----
@@ -333,6 +339,16 @@ export function useAISettings() {
     });
     if (!res.ok) throw new Error('儲存 Prompt 失敗');
     await fetchAll();
+  }, [userId, fetchAll]);
+
+  const deletePrompt = useCallback(async (promptId: string) => {
+    const res = await fetch('/api/ai-settings/prompts', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, promptId }),
+    });
+    if (!res.ok) throw new Error('刪除 Prompt 失敗');
+    await fetchAll(true);
   }, [userId, fetchAll]);
 
   // ---- Export / Import ----
@@ -374,7 +390,7 @@ export function useAISettings() {
       modelId: string,
       prompt?: string,
       file?: File | null
-    ): Promise<{ success: boolean; message?: string; output?: string }> => {
+    ): Promise<{ success: boolean; message?: string; output?: string; output_image_url?: string }> => {
       let fileBase64: string | undefined;
       let mimeType: string | undefined;
       let fileName: string | undefined;
@@ -398,13 +414,26 @@ export function useAISettings() {
         body.mimeType = mimeType;
         if (fileName) body.fileName = fileName;
       }
-      const res = await fetch('/api/ai-settings/models/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
-        body: JSON.stringify(body),
-      });
-      const data = (await res.json()) as { success?: boolean; message?: string; output?: string };
-      return { success: data.success ?? false, message: data.message, output: data.output };
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 65000); // 65s timeout
+      let res: Response;
+      try {
+        res = await fetch('/api/ai-settings/models/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
+      } catch (fetchErr) {
+        clearTimeout(timeoutId);
+        const msg = fetchErr instanceof Error && fetchErr.name === 'AbortError'
+          ? '請求逾時（65 秒），請檢查網路或稍後再試'
+          : `連線失敗: ${fetchErr instanceof Error ? fetchErr.message : 'Unknown'}`;
+        return { success: false, message: msg };
+      }
+      clearTimeout(timeoutId);
+      const data = (await res.json()) as { success?: boolean; message?: string; output?: string; output_image_url?: string };
+      return { success: data.success ?? false, message: data.message, output: data.output, output_image_url: data.output_image_url };
     },
     [userId]
   );
@@ -439,7 +468,7 @@ export function useAISettings() {
     loading, error,
     saveKey, deleteKey, validateKey,
     saveModels, saveModule, testModel,
-    savePrompt, saveEvaluations,
+    savePrompt, deletePrompt, saveEvaluations,
     exportSettings, importSettings,
     clearAll,
     saveValidationSummary,
