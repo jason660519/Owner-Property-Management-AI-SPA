@@ -913,6 +913,22 @@ export default function AIServiceSettingsPage() {
                 );
               })}
             </div>
+            {activeTab === 'evaluations' && (
+              <button
+                type="button"
+                onClick={() => setIsEvalToolbarOpen((prev) => !prev)}
+                className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+                  isEvalToolbarOpen
+                    ? 'bg-accent text-white shadow-sm'
+                    : 'bg-bg-secondary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary border border-border-subtle'
+                }`}
+                aria-expanded={isEvalToolbarOpen}
+                aria-controls="global-test-settings-panel"
+              >
+                <FlaskConical size={14} className={isEvalToolbarOpen ? 'text-white' : 'text-text-muted'} />
+                <span>統一測試設定</span>
+              </button>
+            )}
           </div>
         </div>
         <div className="flex items-center justify-between gap-2">
@@ -1024,6 +1040,7 @@ export default function AIServiceSettingsPage() {
           !settings.loading &&
           isEvalToolbarOpen && (
             <section
+              id="global-test-settings-panel"
               aria-label="全部測試與 Prompt 設定"
               className="mt-4 rounded-base border border-border-default bg-bg-primary shadow-sm"
             >

@@ -345,13 +345,13 @@ const RAW_FEATURES: RoadmapFeature[] = [
             tddSpecDocPath: "/project-process/features/tdd-ai-settings-20260221.md",
             category: "超級管理員 (Super Admin)",
             points: 5,
-            devLog: "### 2026-03-04 更新\n- 修復 統一prompt測試 功能無限重渲染 bug（Maximum update depth exceeded）。\n- 根本原因：page.tsx 每次渲染時 currentKeys 產生新陣列引用，導致 allRows→handleBatchTest→headerActionsRef useEffect 形成無限迴圈。\n- 修復方案（雙重防護）：(1) ModelEvaluator.tsx 使用 stable ref 模式（handleBatchTestRef + stableRunBatchTest），移除 handleBatchTest 作為 useEffect dep；(2) page.tsx 以 useMemo 穩定 currentKeys 引用。\n- TDD：新增 5 個批次測試執行行為測試案例，共 28 個測試全部通過。",
+            devLog: "### 2026-03-04 更新\n- 修復 統一prompt測試 功能無限重渲染 bug（Maximum update depth exceeded）。\n- 根本原因：page.tsx 每次渲染時 currentKeys 產生新陣列引用，導致 allRows→handleBatchTest→headerActionsRef useEffect 形成無限迴圈。\n- 修復方案（雙重防護）：(1) ModelEvaluator.tsx 使用 stable ref 模式（handleBatchTestRef + stableRunBatchTest），移除 handleBatchTest 作為 useEffect dep；(2) page.tsx 以 useMemo 穩定 currentKeys 引用。\n- TDD：新增 5 個批次測試執行行為測試案例，共 28 個測試全部通過。\n\n### 2026-03-06 更新\n- 在「已選/可選模型評估」分頁列右側新增「統一測試設定」按鈕。\n- 按鈕重用既有 isEvalToolbarOpen 狀態，僅切換本頁統一測試面板顯示，不影響其他頁面功能。\n- 補上 aria-controls 對應面板 id（global-test-settings-panel），強化可及性。",
             testProgress: "TDD: 28/28 tests passing（含 統一/單一 prompt 測試功能完整測試）",
             testCoverage: 15,
             testScriptCount: 28,
             testScriptPassedCount: 28,
-            lastModifiedBy: "Claude Sonnet 4.6",
-            lastModifiedDate: "2026/03/04"
+            lastModifiedBy: "GPT-5.3-Codex",
+            lastModifiedDate: "2026/03/06"
         },
 
         // === 2026-02-21 新增任務 ===
