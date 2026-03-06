@@ -46,14 +46,20 @@ type SendFn = (data: Record<string, unknown>) => void;
 // ---------------------------------------------------------------------------
 
 export async function POST(request: NextRequest) {
-  let body: { documentId?: string; userId?: string; customPrompt?: string };
+  let body: {
+    documentId?: string;
+    userId?: string;
+    customPrompt?: string;
+    overrideParserModels?: { provider: string; model: string }[];
+    overrideJudgeModel?: { provider: string; model: string } | null;
+  };
   try {
     body = await request.json() as typeof body;
   } catch {
     return new Response('Invalid JSON body', { status: 400 });
   }
 
-  const { documentId, userId, customPrompt } = body;
+  const { documentId, userId, customPrompt, overrideParserModels, overrideJudgeModel } = body;
   if (!documentId || !userId) {
     return new Response('Missing documentId or userId', { status: 400 });
   }
@@ -117,14 +123,59 @@ export async function POST(request: NextRequest) {
           return;
         }
 
-        const parserModels = await fetchAssignedModels(adminClient, resolvedUserId, ['online_ocr_parse', 'online_ocr']);
+        const assignedParserModels = await fetchAssignedModels(
+          adminClient,
+          resolvedUserId,
+          ['online_ocr_parse', 'online_ocr'],
+        );
+        let parserModels: AssignedModelRow[] = assignedParserModels;
+
+        if (overrideParserModels && overrideParserModels.length > 0) {
+          if (assignedParserModels.length > 0) {
+            // 1) 正常情況：限制在「已於模組綁定中」的模型交集範圍內
+            const byKey = new Map<string, AssignedModelRow>(
+              assignedParserModels.map((m) => [`${m.provider}::${m.model}`, m]),
+            );
+            const filtered: AssignedModelRow[] = [];
+            for (const { provider, model } of overrideParserModels) {
+              const found = byKey.get(`${provider}::${model}`);
+              if (found) filtered.push(found);
+            }
+            if (filtered.length > 0) {
+              parserModels = filtered;
+            }
+          } else {
+            // 2) 若尚未設定模組綁定，仍允許以 override 清單直接執行一次解析
+            parserModels = overrideParserModels.map((m) => ({
+              provider: m.provider,
+              model: m.model,
+            }));
+          }
+        }
+
         if (parserModels.length === 0) {
-          send({ type: 'error', message: '尚未設定「雲端OCR謄本解析」使用的 AI 模型，請至「AI 服務 / API KEY」→「功能模組」為「雲端OCR謄本解析（解析組）」指定模型。' });
+          send({
+            type: 'error',
+            message:
+              '尚未設定「雲端OCR謄本解析」使用的 AI 模型，請至「AI 服務 / API KEY」→「功能模組」為「雲端OCR謄本解析（解析組）」指定模型。',
+          });
           return;
         }
 
         const judgeModels = await fetchAssignedModels(adminClient, resolvedUserId, ['online_ocr_judge']);
-        const judgeModel = judgeModels.length > 0 ? { provider: judgeModels[0].provider, model: judgeModels[0].model } : null;
+        // 準備裁判候選清單：優先前端指定，其次依 DB 優先順序（assigned_models priority）
+        const judgeCandidates: { provider: string; model: string }[] = [];
+        if (overrideJudgeModel) {
+          judgeCandidates.push(overrideJudgeModel);
+        }
+        if (judgeModels.length > 0) {
+          for (const j of judgeModels) {
+            // 避免與 overrideJudgeModel 重複
+            if (!judgeCandidates.some((c) => c.provider === j.provider && c.model === j.model)) {
+              judgeCandidates.push({ provider: j.provider, model: j.model });
+            }
+          }
+        }
 
         // ── 4. Resolve system prompt ───────────────────────────────────
         const storedPrompt = await fetchSystemPrompt(adminClient, resolvedUserId, 'online_ocr_parse');
@@ -138,7 +189,9 @@ export async function POST(request: NextRequest) {
         });
 
         // ── 5. Phase 1: Parse ─────────────────────────────────────────
-        send({ type: 'parse_start', total: parserModels.length });
+        const TARGET_SUCCESS_COUNT = 5;
+        const maxPlannedParsers = Math.min(parserModels.length, TARGET_SUCCESS_COUNT);
+        send({ type: 'parse_start', total: maxPlannedParsers });
 
         // Pre-fetch API keys (one request per provider)
         const providers = [...new Set(parserModels.map((m) => m.provider))];
@@ -149,12 +202,21 @@ export async function POST(request: NextRequest) {
         }
 
         const parseResults: ModelParseResult[] = [];
+        let successSoFar = 0;
 
-        // Each model emits its own model_start / model_result as it resolves
-        const modelPromises = parserModels.map(async (m, index) => {
+        // 以排序順序依序呼叫模型，直到：
+        // - 累積至少 TARGET_SUCCESS_COUNT 個成功解析，或
+        // - 沒有更多模型可用為止。
+        for (let index = 0; index < parserModels.length; index += 1) {
+          const m = parserModels[index];
+          // 若已達到目標成功數，停止再呼叫後續模型，節省成本
+          if (successSoFar >= TARGET_SUCCESS_COUNT) break;
+
           send({ type: 'model_start', provider: m.provider, model: m.model, index });
           const result = await callSingleModel(m, keyMap, fileBase64, mimeType, systemPrompt);
           parseResults.push(result);
+          if (result.result !== null) successSoFar += 1;
+
           send({
             type: 'model_result',
             provider: m.provider,
@@ -164,10 +226,7 @@ export async function POST(request: NextRequest) {
             duration_ms: result.duration_ms,
             error: result.error,
           });
-          return result;
-        });
-
-        await Promise.allSettled(modelPromises);
+        }
 
         // Persist all parse results at once
         const inserts = parseResults.map((r) => ({
@@ -228,19 +287,36 @@ export async function POST(request: NextRequest) {
         let finalMerged = merged;
         let finalMetadata = metadata;
 
-        if (conflictsForJudge.length > 0 && judgeModel) {
-          send({ type: 'judge_start', message: `裁判解決 ${conflictsForJudge.length} 個衝突欄位中…`, conflictCount: conflictsForJudge.length });
-          const judgeResult = await runJudgePhase(
-            adminClient, documentId, resolvedUserId,
-            fileBase64, mimeType,
-            conflictsForJudge, parseResults,
-            merged, metadata,
-          );
-          send({ type: 'judge_done', success: judgeResult !== null });
-          if (judgeResult) {
-            finalMerged = judgeResult.merged;
-            finalMetadata = judgeResult.metadata;
+        if (conflictsForJudge.length > 0 && judgeCandidates.length > 0) {
+          send({
+            type: 'judge_start',
+            message: `裁判解決 ${conflictsForJudge.length} 個衝突欄位中…`,
+            conflictCount: conflictsForJudge.length,
+          });
+
+          let judgeSuccess = false;
+          for (const candidate of judgeCandidates) {
+            const judgeResult = await runJudgePhase(
+              adminClient,
+              documentId,
+              resolvedUserId,
+              fileBase64,
+              mimeType,
+              conflictsForJudge,
+              parseResults,
+              finalMerged,
+              finalMetadata,
+              candidate,
+            );
+            if (judgeResult) {
+              finalMerged = judgeResult.merged;
+              finalMetadata = judgeResult.metadata;
+              judgeSuccess = true;
+              break;
+            }
           }
+
+          send({ type: 'judge_done', success: judgeSuccess });
         }
 
         finalMetadata = { ...finalMetadata, total_duration_ms: Date.now() - startTime };
@@ -323,11 +399,9 @@ async function runJudgePhase(
   parseResults: ModelParseResult[],
   merged: LandRegistryParsedResult,
   metadata: ConsensusMetadata,
+  judgeModel: { provider: string; model: string },
 ): Promise<{ merged: LandRegistryParsedResult; metadata: ConsensusMetadata } | null> {
-  const judgeModels = await fetchAssignedModels(adminClient, resolvedUserId, ['online_ocr_judge']);
-  if (judgeModels.length === 0) return null;
-
-  const judge = judgeModels[0];
+  const judge = judgeModel;
   const apiKey = await getApiKey(adminClient, resolvedUserId, judge.provider);
   if (!apiKey) return null;
 
@@ -345,14 +419,24 @@ async function runJudgePhase(
   const result = await caller(apiKey, judge.model, fileBase64, mimeType, judgePrompt);
   const duration = Date.now() - callStart;
 
+  let judgeRawOutput: Record<string, unknown> | null = null;
+  let judgeErrorMessage: string | null = result.ok ? null : result.error;
+  if (result.ok && result.text) {
+    try {
+      judgeRawOutput = JSON.parse(result.text) as Record<string, unknown>;
+    } catch (parseErr) {
+      judgeErrorMessage = parseErr instanceof Error ? parseErr.message : '裁判回傳非合法 JSON';
+    }
+  }
+
   await adminClient.from('ocr_parse_results').insert({
     property_document_id: documentId,
     provider: judge.provider,
     model_id: judge.model,
     role: 'judge',
-    raw_output: result.ok ? JSON.parse(result.text || '{}') : null,
+    raw_output: judgeRawOutput,
     parse_duration_ms: duration,
-    error_message: result.ok ? null : result.error,
+    error_message: judgeErrorMessage,
   });
 
   if (!result.ok) return null;

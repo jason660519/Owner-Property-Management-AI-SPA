@@ -399,15 +399,25 @@ async function runJudgePhase(
   const result = await caller(apiKey, judge.model, fileBase64, mimeType, judgePrompt);
   const duration = Date.now() - callStart;
 
-  // Save judge raw output
+  let judgeRawOutput: Record<string, unknown> | null = null;
+  let judgeErrorMessage: string | null = result.ok ? null : result.error;
+  if (result.ok && result.text) {
+    try {
+      judgeRawOutput = JSON.parse(result.text) as Record<string, unknown>;
+    } catch {
+      judgeErrorMessage = '裁判回傳非合法 JSON';
+    }
+  }
+
+  // Save judge raw output（parse 失敗時不拋錯，僅記 error_message）
   await adminClient.from('ocr_parse_results').insert({
     property_document_id: documentId,
     provider: judge.provider,
     model_id: judge.model,
     role: 'judge',
-    raw_output: result.ok ? JSON.parse(result.text || '{}') : null,
+    raw_output: judgeRawOutput,
     parse_duration_ms: duration,
-    error_message: result.ok ? null : result.error,
+    error_message: judgeErrorMessage,
   });
 
   if (!result.ok) return null;

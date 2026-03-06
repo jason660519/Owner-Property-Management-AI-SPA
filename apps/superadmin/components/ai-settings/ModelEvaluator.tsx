@@ -143,6 +143,7 @@ export interface ModelEvaluatorProps {
   headerActionsRef?:
     | React.Dispatch<React.SetStateAction<{
         runBatchTest: () => void;
+        abortBatchTest: () => void;
         batchTesting: boolean;
         canBatchTest: boolean;
         tooltip: string;
@@ -159,6 +160,7 @@ export interface ModelEvaluatorProps {
       } | null>>
     | React.RefObject<{
         runBatchTest: () => void;
+        abortBatchTest: () => void;
         batchTesting: boolean;
         canBatchTest: boolean;
         tooltip: string;
@@ -362,12 +364,12 @@ function detectCategoryFromOutput(output: string | undefined): 'VLM' | 'LLM' | '
   return 'unknown';
 }
 
-/** 依測試輸出區分狀態顯示：僅成功解析檔案內容算 VLM 可用，「我看不到檔案」等僅算 LLM 可用 */
+/** 依測試輸出區分狀態顯示：僅成功解析檔案內容算 OCR 可用，「我看不到檔案」等僅算 LLM 可用 */
 type StatusDisplay = { type: 'vlm_ok' | 'llm_ok' | 'working' | 'not_working' | 'untested'; label: string; title: string };
 
 /** 四種狀態選項，供使用者手動修正 AI 判斷（移除模糊的「通用模型可用」，強制明確 VLM/LLM/OCR） */
 function getStatusOverrideOptions(isOcrMode: boolean): { value: DisplayStatusOverride; label: string }[] {
-  const vlmLabel = isOcrMode ? 'OCR可用' : 'VLM 可用';
+  const vlmLabel = isOcrMode ? 'OCR可用' : 'OCR 可用';
   return [
     { value: 'vlm_ok', label: vlmLabel },
     { value: 'llm_ok', label: 'LLM 可用' },
@@ -377,7 +379,7 @@ function getStatusOverrideOptions(isOcrMode: boolean): { value: DisplayStatusOve
 }
 
 function getStatusDisplayByType(type: DisplayStatusOverride, isOcrMode: boolean): StatusDisplay {
-  const vlmLabel = isOcrMode ? 'OCR可用' : 'VLM 可用';
+  const vlmLabel = isOcrMode ? 'OCR可用' : 'OCR 可用';
   const map: Record<DisplayStatusOverride, StatusDisplay> = {
     vlm_ok: { type: 'vlm_ok', label: vlmLabel, title: `手動設定：${vlmLabel}` },
     llm_ok: { type: 'llm_ok', label: 'LLM 可用', title: '手動設定：LLM 可用' },
@@ -409,10 +411,10 @@ function getStatusDisplay(
       if (isVisionModel)
         return {
           type: 'vlm_ok',
-          label: isOcrMode ? 'OCR可用' : 'VLM 可用',
+          label: isOcrMode ? 'OCR可用' : 'OCR 可用',
           title: isOcrMode
             ? 'API 連線成功，依模型靜態定義具 vision 能力，判定為 OCR 可用'
-            : 'API 連線成功，依模型靜態定義具 vision 能力，判定為 VLM 可用',
+            : 'API 連線成功，依模型靜態定義具 vision 能力，判定為 OCR 可用',
         };
       return { type: 'llm_ok', label: 'LLM 可用', title: 'API 連線成功，依模型靜態定義無 vision 能力，判定為 LLM 可用' };
     }
@@ -425,21 +427,21 @@ function getStatusDisplay(
   if (category === 'VLM' && success)
     return {
       type: 'vlm_ok',
-      label: isOcrMode ? 'OCR可用' : 'VLM 可用',
+      label: isOcrMode ? 'OCR可用' : 'OCR 可用',
       title: isOcrMode
         ? '依本測試輸出：已成功解析檔案內容，視為 OCR 可用'
-        : '依本測試輸出：已成功解析檔案內容，視為 VLM 可用',
+        : '依本測試輸出：已成功解析檔案內容，視為 OCR 可用',
     };
   if (category === 'LLM' && success)
-    return { type: 'llm_ok', label: 'LLM 可用', title: '依本測試輸出：有文字回應但未解析檔案（如「看不到檔案」），僅算 LLM 可用，不算 VLM 可用' };
+    return { type: 'llm_ok', label: 'LLM 可用', title: '依本測試輸出：有文字回應但未解析檔案（如「看不到檔案」），僅算 LLM 可用，不算 OCR 可用' };
   if (category === 'unknown' && success) {
     if (isVisionModel)
       return {
         type: 'vlm_ok',
-        label: isOcrMode ? 'OCR可用' : 'VLM 可用',
+        label: isOcrMode ? 'OCR可用' : 'OCR 可用',
         title: isOcrMode
           ? 'API 有回應，輸出無法明確推斷，依模型靜態定義具 vision 能力，暫判定為 OCR 可用'
-          : 'API 有回應，輸出無法明確推斷，依模型靜態定義具 vision 能力，判定為 VLM 可用',
+          : 'API 有回應，輸出無法明確推斷，依模型靜態定義具 vision 能力，判定為 OCR 可用',
       };
     return { type: 'llm_ok', label: 'LLM 可用', title: 'API 有回應，輸出無法明確推斷，依模型靜態定義無 vision 能力，判定為 LLM 可用' };
   }
@@ -480,7 +482,7 @@ export function ModelEvaluator({
   const STORAGE_KEY_COLUMN_WIDTHS = 'superadmin-model-evaluator-column-widths';
   const FREEZE_ROW_STORAGE_KEY = 'superadmin-model-evaluator-freeze-row-v1';
   const FROZEN_COL_STORAGE_KEY = 'superadmin-model-evaluator-frozen-col-v1';
-  // Cols 0-8: fixed table cols (公司,模型分類與狀態,模型,已選,Prompt,prompt測試,output text,output jpg,測試日期); cols 9-15: one per FEATURE_MODULE (7)
+  // Cols 0-8: fixed table cols (公司,模型分類與狀態,模型,已選,Prompt,prompt測試,output text,output jpg,更新日期與時間); cols 9-15: one per FEATURE_MODULE (7)
   const DEFAULT_COLUMN_WIDTHS = [120, 80, 220, 48, 140, 72, 200, 140, 110, 88, 88, 88, 88, 88, 88, 88];
   const TABLE_COLUMN_COUNT = DEFAULT_COLUMN_WIDTHS.length;
   const isOcrMode = statusLabelMode === 'ocr';
@@ -568,6 +570,8 @@ export function ModelEvaluator({
   const [batchTesting, setBatchTesting] = useState(false);
   const [applyingRecentBatchReport, setApplyingRecentBatchReport] = useState(false);
   const batchTestingRef = useRef(false);
+  /** 使用者點擊「暫停測試」時設為 true，批次測試在每批之間檢查並提前結束 */
+  const batchAbortRequestedRef = useRef(false);
   const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
   const [batchResults, setBatchResults] = useState<BatchResultEntry[] | null>(null);
   const [hasRecentBatchReport, setHasRecentBatchReport] = useState(false);
@@ -984,7 +988,7 @@ export function ModelEvaluator({
     }
   }, [evaluationMap, onSave]);
 
-  /** 再依狀態篩選（可複選：VLM可用/LLM可用/不可用/尚未測試） */
+  /** 再依狀態篩選（可複選：OCR可用/LLM可用/不可用/尚未測試） */
   const rowsAfterStatusFilter = useMemo(() => {
     if (filterStatuses.length === 0) return filteredRows;
     const set = new Set(filterStatuses);
@@ -1177,20 +1181,38 @@ export function ModelEvaluator({
     [onSaveModels, rowsAfterCategoryFilter, savedModels]
   );
 
-  /** 解析該列實際使用的 prompt：留空或 {預設prompt} 時使用全域，否則使用該列自訂內容 */
+  /** 解析該列實際使用的 prompt：
+   * - 留空或僅輸入 {預設prompt} / {雲端變數名稱} 時，直接使用全域 Prompt
+   * - 其餘情況可在文字中夾帶 {預設prompt} 或 {雲端變數名稱}，會在送出前展開為全域 Prompt 內容
+   */
   const getEffectivePromptForRow = useCallback(
     (rowKey: string): string => {
-      const row = (rowPrompts[rowKey] ?? '').trim();
+      const raw = rowPrompts[rowKey] ?? '';
+      const trimmed = raw.trim();
+      const basePrompt = globalTestPrompt.trim();
+
+      // 若完全留空或僅輸入保留字，視為「直接使用全域 Prompt」
       if (
-        !row ||
-        row === DEFAULT_PROMPT_PLACEHOLDER ||
-        row === effectivePromptVariableLabel
+        !trimmed ||
+        trimmed === DEFAULT_PROMPT_PLACEHOLDER ||
+        trimmed === effectivePromptVariableLabel
       ) {
-        return globalTestPrompt.trim();
+        return basePrompt;
       }
-      return row;
+
+      // 其餘情況允許在內容中夾帶 {預設prompt} 或實際變數名稱，於送出前展開
+      let expanded = raw;
+      if (basePrompt) {
+        const tokens = [DEFAULT_PROMPT_PLACEHOLDER, effectivePromptVariableLabel].filter(
+          (t): t is string => !!t && t.length > 0
+        );
+        for (const token of tokens) {
+          expanded = expanded.split(token).join(basePrompt);
+        }
+      }
+      return expanded.trim();
     },
-    [rowPrompts, globalTestPrompt, effectivePromptVariableLabel]
+    [rowPrompts, globalTestPrompt, effectivePromptVariableLabel, DEFAULT_PROMPT_PLACEHOLDER]
   );
 
   const runTest = useCallback(
@@ -1337,6 +1359,7 @@ export function ModelEvaluator({
     }
 
     batchTestingRef.current = true;
+    batchAbortRequestedRef.current = false;
     setBatchTesting(true);
 
     const total = toTest.length;
@@ -1345,57 +1368,65 @@ export function ModelEvaluator({
 
     setBatchProgress({ tested: 0, total, succeeded: 0, failed: 0 });
 
+    const BATCH_SIZE = 5;
+    const toSave: ModelEvaluation[] = [];
+    const collectedResults: BatchResultEntry[] = [];
+
     try {
-      const toSave: ModelEvaluation[] = [];
-      const collectedResults: BatchResultEntry[] = [];
-      await Promise.all(
-        toTest.map(async ({ providerId, providerName, modelId, modelName }) => {
-          const key = `${providerId}::${modelId}`;
-          const effectivePrompt = getEffectivePromptForRow(key) || undefined;
-          setOutputByKey((prev) => ({ ...prev, [key]: '' }));
-          const entry: BatchResultEntry = { key, providerId, providerName, modelId, modelName, success: false, output: '' };
-          try {
-            const result = await onTestModel(providerId, modelId, effectivePrompt, uploadedFile);
-            setTestResultByKey((prev) => ({ ...prev, [key]: result.success }));
-            const output =
-              result.output ?? (result.message && !result.success ? `錯誤：${result.message}` : '');
-            setOutputByKey((prev) => ({ ...prev, [key]: output }));
-            const imgUrl = result.output_image_url ?? (output ? extractImageUrlFromOutput(output) : undefined);
-            if (imgUrl) {
-              setImageOutputByKey((prev) => ({ ...prev, [key]: imgUrl }));
+      for (let i = 0; i < toTest.length; i += BATCH_SIZE) {
+        if (batchAbortRequestedRef.current) break;
+        const chunk = toTest.slice(i, i + BATCH_SIZE);
+        await Promise.all(
+          chunk.map(async ({ providerId, providerName, modelId, modelName }) => {
+            const key = `${providerId}::${modelId}`;
+            const effectivePrompt = getEffectivePromptForRow(key) || undefined;
+            setOutputByKey((prev) => ({ ...prev, [key]: '' }));
+            const entry: BatchResultEntry = { key, providerId, providerName, modelId, modelName, success: false, output: '' };
+            try {
+              const result = await onTestModel(providerId, modelId, effectivePrompt, uploadedFile);
+              if (batchAbortRequestedRef.current) return;
+              setTestResultByKey((prev) => ({ ...prev, [key]: result.success }));
+              const output =
+                result.output ?? (result.message && !result.success ? `錯誤：${result.message}` : '');
+              setOutputByKey((prev) => ({ ...prev, [key]: output }));
+              const imgUrl = result.output_image_url ?? (output ? extractImageUrlFromOutput(output) : undefined);
+              if (imgUrl) {
+                setImageOutputByKey((prev) => ({ ...prev, [key]: imgUrl }));
+              }
+
+              entry.success = result.success;
+              entry.output = output;
+              entry.imageUrl = imgUrl;
+
+              if (result.success) succeeded++; else failed++;
+              setBatchProgress({ tested: succeeded + failed, total, succeeded, failed });
+
+              const existing = evaluationMap.get(key);
+              toSave.push({
+                ...(existing?.id ? { id: existing.id } : {}),
+                provider: providerId,
+                model_id: modelId,
+                model_name: existing?.model_name ?? modelName,
+                is_working: result.success,
+                specialties: existing?.specialties ?? [],
+                is_candidate: existing?.is_candidate ?? false,
+                notes: output || existing?.notes || '',
+                last_tested_at: new Date().toISOString(),
+              });
+            } catch {
+              if (batchAbortRequestedRef.current) return;
+              failed++;
+              entry.output = '請求失敗';
+              setBatchProgress({ tested: succeeded + failed, total, succeeded, failed });
+              setTestResultByKey((prev) => ({ ...prev, [key]: false }));
+              setOutputByKey((prev) => ({ ...prev, [key]: '請求失敗' }));
             }
+            collectedResults.push(entry);
+          }),
+        );
+      }
 
-            entry.success = result.success;
-            entry.output = output;
-            entry.imageUrl = imgUrl;
-
-            if (result.success) succeeded++; else failed++;
-            setBatchProgress({ tested: succeeded + failed, total, succeeded, failed });
-
-            const existing = evaluationMap.get(key);
-            toSave.push({
-              ...(existing?.id ? { id: existing.id } : {}),
-              provider: providerId,
-              model_id: modelId,
-              model_name: existing?.model_name ?? modelName,
-              is_working: result.success,
-              specialties: existing?.specialties ?? [],
-              is_candidate: existing?.is_candidate ?? false,
-              notes: output || existing?.notes || '',
-              last_tested_at: new Date().toISOString(),
-            });
-          } catch {
-            failed++;
-            entry.output = '請求失敗';
-            setBatchProgress({ tested: succeeded + failed, total, succeeded, failed });
-            setTestResultByKey((prev) => ({ ...prev, [key]: false }));
-            setOutputByKey((prev) => ({ ...prev, [key]: '請求失敗' }));
-          }
-          collectedResults.push(entry);
-        }),
-      );
-
-      if (toSave.length > 0) {
+      if (toSave.length > 0 && !batchAbortRequestedRef.current) {
         try {
           await onSave(toSave);
         } catch (saveErr) {
@@ -1404,20 +1435,17 @@ export function ModelEvaluator({
       }
 
       // Reset status/category filters so tested models remain visible.
-      // If filterStatuses was e.g. ['untested'], all just-tested models would disappear
-      // from the table after onSave() updates evaluationMap. Clear filters to prevent the
-      // page appearing stuck (provider filter is intentional — leave it unchanged).
       setFilterStatuses([]);
       setFilterCategories([]);
 
-      // Show detailed results panel instead of window.alert
       const sortedResults = collectedResults.sort((a, b) => {
-        // Sort: success first, then by providerName + modelName
         if (a.success !== b.success) return a.success ? -1 : 1;
         return `${a.providerName}${a.modelName}`.localeCompare(`${b.providerName}${b.modelName}`);
       });
       setBatchResults(sortedResults);
-      saveRecentBatchReport(sortedResults);
+      if (collectedResults.length > 0) {
+        saveRecentBatchReport(sortedResults);
+      }
     } finally {
       batchTestingRef.current = false;
       setBatchTesting(false);
@@ -1432,6 +1460,10 @@ export function ModelEvaluator({
   handleBatchTestRef.current = handleBatchTest;
   const stableRunBatchTest = useCallback(() => handleBatchTestRef.current(), []);
 
+  const stableAbortBatchTest = useCallback(() => {
+    batchAbortRequestedRef.current = true;
+  }, []);
+
   // 將「全部測試」狀態與觸發方法暴露給頁首固定區塊使用
   // canBatchTest 與 testableCount 基於 allRows（全部模型），不受篩選影響，
   // 避免篩選後顯示 0 但實際上有已選模型可測試的誤導情形。
@@ -1443,6 +1475,7 @@ export function ModelEvaluator({
       : '目前無已選的模型，無法測試。請先勾選要測試的模型。';
     const payload = {
       runBatchTest: stableRunBatchTest,
+      abortBatchTest: stableAbortBatchTest,
       batchTesting,
       canBatchTest,
       tooltip,
@@ -1463,7 +1496,7 @@ export function ModelEvaluator({
       // eslint-disable-next-line no-param-reassign
       headerActionsRef.current = payload;
     }
-  }, [headerActionsRef, stableRunBatchTest, openRecentBatchReport, applyRecentBatchReport, hasRecentBatchReport, applyingRecentBatchReport, batchTesting, allSelectedCount, batchProgress, testableCount, allRows.length, rowsAfterCategoryFilter.length, filteredSelectedCount]);
+  }, [headerActionsRef, stableRunBatchTest, stableAbortBatchTest, openRecentBatchReport, applyRecentBatchReport, hasRecentBatchReport, applyingRecentBatchReport, batchTesting, allSelectedCount, batchProgress, testableCount, allRows.length, rowsAfterCategoryFilter.length, filteredSelectedCount]);
 
   return (
     <div className="space-y-4">
@@ -1772,7 +1805,7 @@ export function ModelEvaluator({
                   className={`py-3 px-3 font-semibold text-text-secondary text-center relative group border-r border-border-subtle align-top ${getFrozenThClass(8)}`}
                   style={getFrozenThStyle(8)}
                 >
-                  <span>測試日期</span>
+                  <span>更新日期與時間</span>
                   <div
                     role="separator"
                     aria-label="調整欄寬"
@@ -2226,13 +2259,11 @@ export function ModelEvaluator({
                       </label>
                     </td>
                     <td
-                      className={`py-1.5 px-3 align-top max-w-[200px] border-r border-border-subtle ${getFrozenTdClass(4)}`}
+                      className={`py-1.5 px-3 align-top max-w=[200px] border-r border-border-subtle ${getFrozenTdClass(4)}`}
                       style={getFrozenTdStyle(4)}
                     >
                       <textarea
-                        value={(rowPrompts[key]?.trim() ?? '')
-                          ? (rowPrompts[key] ?? '')
-                          : effectivePromptVariableLabel}
+                        value={rowPrompts[key] ?? ''}
                         onChange={(e) => {
                           const raw = e.target.value;
                           const trimmed = raw.trim();

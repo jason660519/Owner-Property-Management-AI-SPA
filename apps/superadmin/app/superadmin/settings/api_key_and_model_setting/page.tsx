@@ -19,9 +19,9 @@ import { getProviderById, AI_PROVIDERS } from '@/lib/ai-providers';
 import { SUPPORTED_AI_ENV_KEY_NAMES } from '@/lib/parse-env-keys';
 
 
-type SettingsTab = 'keys' | 'evaluations' | 'ocr' | 'static-ad' | 'contract' | 'blog';
+type SettingsTab = 'keys' | 'ocr' | 'static-ad' | 'contract' | 'blog';
 
-const TAB_IDS: SettingsTab[] = ['keys', 'evaluations', 'ocr', 'static-ad', 'contract', 'blog'];
+const TAB_IDS: SettingsTab[] = ['keys', 'ocr', 'static-ad', 'contract', 'blog'];
 
 const LS_GLOBAL_PROMPT = 'ai-settings:globalTestPrompt';
 const LS_SAVED_PROMPTS = 'ai-settings:savedPrompts';
@@ -133,7 +133,6 @@ function getTabFromHash(): SettingsTab | null {
 
 const TABS: { id: SettingsTab; label: string; icon: React.ElementType; description: string }[] = [
   { id: 'keys', label: 'API 金鑰管理', icon: Key, description: '管理各 AI 服務提供商的 API 金鑰' },
-  { id: 'evaluations', label: '已選/可選模型評估', icon: FlaskConical, description: '' },
   { id: 'ocr', label: 'OCR解析設定', icon: ScanText, description: '設定 OCR 解析模型與參數' },
   { id: 'static-ad', label: '靜態網頁廣告生成器 AI 助理', icon: Globe, description: '自動生成不動產靜態網頁廣告' },
   { id: 'contract', label: '合約生成AI助理', icon: FileSignature, description: '自動生成不動產合約文件' },
@@ -181,18 +180,6 @@ const BLOG_HIDDEN_MODULE_KEYS = [
   'ttd_engineer',
 ];
 
-const EVALUATIONS_HIDDEN_MODULE_KEYS = [
-  'online_ocr_parse',
-  'online_ocr_judge',
-  'web_assistant',
-  'contract_assistant',
-  'blog_generator',
-  'ad_generator',
-  'software_dev_engineer',
-  'ttd_engineer',
-];
-
-
 
 export default function AIServiceSettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => getTabFromHash() ?? 'keys');
@@ -206,6 +193,7 @@ export default function AIServiceSettingsPage() {
   const keysRef = useRef(settings.keys);
   const [modelEvaluatorHeaderActions, setModelEvaluatorHeaderActions] = useState<{
     runBatchTest: () => void;
+    abortBatchTest: () => void;
     batchTesting: boolean;
     canBatchTest: boolean;
     tooltip: string;
@@ -220,7 +208,7 @@ export default function AIServiceSettingsPage() {
     keysRef.current = settings.keys;
   }, [settings.keys]);
 
-  // 已選/可選模型評估：全域測試 Prompt 與共用檔案（供 ModelEvaluator 使用）
+  // Model tabs: 全域測試 Prompt 與共用檔案（供 ModelEvaluator 使用）
   // DEFAULT_EVALUATION_PROMPT is defined at module level (see below)
   const [globalTestPrompt, setGlobalTestPrompt] = useState<string>(
     () => readLocalStorage(LS_GLOBAL_PROMPT, DEFAULT_EVALUATION_PROMPT)
@@ -335,7 +323,6 @@ export default function AIServiceSettingsPage() {
         return 'contract';
       case 'blog':
         return 'blog';
-      case 'evaluations':
       case 'keys':
       default:
         return 'general';
@@ -442,8 +429,6 @@ export default function AIServiceSettingsPage() {
         return 'eval_contract_global_prompt';
       case 'blog':
         return 'eval_blog_global_prompt';
-      case 'evaluations':
-        return 'eval_models_global_prompt';
       case 'keys':
       default:
         return 'eval_general_global_prompt';
@@ -605,37 +590,6 @@ export default function AIServiceSettingsPage() {
               await new Promise((r) => setTimeout(r, 800));
               await runValidateAllKeys(keysRef.current, importedCount);
             }}
-          />
-        );
-      case 'evaluations':
-        return (
-          <ModelEvaluator
-            savedKeys={settings.keys}
-            savedModels={settings.models}
-            savedEvaluations={settings.evaluations}
-            validateAllResultsByKeyId={validateAllResultsByKeyId}
-            currentKeys={memoizedCurrentKeys}
-            onSave={settings.saveEvaluations}
-            onTestModel={settings.testModel}
-            onSaveModels={async (providerId, selections) => {
-              await settings.saveModels(
-                providerId as Parameters<typeof settings.saveModels>[0],
-                selections
-              );
-            }}
-            savedModules={settings.modules}
-            hiddenModuleKeys={EVALUATIONS_HIDDEN_MODULE_KEYS}
-            onSaveModule={async (moduleKey, isEnabled, assignedModels, config) => {
-              await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
-            }}
-            summarySelectedCount={selectedModelCount}
-            summaryTotalCount={totalAvailableModels}
-            promptVariableLabel={currentCloudPromptName ? `{${currentCloudPromptName}}` : undefined}
-            globalTestPrompt={globalTestPrompt}
-            onChangeGlobalTestPrompt={setGlobalTestPrompt}
-            uploadedFile={uploadedFile}
-            onChangeUploadedFile={setUploadedFile}
-            headerActionsRef={setModelEvaluatorHeaderActions}
           />
         );
       case 'ocr':
@@ -1020,7 +974,7 @@ export default function AIServiceSettingsPage() {
               </p>
               <ol className="list-decimal list-inside space-y-1 text-xs text-text-secondary">
                 <li>在「API 金鑰管理」新增各提供商的 API 金鑰；可用「驗證金鑰」確認可用性並取得可選模型清單。</li>
-                <li>在「已選/可選模型評估」勾選要納入候選的模型（可測試連線）。</li>
+                <li>前往「統一測試設定」頁勾選要納入候選的模型（可測試連線）。</li>
               </ol>
             </div>
           </div>

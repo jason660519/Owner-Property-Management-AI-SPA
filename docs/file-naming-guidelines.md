@@ -3,9 +3,9 @@
 
 > **Created Date**: 2026-02-02
 > **Created By**: Claude Sonnet 4.5
-> **Last Modified**: 2026-02-14
+> **Last Modified**: 2026-03-07
 > **Modified By**: Antigravity
-> **Version**: 4.1 (SQL File Management Edition)
+> **Version**: 4.2 (Directory Structure Update)
 > **Document Type**: Technical Documentation / 技術文件
 
 ---
@@ -292,52 +292,92 @@ describe('LoginPage', () => {
 
 ```text
 root/
+├── .claude/                    # AI 協作規則（rules/ + memory/）
 ├── .github/                    # CI/CD workflows
 ├── .husky/                     # Git hooks
-├── backend/                    # Backend services (Node.js/Python)
-│   └── ocr-service/           # OCR microservice
 ├── apps/                       # Monorepo applications
-│   ├── web/                    # Next.js Web App + PWA (Main Development)
-│   │   ├── app/                # Route pages
-│   │   ├── components/         # UI components
+│   ├── web/                    # Next.js Web App（前台，Port 3000）
+│   │   ├── app/                # App Router 頁面
+│   │   │   ├── (auth)/         # 登入/註冊/密碼重置
+│   │   │   ├── (dashboard)/    # 通用後台（需登入）
+│   │   │   ├── landlord/       # 房東功能
+│   │   │   ├── tenant/         # 租客功能
+│   │   │   ├── buyer/          # 買家功能
+│   │   │   ├── portal/         # 已登入用戶共用頁
+│   │   │   └── onboarding/     # 新用戶角色設定
+│   │   ├── components/         # UI 元件
 │   │   ├── hooks/              # Custom Hooks
-│   │   ├── lib/                # Utility functions
-│   │   └── e2e/                # E2E tests (Playwright)
-│   └── mobile/                 # Expo App (Paused, code preserved)
-├── packages/                   # Shared packages
-│   ├── ui/                     # Shared UI components
-│   ├── utils/                  # Shared utilities
-│   └── types/                  # Shared TypeScript types
-├── supabase/                   # Supabase (Migrations, Seeds)
-│   ├── migrations/
+│   │   ├── lib/                # 工具函式、actions
+│   │   └── e2e/                # E2E 測試（Playwright）
+│   │       └── flows/          # 依模組分類的 E2E flow
+│   └── superadmin/             # Next.js Superadmin 後台（Port 3001）
+│       ├── app/
+│       │   ├── superadmin/     # 所有後台頁面（/superadmin/* 前綴）
+│       │   │   ├── dashboard/  # 主控台（行為監控、IAM、LLM monitor 等）
+│       │   │   ├── properties/ # 物件管理
+│       │   │   ├── settings/   # AI 設定（API 金鑰與模型）
+│       │   │   └── ...         # 其他後台功能
+│       │   └── data/
+│       │       └── roadmap.ts  # ⭐ 專案進度資料（唯一真相來源）
+│       ├── unit_test/          # 單元與整合測試（依 Row ID 編號）
+│       │   ├── 002/            # 行為監控相關測試
+│       │   └── 004/            # 雲端空間管理相關測試
+│       └── e2e/                # Superadmin E2E 測試
+│           ├── 004/            # 編號 subdir
+│           ├── ai-settings/    # 命名 subdir（AI 設定）
+│           └── *.spec.ts       # 其他 E2E 測試
+├── backend/                    # 後端微服務
+│   └── ocr-service/            # Python OCR 微服務（ruff + mypy）
+├── packages/                   # Monorepo 共用套件
+│   ├── ui/                     # 共用 UI 元件
+│   ├── utils/                  # 共用工具函式
+│   ├── types/                  # 共用 TypeScript 型別（@repo/shared-types）
+│   └── tsconfig/               # 共用 tsconfig
+├── supabase/                   # Supabase（唯一合法 .sql 存放位置）
+│   ├── migrations/             # 格式：YYYYMMDDHHMMSS_描述.sql
 │   └── config.toml
-├── docs/                       # Documentation center (ALL docs here)
-│   ├── design-guidelines/      # UI/UX 設計規範、Figma 文件
+├── tools/                      # 開發輔助工具
+│   ├── local-agent/            # Local Agent（Cursor / Claude CLI 整合）
+│   │   ├── dev-tasks-agent.ts  # Agent 主程式
+│   │   ├── run-cursor.sh       # 啟動 Cursor Agent
+│   │   └── run-claude.sh       # 啟動 Claude CLI Agent
+│   └── cursor-extension/       # Cursor 擴充
+├── docs/                       # 文件中心（所有非程式碼文件放這裡）
+│   ├── design-guidelines/      # UI/UX 設計規範
 │   │   └── references/         # 設計參考資料
-│   ├── proposals/              # 設計提案（如 auth-redesign）
+│   ├── proposals/              # 設計提案
 │   ├── implementation-plans/   # 實作計畫
 │   ├── product-overview/       # 產品需求與使用場景
-│   ├── operational-guides/      # 操作指南
-│   │   ├── deployment-guides/   # 部署與環境
-│   │   └── iam/                 # IAM 權限架構、SOP、Option A、回歸檢查表
-│   ├── technical-selection/    # Technical architecture and API design (non-IAM)
-│   ├── testing/                # Testing standards and guidelines
-│   │   ├── TEST_FILE_MANAGEMENT_STANDARD.md  # Detailed testing standards
-│   │   └── TEST_QUICK_REFERENCE.md           # Quick reference card
-│   └── file-naming-guidelines.md  # This file
-├── project-process/            # 專案流程與進度報告
-│   └── progress-reports/
-│       ├── iam/                # IAM 系統進度
-│       ├── mobile/             # Mobile App 進度
-│       ├── testing/            # 測試報告
-│       ├── ocr-development/
-│       ├── roadmap/
-│       ├── daily-reports/
-│       └── database-reports/
-└── scripts/                    # Automation scripts (Build, Deploy, Maintenance)
-    ├── clean-macos-files.sh    # macOS hidden files cleaner
-    └── migrate-tests.sh        # Test migration script
+│   ├── operational-guides/     # 操作指南
+│   │   ├── deployment-guides/  # 部署與環境
+│   │   └── iam/                # IAM 權限架構、SOP
+│   ├── technical-selection/    # 技術選型文件
+│   ├── reports/                # 分析報告
+│   ├── VLM/                    # VLM 相關文件
+│   ├── Prompt/                 # Prompt 範本
+│   ├── file-naming-guidelines.md   # 本文件
+│   └── update-project-progress-guide.md  # 進度更新指南
+├── project-process/            # 專案流程文件（Feature Spec、TDD、開發日誌）
+│   ├── features/               # Feature Spec (.md) + TDD Spec (.md)
+│   │   └── *.md                # 所有 .html 已於 2026-03-07 清除，統一使用 .md
+│   ├── dev-logs/               # 開發日誌（roadmap devLogDocPath 指向此處）
+│   ├── test-logs/              # 測試日誌
+│   ├── progress-reports/       # 進度報告
+│   │   ├── daily-reports/
+│   │   ├── database-reports/
+│   │   └── ...                 # 其他分類
+│   ├── iam-reports/            # IAM 審計報告
+│   └── project-packages-analysis/  # 套件分析
+├── scripts/                    # 自動化腳本
+│   ├── complete-dev-task.sh    # 標記 dev task 完成
+│   ├── clean-macos-files.sh
+│   ├── generate-work-log.sh
+│   └── migrate-tests.sh
+└── resources/                  # 靜態資源
 ```
+
+> ⚠️ `project-process/features/` 自 2026-03-07 起，**所有 `.html` 已刪除**，文件統一採用 `.md` 格式。
+> ⚠️ `project-process/` 根層的舊靜態網站檔案（`analysis.html`、`build.js`、`roadmap.js` 等）亦於同日清除。
 
 ---
 
@@ -589,23 +629,25 @@ module.exports = {
 
 ## 📝 Change History / 修改歷史
 
-| Date       | Version | Modified By       | Changes                                                      |
-| ---------- | ------- | ----------------- | ------------------------------------------------------------ |
-| 2026-02-14 | 4.1     | Antigravity       | Added SQL file management rules, prohibited scattered .sql   |
-| 2026-02-06 | 4.0     | Claude Opus 4.5   | Integrated testing standards, colocated testing approach     |
-| 2026-02-02 | 3.0     | Claude Sonnet 4.5 | Complete rewrite: English-only file names, bilingual content |
-| 2026-02-01 | 2.2     | Gemini 3 Pro      | Updated directory structure, archiving process               |
-| 2026-01-30 | 2.1     | Claude Sonnet 4.5 | Added AI collaborator identification and change tracking     |
-| 2026-01-30 | 1.0     | Project Team      | Initial version                                              |
+| Date       | Version | Modified By       | Changes                                                                                                                                    |
+| ---------- | ------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-03-07 | 4.2     | Antigravity       | Updated full directory structure (superadmin, tools, backend); corrected unit_test/ path; removed stale static files from project-process/ |
+| 2026-02-14 | 4.1     | Antigravity       | Added SQL file management rules, prohibited scattered .sql                                                                                 |
+| 2026-02-06 | 4.0     | Claude Opus 4.5   | Integrated testing standards, colocated testing approach                                                                                   |
+| 2026-02-02 | 3.0     | Claude Sonnet 4.5 | Complete rewrite: English-only file names, bilingual content                                                                               |
+| 2026-02-01 | 2.2     | Gemini 3 Pro      | Updated directory structure, archiving process                                                                                             |
+| 2026-01-30 | 2.1     | Claude Sonnet 4.5 | Added AI collaborator identification and change tracking                                                                                   |
+| 2026-01-30 | 1.0     | Project Team      | Initial version                                                                                                                            |
 
-| 日期       | 版本 | 修改者            | 修改內容                             |
-| ---------- | ---- | ----------------- | ------------------------------------ |
-| 2026-02-14 | 4.1  | Antigravity       | 新增 SQL 檔案管理規則，禁止散落 .sql |
-| 2026-02-06 | 4.0  | Claude Opus 4.5   | 整合測試規範、就近測試方法           |
-| 2026-02-02 | 3.0  | Claude Sonnet 4.5 | 完全重寫：英文專用檔案名、雙語內容   |
-| 2026-02-01 | 2.2  | Gemini 3 Pro      | 更新目錄結構、歸檔流程               |
-| 2026-01-30 | 2.1  | Claude Sonnet 4.5 | 新增 AI 協作者識別與修改追蹤         |
-| 2026-01-30 | 1.0  | Project Team      | 初始版本                             |
+| 日期       | 版本 | 修改者            | 修改內容                                                                                                  |
+| ---------- | ---- | ----------------- | --------------------------------------------------------------------------------------------------------- |
+| 2026-03-07 | 4.2  | Antigravity       | 更新完整目錄結構（補 superadmin/tools/backend）；修正 unit_test/ 路徑；清除 project-process/ 中的舊靜態檔 |
+| 2026-02-14 | 4.1  | Antigravity       | 新增 SQL 檔案管理規則，禁止散落 .sql                                                                      |
+| 2026-02-06 | 4.0  | Claude Opus 4.5   | 整合測試規範、就近測試方法                                                                                |
+| 2026-02-02 | 3.0  | Claude Sonnet 4.5 | 完全重寫：英文專用檔案名、雙語內容                                                                        |
+| 2026-02-01 | 2.2  | Gemini 3 Pro      | 更新目錄結構、歸檔流程                                                                                    |
+| 2026-01-30 | 2.1  | Claude Sonnet 4.5 | 新增 AI 協作者識別與修改追蹤                                                                              |
+| 2026-01-30 | 1.0  | Project Team      | 初始版本                                                                                                  |
 
 ---
 

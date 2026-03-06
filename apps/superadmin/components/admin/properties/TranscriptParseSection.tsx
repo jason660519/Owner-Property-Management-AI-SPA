@@ -53,6 +53,8 @@ export function TranscriptParseSection({ transcriptDocs }: Props) {
   // Pre-execution settings panel
   const [showSettings, setShowSettings] = useState(false);
   const [customPrompt, setCustomPrompt] = useState('');
+  type ParserModelSelection = { provider: string; model: string; priority?: number; enabled: boolean };
+  const [parserModelSelection, setParserModelSelection] = useState<ParserModelSelection[]>([]);
 
   // Parse state
   const [isParsing, setIsParsing] = useState(false);
@@ -86,6 +88,38 @@ export function TranscriptParseSection({ transcriptDocs }: Props) {
     () => aiModules.find((m) => m.module_key === 'online_ocr_judge'),
     [aiModules],
   );
+
+  // 解析此輪要使用的裁判模型：
+  // 1) 優先使用 online_ocr_judge 模組中綁定的第一個模型
+  // 2) 若讀不到（或尚未設定），fallback 為目前勾選的解析模型中的第一個
+  const effectiveJudgeModel = useMemo(
+    () => {
+      if (ocrJudgeModule && Array.isArray(ocrJudgeModule.assigned_models) && ocrJudgeModule.assigned_models.length > 0) {
+        const j = ocrJudgeModule.assigned_models[0];
+        return { provider: j.provider, model: j.model };
+      }
+      const firstEnabled = parserModelSelection.find((m) => m.enabled) ?? parserModelSelection[0];
+      return firstEnabled ? { provider: firstEnabled.provider, model: firstEnabled.model } : null;
+    },
+    [ocrJudgeModule, parserModelSelection],
+  );
+
+  // Sync per-run parser model selection：單一事實來源 = 「雲端OCR謄本解析（解析組）」模組綁定
+  useEffect(() => {
+    if (ocrParseModule && Array.isArray(ocrParseModule.assigned_models) && ocrParseModule.assigned_models.length > 0) {
+      setParserModelSelection(
+        ocrParseModule.assigned_models.map((m) => ({
+          provider: m.provider,
+          model: m.model,
+          priority: m.priority,
+          enabled: true,
+        })),
+      );
+      return;
+    }
+
+    setParserModelSelection([]);
+  }, [ocrParseModule]);
 
   // SSE event dispatcher
   const handleSSEEvent = useCallback((event: SSEEvent) => {
@@ -148,6 +182,12 @@ export function TranscriptParseSection({ transcriptDocs }: Props) {
   async function handleParse() {
     if (!selectedDocId || !aiUserId || isParsing) return;
 
+    const enabledParserModels = parserModelSelection.filter((m) => m.enabled);
+    if (parserModelSelection.length > 0 && enabledParserModels.length === 0) {
+      setParseError('請至少勾選一個解析模型，或在 AI 設定中為「雲端OCR謄本解析」設定解析模型。');
+      return;
+    }
+
     abortRef.current?.abort();
     const abort = new AbortController();
     abortRef.current = abort;
@@ -168,6 +208,11 @@ export function TranscriptParseSection({ transcriptDocs }: Props) {
           documentId: selectedDocId,
           userId: aiUserId,
           customPrompt: customPrompt.trim() || undefined,
+          overrideParserModels:
+            enabledParserModels.length > 0
+              ? enabledParserModels.map((m) => ({ provider: m.provider, model: m.model }))
+              : undefined,
+          overrideJudgeModel: effectiveJudgeModel ?? undefined,
         }),
         signal: abort.signal,
       });
@@ -254,15 +299,41 @@ export function TranscriptParseSection({ transcriptDocs }: Props) {
               <Info size={11} className="text-accent" />
               解析模型（雲端OCR謄本解析）
             </p>
-            {ocrParseModule && ocrParseModule.assigned_models.length > 0 ? (
-              <ul className="pl-3 space-y-0.5">
-                {ocrParseModule.assigned_models.map((m, i) => (
-                  <li key={i} className="text-text-muted">
-                    • <span className="text-text-secondary font-mono">{m.provider} / {m.model}</span>
-                    {m.priority === 1 && <span className="ml-1.5 text-accent text-[10px]">（主要）</span>}
-                  </li>
-                ))}
-              </ul>
+            {parserModelSelection.length > 0 ? (
+              <>
+                <ul className="pl-3 space-y-0.5">
+                  {parserModelSelection.map((m, i) => (
+                    <li key={`${m.provider}/${m.model}/${i}`} className="text-text-muted">
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="w-3 h-3 rounded border border-border-default text-accent focus:ring-0"
+                          checked={m.enabled}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setParserModelSelection((prev) =>
+                              prev.map((x) =>
+                                x.provider === m.provider && x.model === m.model
+                                  ? { ...x, enabled: checked }
+                                  : x,
+                              ),
+                            );
+                          }}
+                        />
+                        <span className="text-text-secondary font-mono">
+                          {m.provider} / {m.model}
+                        </span>
+                        {m.priority === 1 && (
+                          <span className="ml-1.5 text-accent text-[10px]">（主要）</span>
+                        )}
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+                <p className="pl-3 text-[11px] text-text-muted mt-1">
+                  僅影響本次解析會呼叫哪些模型，不會修改「AI 服務設定」中的模組綁定。
+                </p>
+              </>
             ) : (
               <p className="pl-3 text-amber-600 flex items-center gap-1">
                 <AlertTriangle size={11} />
@@ -277,13 +348,21 @@ export function TranscriptParseSection({ transcriptDocs }: Props) {
               <Scale size={11} className="text-accent" />
               裁判模型（衝突解決，選填）
             </p>
-            {ocrJudgeModule && ocrJudgeModule.assigned_models.length > 0 ? (
+            {effectiveJudgeModel ? (
               <ul className="pl-3 space-y-0.5">
-                {ocrJudgeModule.assigned_models.slice(0, 1).map((m, i) => (
-                  <li key={i} className="text-text-muted">
-                    • <span className="text-text-secondary font-mono">{m.provider} / {m.model}</span>
-                  </li>
-                ))}
+                <li className="text-text-muted">
+                  •{' '}
+                  <span className="text-text-secondary font-mono">
+                    {effectiveJudgeModel.provider} / {effectiveJudgeModel.model}
+                  </span>
+                  {!ocrJudgeModule ||
+                    !ocrJudgeModule.assigned_models ||
+                    ocrJudgeModule.assigned_models.length === 0 ? (
+                      <span className="ml-1.5 text-[10px] text-text-muted">
+                        （本次暫時沿用解析模型作為裁判，不會寫入 AI 設定）
+                      </span>
+                    ) : null}
+                </li>
               </ul>
             ) : (
               <p className="pl-3 text-text-muted">（未設定，衝突欄位將以多數決解決）</p>

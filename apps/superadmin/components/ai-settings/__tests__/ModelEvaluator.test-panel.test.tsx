@@ -622,7 +622,10 @@ describe('全部測試 — batchTesting 狀態轉換', () => {
     });
 
     const { runBatchTest } = mockRef.mock.calls.at(-1)![0];
-    const p = runBatchTest();
+    let p: Promise<void>;
+    act(() => {
+      p = runBatchTest();
+    });
 
     // After starting, batchTesting should become true
     await waitFor(() => {
@@ -877,7 +880,10 @@ describe('全部測試 — batchProgress 進度追蹤', () => {
     });
 
     const { runBatchTest } = mockRef.mock.calls.at(-1)![0];
-    const p = runBatchTest();
+    let p: Promise<void>;
+    act(() => {
+      p = runBatchTest();
+    });
 
     // During execution, batchProgress should have total > 0
     await waitFor(() => {

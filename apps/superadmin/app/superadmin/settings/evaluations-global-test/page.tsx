@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Eye, FlaskConical, Loader2 } from 'lucide-react';
+import { Eye, FlaskConical, Loader2, Pause } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Button } from '@/components/ui/Button';
 import { ModelEvaluator } from '@/components/ai-settings';
@@ -133,6 +133,7 @@ export default function EvaluationsGlobalTestPage() {
   const [modelEvaluatorHeaderActions, setModelEvaluatorHeaderActions] =
     useState<{
       runBatchTest: () => void;
+      abortBatchTest: () => void;
       batchTesting: boolean;
       canBatchTest: boolean;
       tooltip: string;
@@ -489,6 +490,17 @@ export default function EvaluationsGlobalTestPage() {
                       <FlaskConical size={14} />
                     )}
                     <span className="ml-1.5 whitespace-nowrap">開始統一測試</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => modelEvaluatorHeaderActions?.abortBatchTest?.()}
+                    disabled={!modelEvaluatorHeaderActions?.batchTesting}
+                    title="中斷或暫停目前正在執行的統一測試（當前批次完成後停止）"
+                    className="shrink-0"
+                  >
+                    <Pause size={14} />
+                    <span className="ml-1.5 whitespace-nowrap">暫停測試</span>
                   </Button>
                   <Button
                     size="sm"
