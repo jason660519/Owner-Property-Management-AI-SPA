@@ -21,8 +21,8 @@ import {
   CALLERS,
   extractJsonFromOutput,
   mimeFromPath,
-  TRANSCRIPT_PARSE_PROMPT,
 } from '@/lib/utils/ai-api-callers';
+import { TRANSCRIPT_PARSE_PROMPT } from '@/lib/transcript-prompts';
 import {
   buildConsensus,
   getConflictsNeedingJudge,

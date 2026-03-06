@@ -20,13 +20,15 @@ import {
   CALLERS,
   extractJsonFromOutput,
   mimeFromPath,
-  TRANSCRIPT_PARSE_PROMPT,
 } from '@/lib/utils/ai-api-callers';
+import { TRANSCRIPT_PARSE_PROMPT } from '@/lib/transcript-prompts';
 import {
   buildConsensus,
   getConflictsNeedingJudge,
   applyJudgeResolutions,
 } from '@/lib/utils/transcript-consensus';
+import { runConcurrentUntilTargetSuccess } from '@/lib/utils/concurrent-success-runner';
+import { resolveParserConcurrency } from '@/lib/utils/parser-concurrency';
 
 export const runtime = 'nodejs';
 // Prevent Next.js from buffering the response
@@ -39,6 +41,7 @@ interface AssignedModelRow {
 }
 
 type SendFn = (data: Record<string, unknown>) => void;
+const ABORTED_ERROR = '__ABORTED__';
 
 // ---------------------------------------------------------------------------
 // POST /api/transcript-parse/stream
@@ -50,6 +53,7 @@ export async function POST(request: NextRequest) {
     documentId?: string;
     userId?: string;
     customPrompt?: string;
+    parserConcurrency?: number;
     overrideParserModels?: { provider: string; model: string }[];
     overrideJudgeModel?: { provider: string; model: string } | null;
   };
@@ -59,7 +63,14 @@ export async function POST(request: NextRequest) {
     return new Response('Invalid JSON body', { status: 400 });
   }
 
-  const { documentId, userId, customPrompt, overrideParserModels, overrideJudgeModel } = body;
+  const {
+    documentId,
+    userId,
+    customPrompt,
+    parserConcurrency,
+    overrideParserModels,
+    overrideJudgeModel,
+  } = body;
   if (!documentId || !userId) {
     return new Response('Missing documentId or userId', { status: 400 });
   }
@@ -185,13 +196,18 @@ export async function POST(request: NextRequest) {
         send({
           type: 'models_loaded',
           parserModels: parserModels.map((m) => ({ provider: m.provider, model: m.model })),
-          judgeModel,
+          judgeModel: judgeCandidates[0] ?? null,
         });
 
         // ── 5. Phase 1: Parse ─────────────────────────────────────────
         const TARGET_SUCCESS_COUNT = 5;
-        const maxPlannedParsers = Math.min(parserModels.length, TARGET_SUCCESS_COUNT);
-        send({ type: 'parse_start', total: maxPlannedParsers });
+        const parseConcurrency = resolveParserConcurrency(parserConcurrency, parserModels.length);
+        send({
+          type: 'parse_start',
+          total: parserModels.length,
+          concurrency: parseConcurrency,
+          targetSuccessCount: TARGET_SUCCESS_COUNT,
+        });
 
         // Pre-fetch API keys (one request per provider)
         const providers = [...new Set(parserModels.map((m) => m.provider))];
@@ -201,31 +217,71 @@ export async function POST(request: NextRequest) {
           if (key) keyMap.set(p, key);
         }
 
-        const parseResults: ModelParseResult[] = [];
-        let successSoFar = 0;
+        const {
+          results: parseResults,
+          successCount,
+          launchedCount,
+          cancelledIndices,
+          stoppedBySignal,
+        } = await runConcurrentUntilTargetSuccess({
+          items: parserModels,
+          maxConcurrency: parseConcurrency,
+          targetSuccessCount: TARGET_SUCCESS_COUNT,
+          stopSignal: request.signal,
+          onItemStart: (m, index) => {
+            send({ type: 'model_start', provider: m.provider, model: m.model, index });
+          },
+          onItemResult: (m, index, result) => {
+            send({
+              type: 'model_result',
+              provider: m.provider,
+              model: m.model,
+              index,
+              success: result.result !== null,
+              duration_ms: result.duration_ms,
+              error: result.error,
+            });
+          },
+          runItem: (m, _index, signal) =>
+            callSingleModel(m, keyMap, fileBase64, mimeType, systemPrompt, signal),
+          isSuccessful: (result) => result.result !== null,
+          isCancelled: (result) => result.error === ABORTED_ERROR,
+        });
 
-        // 以排序順序依序呼叫模型，直到：
-        // - 累積至少 TARGET_SUCCESS_COUNT 個成功解析，或
-        // - 沒有更多模型可用為止。
-        for (let index = 0; index < parserModels.length; index += 1) {
-          const m = parserModels[index];
-          // 若已達到目標成功數，停止再呼叫後續模型，節省成本
-          if (successSoFar >= TARGET_SUCCESS_COUNT) break;
+        if (stoppedBySignal || request.signal.aborted) {
+          return;
+        }
 
-          send({ type: 'model_start', provider: m.provider, model: m.model, index });
-          const result = await callSingleModel(m, keyMap, fileBase64, mimeType, systemPrompt);
-          parseResults.push(result);
-          if (result.result !== null) successSoFar += 1;
+        if (successCount >= TARGET_SUCCESS_COUNT) {
+          for (const index of cancelledIndices) {
+            const cancelledModel = parserModels[index];
+            if (!cancelledModel) continue;
+            send({
+              type: 'model_cancelled',
+              provider: cancelledModel.provider,
+              model: cancelledModel.model,
+              index,
+            });
+          }
 
-          send({
-            type: 'model_result',
-            provider: m.provider,
-            model: m.model,
-            index,
-            success: result.result !== null,
-            duration_ms: result.duration_ms,
-            error: result.error,
-          });
+          const neverStartedIndices = Array.from(
+            { length: parserModels.length - launchedCount },
+            (_, offset) => launchedCount + offset,
+          );
+          for (const index of neverStartedIndices) {
+            const skippedModel = parserModels[index];
+            if (!skippedModel) continue;
+            send({
+              type: 'model_skipped',
+              provider: skippedModel.provider,
+              model: skippedModel.model,
+              index,
+            });
+          }
+        }
+
+        if (request.signal.aborted) {
+          return;
         }
 
         // Persist all parse results at once
@@ -242,7 +298,6 @@ export async function POST(request: NextRequest) {
           await adminClient.from('ocr_parse_results').insert(inserts);
         }
 
-        const successCount = parseResults.filter((r) => r.result !== null).length;
         if (successCount === 0) {
           const errors = parseResults.map((r) => `${r.provider}/${r.model}: ${r.error}`).join('; ');
           send({ type: 'error', message: `所有模型解析失敗：${errors}` });
@@ -288,6 +343,9 @@ export async function POST(request: NextRequest) {
         let finalMetadata = metadata;
 
         if (conflictsForJudge.length > 0 && judgeCandidates.length > 0) {
+          if (request.signal.aborted) {
+            return;
+          }
           send({
             type: 'judge_start',
             message: `裁判解決 ${conflictsForJudge.length} 個衝突欄位中…`,
@@ -307,6 +365,7 @@ export async function POST(request: NextRequest) {
               finalMerged,
               finalMetadata,
               candidate,
+              request.signal,
             );
             if (judgeResult) {
               finalMerged = judgeResult.merged;
@@ -322,6 +381,9 @@ export async function POST(request: NextRequest) {
         finalMetadata = { ...finalMetadata, total_duration_ms: Date.now() - startTime };
 
         // ── 9. Save ───────────────────────────────────────────────────
+        if (request.signal.aborted) {
+          return;
+        }
         send({ type: 'saving', message: '儲存結果中…' });
         await adminClient.from('property_documents').update({
           parsed_result: finalMerged as unknown as Record<string, unknown>,
@@ -362,6 +424,7 @@ async function callSingleModel(
   fileBase64: string,
   mimeType: string,
   systemPrompt: string,
+  signal?: AbortSignal,
 ): Promise<ModelParseResult> {
   const apiKey = keyMap.get(m.provider);
   if (!apiKey) {
@@ -373,7 +436,7 @@ async function callSingleModel(
   }
   const callStart = Date.now();
   try {
-    const callerResult = await caller(apiKey, m.model, fileBase64, mimeType, systemPrompt);
+    const callerResult = await caller(apiKey, m.model, fileBase64, mimeType, systemPrompt, signal);
     const duration = Date.now() - callStart;
     if (!callerResult.ok) {
       return { provider: m.provider, model: m.model, result: null, duration_ms: duration, error: callerResult.error ?? 'API 呼叫失敗' };
@@ -381,7 +444,14 @@ async function callSingleModel(
     const parsed = extractJsonFromOutput(callerResult.text);
     return { provider: m.provider, model: m.model, result: parsed, duration_ms: duration };
   } catch (e) {
-    return { provider: m.provider, model: m.model, result: null, duration_ms: Date.now() - callStart, error: e instanceof Error ? e.message : 'Unknown error' };
+    const isAborted = signal?.aborted || (e instanceof Error && e.name === 'AbortError');
+    return {
+      provider: m.provider,
+      model: m.model,
+      result: null,
+      duration_ms: Date.now() - callStart,
+      error: isAborted ? ABORTED_ERROR : e instanceof Error ? e.message : 'Unknown error',
+    };
   }
 }
 
@@ -400,6 +470,7 @@ async function runJudgePhase(
   merged: LandRegistryParsedResult,
   metadata: ConsensusMetadata,
   judgeModel: { provider: string; model: string },
+  signal?: AbortSignal,
 ): Promise<{ merged: LandRegistryParsedResult; metadata: ConsensusMetadata } | null> {
   const judge = judgeModel;
   const apiKey = await getApiKey(adminClient, resolvedUserId, judge.provider);
@@ -416,8 +487,17 @@ async function runJudgePhase(
   const judgePrompt = buildJudgePrompt(judgeBasePrompt, conflictSummary);
 
   const callStart = Date.now();
-  const result = await caller(apiKey, judge.model, fileBase64, mimeType, judgePrompt);
+  let result;
+  try {
+    result = await caller(apiKey, judge.model, fileBase64, mimeType, judgePrompt, signal);
+  } catch (e) {
+    const isAborted = signal?.aborted || (e instanceof Error && e.name === 'AbortError');
+    if (isAborted) return null;
+    throw e;
+  }
   const duration = Date.now() - callStart;
+
+  if (signal?.aborted) return null;
 
   let judgeRawOutput: Record<string, unknown> | null = null;
   let judgeErrorMessage: string | null = result.ok ? null : result.error;

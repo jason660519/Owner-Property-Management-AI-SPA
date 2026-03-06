@@ -1,6 +1,8 @@
 // filepath: apps/superadmin/lib/ai-providers.ts
 // AI Provider definitions, model lists, and configuration data
 
+import { TRANSCRIPT_PARSE_PROMPT } from '@/lib/transcript-prompts';
+
 export type AIProvider = 'openai' | 'anthropic' | 'gemini' | 'deepseek' | 'grok' | 'together';
 
 export interface AIProviderInfo {
@@ -512,11 +514,7 @@ export const FEATURE_MODULES: FeatureModule[] = [
     icon: 'cloud',
     category: 'ocr',
     requiredCapabilities: ['vision'],
-    defaultPrompt: `你是台灣不動產謄本分析專家。請仔細分析上傳的謄本圖片，提取所有關鍵資訊，包含：
-1. 土地/建物標示部：地號、建號、面積、用途
-2. 所有權部：所有權人、權利範圍、取得日期
-3. 他項權利部：抵押權、地上權等設定
-請以結構化 JSON 格式輸出結果。`,
+    defaultPrompt: TRANSCRIPT_PARSE_PROMPT,
   },
   {
     key: 'online_ocr_judge',

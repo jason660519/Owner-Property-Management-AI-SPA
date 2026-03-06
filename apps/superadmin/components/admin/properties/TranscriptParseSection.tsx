@@ -10,6 +10,12 @@ import {
   Copy, Download, Scale, Info,
 } from 'lucide-react';
 import { useAISettings } from '@/lib/hooks/useAISettings';
+import { TRANSCRIPT_PARSE_PROMPT } from '@/lib/transcript-prompts';
+import {
+  DEFAULT_PARSER_CONCURRENCY,
+  PARSER_CONCURRENCY_OPTIONS,
+  resolveParserConcurrency,
+} from '@/lib/utils/parser-concurrency';
 import type { PropertyDocumentItem } from '@/lib/types/properties';
 import type { LandRegistryParsedResult, ConsensusMetadata, ConflictDetail } from '@/lib/types/transcript';
 
@@ -20,9 +26,11 @@ import type { LandRegistryParsedResult, ConsensusMetadata, ConflictDetail } from
 type SSEEvent =
   | { type: 'init' | 'downloading' | 'consensus' | 'saving'; message: string }
   | { type: 'models_loaded'; parserModels: Array<{ provider: string; model: string }>; judgeModel: { provider: string; model: string } | null }
-  | { type: 'parse_start'; total: number }
+  | { type: 'parse_start'; total: number; concurrency: number; targetSuccessCount: number }
   | { type: 'model_start'; provider: string; model: string; index: number }
   | { type: 'model_result'; provider: string; model: string; index: number; success: boolean; duration_ms: number; error?: string }
+  | { type: 'model_cancelled'; provider: string; model: string; index: number }
+  | { type: 'model_skipped'; provider: string; model: string; index: number }
   | { type: 'judge_start'; message: string; conflictCount: number }
   | { type: 'judge_done'; success: boolean }
   | { type: 'complete'; result: LandRegistryParsedResult; metadata: ConsensusMetadata }
@@ -31,7 +39,7 @@ type SSEEvent =
 interface ModelProgressItem {
   provider: string;
   model: string;
-  status: 'pending' | 'running' | 'success' | 'error';
+  status: 'pending' | 'running' | 'success' | 'error' | 'cancelled' | 'skipped';
   duration_ms?: number;
   error?: string;
 }
@@ -45,7 +53,7 @@ interface Props {
 }
 
 export function TranscriptParseSection({ transcriptDocs }: Props) {
-  const { userId: aiUserId, modules: aiModules } = useAISettings();
+  const { userId: aiUserId, modules: aiModules, prompts } = useAISettings();
 
   // Document selection
   const [selectedDocId, setSelectedDocId] = useState('');
@@ -53,6 +61,8 @@ export function TranscriptParseSection({ transcriptDocs }: Props) {
   // Pre-execution settings panel
   const [showSettings, setShowSettings] = useState(false);
   const [customPrompt, setCustomPrompt] = useState('');
+  const [isPromptDirty, setIsPromptDirty] = useState(false);
+  const [parserConcurrency, setParserConcurrency] = useState<number>(DEFAULT_PARSER_CONCURRENCY);
   type ParserModelSelection = { provider: string; model: string; priority?: number; enabled: boolean };
   const [parserModelSelection, setParserModelSelection] = useState<ParserModelSelection[]>([]);
 
@@ -69,6 +79,7 @@ export function TranscriptParseSection({ transcriptDocs }: Props) {
 
   // AbortController for cancelling the fetch stream
   const abortRef = useRef<AbortController | null>(null);
+  const parseRunIdRef = useRef(0);
 
   // Auto-select first document when list changes
   useEffect(() => {
@@ -88,6 +99,25 @@ export function TranscriptParseSection({ transcriptDocs }: Props) {
     () => aiModules.find((m) => m.module_key === 'online_ocr_judge'),
     [aiModules],
   );
+  const storedParsePrompt = useMemo(() => {
+    const matched = prompts
+      .filter((p) => p.module_key === 'online_ocr_parse' && p.prompt_content.trim())
+      .sort((a, b) => b.version - a.version);
+    return matched[0]?.prompt_content ?? '';
+  }, [prompts]);
+  const effectiveParsePrompt = storedParsePrompt || TRANSCRIPT_PARSE_PROMPT;
+  const isCustomPromptOverridden = isPromptDirty && customPrompt.trim() !== effectiveParsePrompt.trim();
+  const enabledParserCount = parserModelSelection.filter((m) => m.enabled).length;
+  const effectiveParserConcurrency = resolveParserConcurrency(
+    parserConcurrency,
+    enabledParserCount || parserModelSelection.length || 1,
+  );
+
+  useEffect(() => {
+    if (!isPromptDirty) {
+      setCustomPrompt(effectiveParsePrompt);
+    }
+  }, [effectiveParsePrompt, isPromptDirty]);
 
   // 解析此輪要使用的裁判模型：
   // 1) 優先使用 online_ocr_judge 模組中綁定的第一個模型
@@ -139,7 +169,7 @@ export function TranscriptParseSection({ transcriptDocs }: Props) {
         break;
 
       case 'parse_start':
-        setPhaseLabel(`解析中（共 ${event.total} 個模型）…`);
+        setPhaseLabel(`解析中（同時最多 ${event.concurrency} 個，目標成功 ${event.targetSuccessCount} 個）…`);
         break;
 
       case 'model_start':
@@ -158,6 +188,26 @@ export function TranscriptParseSection({ transcriptDocs }: Props) {
         );
         break;
 
+      case 'model_cancelled':
+        setModelProgress((prev) =>
+          prev.map((p, i) =>
+            i === event.index
+              ? { ...p, status: 'cancelled' as const }
+              : p,
+          ),
+        );
+        break;
+
+      case 'model_skipped':
+        setModelProgress((prev) =>
+          prev.map((p, i) =>
+            i === event.index
+              ? { ...p, status: 'skipped' as const }
+              : p,
+          ),
+        );
+        break;
+
       case 'judge_start':
         setPhaseLabel(event.message);
         break;
@@ -169,7 +219,6 @@ export function TranscriptParseSection({ transcriptDocs }: Props) {
       case 'complete':
         setParseResult(event.result);
         setParseMetadata(event.metadata);
-        setModelProgress([]);
         setPhaseLabel('');
         break;
 
@@ -191,6 +240,8 @@ export function TranscriptParseSection({ transcriptDocs }: Props) {
     abortRef.current?.abort();
     const abort = new AbortController();
     abortRef.current = abort;
+    parseRunIdRef.current += 1;
+    const runId = parseRunIdRef.current;
 
     setIsParsing(true);
     setParseError(null);
@@ -207,7 +258,8 @@ export function TranscriptParseSection({ transcriptDocs }: Props) {
         body: JSON.stringify({
           documentId: selectedDocId,
           userId: aiUserId,
-          customPrompt: customPrompt.trim() || undefined,
+          customPrompt: isCustomPromptOverridden ? customPrompt.trim() : undefined,
+          parserConcurrency,
           overrideParserModels:
             enabledParserModels.length > 0
               ? enabledParserModels.map((m) => ({ provider: m.provider, model: m.model }))
@@ -235,6 +287,7 @@ export function TranscriptParseSection({ transcriptDocs }: Props) {
         for (const chunk of chunks) {
           if (!chunk.startsWith('data: ')) continue;
           try {
+            if (parseRunIdRef.current !== runId) continue;
             handleSSEEvent(JSON.parse(chunk.slice(6)) as SSEEvent);
           } catch {
             // Ignore malformed events
@@ -243,10 +296,14 @@ export function TranscriptParseSection({ transcriptDocs }: Props) {
       }
     } catch (e) {
       if (e instanceof Error && e.name === 'AbortError') return;
+      if (parseRunIdRef.current !== runId) return;
       setParseError(e instanceof Error ? e.message : '解析失敗');
     } finally {
-      setIsParsing(false);
-      setPhaseLabel('');
+      if (abortRef.current === abort && parseRunIdRef.current === runId) {
+        abortRef.current = null;
+        setIsParsing(false);
+        setPhaseLabel('');
+      }
     }
   }
 
@@ -369,21 +426,56 @@ export function TranscriptParseSection({ transcriptDocs }: Props) {
             )}
           </div>
 
+          <div className="space-y-1">
+            <p className="font-medium text-text-secondary flex items-center gap-1">
+              <Info size={11} className="text-accent" />
+              同時解析模型數
+            </p>
+            <div className="pl-3">
+              <select
+                value={parserConcurrency}
+                onChange={(e) => setParserConcurrency(Number(e.target.value))}
+                className="border border-border-default rounded-md px-2 py-1.5 bg-bg-primary text-text-primary text-xs focus:outline-none focus:border-accent"
+                disabled={isParsing}
+              >
+                {PARSER_CONCURRENCY_OPTIONS.map((value) => (
+                  <option key={value} value={value}>
+                    同時 {value} 個
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-text-muted mt-1">
+                系統會先平行呼叫這麼多模型，失敗就立即補下一個，累積 5 個成功結果後停止。
+              </p>
+              <p className="text-[11px] text-text-muted mt-1">
+                依目前已勾選模型數，本次實際同時最多會跑 {effectiveParserConcurrency} 個。
+              </p>
+            </div>
+          </div>
+
           {/* Custom prompt override */}
           <div className="space-y-1.5">
-            <p className="font-medium text-text-secondary">此次解析 Prompt 覆寫（選填）</p>
+            <p className="font-medium text-text-secondary">此次解析 Prompt（已預填，可修改）</p>
             <textarea
               value={customPrompt}
-              onChange={(e) => setCustomPrompt(e.target.value)}
+              onChange={(e) => {
+                setCustomPrompt(e.target.value);
+                setIsPromptDirty(true);
+              }}
               placeholder="留空則使用 AI 設定中已儲存的 Prompt（若無則使用預設 Prompt）"
               rows={4}
               className="w-full border border-border-default rounded-md px-2.5 py-1.5 bg-bg-primary text-text-primary text-xs resize-y focus:outline-none focus:border-accent placeholder:text-text-muted"
               disabled={isParsing}
             />
-            {customPrompt.trim() && (
+            {!isPromptDirty && (
+              <p className="text-text-muted">
+                目前預填的是 {storedParsePrompt ? 'AI 設定中已儲存的 Prompt' : '系統預設 Prompt'}。
+              </p>
+            )}
+            {isCustomPromptOverridden && (
               <p className="text-amber-600 flex items-center gap-1">
                 <AlertTriangle size={10} />
-                此次解析將使用上方自訂 Prompt，不影響 AI 設定中儲存的 Prompt
+                此次解析將使用你剛修改的 Prompt，不影響 AI 設定中儲存的 Prompt
               </p>
             )}
           </div>
@@ -433,7 +525,7 @@ export function TranscriptParseSection({ transcriptDocs }: Props) {
       </button>
 
       {/* ── Real-time model progress ──────────────────────────────────── */}
-      {(isParsing || parseError) && modelProgress.length > 0 && (
+      {(isParsing || parseError || parseResult) && modelProgress.length > 0 && (
         <div className="border border-border-default rounded-md p-2.5 space-y-1.5 bg-bg-tertiary">
           <p className="text-xs font-medium text-text-secondary">解析進度</p>
           {modelProgress.map((m, i) => (
@@ -539,12 +631,16 @@ function ModelProgressRow({ item }: { item: ModelProgressItem }) {
     running: <Loader2 size={11} className="animate-spin text-accent" />,
     success: <CheckCircle2 size={11} className="text-green-500" />,
     error: <XCircle size={11} className="text-red-500" />,
+    cancelled: <Clock size={11} className="text-text-muted" />,
+    skipped: <Clock size={11} className="text-text-muted" />,
   };
   const labels: Record<ModelProgressItem['status'], string> = {
     pending: '等待中',
     running: '解析中…',
     success: item.duration_ms ? `完成 (${(item.duration_ms / 1000).toFixed(1)}s)` : '完成',
     error: item.error ? `失敗：${item.error}` : '失敗',
+    cancelled: '已停止',
+    skipped: '已略過',
   };
   return (
     <div className="flex items-start gap-1.5 text-xs">

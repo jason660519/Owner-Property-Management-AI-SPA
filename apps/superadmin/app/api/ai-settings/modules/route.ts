@@ -5,6 +5,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { resolveUserId } from '@/lib/resolve-ai-settings-user';
 
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error && err.message) return err.message;
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    const message = (err as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) return message;
+  }
+  return 'Failed to save module';
+}
+
 // GET: Fetch all feature module configs（使用 resolveUserId 與 keys 一致）
 export async function GET(request: NextRequest) {
   try {
@@ -98,6 +107,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ module: data });
   } catch (err) {
     console.error('[AI Settings] POST module error:', err);
-    return NextResponse.json({ error: 'Failed to save module' }, { status: 500 });
+    const message = getErrorMessage(err);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

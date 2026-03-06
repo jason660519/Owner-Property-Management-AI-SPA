@@ -758,15 +758,36 @@ export function ModelEvaluator({
     setModuleSavingSet((prev) => { const s = new Set(prev); on ? s.add(key) : s.delete(key); return s; });
   }, []);
 
+  const showModuleSaveError = useCallback((moduleKey: string, err: unknown) => {
+    const moduleName = FEATURE_MODULES.find((mod) => mod.key === moduleKey)?.name ?? moduleKey;
+    const rawMessage =
+      err instanceof Error
+        ? err.message
+        : typeof err === 'object' && err !== null && 'message' in err && typeof (err as { message?: unknown }).message === 'string'
+          ? (err as { message: string }).message
+          : '';
+    const message = rawMessage.includes('ai_modules_assigned_function_check')
+      ? '目前資料庫尚未同步最新 OCR 模組設定，請先套用最新 migration。'
+      : rawMessage || '儲存模組設定失敗';
+    if (typeof window !== 'undefined') {
+      window.alert(`「${moduleName}」模組設定儲存失敗：${message}`);
+    }
+  }, []);
+
   const handleToggleModuleEnabled = useCallback(async (moduleKey: string) => {
     if (!onSaveModule) return;
     const cur = moduleStates[moduleKey];
     const next = !cur.isEnabled;
     setModuleStates((p) => ({ ...p, [moduleKey]: { ...p[moduleKey], isEnabled: next } }));
     markModuleSaving(moduleKey, true);
-    try { await onSaveModule(moduleKey, next, cur.assignments); }
+    try {
+      await onSaveModule(moduleKey, next, cur.assignments);
+    } catch (err) {
+      setModuleStates((p) => ({ ...p, [moduleKey]: cur }));
+      showModuleSaveError(moduleKey, err);
+    }
     finally { markModuleSaving(moduleKey, false); }
-  }, [moduleStates, onSaveModule, markModuleSaving]);
+  }, [moduleStates, onSaveModule, markModuleSaving, showModuleSaveError]);
 
   const handleModuleAssignModel = useCallback(async (
     moduleKey: string, providerId: string, modelId: string
@@ -791,9 +812,14 @@ export function ModelEvaluator({
     }
     setModuleStates((p) => ({ ...p, [moduleKey]: { ...p[moduleKey], assignments: next } }));
     markModuleSaving(moduleKey, true);
-    try { await onSaveModule(moduleKey, cur.isEnabled, next); }
+    try {
+      await onSaveModule(moduleKey, cur.isEnabled, next);
+    } catch (err) {
+      setModuleStates((p) => ({ ...p, [moduleKey]: cur }));
+      showModuleSaveError(moduleKey, err);
+    }
     finally { markModuleSaving(moduleKey, false); }
-  }, [moduleStates, onSaveModule, markModuleSaving]);
+  }, [moduleStates, onSaveModule, markModuleSaving, showModuleSaveError]);
 
   const handleModulePriorityChange = useCallback(async (
     moduleKey: string, providerId: string, modelId: string, newPriority: number
@@ -804,9 +830,14 @@ export function ModelEvaluator({
 
     setModuleStates((p) => ({ ...p, [moduleKey]: { ...p[moduleKey], assignments: next } }));
     markModuleSaving(moduleKey, true);
-    try { await onSaveModule(moduleKey, cur.isEnabled, next); }
+    try {
+      await onSaveModule(moduleKey, cur.isEnabled, next);
+    } catch (err) {
+      setModuleStates((p) => ({ ...p, [moduleKey]: cur }));
+      showModuleSaveError(moduleKey, err);
+    }
     finally { markModuleSaving(moduleKey, false); }
-  }, [moduleStates, onSaveModule, markModuleSaving]);
+  }, [moduleStates, onSaveModule, markModuleSaving, showModuleSaveError]);
 
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -1073,11 +1104,14 @@ export function ModelEvaluator({
       markModuleSaving(moduleKey, true);
       try {
         await onSaveModule(moduleKey, cur.isEnabled, next);
+      } catch (err) {
+        setModuleStates((p) => ({ ...p, [moduleKey]: cur }));
+        showModuleSaveError(moduleKey, err);
       } finally {
         markModuleSaving(moduleKey, false);
       }
     },
-    [moduleStates, onSaveModule, markModuleSaving, rowsAfterCategoryFilter],
+    [moduleStates, onSaveModule, markModuleSaving, rowsAfterCategoryFilter, showModuleSaveError],
   );
 
   const selectedSet = useMemo(

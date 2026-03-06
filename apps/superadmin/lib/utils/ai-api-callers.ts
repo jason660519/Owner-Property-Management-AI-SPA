@@ -2,22 +2,12 @@
 // Shared AI API caller functions — used by both single-model and consensus parsing.
 
 import type { AIProvider } from '@/lib/ai-providers';
+import { TRANSCRIPT_PARSE_PROMPT } from '@/lib/transcript-prompts';
 import type { LandRegistryParsedResult } from '@/lib/types/transcript';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-
-export const TRANSCRIPT_PARSE_PROMPT = `你是一位台灣不動產謄本分析專家。請仔細分析此謄本（圖片或 PDF），提取所有關鍵資訊，並「僅」輸出一個合法的 JSON 物件，不要輸出任何其他文字、說明或 markdown。
-
-JSON 結構請依下列 key 組織（若該區塊無資料則可為 null 或空陣列）：
-- 謄本資訊：謄本種類、建物建號、行政區、列印時間、頁次、謄本類型、列印機構、謄本檢查號、查驗網址、地政事務所主任、大安電謄字號、資料管轄機關、謄本核發機關 等。
-- 建物標示部：登記日期、登記原因、建物門牌、建物坐落地號、主要用途、主要建材、層數、層次、建築完成日期、附屬建物用途、總面積、層次面積、陽台面積、共有部分、權利範圍、其他登記事項（陣列）等。
-- 建物所有權部：登記次序、登記日期、原因發生日期、登記原因、所有權人、住址、權利範圍、權狀字號、相關他項權利登記次序（陣列）、其他登記事項等。
-- 土地標示部、土地所有權部、他項權利部：若有則比照類似結構。
-- 備註：字串或 null。
-
-請直接輸出單一 JSON 物件，不要用 \`\`\`json 包覆。`;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -68,7 +58,8 @@ export async function callOpenAI(
   modelId: string,
   fileBase64: string,
   mimeType: string,
-  systemPrompt?: string
+  systemPrompt?: string,
+  signal?: AbortSignal,
 ): Promise<CallerResult> {
   const prompt = systemPrompt ?? TRANSCRIPT_PARSE_PROMPT;
 
@@ -85,6 +76,7 @@ export async function callOpenAI(
 
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
+    signal,
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model: modelId,
@@ -114,7 +106,8 @@ export async function callAnthropic(
   modelId: string,
   fileBase64: string,
   mimeType: string,
-  systemPrompt?: string
+  systemPrompt?: string,
+  signal?: AbortSignal,
 ): Promise<CallerResult> {
   const prompt = systemPrompt ?? TRANSCRIPT_PARSE_PROMPT;
 
@@ -133,6 +126,7 @@ export async function callAnthropic(
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
+    signal,
     headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: modelId,
@@ -160,7 +154,8 @@ export async function callGemini(
   modelId: string,
   fileBase64: string,
   mimeType: string,
-  systemPrompt?: string
+  systemPrompt?: string,
+  signal?: AbortSignal,
 ): Promise<CallerResult> {
   const prompt = systemPrompt ?? TRANSCRIPT_PARSE_PROMPT;
 
@@ -174,6 +169,7 @@ export async function callGemini(
     `https://generativelanguage.googleapis.com/v1beta/${name}:generateContent?key=${apiKey}`,
     {
       method: 'POST',
+      signal,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts }],
@@ -201,7 +197,8 @@ export async function callDeepSeek(
   modelId: string,
   fileBase64: string,
   mimeType: string,
-  systemPrompt?: string
+  systemPrompt?: string,
+  signal?: AbortSignal,
 ): Promise<CallerResult> {
   const prompt = systemPrompt ?? TRANSCRIPT_PARSE_PROMPT;
 
@@ -218,6 +215,7 @@ export async function callDeepSeek(
 
   const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
     method: 'POST',
+    signal,
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model: modelId,
@@ -245,7 +243,8 @@ export async function callGrok(
   modelId: string,
   fileBase64: string,
   mimeType: string,
-  systemPrompt?: string
+  systemPrompt?: string,
+  signal?: AbortSignal,
 ): Promise<CallerResult> {
   const prompt = systemPrompt ?? TRANSCRIPT_PARSE_PROMPT;
 
@@ -262,6 +261,7 @@ export async function callGrok(
 
   const res = await fetch('https://api.x.ai/v1/chat/completions', {
     method: 'POST',
+    signal,
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model: modelId,
@@ -288,7 +288,8 @@ export type CallerFn = (
   model: string,
   b64: string,
   mime: string,
-  systemPrompt?: string
+  systemPrompt?: string,
+  signal?: AbortSignal,
 ) => Promise<CallerResult>;
 
 export const CALLERS: Record<AIProvider, CallerFn> = {
