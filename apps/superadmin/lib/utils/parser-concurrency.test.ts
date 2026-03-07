@@ -9,11 +9,17 @@ describe('resolveParserConcurrency', () => {
     expect(resolveParserConcurrency(undefined, 10)).toBe(DEFAULT_PARSER_CONCURRENCY);
   });
 
-  it('accepts only supported override values', () => {
+  it('accepts values in 5–100 range', () => {
     expect(resolveParserConcurrency(5, 10)).toBe(5);
-    expect(resolveParserConcurrency(6, 10)).toBe(6);
-    expect(resolveParserConcurrency(7, 10)).toBe(7);
-    expect(resolveParserConcurrency(8, 10)).toBe(DEFAULT_PARSER_CONCURRENCY);
+    expect(resolveParserConcurrency(10, 10)).toBe(10);
+    expect(resolveParserConcurrency(100, 100)).toBe(100);
+    expect(resolveParserConcurrency(8, 10)).toBe(8);
+  });
+
+  it('defaults when out of range or invalid', () => {
+    expect(resolveParserConcurrency(4, 10)).toBe(DEFAULT_PARSER_CONCURRENCY);
+    expect(resolveParserConcurrency(101, 200)).toBe(DEFAULT_PARSER_CONCURRENCY);
+    expect(resolveParserConcurrency(5.5, 10)).toBe(DEFAULT_PARSER_CONCURRENCY);
   });
 
   it('never exceeds the available parser count', () => {
@@ -22,7 +28,9 @@ describe('resolveParserConcurrency', () => {
     expect(resolveParserConcurrency(5, 1)).toBe(1);
   });
 
-  it('exports the selectable UI options', () => {
-    expect(PARSER_CONCURRENCY_OPTIONS).toEqual([5, 6, 7]);
+  it('exports the selectable UI options 5..100', () => {
+    expect(PARSER_CONCURRENCY_OPTIONS).toHaveLength(96);
+    expect(PARSER_CONCURRENCY_OPTIONS[0]).toBe(5);
+    expect(PARSER_CONCURRENCY_OPTIONS[95]).toBe(100);
   });
 });

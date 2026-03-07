@@ -56,7 +56,7 @@ interface Props {
 }
 
 export function TranscriptParseSection({ transcriptDocs, onTranscribe }: Props) {
-  const { userId: aiUserId, modules: aiModules, prompts } = useAISettings();
+  const { userId: aiUserId, modules: aiModules, prompts, refreshSilent } = useAISettings();
 
   // Document selection
   const [selectedDocId, setSelectedDocId] = useState('');
@@ -405,7 +405,10 @@ export function TranscriptParseSection({ transcriptDocs, onTranscribe }: Props) 
         </p>
         <button
           type="button"
-          onClick={() => setShowSettings((v) => !v)}
+          onClick={() => {
+            if (!showSettings) refreshSilent?.();
+            setShowSettings((v) => !v);
+          }}
           className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors"
           title="解析設定"
         >
@@ -422,15 +425,26 @@ export function TranscriptParseSection({ transcriptDocs, onTranscribe }: Props) 
       {/* ── Pre-execution settings panel ─────────────────────────────── */}
       {showSettings && (
         <div className="bg-bg-tertiary border border-border-default rounded-md p-3 space-y-3 text-xs">
+          {/* 與 API 金鑰與模型設定 #ocr 單一來源同步說明 */}
+          <p className="text-[11px] text-text-muted">
+            以下解析／裁判模型與「AI 服務 → API 金鑰與模型設定」分頁 <strong>OCR 解析設定</strong> 同步；新增、刪除或排序請至該頁操作。
+          </p>
+
           {/* Parser models */}
           <div className="space-y-1">
             <p className="font-medium text-text-secondary flex items-center gap-1">
               <Info size={11} className="text-accent" />
-              解析模型（雲端OCR謄本解析）
+              解析模型（雲端OCR謄本解析（解析組））
             </p>
             {parserModelSelection.length > 0 ? (
               <>
-                <ul className="pl-3 space-y-0.5">
+                {parserModelSelection.length > 10 && (
+                  <p className="pl-3 text-[11px] text-amber-600 flex items-center gap-1">
+                    <AlertTriangle size={10} />
+                    若此數量與設定頁顯示不符，請至「OCR 解析設定」重新儲存解析組，以單一來源為準。
+                  </p>
+                )}
+                <ul className="pl-3 space-y-0.5 max-h-40 overflow-y-auto">
                   {parserModelSelection.map((m, i) => (
                     <li key={`${m.provider}/${m.model}/${i}`} className="text-text-muted">
                       <label className="inline-flex items-center gap-1.5 cursor-pointer">
@@ -459,14 +473,11 @@ export function TranscriptParseSection({ transcriptDocs, onTranscribe }: Props) 
                     </li>
                   ))}
                 </ul>
-                <p className="pl-3 text-[11px] text-text-muted mt-1">
-                  僅影響本次解析會呼叫哪些模型，不會修改「AI 服務設定」中的模組綁定。
-                </p>
               </>
             ) : (
               <p className="pl-3 text-amber-600 flex items-center gap-1">
                 <AlertTriangle size={11} />
-                尚未設定解析模型，解析將失敗
+                尚未設定解析模型，請至「AI 服務 → API 金鑰與模型設定」→ OCR 解析設定，為「雲端OCR謄本解析（解析組）」指定模型
               </p>
             )}
           </div>
@@ -552,15 +563,15 @@ export function TranscriptParseSection({ transcriptDocs, onTranscribe }: Props) 
             )}
           </div>
 
-          {/* Link to AI settings */}
+          {/* Link to AI settings — 直連 OCR 分頁，與解析／裁判模型單一來源一致 */}
           <a
-            href="/superadmin/settings/api_key_and_model_setting#evaluations"
+            href="/superadmin/settings/api_key_and_model_setting#ocr"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-accent hover:underline"
           >
             <ExternalLink size={11} />
-            前往 AI 服務設定配置模型與 Prompt
+            前往 AI 服務設定 → OCR 解析設定（管理解析組／裁判組與 Prompt）
           </a>
         </div>
       )}

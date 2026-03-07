@@ -1106,6 +1106,7 @@ export function ModelEvaluator({
 
   /**
    * 模組欄「全選」：將目前篩選列全部加入/移出該模組。
+   * 勾選時：以「目前篩選列」為該模組的完整清單，編號一律從 001 開始。
    * `targetRowKeys` 會在呼叫端先依目前可見列與模組適用性過濾，
    * 若未提供則 fallback 為所有 rowsAfterCategoryFilter。
    */
@@ -1126,24 +1127,20 @@ export function ModelEvaluator({
       let next: AssignedModel[];
 
       if (checked) {
-        const existingSet = new Set(cur.assignments.map((a) => `${a.provider}::${a.model}`));
-        const toAddKeys = effectiveKeys.filter((key) => !existingSet.has(key));
-        const toAdd: AssignedModel[] = toAddKeys
-          .map((key) => {
+        // 全選時：直接以篩選列為該模組清單（依表格順序），編號從 001 開始，不與既有清單合併
+        const newAssignments: AssignedModel[] = effectiveKeys
+          .map((key, index) => {
             const [providerId, modelId] = key.split('::');
             if (!providerId || !modelId) return null;
             return {
               provider: providerId,
               model: modelId,
-              // 具體數值會在 normalizeAssignments 中重新編號
-              priority: cur.assignments.length + 1,
+              priority: index + 1,
             } as AssignedModel;
           })
           .filter((v): v is AssignedModel => v !== null);
 
-        if (toAdd.length === 0) return;
-
-        next = normalizeAssignments([...cur.assignments, ...toAdd]);
+        next = normalizeAssignments(newAssignments);
       } else {
         const remaining = cur.assignments.filter(
           (a) => !filterSet.has(`${a.provider}::${a.model}`),

@@ -1,15 +1,25 @@
-export const PARSER_CONCURRENCY_OPTIONS = [5, 6, 7] as const;
-export const DEFAULT_PARSER_CONCURRENCY = 6;
+const MIN_PARSER_CONCURRENCY = 5;
+const MAX_PARSER_CONCURRENCY = 100;
 
-export type ParserConcurrencyOption = (typeof PARSER_CONCURRENCY_OPTIONS)[number];
+/** Options 5..100 for the "simultaneous parse model count" dropdown */
+export const PARSER_CONCURRENCY_OPTIONS = Array.from(
+  { length: MAX_PARSER_CONCURRENCY - MIN_PARSER_CONCURRENCY + 1 },
+  (_, i) => MIN_PARSER_CONCURRENCY + i,
+) as number[];
+
+export const DEFAULT_PARSER_CONCURRENCY = 10;
 
 export function resolveParserConcurrency(
   requested: number | undefined,
   parserCount: number,
 ): number {
-  const requestedValue = PARSER_CONCURRENCY_OPTIONS.includes(requested as ParserConcurrencyOption)
-    ? requested
-    : DEFAULT_PARSER_CONCURRENCY;
+  const clamped =
+    typeof requested === 'number' &&
+    Number.isInteger(requested) &&
+    requested >= MIN_PARSER_CONCURRENCY &&
+    requested <= MAX_PARSER_CONCURRENCY
+      ? requested
+      : DEFAULT_PARSER_CONCURRENCY;
 
-  return Math.min(requestedValue, Math.max(1, parserCount));
+  return Math.min(clamped, Math.max(1, parserCount));
 }

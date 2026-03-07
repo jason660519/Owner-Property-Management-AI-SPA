@@ -461,10 +461,21 @@ const RAW_FEATURES: RoadmapFeature[] = [
             docPath: "/docs/implementation-plans/consensus-transcript-parsing-plan.md",
             devLog: "### 完成項目\n- DB Migration：ocr_parse_results 表 + property_documents 新增 consensus_metadata / parse_strategy 欄位\n- TypeScript 型別：ModelParseResult / ConsensusMetadata / ConflictDetail / JudgeResolution\n- Feature Module：拆分 online_ocr → online_ocr_parse（解析組）+ online_ocr_judge（裁判組）\n- 共識演算法：transcript-consensus.ts — 多模型 majority vote、台灣特規正規化、信心分數\n- AI API 共用呼叫器：ai-api-callers.ts — 支援 OpenAI/Anthropic/Gemini/DeepSeek/Grok\n- 共識引擎 Server Action：consensus-parse.ts — 平行呼叫 → 共識投票 → 裁判仲裁 三階段流程\n- 向下相容：parse-transcript.ts 改為 wrapper 委派至共識引擎\n- UI 更新：PropertyMediaSection 新增信心徽章、衝突明細面板、共識 metadata 顯示\n- FeatureModuleSelector 提示文字：解析組建議 2~3 模型、裁判組為可選配置\n### 2026-03-04 新增\n- SSE 串流 API：/api/transcript-parse/stream — POST 端點，以 ReadableStream 逐模型即時回傳解析進度事件\n- TranscriptParseSection 元件：從 PropertyMediaSection 拆出（原 610 行降至 387 行），新增：(1) 可收折「解析設定」面板（顯示已設定之解析/裁判模型、一次性 Prompt 覆寫欄位、跳轉 AI 設定連結）；(2) 解析中以逐模型進度列表取代單一轉圈，即時顯示各模型狀態（等待/解析中/完成/失敗）及耗時\n### 2026-03-07 新增/調整\n- 解析模型單一事實來源：TranscriptParseSection 僅使用 online_ocr_parse 模組綁定的 assigned_models，移除與統一測試 441 個候選模型的耦合，避免使用者在兩處重覆設定\n- 每次謄本解析最多呼叫 5 個成功解析模型：依 OCP 排序逐一呼叫模型，成功數達 5 即停止；若前幾個失敗則依序啟用後續模型，避免一次對數十/數百模型發送 API 呼叫\n- 裁判模型排序備援：後端依 online_ocr_judge 的 assigned_models 順序（含本次 overrideJudgeModel）輪流嘗試裁判模型，任一成功即套用其判決；全部失敗時回退至多模型共識結果\n- JSON 安全性強化：transcript-parse/stream 與 consensus-parse 在儲存裁判 raw_output 時採用 try/catch 保護，裁判回傳畸形 JSON 時僅記錄 error_message，不再中斷整體解析流程\n- 物件編輯頁解析設定 UX：AI 解析謄本設定面板顯示本次實際使用的解析/裁判模型，支援 per-run 勾選啟用與一次性 Prompt 覆寫，並確保畫面與後端實際呼叫模型一致",
             developmentProgress: "核心架構與 UI 已完成，並新增解析/裁判模型的排序備援與呼叫上限（最多 5 解析 + 1 裁判）、JSON 解析防護與單一事實來源整合；待辦：撰寫整合測試與 E2E 覆蓋高負載情境。"
+        },
+        {
+            name: "Prompt 模板庫（儲存 / 載入）",
+            locatedPage: "superadmin/settings/evaluations-global-test",
+            category: "超級管理員 (Super Admin)",
+            percentage: 100,
+            phase: "development",
+            lastModifiedBy: "Claude Sonnet 4.6",
+            lastModifiedDate: "2026/03/08",
+            devLog: "### 完成項目\n- DB Migration：20260308180000_create_saved_prompts.sql — saved_prompts 表（id / name / content / created_by / created_at / updated_at）、更新觸發器與 RLS 策略（iam_user_roles + iam_roles）\n- Server Actions：promptActions.ts — listSavedPrompts / savePrompt / deleteSavedPrompt，限 super_admin 存取，使用 createAdminClient（service_role）\n- UI 元件：PromptLibraryModal.tsx — save 模式（命名＋預覽前 200 字後送出）/ load 模式（列出全部已儲存 Prompt，支援一鍵載入 / 刪除）\n- 整合 evaluations-global-test/page.tsx：在 Prompt textarea 右下角以 flex justify-end 排列「儲存 Prompt」與「載入 Prompt」兩個按鈕，視覺上緊貼輸入框；PromptLibraryModal 以 Portal 渲染，支援 Esc 關閉",
+            developmentProgress: "功能完整實作：儲存、列出、載入、刪除 Prompt 均已連接雲端 Supabase；UI 風格與現有頁面一致。"
         }
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-    lastUpdated: "2026/03/07",
+    lastUpdated: "2026/03/08",
     features: RAW_FEATURES.map(f => ({ ...f, phase: inferPhase(f) })),
 };
