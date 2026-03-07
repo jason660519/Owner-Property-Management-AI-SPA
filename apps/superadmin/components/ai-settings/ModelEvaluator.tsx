@@ -574,6 +574,13 @@ export function ModelEvaluator({
   const batchAbortRequestedRef = useRef(false);
   const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
   const [batchResults, setBatchResults] = useState<BatchResultEntry[] | null>(null);
+  /** 上次統一測試完成後的摘要，供畫面顯示「測試前已選 N 筆 → 成功 X、失敗 Y」，不影響模型勾選 */
+  const [lastBatchTestSummary, setLastBatchTestSummary] = useState<{
+    selectedBeforeTest: number;
+    total: number;
+    succeeded: number;
+    failed: number;
+  } | null>(null);
   const [hasRecentBatchReport, setHasRecentBatchReport] = useState(false);
   const [rowTestPanel, setRowTestPanel] = useState<{
     key: string;
@@ -945,6 +952,24 @@ export function ModelEvaluator({
     return map;
   }, [savedEvaluations]);
 
+  /** 正規化 localStorage 讀出的 entry（相容 camelCase / snake_case） */
+  const normalizeBatchEntry = useCallback((raw: Record<string, unknown>): BatchResultEntry | null => {
+    const providerId = (raw.providerId ?? raw.provider_id) as string | undefined;
+    const modelId = (raw.modelId ?? raw.model_id) as string | undefined;
+    if (!providerId || !modelId) return null;
+    const key = (raw.key as string) ?? `${providerId}::${modelId}`;
+    return {
+      key,
+      providerId,
+      providerName: (raw.providerName ?? raw.provider_name ?? '') as string,
+      modelId,
+      modelName: (raw.modelName ?? raw.model_name ?? modelId) as string,
+      success: Boolean(raw.success),
+      output: typeof raw.output === 'string' ? raw.output : '',
+      imageUrl: typeof raw.imageUrl === 'string' ? raw.imageUrl : (raw.image_url as string | undefined),
+    };
+  }, []);
+
   const applyRecentBatchReport = useCallback(async () => {
     const report = readRecentBatchReport();
     if (!report) {
@@ -954,7 +979,7 @@ export function ModelEvaluator({
       }
       return;
     }
-    if (report.entries.length === 0) {
+    if (!Array.isArray(report.entries) || report.entries.length === 0) {
       if (typeof window !== 'undefined') {
         window.alert('最近報告沒有任何模型結果，無法套用。');
       }
@@ -963,12 +988,19 @@ export function ModelEvaluator({
 
     setApplyingRecentBatchReport(true);
     try {
-      const mergedMap = new Map(evaluationMap);
+      const mergedMap = new Map<string, ModelEvaluation>(evaluationMap);
       const nextTestResultByKey: Record<string, boolean> = {};
       const nextOutputByKey: Record<string, string> = {};
       const nextImageByKey: Record<string, string> = {};
+      let appliedCount = 0;
+      let changedCount = 0;
 
-      for (const entry of report.entries) {
+      for (const raw of report.entries) {
+        const entry = normalizeBatchEntry(
+          typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {}
+        );
+        if (!entry) continue;
+        appliedCount += 1;
         const rowKey = entry.key;
         const existing = mergedMap.get(rowKey);
         const statusOverride = inferStatusOverrideFromBatchEntry(entry);
@@ -993,9 +1025,11 @@ export function ModelEvaluator({
               ? existing.specialties
               : inferredSpecialties,
           notes: entry.output || existing?.notes || '',
-          last_tested_at: report.savedAt,
+          last_tested_at: report.savedAt ?? new Date().toISOString(),
           display_status_override: statusOverride,
         };
+        const isChanged = !existing || existing.is_working !== entry.success || (existing.notes ?? '') !== (entry.output ?? '');
+        if (isChanged) changedCount += 1;
         mergedMap.set(rowKey, next);
         nextTestResultByKey[rowKey] = entry.success;
         nextOutputByKey[rowKey] = entry.output;
@@ -1004,7 +1038,16 @@ export function ModelEvaluator({
         }
       }
 
-      await onSave(Array.from(mergedMap.values()));
+      const unchangedCount = appliedCount - changedCount;
+
+      const toSave = Array.from(mergedMap.values());
+      if (toSave.length === 0) {
+        if (typeof window !== 'undefined') {
+          window.alert('無法產生要儲存的評估資料，請重試。');
+        }
+        return;
+      }
+      await onSave(toSave);
       setTestResultByKey((prev) => ({ ...prev, ...nextTestResultByKey }));
       setOutputByKey((prev) => ({ ...prev, ...nextOutputByKey }));
       if (Object.keys(nextImageByKey).length > 0) {
@@ -1012,12 +1055,20 @@ export function ModelEvaluator({
       }
       setHasRecentBatchReport(true);
       if (typeof window !== 'undefined') {
-        window.alert(`已依最近報告更新 ${report.entries.length} 個模型的分類與狀態。`);
+        window.alert(
+          `已依最近報告更新：共更新 ${appliedCount} 筆，變更 ${changedCount} 筆，不變 ${unchangedCount} 筆。`
+        );
       }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '套用最近報告時發生錯誤';
+      if (typeof window !== 'undefined') {
+        window.alert(`套用失敗：${message}`);
+      }
+      console.error('[ModelEvaluator] applyRecentBatchReport failed', err);
     } finally {
       setApplyingRecentBatchReport(false);
     }
-  }, [evaluationMap, onSave]);
+  }, [evaluationMap, onSave, normalizeBatchEntry]);
 
   /** 再依狀態篩選（可複選：OCR可用/LLM可用/不可用/尚未測試） */
   const rowsAfterStatusFilter = useMemo(() => {
@@ -1169,6 +1220,17 @@ export function ModelEvaluator({
       ).length,
     [allRows, selectedSet, validProviders],
   );
+  /** 篩選後列表中的已選且具金鑰數量，與工具列「已選被測模型數」對齊；有篩選時統一測試用此數量 */
+  const testableCountFiltered = useMemo(
+    () =>
+      rowsAfterCategoryFilter.filter(
+        (r) => selectedSet.has(`${r.providerId}::${r.modelId}`) && validProviders.has(r.providerId),
+      ).length,
+    [rowsAfterCategoryFilter, selectedSet, validProviders],
+  );
+  const hasCategoryFilter = rowsAfterCategoryFilter.length !== allRows.length;
+  /** 統一測試按鈕顯示的數量：有篩選時用篩選後可測數，無篩選時用全部可測數，與實際執行一致 */
+  const batchTestableCount = hasCategoryFilter ? testableCountFiltered : testableCount;
   const allFilteredSelected = rowsAfterCategoryFilter.length > 0 && filteredSelectedCount === rowsAfterCategoryFilter.length;
   const someFilteredSelected = filteredSelectedCount > 0;
 
@@ -1374,19 +1436,23 @@ export function ModelEvaluator({
     [evaluationMap, allRows, onSave]
   );
 
-  /** 全部測試：對「已選」且「有金鑰」的全部模型並行測試（不受篩選影響），完成後一次批量寫入 DB */
+  /** 全部測試：有篩選時只測「目前畫面」篩選後的已選且具金鑰模型，無篩選時測全部已選且具金鑰，與按鈕數量一致 */
   const handleBatchTest = useCallback(async () => {
     if (batchTestingRef.current) return;
 
-    // Use allRows (not rowsAfterCategoryFilter) so filters don't prevent testing selected models
-    const selectedInAll = allRows.filter((r) =>
+    const sourceRows = hasCategoryFilter ? rowsAfterCategoryFilter : allRows;
+    const selectedInSource = sourceRows.filter((r) =>
       selectedSet.has(`${r.providerId}::${r.modelId}`)
     );
-    if (selectedInAll.length === 0) {
-      window.alert('目前選擇的 models 數為 0，無法測試。請先勾選要測試的模型。');
+    if (selectedInSource.length === 0) {
+      window.alert(
+        hasCategoryFilter
+          ? '目前篩選結果中沒有已選的模型，無法測試。請勾選要測試的模型或調整篩選。'
+          : '目前選擇的 models 數為 0，無法測試。請先勾選要測試的模型。'
+      );
       return;
     }
-    const toTest = selectedInAll.filter((r) => validProviders.has(r.providerId));
+    const toTest = selectedInSource.filter((r) => validProviders.has(r.providerId));
     if (toTest.length === 0) {
       window.alert('所選模型皆無有效 API 金鑰，無法測試。請先至 API 金鑰設定該供應商金鑰。');
       return;
@@ -1397,68 +1463,71 @@ export function ModelEvaluator({
     setBatchTesting(true);
 
     const total = toTest.length;
-    let succeeded = 0;
-    let failed = 0;
-
     setBatchProgress({ tested: 0, total, succeeded: 0, failed: 0 });
 
-    const BATCH_SIZE = 5;
     const toSave: ModelEvaluation[] = [];
     const collectedResults: BatchResultEntry[] = [];
 
     try {
-      for (let i = 0; i < toTest.length; i += BATCH_SIZE) {
-        if (batchAbortRequestedRef.current) break;
-        const chunk = toTest.slice(i, i + BATCH_SIZE);
-        await Promise.all(
-          chunk.map(async ({ providerId, providerName, modelId, modelName }) => {
-            const key = `${providerId}::${modelId}`;
-            const effectivePrompt = getEffectivePromptForRow(key) || undefined;
-            setOutputByKey((prev) => ({ ...prev, [key]: '' }));
-            const entry: BatchResultEntry = { key, providerId, providerName, modelId, modelName, success: false, output: '' };
-            try {
-              const result = await onTestModel(providerId, modelId, effectivePrompt, uploadedFile);
-              if (batchAbortRequestedRef.current) return;
-              setTestResultByKey((prev) => ({ ...prev, [key]: result.success }));
-              const output =
-                result.output ?? (result.message && !result.success ? `錯誤：${result.message}` : '');
-              setOutputByKey((prev) => ({ ...prev, [key]: output }));
-              const imgUrl = result.output_image_url ?? (output ? extractImageUrlFromOutput(output) : undefined);
-              if (imgUrl) {
-                setImageOutputByKey((prev) => ({ ...prev, [key]: imgUrl }));
-              }
-
-              entry.success = result.success;
-              entry.output = output;
-              entry.imageUrl = imgUrl;
-
-              if (result.success) succeeded++; else failed++;
-              setBatchProgress({ tested: succeeded + failed, total, succeeded, failed });
-
-              const existing = evaluationMap.get(key);
-              toSave.push({
-                ...(existing?.id ? { id: existing.id } : {}),
-                provider: providerId,
-                model_id: modelId,
-                model_name: existing?.model_name ?? modelName,
-                is_working: result.success,
-                specialties: existing?.specialties ?? [],
-                is_candidate: existing?.is_candidate ?? false,
-                notes: output || existing?.notes || '',
-                last_tested_at: new Date().toISOString(),
-              });
-            } catch {
-              if (batchAbortRequestedRef.current) return;
-              failed++;
-              entry.output = '請求失敗';
-              setBatchProgress({ tested: succeeded + failed, total, succeeded, failed });
-              setTestResultByKey((prev) => ({ ...prev, [key]: false }));
-              setOutputByKey((prev) => ({ ...prev, [key]: '請求失敗' }));
+      // 並行執行所有模型測試（異步同時多個），不再分批輪流
+      await Promise.all(
+        toTest.map(async ({ providerId, providerName, modelId, modelName }) => {
+          const key = `${providerId}::${modelId}`;
+          const effectivePrompt = getEffectivePromptForRow(key) || undefined;
+          setOutputByKey((prev) => ({ ...prev, [key]: '' }));
+          const entry: BatchResultEntry = { key, providerId, providerName, modelId, modelName, success: false, output: '' };
+          try {
+            const result = await onTestModel(providerId, modelId, effectivePrompt, uploadedFile);
+            if (batchAbortRequestedRef.current) return entry;
+            setTestResultByKey((prev) => ({ ...prev, [key]: result.success }));
+            const output =
+              result.output ?? (result.message && !result.success ? `錯誤：${result.message}` : '');
+            setOutputByKey((prev) => ({ ...prev, [key]: output }));
+            const imgUrl = result.output_image_url ?? (output ? extractImageUrlFromOutput(output) : undefined);
+            if (imgUrl) {
+              setImageOutputByKey((prev) => ({ ...prev, [key]: imgUrl }));
             }
-            collectedResults.push(entry);
-          }),
-        );
-      }
+
+            entry.success = result.success;
+            entry.output = output;
+            entry.imageUrl = imgUrl;
+
+            setBatchProgress((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    tested: prev.tested + 1,
+                    succeeded: prev.succeeded + (result.success ? 1 : 0),
+                    failed: prev.failed + (result.success ? 0 : 1),
+                  }
+                : prev
+            );
+
+            const existing = evaluationMap.get(key);
+            toSave.push({
+              ...(existing?.id ? { id: existing.id } : {}),
+              provider: providerId,
+              model_id: modelId,
+              model_name: existing?.model_name ?? modelName,
+              is_working: result.success,
+              specialties: existing?.specialties ?? [],
+              is_candidate: existing?.is_candidate ?? false,
+              notes: output || existing?.notes || '',
+              last_tested_at: new Date().toISOString(),
+            });
+          } catch {
+            if (batchAbortRequestedRef.current) return entry;
+            entry.output = '請求失敗';
+            setBatchProgress((prev) =>
+              prev ? { ...prev, tested: prev.tested + 1, failed: prev.failed + 1 } : prev
+            );
+            setTestResultByKey((prev) => ({ ...prev, [key]: false }));
+            setOutputByKey((prev) => ({ ...prev, [key]: '請求失敗' }));
+          }
+          collectedResults.push(entry);
+          return entry;
+        })
+      );
 
       if (toSave.length > 0 && !batchAbortRequestedRef.current) {
         try {
@@ -1480,12 +1549,21 @@ export function ModelEvaluator({
       if (collectedResults.length > 0) {
         saveRecentBatchReport(sortedResults);
       }
+      // 記錄本次測試摘要，供畫面顯示「測試前已選 N 筆 → 成功 X、失敗 Y」；不觸動模型勾選
+      const succeeded = collectedResults.filter((r) => r.success).length;
+      const failed = collectedResults.filter((r) => !r.success).length;
+      setLastBatchTestSummary({
+        selectedBeforeTest: total,
+        total,
+        succeeded,
+        failed,
+      });
     } finally {
       batchTestingRef.current = false;
       setBatchTesting(false);
       setBatchProgress(null);
     }
-  }, [allRows, selectedSet, validProviders, onTestModel, getEffectivePromptForRow, onSave, evaluationMap, uploadedFile, saveRecentBatchReport]);
+  }, [hasCategoryFilter, rowsAfterCategoryFilter, allRows, selectedSet, validProviders, onTestModel, getEffectivePromptForRow, onSave, evaluationMap, uploadedFile, saveRecentBatchReport]);
 
   // Stable ref to the latest handleBatchTest — avoids including handleBatchTest in the
   // headerActionsRef useEffect deps, which would cause infinite re-renders when parent
@@ -1499,14 +1577,17 @@ export function ModelEvaluator({
   }, []);
 
   // 將「全部測試」狀態與觸發方法暴露給頁首固定區塊使用
-  // canBatchTest 與 testableCount 基於 allRows（全部模型），不受篩選影響，
-  // 避免篩選後顯示 0 但實際上有已選模型可測試的誤導情形。
+  // 有篩選時與工具列「已選被測」對齊：按鈕與實際測試數量皆為 batchTestableCount（篩選後可測數）。
   useEffect(() => {
     if (!headerActionsRef) return;
-    const canBatchTest = allSelectedCount > 0;
+    const canBatchTest = batchTestableCount > 0;
     const tooltip = canBatchTest
-      ? '對全部已選且具有效金鑰的模型並行測試（不受目前篩選影響）'
-      : '目前無已選的模型，無法測試。請先勾選要測試的模型。';
+      ? hasCategoryFilter
+        ? `對目前篩選結果中已選且具金鑰的 ${batchTestableCount} 個模型並行測試`
+        : `對全部已選且具有效金鑰的 ${batchTestableCount} 個模型並行測試`
+      : allSelectedCount === 0
+        ? '目前無已選的模型，無法測試。請先勾選要測試的模型。'
+        : '所選模型皆無有效 API 金鑰，無法測試。請先至 API 金鑰設定該供應商金鑰。';
     const payload = {
       runBatchTest: stableRunBatchTest,
       abortBatchTest: stableAbortBatchTest,
@@ -1515,10 +1596,14 @@ export function ModelEvaluator({
       tooltip,
       batchProgress,
       testableCount,
+      /** 與工具列對齊：有篩選時為篩選後可測數，無篩選時為全部可測數；按鈕應顯示此值 */
+      batchTestableCount,
       selectedCount: allSelectedCount,
       totalCount: allRows.length,
       filteredTotal: rowsAfterCategoryFilter.length,
       filteredSelectedCount,
+      /** 上次統一測試完成摘要：測試前已選 N 筆、成功 X、失敗 Y，供畫面顯示；不影響模型勾選 */
+      lastBatchTestSummary,
       hasRecentBatchReport,
       openRecentBatchReport,
       applyRecentBatchReport,
@@ -1530,7 +1615,7 @@ export function ModelEvaluator({
       // eslint-disable-next-line no-param-reassign
       headerActionsRef.current = payload;
     }
-  }, [headerActionsRef, stableRunBatchTest, stableAbortBatchTest, openRecentBatchReport, applyRecentBatchReport, hasRecentBatchReport, applyingRecentBatchReport, batchTesting, allSelectedCount, batchProgress, testableCount, allRows.length, rowsAfterCategoryFilter.length, filteredSelectedCount]);
+  }, [headerActionsRef, stableRunBatchTest, stableAbortBatchTest, openRecentBatchReport, applyRecentBatchReport, hasRecentBatchReport, applyingRecentBatchReport, batchTesting, allSelectedCount, batchProgress, testableCount, batchTestableCount, hasCategoryFilter, lastBatchTestSummary, allRows.length, rowsAfterCategoryFilter.length, filteredSelectedCount]);
 
   return (
     <div className="space-y-4">

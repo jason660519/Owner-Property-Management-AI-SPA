@@ -144,10 +144,19 @@ export default function EvaluationsGlobalTestPage() {
         failed: number;
       } | null;
       testableCount: number;
+      /** 與工具列對齊：有篩選時為篩選後可測數，無篩選時為全部可測數 */
+      batchTestableCount?: number;
       selectedCount: number;
       totalCount: number;
       filteredTotal: number;
       filteredSelectedCount: number;
+      /** 上次統一測試完成摘要：測試前已選 N 筆、成功 X、失敗 Y */
+      lastBatchTestSummary?: {
+        selectedBeforeTest: number;
+        total: number;
+        succeeded: number;
+        failed: number;
+      } | null;
       hasRecentBatchReport?: boolean;
       openRecentBatchReport?: () => void;
       applyRecentBatchReport?: () => Promise<void>;
@@ -261,12 +270,12 @@ export default function EvaluationsGlobalTestPage() {
                 可測試模型：
                 <span
                   className={
-                    modelEvaluatorHeaderActions.testableCount > 0
+                    (modelEvaluatorHeaderActions.batchTestableCount ?? modelEvaluatorHeaderActions.testableCount) > 0
                       ? 'text-accent font-medium'
                       : 'text-amber-500 font-medium'
                   }
                 >
-                  {modelEvaluatorHeaderActions.testableCount}
+                  {modelEvaluatorHeaderActions.batchTestableCount ?? modelEvaluatorHeaderActions.testableCount}
                 </span>
               </span>
             )}
@@ -423,38 +432,6 @@ export default function EvaluationsGlobalTestPage() {
                       {uploadedFile.name}
                     </span>
                   )}
-                  <div className="flex items-center gap-1.5 text-xs text-text-secondary py-2 shrink-0">
-                    <FlaskConical
-                      size={13}
-                      className="text-text-muted shrink-0"
-                    />
-                    <span>
-                      已選/可選{' '}
-                      <span className="font-semibold text-text-primary tabular-nums">
-                        {modelEvaluatorHeaderActions?.selectedCount ??
-                          selectedModelCount}
-                        /
-                        {modelEvaluatorHeaderActions?.totalCount ??
-                          totalAvailableModels}
-                      </span>
-                    </span>
-                    {modelEvaluatorHeaderActions && (
-                      <span
-                        className={`font-medium tabular-nums ${
-                          modelEvaluatorHeaderActions.testableCount > 0
-                            ? 'text-accent'
-                            : 'text-amber-500'
-                        }`}
-                        title={
-                          modelEvaluatorHeaderActions.testableCount > 0
-                            ? `${modelEvaluatorHeaderActions.testableCount} 個模型已選且有金鑰，可進行測試`
-                            : '目前無可測試的模型（需勾選模型且設定有效金鑰）'
-                        }
-                      >
-                        · 可測試 {modelEvaluatorHeaderActions.testableCount}
-                      </span>
-                    )}
-                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -489,7 +466,15 @@ export default function EvaluationsGlobalTestPage() {
                     ) : (
                       <FlaskConical size={14} />
                     )}
-                    <span className="ml-1.5 whitespace-nowrap">開始統一測試</span>
+                    <span className="ml-1.5 whitespace-nowrap">
+                      開始統一測試
+                      {(modelEvaluatorHeaderActions?.batchTestableCount ?? modelEvaluatorHeaderActions?.testableCount) != null &&
+                        (modelEvaluatorHeaderActions?.batchTestableCount ?? modelEvaluatorHeaderActions?.testableCount) >= 0 && (
+                          <span className="ml-1 text-text-secondary">
+                            （{modelEvaluatorHeaderActions?.batchTestableCount ?? modelEvaluatorHeaderActions?.testableCount} 個）
+                          </span>
+                        )}
+                    </span>
                   </Button>
                   <Button
                     size="sm"
@@ -541,27 +526,44 @@ export default function EvaluationsGlobalTestPage() {
                   >
                     <span className="ml-1.5 whitespace-nowrap">套用最近報告修正狀態</span>
                   </Button>
-                  {modelEvaluatorHeaderActions?.batchProgress && (
+                  {(modelEvaluatorHeaderActions?.batchTesting || modelEvaluatorHeaderActions?.batchProgress) &&
+                    modelEvaluatorHeaderActions?.batchProgress != null && (
                     <span className="text-xs text-text-secondary tabular-nums">
-                      {modelEvaluatorHeaderActions.batchProgress.tested}/
-                      {
-                        modelEvaluatorHeaderActions.batchProgress
-                          .total
-                      }{' '}
-                      <span className="text-green-500">
-                        {modelEvaluatorHeaderActions.batchProgress.succeeded}{' '}
-                        成功
-                      </span>
-                      {modelEvaluatorHeaderActions.batchProgress.failed >
-                        0 && (
+                      準備測{' '}
+                      {modelEvaluatorHeaderActions.batchProgress.total}{' '}
+                      個，已測{' '}
+                      {modelEvaluatorHeaderActions.batchProgress.tested}{' '}
+                      個
+                      {modelEvaluatorHeaderActions.batchProgress.tested > 0 && (
                         <>
                           {' '}
-                          <span className="text-red-400">
-                            {modelEvaluatorHeaderActions.batchProgress.failed}{' '}
-                            失敗
+                          <span className="text-green-500">
+                            {modelEvaluatorHeaderActions.batchProgress.succeeded} 成功
                           </span>
+                          {modelEvaluatorHeaderActions.batchProgress.failed > 0 && (
+                            <>
+                              {' '}
+                              <span className="text-red-400">
+                                {modelEvaluatorHeaderActions.batchProgress.failed} 失敗
+                              </span>
+                            </>
+                          )}
                         </>
                       )}
+                    </span>
+                  )}
+                  {modelEvaluatorHeaderActions?.lastBatchTestSummary && !modelEvaluatorHeaderActions?.batchTesting && (
+                    <span className="text-xs text-text-secondary" title="模型勾選狀態已保留，未重設">
+                      測試前已選 {modelEvaluatorHeaderActions.lastBatchTestSummary.selectedBeforeTest} 筆
+                      → 共更新 {modelEvaluatorHeaderActions.lastBatchTestSummary.total} 筆（
+                      <span className="text-green-500">{modelEvaluatorHeaderActions.lastBatchTestSummary.succeeded} 成功</span>
+                      {modelEvaluatorHeaderActions.lastBatchTestSummary.failed > 0 && (
+                        <>
+                          {' '}
+                          <span className="text-red-400">{modelEvaluatorHeaderActions.lastBatchTestSummary.failed} 失敗</span>
+                        </>
+                      )}
+                      ）。套用報告可看變更／不變筆數。
                     </span>
                   )}
                 </div>

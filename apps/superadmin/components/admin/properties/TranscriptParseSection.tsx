@@ -7,7 +7,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   Brain, Loader2, ChevronDown, ChevronUp, Settings2,
   AlertTriangle, CheckCircle2, XCircle, Clock, ExternalLink,
-  Copy, Download, Scale, Info,
+  Copy, Download, Scale, Info, PenLine,
 } from 'lucide-react';
 import { useAISettings } from '@/lib/hooks/useAISettings';
 import { TRANSCRIPT_PARSE_PROMPT } from '@/lib/transcript-prompts';
@@ -16,6 +16,7 @@ import {
   PARSER_CONCURRENCY_OPTIONS,
   resolveParserConcurrency,
 } from '@/lib/utils/parser-concurrency';
+import { getDocumentParseResult } from '@/lib/actions/properties';
 import type { PropertyDocumentItem } from '@/lib/types/properties';
 import type { LandRegistryParsedResult, ConsensusMetadata, ConflictDetail } from '@/lib/types/transcript';
 
@@ -50,9 +51,11 @@ interface ModelProgressItem {
 
 interface Props {
   transcriptDocs: PropertyDocumentItem[];
+  /** When provided, show "謄寫" button and call with parse result to fill building form below */
+  onTranscribe?: (result: LandRegistryParsedResult) => void;
 }
 
-export function TranscriptParseSection({ transcriptDocs }: Props) {
+export function TranscriptParseSection({ transcriptDocs, onTranscribe }: Props) {
   const { userId: aiUserId, modules: aiModules, prompts } = useAISettings();
 
   // Document selection
@@ -85,10 +88,31 @@ export function TranscriptParseSection({ transcriptDocs }: Props) {
   useEffect(() => {
     if (transcriptDocs.length > 0 && !transcriptDocs.some((d) => d.id === selectedDocId)) {
       setSelectedDocId(transcriptDocs[0].id);
-      setParseResult(null);
       setParseError(null);
     }
   }, [transcriptDocs, selectedDocId]);
+
+  // Restore last parse result from DB when opening page or switching document (so user sees saved result without re-parsing).
+  // 僅依賴 selectedDocId，避免 transcriptDocs 每次新陣列參考導致重複執行或覆蓋已還原的結果。
+  useEffect(() => {
+    if (!selectedDocId) {
+      setParseResult(null);
+      setParseMetadata(null);
+      return;
+    }
+    let cancelled = false;
+    getDocumentParseResult(selectedDocId).then((res) => {
+      if (cancelled) return;
+      if (res?.parsedResult != null) {
+        setParseResult(res.parsedResult);
+        setParseMetadata(res.consensusMetadata ?? null);
+      } else {
+        setParseResult(null);
+        setParseMetadata(null);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [selectedDocId]);
 
   // Compute configured models from AI settings
   const ocrParseModule = useMemo(
@@ -312,13 +336,61 @@ export function TranscriptParseSection({ transcriptDocs }: Props) {
     void navigator.clipboard.writeText(JSON.stringify(parseResult, null, 2));
   }
 
-  function handleDownload() {
+  function buildReportMarkdown(): string {
+    const lines: string[] = [];
+    lines.push('# 謄本解析報告');
+    lines.push('');
+    lines.push(`生成時間：${new Date().toISOString()}`);
+    lines.push('');
+    if (parseMetadata) {
+      lines.push('## 共識摘要');
+      lines.push('');
+      lines.push(`- **策略**：${parseMetadata.strategy === 'consensus' ? '多模型共識' : '單模型'}`);
+      lines.push(`- **總信心**：${Math.round(parseMetadata.total_confidence * 100)}%`);
+      lines.push(`- **耗時**：${(parseMetadata.total_duration_ms / 1000).toFixed(1)} 秒`);
+      lines.push(`- **解析模型**：${parseMetadata.models_used.map((m) => `${m.provider}/${m.model}`).join(', ')}`);
+      if (parseMetadata.judge_used) {
+        lines.push(`- **裁判模型**：${parseMetadata.judge_used.provider}/${parseMetadata.judge_used.model}`);
+      }
+      lines.push('');
+    }
+    lines.push('## 解析結果 (JSON)');
+    lines.push('');
+    lines.push('```json');
+    lines.push(JSON.stringify(parseResult, null, 2));
+    lines.push('```');
+    lines.push('');
+    if (parseMetadata && parseMetadata.conflicts.length > 0) {
+      lines.push('## 衝突欄位詳情');
+      lines.push('');
+      parseMetadata.conflicts.forEach((c, i) => {
+        const conf = parseMetadata.field_confidences[c.field_path];
+        lines.push(`### ${i + 1}. \`${c.field_path}\``);
+        if (conf !== undefined) {
+          lines.push(`- **該欄位信心**：${Math.round(conf * 100)}%`);
+        }
+        lines.push(`- **解決方式**：${c.resolved_by === 'majority' ? '多數決' : c.resolved_by === 'judge' ? '裁判仲裁' : '未解決'}`);
+        if (c.final_value !== undefined) {
+          lines.push(`- **最終取值**：\`${JSON.stringify(c.final_value)}\``);
+        }
+        lines.push('- **各模型輸出**：');
+        c.values.forEach((v) => {
+          lines.push(`  - ${v.provider}/${v.model}: \`${JSON.stringify(v.value)}\``);
+        });
+        lines.push('');
+      });
+    }
+    return lines.join('\n');
+  }
+
+  function handleDownloadReport() {
     if (!parseResult) return;
-    const blob = new Blob([JSON.stringify(parseResult, null, 2)], { type: 'application/json' });
+    const md = buildReportMarkdown();
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `謄本解析_${Date.now()}.json`;
+    a.download = `謄本解析報告_${Date.now()}.md`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -594,7 +666,16 @@ export function TranscriptParseSection({ transcriptDocs }: Props) {
           )}
 
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-text-secondary">解析結果 (JSON)</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-text-secondary">解析結果 (JSON)</span>
+              <button
+                type="button"
+                onClick={handleDownloadReport}
+                className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-border-default hover:bg-bg-tertiary text-text-secondary"
+              >
+                <Download size={12} /> 下載解析報告.md
+              </button>
+            </div>
             <div className="flex gap-1">
               <button
                 type="button"
@@ -603,13 +684,17 @@ export function TranscriptParseSection({ transcriptDocs }: Props) {
               >
                 <Copy size={12} /> 複製
               </button>
-              <button
-                type="button"
-                onClick={handleDownload}
-                className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-border-default hover:bg-bg-tertiary text-text-secondary"
-              >
-                <Download size={12} /> 下載 JSON
-              </button>
+              {onTranscribe && (
+                <button
+                  type="button"
+                  onClick={() => parseResult && onTranscribe(parseResult)}
+                  disabled={!parseResult}
+                  className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-border-default hover:bg-bg-tertiary text-text-secondary disabled:opacity-50"
+                  title="將解析結果謄寫至下方建物全部欄位"
+                >
+                  <PenLine size={12} /> 謄寫
+                </button>
+              )}
             </div>
           </div>
           <pre className="text-xs bg-bg-tertiary border border-border-default rounded-md p-3 overflow-x-auto overflow-y-auto max-h-64 whitespace-pre-wrap break-words">

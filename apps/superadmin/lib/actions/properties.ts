@@ -666,15 +666,33 @@ export async function getPropertyDocuments(
 
   if (error || !rows?.length) return [];
 
-  const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '');
-  const bucket = 'property-documents';
+  // 謄本為隱私：不暴露直接 Storage URL，改為需權限檢查的檢視 API（會 302 到短期 signed URL）
   return rows.map((r) => ({
     id: r.id,
     documentType: r.document_type,
     documentName: r.document_name,
     filePath: r.file_path,
-    url: `${baseUrl}/storage/v1/object/public/${bucket}/${r.file_path}`,
+    url: `/api/documents/${r.id}/view`,
   }));
+}
+
+/** 取得單一文件的已儲存解析結果（用於進入／切換謄本時還原顯示，不影響文件列表） */
+export async function getDocumentParseResult(documentId: string): Promise<{
+  parsedResult: import('@/lib/types/transcript').LandRegistryParsedResult | null;
+  consensusMetadata: import('@/lib/types/transcript').ConsensusMetadata | null;
+} | null> {
+  if (!documentId) return null;
+  const adminClient = createAdminClient();
+  const { data, error } = await adminClient
+    .from('property_documents')
+    .select('parsed_result, consensus_metadata')
+    .eq('id', documentId)
+    .single();
+  if (error || !data) return null;
+  return {
+    parsedResult: (data.parsed_result as import('@/lib/types/transcript').LandRegistryParsedResult) ?? null,
+    consensusMetadata: (data.consensus_metadata as import('@/lib/types/transcript').ConsensusMetadata) ?? null,
+  };
 }
 
 /** 上傳物件照片；formData 需含 file (File) */
@@ -737,7 +755,8 @@ export async function uploadPropertyPhoto(
 }
 
 const DOC_TYPE_NAME: Record<string, string> = {
-  land_registry_transcript: '謄本',
+  land_registry_transcript: '土地謄本',
+  building_registry_transcript: '建物謄本',
   building_title: '建物權狀',
   land_title: '土地權狀',
   lease_contract: '租約',
@@ -750,7 +769,7 @@ export async function uploadPropertyDocument(
   propertyId: string,
   propertyType: 'sale' | 'rental',
   ownerId: string,
-  documentType: 'land_registry_transcript' | 'building_title' | 'land_title' | 'lease_contract' | 'sales_contract' | 'blog',
+  documentType: 'land_registry_transcript' | 'building_registry_transcript' | 'building_title' | 'land_title' | 'lease_contract' | 'sales_contract' | 'blog',
   formData: FormData
 ): Promise<ActionResult> {
   const file = formData.get('file');

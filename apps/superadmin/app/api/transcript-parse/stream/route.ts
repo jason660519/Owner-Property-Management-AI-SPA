@@ -318,7 +318,7 @@ export async function POST(request: NextRequest) {
             total_duration_ms: totalDuration,
           };
           send({ type: 'saving', message: '儲存結果中…' });
-          await adminClient.from('property_documents').update({
+          const { error: updateErr } = await adminClient.from('property_documents').update({
             parsed_result: data as unknown as Record<string, unknown>,
             consensus_metadata: metadata as unknown as Record<string, unknown>,
             parse_strategy: 'single',
@@ -329,6 +329,10 @@ export async function POST(request: NextRequest) {
             parsing_duration_ms: parseResults[0].duration_ms,
             confidence_score: 0.5,
           }).eq('id', documentId);
+          if (updateErr) {
+            send({ type: 'error', message: `儲存解析結果失敗：${updateErr.message}` });
+            return;
+          }
           send({ type: 'complete', result: data, metadata });
           return;
         }
@@ -385,7 +389,7 @@ export async function POST(request: NextRequest) {
           return;
         }
         send({ type: 'saving', message: '儲存結果中…' });
-        await adminClient.from('property_documents').update({
+        const { error: updateErr } = await adminClient.from('property_documents').update({
           parsed_result: finalMerged as unknown as Record<string, unknown>,
           consensus_metadata: finalMetadata as unknown as Record<string, unknown>,
           parse_strategy: 'consensus',
@@ -393,7 +397,10 @@ export async function POST(request: NextRequest) {
           ocr_status: 'completed',
           confidence_score: finalMetadata.total_confidence,
         }).eq('id', documentId);
-
+        if (updateErr) {
+          send({ type: 'error', message: `儲存解析結果失敗：${updateErr.message}` });
+          return;
+        }
         send({ type: 'complete', result: finalMerged, metadata: finalMetadata });
 
       } catch (e) {

@@ -138,7 +138,7 @@ export function LandTranscriptForm({ propertyId, propertyType, initialData }: Pr
         {/* ── 土地謄本詳細資料（封面） ── */}
         <section className="space-y-4">
           <FI
-            label="謄本種類"
+            label="謄本名稱與種類"
             value={header.transcriptType}
             onChange={(v) => uh('transcriptType', v)}
             placeholder="土地登記第二類謄本（土地標示部及所有權部）"

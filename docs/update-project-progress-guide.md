@@ -6,7 +6,7 @@
 
 請將今天的工作內容更新至專案開發進度儀表板。
 
-## 📋 背景說明
+### 📋 背景說明
 
 - **目標檔案**: `apps/superadmin/app/data/roadmap.ts`
 - **儀表板位置**: http://localhost:3001/superadmin/dashboard/project-progress
@@ -138,7 +138,7 @@ http://localhost:3001/superadmin/dashboard/project-progress#testing
 
 ---
 
-## 📄 文件格式：Markdown 
+## 📄 文件格式：Markdown
 
 本專案依 **docs-as-code** 做法，規格與報告類文件一律使用 **Markdown（.md）** 作為單一真相來源：
 

@@ -959,3 +959,206 @@ describe('全部測試 — testableCount 可測試模型數量', () => {
     });
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 15. 套用最近報告 — 成功後 alert 顯示共更新／變更／不變筆數
+// ═══════════════════════════════════════════════════════════════════════════
+
+const LS_RECENT_BATCH_REPORT = 'ai-eval:last-batch-report';
+
+describe('套用最近報告 — 說明共更新幾筆、變更幾筆、不變幾筆', () => {
+  let alertMock: jest.SpyInstance;
+  let localStorageGet: jest.Mock;
+  let originalLocalStorage: Storage;
+
+  beforeEach(() => {
+    alertMock = jest.spyOn(window, 'alert').mockImplementation(() => {});
+    localStorageGet = jest.fn();
+    originalLocalStorage = window.localStorage;
+    Object.defineProperty(window, 'localStorage', {
+      value: {
+        getItem: localStorageGet,
+        setItem: jest.fn(),
+        removeItem: jest.fn(),
+        clear: jest.fn(),
+        length: 0,
+        key: jest.fn(),
+      },
+      writable: true,
+    });
+  });
+
+  afterEach(() => {
+    alertMock.mockRestore();
+    Object.defineProperty(window, 'localStorage', { value: originalLocalStorage, writable: true });
+  });
+
+  it('套用成功後 alert 包含「共更新 X 筆」「變更 Y 筆」「不變 Z 筆」', async () => {
+    const report = {
+      savedAt: new Date().toISOString(),
+      total: 2,
+      succeeded: 1,
+      failed: 1,
+      entries: [
+        {
+          key: `${ANTHROPIC}::${MODEL_ID}`,
+          providerId: ANTHROPIC,
+          providerName: 'Anthropic',
+          modelId: MODEL_ID,
+          modelName: MODEL_NAME,
+          success: true,
+          output: 'VLM response',
+        },
+        {
+          key: `${OPENAI}::${OPENAI_MODEL_ID}`,
+          providerId: OPENAI,
+          providerName: 'OpenAI',
+          modelId: OPENAI_MODEL_ID,
+          modelName: OPENAI_MODEL_NAME,
+          success: false,
+          output: 'Error',
+        },
+      ],
+    };
+    localStorageGet.mockImplementation((key: string) => {
+      if (key === LS_RECENT_BATCH_REPORT) return JSON.stringify(report);
+      return null;
+    });
+
+    const mockRef = jest.fn();
+    const savedEvals = [
+      {
+        provider: ANTHROPIC,
+        model_id: MODEL_ID,
+        model_name: MODEL_NAME,
+        is_working: false,
+        specialties: ['general'],
+        is_candidate: false,
+        notes: 'old',
+        last_tested_at: null,
+      },
+    ];
+    render(
+      <ModelEvaluator
+        {...baseProps}
+        savedEvaluations={savedEvals}
+        headerActionsRef={mockRef}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockRef.mock.calls.length).toBeGreaterThan(0);
+      expect(mockRef.mock.calls.at(-1)?.[0]?.applyRecentBatchReport).toBeDefined();
+    });
+
+    const { applyRecentBatchReport } = mockRef.mock.calls.at(-1)![0];
+    await act(async () => {
+      applyRecentBatchReport();
+    });
+
+    expect(alertMock).toHaveBeenCalled();
+    const alertMsg = alertMock.mock.calls.find((c: string[]) =>
+      typeof c[0] === 'string' && c[0].includes('共更新') && c[0].includes('變更') && c[0].includes('不變')
+    )?.[0] as string | undefined;
+    expect(alertMsg).toBeDefined();
+    expect(alertMsg).toMatch(/共更新\s*2\s*筆/);
+    expect(alertMsg).toMatch(/變更\s*\d+\s*筆/);
+    expect(alertMsg).toMatch(/不變\s*\d+\s*筆/);
+  });
+
+  it('全部為新筆時變更數等於更新數、不變為 0', async () => {
+    const report = {
+      savedAt: new Date().toISOString(),
+      total: 1,
+      succeeded: 1,
+      failed: 0,
+      entries: [
+        {
+          key: `${ANTHROPIC}::${MODEL_ID}`,
+          providerId: ANTHROPIC,
+          providerName: 'Anthropic',
+          modelId: MODEL_ID,
+          modelName: MODEL_NAME,
+          success: true,
+          output: 'OK',
+        },
+      ],
+    };
+    localStorageGet.mockImplementation((key: string) => {
+      if (key === LS_RECENT_BATCH_REPORT) return JSON.stringify(report);
+      return null;
+    });
+
+    const mockRef = jest.fn();
+    render(
+      <ModelEvaluator {...baseProps} savedEvaluations={[]} headerActionsRef={mockRef} />,
+    );
+
+    await waitFor(() => expect(mockRef.mock.calls.at(-1)?.[0]?.applyRecentBatchReport).toBeDefined());
+    const { applyRecentBatchReport } = mockRef.mock.calls.at(-1)![0];
+    await act(async () => {
+      applyRecentBatchReport();
+    });
+
+    const alertMsg = alertMock.mock.calls.at(-1)?.[0] as string;
+    expect(alertMsg).toMatch(/共更新\s*1\s*筆/);
+    expect(alertMsg).toMatch(/變更\s*1\s*筆/);
+    expect(alertMsg).toMatch(/不變\s*0\s*筆/);
+  });
+
+  it('既有資料與報告一致時變更為 0、不變等於更新數', async () => {
+    const report = {
+      savedAt: new Date().toISOString(),
+      total: 1,
+      succeeded: 1,
+      failed: 0,
+      entries: [
+        {
+          key: `${ANTHROPIC}::${MODEL_ID}`,
+          providerId: ANTHROPIC,
+          providerName: 'Anthropic',
+          modelId: MODEL_ID,
+          modelName: MODEL_NAME,
+          success: true,
+          output: 'same',
+        },
+      ],
+    };
+    localStorageGet.mockImplementation((key: string) => {
+      if (key === LS_RECENT_BATCH_REPORT) return JSON.stringify(report);
+      return null;
+    });
+
+    const mockRef = jest.fn();
+    const savedEvals = [
+      {
+        provider: ANTHROPIC,
+        model_id: MODEL_ID,
+        model_name: MODEL_NAME,
+        is_working: true,
+        specialties: ['vision'],
+        is_candidate: false,
+        notes: 'same',
+        last_tested_at: report.savedAt,
+      },
+    ];
+    render(
+      <ModelEvaluator
+        {...baseProps}
+        savedEvaluations={savedEvals}
+        headerActionsRef={mockRef}
+      />,
+    );
+
+    await waitFor(() => expect(mockRef.mock.calls.at(-1)?.[0]?.applyRecentBatchReport).toBeDefined());
+    const { applyRecentBatchReport } = mockRef.mock.calls.at(-1)![0];
+    await act(async () => {
+      applyRecentBatchReport();
+    });
+
+    const alertMsg = alertMock.mock.calls.at(-1)?.[0] as string;
+    expect(alertMsg).toMatch(/共更新\s*1\s*筆/);
+    expect(alertMsg).toMatch(/變更\s*0\s*筆/);
+    expect(alertMsg).toMatch(/不變\s*1\s*筆/);
+  });
+});
