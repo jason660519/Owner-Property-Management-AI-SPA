@@ -5,7 +5,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Settings } from 'lucide-react';
+import { BookMarked, Settings } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 
@@ -40,6 +40,24 @@ export default function SettingsPage() {
                 <CardTitle>黑名單設定</CardTitle>
                 <CardDescription>
                   設定被封鎖的 IP / CIDR 與 User-Agent，防止惡意爬蟲與攻擊來源。
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+
+          <Link href="/superadmin/settings/prompt-management" className="block">
+            <Card
+              variant="outlined"
+              padding="lg"
+              hoverable
+            >
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BookMarked size={16} />
+                  Prompt 管理
+                </CardTitle>
+                <CardDescription>
+                  集中管理所有已儲存的 Prompt 模板，可供各功能頁面快速新增、編輯與載入。
                 </CardDescription>
               </CardHeader>
             </Card>

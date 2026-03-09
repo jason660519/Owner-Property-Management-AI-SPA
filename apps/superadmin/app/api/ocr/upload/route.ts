@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
-const OCR_SERVICE_URL = process.env.OCR_SERVICE_URL || 'http://localhost:8000';
+const OCR_SERVICE_URL = process.env.OCR_SERVICE_URL || 'http://localhost:8819';
 
 export async function POST(request: NextRequest) {
   try {

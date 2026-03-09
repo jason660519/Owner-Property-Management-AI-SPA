@@ -162,6 +162,7 @@ function TranscriptColumn({
         {documents.length > 0 && (
           <TranscriptParseSection
             transcriptDocs={documents}
+            kind={kind}
             onTranscribe={kind === 'building' ? (result) => setFillFromParse(result) : undefined}
           />
         )}

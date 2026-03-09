@@ -200,7 +200,10 @@ export async function POST(request: NextRequest) {
         });
 
         // ── 5. Phase 1: Parse ─────────────────────────────────────────
-        const TARGET_SUCCESS_COUNT = 5;
+        // Stop as soon as TARGET_SUCCESS_COUNT models return valid results.
+        // Any remaining in-flight calls are aborted immediately to avoid
+        // wasting time on slow / failing models.
+        const TARGET_SUCCESS_COUNT = Math.min(5, parserModels.length);
         const parseConcurrency = resolveParserConcurrency(parserConcurrency, parserModels.length);
         send({
           type: 'parse_start',
@@ -300,7 +303,11 @@ export async function POST(request: NextRequest) {
 
         if (successCount === 0) {
           const errors = parseResults.map((r) => `${r.provider}/${r.model}: ${r.error}`).join('; ');
-          send({ type: 'error', message: `所有模型解析失敗：${errors}` });
+          const pdfHint =
+            mimeType.toLowerCase() === 'application/pdf'
+              ? ' 目前上傳的為 PDF；若部分模型仍無法解析，請將謄本另存為 JPG/PNG 後再上傳。'
+              : '';
+          send({ type: 'error', message: `所有模型解析失敗：${errors}${pdfHint}` });
           return;
         }
 
@@ -422,6 +429,22 @@ export async function POST(request: NextRequest) {
 }
 
 // ---------------------------------------------------------------------------
+// Checks whether a parsed result has at least one non-null primitive value
+// at any depth. Empty objects {} are treated as content-less failures.
+// ---------------------------------------------------------------------------
+
+function hasTranscriptContent(obj: unknown): boolean {
+  if (obj === null || obj === undefined) return false;
+  if (typeof obj !== 'object') return true; // primitive value counts as content
+  if (Array.isArray(obj)) return obj.some((item) => hasTranscriptContent(item));
+  const rec = obj as Record<string, unknown>;
+  for (const value of Object.values(rec)) {
+    if (hasTranscriptContent(value)) return true;
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
 // Calls a single AI model and returns the result
 // ---------------------------------------------------------------------------
 
@@ -449,6 +472,17 @@ async function callSingleModel(
       return { provider: m.provider, model: m.model, result: null, duration_ms: duration, error: callerResult.error ?? 'API 呼叫失敗' };
     }
     const parsed = extractJsonFromOutput(callerResult.text);
+    // Reject content-less results (e.g. {} returned when model cannot read the doc).
+    // These would cause calculateTotalConfidence({}) === 0 → 0% confidence bug.
+    if (!hasTranscriptContent(parsed)) {
+      return {
+        provider: m.provider,
+        model: m.model,
+        result: null,
+        duration_ms: duration,
+        error: '模型回傳不含有效欄位的空結果（可能不支援此文件格式）',
+      };
+    }
     return { provider: m.provider, model: m.model, result: parsed, duration_ms: duration };
   } catch (e) {
     const isAborted = signal?.aborted || (e instanceof Error && e.name === 'AbortError');
@@ -581,13 +615,13 @@ async function fetchSystemPrompt(
 ): Promise<string | null> {
   const { data } = await adminClient
     .from('ai_system_prompts')
-    .select('prompt_text')
+    .select('prompt_content')
     .eq('user_id', userId)
     .eq('module_key', moduleKey)
     .order('version', { ascending: false })
     .limit(1)
     .single();
-  return (data?.prompt_text as string | null) ?? null;
+  return (data?.prompt_content as string | null) ?? null;
 }
 
 async function getApiKey(

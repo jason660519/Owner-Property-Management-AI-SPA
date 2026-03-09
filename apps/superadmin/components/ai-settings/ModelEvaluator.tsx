@@ -13,12 +13,14 @@ import {
 } from '@/components/ui/Sheet';
 import { AI_PROVIDERS, FEATURE_MODULES } from '@/lib/ai-providers';
 import type { FeatureModule } from '@/lib/ai-providers';
+import { hasVisionCapability } from '@/lib/utils/vision-capability';
 import type { SavedKey, SavedModel, ModelEvaluation, KeyValidationResult, SavedModule, AssignedModel, DisplayStatusOverride } from '@/lib/hooks/useAISettings';
 import { getAvailableModelsList } from '@/lib/utils/total-available-models';
-import { readSessionStorage, writeSessionStorage } from '@/lib/utils/storage-state';
+import { readLocalStorage, writeLocalStorage, readSessionStorage, writeSessionStorage } from '@/lib/utils/storage-state';
 
 const SS_FILTER_STATUSES  = 'ai-eval-filter:statuses';
 const SS_FILTER_PROVIDERS = 'ai-eval-filter:providerIds';
+const LS_FILTER_CATEGORIES = 'ai-eval-filter:categories';
 const LS_RECENT_BATCH_REPORT = 'ai-eval:last-batch-report';
 
 const MODULE_ICON_MAP: Record<string, React.ElementType> = {
@@ -323,22 +325,6 @@ function extractImageUrlFromOutput(output: string): string | undefined {
   const bareMatch = output.match(/https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp)(?:[?#]\S*)?/i);
   if (bareMatch) return bareMatch[0];
   return undefined;
-}
-
-/** 從 provider::model key 查詢是否具備 vision 能力：先查靜態定義，若不在靜態列表則依 model ID 啟發式推斷 */
-function hasVisionCapability(key: string): boolean {
-  const [providerId, modelId] = key.split('::');
-  const provider = AI_PROVIDERS.find((p) => p.id === providerId);
-  const model = provider?.models.find((m) => m.id === modelId);
-  if (model) return model.capabilities?.includes('vision') ?? false;
-  // 動態載入的模型（來自 API 驗證）不在靜態列表，以 model ID 啟發式推斷
-  const lower = (modelId ?? '').toLowerCase();
-  if (lower.includes('vision') || lower.includes('-vl-') || lower.includes('-vl ')) return true;
-  // OpenAI / Anthropic / Gemini 的主力多模態模型通常含 vision（4o, claude-3, gemini）
-  if (providerId === 'openai' && (lower.includes('gpt-4o') || lower.includes('gpt-4-turbo'))) return true;
-  if (providerId === 'anthropic' && lower.includes('claude-3')) return true;
-  if (providerId === 'gemini' && lower.includes('gemini')) return true;
-  return false;
 }
 
 /** 從 Prompt output text 自動推斷模型分類：成功解析檔案內容視為 VLM，有回應但未解析（如「看不到檔案」）視為 LLM */
@@ -848,24 +834,42 @@ export function ModelEvaluator({
 
   // ─────────────────────────────────────────────────────────────────────────
 
-  /** 依公司篩選：空陣列 = 全部，否則為勾選的 providerId 列表；預設全部公司以利「全選」可用 */
+  /** 依公司篩選：空陣列 = 全部，否則為勾選的 providerId 列表；預設全部公司以利「全選」可用。
+   *  優先從 localStorage 還原，若尚未寫入則回退至舊版 sessionStorage 值。 */
   const [filterProviderIds, setFilterProviderIds] = useState<string[]>(
-    () => readSessionStorage<string[]>(SS_FILTER_PROVIDERS, [])
+    () =>
+      readLocalStorage<string[]>(
+        SS_FILTER_PROVIDERS,
+        readSessionStorage<string[]>(SS_FILTER_PROVIDERS, []),
+      )
   );
-  /** 依狀態篩選：空陣列 = 全部，否則為勾選的 vlm_ok / llm_ok / not_working / untested */
+  /** 依狀態篩選：空陣列 = 全部，否則為勾選的 vlm_ok / llm_ok / not_working / untested
+   *  優先從 localStorage 還原，若尚未寫入則回退至舊版 sessionStorage 值。 */
   const VALID_STATUS_VALUES = new Set(['vlm_ok', 'llm_ok', 'not_working', 'untested']);
   const [filterStatuses, setFilterStatuses] = useState<string[]>(
-    () => readSessionStorage<string[]>(SS_FILTER_STATUSES, []).filter((v) => VALID_STATUS_VALUES.has(v))
+    () =>
+      readLocalStorage<string[]>(
+        SS_FILTER_STATUSES,
+        readSessionStorage<string[]>(SS_FILTER_STATUSES, []),
+      ).filter((v) => VALID_STATUS_VALUES.has(v))
   );
-  /** 依模型分類篩選：空陣列 = 全部，否則為勾選的 VLM / LLM / unknown；預設全部以利「全選」可用 */
-  const [filterCategories, setFilterCategories] = useState<string[]>([]);
-  // ── Persist filter state to sessionStorage on change ─────────────────────
+  /** 依模型分類篩選：空陣列 = 全部，否則為勾選的 VLM / LLM / unknown；預設全部以利「全選」可用。
+   *  使用 localStorage 永久記住最後一次使用者設定。 */
+  const [filterCategories, setFilterCategories] = useState<string[]>(
+    () => readLocalStorage<string[]>(LS_FILTER_CATEGORIES, []),
+  );
+  // ── Persist filter state to storage on change ─────────────────────
   useEffect(() => {
+    writeLocalStorage(SS_FILTER_STATUSES, filterStatuses);
     writeSessionStorage(SS_FILTER_STATUSES, filterStatuses);
   }, [filterStatuses]);
   useEffect(() => {
+    writeLocalStorage(SS_FILTER_PROVIDERS, filterProviderIds);
     writeSessionStorage(SS_FILTER_PROVIDERS, filterProviderIds);
   }, [filterProviderIds]);
+  useEffect(() => {
+    writeLocalStorage(LS_FILTER_CATEGORIES, filterCategories);
+  }, [filterCategories]);
   // ─────────────────────────────────────────────────────────────────────────
   /** 哪一個篩選下拉已展開（點擊外側會關閉） */
   const [openFilterDropdown, setOpenFilterDropdown] = useState<'provider' | 'status' | 'category' | null>(null);

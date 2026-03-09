@@ -6,6 +6,7 @@ import type {
   TranscriptHeader,
   BuildingDescription,
   OwnershipRecord,
+  EncumbranceRecord,
   AnnexedBuilding,
   CommonAreaEntry,
 } from '@/lib/types/properties';
@@ -20,17 +21,19 @@ function newId(): string {
   return typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).slice(2);
 }
 
-/** Map parsed 謄本 result to building transcript form (header, description, ownership). */
+/** Map parsed 謄本 result to building transcript form (header, description, ownership, encumbrances). */
 export function mapParsedResultToBuildingForm(
   parsed: LandRegistryParsedResult
 ): {
   header: TranscriptHeader;
   description: BuildingDescription;
   ownership: OwnershipRecord[];
+  encumbrances: EncumbranceRecord[];
 } {
   const meta = parsed.謄本資訊 ?? {};
   const mark = parsed.建物標示部 ?? {};
   const ownershipSection = parsed.建物所有權部;
+  const encSection = parsed.他項權利部 as Record<string, unknown> | undefined;
 
   const header: TranscriptHeader = {
     transcriptType: str(meta.謄本種類),
@@ -96,5 +99,40 @@ export function mapParsedResultToBuildingForm(
     });
   }
 
-  return { header, description, ownership };
+  const encumbrances: EncumbranceRecord[] = [];
+  if (encSection && typeof encSection === 'object') {
+    const e = encSection as Record<string, unknown>;
+    encumbrances.push({
+      id: newId(),
+      seq: str(e.登記次序),
+      encumbranceType: str(e.權利種類 ?? '抵押權'),
+      receiptDate: str(e.收件日期),
+      receiptNumber: str(e.字號),
+      regDate: str(e.登記日期),
+      regReason: str(e.登記原因 ?? '設定'),
+      creditorName: str(e.權利人),
+      creditorAddress: str(e.住址),
+      debtRatio: str(e.債權額比例),
+      totalDebt: str(e.擔保債權總金額),
+      duration: str(e.存續期間),
+      repaymentDate: str(e.清償日期),
+      interest: str((e as Record<string, unknown>).利息率 ?? e.利息),
+      lateInterest: str((e as Record<string, unknown>).遲延利息率 ?? e.遲延利息),
+      penalty: str(e.違約金),
+      debtorAndRatio: str(e.債務人及債務額比例),
+      rightsSubject: str(e.權利標的),
+      targetSeq: str(e.標的登記次序),
+      settleRightsRatio: str(e.設定權利範圍),
+      certNumber: str(e.證明書字號),
+      settlor: str(e.設定義務人),
+      jointGuaranteeLandNumbers: str(e.共同擔保地號),
+      jointGuaranteeBuildingNumbers: str(e.共同擔保建號),
+      notes: str(e.其他登記事項),
+      debtScope: str((e as Record<string, unknown>).債權範圍),
+      debtConfirmDate: str((e as Record<string, unknown>).債權確定日期),
+      otherGuaranteeScope: str((e as Record<string, unknown>).其他擔保範圍),
+    });
+  }
+
+  return { header, description, ownership, encumbrances };
 }

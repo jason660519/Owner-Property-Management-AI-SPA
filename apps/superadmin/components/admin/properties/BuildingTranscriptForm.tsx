@@ -110,14 +110,16 @@ export function BuildingTranscriptForm({
   useEffect(() => {
     if (!fillFromParsedResult) return;
     try {
-      const { header: h, description: d, ownership: o } = mapParsedResultToBuildingForm(fillFromParsedResult);
+      const { header: h, description: d, ownership: o, encumbrances: e } =
+        mapParsedResultToBuildingForm(fillFromParsedResult);
       setHeader(h);
       setDesc(d);
       setOwnership(o.length > 0 ? o : [emptyOwnership()]);
+      setEncumbrances(e.length > 0 ? e : encumbrances.length > 0 ? encumbrances : [emptyEncumbrance()]);
     } finally {
       onTranscribeApplied?.();
     }
-  }, [fillFromParsedResult, onTranscribeApplied]);
+  }, [fillFromParsedResult, onTranscribeApplied, encumbrances.length]);
 
   function uh<K extends keyof TranscriptHeader>(key: K, val: TranscriptHeader[K]) {
     setHeader((h) => ({ ...h, [key]: val }));

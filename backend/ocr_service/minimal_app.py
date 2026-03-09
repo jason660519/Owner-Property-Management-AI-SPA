@@ -17,9 +17,11 @@ from fastapi import FastAPI, File, UploadFile, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
+from supabase import create_client
 
 from src.ocr_engine.vlm import VLMEngine
 from src.preprocessor.pdf_preprocessor import PDFPreprocessor
+from src.parser import extract_transcript
 
 load_dotenv()
 
@@ -332,7 +334,74 @@ async def get_supported_formats():
     }
 
 
+@app.post("/api/v1/documents/{document_id}/parse-local")
+async def parse_document_locally(document_id: str):
+    """
+    Parse a transcript PDF using the local deterministic Python regex parser.
+    Downloads the file from Supabase Storage, extracts the text layer, and
+    returns structured JSON — no external AI API is called.
+    """
+    import dataclasses
+
+    supabase_url = os.getenv("SUPABASE_URL")
+    supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    if not supabase_url or not supabase_key:
+        raise HTTPException(status_code=500, detail="Supabase 環境變數未設定（SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY）")
+
+    supabase = create_client(supabase_url, supabase_key)
+
+    # 1. Fetch document record
+    result = supabase.table("property_documents").select("id, file_path").eq("id", document_id).eq("is_active", True).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="找不到該文件或文件已刪除")
+
+    file_path: str = result.data[0]["file_path"]
+
+    # 2. Download from Supabase Storage
+    try:
+        response = supabase.storage.from_("property-documents").download(file_path)
+        file_bytes: bytes = response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"無法從儲存空間下載文件：{e}")
+
+    # 3. Write to temp file and parse
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+            tmp.write(file_bytes)
+            tmp_path = tmp.name
+
+        parsed = extract_transcript(tmp_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"本地解析失敗：{e}")
+    finally:
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+
+    if parsed is None:
+        raise HTTPException(
+            status_code=422,
+            detail="PDF 無可提取的文字層（可能是掃描影像），請改用雲端解析。"
+        )
+
+    def _to_dict(obj):
+        if dataclasses.is_dataclass(obj):
+            return {k: _to_dict(v) for k, v in dataclasses.asdict(obj).items()}
+        if isinstance(obj, list):
+            return [_to_dict(i) for i in obj]
+        return obj
+
+    return {
+        "document_id": document_id,
+        "transcript_type": type(parsed).__name__,
+        "parsed": _to_dict(parsed),
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8819)

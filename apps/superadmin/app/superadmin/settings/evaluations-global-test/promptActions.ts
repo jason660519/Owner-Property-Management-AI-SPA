@@ -77,6 +77,32 @@ export async function savePrompt(
   return { data: data as SavedPrompt };
 }
 
+export async function updatePrompt(
+  id: string,
+  name: string,
+  content: string,
+): Promise<{ data?: SavedPrompt; error?: string }> {
+  const trimmedName = name.trim();
+  const trimmedContent = content.trim();
+
+  if (!trimmedName) return { error: '請輸入 Prompt 名稱' };
+  if (!trimmedContent) return { error: 'Prompt 內容不可為空' };
+
+  const auth = await requireSuperAdmin();
+  if (auth.error) return { error: auth.error };
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('saved_prompts')
+    .update({ name: trimmedName, content: trimmedContent, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select('id, name, content, created_at, updated_at')
+    .single();
+
+  if (error) return { error: error.message };
+  return { data: data as SavedPrompt };
+}
+
 export async function deleteSavedPrompt(id: string): Promise<{ error?: string }> {
   const auth = await requireSuperAdmin();
   if (auth.error) return { error: auth.error };

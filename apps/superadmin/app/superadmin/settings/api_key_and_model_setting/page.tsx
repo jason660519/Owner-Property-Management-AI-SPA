@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Key, FlaskConical, ScanText, Globe, FileSignature, BookOpen,
-  Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download,
+  Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download, BookMarked,
 } from 'lucide-react';
 import { readLocalStorage, writeLocalStorage } from '@/lib/utils/storage-state';
 import { DashboardLayout } from '@/components/dashboard';
@@ -518,6 +518,12 @@ export default function AIServiceSettingsPage() {
             lines.push('');
           }
           lines.push(`驗證完成。驗證成功 ${successCount} 家。`);
+          const failedProviders = keys
+            .filter((_, i) => !results[i]?.valid)
+            .map((k) => getProviderById(k.provider as Parameters<typeof getProviderById>[0])?.name ?? k.provider);
+          if (failedProviders.length > 0) {
+            lines.push(`驗證失敗（${failedProviders.length} 家）：${failedProviders.join('、')}。`);
+          }
           if (byProviderForTotal.size > 0) {
             const perProvider = Array.from(byProviderForTotal.entries())
               .map(([providerId, count]) => {
@@ -812,22 +818,40 @@ export default function AIServiceSettingsPage() {
                 );
               })}
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                if (typeof window === 'undefined') return;
-                window.open(
-                  '/superadmin/settings/evaluations-global-test',
-                  '_blank',
-                  'noopener,noreferrer'
-                );
-              }}
-              className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 bg-bg-secondary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary border border-border-subtle"
-              title="另開分頁開啟獨立的統一測試設定頁面"
-            >
-              <FlaskConical size={14} className="text-text-muted" />
-              <span>統一測試設定</span>
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window === 'undefined') return;
+                  window.open(
+                    '/superadmin/settings/prompt-management',
+                    '_blank',
+                    'noopener,noreferrer'
+                  );
+                }}
+                className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 bg-bg-secondary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary border border-border-subtle"
+                title="前往 Prompt 管理頁面"
+              >
+                <BookMarked size={14} className="text-text-muted" />
+                <span>Prompt 管理</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window === 'undefined') return;
+                  window.open(
+                    '/superadmin/settings/evaluations-global-test',
+                    '_blank',
+                    'noopener,noreferrer'
+                  );
+                }}
+                className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 bg-bg-secondary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary border border-border-subtle"
+                title="另開分頁開啟獨立的統一測試設定頁面"
+              >
+                <FlaskConical size={14} className="text-text-muted" />
+                <span>統一測試設定</span>
+              </button>
+            </div>
           </div>
         </div>
         <div className="flex items-center justify-between gap-2">

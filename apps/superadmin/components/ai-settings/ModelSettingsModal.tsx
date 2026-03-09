@@ -34,6 +34,9 @@ const PROVIDER_DOCS: Record<string, { label: string; url: string }> = {
   gemini: { label: 'Gemini 參數', url: 'https://ai.google.dev/api/generate-content' },
   deepseek: { label: 'DeepSeek API', url: 'https://platform.deepseek.com/docs' },
   grok: { label: 'Grok API', url: 'https://docs.x.ai/api' },
+  kimi: { label: 'Kimi API', url: 'https://platform.moonshot.cn/docs' },
+  openrouter: { label: 'OpenRouter API', url: 'https://openrouter.ai/docs' },
+  zhipu: { label: '智谱 API', url: 'https://open.bigmodel.cn/dev/api' },
 };
 
 export function ModelSettingsModal({

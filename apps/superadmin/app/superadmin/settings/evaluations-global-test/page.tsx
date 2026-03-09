@@ -1,8 +1,11 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { BookMarked, Eye, FlaskConical, Loader2, Pause, Save } from 'lucide-react';
-import { PromptLibraryModal, type PromptLibraryMode } from '@/components/ai-settings/PromptLibraryModal';
+import { BookMarked, Eye, ExternalLink, FlaskConical, Loader2, Pause } from 'lucide-react';
+import {
+  PromptManagerModal,
+  PROMPT_LOAD_MESSAGE_TYPE,
+} from '@/components/ai-settings/PromptManagerModal';
 import { DashboardLayout } from '@/components/dashboard';
 import { Button } from '@/components/ui/Button';
 import { ModelEvaluator } from '@/components/ai-settings';
@@ -130,8 +133,8 @@ export default function EvaluationsGlobalTestPage() {
 
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
-  // Prompt library modal state
-  const [promptLibraryMode, setPromptLibraryMode] = useState<PromptLibraryMode | null>(null);
+  // Prompt Manager modal state
+  const [showPromptManager, setShowPromptManager] = useState(false);
 
   // Toolbar header state from ModelEvaluator (batch test + counters)
   const [modelEvaluatorHeaderActions, setModelEvaluatorHeaderActions] =
@@ -162,6 +165,17 @@ export default function EvaluationsGlobalTestPage() {
   useEffect(() => {
     writeLocalStorage(LS_GLOBAL_PROMPT, globalTestPrompt);
   }, [globalTestPrompt]);
+
+  // When Prompt 管理 is opened in a new tab, 載入 sends postMessage; we apply it here
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== PROMPT_LOAD_MESSAGE_TYPE || !event.data?.content) return;
+      setGlobalTestPrompt(event.data.content);
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, []);
 
   // Merge validation cache from hook into local validateAll map
   useEffect(() => {
@@ -470,26 +484,27 @@ export default function EvaluationsGlobalTestPage() {
                     className="w-full rounded border border-border-subtle bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent resize-y min-h-[240px]"
                     title="輸入任意 prompt，每列測試時會使用此內容"
                   />
-                  {/* Prompt library actions — bottom-right of textarea */}
+                  {/* Prompt Manager modal trigger + open in new tab (載入 will fill this page via postMessage) */}
                   <div className="flex justify-end gap-2">
                     <button
                       type="button"
-                      onClick={() => setPromptLibraryMode('save')}
-                      className="inline-flex items-center gap-1.5 cursor-pointer text-sm text-text-secondary hover:text-text-primary rounded border border-border-subtle bg-bg-primary px-3 py-2 shrink-0"
-                      title="將目前 Prompt 儲存至雲端，方便之後重複載入"
-                    >
-                      <Save size={14} className="shrink-0" />
-                      <span>儲存 Prompt</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPromptLibraryMode('load')}
-                      className="inline-flex items-center gap-1.5 cursor-pointer text-sm text-text-secondary hover:text-text-primary rounded border border-border-subtle bg-bg-primary px-3 py-2 shrink-0"
-                      title="從已儲存的 Prompt 中選擇並載入"
+                      onClick={() => setShowPromptManager(true)}
+                      className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary rounded border border-border-subtle bg-bg-primary px-3 py-2 shrink-0 transition-colors"
+                      title="開啟 Prompt 管理，可新增、編輯、刪除或載入至此頁"
                     >
                       <BookMarked size={14} className="shrink-0" />
-                      <span>載入 Prompt</span>
+                      <span>Prompt 管理</span>
                     </button>
+                    <a
+                      href="/superadmin/settings/prompt-management?source=evaluations"
+                      target="_blank"
+                      rel="opener"
+                      className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary rounded border border-border-subtle bg-bg-primary px-3 py-2 shrink-0 transition-colors"
+                      title="在新分頁開啟 Prompt 管理，載入的 Prompt 會自動填到此欄位"
+                    >
+                      <ExternalLink size={14} className="shrink-0" />
+                      <span>在新分頁開啟</span>
+                    </a>
                   </div>
                 </div>
 
@@ -595,13 +610,13 @@ export default function EvaluationsGlobalTestPage() {
         </div>
       </div>
 
-      {/* Prompt library modal */}
-      {promptLibraryMode && (
-        <PromptLibraryModal
-          mode={promptLibraryMode}
-          currentContent={globalTestPrompt}
-          onLoad={(content) => setGlobalTestPrompt(content)}
-          onClose={() => setPromptLibraryMode(null)}
+      {showPromptManager && (
+        <PromptManagerModal
+          onClose={() => setShowPromptManager(false)}
+          onLoad={(content) => {
+            setGlobalTestPrompt(content);
+            setShowPromptManager(false);
+          }}
         />
       )}
     </DashboardLayout>

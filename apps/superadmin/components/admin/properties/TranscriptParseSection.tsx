@@ -7,10 +7,14 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   Brain, Loader2, ChevronDown, ChevronUp, Settings2,
   AlertTriangle, CheckCircle2, XCircle, Clock, ExternalLink,
-  Copy, Download, Scale, Info, PenLine,
+  Copy, Download, Scale, Info, PenLine, BookMarked, FileCode,
 } from 'lucide-react';
-import { useAISettings } from '@/lib/hooks/useAISettings';
+import { useAISettings, type SavedModel } from '@/lib/hooks/useAISettings';
 import { TRANSCRIPT_PARSE_PROMPT } from '@/lib/transcript-prompts';
+import {
+  PromptManagerModal,
+  PROMPT_LOAD_MESSAGE_TYPE,
+} from '@/components/ai-settings/PromptManagerModal';
 import {
   DEFAULT_PARSER_CONCURRENCY,
   PARSER_CONCURRENCY_OPTIONS,
@@ -19,6 +23,12 @@ import {
 import { getDocumentParseResult } from '@/lib/actions/properties';
 import type { PropertyDocumentItem } from '@/lib/types/properties';
 import type { LandRegistryParsedResult, ConsensusMetadata, ConflictDetail } from '@/lib/types/transcript';
+import {
+  getAvailableModelsListWithStaticFallback,
+} from '@/lib/utils/total-available-models';
+import { getStatusDisplay } from '@/lib/utils/model-status';
+import { readLocalStorage, writeLocalStorage, readSessionStorage } from '@/lib/utils/storage-state';
+import Link from 'next/link';
 
 // ---------------------------------------------------------------------------
 // SSE event types (mirrors the streaming route)
@@ -51,20 +61,79 @@ interface ModelProgressItem {
 
 interface Props {
   transcriptDocs: PropertyDocumentItem[];
+  /** 解析目標：建物謄本 or 土地謄本（預設為建物） */
+  kind?: 'building' | 'land';
   /** When provided, show "謄寫" button and call with parse result to fill building form below */
   onTranscribe?: (result: LandRegistryParsedResult) => void;
 }
 
-export function TranscriptParseSection({ transcriptDocs, onTranscribe }: Props) {
-  const { userId: aiUserId, modules: aiModules, prompts, refreshSilent } = useAISettings();
+const OCR_SETTINGS_HREF = '/superadmin/settings/api_key_and_model_setting#ocr';
+
+// 與 ModelEvaluator 共用的篩選 key（字串需完全一致才能從同一份 localStorage/sessionStorage 還原）
+const SS_FILTER_PROVIDERS = 'ai-eval-filter:providerIds';
+const SS_FILTER_STATUSES = 'ai-eval-filter:statuses';
+const LS_FILTER_CATEGORIES = 'ai-eval-filter:categories';
+const LS_LAST_CUSTOM_PROMPT = 'transcript-parse:lastCustomPrompt';
+const LS_SHOW_SETTINGS = 'transcript-parse:showSettings';
+const LS_LOCAL_PARSE_PREFIX = 'transcript-parse:local-result:';
+
+const VALID_STATUS_VALUES = new Set(['vlm_ok', 'llm_ok', 'not_working', 'untested']);
+const VALID_CATEGORY_VALUES = new Set(['VLM', 'LLM', 'unknown']);
+
+function detectCategoryFromOutput(output: string | undefined): 'VLM' | 'LLM' | 'unknown' {
+  const text = (output ?? '').trim();
+  if (!text) return 'unknown';
+  const lower = text.toLowerCase();
+  const noFilePhrases = [
+    '看不到', '無法看到', '無法讀取', '沒有收到', '沒有檔案', '沒有附件', '未提供', '未上傳',
+    "can't see", 'cannot see', 'no file', 'no attachment', "i don't have access", "i don't have",
+    'not provided', 'without the file', '沒有提供', '無法取得', '無法辨識', '沒有圖', '沒有圖檔',
+    '沒有圖片', '沒有文件', '沒有文件檔', '沒有pdf', '沒有上傳', '請提供檔案', '請上傳',
+  ];
+  const hasNoFile = noFilePhrases.some((p) => text.includes(p) || lower.includes(p.toLowerCase()));
+  if (hasNoFile) return 'LLM';
+  const docContentPhrases = [
+    '所有權人', '所有權', '姓名', '地號', '建號', '權利範圍', '面積', '坐落', '謄本',
+    '土地', '建物', '持分', '登記', '所有權人姓名', '所有權人為', '解析出', '根據檔案',
+    '根據文件', '根據您提供的', '從檔案中', '從文件中', '文件中顯示', '檔案內容',
+  ];
+  const hasDocContent = docContentPhrases.some((p) => text.includes(p));
+  if (hasDocContent) return 'VLM';
+  return 'unknown';
+}
+
+export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTranscribe }: Props) {
+  const {
+    userId: aiUserId,
+    modules: aiModules,
+    prompts,
+    refreshSilent,
+    keys: savedKeys,
+    models: savedModels,
+    validationCacheByKeyId,
+    evaluations,
+  } = useAISettings();
+
+  // 進入頁面時拉最新驗證快取，與設定頁「驗證全部」後數字一致
+  useEffect(() => {
+    refreshSilent?.();
+  }, [refreshSilent]);
 
   // Document selection
   const [selectedDocId, setSelectedDocId] = useState('');
 
   // Pre-execution settings panel
-  const [showSettings, setShowSettings] = useState(false);
-  const [customPrompt, setCustomPrompt] = useState('');
-  const [isPromptDirty, setIsPromptDirty] = useState(false);
+  const [showSettings, setShowSettings] = useState<boolean>(() =>
+    readLocalStorage<boolean>(LS_SHOW_SETTINGS, false)
+  );
+  const [showPromptManager, setShowPromptManager] = useState(false);
+  // 預設載入最後一次 user 輸入的 Prompt（存在 localStorage），避免每次被系統預設覆蓋
+  const [customPrompt, setCustomPrompt] = useState<string>(() =>
+    readLocalStorage<string>(LS_LAST_CUSTOM_PROMPT, '')
+  );
+  const [isPromptDirty, setIsPromptDirty] = useState<boolean>(() =>
+    readLocalStorage<string>(LS_LAST_CUSTOM_PROMPT, '').trim().length > 0
+  );
   const [parserConcurrency, setParserConcurrency] = useState<number>(DEFAULT_PARSER_CONCURRENCY);
   type ParserModelSelection = { provider: string; model: string; priority?: number; enabled: boolean };
   const [parserModelSelection, setParserModelSelection] = useState<ParserModelSelection[]>([]);
@@ -84,6 +153,63 @@ export function TranscriptParseSection({ transcriptDocs, onTranscribe }: Props) 
   const abortRef = useRef<AbortController | null>(null);
   const parseRunIdRef = useRef(0);
 
+  // Local Python parse state
+  const [isLocalParsing, setIsLocalParsing] = useState(false);
+  const [localParseResult, setLocalParseResult] = useState<Record<string, unknown> | null>(null);
+  const [localParseError, setLocalParseError] = useState<string | null>(null);
+
+  const targetLabel = kind === 'land' ? '土地謄本' : '建物謄本';
+
+  // 與設定頁 #ocr 共用的篩選條件（透過 storage 事件即時同步）
+  const [filterProviderIds, setFilterProviderIds] = useState<string[]>(() =>
+    readLocalStorage<string[]>(
+      SS_FILTER_PROVIDERS,
+      readSessionStorage<string[]>(SS_FILTER_PROVIDERS, []),
+    )
+  );
+  const [filterStatuses, setFilterStatuses] = useState<string[]>(() =>
+    readLocalStorage<string[]>(
+      SS_FILTER_STATUSES,
+      readSessionStorage<string[]>(SS_FILTER_STATUSES, []),
+    ).filter((v) => VALID_STATUS_VALUES.has(v))
+  );
+  const [filterCategories, setFilterCategories] = useState<string[]>(() =>
+    readLocalStorage<string[]>(LS_FILTER_CATEGORIES, []).filter((v) =>
+      VALID_CATEGORY_VALUES.has(v),
+    )
+  );
+
+  // 監聽其他分頁（設定頁）對篩選條件的更新，讓本區塊數字即時同步
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = (e: StorageEvent) => {
+      if (!e.key) return;
+      if (e.key === SS_FILTER_PROVIDERS) {
+        setFilterProviderIds(
+          readLocalStorage<string[]>(
+            SS_FILTER_PROVIDERS,
+            readSessionStorage<string[]>(SS_FILTER_PROVIDERS, []),
+          )
+        );
+      } else if (e.key === SS_FILTER_STATUSES) {
+        setFilterStatuses(
+          readLocalStorage<string[]>(
+            SS_FILTER_STATUSES,
+            readSessionStorage<string[]>(SS_FILTER_STATUSES, []),
+          ).filter((v) => VALID_STATUS_VALUES.has(v))
+        );
+      } else if (e.key === LS_FILTER_CATEGORIES) {
+        setFilterCategories(
+          readLocalStorage<string[]>(LS_FILTER_CATEGORIES, []).filter((v) =>
+            VALID_CATEGORY_VALUES.has(v),
+          )
+        );
+      }
+    };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, []);
+
   // Auto-select first document when list changes
   useEffect(() => {
     if (transcriptDocs.length > 0 && !transcriptDocs.some((d) => d.id === selectedDocId)) {
@@ -91,6 +217,28 @@ export function TranscriptParseSection({ transcriptDocs, onTranscribe }: Props) 
       setParseError(null);
     }
   }, [transcriptDocs, selectedDocId]);
+
+  // Restore last local Python parse result per document from localStorage
+  useEffect(() => {
+    if (!selectedDocId) {
+      setLocalParseResult(null);
+      setLocalParseError(null);
+      return;
+    }
+    const stored = readLocalStorage<string | null>(`${LS_LOCAL_PARSE_PREFIX}${selectedDocId}`, null);
+    if (!stored) {
+      setLocalParseResult(null);
+      setLocalParseError(null);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(stored) as Record<string, unknown>;
+      setLocalParseResult(parsed);
+      setLocalParseError(null);
+    } catch {
+      setLocalParseResult(null);
+    }
+  }, [selectedDocId]);
 
   // Restore last parse result from DB when opening page or switching document (so user sees saved result without re-parsing).
   // 僅依賴 selectedDocId，避免 transcriptDocs 每次新陣列參考導致重複執行或覆蓋已還原的結果。
@@ -123,6 +271,91 @@ export function TranscriptParseSection({ transcriptDocs, onTranscribe }: Props) 
     () => aiModules.find((m) => m.module_key === 'online_ocr_judge'),
     [aiModules],
   );
+
+  // 與「API 金鑰與模型設定」#ocr 同步的模型數量（全部可選 / 篩選後可選 / 已選被測＋解析組）
+  const currentKeys = useMemo(
+    () => savedKeys.map((k) => ({ id: k.id, provider: k.provider })),
+    [savedKeys],
+  );
+  // 與「API 金鑰與模型設定」#ocr 完全同步：
+  // - 全部公司可選模型數：allRows.length
+  // - 篩選後可選模型數：rowsAfterProvider / 狀態 / 分類篩選後的 rows 長度
+  // - 已選被測模型數：同一 rows 範圍內、仍在可選名單中的勾選模型數
+  const ocrModelStats = useMemo(() => {
+    if (savedKeys.length === 0) {
+      return { total: 0, filteredTotal: 0, selected: 0, assigned: ocrParseModule?.assigned_models?.length ?? 0 };
+    }
+
+    const allRows = getAvailableModelsListWithStaticFallback(validationCacheByKeyId, currentKeys);
+    const total = allRows.length;
+
+    // 1) 依 provider 篩選
+    let rowsAfterProvider = allRows;
+    if (filterProviderIds.length > 0) {
+      const set = new Set(filterProviderIds);
+      rowsAfterProvider = allRows.filter((r) => set.has(r.providerId));
+    }
+
+    // 評估結果對照表（provider::model → ModelEvaluation）
+    const evaluationMap = new Map<string, typeof evaluations[number]>();
+    for (const ev of evaluations ?? []) {
+      evaluationMap.set(`${ev.provider}::${ev.model_id}`, ev);
+    }
+
+    // 2) 依狀態篩選（OCR可用/LLM可用/不可用/尚未測試）
+    let rowsAfterStatus = rowsAfterProvider;
+    if (filterStatuses.length > 0) {
+      const set = new Set(filterStatuses);
+      rowsAfterStatus = rowsAfterProvider.filter((r) => {
+        const key = `${r.providerId}::${r.modelId}`;
+        const ev = evaluationMap.get(key);
+        const statusDisplay = getStatusDisplay(key, ev, {}, { [key]: ev?.notes ?? '' }, true);
+        return set.has(statusDisplay.type);
+      });
+    }
+
+    // 3) 依模型分類篩選（VLM / LLM / unknown）
+    let rowsAfterCategory = rowsAfterStatus;
+    if (filterCategories.length > 0) {
+      const set = new Set(filterCategories);
+      rowsAfterCategory = rowsAfterStatus.filter((r) => {
+        const key = `${r.providerId}::${r.modelId}`;
+        const ev = evaluationMap.get(key);
+        const outputText = (ev?.notes ?? '').trim();
+        const category = detectCategoryFromOutput(outputText);
+        return set.has(category);
+      });
+    }
+
+    const filteredTotal = rowsAfterCategory.length;
+
+    // 已選被測模型數：同一 rows 範圍內、仍在可選名單中的勾選模型
+    const selectedSet = new Set<string>(
+      (savedModels as SavedModel[]).map((m) => `${m.provider}::${m.model_id}`),
+    );
+    const allSelectedCount = allRows.filter((r) =>
+      selectedSet.has(`${r.providerId}::${r.modelId}`),
+    ).length;
+    const filteredSelectedCount = rowsAfterCategory.filter((r) =>
+      selectedSet.has(`${r.providerId}::${r.modelId}`),
+    ).length;
+    const selected =
+      rowsAfterCategory.length !== allRows.length ? filteredSelectedCount : allSelectedCount;
+
+    const assigned = ocrParseModule?.assigned_models?.length ?? 0;
+    return { total, filteredTotal, selected, assigned };
+  }, [
+    savedKeys.length,
+    validationCacheByKeyId,
+    currentKeys,
+    ocrParseModule?.assigned_models?.length,
+    evaluations,
+    savedModels,
+    filterProviderIds,
+    filterStatuses,
+    filterCategories,
+  ]);
+
   const storedParsePrompt = useMemo(() => {
     const matched = prompts
       .filter((p) => p.module_key === 'online_ocr_parse' && p.prompt_content.trim())
@@ -130,18 +363,34 @@ export function TranscriptParseSection({ transcriptDocs, onTranscribe }: Props) 
     return matched[0]?.prompt_content ?? '';
   }, [prompts]);
   const effectiveParsePrompt = storedParsePrompt || TRANSCRIPT_PARSE_PROMPT;
-  const isCustomPromptOverridden = isPromptDirty && customPrompt.trim() !== effectiveParsePrompt.trim();
+  const isCustomPromptOverridden =
+    isPromptDirty && customPrompt.trim().length > 0 && customPrompt.trim() !== effectiveParsePrompt.trim();
   const enabledParserCount = parserModelSelection.filter((m) => m.enabled).length;
   const effectiveParserConcurrency = resolveParserConcurrency(
     parserConcurrency,
     enabledParserCount || parserModelSelection.length || 1,
   );
 
+  // 若使用者尚未輸入過任何 Prompt（localStorage 為空），第一次載入時才帶入系統預設，
+  // 之後就完全以 localStorage 為主，不再被系統預設覆蓋。
   useEffect(() => {
-    if (!isPromptDirty) {
+    if (!isPromptDirty && customPrompt.trim().length === 0) {
       setCustomPrompt(effectiveParsePrompt);
     }
-  }, [effectiveParsePrompt, isPromptDirty]);
+  }, [effectiveParsePrompt, isPromptDirty, customPrompt]);
+
+  // When Prompt 管理 is opened in a new tab (e.g. "在新分頁開啟"), 載入 sends postMessage; we apply it here
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== PROMPT_LOAD_MESSAGE_TYPE || !event.data?.content) return;
+      setCustomPrompt(event.data.content);
+      setIsPromptDirty(true);
+      writeLocalStorage(LS_LAST_CUSTOM_PROMPT, event.data.content);
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, []);
 
   // 解析此輪要使用的裁判模型：
   // 1) 優先使用 online_ocr_judge 模組中綁定的第一個模型
@@ -193,7 +442,7 @@ export function TranscriptParseSection({ transcriptDocs, onTranscribe }: Props) 
         break;
 
       case 'parse_start':
-        setPhaseLabel(`解析中（同時最多 ${event.concurrency} 個，目標成功 ${event.targetSuccessCount} 個）…`);
+        setPhaseLabel(`解析中（同時 ${event.concurrency} 個）…`);
         break;
 
       case 'model_start':
@@ -302,10 +551,7 @@ export function TranscriptParseSection({ transcriptDocs, onTranscribe }: Props) 
       const decoder = new TextDecoder();
       let buffer = '';
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
+      function processBuffer() {
         const chunks = buffer.split('\n\n');
         buffer = chunks.pop() ?? '';
         for (const chunk of chunks) {
@@ -318,6 +564,30 @@ export function TranscriptParseSection({ transcriptDocs, onTranscribe }: Props) 
           }
         }
       }
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (value) {
+          buffer += decoder.decode(value, { stream: true });
+          processBuffer();
+        }
+        if (done) {
+          // 串流結束後處理 buffer 內剩餘內容，避免漏掉最後的 complete 事件
+          if (buffer.trim()) {
+            const chunks = buffer.split('\n\n');
+            for (const chunk of chunks) {
+              if (!chunk.startsWith('data: ')) continue;
+              try {
+                if (parseRunIdRef.current !== runId) break;
+                handleSSEEvent(JSON.parse(chunk.slice(6)) as SSEEvent);
+              } catch {
+                // Ignore malformed events
+              }
+            }
+          }
+          break;
+        }
+      }
     } catch (e) {
       if (e instanceof Error && e.name === 'AbortError') return;
       if (parseRunIdRef.current !== runId) return;
@@ -328,6 +598,31 @@ export function TranscriptParseSection({ transcriptDocs, onTranscribe }: Props) 
         setIsParsing(false);
         setPhaseLabel('');
       }
+    }
+  }
+
+  async function handleLocalParse() {
+    if (!selectedDocId || isLocalParsing) return;
+    setIsLocalParsing(true);
+    setLocalParseResult(null);
+    setLocalParseError(null);
+    try {
+      const response = await fetch('/api/transcript-parse/local', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentId: selectedDocId }),
+      });
+      const data = (await response.json()) as Record<string, unknown>;
+      if (!response.ok) {
+        setLocalParseError((data.error as string) ?? `請求失敗 (${response.status})`);
+        return;
+      }
+      setLocalParseResult(data);
+      writeLocalStorage(`${LS_LOCAL_PARSE_PREFIX}${selectedDocId}`, JSON.stringify(data));
+    } catch (e) {
+      setLocalParseError(e instanceof Error ? e.message : '地端解析失敗');
+    } finally {
+      setIsLocalParsing(false);
     }
   }
 
@@ -401,13 +696,17 @@ export function TranscriptParseSection({ transcriptDocs, onTranscribe }: Props) 
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium text-text-secondary flex items-center gap-1.5">
           <Brain size={14} className="text-accent" />
-          AI 解析謄本
+          AI 解析{targetLabel}
         </p>
         <button
           type="button"
           onClick={() => {
             if (!showSettings) refreshSilent?.();
-            setShowSettings((v) => !v);
+            setShowSettings((v) => {
+              const next = !v;
+              writeLocalStorage(LS_SHOW_SETTINGS, next);
+              return next;
+            });
           }}
           className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors"
           title="解析設定"
@@ -418,9 +717,41 @@ export function TranscriptParseSection({ transcriptDocs, onTranscribe }: Props) 
         </button>
       </div>
 
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-secondary">
+        <span>
+          全部公司可選模型數：
+          <span className="font-medium text-text-primary">{ocrModelStats.total}</span>
+          ，篩選後可選模型數：
+          <span className="font-medium text-text-primary">{ocrModelStats.filteredTotal}</span>
+          ，已選被測模型數：
+          <span className="font-medium text-text-primary">{ocrModelStats.selected}</span>
+        </span>
+        <Link
+          href={OCR_SETTINGS_HREF}
+          className="inline-flex items-center gap-1 text-accent hover:text-accent-hover transition-colors"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="與設定頁 #ocr 同一資料源與 OCR可用 判定，進入本頁會自動拉最新驗證快取"
+        >
+          <ExternalLink size={12} aria-hidden />
+          與 API 金鑰與模型設定 #ocr 同步
+        </Link>
+      </div>
+
       <p className="text-xs text-text-muted">
-        選擇已上傳的謄本，由「雲端OCR謄本解析」指定之 AI 模型解析，輸出重要資訊 JSON。
+        選擇已上傳的{targetLabel}，由「雲端OCR謄本解析」指定之 AI 模型解析，輸出重要資訊 JSON。若為 PDF，會一併傳給 Claude、Gemini、OpenAI、Grok、DeepSeek 等；若某家 API 回報不支援，可改傳 JPG/PNG。
       </p>
+
+      {/* 統一測試 vs 雲端解析謄本 說明：避免誤解「統一測試通過」=「單一物件解析一定成功」 */}
+      <div className="rounded-md border border-amber-300/40 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-600/40 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-200 space-y-1">
+        <p className="font-medium">為什麼「統一測試」通過，但這裡雲端解析{targetLabel}沒結果或信心很低？</p>
+        <ul className="list-disc list-inside space-y-0.5 text-text-muted dark:text-amber-200/90">
+          <li><strong>統一測試</strong>：只測「已選被測模型」能否連線並回覆一句話，不跑謄本解析。</li>
+          <li><strong>雲端解析謄本</strong>：只用「雲端OCR謄本解析（解析組）」<strong>已指派的模型</strong>，對本謄本檔案跑多模型共識；若解析組未指派任何模型，會無法執行。</li>
+          <li>若下方「解析模型」為空，請至 OCR 解析設定 為「雲端OCR謄本解析（解析組）」<strong>指派</strong>至少一個模型（在該模組欄位加入模型，不是只勾選「勾選被測模型」）。</li>
+          <li>若信心度很低（例如 30%），可能是檔案模糊、PDF 某家不支援、或各模型輸出格式不一致；可改傳 JPG/PNG 或減少解析模型數量再試。</li>
+        </ul>
+      </div>
 
       {/* ── Pre-execution settings panel ─────────────────────────────── */}
       {showSettings && (
@@ -528,7 +859,7 @@ export function TranscriptParseSection({ transcriptDocs, onTranscribe }: Props) 
                 ))}
               </select>
               <p className="text-[11px] text-text-muted mt-1">
-                系統會先平行呼叫這麼多模型，失敗就立即補下一個，累積 5 個成功結果後停止。
+                系統會同時呼叫全部已勾選模型，有幾個成功就算幾個，不設最低成功數限制。
               </p>
               <p className="text-[11px] text-text-muted mt-1">
                 依目前已勾選模型數，本次實際同時最多會跑 {effectiveParserConcurrency} 個。
@@ -538,19 +869,43 @@ export function TranscriptParseSection({ transcriptDocs, onTranscribe }: Props) 
 
           {/* Custom prompt override */}
           <div className="space-y-1.5">
-            <p className="font-medium text-text-secondary">此次解析 Prompt（已預填，可修改）</p>
+            <div className="flex items-center justify-between">
+              <p className="font-medium text-text-secondary">此次解析 Prompt（已預填，可修改）</p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPromptManager(true)}
+                  className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-accent transition-colors"
+                  title="開啟 Prompt 管理（彈窗）"
+                >
+                  <BookMarked size={11} />
+                  Prompt 管理
+                </button>
+                <a
+                  href="/superadmin/settings/prompt-management?source=transcript-parse"
+                  target="_blank"
+                  rel="opener"
+                  className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-accent transition-colors"
+                  title="在新分頁開啟 Prompt 管理，載入的 Prompt 會自動填到此欄位"
+                >
+                  <ExternalLink size={11} />
+                  在新分頁開啟
+                </a>
+              </div>
+            </div>
             <textarea
               value={customPrompt}
               onChange={(e) => {
                 setCustomPrompt(e.target.value);
                 setIsPromptDirty(true);
+                writeLocalStorage(LS_LAST_CUSTOM_PROMPT, e.target.value);
               }}
               placeholder="留空則使用 AI 設定中已儲存的 Prompt（若無則使用預設 Prompt）"
               rows={4}
               className="w-full border border-border-default rounded-md px-2.5 py-1.5 bg-bg-primary text-text-primary text-xs resize-y focus:outline-none focus:border-accent placeholder:text-text-muted"
               disabled={isParsing}
             />
-            {!isPromptDirty && (
+            {!isPromptDirty && customPrompt.trim().length === 0 && (
               <p className="text-text-muted">
                 目前預填的是 {storedParsePrompt ? 'AI 設定中已儲存的 Prompt' : '系統預設 Prompt'}。
               </p>
@@ -596,16 +951,36 @@ export function TranscriptParseSection({ transcriptDocs, onTranscribe }: Props) 
         </select>
       </div>
 
-      {/* Parse button */}
-      <button
-        type="button"
-        onClick={handleParse}
-        disabled={!selectedDocId || isParsing}
-        className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-xs rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40"
-      >
-        {isParsing ? <Loader2 size={12} className="animate-spin" /> : <Brain size={12} />}
-        {isParsing ? (phaseLabel || '解析中…') : '雲端解析謄本'}
-      </button>
+      {/* Parse button + dynamic concurrency indicator */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          type="button"
+          onClick={handleParse}
+          disabled={!selectedDocId || isParsing}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-xs rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40"
+        >
+          {isParsing ? <Loader2 size={12} className="animate-spin" /> : <Brain size={12} />}
+          {isParsing ? (phaseLabel || '解析中…') : `雲端解析${targetLabel}`}
+        </button>
+        <button
+          type="button"
+          onClick={handleLocalParse}
+          disabled={!selectedDocId || isLocalParsing || isParsing}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-xs rounded-md hover:bg-emerald-700 transition-colors disabled:opacity-40"
+          title="使用本機 Python regex 解析器（需啟動 backend/ocr_service）"
+        >
+          {isLocalParsing ? <Loader2 size={12} className="animate-spin" /> : <FileCode size={12} />}
+          {isLocalParsing ? '解析中…' : `地端解析${targetLabel}`}
+        </button>
+        {!isParsing && parserModelSelection.length > 0 && (
+          <span className="text-[11px] text-text-muted">
+            同時 {effectiveParserConcurrency} 個
+            {effectiveParserConcurrency < parserConcurrency && (
+              <span className="ml-0.5 text-amber-600">（已選 {parserConcurrency}，依模型數上限為 {effectiveParserConcurrency}）</span>
+            )}
+          </span>
+        )}
+      </div>
 
       {/* ── Real-time model progress ──────────────────────────────────── */}
       {(isParsing || parseError || parseResult) && modelProgress.length > 0 && (
@@ -678,7 +1053,7 @@ export function TranscriptParseSection({ transcriptDocs, onTranscribe }: Props) 
 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-text-secondary">解析結果 (JSON)</span>
+              <span className="text-xs font-medium text-text-secondary">雲端解析結果</span>
               <button
                 type="button"
                 onClick={handleDownloadReport}
@@ -712,6 +1087,66 @@ export function TranscriptParseSection({ transcriptDocs, onTranscribe }: Props) 
             {JSON.stringify(parseResult, null, 2)}
           </pre>
         </div>
+      )}
+
+      {/* ── Local Python parse error ───────────────────────────────────── */}
+      {localParseError && (
+        <p className="text-xs text-red-500 bg-red-500/10 border border-red-500/20 rounded px-2 py-1.5">
+          地端解析錯誤：{localParseError}
+        </p>
+      )}
+
+      {/* ── Local Python parse result ──────────────────────────────────── */}
+      {localParseResult && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-emerald-700 flex items-center gap-1">
+              <FileCode size={12} />
+              地端Python解析結果（{(localParseResult.transcript_type as string) ?? ''}）
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() =>
+                  navigator.clipboard.writeText(
+                    JSON.stringify(localParseResult.parsed, null, 2),
+                  )
+                }
+                className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-border-default hover:bg-bg-tertiary text-text-secondary"
+              >
+                <Copy size={12} /> 複製
+              </button>
+              {onTranscribe && localParseResult.parsed && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onTranscribe(localParseResult.parsed as LandRegistryParsedResult)
+                  }
+                  className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-border-default hover:bg-bg-tertiary text-text-secondary"
+                  title="將解析結果謄寫至下方建物全部欄位"
+                >
+                  <PenLine size={12} /> 謄寫
+                </button>
+              )}
+            </div>
+          </div>
+          <pre className="text-xs bg-bg-tertiary border border-emerald-600/20 rounded-md p-3 overflow-x-auto overflow-y-auto max-h-64 whitespace-pre-wrap break-words">
+            {JSON.stringify(localParseResult.parsed, null, 2)}
+          </pre>
+        </div>
+      )}
+
+      {/* Prompt Manager Modal */}
+      {showPromptManager && (
+        <PromptManagerModal
+          onClose={() => setShowPromptManager(false)}
+          onLoad={(content) => {
+            setCustomPrompt(content);
+            setIsPromptDirty(true);
+            writeLocalStorage(LS_LAST_CUSTOM_PROMPT, content);
+            setShowPromptManager(false);
+          }}
+        />
       )}
     </div>
   );

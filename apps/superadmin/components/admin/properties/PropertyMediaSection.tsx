@@ -376,9 +376,9 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
             </button>
           </div>
 
-          {/* AI 解析謄本 — extracted to TranscriptParseSection */}
+          {/* AI 解析謄本（目前僅土地謄本） — extracted to TranscriptParseSection */}
           {transcriptDocs.length > 0 && (
-            <TranscriptParseSection transcriptDocs={transcriptDocs} />
+            <TranscriptParseSection transcriptDocs={transcriptDocs} kind="land" />
           )}
         </div>
       )}

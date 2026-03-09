@@ -31,11 +31,34 @@ export function mimeFromPath(filePath: string): string {
   return map[ext] ?? 'application/octet-stream';
 }
 
-/** Extract JSON from model output — strips optional markdown code fence. */
+/**
+ * Extract JSON from model output.
+ * - Strips optional markdown code fence (```json ... ```) anywhere in text.
+ * - Falls back to first {...} object if no fence found (for "以下是結果：{...}" style).
+ */
 export function extractJsonFromOutput(text: string): LandRegistryParsedResult {
   let raw = text.trim();
-  const match = raw.match(/^```(?:json)?\s*([\s\S]*?)```\s*$/m);
-  if (match) raw = match[1].trim();
+  const codeFence = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeFence) {
+    raw = codeFence[1].trim();
+  } else {
+    const brace = raw.indexOf('{');
+    if (brace >= 0) {
+      let depth = 0;
+      let end = -1;
+      for (let i = brace; i < raw.length; i++) {
+        if (raw[i] === '{') depth++;
+        else if (raw[i] === '}') {
+          depth--;
+          if (depth === 0) {
+            end = i;
+            break;
+          }
+        }
+      }
+      if (end >= 0) raw = raw.slice(brace, end + 1);
+    }
+  }
   return JSON.parse(raw) as LandRegistryParsedResult;
 }
 
@@ -67,7 +90,8 @@ export async function callOpenAI(
   type ImagePart = { type: 'image_url'; image_url: { url: string } };
   let content: string | (TextPart | ImagePart)[] = prompt;
 
-  if (isImageMime(mimeType)) {
+  const isDocOrImage = isImageMime(mimeType) || mimeType.toLowerCase() === 'application/pdf';
+  if (isDocOrImage) {
     content = [
       { type: 'image_url' as const, image_url: { url: `data:${mimeType};base64,${fileBase64}` } },
       { type: 'text' as const, text: prompt },
@@ -165,6 +189,12 @@ export async function callGemini(
   ];
 
   const name = modelId.startsWith('models/') ? modelId : `models/${modelId}`;
+  // Gemma models (gemma-*) do not support responseMimeType:'application/json';
+  // use plain text mode and rely on extractJsonFromOutput for those models.
+  const isGemma = /gemma/i.test(modelId);
+  const generationConfig = isGemma
+    ? { maxOutputTokens: 4096 }
+    : { maxOutputTokens: 4096, responseMimeType: 'application/json' };
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/${name}:generateContent?key=${apiKey}`,
     {
@@ -173,7 +203,7 @@ export async function callGemini(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts }],
-        generationConfig: { maxOutputTokens: 4096, responseMimeType: 'application/json' },
+        generationConfig,
       }),
     }
   );
@@ -206,20 +236,26 @@ export async function callDeepSeek(
   type ImagePart = { type: 'image_url'; image_url: { url: string } };
   let content: string | (TextPart | ImagePart)[] = prompt;
 
-  if (isImageMime(mimeType)) {
+  const isDocOrImage = isImageMime(mimeType) || mimeType.toLowerCase() === 'application/pdf';
+  if (isDocOrImage) {
     content = [
       { type: 'image_url' as const, image_url: { url: `data:${mimeType};base64,${fileBase64}` } },
       { type: 'text' as const, text: prompt },
     ];
   }
 
+  // DeepSeek requires the word "json" somewhere in the prompt when using
+  // response_format:json_object. Use a system message to guarantee this.
   const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
     method: 'POST',
     signal,
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model: modelId,
-      messages: [{ role: 'user', content }],
+      messages: [
+        { role: 'system', content: '請務必以嚴格的 JSON 格式輸出結果，不要加任何說明文字。' },
+        { role: 'user', content },
+      ],
       max_tokens: 4096,
       response_format: { type: 'json_object' },
     }),
@@ -252,7 +288,8 @@ export async function callGrok(
   type ImagePart = { type: 'image_url'; image_url: { url: string } };
   let content: string | (TextPart | ImagePart)[] = prompt;
 
-  if (isImageMime(mimeType)) {
+  const isDocOrImage = isImageMime(mimeType) || mimeType.toLowerCase() === 'application/pdf';
+  if (isDocOrImage) {
     content = [
       { type: 'image_url' as const, image_url: { url: `data:${mimeType};base64,${fileBase64}` } },
       { type: 'text' as const, text: prompt },
@@ -267,6 +304,208 @@ export async function callGrok(
       model: modelId,
       messages: [{ role: 'user', content }],
       max_tokens: 4096,
+    }),
+  });
+
+  const data = (await res.json().catch(() => ({}))) as {
+    choices?: { message?: { content?: string } }[];
+    error?: { message?: string };
+  };
+  const text = data?.choices?.[0]?.message?.content ?? '';
+  if (res.ok) return { ok: true, text };
+  return { ok: false, text: '', error: data?.error?.message ?? `HTTP ${res.status}` };
+}
+
+// ---------------------------------------------------------------------------
+// Together AI (OpenAI-compatible API)
+// Note: most Together models are text-only and cannot read documents;
+// they will return an empty/invalid JSON which hasTranscriptContent() will
+// reject. Vision-capable Together models work normally.
+// ---------------------------------------------------------------------------
+
+export async function callTogether(
+  apiKey: string,
+  modelId: string,
+  fileBase64: string,
+  mimeType: string,
+  systemPrompt?: string,
+  signal?: AbortSignal,
+): Promise<CallerResult> {
+  const prompt = systemPrompt ?? TRANSCRIPT_PARSE_PROMPT;
+
+  type TextPart = { type: 'text'; text: string };
+  type ImagePart = { type: 'image_url'; image_url: { url: string } };
+  let content: string | (TextPart | ImagePart)[] = prompt;
+
+  // Only pass image inline data for vision-capable models; PDF is never supported.
+  if (isImageMime(mimeType)) {
+    content = [
+      { type: 'image_url' as const, image_url: { url: `data:${mimeType};base64,${fileBase64}` } },
+      { type: 'text' as const, text: prompt },
+    ];
+  }
+
+  const res = await fetch('https://api.together.xyz/v1/chat/completions', {
+    method: 'POST',
+    signal,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: modelId,
+      messages: [
+        { role: 'system', content: '請務必以嚴格的 JSON 格式輸出結果，不要加任何說明文字。' },
+        { role: 'user', content },
+      ],
+      max_tokens: 4096,
+    }),
+  });
+
+  const data = (await res.json().catch(() => ({}))) as {
+    choices?: { message?: { content?: string } }[];
+    error?: { message?: string };
+  };
+  const text = data?.choices?.[0]?.message?.content ?? '';
+  if (res.ok) return { ok: true, text };
+  return { ok: false, text: '', error: data?.error?.message ?? `HTTP ${res.status}` };
+}
+
+// ---------------------------------------------------------------------------
+// Kimi (Moonshot) — OpenAI-compatible
+// ---------------------------------------------------------------------------
+
+export async function callKimi(
+  apiKey: string,
+  modelId: string,
+  fileBase64: string,
+  mimeType: string,
+  systemPrompt?: string,
+  signal?: AbortSignal,
+): Promise<CallerResult> {
+  const prompt = systemPrompt ?? TRANSCRIPT_PARSE_PROMPT;
+
+  type TextPart = { type: 'text'; text: string };
+  type ImagePart = { type: 'image_url'; image_url: { url: string } };
+  let content: string | (TextPart | ImagePart)[] = prompt;
+
+  const isDocOrImage = isImageMime(mimeType) || mimeType.toLowerCase() === 'application/pdf';
+  if (isDocOrImage) {
+    content = [
+      { type: 'image_url' as const, image_url: { url: `data:${mimeType};base64,${fileBase64}` } },
+      { type: 'text' as const, text: prompt },
+    ];
+  }
+
+  const res = await fetch('https://api.moonshot.cn/v1/chat/completions', {
+    method: 'POST',
+    signal,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: modelId,
+      messages: [
+        { role: 'system', content: '請務必以嚴格的 JSON 格式輸出結果，不要加任何說明文字。' },
+        { role: 'user', content },
+      ],
+      max_tokens: 4096,
+      response_format: { type: 'json_object' },
+    }),
+  });
+
+  const data = (await res.json().catch(() => ({}))) as {
+    choices?: { message?: { content?: string } }[];
+    error?: { message?: string };
+  };
+  const text = data?.choices?.[0]?.message?.content ?? '';
+  if (res.ok) return { ok: true, text };
+  return { ok: false, text: '', error: data?.error?.message ?? `HTTP ${res.status}` };
+}
+
+// ---------------------------------------------------------------------------
+// OpenRouter — OpenAI-compatible
+// ---------------------------------------------------------------------------
+
+export async function callOpenRouter(
+  apiKey: string,
+  modelId: string,
+  fileBase64: string,
+  mimeType: string,
+  systemPrompt?: string,
+  signal?: AbortSignal,
+): Promise<CallerResult> {
+  const prompt = systemPrompt ?? TRANSCRIPT_PARSE_PROMPT;
+
+  type TextPart = { type: 'text'; text: string };
+  type ImagePart = { type: 'image_url'; image_url: { url: string } };
+  let content: string | (TextPart | ImagePart)[] = prompt;
+
+  const isDocOrImage = isImageMime(mimeType) || mimeType.toLowerCase() === 'application/pdf';
+  if (isDocOrImage) {
+    content = [
+      { type: 'image_url' as const, image_url: { url: `data:${mimeType};base64,${fileBase64}` } },
+      { type: 'text' as const, text: prompt },
+    ];
+  }
+
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    signal,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: modelId,
+      messages: [
+        { role: 'system', content: '請務必以嚴格的 JSON 格式輸出結果，不要加任何說明文字。' },
+        { role: 'user', content },
+      ],
+      max_tokens: 4096,
+      response_format: { type: 'json_object' },
+    }),
+  });
+
+  const data = (await res.json().catch(() => ({}))) as {
+    choices?: { message?: { content?: string } }[];
+    error?: { message?: string };
+  };
+  const text = data?.choices?.[0]?.message?.content ?? '';
+  if (res.ok) return { ok: true, text };
+  return { ok: false, text: '', error: data?.error?.message ?? `HTTP ${res.status}` };
+}
+
+// ---------------------------------------------------------------------------
+// Zhipu (智谱 GLM) — OpenAI-compatible
+// ---------------------------------------------------------------------------
+
+export async function callZhipu(
+  apiKey: string,
+  modelId: string,
+  fileBase64: string,
+  mimeType: string,
+  systemPrompt?: string,
+  signal?: AbortSignal,
+): Promise<CallerResult> {
+  const prompt = systemPrompt ?? TRANSCRIPT_PARSE_PROMPT;
+
+  type TextPart = { type: 'text'; text: string };
+  type ImagePart = { type: 'image_url'; image_url: { url: string } };
+  let content: string | (TextPart | ImagePart)[] = prompt;
+
+  const isDocOrImage = isImageMime(mimeType) || mimeType.toLowerCase() === 'application/pdf';
+  if (isDocOrImage) {
+    content = [
+      { type: 'image_url' as const, image_url: { url: `data:${mimeType};base64,${fileBase64}` } },
+      { type: 'text' as const, text: prompt },
+    ];
+  }
+
+  const res = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+    method: 'POST',
+    signal,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: modelId,
+      messages: [
+        { role: 'system', content: '請務必以嚴格的 JSON 格式輸出結果，不要加任何說明文字。' },
+        { role: 'user', content },
+      ],
+      max_tokens: 4096,
+      response_format: { type: 'json_object' },
     }),
   });
 
@@ -298,4 +537,8 @@ export const CALLERS: Record<AIProvider, CallerFn> = {
   gemini: callGemini,
   deepseek: callDeepSeek,
   grok: callGrok,
+  together: callTogether,
+  kimi: callKimi,
+  openrouter: callOpenRouter,
+  zhipu: callZhipu,
 };

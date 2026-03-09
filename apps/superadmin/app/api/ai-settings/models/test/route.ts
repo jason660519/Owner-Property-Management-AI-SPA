@@ -301,6 +301,108 @@ async function testTogether(
   }
 }
 
+async function testKimi(
+  apiKey: string,
+  modelId: string,
+  userPrompt?: string,
+  file?: FileAttachment
+): Promise<TestResult> {
+  const { prompt, max_tokens } = getPromptAndMaxTokens(userPrompt);
+  let content: string | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> = prompt;
+  if (file && isImageMime(file.mimeType)) {
+    const dataUrl = `data:${file.mimeType};base64,${file.fileBase64}`;
+    content = [
+      { type: 'image_url' as const, image_url: { url: dataUrl } },
+      { type: 'text' as const, text: prompt },
+    ];
+  }
+  try {
+    const res = await fetch('https://api.moonshot.cn/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: modelId,
+        messages: [{ role: 'user', content }],
+        max_tokens,
+      }),
+      signal: providerSignal(),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) return { success: true, message: '連線成功', output: extractOpenAIOutput(data) || '（無輸出）' };
+    return { success: false, message: (data as { error?: { message?: string } }).error?.message ?? `HTTP ${res.status}` };
+  } catch (e) {
+    return { success: false, message: `連線失敗: ${e instanceof Error ? e.message : 'Unknown'}` };
+  }
+}
+
+async function testOpenRouter(
+  apiKey: string,
+  modelId: string,
+  userPrompt?: string,
+  file?: FileAttachment
+): Promise<TestResult> {
+  const { prompt, max_tokens } = getPromptAndMaxTokens(userPrompt);
+  let content: string | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> = prompt;
+  if (file && isImageMime(file.mimeType)) {
+    const dataUrl = `data:${file.mimeType};base64,${file.fileBase64}`;
+    content = [
+      { type: 'image_url' as const, image_url: { url: dataUrl } },
+      { type: 'text' as const, text: prompt },
+    ];
+  }
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: modelId,
+        messages: [{ role: 'user', content }],
+        max_tokens,
+      }),
+      signal: providerSignal(),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) return { success: true, message: '連線成功', output: extractOpenAIOutput(data) || '（無輸出）' };
+    return { success: false, message: (data as { error?: { message?: string } }).error?.message ?? `HTTP ${res.status}` };
+  } catch (e) {
+    return { success: false, message: `連線失敗: ${e instanceof Error ? e.message : 'Unknown'}` };
+  }
+}
+
+async function testZhipu(
+  apiKey: string,
+  modelId: string,
+  userPrompt?: string,
+  file?: FileAttachment
+): Promise<TestResult> {
+  const { prompt, max_tokens } = getPromptAndMaxTokens(userPrompt);
+  let content: string | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> = prompt;
+  if (file && isImageMime(file.mimeType)) {
+    const dataUrl = `data:${file.mimeType};base64,${file.fileBase64}`;
+    content = [
+      { type: 'image_url' as const, image_url: { url: dataUrl } },
+      { type: 'text' as const, text: prompt },
+    ];
+  }
+  try {
+    const res = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: modelId,
+        messages: [{ role: 'user', content }],
+        max_tokens,
+      }),
+      signal: providerSignal(),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) return { success: true, message: '連線成功', output: extractOpenAIOutput(data) || '（無輸出）' };
+    return { success: false, message: (data as { error?: { message?: string } }).error?.message ?? `HTTP ${res.status}` };
+  } catch (e) {
+    return { success: false, message: `連線失敗: ${e instanceof Error ? e.message : 'Unknown'}` };
+  }
+}
+
 type TesterFn = (key: string, modelId: string, userPrompt?: string, file?: FileAttachment) => Promise<TestResult>;
 const testers: Record<AIProvider, TesterFn> = {
   openai: testOpenAI,
@@ -309,6 +411,9 @@ const testers: Record<AIProvider, TesterFn> = {
   deepseek: testDeepSeek,
   grok: testGrok,
   together: testTogether,
+  kimi: testKimi,
+  openrouter: testOpenRouter,
+  zhipu: testZhipu,
 };
 
 export async function POST(request: NextRequest) {
