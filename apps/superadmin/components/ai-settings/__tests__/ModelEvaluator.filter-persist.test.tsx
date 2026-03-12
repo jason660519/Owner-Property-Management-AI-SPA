@@ -81,7 +81,7 @@ describe('Feature 3: filter sessionStorage persistence', () => {
     sessionStorage.setItem(SS_STATUSES_KEY, JSON.stringify(['vlm_ok']));
     render(<ModelEvaluator {...baseProps} />);
     const btn = screen.getByTitle('依分類與狀態篩選（可複選）');
-    expect(btn).toHaveTextContent('VLM可用');
+    expect(btn).toHaveTextContent('OCR可用');
   });
 
   it('restores filterStatuses from sessionStorage on mount (multiple values)', () => {

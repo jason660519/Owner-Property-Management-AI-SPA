@@ -495,7 +495,7 @@ export function FeatureModuleSelector({
       {/* ── Notice when no models are configured ── */}
       {!hasAnyModels && (
         <div className="rounded-base border border-amber-300/40 bg-amber-50/10 px-4 py-2.5 text-xs text-amber-400">
-          尚未設定 API 金鑰或選擇模型。模組可先行啟用，但需在「API 金鑰管理」設定金鑰並於「已選/可選模型評估」選擇模型後，才能綁定模型。
+          尚未設定 API 金鑰或選擇模型。模組可先行啟用，但需在「API 金鑰管理」設定金鑰並於「統一測試設定」選擇模型後，才能綁定模型。
         </div>
       )}
 
@@ -607,7 +607,7 @@ export function FeatureModuleSelector({
                     colSpan={filteredModules.length + 1}
                     className="py-8 px-3 text-center text-text-muted text-[11px]"
                   >
-                    尚無已選模型。請先至「已選/可選模型評估」勾選要使用的模型。
+                    尚無已選模型。請先至「統一測試設定」勾選要使用的模型。
                   </td>
                 </tr>
               )}
@@ -741,7 +741,7 @@ export function FeatureModuleSelector({
           <span>已停用</span>
         </div>
         <span className="text-text-muted/60">
-          · 第一欄為「已選/可選模型評估」中已選的模型；橫列為 7 個功能模組；每格可綁定該模型至該模組，數字 1=主模型、2~100=備選，⚙ 可設定 LLM 參數與 System Prompt
+          · 第一欄為「統一測試設定」中已選的模型；橫列為 7 個功能模組；每格可綁定該模型至該模組，數字 1=主模型、2~100=備選，⚙ 可設定 LLM 參數與 System Prompt
         </span>
       </div>
 

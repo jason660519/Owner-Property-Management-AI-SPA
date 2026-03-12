@@ -278,6 +278,102 @@ async function validateTogether(apiKey: string): Promise<ValidationResult> {
   }
 }
 
+async function validateKimi(apiKey: string): Promise<ValidationResult> {
+  try {
+    const res = await fetch('https://api.moonshot.cn/v1/models', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const models: string[] = Array.isArray((data as { data?: { id: string }[] })?.data)
+        ? (data as { data: { id: string }[] }).data.map((m) => m.id).filter(Boolean)
+        : [];
+      const latest = pickLatestModel(models, [
+        m => m.toLowerCase().includes('moonshot-v1-128k'),
+        m => m.toLowerCase().includes('moonshot-v1-32k'),
+        m => m.toLowerCase().includes('moonshot-v1'),
+      ]);
+      return {
+        valid: true,
+        provider: 'kimi',
+        message: '金鑰驗證成功',
+        modelInfo: latest ? `最新可用: ${latest}` : '金鑰有效',
+        availableModels: models,
+      };
+    }
+    if (res.status === 401) {
+      return { valid: false, provider: 'kimi', message: '金鑰無效或已過期' };
+    }
+    return { valid: false, provider: 'kimi', message: `HTTP ${res.status}` };
+  } catch (e) {
+    return { valid: false, provider: 'kimi', message: `連線失敗: ${e instanceof Error ? e.message : 'Unknown'}` };
+  }
+}
+
+async function validateOpenRouter(apiKey: string): Promise<ValidationResult> {
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/models', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const raw = (data as { data?: { id: string }[] })?.data;
+      const models: string[] = Array.isArray(raw)
+        ? raw.map((m) => m.id).filter(Boolean)
+        : [];
+      const latest = pickLatestModel(models, [
+        m => m.includes('gpt-4o'),
+        m => m.includes('claude-3.5'),
+        m => m.includes('gemini'),
+      ]);
+      return {
+        valid: true,
+        provider: 'openrouter',
+        message: '金鑰驗證成功',
+        modelInfo: latest ? `最新可用: ${latest}` : `可用模型 ${models.length} 個`,
+        availableModels: models,
+      };
+    }
+    if (res.status === 401) {
+      return { valid: false, provider: 'openrouter', message: '金鑰無效或已過期' };
+    }
+    return { valid: false, provider: 'openrouter', message: `HTTP ${res.status}` };
+  } catch (e) {
+    return { valid: false, provider: 'openrouter', message: `連線失敗: ${e instanceof Error ? e.message : 'Unknown'}` };
+  }
+}
+
+async function validateZhipu(apiKey: string): Promise<ValidationResult> {
+  try {
+    const res = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'glm-4-flash',
+        messages: [{ role: 'user', content: 'Hi' }],
+        max_tokens: 1,
+      }),
+    });
+    if (res.ok) {
+      return {
+        valid: true,
+        provider: 'zhipu',
+        message: '金鑰驗證成功',
+        modelInfo: '金鑰有效',
+        availableModels: ['glm-4-plus', 'glm-4-flash', 'glm-4v-plus'],
+      };
+    }
+    const err = await res.json().catch(() => ({}));
+    const msg = (err as { error?: { message?: string } })?.error?.message;
+    if (res.status === 401 || res.status === 403) {
+      return { valid: false, provider: 'zhipu', message: msg ?? '金鑰無效或已過期' };
+    }
+    return { valid: false, provider: 'zhipu', message: msg ?? `HTTP ${res.status}` };
+  } catch (e) {
+    return { valid: false, provider: 'zhipu', message: `連線失敗: ${e instanceof Error ? e.message : 'Unknown'}` };
+  }
+}
+
 const validators: Record<AIProvider, (key: string) => Promise<ValidationResult>> = {
   openai: validateOpenAI,
   anthropic: validateAnthropic,
@@ -285,6 +381,9 @@ const validators: Record<AIProvider, (key: string) => Promise<ValidationResult>>
   deepseek: validateDeepSeek,
   grok: validateGrok,
   together: validateTogether,
+  kimi: validateKimi,
+  openrouter: validateOpenRouter,
+  zhipu: validateZhipu,
 };
 
 export async function POST(request: NextRequest) {

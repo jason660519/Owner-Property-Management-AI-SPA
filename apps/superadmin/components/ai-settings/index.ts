@@ -4,3 +4,4 @@
 export { ApiKeyManager, type ApiKeyManagerHandle } from './ApiKeyManager';
 export { ModelEvaluator } from './ModelEvaluator';
 export { FeatureModuleSelector } from './FeatureModuleSelector';
+export { PromptLibraryModal, type PromptLibraryMode } from './PromptLibraryModal';

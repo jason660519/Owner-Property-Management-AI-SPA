@@ -5,6 +5,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { resolveUserId } from '@/lib/resolve-ai-settings-user';
 
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error && err.message) return err.message;
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    const message = (err as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) return message;
+  }
+  return 'Failed to save module';
+}
+
 // GET: Fetch all feature module configs（使用 resolveUserId 與 keys 一致）
 export async function GET(request: NextRequest) {
   try {
@@ -48,10 +57,24 @@ export async function POST(request: NextRequest) {
       assignedModel,
       assignedModels,
       config,
-    } = body;
+    } = body as {
+      userId?: string;
+      moduleKey?: string;
+      isEnabled?: boolean;
+      assignedProvider?: string;
+      assignedModel?: string;
+      assignedModels?: unknown;
+      config?: unknown;
+    };
 
     if (!userId || !moduleKey) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    // Normalize to the same effective user used by GET / modules & transcript parsing.
+    const effectiveUserId = await resolveUserId(supabase, userId);
+    if (!effectiveUserId) {
+      return NextResponse.json({ error: 'Unable to resolve user' }, { status: 400 });
     }
 
     // assignedModels: [{ provider, model }, ...] — primary; fallback to single for backward compat
@@ -65,13 +88,13 @@ export async function POST(request: NextRequest) {
       .from('ai_modules_assigned_function')
       .upsert(
         {
-          user_id: userId,
+          user_id: effectiveUserId,
           assigned_function: moduleKey,
           is_enabled: isEnabled ?? false,
           assigned_models: models,
           assigned_provider: models[0]?.provider ?? null,
           assigned_model: models[0]?.model ?? null,
-          config: config || {},
+          config: (config as Record<string, unknown>) || {},
         },
         { onConflict: 'user_id,assigned_function' }
       )
@@ -84,6 +107,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ module: data });
   } catch (err) {
     console.error('[AI Settings] POST module error:', err);
-    return NextResponse.json({ error: 'Failed to save module' }, { status: 500 });
+    const message = getErrorMessage(err);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

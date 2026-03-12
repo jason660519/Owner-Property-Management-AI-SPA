@@ -300,7 +300,7 @@ chore: 雜項
 | **Web App** | http://localhost:3000 | Next.js 主應用 (房東/租客/買家) | Port 3000 預留 |
 | **Superadmin 後台** | http://localhost:3001 | 超級管理員儀表板 (`npm run dev:superadmin`) | 按需啟動 |
 | **開發進度追蹤** | http://localhost:3001/superadmin/dashboard/project-progress | Sprint 進度儀表板 (`npm run dev:superadmin`) | 按需啟動 |
-| **VLM OCR 服務** | http://localhost:8000 | 離線謄本查詢系統 | ✅ 運行中 |
+| **VLM OCR 服務** | http://localhost:8819 | 離線謄本查詢系統 | ✅ 運行中 |
 | **Supabase API** | http://localhost:54321 | 本地資料庫 API | ✅ 運行中 |
 | **Supabase Studio** | http://localhost:54323 | 資料庫管理介面 | ✅ 運行中 |
 | **Mailpit** | http://localhost:54324 | 郵件測試服務 | ✅ 運行中 |

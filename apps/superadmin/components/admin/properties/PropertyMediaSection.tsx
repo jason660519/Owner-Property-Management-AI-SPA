@@ -17,7 +17,8 @@ import type { PropertyPhotoItem, PropertyDocumentItem } from '@/lib/types/proper
 import { TranscriptParseSection } from './TranscriptParseSection';
 
 const DOC_TYPE_LABELS: Record<string, string> = {
-  land_registry_transcript: '謄本',
+  land_registry_transcript: '土地謄本',
+  building_registry_transcript: '建物謄本',
   building_title: '建物權狀',
   land_title: '土地權狀',
   lease_contract: '租約',
@@ -375,9 +376,9 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
             </button>
           </div>
 
-          {/* AI 解析謄本 — extracted to TranscriptParseSection */}
+          {/* AI 解析謄本（目前僅土地謄本） — extracted to TranscriptParseSection */}
           {transcriptDocs.length > 0 && (
-            <TranscriptParseSection transcriptDocs={transcriptDocs} />
+            <TranscriptParseSection transcriptDocs={transcriptDocs} kind="land" />
           )}
         </div>
       )}

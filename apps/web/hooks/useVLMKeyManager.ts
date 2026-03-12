@@ -36,7 +36,7 @@ interface UseVLMKeyManagerReturn {
   deleteKey: (provider: VLMProvider) => Promise<void>;
 }
 
-const OCR_SERVICE_URL = process.env.NEXT_PUBLIC_OCR_SERVICE_URL || 'http://localhost:8000';
+const OCR_SERVICE_URL = process.env.NEXT_PUBLIC_OCR_SERVICE_URL || 'http://localhost:8819';
 
 /**
  * Hook for managing VLM API keys

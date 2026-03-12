@@ -1,7 +1,9 @@
 // filepath: apps/superadmin/lib/ai-providers.ts
 // AI Provider definitions, model lists, and configuration data
 
-export type AIProvider = 'openai' | 'anthropic' | 'gemini' | 'deepseek' | 'grok' | 'together';
+import { TRANSCRIPT_PARSE_PROMPT } from '@/lib/transcript-prompts';
+
+export type AIProvider = 'openai' | 'anthropic' | 'gemini' | 'deepseek' | 'grok' | 'together' | 'kimi' | 'openrouter' | 'zhipu';
 
 export interface AIProviderInfo {
   id: AIProvider;
@@ -498,6 +500,138 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
       },
     ],
   },
+  {
+    id: 'kimi',
+    name: 'Kimi (Moonshot)',
+    envKey: 'KIMI_API_KEY',
+    sdkPackage: 'openai (compatible)',
+    docsUrl: 'https://platform.moonshot.cn/docs',
+    apiKeyUrl: 'https://platform.moonshot.cn/console/api-keys',
+    sdkDocsUrl: 'https://platform.moonshot.cn/docs',
+    dashboardUrl: 'https://platform.moonshot.cn/',
+    sdkDocsLabel: 'Kimi API Doc',
+    dashboardLabel: 'Moonshot 控制台',
+    baseUrl: 'https://api.moonshot.cn/v1',
+    keyPrefix: 'sk-',
+    models: [
+      {
+        id: 'moonshot-v1-128k',
+        name: 'Moonshot v1 128K',
+        contextWindow: 128000,
+        maxOutput: 8192,
+        inputPrice: 0.12,
+        outputPrice: 0.12,
+        capabilities: ['text', 'vision', 'function_calling'],
+        recommended: true,
+      },
+      {
+        id: 'moonshot-v1-32k',
+        name: 'Moonshot v1 32K',
+        contextWindow: 32000,
+        maxOutput: 8192,
+        inputPrice: 0.06,
+        outputPrice: 0.06,
+        capabilities: ['text', 'vision'],
+      },
+      {
+        id: 'moonshot-v1-8k',
+        name: 'Moonshot v1 8K',
+        contextWindow: 8192,
+        maxOutput: 8192,
+        inputPrice: 0.03,
+        outputPrice: 0.03,
+        capabilities: ['text'],
+      },
+    ],
+  },
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    envKey: 'OPENROUTER_API_KEY',
+    sdkPackage: 'openai (compatible)',
+    docsUrl: 'https://openrouter.ai/docs',
+    apiKeyUrl: 'https://openrouter.ai/keys',
+    sdkDocsUrl: 'https://openrouter.ai/docs',
+    dashboardUrl: 'https://openrouter.ai/',
+    sdkDocsLabel: 'OpenRouter API Doc',
+    dashboardLabel: 'OpenRouter Dashboard',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    keyPrefix: 'sk-or-',
+    models: [
+      {
+        id: 'openai/gpt-4o',
+        name: 'OpenAI GPT-4o (via OpenRouter)',
+        contextWindow: 128000,
+        maxOutput: 16384,
+        inputPrice: 2.50,
+        outputPrice: 10.00,
+        capabilities: ['text', 'vision', 'function_calling'],
+        recommended: true,
+      },
+      {
+        id: 'anthropic/claude-3.5-sonnet',
+        name: 'Claude 3.5 Sonnet (via OpenRouter)',
+        contextWindow: 200000,
+        maxOutput: 8192,
+        inputPrice: 3.00,
+        outputPrice: 15.00,
+        capabilities: ['text', 'vision', 'function_calling'],
+      },
+      {
+        id: 'google/gemini-2.0-flash-exp:free',
+        name: 'Gemini 2.0 Flash (via OpenRouter, free)',
+        contextWindow: 1048576,
+        maxOutput: 8192,
+        inputPrice: 0,
+        outputPrice: 0,
+        capabilities: ['text', 'vision'],
+      },
+    ],
+  },
+  {
+    id: 'zhipu',
+    name: '智谱 Zhipu (GLM)',
+    envKey: 'ZHIPU_API_KEY',
+    sdkPackage: 'openai (compatible)',
+    docsUrl: 'https://open.bigmodel.cn/dev/api',
+    apiKeyUrl: 'https://open.bigmodel.cn/usercenter/apikeys',
+    sdkDocsUrl: 'https://open.bigmodel.cn/dev/api',
+    dashboardUrl: 'https://open.bigmodel.cn/',
+    sdkDocsLabel: '智谱 API Doc',
+    dashboardLabel: '智谱开放平台',
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    keyPrefix: '',
+    models: [
+      {
+        id: 'glm-4-plus',
+        name: 'GLM-4 Plus',
+        contextWindow: 128000,
+        maxOutput: 8192,
+        inputPrice: 0.10,
+        outputPrice: 0.10,
+        capabilities: ['text', 'vision', 'function_calling'],
+        recommended: true,
+      },
+      {
+        id: 'glm-4-flash',
+        name: 'GLM-4 Flash',
+        contextWindow: 128000,
+        maxOutput: 8192,
+        inputPrice: 0.001,
+        outputPrice: 0.001,
+        capabilities: ['text', 'vision'],
+      },
+      {
+        id: 'glm-4v-plus',
+        name: 'GLM-4V Plus',
+        contextWindow: 128000,
+        maxOutput: 8192,
+        inputPrice: 0.10,
+        outputPrice: 0.10,
+        capabilities: ['text', 'vision'],
+      },
+    ],
+  },
 ];
 
 // ============================================================================
@@ -512,11 +646,7 @@ export const FEATURE_MODULES: FeatureModule[] = [
     icon: 'cloud',
     category: 'ocr',
     requiredCapabilities: ['vision'],
-    defaultPrompt: `你是台灣不動產謄本分析專家。請仔細分析上傳的謄本圖片，提取所有關鍵資訊，包含：
-1. 土地/建物標示部：地號、建號、面積、用途
-2. 所有權部：所有權人、權利範圍、取得日期
-3. 他項權利部：抵押權、地上權等設定
-請以結構化 JSON 格式輸出結果。`,
+    defaultPrompt: TRANSCRIPT_PARSE_PROMPT,
   },
   {
     key: 'online_ocr_judge',

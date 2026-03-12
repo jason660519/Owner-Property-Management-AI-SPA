@@ -2,9 +2,10 @@
 // created: 2026-03-05 | creator: Claude
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { savePropertyTranscriptData } from '@/lib/actions/properties';
+import { mapParsedResultToBuildingForm } from '@/lib/utils/transcript-parsed-to-form';
 import type {
   BuildingTranscriptData,
   BuildingDescription,
@@ -12,6 +13,7 @@ import type {
   OwnershipRecord,
   EncumbranceRecord,
 } from '@/lib/types/properties';
+import type { LandRegistryParsedResult } from '@/lib/types/transcript';
 
 const iCls =
   'w-full border border-border-default rounded-md px-2 py-1.5 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent';
@@ -85,15 +87,39 @@ interface Props {
   propertyId: string;
   propertyType: 'sale' | 'rental';
   initialData?: BuildingTranscriptData | null;
+  /** When set, fill form from this parsed result (e.g. after user clicks 謄寫). Cleared by parent after apply. */
+  fillFromParsedResult?: LandRegistryParsedResult | null;
+  /** Called after form has applied fillFromParsedResult so parent can clear it */
+  onTranscribeApplied?: () => void;
 }
 
-export function BuildingTranscriptForm({ propertyId, propertyType, initialData }: Props) {
+export function BuildingTranscriptForm({
+  propertyId,
+  propertyType,
+  initialData,
+  fillFromParsedResult,
+  onTranscribeApplied,
+}: Props) {
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [header, setHeader] = useState<TranscriptHeader>(initialData?.header ?? emptyHeader());
   const [desc, setDesc] = useState<BuildingDescription>(initialData?.description ?? emptyDescription());
   const [ownership, setOwnership] = useState<OwnershipRecord[]>(initialData?.ownership ?? []);
   const [encumbrances, setEncumbrances] = useState<EncumbranceRecord[]>(initialData?.encumbrances ?? []);
+
+  useEffect(() => {
+    if (!fillFromParsedResult) return;
+    try {
+      const { header: h, description: d, ownership: o, encumbrances: e } =
+        mapParsedResultToBuildingForm(fillFromParsedResult);
+      setHeader(h);
+      setDesc(d);
+      setOwnership(o.length > 0 ? o : [emptyOwnership()]);
+      setEncumbrances(e.length > 0 ? e : encumbrances.length > 0 ? encumbrances : [emptyEncumbrance()]);
+    } finally {
+      onTranscribeApplied?.();
+    }
+  }, [fillFromParsedResult, onTranscribeApplied, encumbrances.length]);
 
   function uh<K extends keyof TranscriptHeader>(key: K, val: TranscriptHeader[K]) {
     setHeader((h) => ({ ...h, [key]: val }));
@@ -133,7 +159,7 @@ export function BuildingTranscriptForm({ propertyId, propertyType, initialData }
       <div className="space-y-8">
         {/* ── 建物謄本詳細資料（封面） ── */}
         <section className="space-y-4">
-          <FI label="謄本種類" value={header.transcriptType} onChange={(v) => uh('transcriptType', v)} placeholder="建物登記第二類謄本（建號全部）" />
+          <FI label="謄本名稱與種類" value={header.transcriptType} onChange={(v) => uh('transcriptType', v)} placeholder="建物登記第二類謄本（建號全部）" />
           <FI label="建號（完整）" value={header.documentTitle} onChange={(v) => uh('documentTitle', v)} placeholder="大安區 仁愛段二小段 01659-000建號" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FI label="列印時間" value={header.printTime} onChange={(v) => uh('printTime', v)} placeholder="民國100年02月18日15時53分" />

@@ -3,6 +3,7 @@
  * 僅統計 validationResultsByKeyId 中 keyId 屬於 currentKeys 的結果，依 provider 取最大再加總。
  */
 
+import { AI_PROVIDERS } from '@/lib/ai-providers';
 import type { KeyValidationResult } from '@/lib/hooks/useAISettings';
 
 export interface KeyWithId {
@@ -35,6 +36,37 @@ export function getTotalAvailableModels(
     if (existing === undefined || existing < count) byProvider.set(provider, count);
   }
   return Array.from(byProvider.values()).reduce((a, b) => a + b, 0);
+}
+
+/**
+ * 與 ModelEvaluator 的 allRows 一致：驗證結果的模型清單 + 未驗證 provider 的靜態模型。
+ * 用於單一物件頁與設定頁「全部／篩選後」數量與 OCR可用 計算同步。
+ */
+export function getAvailableModelsListWithStaticFallback(
+  validationResultsByKeyId: Record<string, KeyValidationResult>,
+  currentKeys: KeyWithId[]
+): { providerId: string; modelId: string }[] {
+  const fromValidation = getAvailableModelsList(validationResultsByKeyId, currentKeys);
+  const validatedProviderIds = new Set(fromValidation.map((r) => r.providerId));
+  const out = [...fromValidation];
+  for (const p of AI_PROVIDERS) {
+    if (validatedProviderIds.has(p.id)) continue;
+    for (const m of p.models) {
+      out.push({ providerId: p.id, modelId: m.id });
+    }
+  }
+  return out;
+}
+
+/**
+ * 與 ModelEvaluator 的 allRows.length 一致：驗證結果的模型數 + 未驗證 provider 的靜態模型數。
+ * 用於單一物件頁與設定頁「全部公司可選模型數」對齊。
+ */
+export function getTotalAvailableModelsWithStaticFallback(
+  validationResultsByKeyId: Record<string, KeyValidationResult>,
+  currentKeys: KeyWithId[]
+): number {
+  return getAvailableModelsListWithStaticFallback(validationResultsByKeyId, currentKeys).length;
 }
 
 /**

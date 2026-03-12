@@ -169,8 +169,13 @@ export function useAISettings() {
       setKeys(
         rawKeys.map((key) => ({ ...key, decryptedKey: undefined })) as SavedKey[]
       );
-      // 僅在該 API 成功時更新，避免錯誤回應把側欄數字蓋成 0
-      if (modelsRes.ok) setModels((modelsData?.models ?? []) as SavedModel[]);
+      // 僅在該 API 成功時更新；若 API 回傳空陣列但目前已有勾選，不覆寫（保留使用者模型選定）
+      if (modelsRes.ok) {
+        const nextModels = (modelsData?.models ?? []) as SavedModel[];
+        setModels((prev) =>
+          nextModels.length > 0 ? nextModels : prev.length > 0 ? prev : nextModels
+        );
+      }
       if (modulesRes.ok) {
         const modules = (modulesData?.modules ?? []) as {
           assigned_function?: string;
@@ -453,6 +458,10 @@ export function useAISettings() {
     [userId]
   );
 
+  /**
+   * 儲存模型評估結果。僅更新 evaluations 狀態（以送出的 items 合併），
+   * 絕不呼叫 fetchAll，以保留使用者當前的模型勾選（models）不變。
+   */
   const saveEvaluations = useCallback(async (items: ModelEvaluation[]) => {
     const res = await fetch('/api/ai-settings/model-evaluations', {
       method: 'POST',
@@ -460,8 +469,15 @@ export function useAISettings() {
       body: JSON.stringify({ userId, evaluations: items }),
     });
     if (!res.ok) throw new Error('儲存模型評估失敗');
-    await fetchAll(true);
-  }, [userId, fetchAll]);
+    // 僅用送出的 items 合併進 state，不 refetch，不觸及 setModels
+    setEvaluations((prev) => {
+      const byKey = new Map(prev.map((e) => [`${e.provider}::${e.model_id}`, e]));
+      for (const e of items) {
+        byKey.set(`${e.provider}::${e.model_id}`, e);
+      }
+      return Array.from(byKey.values());
+    });
+  }, [userId]);
 
   return {
     keys, models, modules, prompts, evaluations, validationCacheByKeyId, validationSummary,

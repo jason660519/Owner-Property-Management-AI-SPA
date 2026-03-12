@@ -13,12 +13,15 @@ import {
 } from '@/components/ui/Sheet';
 import { AI_PROVIDERS, FEATURE_MODULES } from '@/lib/ai-providers';
 import type { FeatureModule } from '@/lib/ai-providers';
+import { hasVisionCapability } from '@/lib/utils/vision-capability';
 import type { SavedKey, SavedModel, ModelEvaluation, KeyValidationResult, SavedModule, AssignedModel, DisplayStatusOverride } from '@/lib/hooks/useAISettings';
 import { getAvailableModelsList } from '@/lib/utils/total-available-models';
-import { readSessionStorage, writeSessionStorage } from '@/lib/utils/storage-state';
+import { readLocalStorage, writeLocalStorage, readSessionStorage, writeSessionStorage } from '@/lib/utils/storage-state';
 
 const SS_FILTER_STATUSES  = 'ai-eval-filter:statuses';
 const SS_FILTER_PROVIDERS = 'ai-eval-filter:providerIds';
+const LS_FILTER_CATEGORIES = 'ai-eval-filter:categories';
+const LS_RECENT_BATCH_REPORT = 'ai-eval:last-batch-report';
 
 const MODULE_ICON_MAP: Record<string, React.ElementType> = {
   cloud: Cloud, 'hard-drive': Settings2, 'message-circle': MessageCircle,
@@ -51,6 +54,51 @@ export interface BatchResultEntry {
   success: boolean;
   output: string;
   imageUrl?: string;
+}
+
+function inferStatusOverrideFromBatchEntry(entry: BatchResultEntry): DisplayStatusOverride {
+  if (!entry.success) return 'not_working';
+  const category = detectCategoryFromOutput(entry.output);
+  if (category === 'VLM') return 'vlm_ok';
+  if (category === 'LLM') return 'llm_ok';
+  return hasVisionCapability(entry.key) ? 'vlm_ok' : 'llm_ok';
+}
+
+type RecentBatchReport = {
+  savedAt: string;
+  total: number;
+  succeeded: number;
+  failed: number;
+  entries: BatchResultEntry[];
+};
+
+function readRecentBatchReport(): RecentBatchReport | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(LS_RECENT_BATCH_REPORT);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<RecentBatchReport>;
+    if (!Array.isArray(parsed.entries)) return null;
+    return {
+      savedAt: typeof parsed.savedAt === 'string' ? parsed.savedAt : new Date().toISOString(),
+      total: typeof parsed.total === 'number' ? parsed.total : parsed.entries.length,
+      succeeded: typeof parsed.succeeded === 'number' ? parsed.succeeded : parsed.entries.filter((r) => !!r?.success).length,
+      failed: typeof parsed.failed === 'number' ? parsed.failed : parsed.entries.filter((r) => !r?.success).length,
+      entries: parsed.entries,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeRecentBatchReport(report: RecentBatchReport): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    window.localStorage.setItem(LS_RECENT_BATCH_REPORT, JSON.stringify(report));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export interface ModelEvaluatorProps {
@@ -97,6 +145,7 @@ export interface ModelEvaluatorProps {
   headerActionsRef?:
     | React.Dispatch<React.SetStateAction<{
         runBatchTest: () => void;
+        abortBatchTest: () => void;
         batchTesting: boolean;
         canBatchTest: boolean;
         tooltip: string;
@@ -106,9 +155,14 @@ export interface ModelEvaluatorProps {
         totalCount: number;
         filteredTotal: number;
         filteredSelectedCount: number;
+        hasRecentBatchReport?: boolean;
+        openRecentBatchReport?: () => void;
+        applyRecentBatchReport?: () => Promise<void>;
+        applyingRecentBatchReport?: boolean;
       } | null>>
     | React.RefObject<{
         runBatchTest: () => void;
+        abortBatchTest: () => void;
         batchTesting: boolean;
         canBatchTest: boolean;
         tooltip: string;
@@ -118,9 +172,11 @@ export interface ModelEvaluatorProps {
         totalCount: number;
         filteredTotal: number;
         filteredSelectedCount: number;
+        hasRecentBatchReport?: boolean;
+        openRecentBatchReport?: () => void;
+        applyRecentBatchReport?: () => Promise<void>;
+        applyingRecentBatchReport?: boolean;
       } | null>;
-  /** 由外層控制的「統一測試 / 全域 Prompt 設定」面板開啟動作 */
-  onOpenGlobalTestPanel?: () => void;
   /** 狀態標籤顯示模式：一般分頁顯示 VLM/LLM，OCR 分頁顯示 OCR 可用 */
   statusLabelMode?: 'vlm' | 'ocr';
 }
@@ -271,22 +327,6 @@ function extractImageUrlFromOutput(output: string): string | undefined {
   return undefined;
 }
 
-/** 從 provider::model key 查詢是否具備 vision 能力：先查靜態定義，若不在靜態列表則依 model ID 啟發式推斷 */
-function hasVisionCapability(key: string): boolean {
-  const [providerId, modelId] = key.split('::');
-  const provider = AI_PROVIDERS.find((p) => p.id === providerId);
-  const model = provider?.models.find((m) => m.id === modelId);
-  if (model) return model.capabilities?.includes('vision') ?? false;
-  // 動態載入的模型（來自 API 驗證）不在靜態列表，以 model ID 啟發式推斷
-  const lower = (modelId ?? '').toLowerCase();
-  if (lower.includes('vision') || lower.includes('-vl-') || lower.includes('-vl ')) return true;
-  // OpenAI / Anthropic / Gemini 的主力多模態模型通常含 vision（4o, claude-3, gemini）
-  if (providerId === 'openai' && (lower.includes('gpt-4o') || lower.includes('gpt-4-turbo'))) return true;
-  if (providerId === 'anthropic' && lower.includes('claude-3')) return true;
-  if (providerId === 'gemini' && lower.includes('gemini')) return true;
-  return false;
-}
-
 /** 從 Prompt output text 自動推斷模型分類：成功解析檔案內容視為 VLM，有回應但未解析（如「看不到檔案」）視為 LLM */
 function detectCategoryFromOutput(output: string | undefined): 'VLM' | 'LLM' | 'unknown' {
   const text = (output ?? '').trim();
@@ -310,12 +350,12 @@ function detectCategoryFromOutput(output: string | undefined): 'VLM' | 'LLM' | '
   return 'unknown';
 }
 
-/** 依測試輸出區分狀態顯示：僅成功解析檔案內容算 VLM 可用，「我看不到檔案」等僅算 LLM 可用 */
+/** 依測試輸出區分狀態顯示：僅成功解析檔案內容算 OCR 可用，「我看不到檔案」等僅算 LLM 可用 */
 type StatusDisplay = { type: 'vlm_ok' | 'llm_ok' | 'working' | 'not_working' | 'untested'; label: string; title: string };
 
 /** 四種狀態選項，供使用者手動修正 AI 判斷（移除模糊的「通用模型可用」，強制明確 VLM/LLM/OCR） */
 function getStatusOverrideOptions(isOcrMode: boolean): { value: DisplayStatusOverride; label: string }[] {
-  const vlmLabel = isOcrMode ? 'OCR可用' : 'VLM 可用';
+  const vlmLabel = isOcrMode ? 'OCR可用' : 'OCR 可用';
   return [
     { value: 'vlm_ok', label: vlmLabel },
     { value: 'llm_ok', label: 'LLM 可用' },
@@ -325,7 +365,7 @@ function getStatusOverrideOptions(isOcrMode: boolean): { value: DisplayStatusOve
 }
 
 function getStatusDisplayByType(type: DisplayStatusOverride, isOcrMode: boolean): StatusDisplay {
-  const vlmLabel = isOcrMode ? 'OCR可用' : 'VLM 可用';
+  const vlmLabel = isOcrMode ? 'OCR可用' : 'OCR 可用';
   const map: Record<DisplayStatusOverride, StatusDisplay> = {
     vlm_ok: { type: 'vlm_ok', label: vlmLabel, title: `手動設定：${vlmLabel}` },
     llm_ok: { type: 'llm_ok', label: 'LLM 可用', title: '手動設定：LLM 可用' },
@@ -357,10 +397,10 @@ function getStatusDisplay(
       if (isVisionModel)
         return {
           type: 'vlm_ok',
-          label: isOcrMode ? 'OCR可用' : 'VLM 可用',
+          label: isOcrMode ? 'OCR可用' : 'OCR 可用',
           title: isOcrMode
             ? 'API 連線成功，依模型靜態定義具 vision 能力，判定為 OCR 可用'
-            : 'API 連線成功，依模型靜態定義具 vision 能力，判定為 VLM 可用',
+            : 'API 連線成功，依模型靜態定義具 vision 能力，判定為 OCR 可用',
         };
       return { type: 'llm_ok', label: 'LLM 可用', title: 'API 連線成功，依模型靜態定義無 vision 能力，判定為 LLM 可用' };
     }
@@ -373,21 +413,21 @@ function getStatusDisplay(
   if (category === 'VLM' && success)
     return {
       type: 'vlm_ok',
-      label: isOcrMode ? 'OCR可用' : 'VLM 可用',
+      label: isOcrMode ? 'OCR可用' : 'OCR 可用',
       title: isOcrMode
         ? '依本測試輸出：已成功解析檔案內容，視為 OCR 可用'
-        : '依本測試輸出：已成功解析檔案內容，視為 VLM 可用',
+        : '依本測試輸出：已成功解析檔案內容，視為 OCR 可用',
     };
   if (category === 'LLM' && success)
-    return { type: 'llm_ok', label: 'LLM 可用', title: '依本測試輸出：有文字回應但未解析檔案（如「看不到檔案」），僅算 LLM 可用，不算 VLM 可用' };
+    return { type: 'llm_ok', label: 'LLM 可用', title: '依本測試輸出：有文字回應但未解析檔案（如「看不到檔案」），僅算 LLM 可用，不算 OCR 可用' };
   if (category === 'unknown' && success) {
     if (isVisionModel)
       return {
         type: 'vlm_ok',
-        label: isOcrMode ? 'OCR可用' : 'VLM 可用',
+        label: isOcrMode ? 'OCR可用' : 'OCR 可用',
         title: isOcrMode
           ? 'API 有回應，輸出無法明確推斷，依模型靜態定義具 vision 能力，暫判定為 OCR 可用'
-          : 'API 有回應，輸出無法明確推斷，依模型靜態定義具 vision 能力，判定為 VLM 可用',
+          : 'API 有回應，輸出無法明確推斷，依模型靜態定義具 vision 能力，判定為 OCR 可用',
       };
     return { type: 'llm_ok', label: 'LLM 可用', title: 'API 有回應，輸出無法明確推斷，依模型靜態定義無 vision 能力，判定為 LLM 可用' };
   }
@@ -414,7 +454,6 @@ export function ModelEvaluator({
   summaryTotalCount,
   headerActionsRef,
   promptVariableLabel,
-  onOpenGlobalTestPanel,
   statusLabelMode = 'vlm',
 }: ModelEvaluatorProps) {
   /** 內部判斷是否使用全域 Prompt 的保留字（不隨顯示名稱變動） */
@@ -429,7 +468,7 @@ export function ModelEvaluator({
   const STORAGE_KEY_COLUMN_WIDTHS = 'superadmin-model-evaluator-column-widths';
   const FREEZE_ROW_STORAGE_KEY = 'superadmin-model-evaluator-freeze-row-v1';
   const FROZEN_COL_STORAGE_KEY = 'superadmin-model-evaluator-frozen-col-v1';
-  // Cols 0-8: fixed table cols (公司,模型分類與狀態,模型,已選,Prompt,prompt測試,output text,output jpg,測試日期); cols 9-15: one per FEATURE_MODULE (7)
+  // Cols 0-8: fixed table cols (公司,模型分類與狀態,模型,已選,Prompt,prompt測試,output text,output jpg,更新日期與時間); cols 9-15: one per FEATURE_MODULE (7)
   const DEFAULT_COLUMN_WIDTHS = [120, 80, 220, 48, 140, 72, 200, 140, 110, 88, 88, 88, 88, 88, 88, 88];
   const TABLE_COLUMN_COUNT = DEFAULT_COLUMN_WIDTHS.length;
   const isOcrMode = statusLabelMode === 'ocr';
@@ -515,9 +554,20 @@ export function ModelEvaluator({
   const [testResultByKey, setTestResultByKey] = useState<Record<string, boolean>>({});
   const [testingKey, setTestingKey] = useState<string | null>(null);
   const [batchTesting, setBatchTesting] = useState(false);
+  const [applyingRecentBatchReport, setApplyingRecentBatchReport] = useState(false);
   const batchTestingRef = useRef(false);
+  /** 使用者點擊「暫停測試」時設為 true，批次測試在每批之間檢查並提前結束 */
+  const batchAbortRequestedRef = useRef(false);
   const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
   const [batchResults, setBatchResults] = useState<BatchResultEntry[] | null>(null);
+  /** 上次統一測試完成後的摘要，供畫面顯示「測試前已選 N 筆 → 成功 X、失敗 Y」，不影響模型勾選 */
+  const [lastBatchTestSummary, setLastBatchTestSummary] = useState<{
+    selectedBeforeTest: number;
+    total: number;
+    succeeded: number;
+    failed: number;
+  } | null>(null);
+  const [hasRecentBatchReport, setHasRecentBatchReport] = useState(false);
   const [rowTestPanel, setRowTestPanel] = useState<{
     key: string;
     providerId: string;
@@ -616,6 +666,36 @@ export function ModelEvaluator({
   );
 
   const hiddenModuleKeySet = useMemo(() => new Set(hiddenModuleKeys), [hiddenModuleKeys]);
+
+  useEffect(() => {
+    setHasRecentBatchReport(readRecentBatchReport() !== null);
+  }, []);
+
+  const saveRecentBatchReport = useCallback((entries: BatchResultEntry[]) => {
+    const report: RecentBatchReport = {
+      savedAt: new Date().toISOString(),
+      total: entries.length,
+      succeeded: entries.filter((r) => r.success).length,
+      failed: entries.filter((r) => !r.success).length,
+      entries,
+    };
+    const ok = writeRecentBatchReport(report);
+    setHasRecentBatchReport(ok);
+  }, []);
+
+  const openRecentBatchReport = useCallback(() => {
+    const report = readRecentBatchReport();
+    if (!report) {
+      setHasRecentBatchReport(false);
+      if (typeof window !== 'undefined') {
+        window.alert('目前沒有可檢視的最近報告。');
+      }
+      return;
+    }
+    setHasRecentBatchReport(true);
+    setBatchResults(report.entries);
+  }, []);
+
   const visibleFeatureModules = useMemo(
     () => FEATURE_MODULES.filter((mod) => !hiddenModuleKeySet.has(mod.key)),
     [hiddenModuleKeySet]
@@ -671,15 +751,36 @@ export function ModelEvaluator({
     setModuleSavingSet((prev) => { const s = new Set(prev); on ? s.add(key) : s.delete(key); return s; });
   }, []);
 
+  const showModuleSaveError = useCallback((moduleKey: string, err: unknown) => {
+    const moduleName = FEATURE_MODULES.find((mod) => mod.key === moduleKey)?.name ?? moduleKey;
+    const rawMessage =
+      err instanceof Error
+        ? err.message
+        : typeof err === 'object' && err !== null && 'message' in err && typeof (err as { message?: unknown }).message === 'string'
+          ? (err as { message: string }).message
+          : '';
+    const message = rawMessage.includes('ai_modules_assigned_function_check')
+      ? '目前資料庫尚未同步最新 OCR 模組設定，請先套用最新 migration。'
+      : rawMessage || '儲存模組設定失敗';
+    if (typeof window !== 'undefined') {
+      window.alert(`「${moduleName}」模組設定儲存失敗：${message}`);
+    }
+  }, []);
+
   const handleToggleModuleEnabled = useCallback(async (moduleKey: string) => {
     if (!onSaveModule) return;
     const cur = moduleStates[moduleKey];
     const next = !cur.isEnabled;
     setModuleStates((p) => ({ ...p, [moduleKey]: { ...p[moduleKey], isEnabled: next } }));
     markModuleSaving(moduleKey, true);
-    try { await onSaveModule(moduleKey, next, cur.assignments); }
+    try {
+      await onSaveModule(moduleKey, next, cur.assignments);
+    } catch (err) {
+      setModuleStates((p) => ({ ...p, [moduleKey]: cur }));
+      showModuleSaveError(moduleKey, err);
+    }
     finally { markModuleSaving(moduleKey, false); }
-  }, [moduleStates, onSaveModule, markModuleSaving]);
+  }, [moduleStates, onSaveModule, markModuleSaving, showModuleSaveError]);
 
   const handleModuleAssignModel = useCallback(async (
     moduleKey: string, providerId: string, modelId: string
@@ -704,9 +805,14 @@ export function ModelEvaluator({
     }
     setModuleStates((p) => ({ ...p, [moduleKey]: { ...p[moduleKey], assignments: next } }));
     markModuleSaving(moduleKey, true);
-    try { await onSaveModule(moduleKey, cur.isEnabled, next); }
+    try {
+      await onSaveModule(moduleKey, cur.isEnabled, next);
+    } catch (err) {
+      setModuleStates((p) => ({ ...p, [moduleKey]: cur }));
+      showModuleSaveError(moduleKey, err);
+    }
     finally { markModuleSaving(moduleKey, false); }
-  }, [moduleStates, onSaveModule, markModuleSaving]);
+  }, [moduleStates, onSaveModule, markModuleSaving, showModuleSaveError]);
 
   const handleModulePriorityChange = useCallback(async (
     moduleKey: string, providerId: string, modelId: string, newPriority: number
@@ -717,30 +823,53 @@ export function ModelEvaluator({
 
     setModuleStates((p) => ({ ...p, [moduleKey]: { ...p[moduleKey], assignments: next } }));
     markModuleSaving(moduleKey, true);
-    try { await onSaveModule(moduleKey, cur.isEnabled, next); }
+    try {
+      await onSaveModule(moduleKey, cur.isEnabled, next);
+    } catch (err) {
+      setModuleStates((p) => ({ ...p, [moduleKey]: cur }));
+      showModuleSaveError(moduleKey, err);
+    }
     finally { markModuleSaving(moduleKey, false); }
-  }, [moduleStates, onSaveModule, markModuleSaving]);
+  }, [moduleStates, onSaveModule, markModuleSaving, showModuleSaveError]);
 
   // ─────────────────────────────────────────────────────────────────────────
 
-  /** 依公司篩選：空陣列 = 全部，否則為勾選的 providerId 列表；預設全部公司以利「全選」可用 */
+  /** 依公司篩選：空陣列 = 全部，否則為勾選的 providerId 列表；預設全部公司以利「全選」可用。
+   *  優先從 localStorage 還原，若尚未寫入則回退至舊版 sessionStorage 值。 */
   const [filterProviderIds, setFilterProviderIds] = useState<string[]>(
-    () => readSessionStorage<string[]>(SS_FILTER_PROVIDERS, [])
+    () =>
+      readLocalStorage<string[]>(
+        SS_FILTER_PROVIDERS,
+        readSessionStorage<string[]>(SS_FILTER_PROVIDERS, []),
+      )
   );
-  /** 依狀態篩選：空陣列 = 全部，否則為勾選的 vlm_ok / llm_ok / not_working / untested */
+  /** 依狀態篩選：空陣列 = 全部，否則為勾選的 vlm_ok / llm_ok / not_working / untested
+   *  優先從 localStorage 還原，若尚未寫入則回退至舊版 sessionStorage 值。 */
   const VALID_STATUS_VALUES = new Set(['vlm_ok', 'llm_ok', 'not_working', 'untested']);
   const [filterStatuses, setFilterStatuses] = useState<string[]>(
-    () => readSessionStorage<string[]>(SS_FILTER_STATUSES, []).filter((v) => VALID_STATUS_VALUES.has(v))
+    () =>
+      readLocalStorage<string[]>(
+        SS_FILTER_STATUSES,
+        readSessionStorage<string[]>(SS_FILTER_STATUSES, []),
+      ).filter((v) => VALID_STATUS_VALUES.has(v))
   );
-  /** 依模型分類篩選：空陣列 = 全部，否則為勾選的 VLM / LLM / unknown；預設全部以利「全選」可用 */
-  const [filterCategories, setFilterCategories] = useState<string[]>([]);
-  // ── Persist filter state to sessionStorage on change ─────────────────────
+  /** 依模型分類篩選：空陣列 = 全部，否則為勾選的 VLM / LLM / unknown；預設全部以利「全選」可用。
+   *  使用 localStorage 永久記住最後一次使用者設定。 */
+  const [filterCategories, setFilterCategories] = useState<string[]>(
+    () => readLocalStorage<string[]>(LS_FILTER_CATEGORIES, []),
+  );
+  // ── Persist filter state to storage on change ─────────────────────
   useEffect(() => {
+    writeLocalStorage(SS_FILTER_STATUSES, filterStatuses);
     writeSessionStorage(SS_FILTER_STATUSES, filterStatuses);
   }, [filterStatuses]);
   useEffect(() => {
+    writeLocalStorage(SS_FILTER_PROVIDERS, filterProviderIds);
     writeSessionStorage(SS_FILTER_PROVIDERS, filterProviderIds);
   }, [filterProviderIds]);
+  useEffect(() => {
+    writeLocalStorage(LS_FILTER_CATEGORIES, filterCategories);
+  }, [filterCategories]);
   // ─────────────────────────────────────────────────────────────────────────
   /** 哪一個篩選下拉已展開（點擊外側會關閉） */
   const [openFilterDropdown, setOpenFilterDropdown] = useState<'provider' | 'status' | 'category' | null>(null);
@@ -827,7 +956,125 @@ export function ModelEvaluator({
     return map;
   }, [savedEvaluations]);
 
-  /** 再依狀態篩選（可複選：VLM可用/LLM可用/不可用/尚未測試） */
+  /** 正規化 localStorage 讀出的 entry（相容 camelCase / snake_case） */
+  const normalizeBatchEntry = useCallback((raw: Record<string, unknown>): BatchResultEntry | null => {
+    const providerId = (raw.providerId ?? raw.provider_id) as string | undefined;
+    const modelId = (raw.modelId ?? raw.model_id) as string | undefined;
+    if (!providerId || !modelId) return null;
+    const key = (raw.key as string) ?? `${providerId}::${modelId}`;
+    return {
+      key,
+      providerId,
+      providerName: (raw.providerName ?? raw.provider_name ?? '') as string,
+      modelId,
+      modelName: (raw.modelName ?? raw.model_name ?? modelId) as string,
+      success: Boolean(raw.success),
+      output: typeof raw.output === 'string' ? raw.output : '',
+      imageUrl: typeof raw.imageUrl === 'string' ? raw.imageUrl : (raw.image_url as string | undefined),
+    };
+  }, []);
+
+  const applyRecentBatchReport = useCallback(async () => {
+    const report = readRecentBatchReport();
+    if (!report) {
+      setHasRecentBatchReport(false);
+      if (typeof window !== 'undefined') {
+        window.alert('目前沒有可套用的最近報告。');
+      }
+      return;
+    }
+    if (!Array.isArray(report.entries) || report.entries.length === 0) {
+      if (typeof window !== 'undefined') {
+        window.alert('最近報告沒有任何模型結果，無法套用。');
+      }
+      return;
+    }
+
+    setApplyingRecentBatchReport(true);
+    try {
+      const mergedMap = new Map<string, ModelEvaluation>(evaluationMap);
+      const nextTestResultByKey: Record<string, boolean> = {};
+      const nextOutputByKey: Record<string, string> = {};
+      const nextImageByKey: Record<string, string> = {};
+      let appliedCount = 0;
+      let changedCount = 0;
+
+      for (const raw of report.entries) {
+        const entry = normalizeBatchEntry(
+          typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {}
+        );
+        if (!entry) continue;
+        appliedCount += 1;
+        const rowKey = entry.key;
+        const existing = mergedMap.get(rowKey);
+        const statusOverride = inferStatusOverrideFromBatchEntry(entry);
+        const inferredSpecialties = statusOverride === 'vlm_ok' ? ['vision'] : ['general'];
+        const next: ModelEvaluation = {
+          ...(existing ?? {
+            provider: entry.providerId,
+            model_id: entry.modelId,
+            model_name: entry.modelName,
+            is_working: entry.success,
+            specialties: inferredSpecialties,
+            is_candidate: false,
+            notes: '',
+            last_tested_at: null,
+          }),
+          provider: entry.providerId,
+          model_id: entry.modelId,
+          model_name: existing?.model_name ?? entry.modelName,
+          is_working: entry.success,
+          specialties:
+            existing?.specialties && existing.specialties.length > 0
+              ? existing.specialties
+              : inferredSpecialties,
+          notes: entry.output || existing?.notes || '',
+          last_tested_at: report.savedAt ?? new Date().toISOString(),
+          display_status_override: statusOverride,
+        };
+        const isChanged = !existing || existing.is_working !== entry.success || (existing.notes ?? '') !== (entry.output ?? '');
+        if (isChanged) changedCount += 1;
+        mergedMap.set(rowKey, next);
+        nextTestResultByKey[rowKey] = entry.success;
+        nextOutputByKey[rowKey] = entry.output;
+        if (entry.imageUrl) {
+          nextImageByKey[rowKey] = entry.imageUrl;
+        }
+      }
+
+      const unchangedCount = appliedCount - changedCount;
+
+      const toSave = Array.from(mergedMap.values());
+      if (toSave.length === 0) {
+        if (typeof window !== 'undefined') {
+          window.alert('無法產生要儲存的評估資料，請重試。');
+        }
+        return;
+      }
+      await onSave(toSave);
+      setTestResultByKey((prev) => ({ ...prev, ...nextTestResultByKey }));
+      setOutputByKey((prev) => ({ ...prev, ...nextOutputByKey }));
+      if (Object.keys(nextImageByKey).length > 0) {
+        setImageOutputByKey((prev) => ({ ...prev, ...nextImageByKey }));
+      }
+      setHasRecentBatchReport(true);
+      if (typeof window !== 'undefined') {
+        window.alert(
+          `已依最近報告更新：共更新 ${appliedCount} 筆，變更 ${changedCount} 筆，不變 ${unchangedCount} 筆。`
+        );
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '套用最近報告時發生錯誤';
+      if (typeof window !== 'undefined') {
+        window.alert(`套用失敗：${message}`);
+      }
+      console.error('[ModelEvaluator] applyRecentBatchReport failed', err);
+    } finally {
+      setApplyingRecentBatchReport(false);
+    }
+  }, [evaluationMap, onSave, normalizeBatchEntry]);
+
+  /** 再依狀態篩選（可複選：OCR可用/LLM可用/不可用/尚未測試） */
   const rowsAfterStatusFilter = useMemo(() => {
     if (filterStatuses.length === 0) return filteredRows;
     const set = new Set(filterStatuses);
@@ -863,6 +1110,7 @@ export function ModelEvaluator({
 
   /**
    * 模組欄「全選」：將目前篩選列全部加入/移出該模組。
+   * 勾選時：以「目前篩選列」為該模組的完整清單，編號一律從 001 開始。
    * `targetRowKeys` 會在呼叫端先依目前可見列與模組適用性過濾，
    * 若未提供則 fallback 為所有 rowsAfterCategoryFilter。
    */
@@ -883,24 +1131,20 @@ export function ModelEvaluator({
       let next: AssignedModel[];
 
       if (checked) {
-        const existingSet = new Set(cur.assignments.map((a) => `${a.provider}::${a.model}`));
-        const toAddKeys = effectiveKeys.filter((key) => !existingSet.has(key));
-        const toAdd: AssignedModel[] = toAddKeys
-          .map((key) => {
+        // 全選時：直接以篩選列為該模組清單（依表格順序），編號從 001 開始，不與既有清單合併
+        const newAssignments: AssignedModel[] = effectiveKeys
+          .map((key, index) => {
             const [providerId, modelId] = key.split('::');
             if (!providerId || !modelId) return null;
             return {
               provider: providerId,
               model: modelId,
-              // 具體數值會在 normalizeAssignments 中重新編號
-              priority: cur.assignments.length + 1,
+              priority: index + 1,
             } as AssignedModel;
           })
           .filter((v): v is AssignedModel => v !== null);
 
-        if (toAdd.length === 0) return;
-
-        next = normalizeAssignments([...cur.assignments, ...toAdd]);
+        next = normalizeAssignments(newAssignments);
       } else {
         const remaining = cur.assignments.filter(
           (a) => !filterSet.has(`${a.provider}::${a.model}`),
@@ -912,11 +1156,14 @@ export function ModelEvaluator({
       markModuleSaving(moduleKey, true);
       try {
         await onSaveModule(moduleKey, cur.isEnabled, next);
+      } catch (err) {
+        setModuleStates((p) => ({ ...p, [moduleKey]: cur }));
+        showModuleSaveError(moduleKey, err);
       } finally {
         markModuleSaving(moduleKey, false);
       }
     },
-    [moduleStates, onSaveModule, markModuleSaving, rowsAfterCategoryFilter],
+    [moduleStates, onSaveModule, markModuleSaving, rowsAfterCategoryFilter, showModuleSaveError],
   );
 
   const selectedSet = useMemo(
@@ -974,6 +1221,17 @@ export function ModelEvaluator({
       ).length,
     [allRows, selectedSet, validProviders],
   );
+  /** 篩選後列表中的已選且具金鑰數量，與工具列「已選被測模型數」對齊；有篩選時統一測試用此數量 */
+  const testableCountFiltered = useMemo(
+    () =>
+      rowsAfterCategoryFilter.filter(
+        (r) => selectedSet.has(`${r.providerId}::${r.modelId}`) && validProviders.has(r.providerId),
+      ).length,
+    [rowsAfterCategoryFilter, selectedSet, validProviders],
+  );
+  const hasCategoryFilter = rowsAfterCategoryFilter.length !== allRows.length;
+  /** 統一測試按鈕顯示的數量：有篩選時用篩選後可測數，無篩選時用全部可測數，與實際執行一致 */
+  const batchTestableCount = hasCategoryFilter ? testableCountFiltered : testableCount;
   const allFilteredSelected = rowsAfterCategoryFilter.length > 0 && filteredSelectedCount === rowsAfterCategoryFilter.length;
   const someFilteredSelected = filteredSelectedCount > 0;
 
@@ -1020,20 +1278,38 @@ export function ModelEvaluator({
     [onSaveModels, rowsAfterCategoryFilter, savedModels]
   );
 
-  /** 解析該列實際使用的 prompt：留空或 {預設prompt} 時使用全域，否則使用該列自訂內容 */
+  /** 解析該列實際使用的 prompt：
+   * - 留空或僅輸入 {預設prompt} / {雲端變數名稱} 時，直接使用全域 Prompt
+   * - 其餘情況可在文字中夾帶 {預設prompt} 或 {雲端變數名稱}，會在送出前展開為全域 Prompt 內容
+   */
   const getEffectivePromptForRow = useCallback(
     (rowKey: string): string => {
-      const row = (rowPrompts[rowKey] ?? '').trim();
+      const raw = rowPrompts[rowKey] ?? '';
+      const trimmed = raw.trim();
+      const basePrompt = globalTestPrompt.trim();
+
+      // 若完全留空或僅輸入保留字，視為「直接使用全域 Prompt」
       if (
-        !row ||
-        row === DEFAULT_PROMPT_PLACEHOLDER ||
-        row === effectivePromptVariableLabel
+        !trimmed ||
+        trimmed === DEFAULT_PROMPT_PLACEHOLDER ||
+        trimmed === effectivePromptVariableLabel
       ) {
-        return globalTestPrompt.trim();
+        return basePrompt;
       }
-      return row;
+
+      // 其餘情況允許在內容中夾帶 {預設prompt} 或實際變數名稱，於送出前展開
+      let expanded = raw;
+      if (basePrompt) {
+        const tokens = [DEFAULT_PROMPT_PLACEHOLDER, effectivePromptVariableLabel].filter(
+          (t): t is string => !!t && t.length > 0
+        );
+        for (const token of tokens) {
+          expanded = expanded.split(token).join(basePrompt);
+        }
+      }
+      return expanded.trim();
     },
-    [rowPrompts, globalTestPrompt, effectivePromptVariableLabel]
+    [rowPrompts, globalTestPrompt, effectivePromptVariableLabel, DEFAULT_PROMPT_PLACEHOLDER]
   );
 
   const runTest = useCallback(
@@ -1161,36 +1437,40 @@ export function ModelEvaluator({
     [evaluationMap, allRows, onSave]
   );
 
-  /** 全部測試：對「已選」且「有金鑰」的全部模型並行測試（不受篩選影響），完成後一次批量寫入 DB */
+  /** 全部測試：有篩選時只測「目前畫面」篩選後的已選且具金鑰模型，無篩選時測全部已選且具金鑰，與按鈕數量一致 */
   const handleBatchTest = useCallback(async () => {
     if (batchTestingRef.current) return;
 
-    // Use allRows (not rowsAfterCategoryFilter) so filters don't prevent testing selected models
-    const selectedInAll = allRows.filter((r) =>
+    const sourceRows = hasCategoryFilter ? rowsAfterCategoryFilter : allRows;
+    const selectedInSource = sourceRows.filter((r) =>
       selectedSet.has(`${r.providerId}::${r.modelId}`)
     );
-    if (selectedInAll.length === 0) {
-      window.alert('目前選擇的 models 數為 0，無法測試。請先勾選要測試的模型。');
+    if (selectedInSource.length === 0) {
+      window.alert(
+        hasCategoryFilter
+          ? '目前篩選結果中沒有已選的模型，無法測試。請勾選要測試的模型或調整篩選。'
+          : '目前選擇的 models 數為 0，無法測試。請先勾選要測試的模型。'
+      );
       return;
     }
-    const toTest = selectedInAll.filter((r) => validProviders.has(r.providerId));
+    const toTest = selectedInSource.filter((r) => validProviders.has(r.providerId));
     if (toTest.length === 0) {
       window.alert('所選模型皆無有效 API 金鑰，無法測試。請先至 API 金鑰設定該供應商金鑰。');
       return;
     }
 
     batchTestingRef.current = true;
+    batchAbortRequestedRef.current = false;
     setBatchTesting(true);
 
     const total = toTest.length;
-    let succeeded = 0;
-    let failed = 0;
-
     setBatchProgress({ tested: 0, total, succeeded: 0, failed: 0 });
 
+    const toSave: ModelEvaluation[] = [];
+    const collectedResults: BatchResultEntry[] = [];
+
     try {
-      const toSave: ModelEvaluation[] = [];
-      const collectedResults: BatchResultEntry[] = [];
+      // 並行執行所有模型測試（異步同時多個），不再分批輪流
       await Promise.all(
         toTest.map(async ({ providerId, providerName, modelId, modelName }) => {
           const key = `${providerId}::${modelId}`;
@@ -1199,6 +1479,7 @@ export function ModelEvaluator({
           const entry: BatchResultEntry = { key, providerId, providerName, modelId, modelName, success: false, output: '' };
           try {
             const result = await onTestModel(providerId, modelId, effectivePrompt, uploadedFile);
+            if (batchAbortRequestedRef.current) return entry;
             setTestResultByKey((prev) => ({ ...prev, [key]: result.success }));
             const output =
               result.output ?? (result.message && !result.success ? `錯誤：${result.message}` : '');
@@ -1212,8 +1493,16 @@ export function ModelEvaluator({
             entry.output = output;
             entry.imageUrl = imgUrl;
 
-            if (result.success) succeeded++; else failed++;
-            setBatchProgress({ tested: succeeded + failed, total, succeeded, failed });
+            setBatchProgress((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    tested: prev.tested + 1,
+                    succeeded: prev.succeeded + (result.success ? 1 : 0),
+                    failed: prev.failed + (result.success ? 0 : 1),
+                  }
+                : prev
+            );
 
             const existing = evaluationMap.get(key);
             toSave.push({
@@ -1228,17 +1517,20 @@ export function ModelEvaluator({
               last_tested_at: new Date().toISOString(),
             });
           } catch {
-            failed++;
+            if (batchAbortRequestedRef.current) return entry;
             entry.output = '請求失敗';
-            setBatchProgress({ tested: succeeded + failed, total, succeeded, failed });
+            setBatchProgress((prev) =>
+              prev ? { ...prev, tested: prev.tested + 1, failed: prev.failed + 1 } : prev
+            );
             setTestResultByKey((prev) => ({ ...prev, [key]: false }));
             setOutputByKey((prev) => ({ ...prev, [key]: '請求失敗' }));
           }
           collectedResults.push(entry);
-        }),
+          return entry;
+        })
       );
 
-      if (toSave.length > 0) {
+      if (toSave.length > 0 && !batchAbortRequestedRef.current) {
         try {
           await onSave(toSave);
         } catch (saveErr) {
@@ -1247,24 +1539,32 @@ export function ModelEvaluator({
       }
 
       // Reset status/category filters so tested models remain visible.
-      // If filterStatuses was e.g. ['untested'], all just-tested models would disappear
-      // from the table after onSave() updates evaluationMap. Clear filters to prevent the
-      // page appearing stuck (provider filter is intentional — leave it unchanged).
       setFilterStatuses([]);
       setFilterCategories([]);
 
-      // Show detailed results panel instead of window.alert
-      setBatchResults(collectedResults.sort((a, b) => {
-        // Sort: success first, then by providerName + modelName
+      const sortedResults = collectedResults.sort((a, b) => {
         if (a.success !== b.success) return a.success ? -1 : 1;
         return `${a.providerName}${a.modelName}`.localeCompare(`${b.providerName}${b.modelName}`);
-      }));
+      });
+      setBatchResults(sortedResults);
+      if (collectedResults.length > 0) {
+        saveRecentBatchReport(sortedResults);
+      }
+      // 記錄本次測試摘要，供畫面顯示「測試前已選 N 筆 → 成功 X、失敗 Y」；不觸動模型勾選
+      const succeeded = collectedResults.filter((r) => r.success).length;
+      const failed = collectedResults.filter((r) => !r.success).length;
+      setLastBatchTestSummary({
+        selectedBeforeTest: total,
+        total,
+        succeeded,
+        failed,
+      });
     } finally {
       batchTestingRef.current = false;
       setBatchTesting(false);
       setBatchProgress(null);
     }
-  }, [allRows, selectedSet, validProviders, onTestModel, getEffectivePromptForRow, onSave, evaluationMap, uploadedFile]);
+  }, [hasCategoryFilter, rowsAfterCategoryFilter, allRows, selectedSet, validProviders, onTestModel, getEffectivePromptForRow, onSave, evaluationMap, uploadedFile, saveRecentBatchReport]);
 
   // Stable ref to the latest handleBatchTest — avoids including handleBatchTest in the
   // headerActionsRef useEffect deps, which would cause infinite re-renders when parent
@@ -1273,26 +1573,42 @@ export function ModelEvaluator({
   handleBatchTestRef.current = handleBatchTest;
   const stableRunBatchTest = useCallback(() => handleBatchTestRef.current(), []);
 
+  const stableAbortBatchTest = useCallback(() => {
+    batchAbortRequestedRef.current = true;
+  }, []);
+
   // 將「全部測試」狀態與觸發方法暴露給頁首固定區塊使用
-  // canBatchTest 與 testableCount 基於 allRows（全部模型），不受篩選影響，
-  // 避免篩選後顯示 0 但實際上有已選模型可測試的誤導情形。
+  // 有篩選時與工具列「已選被測」對齊：按鈕與實際測試數量皆為 batchTestableCount（篩選後可測數）。
   useEffect(() => {
     if (!headerActionsRef) return;
-    const canBatchTest = allSelectedCount > 0;
+    const canBatchTest = batchTestableCount > 0;
     const tooltip = canBatchTest
-      ? '對全部已選且具有效金鑰的模型並行測試（不受目前篩選影響）'
-      : '目前無已選的模型，無法測試。請先勾選要測試的模型。';
+      ? hasCategoryFilter
+        ? `對目前篩選結果中已選且具金鑰的 ${batchTestableCount} 個模型並行測試`
+        : `對全部已選且具有效金鑰的 ${batchTestableCount} 個模型並行測試`
+      : allSelectedCount === 0
+        ? '目前無已選的模型，無法測試。請先勾選要測試的模型。'
+        : '所選模型皆無有效 API 金鑰，無法測試。請先至 API 金鑰設定該供應商金鑰。';
     const payload = {
       runBatchTest: stableRunBatchTest,
+      abortBatchTest: stableAbortBatchTest,
       batchTesting,
       canBatchTest,
       tooltip,
       batchProgress,
       testableCount,
+      /** 與工具列對齊：有篩選時為篩選後可測數，無篩選時為全部可測數；按鈕應顯示此值 */
+      batchTestableCount,
       selectedCount: allSelectedCount,
       totalCount: allRows.length,
       filteredTotal: rowsAfterCategoryFilter.length,
       filteredSelectedCount,
+      /** 上次統一測試完成摘要：測試前已選 N 筆、成功 X、失敗 Y，供畫面顯示；不影響模型勾選 */
+      lastBatchTestSummary,
+      hasRecentBatchReport,
+      openRecentBatchReport,
+      applyRecentBatchReport,
+      applyingRecentBatchReport,
     };
     if (typeof headerActionsRef === 'function') {
       headerActionsRef(payload);
@@ -1300,7 +1616,7 @@ export function ModelEvaluator({
       // eslint-disable-next-line no-param-reassign
       headerActionsRef.current = payload;
     }
-  }, [headerActionsRef, stableRunBatchTest, batchTesting, allSelectedCount, batchProgress, testableCount, allRows.length, rowsAfterCategoryFilter.length, filteredSelectedCount]);
+  }, [headerActionsRef, stableRunBatchTest, stableAbortBatchTest, openRecentBatchReport, applyRecentBatchReport, hasRecentBatchReport, applyingRecentBatchReport, batchTesting, allSelectedCount, batchProgress, testableCount, batchTestableCount, hasCategoryFilter, lastBatchTestSummary, allRows.length, rowsAfterCategoryFilter.length, filteredSelectedCount]);
 
   return (
     <div className="space-y-4">
@@ -1573,24 +1889,7 @@ export function ModelEvaluator({
                   className={`py-3 px-3 font-semibold text-text-secondary border-r border-border-subtle relative group align-top ${getFrozenThClass(5)}`}
                   style={getFrozenThStyle(5)}
                 >
-                  <div className="flex flex-col gap-1">
-                    <span>單一prompt測試</span>
-                    {onOpenGlobalTestPanel && (
-                      <div className="pt-0.5">
-                        <Button
-                          size="xs"
-                          variant="secondary"
-                          type="button"
-                          className="w-full justify-center"
-                          onClick={onOpenGlobalTestPanel}
-                          title="開啟統一測試與全域 Prompt 設定面板"
-                        >
-                          <FlaskConical size={12} className="mr-1" />
-                          統一測試
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                  <span>單一prompt測試</span>
                   <div
                     role="separator"
                     aria-label="調整欄寬"
@@ -1626,7 +1925,7 @@ export function ModelEvaluator({
                   className={`py-3 px-3 font-semibold text-text-secondary text-center relative group border-r border-border-subtle align-top ${getFrozenThClass(8)}`}
                   style={getFrozenThStyle(8)}
                 >
-                  <span>測試日期</span>
+                  <span>更新日期與時間</span>
                   <div
                     role="separator"
                     aria-label="調整欄寬"
@@ -2080,13 +2379,11 @@ export function ModelEvaluator({
                       </label>
                     </td>
                     <td
-                      className={`py-1.5 px-3 align-top max-w-[200px] border-r border-border-subtle ${getFrozenTdClass(4)}`}
+                      className={`py-1.5 px-3 align-top max-w=[200px] border-r border-border-subtle ${getFrozenTdClass(4)}`}
                       style={getFrozenTdStyle(4)}
                     >
                       <textarea
-                        value={(rowPrompts[key]?.trim() ?? '')
-                          ? (rowPrompts[key] ?? '')
-                          : effectivePromptVariableLabel}
+                        value={rowPrompts[key] ?? ''}
                         onChange={(e) => {
                           const raw = e.target.value;
                           const trimmed = raw.trim();

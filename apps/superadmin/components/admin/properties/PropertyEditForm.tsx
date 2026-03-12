@@ -9,8 +9,7 @@ import { updateProperty } from '@/lib/actions/properties';
 import { PropertyMediaSection } from './PropertyMediaSection';
 import { PropertyInvestigationReportSection } from './PropertyInvestigationReportSection';
 import { PropertyBlogGenerator } from './PropertyBlogGenerator';
-import { BuildingTranscriptForm } from './BuildingTranscriptForm';
-import { LandTranscriptForm } from './LandTranscriptForm';
+import { TranscriptTabContent } from './TranscriptTabContent';
 import {
   PROPERTY_STATUSES,
   PROPERTY_TYPES,
@@ -152,13 +151,11 @@ const statusLabelsMap: Record<string, string> = {
 
 const BACK_URL = '/superadmin/properties';
 
-type TabId = 'edit' | 'photos' | 'blog' | 'transcript' | 'title' | 'contract' | 'investigation' | 'building_all' | 'land_all';
+type TabId = 'edit' | 'photos' | 'blog' | 'transcript' | 'title' | 'contract' | 'investigation';
 
 const TAB_LABELS: Record<TabId, string> = {
   transcript: '謄本',
   title: '權狀',
-  building_all: '建物全部',
-  land_all: '土地全部',
   edit: '物件基本資訊',
   photos: '物件照片',
   blog: '部落格',
@@ -166,7 +163,7 @@ const TAB_LABELS: Record<TabId, string> = {
   investigation: '調查報告書',
 };
 
-const ALL_TABS: TabId[] = ['transcript', 'title', 'building_all', 'land_all', 'edit', 'photos', 'blog', 'contract', 'investigation'];
+const ALL_TABS: TabId[] = ['transcript', 'title', 'edit', 'photos', 'blog', 'contract', 'investigation'];
 
 interface PropertyEditFormProps {
   property: PropertyItem;
@@ -313,11 +310,17 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
           ))}
         </div>
 
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+        {/* Scrollable body — 謄本頁籤時改為固定高度，左右欄各自捲動 */}
+        <div
+          className={`flex-1 px-6 py-5 ${
+            activeTab === 'transcript'
+              ? 'min-h-0 flex flex-col overflow-hidden'
+              : 'overflow-y-auto space-y-5'
+          }`}
+        >
           {feedback && (
             <div
-              className={`p-3 rounded-lg text-sm ${
+              className={`p-3 rounded-lg text-sm shrink-0 ${
                 feedback.type === 'success'
                   ? 'bg-green-500/10 text-green-500 border border-green-500/20'
                   : 'bg-red-500/10 text-red-500 border border-red-500/20'
@@ -327,28 +330,18 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
             </div>
           )}
 
-          {(activeTab === 'photos' || activeTab === 'transcript' || activeTab === 'title' || activeTab === 'contract') && (
+          {activeTab === 'transcript' && (
+            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+              <TranscriptTabContent property={property} />
+            </div>
+          )}
+
+          {activeTab !== 'transcript' && (activeTab === 'photos' || activeTab === 'title' || activeTab === 'contract') && (
             <PropertyMediaSection
               propertyId={property.id}
               propertyType={property.type}
               ownerId={property.ownerId}
               mode={activeTab}
-            />
-          )}
-
-          {activeTab === 'building_all' && (
-            <BuildingTranscriptForm
-              propertyId={property.id}
-              propertyType={property.type}
-              initialData={property.buildingTranscript}
-            />
-          )}
-
-          {activeTab === 'land_all' && (
-            <LandTranscriptForm
-              propertyId={property.id}
-              propertyType={property.type}
-              initialData={property.landTranscript}
             />
           )}
 

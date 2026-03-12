@@ -369,3 +369,96 @@ async def get_document_parsing_status(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get document status"
         ) from e
+
+
+@router.post("/{document_id}/parse-local")
+async def parse_document_locally(
+    document_id: str,
+    supabase: Client = Depends(get_supabase_client),
+    storage_client: SupabaseStorageClient = Depends(get_storage_client),
+):
+    """
+    Parse a transcript document using the local deterministic Python regex parser.
+
+    This endpoint does NOT call any external AI/VLM API — it extracts the embedded
+    text layer from the PDF using PyMuPDF and applies regex-based field extraction.
+
+    Args:
+        document_id: UUID of the property_documents record.
+
+    Returns:
+        JSON with transcript type, parsed sections, and metadata.
+
+    Raises:
+        HTTPException 404: Document not found or inactive.
+        HTTPException 422: PDF has no extractable text layer (scanned image).
+        HTTPException 500: Unexpected parsing error.
+    """
+    import dataclasses
+    import tempfile
+
+    from ...parser import extract_transcript
+
+    # 1. Fetch document record
+    doc_result = supabase.table('property_documents').select(
+        'id, file_path, document_type'
+    ).eq('id', document_id).eq('is_active', True).execute()
+
+    if not doc_result.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found or has been deleted."
+        )
+
+    file_path: str = doc_result.data[0]['file_path']
+
+    # 2. Download bytes from Supabase Storage
+    try:
+        file_bytes: bytes = await storage_client.download_file(file_path)
+    except Exception as e:
+        logger.error(f"Storage download failed for {document_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"無法從儲存空間下載文件：{e}"
+        ) from e
+
+    # 3. Write to a temporary file so PyMuPDF can open it
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+            tmp.write(file_bytes)
+            tmp_path = tmp.name
+
+        result = extract_transcript(tmp_path)
+    except Exception as e:
+        logger.error(f"Local parse failed for {document_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"本地解析失敗：{e}"
+        ) from e
+    finally:
+        import os
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
+
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="PDF 無可提取的文字層（可能是掃描影像），請改用雲端解析。"
+        )
+
+    # 4. Serialise dataclass to dict (nested dataclasses supported)
+    def _to_dict(obj):
+        if dataclasses.is_dataclass(obj):
+            return {k: _to_dict(v) for k, v in dataclasses.asdict(obj).items()}
+        if isinstance(obj, list):
+            return [_to_dict(i) for i in obj]
+        return obj
+
+    transcript_type = type(result).__name__  # "BuildingTranscript" | "LandTranscript"
+    return {
+        "document_id": document_id,
+        "transcript_type": transcript_type,
+        "parsed": _to_dict(result),
+    }

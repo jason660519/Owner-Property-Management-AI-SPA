@@ -31,7 +31,7 @@ interface VLMDocumentUploadProps {
   }) => void;
 }
 
-const OCR_SERVICE_URL = process.env.NEXT_PUBLIC_OCR_SERVICE_URL || 'http://localhost:8000';
+const OCR_SERVICE_URL = process.env.NEXT_PUBLIC_OCR_SERVICE_URL || 'http://localhost:8819';
 const POLLING_INTERVAL = 2000; // 2 seconds
 const MAX_POLLING_ATTEMPTS = 60; // 2 minutes max
 

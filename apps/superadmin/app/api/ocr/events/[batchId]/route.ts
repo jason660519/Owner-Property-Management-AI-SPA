@@ -4,7 +4,7 @@
 
 import { NextRequest } from 'next/server';
 
-const OCR_SERVICE_URL = process.env.OCR_SERVICE_URL || 'http://localhost:8000';
+const OCR_SERVICE_URL = process.env.OCR_SERVICE_URL || 'http://localhost:8819';
 
 export const runtime = 'nodejs';
 // Prevent Next.js from buffering the response

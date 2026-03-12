@@ -17,7 +17,7 @@ interface ESStats {
   index_name: string;
 }
 
-const OCR_SERVICE_URL = process.env.NEXT_PUBLIC_OCR_SERVICE_URL || "http://localhost:8000";
+const OCR_SERVICE_URL = process.env.NEXT_PUBLIC_OCR_SERVICE_URL || "http://localhost:8819";
 
 export default function ElasticsearchDashboard() {
   const [health, setHealth] = useState<ESHealth | null>(null);

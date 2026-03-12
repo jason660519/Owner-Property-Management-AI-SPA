@@ -345,7 +345,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
             tddSpecDocPath: "/project-process/features/tdd-ai-settings-20260221.md",
             category: "超級管理員 (Super Admin)",
             points: 5,
-            devLog: "### 2026-03-04 更新\n- 修復 統一prompt測試 功能無限重渲染 bug（Maximum update depth exceeded）。\n- 根本原因：page.tsx 每次渲染時 currentKeys 產生新陣列引用，導致 allRows→handleBatchTest→headerActionsRef useEffect 形成無限迴圈。\n- 修復方案（雙重防護）：(1) ModelEvaluator.tsx 使用 stable ref 模式（handleBatchTestRef + stableRunBatchTest），移除 handleBatchTest 作為 useEffect dep；(2) page.tsx 以 useMemo 穩定 currentKeys 引用。\n- TDD：新增 5 個批次測試執行行為測試案例，共 28 個測試全部通過。\n\n### 2026-03-06 更新\n- 在「已選/可選模型評估」分頁列右側新增「統一測試設定」按鈕。\n- 按鈕重用既有 isEvalToolbarOpen 狀態，僅切換本頁統一測試面板顯示，不影響其他頁面功能。\n- 補上 aria-controls 對應面板 id（global-test-settings-panel），強化可及性。",
+            devLog: "### 2026-03-04 更新\n- 修復 統一prompt測試 功能無限重渲染 bug（Maximum update depth exceeded）。\n- 根本原因：page.tsx 每次渲染時 currentKeys 產生新陣列引用，導致 allRows→handleBatchTest→headerActionsRef useEffect 形成無限迴圈。\n- 修復方案（雙重防護）：(1) ModelEvaluator.tsx 使用 stable ref 模式（handleBatchTestRef + stableRunBatchTest），移除 handleBatchTest 作為 useEffect dep；(2) page.tsx 以 useMemo 穩定 currentKeys 引用。\n- TDD：新增 5 個批次測試執行行為測試案例，共 28 個測試全部通過。\n\n### 2026-03-06 更新\n- 在「已選/可選模型評估」分頁列右側新增「統一測試設定」按鈕。\n- 按鈕重用既有 isEvalToolbarOpen 狀態，僅切換本頁統一測試面板顯示，不影響其他頁面功能。\n- 補上 aria-controls 對應面板 id（global-test-settings-panel），強化可及性。\n\n### 2026-03-06 更新（調整）\n- 移除 ModelEvaluator 表頭「統一測試」按鈕與 onOpenGlobalTestPanel 相關程式碼。\n- 移除 settings/api_key_and_model_setting 的 `*-global-test` hash 入口，`#blog-global-test` 不再觸發對應頁面行為。\n- 同步刪除已不適用的按鈕行為測試案例，避免測試與現況不一致。\n\n### 2026-03-06 更新（獨立頁）\n- 「統一測試設定」按鈕改為固定顯示在分頁列右側，不再只在 evaluations 分頁顯示。\n- 按鈕改為導向獨立頁 `/superadmin/settings/evaluations-global-test`，不再綁定 `#evaluations` 或本頁內嵌面板開關。\n- 移除 api_key_and_model_setting 內嵌的統一測試設定面板，避免與獨立頁重複。\n\n### 2026-03-06 更新（批次報告）\n- 批次測試完成後，自動將結果快照寫入 localStorage（最近一次報告）。\n- 新增「檢視最近報告」動作，透過 headerActionsRef 暴露給頁首按鈕呼叫。\n- 在「開始統一測試」旁新增「檢視最近報告」按鈕，使用者可隨時重新開啟最近一次批次結果視窗。\n\n### 2026-03-06 更新（UX 精簡）\n- 將右側設定區主流程收斂為「雲端 Prompt 選擇/載入 + 儲存雲端新版本 + 開始統一測試」。\n- 補上「載入雲端 Prompt」明確動作，避免僅選取下拉選單卻未真正載入內容的混淆。\n- 將本機 Prompt、下載、刪除雲端等操作收進「進階設定」摺疊區，降低主畫面複雜度。\n\n### 2026-03-06 更新（提示與確認流程）\n- 將 evaluations-global-test 頁面的 window.alert / window.confirm 全數移除，改為頁內 inline 提示訊息。\n- 刪除本機 Prompt 與刪除雲端 Prompt 改為「二次點擊確認」流程，避免誤刪且不中斷操作。\n- 提示訊息統一在右側設定區顯示，成功/錯誤/資訊狀態一致化。\n\n### 2026-03-06 更新（最近報告一鍵修正）\n- 新增「套用最近報告修正狀態」按鈕，將最近批次報告一次套用到模型分類與狀態。\n- 依報告內容自動推斷 `display_status_override`（VLM/LLM/不可用）並同步更新 `is_working`、`notes`、`last_tested_at`。\n- 套用後即回寫 ai_model_evaluations，避免逐筆手動調整模型狀態。\n\n### 2026-03-06 更新（移除混亂控件）\n- 依使用者回饋移除右側設定區的雲端 Prompt 管理與進階設定區塊（含載入、版本命名、儲存版本、本機 Prompt、刪除與下載）。\n- 僅保留核心流程：上傳測試檔案、編輯全域 Prompt、開始統一測試、檢視最近報告、套用最近報告修正狀態。",
             testProgress: "TDD: 28/28 tests passing（含 統一/單一 prompt 測試功能完整測試）",
             testCoverage: 15,
             testScriptCount: 28,
@@ -454,17 +454,41 @@ const RAW_FEATURES: RoadmapFeature[] = [
             name: "雲端 OCR 多模型共識謄本解析",
             locatedPage: "superadmin/properties",
             category: "超級管理員 (Super Admin)",
-            percentage: 92,
+            percentage: 97,
+            phase: "testing",
+            testCoverage: 60,
+            lastModifiedBy: "Claude Sonnet 4.6",
+            lastModifiedDate: "2026/03/09",
+            testStatus: "in_progress",
+            docPath: "/docs/implementation-plans/consensus-transcript-parsing-plan.md",
+            devLog: "### 完成項目\n- DB Migration：ocr_parse_results 表 + property_documents 新增 consensus_metadata / parse_strategy 欄位\n- TypeScript 型別：ModelParseResult / ConsensusMetadata / ConflictDetail / JudgeResolution\n- Feature Module：拆分 online_ocr → online_ocr_parse（解析組）+ online_ocr_judge（裁判組）\n- 共識演算法：transcript-consensus.ts — 多模型 majority vote、台灣特規正規化、信心分數\n- AI API 共用呼叫器：ai-api-callers.ts — 支援 OpenAI/Anthropic/Gemini/DeepSeek/Grok\n- 共識引擎 Server Action：consensus-parse.ts — 平行呼叫 → 共識投票 → 裁判仲裁 三階段流程\n- 向下相容：parse-transcript.ts 改為 wrapper 委派至共識引擎\n- UI 更新：PropertyMediaSection 新增信心徽章、衝突明細面板、共識 metadata 顯示\n- FeatureModuleSelector 提示文字：解析組建議 2~3 模型、裁判組為可選配置\n### 2026-03-04 新增\n- SSE 串流 API：/api/transcript-parse/stream — POST 端點，以 ReadableStream 逐模型即時回傳解析進度事件\n- TranscriptParseSection 元件：從 PropertyMediaSection 拆出（原 610 行降至 387 行），新增：(1) 可收折「解析設定」面板（顯示已設定之解析/裁判模型、一次性 Prompt 覆寫欄位、跳轉 AI 設定連結）；(2) 解析中以逐模型進度列表取代單一轉圈，即時顯示各模型狀態（等待/解析中/完成/失敗）及耗時\n### 2026-03-07 新增/調整\n- 解析模型單一事實來源：TranscriptParseSection 僅使用 online_ocr_parse 模組綁定的 assigned_models，移除與統一測試 441 個候選模型的耦合，避免使用者在兩處重覆設定\n- 每次謄本解析最多呼叫 5 個成功解析模型：依 OCP 排序逐一呼叫模型，成功數達 5 即停止；若前幾個失敗則依序啟用後續模型，避免一次對數十/數百模型發送 API 呼叫\n- 裁判模型排序備援：後端依 online_ocr_judge 的 assigned_models 順序（含本次 overrideJudgeModel）輪流嘗試裁判模型，任一成功即套用其判決；全部失敗時回退至多模型共識結果\n- JSON 安全性強化：transcript-parse/stream 與 consensus-parse 在儲存裁判 raw_output 時採用 try/catch 保護，裁判回傳畸形 JSON 時僅記錄 error_message，不再中斷整體解析流程\n- 物件編輯頁解析設定 UX：AI 解析謄本設定面板顯示本次實際使用的解析/裁判模型，支援 per-run 勾選啟用與一次性 Prompt 覆寫，並確保畫面與後端實際呼叫模型一致",
+            developmentProgress: "核心架構與 UI 已完成；TDD 新增 13 項 prompt 行為測試；修復兩個 Bug：(1) fetchSystemPrompt 查詢欄位 prompt_text 應為 prompt_content，導致自訂 Prompt 無效；(2) TARGET_SUCCESS_COUNT 誤設為 parserModels.length（全部跑完）應為 Math.min(5, parserModels.length)，達 5 個成功即停止其餘模型；待辦：整合測試 + E2E。"
+        },
+        {
+            name: "Prompt 模板庫（儲存 / 載入）",
+            locatedPage: "superadmin/settings/evaluations-global-test",
+            category: "超級管理員 (Super Admin)",
+            percentage: 100,
             phase: "development",
             lastModifiedBy: "Claude Sonnet 4.6",
-            lastModifiedDate: "2026/03/04",
-            docPath: "/docs/implementation-plans/consensus-transcript-parsing-plan.md",
-            devLog: "### 完成項目\n- DB Migration：ocr_parse_results 表 + property_documents 新增 consensus_metadata / parse_strategy 欄位\n- TypeScript 型別：ModelParseResult / ConsensusMetadata / ConflictDetail / JudgeResolution\n- Feature Module：拆分 online_ocr → online_ocr_parse（解析組）+ online_ocr_judge（裁判組）\n- 共識演算法：transcript-consensus.ts — 多模型 majority vote、台灣特規正規化、信心分數\n- AI API 共用呼叫器：ai-api-callers.ts — 支援 OpenAI/Anthropic/Gemini/DeepSeek/Grok\n- 共識引擎 Server Action：consensus-parse.ts — 平行呼叫 → 共識投票 → 裁判仲裁 三階段流程\n- 向下相容：parse-transcript.ts 改為 wrapper 委派至共識引擎\n- UI 更新：PropertyMediaSection 新增信心徽章、衝突明細面板、共識 metadata 顯示\n- FeatureModuleSelector 提示文字：解析組建議 2~3 模型、裁判組為可選配置\n### 2026-03-04 新增\n- SSE 串流 API：/api/transcript-parse/stream — POST 端點，以 ReadableStream 逐模型即時回傳解析進度事件\n- TranscriptParseSection 元件：從 PropertyMediaSection 拆出（原 610 行降至 387 行），新增：(1) 可收折「解析設定」面板（顯示已設定之解析/裁判模型、一次性 Prompt 覆寫欄位、跳轉 AI 設定連結）；(2) 解析中以逐模型進度列表取代單一轉圈，即時顯示各模型狀態（等待/解析中/完成/失敗）及耗時",
-            developmentProgress: "核心架構與 UI 全部完成。待辦：整合測試、Migration 套用驗證。"
+            lastModifiedDate: "2026/03/08",
+            devLog: "### 完成項目\n- DB Migration：20260308180000_create_saved_prompts.sql — saved_prompts 表（id / name / content / created_by / created_at / updated_at）、更新觸發器與 RLS 策略（iam_user_roles + iam_roles）\n- Server Actions：promptActions.ts — listSavedPrompts / savePrompt / deleteSavedPrompt，限 super_admin 存取，使用 createAdminClient（service_role）\n- UI 元件：PromptLibraryModal.tsx — save 模式（命名＋預覽前 200 字後送出）/ load 模式（列出全部已儲存 Prompt，支援一鍵載入 / 刪除）\n- 整合 evaluations-global-test/page.tsx：在 Prompt textarea 右下角以 flex justify-end 排列「儲存 Prompt」與「載入 Prompt」兩個按鈕，視覺上緊貼輸入框；PromptLibraryModal 以 Portal 渲染，支援 Esc 關閉",
+            developmentProgress: "功能完整實作：儲存、列出、載入、刪除 Prompt 均已連接雲端 Supabase；UI 風格與現有頁面一致。"
+        },
+        {
+            name: "Prompt 管理獨立頁面",
+            locatedPage: "superadmin/settings/prompt-management",
+            category: "超級管理員 (Super Admin)",
+            percentage: 100,
+            phase: "development",
+            lastModifiedBy: "Claude Sonnet 4.6",
+            lastModifiedDate: "2026/03/08",
+            devLog: "### 完成項目\n- 將原本分散在 evaluations-global-test 頁面的「儲存 Prompt」與「載入 Prompt」整合為獨立的 Prompt 管理頁面\n- Server Action：promptActions.ts 新增 updatePrompt（依 id 更新 name/content/updated_at）\n- 新頁面：settings/prompt-management/page.tsx — 左右分割面板佈局：左欄 = 可搜尋的 Prompt 列表（全域計數、hover 顯示複製/刪除操作、二次確認刪除）；右欄 = EditorPanel（新增/編輯，含字元計數、dirty-state 檢查、儲存回覆後自動更新列表）\n- Sidebar nav-items.ts 新增「Prompt 管理」（BookMarked 圖示）導覽項目\n- settings/page.tsx 新增 Prompt 管理入口卡片",
+            developmentProgress: "獨立頁面完整實作：新增、編輯、刪除、搜尋、複製內容均已完成，與 saved_prompts 表雲端連接。"
         }
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-    lastUpdated: "2026/02/21",
+    lastUpdated: "2026/03/08",
     features: RAW_FEATURES.map(f => ({ ...f, phase: inferPhase(f) })),
 };

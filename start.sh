@@ -143,10 +143,10 @@ start_admin() {
 }
 
 start_ocr() {
-    echo -e "${BLUE}👁️  啟動 OCR/VLM 服務 (Port 8000)...${NC}"
+    echo -e "${BLUE}👁️  啟動 OCR/VLM 服務 (Port 8819)...${NC}"
     local OCR_DIR="$PROJECT_ROOT/backend/ocr_service"
     
-    if lsof -i :8000 > /dev/null 2>&1; then
+    if lsof -i :8819 > /dev/null 2>&1; then
         echo -e "${YELLOW}⚠️  OCR 服務已在運行${NC}"
     else
         check_python_venv "$OCR_DIR"
@@ -179,7 +179,7 @@ start_all() {
     echo -e "${GREEN}🎉 所有服務啟動程序已完成${NC}"
     echo -e "   • Web App:          http://localhost:3000"
     echo -e "   • Superadmin:       http://localhost:3001/superadmin/dashboard (亦可作為統一登入入口)"
-    echo -e "   • OCR Service:      http://localhost:8000"
+    echo -e "   • OCR Service:      http://localhost:8819"
     echo -e "   • Supabase Studio:  http://localhost:54323"
     echo -e "   • Mailpit (Email):  http://localhost:54324"
     echo -e "   • Logs:             $LOG_DIR/"

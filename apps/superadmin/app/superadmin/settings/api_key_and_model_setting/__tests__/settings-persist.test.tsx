@@ -72,10 +72,10 @@ import AIServiceSettingsPage from '../page';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-/** Switch to the evaluations tab so the prompt + buttons are visible */
-function switchToEvaluations() {
-  const evalTab = screen.getByRole('button', { name: /已選\/可選模型評估/i });
-  fireEvent.click(evalTab);
+/** Switch to the ocr tab so the ModelEvaluator component is rendered */
+function switchToModelEvaluatorTab() {
+  const ocrTab = screen.getByRole('button', { name: /OCR解析設定/i });
+  fireEvent.click(ocrTab);
 }
 
 // ── Feature 1: globalTestPrompt localStorage persistence ──────────────────
@@ -97,7 +97,7 @@ describe('Feature 1: globalTestPrompt localStorage persistence', () => {
     localStorage.setItem(LS_KEY, JSON.stringify(stored));
 
     render(<AIServiceSettingsPage />);
-    switchToEvaluations();
+    switchToModelEvaluatorTab();
 
     const textarea = screen.getByPlaceholderText(/全域 Prompt/i);
     expect((textarea as HTMLTextAreaElement).value).toBe(stored);
@@ -105,7 +105,7 @@ describe('Feature 1: globalTestPrompt localStorage persistence', () => {
 
   it('falls back to DEFAULT_EVALUATION_PROMPT when localStorage has no entry', () => {
     render(<AIServiceSettingsPage />);
-    switchToEvaluations();
+    switchToModelEvaluatorTab();
 
     const textarea = screen.getByPlaceholderText(/全域 Prompt/i);
     // Default prompt starts with "請根據我提供的文件資料"
@@ -114,7 +114,7 @@ describe('Feature 1: globalTestPrompt localStorage persistence', () => {
 
   it('persists globalTestPrompt to localStorage when the user types', async () => {
     render(<AIServiceSettingsPage />);
-    switchToEvaluations();
+    switchToModelEvaluatorTab();
 
     const textarea = screen.getByPlaceholderText(/全域 Prompt/i);
     fireEvent.change(textarea, { target: { value: 'Updated prompt' } });
@@ -130,7 +130,7 @@ describe('Feature 1: globalTestPrompt localStorage persistence', () => {
     localStorage.setItem(LS_KEY, JSON.stringify('Old value'));
 
     render(<AIServiceSettingsPage />);
-    switchToEvaluations();
+    switchToModelEvaluatorTab();
 
     const textarea = screen.getByPlaceholderText(/全域 Prompt/i);
     fireEvent.change(textarea, { target: { value: 'Newer value' } });
@@ -143,7 +143,7 @@ describe('Feature 1: globalTestPrompt localStorage persistence', () => {
 
 // ── Feature 2: Export / Import settings buttons ───────────────────────────
 
-describe('Feature 2: Export / Import settings buttons in evaluations tab', () => {
+describe('Feature 2: Export / Import settings buttons in ocr tab', () => {
   beforeEach(() => {
     localStorage.clear();
     mockExportSettings.mockReset();
@@ -151,9 +151,9 @@ describe('Feature 2: Export / Import settings buttons in evaluations tab', () =>
     window.location.hash = '';
   });
 
-  it('renders 匯出設定 and 載入設定 buttons when evaluations tab is active', () => {
+  it('renders 匯出設定 and 載入設定 buttons when ocr tab is active', () => {
     render(<AIServiceSettingsPage />);
-    switchToEvaluations();
+    switchToModelEvaluatorTab();
 
     expect(screen.getByRole('button', { name: /匯出設定/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /載入設定/i })).toBeInTheDocument();
@@ -180,7 +180,7 @@ describe('Feature 2: Export / Import settings buttons in evaluations tab', () =>
     });
 
     render(<AIServiceSettingsPage />);
-    switchToEvaluations();
+    switchToModelEvaluatorTab();
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /匯出設定/i }));
@@ -195,7 +195,7 @@ describe('Feature 2: Export / Import settings buttons in evaluations tab', () =>
     jest.restoreAllMocks();
   });
 
-  it('does not render export/import buttons outside of evaluations tab', () => {
+  it('does not render export/import buttons outside of model evaluator tabs', () => {
     render(<AIServiceSettingsPage />);
     // Default tab is 'keys'
     expect(screen.queryByRole('button', { name: /匯出設定/i })).not.toBeInTheDocument();
