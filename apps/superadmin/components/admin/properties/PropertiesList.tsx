@@ -65,6 +65,15 @@ const TABLE_V_ALIGN_CLASSES: Record<TableVAlign, string> = {
 
 function formatPrice(price: number | null): string {
   if (price == null) return '-';
+  if (price >= 100000000) {
+    const yi = Math.floor(price / 100000000);
+    const wan = Math.floor((price % 100000000) / 10000);
+    if (wan === 0) {
+      return `NT$ ${yi.toLocaleString()}億`;
+    } else {
+      return `NT$ ${yi.toLocaleString()}億${wan.toLocaleString()}萬`;
+    }
+  }
   if (price >= 10000) {
     return `NT$ ${(price / 10000).toLocaleString()}萬`;
   }

@@ -181,9 +181,8 @@ export async function getAllProperties(): Promise<PropertiesResult> {
           (details.livingRooms as number | null) ??
           null,
         parkingSpaces:
-          (row.has_parking as boolean)
-            ? 1
-            : (details.parkingSpaces as number | null) ?? null,
+          (details.parkingSpaces as number | null) ??
+          ((row.has_parking as boolean) ? 1 : 0),
         createdAt: row.created_at as string,
         mainPhotoUrl:
           (details.imageUrl as string) ||
@@ -326,9 +325,8 @@ export async function getPropertyById(id: string): Promise<PropertyItem | null> 
       (details.livingRooms as number | null) ??
       null,
     parkingSpaces:
-      (row.has_parking as boolean)
-        ? 1
-        : (details.parkingSpaces as number | null) ?? null,
+      (details.parkingSpaces as number | null) ??
+      ((row.has_parking as boolean) ? 1 : 0),
     createdAt: row.created_at as string,
     mainPhotoUrl:
       (details.imageUrl as string) ||
@@ -549,6 +547,15 @@ export async function updateProperty(
       if (input.leaseTerm !== undefined) updatePayload.lease_term = input.leaseTerm;
     }
 
+    // Write dedicated top-level columns so the list page reads fresh values
+    // (getAllProperties / getPropertyById read these columns first, falling back to details)
+    if (input.propertyType !== undefined) updatePayload.building_type = input.propertyType;
+    if (input.area !== undefined) updatePayload.area_registered = input.area;
+    if (input.bedrooms !== undefined) updatePayload.layout_rooms = input.bedrooms;
+    if (input.livingRooms !== undefined) updatePayload.layout_living_rooms = input.livingRooms;
+    if (input.bathrooms !== undefined) updatePayload.layout_bathrooms = input.bathrooms;
+    if (input.parkingSpaces !== undefined) updatePayload.has_parking = (input.parkingSpaces ?? 0) > 0;
+
     // Merge details JSONB (preserve existing fields; keep details in sync for backward compat)
     const existingDetails = (existing?.details || {}) as Record<string, unknown>;
     const updatedDetails = { ...existingDetails };
@@ -585,6 +592,7 @@ export async function updateProperty(
     });
 
     revalidatePath('/superadmin/properties');
+    revalidatePath(`/superadmin/properties/${id}/edit`);
     revalidatePath('/superadmin');
 
     return { success: true, message: '物件已成功更新' };

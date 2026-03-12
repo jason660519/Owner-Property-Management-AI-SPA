@@ -253,7 +253,9 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
       if (result.success) {
         setFeedback({ type: 'success', message: result.message });
         setTimeout(() => {
-          router.push(BACK_URL);
+          // Use hard navigation to bypass Next.js router cache so the list
+          // reflects the freshly revalidated data from the server action.
+          window.location.href = BACK_URL;
         }, 800);
       } else {
         setFeedback({ type: 'error', message: result.message });
