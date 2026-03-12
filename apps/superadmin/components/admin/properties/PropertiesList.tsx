@@ -248,6 +248,36 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
       },
     },
     {
+      id: 'actions',
+      size: COLUMN_WIDTHS_PX[17],
+      header: '操作',
+      enableSorting: false,
+      enableResizing: false,
+      cell: (info) => {
+        const row = info.row.original;
+        const isDeleting = deletingId === row.id;
+        return (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => window.open(`/superadmin/properties/${row.id}/edit`, '_blank')}
+              title="編輯（在新分頁開啟）"
+              className="p-1.5 rounded-md hover:bg-accent/10 text-text-secondary hover:text-accent transition-colors"
+            >
+              <Pencil size={14} />
+            </button>
+            <button
+              onClick={() => handleDelete(row)}
+              disabled={isDeleting}
+              title="刪除"
+              className="p-1.5 rounded-md hover:bg-red-500/10 text-text-secondary hover:text-red-500 transition-colors disabled:opacity-50"
+            >
+              {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+            </button>
+          </div>
+        );
+      },
+    },
+    {
       accessorKey: 'status',
       size: COLUMN_WIDTHS_PX[1],
       header: () => (
@@ -285,6 +315,20 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
           {(info.getValue() as string) || '—'}
         </span>
       ),
+    },
+    {
+      id: 'priceOrRent',
+      size: COLUMN_WIDTHS_PX[11],
+      header: '價格',
+      accessorFn: (row) => row.price ?? row.monthlyRent ?? 0,
+      cell: (info) => {
+        const row = info.row.original;
+        return (
+          <span className="text-sm font-medium text-text-primary">
+            {row.type === 'sale' ? formatPrice(row.price) : formatRent(row.monthlyRent)}
+          </span>
+        );
+      },
     },
     {
       id: 'mainPhoto',
@@ -420,20 +464,6 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
       },
     },
     {
-      id: 'priceOrRent',
-      size: COLUMN_WIDTHS_PX[11],
-      header: '價格',
-      accessorFn: (row) => row.price ?? row.monthlyRent ?? 0,
-      cell: (info) => {
-        const row = info.row.original;
-        return (
-          <span className="text-sm font-medium text-text-primary">
-            {row.type === 'sale' ? formatPrice(row.price) : formatRent(row.monthlyRent)}
-          </span>
-        );
-      },
-    },
-    {
       accessorKey: 'area',
       size: COLUMN_WIDTHS_PX[12],
       header: '總面積(坪)',
@@ -493,36 +523,6 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
       cell: (info) => (
         <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
       ),
-    },
-    {
-      id: 'actions',
-      size: COLUMN_WIDTHS_PX[17],
-      header: '操作',
-      enableSorting: false,
-      enableResizing: false,
-      cell: (info) => {
-        const row = info.row.original;
-        const isDeleting = deletingId === row.id;
-        return (
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => window.open(`/superadmin/properties/${row.id}/edit`, '_blank')}
-              title="編輯（在新分頁開啟）"
-              className="p-1.5 rounded-md hover:bg-accent/10 text-text-secondary hover:text-accent transition-colors"
-            >
-              <Pencil size={14} />
-            </button>
-            <button
-              onClick={() => handleDelete(row)}
-              disabled={isDeleting}
-              title="刪除"
-              className="p-1.5 rounded-md hover:bg-red-500/10 text-text-secondary hover:text-red-500 transition-colors disabled:opacity-50"
-            >
-              {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-            </button>
-          </div>
-        );
-      },
     },
     {
       accessorKey: 'createdAt',

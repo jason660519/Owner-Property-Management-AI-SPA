@@ -163,7 +163,7 @@ const TAB_LABELS: Record<TabId, string> = {
   investigation: '調查報告書',
 };
 
-const ALL_TABS: TabId[] = ['transcript', 'title', 'edit', 'photos', 'blog', 'contract', 'investigation'];
+const ALL_TABS: TabId[] = ['edit', 'transcript', 'title', 'photos', 'blog', 'contract', 'investigation'];
 
 interface PropertyEditFormProps {
   property: PropertyItem;

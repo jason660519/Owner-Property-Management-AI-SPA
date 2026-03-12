@@ -28,6 +28,7 @@ import {
 } from '@/lib/utils/total-available-models';
 import { getStatusDisplay } from '@/lib/utils/model-status';
 import { readLocalStorage, writeLocalStorage, readSessionStorage } from '@/lib/utils/storage-state';
+import { normalizeLocalParsedToCloudSchema } from '@/lib/utils/transcript-parsed-to-form';
 import Link from 'next/link';
 
 // ---------------------------------------------------------------------------
@@ -1120,7 +1121,7 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTr
                 <button
                   type="button"
                   onClick={() =>
-                    onTranscribe(localParseResult.parsed as LandRegistryParsedResult)
+                    onTranscribe(normalizeLocalParsedToCloudSchema(localParseResult.parsed))
                   }
                   className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-border-default hover:bg-bg-tertiary text-text-secondary"
                   title="將解析結果謄寫至下方建物全部欄位"
