@@ -12,8 +12,7 @@ from typing import Any, Dict
 
 import pytest
 
-# Will be implemented
-from src.models.jason_schema import (
+from src.models.json_schema import (
     AreaSummary,
     ConfidenceNote,
     Holder,

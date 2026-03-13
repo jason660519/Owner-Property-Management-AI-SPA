@@ -8,6 +8,8 @@ Traditional Chinese characters so regex patterns stay readable.
 Reference: Unicode CJK Compatibility block U+3200–U+33FF
 """
 
+import re as _re
+
 # Enclosed / circled CJK characters used heavily in 地政電子謄本
 # Full character inventory sourced from real 建物/土地 transcript PDFs.
 _CJK_COMPAT_MAP: dict[str, str] = {
@@ -166,6 +168,11 @@ _CJK_COMPAT_MAP: dict[str, str] = {
 # Build a single translation table for str.translate() — O(1) per character
 _TRANS_TABLE = str.maketrans(_CJK_COMPAT_MAP)
 
+# Strip C0 control chars (keep \t \n \r), DEL, and C1 control chars (U+0080–U+009F).
+# These appear in some PDF text layers (e.g. Windows-1252 encoded chars misread as Unicode)
+# and cause JSON.parse failures in Node.js when output with ensure_ascii=False.
+_CTRL_RE = _re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\x80-\x9f]')
+
 
 def normalize(text: str) -> str:
     """
@@ -176,10 +183,14 @@ def normalize(text: str) -> str:
     so that downstream regex patterns can be written directly in standard
     Chinese without worrying about variant encodings.
 
+    Also strips C0/C1 control characters that some PDF generators embed and
+    that would produce invalid JSON when serialised with ensure_ascii=False.
+
     Args:
         text: Raw text extracted from a 地政電子謄本 PDF.
 
     Returns:
         Normalized text with standard characters.
     """
+    text = _CTRL_RE.sub('', text)
     return text.translate(_TRANS_TABLE)

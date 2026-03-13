@@ -25,7 +25,7 @@ from src.parser.field_parser import (
 )
 
 # Data Models
-from src.models.jason_schema import (
+from src.models.json_schema import (
     AreaSummary,
     AuditInfo,
     BasicInfo,
