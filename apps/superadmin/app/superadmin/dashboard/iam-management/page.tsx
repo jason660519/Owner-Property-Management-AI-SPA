@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore } from 'react';
 import { RefreshCw, Download } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard';
 import { IAMTabBar } from './components/IAMTabBar';
@@ -22,20 +22,17 @@ function getTabFromHash(): IAMTab {
 }
 
 export default function IAMManagementPage() {
-  // Initialize with 'overview' so SSR and client hydration match,
-  // then read the hash after mount to avoid hydration mismatch.
-  const [activeTab, setActiveTab] = useState<IAMTab>('overview');
-
-  useEffect(() => {
-    setActiveTab(getTabFromHash());
-    const onHashChange = () => setActiveTab(getTabFromHash());
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
-  }, []);
+  const activeTab = useSyncExternalStore(
+    (onStoreChange) => {
+      window.addEventListener('hashchange', onStoreChange);
+      return () => window.removeEventListener('hashchange', onStoreChange);
+    },
+    () => getTabFromHash(),
+    () => 'overview',
+  );
 
   const handleTabChange = (tab: IAMTab) => {
-    setActiveTab(tab);
-    window.history.replaceState(null, '', `#${tab}`);
+    window.location.assign(`#${tab}`);
   };
 
   const handleOverviewRefresh = () => {

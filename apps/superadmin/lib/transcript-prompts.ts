@@ -1,71 +1,356 @@
-export const TRANSCRIPT_PARSE_PROMPT = `請根據我提供的台灣建物或土地謄本 文件資料，無論其格式為何（PDF、JPG、掃描後的 OCR 文字、或直接複製的文字），先把所有文字擷取下來後，解析並轉換成結構化的 JSON 格式，以便將來餵給資料庫使用。
-建物謄本 需擷取的資訊，包括但不限於：
-謄本種類
-建號
-列印時間
-頁字
-謄本列印人
-謄本檢查號
-謄本字第號
-資料管轄機關
-謄本核發機關
-建物標示部．包括：登記日期，登記原因，建物門牌，建物座落地號，主要用途，主要建材，層數及其總面積，層次及其層次面積，建築完成日，附屬建物用途及其面積，共有部分及其面積及權利範圍，其他登記事項
-建物所有權部．包括：登記次序，登記日期，登記原因，原因發生日期，所有權人及其設籍地地址，權利範圍，權狀字號，相關他向權利登記次序，其他登記事項
-建物他項權利部．包括：登記次序，權利種類，收件日期，字號，登記日期，登記原因，權利人及其住址，債權額比例，擔保債權總金額，存續期間，清償日期，利息（率），延遲利息（率），違約金，債務人及債務額比例，權利標的，標的登記次序，設定權利範圍，證明書字號，設定義務人，共同擔保地號，共同擔保建號，其他登記事項．
-注意事項
+// =============================================================================
+// Transcript parse prompts — Parser AI (Phase 1) & Judge AI (Phase 3)
+// =============================================================================
 
-土地謄本 需擷取的資訊，包括但不限於：
-謄本種類
-地號
-列印時間
-頁字
-謄本列印人
-謄本檢查號
-謄本字第號
-資料管轄機關
-謄本核發機關
-土地標示部．包括：登記日期，登記原因，地目，等則，面積，使用分區，使用地類別，公告土地現值，地上建物建號，其他登記事項
-土地所有權部．包括：登記次序，登記日期，登記原因，原因發生日期，所有權人及其住址(所有權人的設籍住址)，權利範圍，權狀字號，相關他向權利登記次序，當期申報地價，前次移轉現值或原規定地價，歷次取得權利範圍，相關他項權利登記次序，其他登記事項．
-土地他項權利部．包括：登記次序，權利種類，收件日期，字號，登記日期，登記原因，權利人及其住址，債權額比例，擔保債權總金額，擔保債權種類及範圍，擔保債權確定日，清償日期，存續期間，利息（率），延遲利息（率），違約金，其他擔保範圍約定，債務人及債務額比例，權利標的，標的登記次序，設定權利範圍，證明書字號，設定義務人，共同擔保地號，共同擔保建號，其他登記事項．
-注意事項
+// -----------------------------------------------------------------------------
+// TRANSCRIPT_PARSE_PROMPT
+// Used by every parser model in Phase 1 (parallel parse).
+// Key improvement: Chinese label → JSON key mapping table embedded so the model
+// can directly match what it reads in the document to the expected output key.
+// -----------------------------------------------------------------------------
 
-謄本說明：
-謄本種類:台灣的不動產謄本大致分建物與土地謄本二大類． 比如：建物登記第二類謄本(建號全部)，建物登記第二類謄本(建物標示部及所有權部)，土地登記第二類謄本(土地標示部及所有權部)．建號全部的謄本通常包含：建物標示部，建物所有權部，建物他項權利部．地號全部的謄本通常包含：土地標示部，土地所有權部，土地他項權利部．
-建號或地號：比如：大安區 懷生段四小段 003836-0000建號，大安區 懷生段四小段 003836-0000地號
-謄本列印人．通常是自然人或公司，比如：願景不動產仲介股份有限公司
-謄本檢查號．比如：100AF001281RE…….
-謄本核發機關．比如：台北市大安地政事務所
-建物標示部．包括：登記日期．登記原因：比如：買賣，第一次登記．建物門牌：比如：仁愛路四段345巷4弄25號．建物座落地號：比如：仁愛路二小段 0367-000．主要用途：比如：住家用,辦公用．主要建材：鋼筋混凝土造．層數:比如007層 及其總面積)．層次：比如：一層，及其層次面積，建築完成日(民國XX年XX月XX日)．附屬建物用途，比如：陽台，平台，露台，及其面積，共有部分及其面積及權利範圍，其他登記事項
-建物所有權部．包括：登記次序：比如：0005．登記日期，登記原因：比如：買賣，夫妻贈與，第一次登記．原因發生日期，所有權人(姓名)及其住址(所有權人的設籍住址)．權利範圍．權狀字號：099北大字第012501號．比如：，相關他向權利登記次序，比如：0009-000，其他登記事項
-建物他項權利部．包括：登記次序，權利種類，收件日期，字號，登記日期，登記原因，權利人及其住址，債權額比例，擔保債權總金額，存續期間，清償日期，利息（率），延遲利息（率），違約金，債務人及債務額比例，權利標的，原因發生日期，所有權人及其設籍地地址，權利範圍，權狀字號，相關他向權利登記次序，其他登記事項
-土地標示部．包括：登記日期，登記原因，地目:比如:建(地)，等則，面積，使用分區，使用地類別，公告土地現值，地上建物建號，其他登記事項
-土地所有權部．包括：登記次序，登記日期，登記原因，原因發生日期，所有權人及其住址(所有權人的設籍住址)，權利範圍，權狀字號，相關他向權利登記次序，當期申報地價，前次移轉現值或原規定地價，歷次取得權利範圍，相關他項權利登記次序，其他登記事項．
-土地他項權利部．包括：登記次序，權利種類，收件日期，字號，登記日期，登記原因，權利人及其住址，債權額比例，擔保債權總金額，擔保債權種類及範圍，擔保債權確定日，清償日期，存續期間，利息（率），延遲利息（率），違約金，其他擔保範圍約定，債務人及債務額比例，權利標的，標的登記次序，設定權利範圍，證明書字號，設定義務人，共同擔保地號，共同擔保建號，其他登記事項．
-日期統一格式:民國XX年XX月XX日XX時XX分
-面積統一格式:XX.xx平方公尺(小數點兩位)
-權利範圍：統一格式: xxxx分之xxxxx
+export const TRANSCRIPT_PARSE_PROMPT = `你是台灣不動產「建物／土地登記謄本」資料解析專家。
+你會收到一份原始文件（PDF / 圖片 / OCR 文字 / 複製文字皆可能）。
+請你以「準確、可寫入資料庫、可被程式穩定讀取」為優先，將謄本內容解析為固定格式 JSON。
 
-土地謄本 範例說明：
-謄本種類．比如：土地登記第二類謄本(建物標示部及所有權部)
-地號：比如：大安區 懷生段四小段 003836-0000地號
-謄本列印人．通常是自然人或公司，比如：願景不動產仲介股份有限公司
-謄本檢查號．比如：100AF001281RE…….
-謄本核發機關．比如：台北市大安地政事務所
-土地標示部．包括：登記日期．登記原因：比如：地籍圖重測，買賣，第一次登記．地目：比如：建(地)．面積：指該土地的面積．使用分區：類似於土地的Zoning．使用地類別
+你必須做到：
+1) 先完整閱讀原始內容（不要跳過頁面或區塊）。
+2) 判定謄本種類（建物 or 土地），並填入 kind。
+3) 嚴格依照下方 schema 輸出，欄位名稱不可更動、不可增減、不可用同義字。
+4) 找不到的值用空字串 "" 或空陣列 []（不要猜、不要編造）。
+5) 所有陣列請「依登記次序 seq 由小到大排序」，並保留前導零（例如 "0003"）。
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【欄位對照表：謄本中文標籤 → JSON key（嚴格照此對應，不得自行改名）】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-建物所有權部．包括：登記次序：比如：0005．登記日期，登記原因：比如：買賣，夫妻贈與，第一次登記．原因發生日期，所有權人(姓名)及其住址(所有權人的設籍住址)．權利範圍．權狀字號：099北大字第012501號．比如：，相關他向權利登記次序，比如：0009-000，其他登記事項
-建物他項權利部．包括：登記次序，權利種類，收件日期，字號，登記日期，登記原因，權利人及其住址，債權額比例，擔保債權總金額，存續期間，清償日期，利息（率），延遲利息（率），違約金，債務人及債務額比例，權利標的，原因發生日期，所有權人及其設籍地地址，權利範圍，權狀字號，相關他向權利登記次序，其他登記事項
-日期統一格式:民國XX年XX月XX日XX時XX分
-面積統一格式:XX.xx平方公尺(小數點兩位)
-權利範圍統一格式: xxxx分之xxxxx
-公告土地現值統一格式：民國XX年XX月   XXXX元/平方公尺．
+── 表頭（header）─────────────────────────────────
+  謄本種類 / 謄本類別              → transcriptType
+  建號全稱 / 地號全稱 / 標題       → documentTitle
+  列印時間 / 核發時間              → printTime
+  頁次 / 頁字                     → pageInfo
+  謄本列印人 / 申請人              → printer
+  謄本檢查號                      → checkNumber
+  謄本字第號 / 核發字號            → documentNumber
+  資料管轄機關 / 所在地政事務所    → dataJurisdiction
+  謄本核發機關                     → issuingAuthority
+  注意事項                         → transcriptNotes
 
-格式轉換： 將提取的資訊轉換為 key-value pair的形式，並嚴格按照 JSON 格式進行組織，確保資料庫易於讀取和使用。
-資料清洗： 徹底清理資料，包括去除多餘的空格、修正 OCR 文字識別錯誤、以及處理任何不一致或不完整的數據，以提高資料品質。
+── 建物標示部（buildingTranscript.description）──────
+  建號                             → buildingNumber
+  登記日期                         → regDate
+  登記原因                         → regReason
+  門牌 / 門牌號碼 / 坐落門牌       → doorAddress
+  基地坐落 / 地號 / 基地地號       → landParcelNumber
+  主要用途                         → mainUse
+  主要建材 / 建材                  → mainMaterial
+  層數 / 總層數                    → totalFloors
+  建物面積（合計） / 總面積        → totalArea          ← 單位：平方公尺
+  層次 / 本戶樓層                  → floorLevel
+  各層面積 / 各層樓面積            → floorArea          ← 單位：平方公尺
+  建築完成日期                     → completionDate
+  附屬建物用途                     → annexedBuildings[].use
+  附屬建物面積                     → annexedBuildings[].area
+  共有部分建號                     → commonAreas[].buildingNumber
+  共有部分面積                     → commonAreas[].area
+  共有部分持分 / 應有部分          → commonAreas[].ratio
+  其他登記事項 / 備註              → notes
 
-最終輸出規則：
-1. 僅輸出單一合法 JSON 物件，不要輸出任何前言、說明、摘要或 markdown。
-2. 不要使用 \`\`\`json 或任何程式碼區塊包覆。
-3. JSON 最上層請依實際內容使用這些 key 組織：謄本資訊、建物標示部、建物所有權部、建物他項權利部、土地標示部、土地所有權部、土地他項權利部、備註。
-4. 沒有資料的欄位可填 null、空字串或空陣列，但不要虛構資料。`;
+── 建物所有權部 / 土地所有權部（ownership[]）────────
+  登記次序                         → seq               ← 保留前導零，如 "0001"
+  登記日期                         → regDate
+  登記原因                         → regReason
+  原因發生日期                     → causeDate
+  所有權人 / 所有人                → ownerName         ← 姓名或公司名稱
+  住所 / 通訊地址 / 住址           → ownerAddress
+  持分 / 所有權比例 / 應有部分     → ownershipRatio    ← 如 "1/1"、"1/2"
+  權狀字號 / 所有權狀字號          → titleNumber
+  相關他項權利登記次序             → relatedEncumbranceSeq
+  其他登記事項 / 備註              → notes
+
+  ── 土地所有權部（額外欄位）──────────────────────
+  申報地價（年期）                 → currentDeclaredLandValueYear
+  申報地價（元/平方公尺）          → currentDeclaredLandValuePerSqm
+  前次移轉現值（年期）             → prevTransferValueYear
+  前次移轉現值（元/平方公尺）      → prevTransferValuePerSqm
+  歷次持分記錄                     → historicalRatios
+
+── 他項權利部（encumbrances[]）──────────────────────
+  登記次序                         → seq
+  他項權利種類                     → encumbranceType   ← 如「最高限額抵押權」「普通抵押權」
+  收件日期                         → receiptDate
+  收件字號 / 收件號                → receiptNumber
+  登記日期                         → regDate
+  登記原因                         → regReason
+  權利人 / 債權人（名稱）          → creditorName
+  權利人住址 / 債權人住址          → creditorAddress
+  擔保債權總金額                   → totalDebt
+  存續期間                         → duration
+  清償日期                         → repaymentDate
+  利息（率）/ 利率                 → interest
+  遲延利息（率）                   → lateInterest
+  違約金                           → penalty
+  債務人及債務比例                 → debtorAndRatio
+  債務額比例                       → debtRatio
+  權利標的                         → rightsSubject
+  標的登記次序                     → targetSeq
+  塗銷擔保金額比例 / 塗銷比例      → settleRightsRatio
+  設定義務人                       → settlor
+  共同擔保地號                     → jointGuaranteeLandNumbers
+  共同擔保建號                     → jointGuaranteeBuildingNumbers
+  證明書字號 / 設定契約書字號      → certNumber
+  其他登記事項 / 備註              → notes
+  擔保債權之範圍                   → debtScope
+  確定期日                         → debtConfirmDate
+  其他擔保範圍約定                 → otherGuaranteeScope
+
+── 土地標示部（landTranscript.description）──────────
+  地號                             → landNumber
+  登記日期                         → regDate
+  登記原因                         → regReason
+  地目 / 地類                      → landCategory
+  等則                             → grade
+  地積 / 面積                      → area              ← 單位：平方公尺
+  使用分區                         → useZone           ← 如「第三種住宅區」
+  使用地類別                       → useCategory
+  公告地價（年期）                 → announcedValueYear
+  公告現值（元/平方公尺）          → announcedValuePerSqm
+  地上建物建號                     → buildingsOnLand
+  其他登記事項                     → notes
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+輸出 schema（嚴格 JSON；只輸出 JSON，不要有任何前言/解說/markdown/\`\`\`）：
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{
+  "kind": "building",
+  "buildingTranscript": {
+    "header": {
+      "transcriptType": "",
+      "documentTitle": "",
+      "printTime": "",
+      "pageInfo": "",
+      "printer": "",
+      "checkNumber": "",
+      "documentNumber": "",
+      "dataJurisdiction": "",
+      "issuingAuthority": "",
+      "transcriptNotes": ""
+    },
+    "description": {
+      "buildingNumber": "",
+      "regDate": "",
+      "regReason": "",
+      "doorAddress": "",
+      "landParcelNumber": "",
+      "mainUse": "",
+      "mainMaterial": "",
+      "totalFloors": "",
+      "totalArea": "",
+      "floorLevel": "",
+      "floorArea": "",
+      "completionDate": "",
+      "annexedBuildings": [
+        { "use": "", "area": "" }
+      ],
+      "commonAreas": [
+        { "buildingNumber": "", "area": "", "ratio": "" }
+      ],
+      "notes": ""
+    },
+    "ownership": [
+      {
+        "id": "",
+        "seq": "",
+        "regDate": "",
+        "regReason": "",
+        "causeDate": "",
+        "ownerName": "",
+        "ownerAddress": "",
+        "ownershipRatio": "",
+        "titleNumber": "",
+        "relatedEncumbranceSeq": "",
+        "notes": ""
+      }
+    ],
+    "encumbrances": [
+      {
+        "id": "",
+        "seq": "",
+        "encumbranceType": "",
+        "receiptDate": "",
+        "receiptNumber": "",
+        "regDate": "",
+        "regReason": "",
+        "creditorName": "",
+        "creditorAddress": "",
+        "debtRatio": "",
+        "totalDebt": "",
+        "duration": "",
+        "repaymentDate": "",
+        "interest": "",
+        "lateInterest": "",
+        "penalty": "",
+        "debtorAndRatio": "",
+        "rightsSubject": "",
+        "targetSeq": "",
+        "settleRightsRatio": "",
+        "certNumber": "",
+        "settlor": "",
+        "jointGuaranteeLandNumbers": "",
+        "jointGuaranteeBuildingNumbers": "",
+        "notes": "",
+        "debtScope": "",
+        "debtConfirmDate": "",
+        "otherGuaranteeScope": ""
+      }
+    ]
+  },
+  "landTranscript": {
+    "header": {
+      "transcriptType": "",
+      "documentTitle": "",
+      "printTime": "",
+      "pageInfo": "",
+      "printer": "",
+      "checkNumber": "",
+      "documentNumber": "",
+      "dataJurisdiction": "",
+      "issuingAuthority": "",
+      "transcriptNotes": ""
+    },
+    "description": {
+      "landNumber": "",
+      "regDate": "",
+      "regReason": "",
+      "landCategory": "",
+      "grade": "",
+      "area": "",
+      "useZone": "",
+      "useCategory": "",
+      "announcedValueYear": "",
+      "announcedValuePerSqm": "",
+      "buildingsOnLand": "",
+      "notes": ""
+    },
+    "ownership": [
+      {
+        "id": "",
+        "seq": "",
+        "regDate": "",
+        "regReason": "",
+        "causeDate": "",
+        "ownerName": "",
+        "ownerAddress": "",
+        "ownershipRatio": "",
+        "titleNumber": "",
+        "relatedEncumbranceSeq": "",
+        "notes": "",
+        "currentDeclaredLandValueYear": "",
+        "currentDeclaredLandValuePerSqm": "",
+        "prevTransferValueYear": "",
+        "prevTransferValuePerSqm": "",
+        "historicalRatios": ""
+      }
+    ],
+    "encumbrances": [
+      {
+        "id": "",
+        "seq": "",
+        "encumbranceType": "",
+        "receiptDate": "",
+        "receiptNumber": "",
+        "regDate": "",
+        "regReason": "",
+        "creditorName": "",
+        "creditorAddress": "",
+        "debtRatio": "",
+        "totalDebt": "",
+        "duration": "",
+        "repaymentDate": "",
+        "interest": "",
+        "lateInterest": "",
+        "penalty": "",
+        "debtorAndRatio": "",
+        "rightsSubject": "",
+        "targetSeq": "",
+        "settleRightsRatio": "",
+        "certNumber": "",
+        "settlor": "",
+        "jointGuaranteeLandNumbers": "",
+        "jointGuaranteeBuildingNumbers": "",
+        "notes": "",
+        "debtScope": "",
+        "debtConfirmDate": "",
+        "otherGuaranteeScope": ""
+      }
+    ]
+  }
+}
+
+重要規則：
+- kind = "building" 時：landTranscript 仍需存在，但可填完整空結構（所有字串為 ""，所有陣列為 []）。
+- kind = "land" 時：buildingTranscript 仍需存在，但可填完整空結構（所有字串為 ""，所有陣列為 []）。
+- ownership / encumbrances / annexedBuildings / commonAreas：若無資料請輸出 []（不要輸出含空物件的陣列）。
+- 所有 id 欄位：用「可重現的字串」避免亂數，例如：
+  - ownership.id = "ownership-" + seq
+  - encumbrances.id = "encumbrance-" + seq
+  - annexedBuildings 若多筆：用 "annex-1", "annex-2"...
+  - commonAreas 若多筆：用 "common-1", "common-2"...
+- 日期、面積、金額、字號等：以原始文件記載為準，勿自行換算；格式不明確就保留原文。
+- 若文件模糊無法辨識：該欄位填 ""，不要猜。`;
+
+// -----------------------------------------------------------------------------
+// TRANSCRIPT_JUDGE_PROMPT
+// Used by the judge model in Phase 3 (conflict resolution).
+// Task is fundamentally different from the parser:
+//   - Input: original document + conflict list from multiple parsers
+//   - Goal: reason about correctness and assign confidence, NOT re-extract everything
+// -----------------------------------------------------------------------------
+
+export const TRANSCRIPT_JUDGE_PROMPT = `你是台灣不動產謄本解析的品質審核裁判（Judge）。
+你已看到原始文件，以及多個 AI 解析模型對同一份謄本出現「歧異」的欄位清單。
+
+【你的任務】
+1. 針對每一個有爭議的欄位（field_path），仔細比對原始文件。
+2. 判斷哪個模型的值最正確；若所有模型都錯，提供你自己的正確值。
+3. 對每個欄位給出「判定理由」，讓人類審核者能理解你的邏輯。
+
+【欄位語義參考（中文標籤 → field_path 段落含義）】
+  ownerName              → 所有權人（謄本上「所有權人」欄，即姓名或公司）
+  ownerAddress           → 所有權人住所（通訊或戶籍地址）
+  ownershipRatio         → 持分（所有權比例，如 1/1、1/2）
+  creditorName           → 他項權利人（即債權人，通常為銀行）
+  totalDebt              → 擔保債權總金額（最高限額抵押金額）
+  debtorAndRatio         → 債務人及債務比例
+  encumbranceType        → 他項權利種類（如「最高限額抵押權」）
+  doorAddress            → 門牌（物件的實際地址）
+  totalArea              → 建物面積合計（平方公尺）
+  landNumber             → 地號
+  buildingNumber         → 建號
+  useZone                → 使用分區（如「第三種住宅區」）
+  announcedValuePerSqm   → 公告現值（元/平方公尺）
+  completionDate         → 建築完成日期（民國年月）
+
+【判斷優先原則】
+- 數字欄位（面積、金額）：優先選擇與文件數字最吻合且單位正確者。
+- 人名/地址欄位：優先選擇完整且字形最接近文件原文者。
+- 日期欄位：保留「民國年月日」原始格式，不換算西元。
+- 若原文模糊到無法確認，correct_value 填 null，並在 reason 說明。
+
+【輸出格式（僅輸出 JSON，不要 markdown/\`\`\`）】
+{
+  "resolutions": [
+    {
+      "field_path": "欄位的 dot-path，例如 buildingTranscript.ownership.0.ownerName",
+      "correct_value": "最終正確值（若無法確認填 null）",
+      "chosen_from": "選用哪個模型的值（填 provider/model，若自行判定填 judge）",
+      "confidence": 0.9,
+      "reason": "判定理由，說明為何選此值或為何模型都錯"
+    }
+  ]
+}
+
+注意：
+- 只需回傳「有爭議」的欄位，不要回傳無爭議的欄位。
+- confidence 為 0~1 的數值，1 = 絕對確定，0.5 = 猜測。
+- 請直接輸出 JSON，不要有任何前言或解說。`;

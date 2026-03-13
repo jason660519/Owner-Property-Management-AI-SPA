@@ -135,13 +135,17 @@ describe('NumberComboBox — typing', () => {
     render(<NumberComboBox value={0} onChange={jest.fn()} />);
     const input = screen.getByRole('textbox');
 
-    const event = fireEvent.keyDown(input, { key: 'a' });
-    // The handler calls preventDefault — event.defaultPrevented should be true
-    expect(event).toBe(true); // fireEvent returns true when event wasn't prevented...
-    // Use a more direct assertion: simulate and check input unchanged
-    fireEvent.focus(input);
-    fireEvent.change(input, { target: { value: '0' } }); // stays as-is
-    expect((input as HTMLInputElement).value).toBe('0');
+    // fireEvent returns false when the handler called preventDefault()
+    const notCancelled = fireEvent.keyDown(input, { key: 'a' });
+    expect(notCancelled).toBe(false);
+  });
+
+  it('allows digit keydown events through', () => {
+    render(<NumberComboBox value={0} onChange={jest.fn()} />);
+    const input = screen.getByRole('textbox');
+
+    const notCancelled = fireEvent.keyDown(input, { key: '5' });
+    expect(notCancelled).toBe(true);
   });
 });
 

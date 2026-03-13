@@ -5,7 +5,6 @@
 import { useState, useTransition, useEffect } from 'react';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { savePropertyTranscriptData } from '@/lib/actions/properties';
-import { mapParsedResultToBuildingForm } from '@/lib/utils/transcript-parsed-to-form';
 import type {
   BuildingTranscriptData,
   BuildingDescription,
@@ -13,7 +12,6 @@ import type {
   OwnershipRecord,
   EncumbranceRecord,
 } from '@/lib/types/properties';
-import type { LandRegistryParsedResult } from '@/lib/types/transcript';
 
 const iCls =
   'w-full border border-border-default rounded-md px-2 py-1.5 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent';
@@ -87,9 +85,9 @@ interface Props {
   propertyId: string;
   propertyType: 'sale' | 'rental';
   initialData?: BuildingTranscriptData | null;
-  /** When set, fill form from this parsed result (e.g. after user clicks 謄寫). Cleared by parent after apply. */
-  fillFromParsedResult?: LandRegistryParsedResult | null;
-  /** Called after form has applied fillFromParsedResult so parent can clear it */
+  /** When set, fill form from this parsed transcript (after user clicks 謄寫). Cleared by parent after apply. */
+  fillFromParsedTranscript?: BuildingTranscriptData | null;
+  /** Called after form has applied fillFromParsedTranscript so parent can clear it */
   onTranscribeApplied?: () => void;
 }
 
@@ -97,7 +95,7 @@ export function BuildingTranscriptForm({
   propertyId,
   propertyType,
   initialData,
-  fillFromParsedResult,
+  fillFromParsedTranscript,
   onTranscribeApplied,
 }: Props) {
   const [isPending, startTransition] = useTransition();
@@ -108,18 +106,26 @@ export function BuildingTranscriptForm({
   const [encumbrances, setEncumbrances] = useState<EncumbranceRecord[]>(initialData?.encumbrances ?? []);
 
   useEffect(() => {
-    if (!fillFromParsedResult) return;
+    if (!fillFromParsedTranscript) return;
     try {
-      const { header: h, description: d, ownership: o, encumbrances: e } =
-        mapParsedResultToBuildingForm(fillFromParsedResult);
-      setHeader(h);
-      setDesc(d);
-      setOwnership(o.length > 0 ? o : [emptyOwnership()]);
-      setEncumbrances(e.length > 0 ? e : encumbrances.length > 0 ? encumbrances : [emptyEncumbrance()]);
+      setHeader(fillFromParsedTranscript.header ?? emptyHeader());
+      setDesc(fillFromParsedTranscript.description ?? emptyDescription());
+      setOwnership(
+        (fillFromParsedTranscript.ownership?.length ?? 0) > 0
+          ? fillFromParsedTranscript.ownership
+          : [emptyOwnership()],
+      );
+      setEncumbrances(
+        (fillFromParsedTranscript.encumbrances?.length ?? 0) > 0
+          ? fillFromParsedTranscript.encumbrances
+          : encumbrances.length > 0
+            ? encumbrances
+            : [emptyEncumbrance()],
+      );
     } finally {
       onTranscribeApplied?.();
     }
-  }, [fillFromParsedResult, onTranscribeApplied, encumbrances.length]);
+  }, [fillFromParsedTranscript, onTranscribeApplied, encumbrances.length]);
 
   function uh<K extends keyof TranscriptHeader>(key: K, val: TranscriptHeader[K]) {
     setHeader((h) => ({ ...h, [key]: val }));

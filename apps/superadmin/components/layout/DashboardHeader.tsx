@@ -38,7 +38,7 @@ export function DashboardHeader({ userRoles = [] }: DashboardHeaderProps) {
       localStorage.clear();
       sessionStorage.clear();
       // Redirect to Main Site Login
-      window.location.href = `${MAIN_SITE_URL}/login`;
+      window.location.assign(`${MAIN_SITE_URL}/login`);
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -49,7 +49,7 @@ export function DashboardHeader({ userRoles = [] }: DashboardHeaderProps) {
   const handleSwitchRole = (role: string) => {
     // 導向 Web App Portal 的特定角色入口，交給 /portal/[role] 自行轉址到對應 Dashboard
     const target = `${MAIN_SITE_URL}/portal/${encodeURIComponent(role)}`;
-    window.location.href = target;
+    window.location.assign(target);
   };
 
   const navLinks = [

@@ -6,10 +6,10 @@
 'use server';
 
 import { parseTranscriptWithConsensus } from './consensus-parse';
-import type { LandRegistryParsedResult } from '@/lib/types/transcript';
+import type { TranscriptParseOutput } from '@/lib/types/transcript';
 
 export type ParseTranscriptResult =
-  | { success: true; data: LandRegistryParsedResult }
+  | { success: true; data: TranscriptParseOutput }
   | { success: false; message: string };
 
 /**

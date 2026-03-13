@@ -21,14 +21,14 @@ import {
   resolveParserConcurrency,
 } from '@/lib/utils/parser-concurrency';
 import { getDocumentParseResult } from '@/lib/actions/properties';
-import type { PropertyDocumentItem } from '@/lib/types/properties';
-import type { LandRegistryParsedResult, ConsensusMetadata, ConflictDetail } from '@/lib/types/transcript';
+import type { PropertyDocumentItem, BuildingTranscriptData, LandTranscriptData } from '@/lib/types/properties';
+import type { TranscriptParseOutput, ConsensusMetadata, ConflictDetail } from '@/lib/types/transcript';
 import {
   getAvailableModelsListWithStaticFallback,
 } from '@/lib/utils/total-available-models';
 import { getStatusDisplay } from '@/lib/utils/model-status';
 import { readLocalStorage, writeLocalStorage, readSessionStorage } from '@/lib/utils/storage-state';
-import { normalizeLocalParsedToCloudSchema } from '@/lib/utils/transcript-parsed-to-form';
+import { normalizeLocalParsedToBuildingTranscriptData } from '@/lib/utils/transcript-parsed-to-form';
 import Link from 'next/link';
 
 // ---------------------------------------------------------------------------
@@ -45,7 +45,7 @@ type SSEEvent =
   | { type: 'model_skipped'; provider: string; model: string; index: number }
   | { type: 'judge_start'; message: string; conflictCount: number }
   | { type: 'judge_done'; success: boolean }
-  | { type: 'complete'; result: LandRegistryParsedResult; metadata: ConsensusMetadata }
+  | { type: 'complete'; result: TranscriptParseOutput; metadata: ConsensusMetadata }
   | { type: 'error'; message: string };
 
 interface ModelProgressItem {
@@ -64,8 +64,8 @@ interface Props {
   transcriptDocs: PropertyDocumentItem[];
   /** 解析目標：建物謄本 or 土地謄本（預設為建物） */
   kind?: 'building' | 'land';
-  /** When provided, show "謄寫" button and call with parse result to fill building form below */
-  onTranscribe?: (result: LandRegistryParsedResult) => void;
+  /** When provided, show "謄寫" button and call with parse result to fill the form below */
+  onTranscribe?: (result: BuildingTranscriptData | LandTranscriptData) => void;
 }
 
 const OCR_SETTINGS_HREF = '/superadmin/settings/api_key_and_model_setting#ocr';
@@ -145,7 +145,7 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTr
   const [modelProgress, setModelProgress] = useState<ModelProgressItem[]>([]);
 
   // Results
-  const [parseResult, setParseResult] = useState<LandRegistryParsedResult | null>(null);
+  const [parseResult, setParseResult] = useState<TranscriptParseOutput | null>(null);
   const [parseMetadata, setParseMetadata] = useState<ConsensusMetadata | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [showConflicts, setShowConflicts] = useState(false);
@@ -525,6 +525,14 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTr
     setModelProgress([]);
     setPhaseLabel('初始化中…');
 
+    // P1.1: Include local parse result in consensus if one is available.
+    // The local result (now in TranscriptParseOutput unified schema) participates
+    // as a virtual "local/local-regex-parser" model in Phase 2 majority voting.
+    const localResultForConsensus =
+      localParseResult && 'kind' in localParseResult
+        ? (localParseResult as unknown as import('@/lib/types/transcript').TranscriptParseOutput & { field_confidences?: Record<string, number> })
+        : undefined;
+
     try {
       const response = await fetch('/api/transcript-parse/stream', {
         method: 'POST',
@@ -539,6 +547,7 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTr
               ? enabledParserModels.map((m) => ({ provider: m.provider, model: m.model }))
               : undefined,
           overrideJudgeModel: effectiveJudgeModel ?? undefined,
+          injectedLocalResult: localResultForConsensus,
         }),
         signal: abort.signal,
       });
@@ -615,7 +624,17 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTr
       });
       const data = (await response.json()) as Record<string, unknown>;
       if (!response.ok) {
-        setLocalParseError((data.error as string) ?? `請求失敗 (${response.status})`);
+        const errMsg = (data.error as string) ?? `請求失敗 (${response.status})`;
+        // P0.2: Auto-fallback to cloud when PDF has no text layer
+        const isNoTextLayer =
+          response.status === 422 &&
+          (errMsg.includes('無可提取的文字層') || errMsg.includes('請改用雲端解析'));
+        if (isNoTextLayer) {
+          setLocalParseError(`${errMsg}（已自動啟動雲端解析）`);
+          void handleParse();
+        } else {
+          setLocalParseError(errMsg);
+        }
         return;
       }
       setLocalParseResult(data);
@@ -1074,10 +1093,17 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTr
               {onTranscribe && (
                 <button
                   type="button"
-                  onClick={() => parseResult && onTranscribe(parseResult)}
+                  onClick={() => {
+                    if (!parseResult) return;
+                    const dataToFill =
+                      kind === 'building'
+                        ? parseResult.buildingTranscript
+                        : parseResult.landTranscript;
+                    onTranscribe(dataToFill);
+                  }}
                   disabled={!parseResult}
                   className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-border-default hover:bg-bg-tertiary text-text-secondary disabled:opacity-50"
-                  title="將解析結果謄寫至下方建物全部欄位"
+                  title={`將解析結果謄寫至下方${kind === 'building' ? '建物' : '土地'}全部欄位`}
                 >
                   <PenLine size={12} /> 謄寫
                 </button>
@@ -1117,12 +1143,17 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTr
               >
                 <Copy size={12} /> 複製
               </button>
-              {onTranscribe && localParseResult.parsed && (
+              {onTranscribe && kind === 'building' && Boolean(localParseResult.parsed) && (
                 <button
                   type="button"
-                  onClick={() =>
-                    onTranscribe(normalizeLocalParsedToCloudSchema(localParseResult.parsed))
-                  }
+                  onClick={() => {
+                    // New unified schema: buildingTranscript is directly usable; legacy format: .parsed
+                    onTranscribe(normalizeLocalParsedToBuildingTranscriptData(
+                      (localParseResult as Record<string, unknown>).buildingTranscript ??
+                      (localParseResult as Record<string, unknown>).parsed ??
+                      localParseResult,
+                    ));
+                  }}
                   className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-border-default hover:bg-bg-tertiary text-text-secondary"
                   title="將解析結果謄寫至下方建物全部欄位"
                 >

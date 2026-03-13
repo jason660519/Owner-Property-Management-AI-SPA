@@ -1,9 +1,6 @@
-import {
-  mapParsedResultToBuildingForm,
-  normalizeLocalParsedToCloudSchema,
-} from '../transcript-parsed-to-form';
+import { normalizeLocalParsedToBuildingTranscriptData } from '../transcript-parsed-to-form';
 
-describe('mapParsedResultToBuildingForm (Cloud AI Result → form)', () => {
+describe('normalizeLocalParsedToBuildingTranscriptData', () => {
   it('strips 「平方公尺」 unit for annexed building and common area when using cloud parsed result', () => {
     const parsed: any = {
       謄本資訊: {
@@ -20,7 +17,7 @@ describe('mapParsedResultToBuildingForm (Cloud AI Result → form)', () => {
       他項權利部: {},
     };
 
-    const { description } = mapParsedResultToBuildingForm(parsed);
+    const { description } = normalizeLocalParsedToBuildingTranscriptData(parsed);
 
     expect(description.annexedBuildings[0]?.area).toBe('20.07 平方公尺');
     expect(description.commonAreas[0]?.area).toBe('2,029.25 平方公尺');
@@ -64,7 +61,7 @@ describe('mapParsedResultToBuildingForm (Cloud AI Result → form)', () => {
       ],
     };
 
-    const { description, ownership, encumbrances } = mapParsedResultToBuildingForm(parsed);
+    const { description, ownership, encumbrances } = normalizeLocalParsedToBuildingTranscriptData(parsed);
 
     expect(description.annexedBuildings).toHaveLength(2);
     expect(description.annexedBuildings[0]).toEqual({ use: '陽台', area: '20.07' });
@@ -154,8 +151,8 @@ describe('mapParsedResultToBuildingForm (Cloud AI Result → form)', () => {
       ],
     };
 
-    const normalized = normalizeLocalParsedToCloudSchema(localParsed);
-    const { header, description, ownership, encumbrances } = mapParsedResultToBuildingForm(normalized);
+    const { header, description, ownership, encumbrances } =
+      normalizeLocalParsedToBuildingTranscriptData(localParsed);
 
     expect(header.printer).toBe('願景不動產仲介股份有限公司');
     expect(header.checkNumber).toBe('102AF007115REG03135F0D8C4F040059A60088EE8028AB');

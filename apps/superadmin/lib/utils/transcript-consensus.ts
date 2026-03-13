@@ -3,7 +3,7 @@
 // Deterministic field-level majority vote — no AI calls involved.
 
 import type {
-  LandRegistryParsedResult,
+  TranscriptParseOutput,
   ModelParseResult,
   ConsensusMetadata,
   ConflictDetail,
@@ -221,7 +221,7 @@ function walkAndVote(
 // ---------------------------------------------------------------------------
 
 export interface ConsensusResult {
-  merged: LandRegistryParsedResult;
+  merged: TranscriptParseOutput;
   metadata: ConsensusMetadata;
 }
 
@@ -233,7 +233,9 @@ export function buildConsensus(
   results: ModelParseResult[],
   totalDurationMs: number
 ): ConsensusResult {
-  const successful = results.filter((r) => r.result !== null);
+  const successful = results.filter(
+    (r): r is ModelParseResult & { result: TranscriptParseOutput } => r.result !== null
+  );
   const modelsUsed: ModelInfo[] = results.map((r) => ({
     provider: r.provider,
     model: r.model,
@@ -244,7 +246,7 @@ export function buildConsensus(
   // Edge case: no successful results
   if (successful.length === 0) {
     return {
-      merged: {} as LandRegistryParsedResult,
+      merged: {} as TranscriptParseOutput,
       metadata: {
         strategy: 'consensus',
         field_confidences: {},
@@ -262,12 +264,12 @@ export function buildConsensus(
     const ctx: WalkContext = { fieldConfidences: {}, conflicts: [] };
     // Walk to populate field_confidences (all at 0.3)
     walkAndVote(
-      [{ provider: solo.provider, model: solo.model, obj: solo.result as Record<string, unknown> }],
+      [{ provider: solo.provider, model: solo.model, obj: solo.result as unknown as Record<string, unknown> }],
       '',
       ctx
     );
     return {
-      merged: solo.result as LandRegistryParsedResult,
+      merged: solo.result as TranscriptParseOutput,
       metadata: {
         strategy: 'consensus',
         field_confidences: ctx.fieldConfidences,
@@ -284,10 +286,10 @@ export function buildConsensus(
   const walkable = successful.map((r) => ({
     provider: r.provider,
     model: r.model,
-    obj: r.result as Record<string, unknown>,
+    obj: r.result as unknown as Record<string, unknown>,
   }));
 
-  const merged = walkAndVote(walkable, '', ctx) as LandRegistryParsedResult;
+  const merged = walkAndVote(walkable, '', ctx) as unknown as TranscriptParseOutput;
   const totalConfidence = calculateTotalConfidence(ctx.fieldConfidences);
 
   return {
@@ -329,11 +331,11 @@ export function getConflictsNeedingJudge(
  * Apply judge resolutions to merged result and update metadata.
  */
 export function applyJudgeResolutions(
-  merged: LandRegistryParsedResult,
+  merged: TranscriptParseOutput,
   metadata: ConsensusMetadata,
-  resolutions: { field_path: string; correct_value: unknown; reason?: string }[],
+  resolutions: { field_path: string; correct_value: unknown; confidence?: number; reason?: string }[],
   judgeInfo: ModelInfo
-): { merged: LandRegistryParsedResult; metadata: ConsensusMetadata } {
+): { merged: TranscriptParseOutput; metadata: ConsensusMetadata } {
   const updatedMerged = JSON.parse(JSON.stringify(merged)) as Record<string, unknown>;
   const updatedMetadata: ConsensusMetadata = {
     ...metadata,
@@ -346,8 +348,9 @@ export function applyJudgeResolutions(
     // Set value in merged object via dot-path
     setNestedValue(updatedMerged, resolution.field_path, resolution.correct_value);
 
-    // Update confidence for this field
-    updatedMetadata.field_confidences[resolution.field_path] = 0.85;
+    // Use judge's own confidence if provided; fall back to 0.85
+    updatedMetadata.field_confidences[resolution.field_path] =
+      typeof resolution.confidence === 'number' ? resolution.confidence : 0.85;
 
     // Update conflict status
     const conflictIdx = updatedMetadata.conflicts.findIndex(
@@ -366,7 +369,7 @@ export function applyJudgeResolutions(
   updatedMetadata.total_confidence = calculateTotalConfidence(updatedMetadata.field_confidences);
 
   return {
-    merged: updatedMerged as LandRegistryParsedResult,
+    merged: updatedMerged as unknown as TranscriptParseOutput,
     metadata: updatedMetadata,
   };
 }

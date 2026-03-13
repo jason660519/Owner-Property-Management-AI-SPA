@@ -13,7 +13,10 @@ export default function DocsLoading() {
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="flex items-center gap-2">
               <div className="w-4 h-4 bg-bg-tertiary rounded animate-pulse" />
-              <div className="h-4 bg-bg-tertiary rounded animate-pulse" style={{ width: `${60 + Math.random() * 80}px` }} />
+              <div
+                className="h-4 bg-bg-tertiary rounded animate-pulse"
+                style={{ width: `${60 + ((i * 37) % 80)}px` }}
+              />
             </div>
           ))}
         </div>

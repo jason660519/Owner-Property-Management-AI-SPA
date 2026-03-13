@@ -13,6 +13,7 @@ parse_land_transcript(raw_text)     -> LandTranscript
 """
 
 from .transcript_pdf_reader import extract_transcript
+from .schema_converter import to_unified_output
 from .building_transcript_parser import (
     BuildingTranscript,
     BuildingDescription,
@@ -33,6 +34,7 @@ from .cjk_normalize import normalize as cjk_normalize
 
 __all__ = [
     "extract_transcript",
+    "to_unified_output",
     "BuildingTranscript",
     "BuildingDescription",
     "OwnerRecord",

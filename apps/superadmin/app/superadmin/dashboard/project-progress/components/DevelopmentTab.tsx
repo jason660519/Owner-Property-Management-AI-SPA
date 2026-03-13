@@ -14,16 +14,19 @@ import {
   Save,
   AlignLeft,
   Eye,
+  EyeOff,
+  Plus,
   Play,
   Loader2,
   Square,
   ExternalLink,
   Settings,
+  X,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { getProjectProgressSettings, setProjectProgressSettings } from '../actions';
 import { useAISettings } from '@/lib/hooks/useAISettings';
-import type { ProjectProgressSettingsPayload } from '../types';
+import type { CustomProjectProgressRowPayload, ProjectProgressSettingsPayload } from '../types';
 
 // --- Types ---
 
@@ -49,6 +52,13 @@ type SelectionType = 'cell' | 'column' | 'row' | 'all' | null;
 type IDEOption = '' | 'Cursor' | 'VSCode' | 'Antigravity' | 'Claude CLI' | 'TRAE';
 
 type RowStatus = '' | 'completed' | 'in_progress' | 'not_started' | 'on_hold';
+
+type RowSource = 'roadmap' | 'custom';
+
+type ProgressRow = RoadmapFeature & {
+  __rowId: string;
+  __source: RowSource;
+};
 
 // --- Constants ---
 
@@ -243,10 +253,9 @@ function getDefaultPrompt(ctx: PromptContext): string {
 /** 從當前 Modal 狀態組出 PromptContext，供更新 Prompt 文案使用 */
 function buildPromptContext(
   feature: RoadmapFeature,
-  rowIdx: number,
+  rowId: string,
   ideLabel: string
 ): PromptContext {
-  const rowId = (rowIdx + 1).toString().padStart(3, '0');
   return {
     rowId,
     ideLabel: ideLabel || '（尚未選擇 IDE）',
@@ -267,9 +276,22 @@ const DEFAULT_HEADER_HEIGHT = 56;
 const MIN_HEADER_HEIGHT = 40;
 const MAX_HEADER_HEIGHT = 120;
 const ALIGNMENT_STORAGE_KEY = 'project_progress_col_alignments_v1';
+const CUSTOM_ROWS_STORAGE_KEY = 'project_progress_custom_rows_v1';
+const HIDDEN_ROW_KEYS_STORAGE_KEY = 'project_progress_hidden_row_keys_v1';
 const DEFAULT_COLUMN_ALIGNMENT: ColumnAlignment = { h: 'left', v: 'middle' };
 
 // --- Utilities ---
+
+function normalizeRowIdInput(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  if (/^\d+$/.test(trimmed)) return trimmed.padStart(3, '0');
+  return trimmed;
+}
+
+function getRowKey(source: RowSource, rowId: string): string {
+  return `${source}:${rowId}`;
+}
 
 function normalizeWidths(widths: number[]): number[] {
   const sum = widths.reduce((a, b) => a + b, 0);
@@ -349,9 +371,52 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   const [ideSelections, setIdeSelections] = useState<Record<string, IDEOption>>({});
   const [statusSelections, setStatusSelections] = useState<Record<string, RowStatus>>({});
 
+  const [hiddenRowKeys, setHiddenRowKeys] = useState<Set<string>>(new Set());
+  const [showHiddenRows, setShowHiddenRows] = useState(false);
+
+  const [customRows, setCustomRows] = useState<CustomProjectProgressRowPayload[]>([]);
+  const [addRowOpen, setAddRowOpen] = useState(false);
+  const [draftRowId, setDraftRowId] = useState('');
+  const [draftCategory, setDraftCategory] = useState('自訂 (Custom)');
+  const [draftLocatedPage, setDraftLocatedPage] = useState('');
+  const [draftFeatureName, setDraftFeatureName] = useState('');
+  const [draftError, setDraftError] = useState<string | null>(null);
+
+  const rows = useMemo<ProgressRow[]>(() => {
+    const base: ProgressRow[] = features.map((f, idx) => ({
+      ...f,
+      __rowId: (idx + 1).toString().padStart(3, '0'),
+      __source: 'roadmap',
+    }));
+
+    const custom = customRows.reduce<ProgressRow[]>((acc, r) => {
+      const id = normalizeRowIdInput(r.rowId);
+      if (!id) return acc;
+      const name = r.name.trim();
+      const category = r.category.trim();
+      if (!name || !category) return acc;
+      acc.push({
+        name,
+        category,
+        locatedPage: r.locatedPage?.trim() || undefined,
+        percentage: typeof r.percentage === 'number' ? r.percentage : 0,
+        featureSpecDocPath: r.featureSpecDocPath?.trim() || undefined,
+        tddSpecDocPath: r.tddSpecDocPath?.trim() || undefined,
+        docPath: r.docPath?.trim() || undefined,
+        testCoverage: typeof r.testCoverage === 'number' ? r.testCoverage : undefined,
+        e2eTestCoverage: typeof r.e2eTestCoverage === 'number' ? r.e2eTestCoverage : undefined,
+        __rowId: id,
+        __source: 'custom',
+      });
+      return acc;
+    }, []);
+
+    return [...base, ...custom];
+  }, [features, customRows]);
+
   const [promptConfigFeature, setPromptConfigFeature] = useState<{
-    feature: RoadmapFeature;
-    rowIdx: number;
+    row: ProgressRow;
+    rowKey: string;
   } | null>(null);
   const [promptConfigIDE, setPromptConfigIDE] = useState<IDEOption>('');
   const [promptConfigWorkCategory, setPromptConfigWorkCategory] = useState<string>('');
@@ -366,14 +431,14 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   useEffect(() => {
     setStatusSelections(prev => {
       const next: Record<string, RowStatus> = { ...prev };
-      for (const feature of features) {
-        const key = feature.name;
+      for (const row of rows) {
+        const key = getRowKey(row.__source, row.__rowId);
         if (next[key]) continue;
-        next[key] = deriveRowStatus(feature);
+        next[key] = deriveRowStatus(row);
       }
       return next;
     });
-  }, [features]);
+  }, [rows]);
 
   // Load settings
   useEffect(() => {
@@ -428,6 +493,24 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
         );
         setWidthPresets(valid as WidthPreset[]);
         localStorage.setItem(WIDTH_PRESETS_KEY, JSON.stringify(valid));
+      }
+      if (data?.customRows && Array.isArray(data.customRows)) {
+        const valid = data.customRows
+          .map((r: CustomProjectProgressRowPayload) => ({
+            ...r,
+            rowId: normalizeRowIdInput(r.rowId),
+            name: r.name?.trim?.() ?? '',
+            category: r.category?.trim?.() ?? '',
+            locatedPage: r.locatedPage?.trim?.() || undefined,
+          }))
+          .filter(r => Boolean(r.rowId) && Boolean(r.name) && Boolean(r.category));
+        setCustomRows(valid);
+        localStorage.setItem(CUSTOM_ROWS_STORAGE_KEY, JSON.stringify(valid));
+      }
+      if (data?.hiddenRowKeys && Array.isArray(data.hiddenRowKeys)) {
+        const valid = data.hiddenRowKeys.filter((k: unknown): k is string => typeof k === 'string' && k.trim().length > 0);
+        setHiddenRowKeys(new Set(valid));
+        localStorage.setItem(HIDDEN_ROW_KEYS_STORAGE_KEY, JSON.stringify(valid));
       }
       if (data) {
         initialLoadDoneRef.current = true;
@@ -506,6 +589,48 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
           console.error('Failed to parse width presets', e);
         }
       }
+      const customRaw = localStorage.getItem(CUSTOM_ROWS_STORAGE_KEY);
+      if (customRaw) {
+        try {
+          const parsed = JSON.parse(customRaw) as unknown;
+          if (Array.isArray(parsed)) {
+            const valid = parsed
+              .filter((r: unknown): r is CustomProjectProgressRowPayload =>
+                typeof r === 'object' &&
+                r !== null &&
+                'rowId' in r &&
+                'name' in r &&
+                'category' in r &&
+                typeof (r as CustomProjectProgressRowPayload).rowId === 'string' &&
+                typeof (r as CustomProjectProgressRowPayload).name === 'string' &&
+                typeof (r as CustomProjectProgressRowPayload).category === 'string'
+              )
+              .map(r => ({
+                ...r,
+                rowId: normalizeRowIdInput(r.rowId),
+                name: r.name.trim(),
+                category: r.category.trim(),
+                locatedPage: r.locatedPage?.trim() || undefined,
+              }))
+              .filter(r => Boolean(r.rowId) && Boolean(r.name) && Boolean(r.category));
+            setCustomRows(valid);
+          }
+        } catch (e) {
+          console.error('Failed to parse custom rows', e);
+        }
+      }
+      const hiddenRaw = localStorage.getItem(HIDDEN_ROW_KEYS_STORAGE_KEY);
+      if (hiddenRaw) {
+        try {
+          const parsed = JSON.parse(hiddenRaw) as unknown;
+          if (Array.isArray(parsed)) {
+            const valid = parsed.filter((k: unknown): k is string => typeof k === 'string' && k.trim().length > 0);
+            setHiddenRowKeys(new Set(valid));
+          }
+        } catch (e) {
+          console.error('Failed to parse hidden rows', e);
+        }
+      }
       initialLoadDoneRef.current = true;
     })();
     return () => { cancelled = true; };
@@ -521,12 +646,16 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
       freezeRowCount,
       frozenDataColCount,
       widthPresets,
+      customRows,
+      hiddenRowKeys: Array.from(hiddenRowKeys),
     };
     const t = setTimeout(() => {
+      localStorage.setItem(CUSTOM_ROWS_STORAGE_KEY, JSON.stringify(customRows));
+      localStorage.setItem(HIDDEN_ROW_KEYS_STORAGE_KEY, JSON.stringify(Array.from(hiddenRowKeys)));
       void setProjectProgressSettings(payload);
     }, 500);
     return () => clearTimeout(t);
-  }, [colWidths, headerHeight, columnAlignments, freezeRowCount, frozenDataColCount, widthPresets]);
+  }, [colWidths, headerHeight, columnAlignments, freezeRowCount, frozenDataColCount, widthPresets, customRows, hiddenRowKeys]);
 
   // Compute column pixel widths
   useEffect(() => {
@@ -683,18 +812,29 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
 
   // Filtering
   const filteredFeatures = useMemo(() => {
-    return features.filter(f => {
-      const matchesSearch = f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        f.category.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategoryDropdown = !categoryFilterSingle || f.category === categoryFilterSingle;
-      const matchesCategory = selectedCategories.size === 0 || selectedCategories.has(f.category);
+    const q = searchQuery.toLowerCase();
+    return rows.filter(r => {
+      const rowKey = getRowKey(r.__source, r.__rowId);
+      const isHidden = hiddenRowKeys.has(rowKey);
+      if (isHidden && !showHiddenRows) return false;
+      const matchesSearch = r.name.toLowerCase().includes(q) ||
+        r.category.toLowerCase().includes(q) ||
+        (r.locatedPage ?? '').toLowerCase().includes(q);
+      const matchesCategoryDropdown = !categoryFilterSingle || r.category === categoryFilterSingle;
+      const matchesCategory = selectedCategories.size === 0 || selectedCategories.has(r.category);
       return matchesSearch && matchesCategoryDropdown && matchesCategory;
     });
-  }, [features, searchQuery, categoryFilterSingle, selectedCategories]);
+  }, [rows, searchQuery, categoryFilterSingle, selectedCategories, hiddenRowKeys, showHiddenRows]);
+
+  const hiddenRowsList = useMemo(() => {
+    const map = new Map<string, ProgressRow>();
+    rows.forEach(r => map.set(getRowKey(r.__source, r.__rowId), r));
+    return Array.from(hiddenRowKeys).map(key => ({ key, row: map.get(key) }));
+  }, [rows, hiddenRowKeys]);
 
   const categoryList = useMemo(
-    () => Array.from(new Set(features.map(f => f.category))).sort(),
-    [features]
+    () => Array.from(new Set(rows.map(r => r.category))).sort(),
+    [rows]
   );
 
   const toggleCategory = (cat: string) => {
@@ -808,11 +948,12 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
     );
   }, [colWidths, frozenDataColCount, frozenColLeftOffsets, selectionType, selectedRow, selectedCol, isAllSelected, columnAlignments]);
 
-  const openPromptConfig = (feature: RoadmapFeature, rowIdx: number) => {
-    const currentIDE = ideSelections[feature.name] ?? '';
-    const ctx = buildPromptContext(feature, rowIdx, currentIDE);
+  const openPromptConfig = (row: ProgressRow) => {
+    const rowKey = getRowKey(row.__source, row.__rowId);
+    const currentIDE = ideSelections[rowKey] ?? '';
+    const ctx = buildPromptContext(row, row.__rowId, currentIDE);
 
-    setPromptConfigFeature({ feature, rowIdx });
+    setPromptConfigFeature({ row, rowKey });
     setPromptConfigIDE(currentIDE);
     setPromptConfigWorkCategory('');
     setPromptText(getDefaultPrompt(ctx));
@@ -853,15 +994,15 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
     setPromptError(null);
     setIsExecutingPrompt(true);
     try {
-      const { feature, rowIdx } = promptConfigFeature;
-      const rowId = (rowIdx + 1).toString().padStart(3, '0');
+      const { row, rowKey } = promptConfigFeature;
+      const rowId = row.__rowId;
 
       setIdeSelections(prev => ({
         ...prev,
-        [feature.name]: promptConfigIDE,
+        [rowKey]: promptConfigIDE,
       }));
-      const featureSpec = feature.featureSpecDocPath?.trim() || null;
-      const tddSpec = feature.tddSpecDocPath?.trim() || null;
+      const featureSpec = row.featureSpecDocPath?.trim() || null;
+      const tddSpec = row.tddSpecDocPath?.trim() || null;
       const unitFolder = `apps/superadmin/unit_and_integration_test/${rowId}`;
       const e2eFolder = `apps/superadmin/e2e/${rowId}`;
 
@@ -873,7 +1014,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
         },
         body: JSON.stringify({
           rowId,
-          featureName: feature.name,
+          featureName: row.name,
           ide: promptConfigIDE,
           prompt: promptText,
           metadata: {
@@ -1121,6 +1262,51 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                       ))}
                     </div>
                   </div>
+                  <div className="border-t border-border-light mt-1 pt-1">
+                    <div className="px-3 py-1 text-[10px] text-text-muted">Row</div>
+                    <label className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-bg-secondary text-sm text-text-primary">
+                      <input
+                        type="checkbox"
+                        checked={showHiddenRows}
+                        onChange={(e) => setShowHiddenRows(e.target.checked)}
+                        className="rounded border-border-default text-emerald-600 focus:ring-emerald-500/20"
+                      />
+                      <span className="truncate">顯示隱藏列 {hiddenRowKeys.size > 0 ? `(${hiddenRowKeys.size})` : ''}</span>
+                    </label>
+                    {hiddenRowKeys.size > 0 && (
+                      <>
+                        <div className="px-3 pb-1">
+                          <button
+                            type="button"
+                            onClick={() => setHiddenRowKeys(new Set())}
+                            className="text-xs text-text-secondary hover:text-text-primary"
+                          >
+                            取消所有隱藏
+                          </button>
+                        </div>
+                        <div className="max-h-[240px] overflow-y-auto border-t border-border-light mt-1 pt-1">
+                          {hiddenRowsList.map(({ key, row }) => (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => {
+                                setHiddenRowKeys(prev => {
+                                  const next = new Set(prev);
+                                  next.delete(key);
+                                  return next;
+                                });
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm transition-colors text-text-primary hover:bg-bg-secondary"
+                              title="取消隱藏"
+                            >
+                              <span className="block truncate text-xs text-text-muted">{key}</span>
+                              <span className="block truncate">{row ? `${row.__rowId} — ${row.name}` : '（Row 已不存在）'}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -1177,8 +1363,170 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
             <RotateCcw className="w-3.5 h-3.5" />
             Reset Widths
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              const used = new Set(rows.map(r => r.__rowId));
+              const nums = Array.from(used)
+                .filter(v => /^\d+$/.test(v))
+                .map(v => parseInt(v, 10))
+                .filter(n => !Number.isNaN(n));
+              const next = String((nums.length ? Math.max(...nums) : 0) + 1).padStart(3, '0');
+              setDraftRowId(next);
+              setDraftCategory('自訂 (Custom)');
+              setDraftLocatedPage('');
+              setDraftFeatureName('');
+              setDraftError(null);
+              setAddRowOpen(true);
+            }}
+            className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-text-secondary bg-bg-primary border border-border-default rounded-md hover:bg-bg-secondary hover:text-text-primary transition-colors whitespace-nowrap"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            新增 Row
+          </button>
         </div>
       </div>
+
+      {addRowOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setAddRowOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-lg mx-4 rounded-lg border border-border-default bg-bg-primary shadow-xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border-light px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                  新增自訂 Row
+                </p>
+                <p className="mt-0.5 text-xs text-text-muted truncate">
+                  這些 Row 只會儲存在你的設定（不會改到 roadmap.ts）
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddRowOpen(false)}
+                className="ml-3 rounded-md border border-border-default px-2 py-1 text-[11px] text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
+              >
+                關閉
+              </button>
+            </div>
+            <div className="space-y-3 px-4 py-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-medium text-text-secondary" htmlFor="add-row-id">
+                    ID
+                  </label>
+                  <input
+                    id="add-row-id"
+                    type="text"
+                    value={draftRowId}
+                    onChange={(e) => setDraftRowId(e.target.value)}
+                    className="w-full rounded-md border border-border-default bg-bg-secondary px-2 py-1.5 text-xs text-text-primary focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                    placeholder="例如：085 或 CUSTOM-1"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] font-medium text-text-secondary" htmlFor="add-row-category">
+                    Category
+                  </label>
+                  <input
+                    id="add-row-category"
+                    type="text"
+                    value={draftCategory}
+                    onChange={(e) => setDraftCategory(e.target.value)}
+                    className="w-full rounded-md border border-border-default bg-bg-secondary px-2 py-1.5 text-xs text-text-primary focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                    placeholder="例如：專案管理與工具 (Project Management)"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-text-secondary" htmlFor="add-row-feature">
+                  Feature
+                </label>
+                <input
+                  id="add-row-feature"
+                  type="text"
+                  value={draftFeatureName}
+                  onChange={(e) => setDraftFeatureName(e.target.value)}
+                  className="w-full rounded-md border border-border-default bg-bg-secondary px-2 py-1.5 text-xs text-text-primary focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                  placeholder="例如：Project Progress Dashboard — XXX"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-text-secondary" htmlFor="add-row-located-page">
+                  Located Page（可選）
+                </label>
+                <input
+                  id="add-row-located-page"
+                  type="text"
+                  value={draftLocatedPage}
+                  onChange={(e) => setDraftLocatedPage(e.target.value)}
+                  className="w-full rounded-md border border-border-default bg-bg-secondary px-2 py-1.5 text-xs text-text-primary focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                  placeholder="例如：superadmin/dashboard/project-progress"
+                />
+              </div>
+              {draftError && (
+                <p className="text-xs text-red-500">
+                  {draftError}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-border-light px-4 py-3 bg-bg-secondary/60">
+              <button
+                type="button"
+                onClick={() => setAddRowOpen(false)}
+                className="rounded-md border border-border-default px-3 py-1.5 text-xs text-text-secondary hover:bg-bg-primary hover:text-text-primary"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const id = normalizeRowIdInput(draftRowId);
+                  if (!id) {
+                    setDraftError('請輸入 ID');
+                    return;
+                  }
+                  if (rows.some(r => r.__rowId === id)) {
+                    setDraftError(`ID 已存在：${id}`);
+                    return;
+                  }
+                  const name = draftFeatureName.trim();
+                  if (!name) {
+                    setDraftError('請輸入 Feature');
+                    return;
+                  }
+                  const category = draftCategory.trim();
+                  if (!category) {
+                    setDraftError('請輸入 Category');
+                    return;
+                  }
+                  setCustomRows(prev => [
+                    ...prev,
+                    {
+                      rowId: id,
+                      name,
+                      category,
+                      locatedPage: draftLocatedPage.trim() || undefined,
+                      percentage: 0,
+                    },
+                  ]);
+                  setAddRowOpen(false);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                新增
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <div className="bg-bg-primary border border-border-default rounded-lg shadow-sm overflow-hidden flex flex-col flex-1 min-h-0 transition-colors">
@@ -1244,49 +1592,85 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
 
           {/* Body */}
           <div className="divide-y divide-border-default border-b border-border-default">
-            {filteredFeatures.map((feature, rowIdx) => {
+            {filteredFeatures.map((row, rowIdx) => {
               const isRowSelected = selectionType === 'row' && selectedRow === rowIdx;
+              const rowKey = getRowKey(row.__source, row.__rowId);
+              const isHidden = hiddenRowKeys.has(rowKey);
               return (
-                <div key={feature.name}
+                <div key={rowKey}
                   className={clsx(
                     'flex items-stretch transition-colors group min-h-[80px] min-w-0 w-full',
-                    isRowSelected ? 'bg-blue-500/10' : isAllSelected ? 'bg-blue-500/5' : 'hover:bg-bg-secondary'
+                    isRowSelected ? 'bg-blue-500/10' : isAllSelected ? 'bg-blue-500/5' : 'hover:bg-bg-secondary',
+                    isHidden && 'opacity-60'
                   )}>
                   <div className="flex flex-1 min-w-0">
                     {/* 1. ID */}
                     <CellWrapper colIdx={0} rowIdx={rowIdx} extraClass="px-2">
-                      <div className="font-mono text-xs text-text-secondary bg-bg-primary border border-border-default px-1.5 py-0.5 rounded h-fit">
-                        {(rowIdx + 1).toString().padStart(3, '0')}
+                      <div className="flex items-center gap-2">
+                        <div className="font-mono text-xs text-text-secondary bg-bg-primary border border-border-default px-1.5 py-0.5 rounded h-fit">
+                          {row.__rowId}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setHiddenRowKeys(prev => {
+                              const next = new Set(prev);
+                              if (next.has(rowKey)) next.delete(rowKey);
+                              else next.add(rowKey);
+                              return next;
+                            });
+                          }}
+                          className="inline-flex items-center justify-center rounded border border-border-default bg-bg-secondary/60 p-1 text-text-muted hover:text-text-primary hover:bg-bg-secondary"
+                          title={isHidden ? '顯示 Row' : '隱藏 Row'}
+                          aria-label={isHidden ? '顯示 Row' : '隱藏 Row'}
+                        >
+                          {isHidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                        </button>
+                        {row.__source === 'custom' && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCustomRows(prev => prev.filter(r => normalizeRowIdInput(r.rowId) !== row.__rowId));
+                            }}
+                            className="inline-flex items-center justify-center rounded border border-border-default bg-bg-secondary/60 p-1 text-text-muted hover:text-text-primary hover:bg-bg-secondary"
+                            title="刪除自訂 Row"
+                            aria-label="刪除自訂 Row"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </CellWrapper>
                     {/* 2. Role/General */}
                     <CellWrapper colIdx={1} rowIdx={rowIdx}>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-bg-tertiary text-text-primary truncate max-w-full" title={feature.category}>
-                        {feature.category}
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-bg-tertiary text-text-primary truncate max-w-full" title={row.category}>
+                        {row.category}
                       </span>
                     </CellWrapper>
                     {/* 3. Located Page（按所屬頁面分類） */}
                     <CellWrapper colIdx={2} rowIdx={rowIdx}>
-                      <span className="text-sm text-text-primary truncate max-w-full block" title={feature.locatedPage ?? ''}>
-                        {feature.locatedPage?.trim() ?? '—'}
+                      <span className="text-sm text-text-primary truncate max-w-full block" title={row.locatedPage ?? ''}>
+                        {row.locatedPage?.trim() ?? '—'}
                       </span>
                     </CellWrapper>
                     {/* 4. Feature（顯示功能需求名稱） */}
                     <CellWrapper colIdx={3} rowIdx={rowIdx}>
-                      <span className="text-sm text-text-primary truncate max-w-full block" title={feature.name}>
-                        {feature.name}
+                      <span className="text-sm text-text-primary truncate max-w-full block" title={row.name}>
+                        {row.name}
                       </span>
                     </CellWrapper>
                     {/* 5. Feature Spec (.md) */}
                     <CellWrapper colIdx={4} rowIdx={rowIdx}>
-                      {feature.featureSpecDocPath ? (
+                      {row.featureSpecDocPath ? (
                         (() => {
-                          const sp = feature.featureSpecDocPath.trim();
+                          const sp = row.featureSpecDocPath.trim();
                           const isDocsScope = sp.startsWith('/docs/');
                           const scope = isDocsScope ? 'docs' : 'project';
                           const pathParam = isDocsScope ? sp.slice(6) : sp.replace(/^\//, '');
                           const href = `/superadmin/docs?scope=${scope}&path=${encodeURIComponent(pathParam)}`;
-                          const label = `${(rowIdx + 1).toString().padStart(3, '0')}-Dev-Spec.md`;
+                          const label = `${row.__rowId}-Dev-Spec.md`;
                           return (
                             <a href={href} className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full" title={sp}>
                               <ExternalLink className="w-3 h-3 flex-shrink-0" />
@@ -1300,13 +1684,13 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                     </CellWrapper>
                     {/* 6. TDD Spec (.md) */}
                     <CellWrapper colIdx={5} rowIdx={rowIdx}>
-                      {feature.tddSpecDocPath ? (() => {
-                        const tp = feature.tddSpecDocPath.trim();
+                      {row.tddSpecDocPath ? (() => {
+                        const tp = row.tddSpecDocPath.trim();
                         const isDocsScope = tp.startsWith('/docs/');
                         const scope = isDocsScope ? 'docs' : 'project';
                         const pathParam = isDocsScope ? tp.slice(6) : tp.replace(/^\//, '');
                         const href = `/superadmin/docs?scope=${scope}&path=${encodeURIComponent(pathParam)}`;
-                        const label = `${(rowIdx + 1).toString().padStart(3, '0')}-TDD-Spec.md`;
+                        const label = `${row.__rowId}-TDD-Spec.md`;
                         return (
                           <a href={href} className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full" title={tp}>
                             <ExternalLink className="w-3 h-3 flex-shrink-0" />
@@ -1317,13 +1701,13 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                     </CellWrapper>
                     {/* 7. TDD Progress Report (.md) */}
                     <CellWrapper colIdx={6} rowIdx={rowIdx}>
-                      {feature.docPath ? (() => {
-                        const docPath = feature.docPath.trim();
+                      {row.docPath ? (() => {
+                        const docPath = row.docPath.trim();
                         const isDocsScope = docPath.startsWith('/docs/');
                         const scope = isDocsScope ? 'docs' : 'project';
                         const pathParam = isDocsScope ? docPath.slice(6) : docPath.replace(/^\//, '');
                         const docsHref = `/superadmin/docs?scope=${scope}&path=${encodeURIComponent(pathParam)}`;
-                        const label = `${(rowIdx + 1).toString().padStart(3, '0')}-TDD-Report.md`;
+                        const label = `${row.__rowId}-TDD-Report.md`;
                         return (
                           <a href={docsHref} className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full" title={docPath}>
                             <ExternalLink className="w-3 h-3 flex-shrink-0" />
@@ -1335,7 +1719,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                     {/* 8. Unit and Integration Test Script Folder Name */}
                     <CellWrapper colIdx={7} rowIdx={rowIdx}>
                       {(() => {
-                        const path = `apps/superadmin/unit_and_integration_test/${(rowIdx + 1).toString().padStart(3, '0')}`;
+                        const path = `apps/superadmin/unit_and_integration_test/${row.__rowId}`;
                         const href = `/superadmin/docs?scope=project&path=${encodeURIComponent(path)}`;
                         return (
                           <a href={href} className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full" title={path}>
@@ -1348,7 +1732,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                     {/* 9. E2E Acceptance Test Folder Name */}
                     <CellWrapper colIdx={8} rowIdx={rowIdx}>
                       {(() => {
-                        const path = `apps/superadmin/e2e/${(rowIdx + 1).toString().padStart(3, '0')}`;
+                        const path = `apps/superadmin/e2e/${row.__rowId}`;
                         const href = `/superadmin/docs?scope=project&path=${encodeURIComponent(path)}`;
                         return (
                           <a href={href} className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full" title={path}>
@@ -1361,20 +1745,20 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                     {/* 10. TDD 進度（進度條） */}
                     <CellWrapper colIdx={9} rowIdx={rowIdx}>
                       <div className="w-full min-w-0 flex flex-col gap-0.5">
-                        <div className="h-2 w-full rounded-full bg-bg-tertiary overflow-hidden" title={`TDD ${feature.percentage}%`}>
+                        <div className="h-2 w-full rounded-full bg-bg-tertiary overflow-hidden" title={`TDD ${row.percentage}%`}>
                           <div
                             className="h-full rounded-full bg-emerald-500 transition-all duration-500 ease-out min-w-0"
-                            style={{ width: `${Math.min(100, Math.max(0, feature.percentage))}%` }}
+                            style={{ width: `${Math.min(100, Math.max(0, row.percentage))}%` }}
                           />
                         </div>
-                        <span className="text-[10px] text-text-muted">{feature.percentage}%</span>
+                        <span className="text-[10px] text-text-muted">{row.percentage}%</span>
                       </div>
                     </CellWrapper>
                     {/* 11. E2E 測試進度（進度條） */}
                     <CellWrapper colIdx={10} rowIdx={rowIdx}>
                       <div className="w-full min-w-0 flex flex-col gap-0.5">
                         {(() => {
-                          const pct = feature.e2eTestCoverage ?? feature.testCoverage ?? 0;
+                          const pct = row.e2eTestCoverage ?? row.testCoverage ?? 0;
                           return (
                             <>
                               <div className="h-2 w-full rounded-full bg-bg-tertiary overflow-hidden" title={`E2E ${pct}%`}>
@@ -1395,7 +1779,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          openPromptConfig(feature, rowIdx);
+                          openPromptConfig(row);
                         }}
                         className="inline-flex items-center gap-1 rounded-md border border-border-default bg-bg-secondary/60 px-2 py-1 text-[11px] text-text-secondary hover:bg-bg-secondary hover:text-text-primary transition-colors"
                       >
@@ -1407,12 +1791,12 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                     <CellWrapper colIdx={12} rowIdx={rowIdx}>
                       <select
                         className="w-full rounded-md border border-border-default bg-bg-secondary px-2 py-1 text-xs text-text-primary focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
-                        value={statusSelections[feature.name] ?? ''}
+                        value={statusSelections[rowKey] ?? ''}
                         onChange={e => {
                           const value = e.target.value as RowStatus;
                           setStatusSelections(prev => ({
                             ...prev,
-                            [feature.name]: value,
+                            [rowKey]: value,
                           }));
                         }}
                       >
@@ -1450,7 +1834,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                   Prompt Engineer 設定
                 </p>
                 <p className="mt-0.5 text-xs text-text-muted truncate">
-                  Row ID {(promptConfigFeature.rowIdx + 1).toString().padStart(3, '0')} – {promptConfigFeature.feature.name}
+                  Row ID {promptConfigFeature.row.__rowId} – {promptConfigFeature.row.name}
                 </p>
               </div>
               <button
@@ -1466,7 +1850,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                 <div className="space-y-1">
                   <p className="text-[11px] font-medium text-text-secondary">Row ID</p>
                   <p className="rounded-md border border-border-default bg-bg-secondary px-2 py-1 text-xs font-mono text-text-primary">
-                    {(promptConfigFeature.rowIdx + 1).toString().padStart(3, '0')}
+                    {promptConfigFeature.row.__rowId}
                   </p>
                 </div>
                 <div className="space-y-1">
@@ -1481,8 +1865,8 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                       const newIDE = e.target.value as IDEOption;
                       setPromptConfigIDE(newIDE);
                       const ctx = buildPromptContext(
-                        promptConfigFeature.feature,
-                        promptConfigFeature.rowIdx,
+                        promptConfigFeature.row,
+                        promptConfigFeature.row.__rowId,
                         newIDE
                       );
                       if (promptConfigWorkCategory) {
@@ -1516,8 +1900,8 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                         const opt = WORK_CATEGORY_OPTIONS.find(o => o.id === id);
                         if (opt) {
                           const ctx = buildPromptContext(
-                            promptConfigFeature.feature,
-                            promptConfigFeature.rowIdx,
+                            promptConfigFeature.row,
+                            promptConfigFeature.row.__rowId,
                             promptConfigIDE
                           );
                           setPromptText(opt.getPrompt(ctx));

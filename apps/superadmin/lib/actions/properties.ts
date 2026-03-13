@@ -686,7 +686,7 @@ export async function getPropertyDocuments(
 
 /** 取得單一文件的已儲存解析結果（用於進入／切換謄本時還原顯示，不影響文件列表） */
 export async function getDocumentParseResult(documentId: string): Promise<{
-  parsedResult: import('@/lib/types/transcript').LandRegistryParsedResult | null;
+  parsedResult: import('@/lib/types/transcript').TranscriptParseOutput | null;
   consensusMetadata: import('@/lib/types/transcript').ConsensusMetadata | null;
 } | null> {
   if (!documentId) return null;
@@ -698,7 +698,7 @@ export async function getDocumentParseResult(documentId: string): Promise<{
     .single();
   if (error || !data) return null;
   return {
-    parsedResult: (data.parsed_result as import('@/lib/types/transcript').LandRegistryParsedResult) ?? null,
+    parsedResult: (data.parsed_result as import('@/lib/types/transcript').TranscriptParseOutput) ?? null,
     consensusMetadata: (data.consensus_metadata as import('@/lib/types/transcript').ConsensusMetadata) ?? null,
   };
 }

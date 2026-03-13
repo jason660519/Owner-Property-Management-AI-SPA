@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
@@ -34,14 +34,13 @@ export function SheetContent({ className = '', children }: SheetContentProps) {
   const context = useContext(SheetContext);
   if (!context) throw new Error('SheetContent must be used within Sheet');
 
-  // Track mount state to safely use createPortal (SSR-safe)
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
+  const isClient = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
-  if (!context.open || !mounted) return null;
+  if (!context.open || !isClient) return null;
 
   // Render directly into document.body to escape any parent stacking context
   return createPortal(

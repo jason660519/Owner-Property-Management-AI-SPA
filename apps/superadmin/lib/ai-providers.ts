@@ -1,7 +1,7 @@
 // filepath: apps/superadmin/lib/ai-providers.ts
 // AI Provider definitions, model lists, and configuration data
 
-import { TRANSCRIPT_PARSE_PROMPT } from '@/lib/transcript-prompts';
+import { TRANSCRIPT_PARSE_PROMPT, TRANSCRIPT_JUDGE_PROMPT } from '@/lib/transcript-prompts';
 
 export type AIProvider = 'openai' | 'anthropic' | 'gemini' | 'deepseek' | 'grok' | 'together' | 'kimi' | 'openrouter' | 'zhipu';
 
@@ -655,7 +655,7 @@ export const FEATURE_MODULES: FeatureModule[] = [
     icon: 'scale',
     category: 'ocr',
     requiredCapabilities: ['vision'],
-    defaultPrompt: `你是台灣不動產謄本解析的品質審核專家。\n你收到一份謄本原始文件，以及多個 AI 模型對同一文件的解析結果。\n\n你的任務是：\n1. 審查每個「有爭議的欄位」\n2. 對照原始文件，判斷哪個模型的解析最正確\n3. 若所有模型都錯，提供你自己的正確解析\n\n回傳格式（僅輸出有爭議的欄位，格式為嚴格 JSON）：\n{\n  "resolutions": [\n    {\n      "field_path": "建物標示部.總面積",\n      "correct_value": "125.67平方公尺",\n      "chosen_from": "model_a",\n      "reason": "模型 A 的面積數值與原始文件第 3 行的記載一致"\n    }\n  ]\n}\n\n注意事項：\n- 面積請保留原始單位（平方公尺），精確到小數點後兩位\n- 日期格式統一為「民國 YYY 年 MM 月 DD 日」\n- 地號/建號格式為「XXXX-XXXX」\n- 若原始文件模糊無法辨識，在 reason 中說明，correct_value 設為 null`,
+    defaultPrompt: TRANSCRIPT_JUDGE_PROMPT,
   },
   {
     key: 'web_assistant',

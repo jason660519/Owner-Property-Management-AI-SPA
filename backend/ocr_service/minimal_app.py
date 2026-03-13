@@ -21,7 +21,7 @@ from supabase import create_client
 
 from src.ocr_engine.vlm import VLMEngine
 from src.preprocessor.pdf_preprocessor import PDFPreprocessor
-from src.parser import extract_transcript
+from src.parser import extract_transcript, to_unified_output
 
 load_dotenv()
 
@@ -339,10 +339,9 @@ async def parse_document_locally(document_id: str):
     """
     Parse a transcript PDF using the local deterministic Python regex parser.
     Downloads the file from Supabase Storage, extracts the text layer, and
-    returns structured JSON — no external AI API is called.
+    returns structured JSON in the TranscriptParseOutput unified schema —
+    no external AI API is called.
     """
-    import dataclasses
-
     supabase_url = os.getenv("SUPABASE_URL")
     supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
     if not supabase_url or not supabase_key:
@@ -387,17 +386,12 @@ async def parse_document_locally(document_id: str):
             detail="PDF 無可提取的文字層（可能是掃描影像），請改用雲端解析。"
         )
 
-    def _to_dict(obj):
-        if dataclasses.is_dataclass(obj):
-            return {k: _to_dict(v) for k, v in dataclasses.asdict(obj).items()}
-        if isinstance(obj, list):
-            return [_to_dict(i) for i in obj]
-        return obj
-
+    # Convert to the TranscriptParseOutput unified schema, including field_confidences.
+    unified = to_unified_output(parsed)
     return {
         "document_id": document_id,
-        "transcript_type": type(parsed).__name__,
-        "parsed": _to_dict(parsed),
+        "local_parse": True,
+        **unified,
     }
 
 

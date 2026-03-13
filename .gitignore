@@ -40,6 +40,7 @@ dist/
 build/
 .next/
 .turbo/
+**/*.tsbuildinfo
 *.pid
 *.seed
 *.pid.lock

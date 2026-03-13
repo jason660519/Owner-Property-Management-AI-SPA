@@ -3,7 +3,6 @@
 
 import type { AIProvider } from '@/lib/ai-providers';
 import { TRANSCRIPT_PARSE_PROMPT } from '@/lib/transcript-prompts';
-import type { LandRegistryParsedResult } from '@/lib/types/transcript';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -36,7 +35,7 @@ export function mimeFromPath(filePath: string): string {
  * - Strips optional markdown code fence (```json ... ```) anywhere in text.
  * - Falls back to first {...} object if no fence found (for "以下是結果：{...}" style).
  */
-export function extractJsonFromOutput(text: string): LandRegistryParsedResult {
+export function extractJsonFromOutput(text: string): unknown {
   let raw = text.trim();
   const codeFence = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (codeFence) {
@@ -59,7 +58,7 @@ export function extractJsonFromOutput(text: string): LandRegistryParsedResult {
       if (end >= 0) raw = raw.slice(brace, end + 1);
     }
   }
-  return JSON.parse(raw) as LandRegistryParsedResult;
+  return JSON.parse(raw) as unknown;
 }
 
 // ---------------------------------------------------------------------------

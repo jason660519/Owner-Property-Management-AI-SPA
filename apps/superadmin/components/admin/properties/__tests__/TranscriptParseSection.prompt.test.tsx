@@ -64,14 +64,9 @@ const OCR_MODULE = buildOcrParseModule([
 const TRANSCRIPT_DOC = {
   id: 'doc-abc',
   documentName: '102AF006705_土地謄本.pdf',
-  documentType: 'transcript' as const,
-  fileUrl: '',
+  documentType: 'transcript',
   filePath: '102AF006705.pdf',
-  fileSize: 12345,
-  mimeType: 'application/pdf',
-  uploadedAt: new Date().toISOString(),
-  isActive: true,
-  description: null,
+  url: '/api/documents/doc-abc/view',
 };
 
 const baseReturn = {
@@ -115,6 +110,8 @@ describe('TranscriptParseSection — prompt 框框行為', () => {
     jest.clearAllMocks();
     capturedBody = {};
     fetchWasCalled = false;
+    localStorage.clear();
+    sessionStorage.clear();
     useAISettings.mockReturnValue({ ...baseReturn });
 
     // Mock fetch: capture body then return 400 (no ReadableStream needed).
@@ -140,16 +137,16 @@ describe('TranscriptParseSection — prompt 框框行為', () => {
   // ── 1. 預填 Prompt 顯示 ──────────────────────────────────────────────────
 
   describe('1. 預填 Prompt 顯示', () => {
-    it('若 prompts 陣列為空，textarea 應顯示系統預設 Prompt', () => {
+    it('若 prompts 陣列為空，textarea 應顯示系統預設 Prompt', async () => {
       useAISettings.mockReturnValue({ ...baseReturn, prompts: [] });
       render(<TranscriptParseSection transcriptDocs={[TRANSCRIPT_DOC]} />);
       fireEvent.click(screen.getByRole('button', { name: /解析設定/i }));
 
-      const textarea = screen.getByPlaceholderText(/留空則使用/i) as HTMLTextAreaElement;
+      const textarea = (await screen.findByPlaceholderText(/留空則使用/i)) as HTMLTextAreaElement;
       expect(textarea.value.trim()).toBe(TRANSCRIPT_PARSE_PROMPT.trim());
     });
 
-    it('若 prompts 有 online_ocr_parse 的 prompt_content，textarea 顯示該 prompt', () => {
+    it('若 prompts 有 online_ocr_parse 的 prompt_content，textarea 顯示該 prompt', async () => {
       useAISettings.mockReturnValue({
         ...baseReturn,
         prompts: [buildStoredPrompt(CUSTOM_PROMPT_TEXT)],
@@ -157,15 +154,15 @@ describe('TranscriptParseSection — prompt 框框行為', () => {
       render(<TranscriptParseSection transcriptDocs={[TRANSCRIPT_DOC]} />);
       fireEvent.click(screen.getByRole('button', { name: /解析設定/i }));
 
-      const textarea = screen.getByPlaceholderText(/留空則使用/i) as HTMLTextAreaElement;
+      const textarea = (await screen.findByPlaceholderText(/留空則使用/i)) as HTMLTextAreaElement;
       expect(textarea.value.trim()).toBe(CUSTOM_PROMPT_TEXT.trim());
     });
 
-    it('textarea 有顯示 prompt 內容（不是空的）', () => {
+    it('textarea 有顯示 prompt 內容（不是空的）', async () => {
       render(<TranscriptParseSection transcriptDocs={[TRANSCRIPT_DOC]} />);
       fireEvent.click(screen.getByRole('button', { name: /解析設定/i }));
 
-      const textarea = screen.getByPlaceholderText(/留空則使用/i) as HTMLTextAreaElement;
+      const textarea = (await screen.findByPlaceholderText(/留空則使用/i)) as HTMLTextAreaElement;
       expect(textarea.value.trim().length).toBeGreaterThan(0);
     });
   });
@@ -177,7 +174,7 @@ describe('TranscriptParseSection — prompt 框框行為', () => {
       render(<TranscriptParseSection transcriptDocs={[TRANSCRIPT_DOC]} />);
 
       await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: /雲端解析謄本/i }));
+        fireEvent.click(screen.getByRole('button', { name: /雲端解析.*謄本/i }));
       });
 
       expect(fetchWasCalled).toBe(true);
@@ -202,22 +199,22 @@ describe('TranscriptParseSection — prompt 框框行為', () => {
       render(<TranscriptParseSection transcriptDocs={[TRANSCRIPT_DOC]} />);
       fireEvent.click(screen.getByRole('button', { name: /解析設定/i }));
 
-      const textarea = screen.getByPlaceholderText(/留空則使用/i);
+      const textarea = await screen.findByPlaceholderText(/留空則使用/i);
       fireEvent.change(textarea, { target: { value: CUSTOM_PROMPT_TEXT } });
 
       await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: /雲端解析謄本/i }));
+        fireEvent.click(screen.getByRole('button', { name: /雲端解析.*謄本/i }));
       });
 
       expect(fetchWasCalled).toBe(true);
       expect(capturedBody.customPrompt).toBe(CUSTOM_PROMPT_TEXT.trim());
     });
 
-    it('修改 textarea 後，顯示「此次解析將使用你剛修改的 Prompt」警告', () => {
+    it('修改 textarea 後，顯示「此次解析將使用你剛修改的 Prompt」警告', async () => {
       render(<TranscriptParseSection transcriptDocs={[TRANSCRIPT_DOC]} />);
       fireEvent.click(screen.getByRole('button', { name: /解析設定/i }));
 
-      const textarea = screen.getByPlaceholderText(/留空則使用/i) as HTMLTextAreaElement;
+      const textarea = (await screen.findByPlaceholderText(/留空則使用/i)) as HTMLTextAreaElement;
       const differentContent = textarea.value + ' 額外修改';
       fireEvent.change(textarea, { target: { value: differentContent } });
 
@@ -231,11 +228,11 @@ describe('TranscriptParseSection — prompt 框框行為', () => {
       fireEvent.click(screen.getByRole('button', { name: /解析設定/i }));
 
       const editedPrompt = '已修改的測試 Prompt 內容 2025';
-      const textarea = screen.getByPlaceholderText(/留空則使用/i);
+      const textarea = await screen.findByPlaceholderText(/留空則使用/i);
       fireEvent.change(textarea, { target: { value: editedPrompt } });
 
       await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: /雲端解析謄本/i }));
+        fireEvent.click(screen.getByRole('button', { name: /雲端解析.*謄本/i }));
       });
 
       expect(capturedBody.customPrompt).toBe(editedPrompt.trim());
@@ -245,7 +242,7 @@ describe('TranscriptParseSection — prompt 框框行為', () => {
   // ── 4. Prompt 優先順序邏輯驗證 ───────────────────────────────────────────
 
   describe('4. stored prompt 顯示優先順序', () => {
-    it('AI 設定中有 prompt_content 時，textarea 應優先顯示該內容（而非系統預設）', () => {
+    it('AI 設定中有 prompt_content 時，textarea 應優先顯示該內容（而非系統預設）', async () => {
       const storedContent = '自定義謄本解析 Prompt — AI 設定中儲存版';
       useAISettings.mockReturnValue({
         ...baseReturn,
@@ -255,22 +252,22 @@ describe('TranscriptParseSection — prompt 框框行為', () => {
       render(<TranscriptParseSection transcriptDocs={[TRANSCRIPT_DOC]} />);
       fireEvent.click(screen.getByRole('button', { name: /解析設定/i }));
 
-      const textarea = screen.getByPlaceholderText(/留空則使用/i) as HTMLTextAreaElement;
+      const textarea = (await screen.findByPlaceholderText(/留空則使用/i)) as HTMLTextAreaElement;
       expect(textarea.value.trim()).toBe(storedContent.trim());
       // Must NOT fall back to hardcoded default
       expect(textarea.value).not.toContain('請根據我提供的台灣建物或土地謄本');
     });
 
-    it('AI 設定中沒有儲存 prompt 時，textarea 顯示系統預設 TRANSCRIPT_PARSE_PROMPT', () => {
+    it('AI 設定中沒有儲存 prompt 時，textarea 顯示系統預設 TRANSCRIPT_PARSE_PROMPT', async () => {
       useAISettings.mockReturnValue({ ...baseReturn, prompts: [] });
       render(<TranscriptParseSection transcriptDocs={[TRANSCRIPT_DOC]} />);
       fireEvent.click(screen.getByRole('button', { name: /解析設定/i }));
 
-      const textarea = screen.getByPlaceholderText(/留空則使用/i) as HTMLTextAreaElement;
+      const textarea = (await screen.findByPlaceholderText(/留空則使用/i)) as HTMLTextAreaElement;
       expect(textarea.value.trim()).toBe(TRANSCRIPT_PARSE_PROMPT.trim());
     });
 
-    it('選取最高版本的 prompt (version 最大值)', () => {
+    it('選取最高版本的 prompt (version 最大值)', async () => {
       const oldPrompt = buildStoredPrompt('舊版 Prompt v1', 1);
       const newPrompt = buildStoredPrompt('新版 Prompt v2', 2);
 
@@ -282,7 +279,7 @@ describe('TranscriptParseSection — prompt 框框行為', () => {
       render(<TranscriptParseSection transcriptDocs={[TRANSCRIPT_DOC]} />);
       fireEvent.click(screen.getByRole('button', { name: /解析設定/i }));
 
-      const textarea = screen.getByPlaceholderText(/留空則使用/i) as HTMLTextAreaElement;
+      const textarea = (await screen.findByPlaceholderText(/留空則使用/i)) as HTMLTextAreaElement;
       expect(textarea.value.trim()).toBe('新版 Prompt v2');
     });
   });
@@ -296,7 +293,7 @@ describe('TranscriptParseSection — prompt 框框行為', () => {
       render(<TranscriptParseSection transcriptDocs={[TRANSCRIPT_DOC]} />);
 
       await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: /雲端解析謄本/i }));
+        fireEvent.click(screen.getByRole('button', { name: /雲端解析.*謄本/i }));
       });
 
       expect(fetchSpy).toHaveBeenCalled();
@@ -309,7 +306,7 @@ describe('TranscriptParseSection — prompt 框框行為', () => {
     it('未選擇文件時，解析按鈕 disabled，不呼叫 API', () => {
       render(<TranscriptParseSection transcriptDocs={[]} />);
 
-      const btn = screen.getByRole('button', { name: /雲端解析謄本/i });
+      const btn = screen.getByRole('button', { name: /雲端解析.*謄本/i });
       expect(btn).toBeDisabled();
       expect(fetchWasCalled).toBe(false);
     });

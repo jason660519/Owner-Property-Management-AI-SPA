@@ -2,7 +2,7 @@
 // created: 2026-03-05 | creator: Claude
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { savePropertyTranscriptData } from '@/lib/actions/properties';
 import type {
@@ -89,15 +89,47 @@ interface Props {
   propertyId: string;
   propertyType: 'sale' | 'rental';
   initialData?: LandTranscriptData | null;
+  /** When set, fill form from this parsed transcript (after user clicks 謄寫). Cleared by parent after apply. */
+  fillFromParsedTranscript?: LandTranscriptData | null;
+  /** Called after form has applied fillFromParsedTranscript so parent can clear it */
+  onTranscribeApplied?: () => void;
 }
 
-export function LandTranscriptForm({ propertyId, propertyType, initialData }: Props) {
+export function LandTranscriptForm({
+  propertyId,
+  propertyType,
+  initialData,
+  fillFromParsedTranscript,
+  onTranscribeApplied,
+}: Props) {
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [header, setHeader] = useState<TranscriptHeader>(initialData?.header ?? emptyHeader());
   const [desc, setDesc] = useState<LandDescription>(initialData?.description ?? emptyDescription());
   const [ownership, setOwnership] = useState<LandOwnershipRecord[]>(initialData?.ownership ?? []);
   const [encumbrances, setEncumbrances] = useState<EncumbranceRecord[]>(initialData?.encumbrances ?? []);
+
+  useEffect(() => {
+    if (!fillFromParsedTranscript) return;
+    try {
+      setHeader(fillFromParsedTranscript.header ?? emptyHeader());
+      setDesc(fillFromParsedTranscript.description ?? emptyDescription());
+      setOwnership(
+        (fillFromParsedTranscript.ownership?.length ?? 0) > 0
+          ? fillFromParsedTranscript.ownership
+          : [emptyOwnership()],
+      );
+      setEncumbrances(
+        (fillFromParsedTranscript.encumbrances?.length ?? 0) > 0
+          ? fillFromParsedTranscript.encumbrances
+          : encumbrances.length > 0
+            ? encumbrances
+            : [emptyEncumbrance()],
+      );
+    } finally {
+      onTranscribeApplied?.();
+    }
+  }, [fillFromParsedTranscript, onTranscribeApplied, encumbrances.length]);
 
   function uh<K extends keyof TranscriptHeader>(key: K, val: TranscriptHeader[K]) {
     setHeader((h) => ({ ...h, [key]: val }));

@@ -10,7 +10,7 @@ import {
   deletePropertyDocument,
 } from '@/lib/actions/properties';
 import type { PropertyDocumentItem, PropertyItem } from '@/lib/types/properties';
-import type { LandRegistryParsedResult } from '@/lib/types/transcript';
+import type { BuildingTranscriptData, LandTranscriptData } from '@/lib/types/properties';
 import { TranscriptParseSection } from './TranscriptParseSection';
 import { BuildingTranscriptForm } from './BuildingTranscriptForm';
 import { LandTranscriptForm } from './LandTranscriptForm';
@@ -49,7 +49,7 @@ function TranscriptColumn({
   const [docFile, setDocFile] = useState<File | null>(null);
   const [isDocUploading, setIsDocUploading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [fillFromParse, setFillFromParse] = useState<LandRegistryParsedResult | null>(null);
+  const [fillFromParse, setFillFromParse] = useState<BuildingTranscriptData | LandTranscriptData | null>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   const onTranscribeApplied = useCallback(() => setFillFromParse(null), []);
 
@@ -163,7 +163,7 @@ function TranscriptColumn({
           <TranscriptParseSection
             transcriptDocs={documents}
             kind={kind}
-            onTranscribe={kind === 'building' ? (result) => setFillFromParse(result) : undefined}
+            onTranscribe={(result) => setFillFromParse(result)}
           />
         )}
 
@@ -173,7 +173,7 @@ function TranscriptColumn({
             propertyId={propertyId}
             propertyType={propertyType}
             initialData={initialBuildingData}
-            fillFromParsedResult={fillFromParse}
+            fillFromParsedTranscript={fillFromParse as BuildingTranscriptData | null}
             onTranscribeApplied={onTranscribeApplied}
           />
         )}
@@ -182,6 +182,8 @@ function TranscriptColumn({
             propertyId={propertyId}
             propertyType={propertyType}
             initialData={initialLandData}
+            fillFromParsedTranscript={fillFromParse as LandTranscriptData | null}
+            onTranscribeApplied={onTranscribeApplied}
           />
         )}
       </div>

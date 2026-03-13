@@ -30,7 +30,6 @@ export async function GET(request: Request) {
       const { default: chokidar } = await import('chokidar');
 
       let closed = false;
-      let heartbeatId: ReturnType<typeof setInterval>;
 
       if (!fs.existsSync(ROOT)) {
         logDocsError('watch', `Root not found: ${ROOT}`);
@@ -53,10 +52,11 @@ export async function GET(request: Request) {
         },
       });
 
+      let heartbeatId: ReturnType<typeof setInterval> | null = null;
       const cleanup = () => {
         if (closed) return;
         closed = true;
-        clearInterval(heartbeatId);
+        if (heartbeatId !== null) clearInterval(heartbeatId);
         try {
           watcher.close();
         } catch (e) {
@@ -64,6 +64,15 @@ export async function GET(request: Request) {
         }
       };
       cleanupFn = cleanup;
+
+      heartbeatId = setInterval(() => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(': heartbeat\n\n'));
+        } catch {
+          cleanup();
+        }
+      }, 30000);
 
       const sendEvent = (event: string, filePath: string) => {
         if (closed) return;
@@ -88,15 +97,6 @@ export async function GET(request: Request) {
           logDocsError('watch', 'Error sending event', e);
         }
       };
-
-      heartbeatId = setInterval(() => {
-        if (closed) return;
-        try {
-          controller.enqueue(encoder.encode(': heartbeat\n\n'));
-        } catch {
-          cleanup();
-        }
-      }, 30000);
 
       watcher
         .on('add', (p: string) => sendEvent('add', p))

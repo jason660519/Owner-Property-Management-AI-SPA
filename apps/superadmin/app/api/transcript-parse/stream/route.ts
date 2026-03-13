@@ -9,7 +9,7 @@ import { decryptApiKey } from '@/lib/crypto';
 import { resolveUserId } from '@/lib/resolve-ai-settings-user';
 import type { AIProvider } from '@/lib/ai-providers';
 import type {
-  LandRegistryParsedResult,
+  TranscriptParseOutput,
   ConsensusMetadata,
   ModelParseResult,
   ModelInfo,
@@ -56,6 +56,9 @@ export async function POST(request: NextRequest) {
     parserConcurrency?: number;
     overrideParserModels?: { provider: string; model: string }[];
     overrideJudgeModel?: { provider: string; model: string } | null;
+    /** Pre-parsed result from the local Python regex parser (P1.1).
+     *  When present, it participates in Phase 2 consensus as "local/local-regex-parser". */
+    injectedLocalResult?: TranscriptParseOutput & { field_confidences?: Record<string, number> };
   };
   try {
     body = await request.json() as typeof body;
@@ -70,6 +73,7 @@ export async function POST(request: NextRequest) {
     parserConcurrency,
     overrideParserModels,
     overrideJudgeModel,
+    injectedLocalResult,
   } = body;
   if (!documentId || !userId) {
     return new Response('Missing documentId or userId', { status: 400 });
@@ -226,7 +230,7 @@ export async function POST(request: NextRequest) {
           launchedCount,
           cancelledIndices,
           stoppedBySignal,
-        } = await runConcurrentUntilTargetSuccess({
+        } = await runConcurrentUntilTargetSuccess<AssignedModelRow, ModelParseResult>({
           items: parserModels,
           maxConcurrency: parseConcurrency,
           targetSuccessCount: TARGET_SUCCESS_COUNT,
@@ -283,6 +287,31 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        // ── 5b. Inject local parse result (P1.1) ──────────────────────
+        // Add the pre-computed local-regex result as a virtual "model" participant
+        // so it is weighted into Phase 2 (consensus) alongside AI models.
+        if (injectedLocalResult) {
+          const localModelResult: ModelParseResult = {
+            provider: 'local',
+            model: 'local-regex-parser',
+            result: {
+              kind: injectedLocalResult.kind,
+              buildingTranscript: injectedLocalResult.buildingTranscript,
+              landTranscript: injectedLocalResult.landTranscript,
+            },
+            duration_ms: 0,
+          };
+          parseResults.push(localModelResult);
+          send({
+            type: 'model_result',
+            provider: 'local',
+            model: 'local-regex-parser',
+            index: parseResults.length - 1,
+            success: true,
+            duration_ms: 0,
+          });
+        }
+
         if (request.signal.aborted) {
           return;
         }
@@ -301,8 +330,12 @@ export async function POST(request: NextRequest) {
           await adminClient.from('ocr_parse_results').insert(inserts);
         }
 
-        if (successCount === 0) {
-          const errors = parseResults.map((r) => `${r.provider}/${r.model}: ${r.error}`).join('; ');
+        // Count total successful results including the injected local result
+        const totalSuccessCount = successCount + (injectedLocalResult ? 1 : 0);
+        if (totalSuccessCount === 0) {
+          const errors = parseResults
+            .filter((r) => r.error && r.provider !== 'local')
+            .map((r) => `${r.provider}/${r.model}: ${r.error}`).join('; ');
           const pdfHint =
             mimeType.toLowerCase() === 'application/pdf'
               ? ' 目前上傳的為 PDF；若部分模型仍無法解析，請將謄本另存為 JPG/PNG 後再上傳。'
@@ -312,9 +345,10 @@ export async function POST(request: NextRequest) {
         }
 
         // ── 6. Single-model shortcut (no consensus needed) ─────────────
-        if (parserModels.length === 1 && parseResults[0].result !== null) {
+        // Skip shortcut when a local result is injected — we need consensus in that case.
+        if (parserModels.length === 1 && !injectedLocalResult && parseResults[0].result !== null) {
           const m = parserModels[0];
-          const data = parseResults[0].result as LandRegistryParsedResult;
+          const data = parseResults[0].result as TranscriptParseOutput;
           const totalDuration = Date.now() - startTime;
           const metadata: ConsensusMetadata = {
             strategy: 'single',
@@ -435,7 +469,8 @@ export async function POST(request: NextRequest) {
 
 function hasTranscriptContent(obj: unknown): boolean {
   if (obj === null || obj === undefined) return false;
-  if (typeof obj !== 'object') return true; // primitive value counts as content
+  if (typeof obj === 'string') return obj.trim().length > 0;
+  if (typeof obj !== 'object') return true;
   if (Array.isArray(obj)) return obj.some((item) => hasTranscriptContent(item));
   const rec = obj as Record<string, unknown>;
   for (const value of Object.values(rec)) {
@@ -471,7 +506,7 @@ async function callSingleModel(
     if (!callerResult.ok) {
       return { provider: m.provider, model: m.model, result: null, duration_ms: duration, error: callerResult.error ?? 'API 呼叫失敗' };
     }
-    const parsed = extractJsonFromOutput(callerResult.text);
+    const parsed = extractJsonFromOutput(callerResult.text) as TranscriptParseOutput;
     // Reject content-less results (e.g. {} returned when model cannot read the doc).
     // These would cause calculateTotalConfidence({}) === 0 → 0% confidence bug.
     if (!hasTranscriptContent(parsed)) {
@@ -508,11 +543,11 @@ async function runJudgePhase(
   mimeType: string,
   conflicts: ConflictDetail[],
   parseResults: ModelParseResult[],
-  merged: LandRegistryParsedResult,
+  merged: TranscriptParseOutput,
   metadata: ConsensusMetadata,
   judgeModel: { provider: string; model: string },
   signal?: AbortSignal,
-): Promise<{ merged: LandRegistryParsedResult; metadata: ConsensusMetadata } | null> {
+): Promise<{ merged: TranscriptParseOutput; metadata: ConsensusMetadata } | null> {
   const judge = judgeModel;
   const apiKey = await getApiKey(adminClient, resolvedUserId, judge.provider);
   if (!apiKey) return null;
@@ -541,7 +576,7 @@ async function runJudgePhase(
   if (signal?.aborted) return null;
 
   let judgeRawOutput: Record<string, unknown> | null = null;
-  let judgeErrorMessage: string | null = result.ok ? null : result.error;
+  let judgeErrorMessage: string | null = result.ok ? null : (result.error ?? null);
   if (result.ok && result.text) {
     try {
       judgeRawOutput = JSON.parse(result.text) as Record<string, unknown>;

@@ -14,6 +14,19 @@ export interface WidthPresetPayload {
   widths: number[];
 }
 
+export interface CustomProjectProgressRowPayload {
+  rowId: string;
+  name: string;
+  category: string;
+  locatedPage?: string;
+  percentage?: number;
+  featureSpecDocPath?: string;
+  tddSpecDocPath?: string;
+  docPath?: string;
+  testCoverage?: number;
+  e2eTestCoverage?: number;
+}
+
 export interface ProjectProgressSettingsPayload {
   colWidths?: number[];
   headerHeight?: number;
@@ -22,4 +35,6 @@ export interface ProjectProgressSettingsPayload {
   frozenDataColCount?: number;
   widthPresets?: WidthPresetPayload[];
   activePhase?: 'development' | 'testing' | 'deployment' | 'operations';
+  customRows?: CustomProjectProgressRowPayload[];
+  hiddenRowKeys?: string[];
 }

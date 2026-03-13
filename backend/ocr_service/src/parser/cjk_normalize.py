@@ -125,13 +125,41 @@ _CJK_COMPAT_MAP: dict[str, str] = {
     "Ｐ": "P", "Ｑ": "Q", "Ｒ": "R", "Ｓ": "S", "Ｔ": "T",
     "Ｕ": "U", "Ｖ": "V", "Ｗ": "W", "Ｘ": "X", "Ｙ": "Y",
     "Ｚ": "Z",
-    # ── Fullwidth punctuation ──────────────────────────────────────────
-    "（": "(", "）": ")",
-    "，": ",", "。": ".",
+    # ── Fullwidth punctuation / brackets ──────────────────────────────
+    "（": "(", "）": ")",   # U+FF08, U+FF09
+    "【": "[", "】": "]",   # U+3010, U+3011 (sometimes used around section names)
+    "〔": "[", "〕": "]",   # U+3014, U+3015
+    "〈": "<", "〉": ">",   # U+3008, U+3009
+    "《": "<", "》": ">",   # U+300A, U+300B
+    "，": ",",              # U+FF0C  fullwidth comma
+    "。": ".",              # U+3002  ideographic full stop
+    "、": ",",              # U+3001  ideographic comma
+    "；": ";",              # U+FF1B  fullwidth semicolon
+    "：": ":",              # U+FF1A  fullwidth colon  (regex already handles ：|: but normalize helps)
+    "！": "!",              # U+FF01
+    "？": "?",              # U+FF1F
+    "‧": "·",              # U+2027  hyphenation point (appears in addresses)
+    "—": "-",              # U+2014  em dash → hyphen
+    "－": "-",              # U+FF0D  fullwidth hyphen-minus
+    "＋": "+",              # U+FF0B
+    "／": "/",              # U+FF0F  fullwidth solidus
+    "＼": "\\",             # U+FF3C
+    # ── Fullwidth Latin lowercase ──────────────────────────────────────
+    "ａ": "a", "ｂ": "b", "ｃ": "c", "ｄ": "d", "ｅ": "e",
+    "ｆ": "f", "ｇ": "g", "ｈ": "h", "ｉ": "i", "ｊ": "j",
+    "ｋ": "k", "ｌ": "l", "ｍ": "m", "ｎ": "n", "ｏ": "o",
+    "ｐ": "p", "ｑ": "q", "ｒ": "r", "ｓ": "s", "ｔ": "t",
+    "ｕ": "u", "ｖ": "v", "ｗ": "w", "ｘ": "x", "ｙ": "y",
+    "ｚ": "z",
     # ── CJK variant / Japanese kanji used in transcripts ─────────────
     # Some electronic transcript generators use Japanese-style CJK chars
     # instead of Traditional Chinese equivalents.
     "権": "權",  # U+6A29  (Japanese 権 → Traditional 權)
+    "様": "樣",  # U+69D8  (Japanese 様 → Traditional 樣, appears in owner names)
+    "応": "應",  # U+5FDC  (Japanese 応 → Traditional 應)
+    "処": "處",  # U+51E6  (Japanese 処 → Traditional 處)
+    "証": "證",  # U+8A3C  (Japanese 証 → Traditional 證, in 證明書)
+    "覧": "覽",  # U+89A7  (Japanese 覧 → Traditional 覽)
     # Note: U+6743 (权 simplified Chinese) is handled by NFKC; not listed here.
 }
 

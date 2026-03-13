@@ -147,6 +147,7 @@ interface PropertyCreateModalProps {
   owners: OwnerOption[];
   onClose: () => void;
   onCreated: () => void;
+  pageMode?: boolean;
 }
 
 export function PropertyCreateModal({ owners, onClose, onCreated }: PropertyCreateModalProps) {

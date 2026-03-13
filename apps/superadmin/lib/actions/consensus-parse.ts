@@ -9,7 +9,7 @@ import { decryptApiKey } from '@/lib/crypto';
 import { resolveUserId } from '@/lib/resolve-ai-settings-user';
 import type { AIProvider } from '@/lib/ai-providers';
 import type {
-  LandRegistryParsedResult,
+  TranscriptParseOutput,
   ConsensusParseResult,
   ConsensusMetadata,
   ModelParseResult,
@@ -22,12 +22,24 @@ import {
   extractJsonFromOutput,
   mimeFromPath,
 } from '@/lib/utils/ai-api-callers';
-import { TRANSCRIPT_PARSE_PROMPT } from '@/lib/transcript-prompts';
+import { TRANSCRIPT_PARSE_PROMPT, TRANSCRIPT_JUDGE_PROMPT } from '@/lib/transcript-prompts';
 import {
   buildConsensus,
   getConflictsNeedingJudge,
   applyJudgeResolutions,
 } from '@/lib/utils/transcript-consensus';
+
+function hasTranscriptContent(obj: unknown): boolean {
+  if (obj === null || obj === undefined) return false;
+  if (typeof obj === 'string') return obj.trim().length > 0;
+  if (typeof obj !== 'object') return true;
+  if (Array.isArray(obj)) return obj.some((item) => hasTranscriptContent(item));
+  const rec = obj as Record<string, unknown>;
+  for (const value of Object.values(rec)) {
+    if (hasTranscriptContent(value)) return true;
+  }
+  return false;
+}
 
 // ---------------------------------------------------------------------------
 // Types for assigned_models JSONB
@@ -215,7 +227,7 @@ async function singleModelParse(
   }
 
   try {
-    const data = extractJsonFromOutput(result.text);
+    const data = extractJsonFromOutput(result.text) as TranscriptParseOutput;
     const totalDuration = Date.now() - startTime;
     const metadata: ConsensusMetadata = {
       strategy: 'single',
@@ -308,7 +320,16 @@ async function parallelParse(
         };
       }
 
-      const parsed = extractJsonFromOutput(callerResult.text);
+      const parsed = extractJsonFromOutput(callerResult.text) as TranscriptParseOutput;
+      if (!hasTranscriptContent(parsed)) {
+        return {
+          provider: m.provider,
+          model: m.model,
+          result: null,
+          duration_ms: duration,
+          error: '模型回傳不含有效欄位的空結果（可能不支援此文件格式）',
+        };
+      }
       return {
         provider: m.provider,
         model: m.model,
@@ -363,9 +384,9 @@ async function runJudgePhase(
   mimeType: string,
   conflicts: ConflictDetail[],
   parseResults: ModelParseResult[],
-  merged: LandRegistryParsedResult,
+  merged: TranscriptParseOutput,
   metadata: ConsensusMetadata
-): Promise<{ merged: LandRegistryParsedResult; metadata: ConsensusMetadata } | null> {
+): Promise<{ merged: TranscriptParseOutput; metadata: ConsensusMetadata } | null> {
   // Fetch judge model
   const judgeModels = await fetchAssignedModels(adminClient, resolvedUserId, ['online_ocr_judge']);
   if (judgeModels.length === 0) {
@@ -400,7 +421,7 @@ async function runJudgePhase(
   const duration = Date.now() - callStart;
 
   let judgeRawOutput: Record<string, unknown> | null = null;
-  let judgeErrorMessage: string | null = result.ok ? null : result.error;
+  let judgeErrorMessage: string | null = result.ok ? null : (result.error ?? null);
   if (result.ok && result.text) {
     try {
       judgeRawOutput = JSON.parse(result.text) as Record<string, unknown>;
@@ -453,41 +474,8 @@ function buildJudgePrompt(
   conflicts: { field_path: string; model_values: { provider: string; model: string; value: unknown }[] }[]
 ): string {
   const conflictJson = JSON.stringify(conflicts, null, 2);
-
-  if (basePrompt) {
-    return `${basePrompt}\n\n以下是有爭議的欄位，請一一判定：\n${conflictJson}`;
-  }
-
-  // Default judge prompt
-  return `你是台灣不動產謄本解析的品質審核專家。
-你收到一份謄本原始文件，以及多個 AI 模型對同一文件的解析結果中有爭議的欄位。
-
-你的任務是：
-1. 審查每個「有爭議的欄位」
-2. 對照原始文件，判斷哪個模型的解析最正確
-3. 若所有模型都錯，提供你自己的正確解析
-
-以下是有爭議的欄位：
-${conflictJson}
-
-回傳格式（僅輸出有爭議的欄位，格式為嚴格 JSON）：
-{
-  "resolutions": [
-    {
-      "field_path": "欄位路徑",
-      "correct_value": "正確值",
-      "chosen_from": "model_provider（若選自某模型）",
-      "reason": "判定理由"
-    }
-  ]
-}
-
-注意事項：
-- 面積請保留原始單位（平方公尺），精確到小數點後兩位
-- 日期格式統一為「民國 YYY 年 MM 月 DD 日」
-- 地號/建號格式為「XXXX-XXXX」
-- 若原始文件模糊無法辨識，在 reason 中說明，correct_value 設為 null
-- 請直接輸出 JSON，不要用 \`\`\`json 包覆`;
+  const base = basePrompt ?? TRANSCRIPT_JUDGE_PROMPT;
+  return `${base}\n\n以下是有爭議的欄位，請一一判定：\n${conflictJson}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -531,14 +519,14 @@ async function fetchSystemPrompt(
 ): Promise<string | null> {
   const { data } = await adminClient
     .from('ai_system_prompts')
-    .select('prompt_text')
+    .select('prompt_content')
     .eq('user_id', userId)
     .eq('module_key', moduleKey)
     .order('version', { ascending: false })
     .limit(1)
     .single();
 
-  return data?.prompt_text as string | null ?? null;
+  return data?.prompt_content as string | null ?? null;
 }
 
 async function getApiKey(

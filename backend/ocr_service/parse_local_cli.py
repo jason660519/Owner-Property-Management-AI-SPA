@@ -10,7 +10,6 @@ Output:
   Exits 0 on success, 1 on error, 2 if the PDF has no text layer.
 """
 
-import dataclasses
 import json
 import os
 import sys
@@ -24,15 +23,7 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 from supabase import create_client
-from parser import extract_transcript  # noqa: E402 (added after sys.path insert)
-
-
-def _to_dict(obj):
-    if dataclasses.is_dataclass(obj):
-        return {k: _to_dict(v) for k, v in dataclasses.asdict(obj).items()}
-    if isinstance(obj, list):
-        return [_to_dict(i) for i in obj]
-    return obj
+from parser import extract_transcript, to_unified_output  # noqa: E402 (added after sys.path insert)
 
 
 def main() -> None:
@@ -87,10 +78,13 @@ def main() -> None:
         print(json.dumps({'error': 'PDF 無可提取的文字層（可能是掃描影像），請改用雲端解析。'}), flush=True)
         sys.exit(2)
 
+    # Convert to the TranscriptParseOutput unified schema (mirrors TS interface).
+    # field_confidences is included so the caller can join the consensus pipeline.
+    unified = to_unified_output(parsed)
     output = {
         'document_id': document_id,
-        'transcript_type': type(parsed).__name__,
-        'parsed': _to_dict(parsed),
+        'local_parse': True,   # sentinel so callers know this is a local-regex result
+        **unified,
     }
     print(json.dumps(output, ensure_ascii=False), flush=True)
 

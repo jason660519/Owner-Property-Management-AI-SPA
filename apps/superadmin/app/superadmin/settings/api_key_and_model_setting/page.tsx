@@ -13,6 +13,7 @@ import {
   type ApiKeyManagerHandle,
   ModelEvaluator,
 } from '@/components/ai-settings';
+import { OcrSystemPromptPanel } from '@/components/ai-settings/OcrSystemPromptPanel';
 import { useAISettings, type KeyValidationResult } from '@/lib/hooks/useAISettings';
 import { getTotalAvailableModels, getSelectedCountInAvailable } from '@/lib/utils/total-available-models';
 import { getProviderById, AI_PROVIDERS } from '@/lib/ai-providers';
@@ -600,7 +601,19 @@ export default function AIServiceSettingsPage() {
         );
       case 'ocr':
         return (
-          <ModelEvaluator
+          <div className="space-y-6">
+            {/* System Prompt editors for parser and judge */}
+            <div>
+              <h3 className="text-sm font-semibold text-text-primary mb-1">系統 Prompt 設定</h3>
+              <p className="text-xs text-text-muted mb-3">
+                儲存後每次雲端解析均自動套用，留空則使用內建預設 Prompt。
+              </p>
+              <OcrSystemPromptPanel
+                savedPrompts={settings.prompts}
+                onSave={settings.savePrompt}
+              />
+            </div>
+            <ModelEvaluator
             savedKeys={settings.keys}
             savedModels={settings.models}
             savedEvaluations={settings.evaluations}
@@ -629,6 +642,7 @@ export default function AIServiceSettingsPage() {
             headerActionsRef={setModelEvaluatorHeaderActions}
             statusLabelMode="ocr"
           />
+          </div>
         );
       case 'static-ad':
         return (
