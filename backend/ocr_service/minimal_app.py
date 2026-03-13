@@ -13,7 +13,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import FastAPI, File, UploadFile, BackgroundTasks, HTTPException
+from fastapi import FastAPI, File, Request, UploadFile, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
@@ -335,17 +335,21 @@ async def get_supported_formats():
 
 
 @app.post("/api/v1/documents/{document_id}/parse-local")
-async def parse_document_locally(document_id: str):
+async def parse_document_locally(document_id: str, request: Request):
     """
     Parse a transcript PDF using the local deterministic Python regex parser.
     Downloads the file from Supabase Storage, extracts the text layer, and
     returns structured JSON in the TranscriptParseOutput unified schema —
     no external AI API is called.
+
+    Supabase credentials are read from env vars first, then from
+    X-Supabase-URL / X-Supabase-Key request headers (forwarded by the
+    Next.js route when the service process lacks its own env vars).
     """
-    supabase_url = os.getenv("SUPABASE_URL")
-    supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    supabase_url = os.getenv("SUPABASE_URL") or request.headers.get("X-Supabase-URL", "")
+    supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or request.headers.get("X-Supabase-Key", "")
     if not supabase_url or not supabase_key:
-        raise HTTPException(status_code=500, detail="Supabase 環境變數未設定（SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY）")
+        raise HTTPException(status_code=500, detail="Supabase 環境變數未設定（SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY），且請求中未帶入 X-Supabase-URL / X-Supabase-Key 標頭")
 
     supabase = create_client(supabase_url, supabase_key)
 
@@ -390,6 +394,49 @@ async def parse_document_locally(document_id: str):
     unified = to_unified_output(parsed)
     return {
         "document_id": document_id,
+        "local_parse": True,
+        **unified,
+    }
+
+
+@app.post("/api/v1/parse-content")
+async def parse_content(file: UploadFile = File(...)):
+    """
+    Parse a transcript PDF from uploaded bytes — no Supabase access required.
+    The caller (Next.js route) downloads the file and POSTs it here as
+    multipart/form-data so this service never needs Supabase credentials.
+
+    Returns structured JSON in the TranscriptParseOutput unified schema.
+    """
+    file_bytes = await file.read()
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="上傳的檔案內容為空")
+
+    tmp_path = None
+    try:
+        suffix = ".pdf"
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(file_bytes)
+            tmp_path = tmp.name
+
+        parsed = extract_transcript(tmp_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"本地解析失敗：{e}")
+    finally:
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+
+    if parsed is None:
+        raise HTTPException(
+            status_code=422,
+            detail="PDF 無可提取的文字層（可能是掃描影像），請改用雲端解析。"
+        )
+
+    unified = to_unified_output(parsed)
+    return {
         "local_parse": True,
         **unified,
     }

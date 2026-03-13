@@ -1129,21 +1129,26 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTr
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-emerald-700 flex items-center gap-1">
               <FileCode size={12} />
-              地端Python解析結果（{(localParseResult.transcript_type as string) ?? ''}）
+              地端Python解析結果（{(localParseResult.transcript_type as string) ?? (localParseResult.kind as string) ?? ''}）
             </span>
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() =>
                   navigator.clipboard.writeText(
-                    JSON.stringify(localParseResult.parsed, null, 2),
+                    JSON.stringify(
+                      localParseResult.parsed ??
+                      (localParseResult.kind === 'building' ? localParseResult.buildingTranscript : localParseResult.landTranscript) ??
+                      localParseResult,
+                      null, 2,
+                    ),
                   )
                 }
                 className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-border-default hover:bg-bg-tertiary text-text-secondary"
               >
                 <Copy size={12} /> 複製
               </button>
-              {onTranscribe && kind === 'building' && Boolean(localParseResult.parsed) && (
+              {onTranscribe && kind === 'building' && Boolean(localParseResult.parsed ?? localParseResult.buildingTranscript) && (
                 <button
                   type="button"
                   onClick={() => {
@@ -1163,7 +1168,12 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTr
             </div>
           </div>
           <pre className="text-xs bg-bg-tertiary border border-emerald-600/20 rounded-md p-3 overflow-x-auto overflow-y-auto max-h-64 whitespace-pre-wrap break-words">
-            {JSON.stringify(localParseResult.parsed, null, 2)}
+            {JSON.stringify(
+              localParseResult.parsed ??
+              (localParseResult.kind === 'building' ? localParseResult.buildingTranscript : localParseResult.landTranscript) ??
+              localParseResult,
+              null, 2,
+            )}
           </pre>
         </div>
       )}
