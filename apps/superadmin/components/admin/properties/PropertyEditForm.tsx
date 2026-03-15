@@ -2,9 +2,9 @@
 // created: 2026-03-05 | creator: Claude
 'use client';
 
-import { useState, useTransition, useMemo, useRef, useEffect } from 'react';
+import { useState, useTransition, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2, Building2, Key, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Loader2, Building2, Key, ChevronDown, MapPin, Search, ExternalLink } from 'lucide-react';
 import { updateProperty } from '@/lib/actions/properties';
 import { PropertyMediaSection } from './PropertyMediaSection';
 import { PropertyInvestigationReportSection } from './PropertyInvestigationReportSection';
@@ -17,6 +17,7 @@ import {
   type UpdatePropertyInput,
 } from '@/lib/types/properties';
 import { TAIWAN_CITIES, getDistrictsByCity } from '@/lib/data/taiwan-address';
+import { geocodeAddress } from '@/lib/utils/geocoding';
 
 function composeAddress(parts: {
   city?: string;
@@ -201,17 +202,108 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
   const [livingRooms, setLivingRooms] = useState(property.livingRooms ?? 0);
   const [parkingSpaces, setParkingSpaces] = useState(property.parkingSpaces ?? 0);
   const [description, setDescription] = useState('');
+  const [latInput, setLatInput] = useState(property.latitude != null ? String(property.latitude) : '');
+  const [lngInput, setLngInput] = useState(property.longitude != null ? String(property.longitude) : '');
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [geocodeMsg, setGeocodeMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Parse + validate lat/lng inputs
+  const validLat = useMemo(() => {
+    const n = parseFloat(latInput);
+    return latInput.trim() !== '' && !isNaN(n) && n >= -90 && n <= 90 ? n : null;
+  }, [latInput]);
+  const validLng = useMemo(() => {
+    const n = parseFloat(lngInput);
+    return lngInput.trim() !== '' && !isNaN(n) && n >= -180 && n <= 180 ? n : null;
+  }, [lngInput]);
+
+  // Composed address for display / geocoding
+  const composedAddress = useMemo(
+    () =>
+      composeAddress({
+        city: addressCity || undefined,
+        district: addressDistrict || undefined,
+        street: addressStreet || undefined,
+        number: addressNumber || undefined,
+        floor: addressFloor || undefined,
+        unit: addressUnit || undefined,
+      }) || property.address,
+    [addressCity, addressDistrict, addressStreet, addressNumber, addressFloor, addressUnit, property.address],
+  );
+
+  // Google Maps embed URL (address preferred for better building-level positioning in TW)
+  const mapEmbedUrl = useMemo(() => {
+    if (composedAddress) {
+      return `https://maps.google.com/maps?q=${encodeURIComponent(composedAddress)}&output=embed&hl=zh-TW`;
+    }
+    if (validLat !== null && validLng !== null) {
+      return `https://maps.google.com/maps?q=${validLat},${validLng}&z=16&output=embed&hl=zh-TW`;
+    }
+    return null;
+  }, [validLat, validLng, composedAddress]);
+
+  // External Google Maps link (address preferred)
+  const mapsOpenUrl = useMemo(() => {
+    if (composedAddress) {
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(composedAddress)}`;
+    }
+    if (validLat !== null && validLng !== null) {
+      return `https://www.google.com/maps/search/?api=1&query=${validLat},${validLng}`;
+    }
+    return null;
+  }, [validLat, validLng, composedAddress]);
+
+  // Auto-geocode using OpenStreetMap Nominatim (free, no API key)
+  // Note: OSM Taiwan data has street-level coverage but NOT building-level (house numbers).
+  // Strategies must omit house numbers to get results; coordinates will be street-level accurate.
+  const handleGeocode = useCallback(async () => {
+    const params = {
+      city: addressCity,
+      district: addressDistrict,
+      street: addressStreet,
+      number: addressNumber,
+      rawAddress: property.address,
+    };
+
+    if (!params.city && !params.street && !params.rawAddress) {
+      setGeocodeMsg({ type: 'error', text: '請先填寫地址' });
+      return;
+    }
+
+    setIsGeocoding(true);
+    setGeocodeMsg(null);
+
+    try {
+      const result = await geocodeAddress(params);
+
+      if (result) {
+        setLatInput(result.lat.toFixed(6));
+        setLngInput(result.lng.toFixed(6));
+
+        let accuracyText = '座標';
+        if (result.accuracy === 'building') accuracyText = '門牌等級座標';
+        else if (result.accuracy === 'street') accuracyText = '街道等級座標';
+        else if (result.accuracy === 'area') accuracyText = '區域等級座標';
+
+        setGeocodeMsg({
+          type: 'success',
+          text: `已找到${accuracyText}（${result.displayName}）`,
+        });
+      } else {
+        setGeocodeMsg({
+          type: 'error',
+          text: '找不到此地址的座標。請確認路名是否完整（如「仁愛路四段」），或改為手動輸入座標。',
+        });
+      }
+    } catch {
+      setGeocodeMsg({ type: 'error', text: '地理編碼服務暫時無法使用，請手動輸入座標' });
+    } finally {
+      setIsGeocoding(false);
+    }
+  }, [addressCity, addressDistrict, addressStreet, addressNumber, property.address]);
 
   function handleSubmit() {
     setFeedback(null);
-    const composedAddress = composeAddress({
-      city: addressCity || undefined,
-      district: addressDistrict || undefined,
-      street: addressStreet || undefined,
-      number: addressNumber || undefined,
-      floor: addressFloor || undefined,
-      unit: addressUnit || undefined,
-    });
 
     const input: UpdatePropertyInput = {
       title,
@@ -235,6 +327,8 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
       bathrooms: bathrooms || null,
       livingRooms: livingRooms || null,
       parkingSpaces: parkingSpaces || null,
+      latitude: validLat,
+      longitude: validLng,
     };
 
     if (description.trim()) {
@@ -473,13 +567,88 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
                     />
                   </div>
                 </div>
-                {(addressCity || addressDistrict || addressStreet || addressNumber || addressFloor || addressUnit) ? (
-                  <p className="text-xs text-text-muted">
-                    預覽：{composeAddress({ city: addressCity, district: addressDistrict, street: addressStreet, number: addressNumber, floor: addressFloor, unit: addressUnit }) || '—'}
-                  </p>
-                ) : property.address ? (
-                  <p className="text-xs text-text-muted">目前儲存地址：{property.address}</p>
+                {composedAddress ? (
+                  <p className="text-xs text-text-muted">預覽：{composedAddress}</p>
                 ) : null}
+              </div>
+
+              {/* Location Map */}
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-text-secondary flex items-center gap-1.5">
+                  <MapPin size={14} />
+                  地圖定位
+                </label>
+
+                {/* Lat / Lng inputs */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="block text-xs text-text-muted mb-1">緯度 Latitude</span>
+                    <input
+                      type="text"
+                      value={latInput}
+                      onChange={(e) => { setLatInput(e.target.value); setGeocodeMsg(null); }}
+                      placeholder="25.033000"
+                      className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted font-mono"
+                    />
+                  </div>
+                  <div>
+                    <span className="block text-xs text-text-muted mb-1">經度 Longitude</span>
+                    <input
+                      type="text"
+                      value={lngInput}
+                      onChange={(e) => { setLngInput(e.target.value); setGeocodeMsg(null); }}
+                      placeholder="121.565400"
+                      className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Geocode button */}
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleGeocode}
+                    disabled={isGeocoding}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-tertiary border border-border-default rounded-md text-text-secondary hover:border-accent hover:text-accent transition-colors disabled:opacity-50"
+                  >
+                    {isGeocoding ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
+                    從地址自動偵測座標
+                  </button>
+                  {mapsOpenUrl && (
+                    <a
+                      href={mapsOpenUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-text-muted hover:text-accent transition-colors"
+                    >
+                      <ExternalLink size={11} />
+                      在 Google Maps 開啟
+                    </a>
+                  )}
+                </div>
+
+                {geocodeMsg && (
+                  <p className={`text-xs ${geocodeMsg.type === 'success' ? 'text-green-500' : 'text-red-500'}`}>
+                    {geocodeMsg.text}
+                  </p>
+                )}
+
+                {/* Map embed */}
+                {mapEmbedUrl && (
+                  <div className="relative rounded-lg overflow-hidden border border-border-default">
+                    <iframe
+                      key={mapEmbedUrl}
+                      src={mapEmbedUrl}
+                      className="w-full h-56"
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      title="物件位置地圖"
+                    />
+                    <p className="absolute bottom-1 right-2 text-[10px] text-text-muted bg-bg-primary/80 px-1 rounded">
+                      {composedAddress ? '依中文地址定位' : (validLat !== null && validLng !== null ? `座標定位: ${validLat}, ${validLng}` : '未設定定位')}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Price / Rent */}

@@ -92,7 +92,7 @@ async function callCliFileMode(
 
   // Download file in Next.js
   const downloaded = await downloadDocument(documentId);
-  if (downloaded.error) return { data: {}, error: downloaded.error };
+  if (downloaded.error || !downloaded.fileBuffer) return { data: {}, error: downloaded.error || '無法下載文件內容' };
 
   // Write to temp file
   const tmpPath = path.join(os.tmpdir(), `transcript_${Date.now()}_${Math.random().toString(36).slice(2)}.pdf`);
@@ -154,13 +154,13 @@ async function callHttpService(
   const baseUrl = (process.env.OCR_HTTP_SERVICE_URL ?? 'http://localhost:8819').replace(/\/$/, '');
 
   const downloaded = await downloadDocument(documentId);
-  if (downloaded.error) return { data: {}, error: downloaded.error };
+  if (downloaded.error || !downloaded.fileBuffer) return { data: {}, error: downloaded.error || '無法下載文件內容' };
 
   const url = `${baseUrl}/api/v1/parse-content`;
   const formData = new FormData();
   formData.append(
     'file',
-    new Blob([downloaded.fileBuffer], { type: 'application/pdf' }),
+    new Blob([downloaded.fileBuffer.buffer as ArrayBuffer], { type: 'application/pdf' }),
     'transcript.pdf',
   );
 

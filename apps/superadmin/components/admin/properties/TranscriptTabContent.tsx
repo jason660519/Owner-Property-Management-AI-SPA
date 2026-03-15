@@ -49,9 +49,11 @@ function TranscriptColumn({
   const [docFile, setDocFile] = useState<File | null>(null);
   const [isDocUploading, setIsDocUploading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [fillFromParse, setFillFromParse] = useState<BuildingTranscriptData | LandTranscriptData | null>(null);
+  const [fillBuildingFromParse, setFillBuildingFromParse] = useState<BuildingTranscriptData | null>(null);
+  const [fillLandFromParse, setFillLandFromParse] = useState<LandTranscriptData | null>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
-  const onTranscribeApplied = useCallback(() => setFillFromParse(null), []);
+  const onBuildingTranscribeApplied = useCallback(() => setFillBuildingFromParse(null), []);
+  const onLandTranscribeApplied = useCallback(() => setFillLandFromParse(null), []);
 
   async function handleDocUpload() {
     if (!docFile) return;
@@ -163,7 +165,13 @@ function TranscriptColumn({
           <TranscriptParseSection
             transcriptDocs={documents}
             kind={kind}
-            onTranscribe={(result) => setFillFromParse(result)}
+            onTranscribe={(result) => {
+              if (kind === 'building') {
+                setFillBuildingFromParse(result as BuildingTranscriptData);
+              } else {
+                setFillLandFromParse(result as LandTranscriptData);
+              }
+            }}
           />
         )}
 
@@ -173,8 +181,8 @@ function TranscriptColumn({
             propertyId={propertyId}
             propertyType={propertyType}
             initialData={initialBuildingData}
-            fillFromParsedTranscript={fillFromParse as BuildingTranscriptData | null}
-            onTranscribeApplied={onTranscribeApplied}
+            fillFromParsedTranscript={fillBuildingFromParse}
+            onTranscribeApplied={onBuildingTranscribeApplied}
           />
         )}
         {kind === 'land' && (
@@ -182,8 +190,8 @@ function TranscriptColumn({
             propertyId={propertyId}
             propertyType={propertyType}
             initialData={initialLandData}
-            fillFromParsedTranscript={fillFromParse as LandTranscriptData | null}
-            onTranscribeApplied={onTranscribeApplied}
+            fillFromParsedTranscript={fillLandFromParse}
+            onTranscribeApplied={onLandTranscribeApplied}
           />
         )}
       </div>

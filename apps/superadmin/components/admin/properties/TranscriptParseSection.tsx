@@ -27,8 +27,14 @@ import {
   getAvailableModelsListWithStaticFallback,
 } from '@/lib/utils/total-available-models';
 import { getStatusDisplay } from '@/lib/utils/model-status';
-import { readLocalStorage, writeLocalStorage, readSessionStorage } from '@/lib/utils/storage-state';
-import { normalizeLocalParsedToBuildingTranscriptData } from '@/lib/utils/transcript-parsed-to-form';
+import { readLocalStorage,
+  writeLocalStorage,
+  readSessionStorage,
+} from '@/lib/utils/storage-state';
+import {
+  normalizeLocalParsedToBuildingTranscriptData,
+  normalizeLocalParsedToLandTranscriptData,
+} from '@/lib/utils/transcript-parsed-to-form';
 import Link from 'next/link';
 
 // ---------------------------------------------------------------------------
@@ -1148,19 +1154,24 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTr
               >
                 <Copy size={12} /> 複製
               </button>
-              {onTranscribe && kind === 'building' && Boolean(localParseResult.parsed ?? localParseResult.buildingTranscript) && (
+              {onTranscribe && (
                 <button
                   type="button"
                   onClick={() => {
-                    // New unified schema: buildingTranscript is directly usable; legacy format: .parsed
-                    onTranscribe(normalizeLocalParsedToBuildingTranscriptData(
+                    // New unified schema: building/landTranscript is directly usable; legacy format: .parsed
+                    const source = (localParseResult as Record<string, unknown>).landTranscript ??
                       (localParseResult as Record<string, unknown>).buildingTranscript ??
                       (localParseResult as Record<string, unknown>).parsed ??
-                      localParseResult,
-                    ));
+                      localParseResult;
+
+                    if (kind === 'land') {
+                      onTranscribe(normalizeLocalParsedToLandTranscriptData(source));
+                    } else {
+                      onTranscribe(normalizeLocalParsedToBuildingTranscriptData(source));
+                    }
                   }}
                   className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-border-default hover:bg-bg-tertiary text-text-secondary"
-                  title="將解析結果謄寫至下方建物全部欄位"
+                  title={`將解析結果謄寫至下方${kind === 'land' ? '土地' : '建物'}全部欄位`}
                 >
                   <PenLine size={12} /> 謄寫
                 </button>

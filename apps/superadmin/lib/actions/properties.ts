@@ -188,6 +188,8 @@ export async function getAllProperties(): Promise<PropertiesResult> {
           (details.imageUrl as string) ||
           (Array.isArray(details.images) && (details.images[0] as string)) ||
           null,
+        latitude: (row.latitude as number | null) ?? null,
+        longitude: (row.longitude as number | null) ?? null,
       };
     }
 
@@ -334,6 +336,8 @@ export async function getPropertyById(id: string): Promise<PropertyItem | null> 
       null,
     buildingTranscript: (details.buildingTranscript as BuildingTranscriptData) ?? null,
     landTranscript: (details.landTranscript as LandTranscriptData) ?? null,
+    latitude: (row.latitude as number | null) ?? null,
+    longitude: (row.longitude as number | null) ?? null,
   };
 }
 
@@ -451,6 +455,9 @@ export async function createProperty(
     if (input.addressFloor) insertPayload.address_floor = input.addressFloor;
     if (input.addressUnit) insertPayload.address_unit = input.addressUnit;
 
+    if (input.latitude != null) insertPayload.latitude = input.latitude;
+    if (input.longitude != null) insertPayload.longitude = input.longitude;
+
     if (type === 'sale') {
       insertPayload.price = input.price ?? 0;
     } else {
@@ -555,6 +562,8 @@ export async function updateProperty(
     if (input.livingRooms !== undefined) updatePayload.layout_living_rooms = input.livingRooms;
     if (input.bathrooms !== undefined) updatePayload.layout_bathrooms = input.bathrooms;
     if (input.parkingSpaces !== undefined) updatePayload.has_parking = (input.parkingSpaces ?? 0) > 0;
+    if (input.latitude !== undefined) updatePayload.latitude = input.latitude;
+    if (input.longitude !== undefined) updatePayload.longitude = input.longitude;
 
     // Merge details JSONB (preserve existing fields; keep details in sync for backward compat)
     const existingDetails = (existing?.details || {}) as Record<string, unknown>;

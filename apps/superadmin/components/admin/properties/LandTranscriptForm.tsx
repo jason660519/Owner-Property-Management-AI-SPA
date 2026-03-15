@@ -2,8 +2,8 @@
 // created: 2026-03-05 | creator: Claude
 'use client';
 
-import { useState, useTransition, useEffect } from 'react';
-import { Plus, Trash2, Loader2 } from 'lucide-react';
+import { useState, useTransition, useEffect, useMemo, useRef } from 'react';
+import { Plus, Trash2, Loader2, ArrowRight, History } from 'lucide-react';
 import { savePropertyTranscriptData } from '@/lib/actions/properties';
 import type {
   LandTranscriptData,
@@ -95,6 +95,12 @@ interface Props {
   onTranscribeApplied?: () => void;
 }
 
+interface FieldDiff {
+  label: string;
+  from: string;
+  to: string;
+}
+
 export function LandTranscriptForm({
   propertyId,
   propertyType,
@@ -104,32 +110,101 @@ export function LandTranscriptForm({
 }: Props) {
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [transcribeDiffs, setTranscribeDiffs] = useState<FieldDiff[]>([]);
+  const [transcribeNoChange, setTranscribeNoChange] = useState(false);
   const [header, setHeader] = useState<TranscriptHeader>(initialData?.header ?? emptyHeader());
   const [desc, setDesc] = useState<LandDescription>(initialData?.description ?? emptyDescription());
   const [ownership, setOwnership] = useState<LandOwnershipRecord[]>(initialData?.ownership ?? []);
   const [encumbrances, setEncumbrances] = useState<EncumbranceRecord[]>(initialData?.encumbrances ?? []);
 
+  // Always-current snapshot ref — read in the effect as "before" state to avoid stale closures
+  const currentStateRef = useRef({ header, desc, ownership, encumbrances });
+  currentStateRef.current = { header, desc, ownership, encumbrances };
+  const diffPanelRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!fillFromParsedTranscript) return;
     try {
-      setHeader(fillFromParsedTranscript.header ?? emptyHeader());
-      setDesc(fillFromParsedTranscript.description ?? emptyDescription());
+      // Read the "before" snapshot from the always-current ref (not stale closure)
+      const before = currentStateRef.current;
+      const diffs: FieldDiff[] = [];
+      const newHeader = fillFromParsedTranscript.header ?? emptyHeader();
+      const incomingDesc = fillFromParsedTranscript.description ?? emptyDescription();
+
+      // Compare Header
+      const headerLabels: Record<keyof TranscriptHeader, string> = {
+        transcriptType: '謄本名稱與種類',
+        documentTitle: '地號（完整）',
+        printTime: '列印時間',
+        pageInfo: '頁字／頁次',
+        printer: '謄本列印人',
+        checkNumber: '謄本檢查號',
+        documentNumber: '謄本字第號',
+        dataJurisdiction: '資料管轄機關',
+        issuingAuthority: '謄本核發機關',
+        transcriptNotes: '注意事項',
+      };
+      (Object.keys(headerLabels) as Array<keyof TranscriptHeader>).forEach((k) => {
+        if (newHeader[k] && newHeader[k] !== before.header[k]) {
+          diffs.push({ label: headerLabels[k], from: before.header[k], to: newHeader[k] });
+        }
+      });
+
+      // Compare Description
+      const descLabels: Partial<Record<keyof LandDescription, string>> = {
+        landNumber: '地號',
+        regDate: '登記日期',
+        regReason: '登記原因',
+        landCategory: '地目',
+        grade: '等則',
+        area: '面積',
+        useZone: '使用分區',
+        useCategory: '使用地類別',
+        announcedValueYear: '公告現值年度',
+        announcedValuePerSqm: '公告現值',
+        buildingsOnLand: '地上建物',
+        notes: '其他登記事項',
+      };
+      (Object.keys(descLabels) as Array<keyof LandDescription>).forEach((k) => {
+        if (incomingDesc[k] && incomingDesc[k] !== before.desc[k] && typeof incomingDesc[k] === 'string') {
+          diffs.push({ label: descLabels[k]!, from: before.desc[k] as string, to: incomingDesc[k] as string });
+        }
+      });
+
+      // Simple array count comparison
+      if (fillFromParsedTranscript.ownership?.length !== before.ownership.length) {
+        diffs.push({ label: '所有權人數量', from: `${before.ownership.length}`, to: `${fillFromParsedTranscript.ownership?.length ?? 0}` });
+      }
+      if (fillFromParsedTranscript.encumbrances?.length !== before.encumbrances.length) {
+        diffs.push({ label: '他項權利數量', from: `${before.encumbrances.length}`, to: `${fillFromParsedTranscript.encumbrances?.length ?? 0}` });
+      }
+
+      setTranscribeDiffs(diffs);
+      setTranscribeNoChange(diffs.length === 0);
+      setFeedback(null);
+
+      setHeader(newHeader);
+      setDesc(incomingDesc);
       setOwnership(
         (fillFromParsedTranscript.ownership?.length ?? 0) > 0
-          ? fillFromParsedTranscript.ownership
+          ? fillFromParsedTranscript.ownership!
           : [emptyOwnership()],
       );
       setEncumbrances(
         (fillFromParsedTranscript.encumbrances?.length ?? 0) > 0
-          ? fillFromParsedTranscript.encumbrances
-          : encumbrances.length > 0
-            ? encumbrances
+          ? fillFromParsedTranscript.encumbrances!
+          : before.encumbrances.length > 0
+            ? before.encumbrances
             : [emptyEncumbrance()],
       );
+
+      // Scroll the diff panel into view after state settles
+      setTimeout(() => diffPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
     } finally {
       onTranscribeApplied?.();
     }
-  }, [fillFromParsedTranscript, onTranscribeApplied, encumbrances.length]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fillFromParsedTranscript, onTranscribeApplied]);
 
   function uh<K extends keyof TranscriptHeader>(key: K, val: TranscriptHeader[K]) {
     setHeader((h) => ({ ...h, [key]: val }));
@@ -156,6 +231,46 @@ export function LandTranscriptForm({
 
   return (
     <div className="space-y-4">
+      {(transcribeDiffs.length > 0 || transcribeNoChange) && (
+        <div ref={diffPanelRef} className="bg-bg-tertiary border border-accent/20 rounded-lg p-3 space-y-2 animate-in fade-in slide-in-from-top-1 duration-300">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-accent flex items-center gap-1.5">
+              <History size={14} />
+              {transcribeNoChange ? '謄寫完成' : `謄寫更新摘要（共修改 ${transcribeDiffs.length} 個欄位）`}
+            </p>
+            <button
+              type="button"
+              onClick={() => { setTranscribeDiffs([]); setTranscribeNoChange(false); }}
+              className="text-[10px] text-text-muted hover:text-text-secondary underline"
+            >
+              關閉提示
+            </button>
+          </div>
+          {transcribeNoChange ? (
+            <p className="text-xs text-text-muted">所有欄位與現有資料相同，無需更新。</p>
+          ) : (
+            <div className="grid grid-cols-1 gap-1.5 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+              {transcribeDiffs.map((diff, i) => (
+                <div key={i} className="flex items-start gap-2 text-[11px] bg-bg-primary/50 p-1.5 rounded border border-border-default/50">
+                  <span className="font-medium text-text-secondary shrink-0 w-20 truncate" title={diff.label}>
+                    {diff.label}
+                  </span>
+                  <div className="flex-1 flex items-center gap-2 min-w-0">
+                    <span className="text-text-muted truncate italic line-through decoration-text-muted/30">
+                      {diff.from || '(空)'}
+                    </span>
+                    <ArrowRight size={10} className="text-accent shrink-0" />
+                    <span className="text-text-primary font-medium truncate bg-accent/5 px-1 rounded">
+                      {diff.to}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {feedback && (
         <div className={`p-3 rounded-lg text-sm ${
           feedback.type === 'success'

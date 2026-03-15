@@ -72,6 +72,10 @@ export interface PropertyItem {
   buildingTranscript?: BuildingTranscriptData | null;
   /** 土地全部謄本資料（儲存於 details.landTranscript） */
   landTranscript?: LandTranscriptData | null;
+  /** 物件緯度（WGS84，直接儲存於 property_sales/rentals.latitude） */
+  latitude?: number | null;
+  /** 物件經度（WGS84，直接儲存於 property_sales/rentals.longitude） */
+  longitude?: number | null;
 }
 
 export interface PropertiesResult {
@@ -102,6 +106,8 @@ export interface UpdatePropertyInput {
   livingRooms?: number | null;
   parkingSpaces?: number | null;
   description?: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface CreatePropertyInput {
@@ -125,6 +131,8 @@ export interface CreatePropertyInput {
   livingRooms?: number | null;
   parkingSpaces?: number | null;
   description?: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface OwnerOption {

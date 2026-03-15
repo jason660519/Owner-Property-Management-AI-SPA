@@ -18,13 +18,14 @@ import {
   type SortingState,
   type ColumnResizeMode,
 } from '@tanstack/react-table';
-import { Search, Home, ArrowUpDown, Pencil, Trash2, Loader2, AlignLeft, Eye, ChevronDown, Check } from 'lucide-react';
+import { Search, Home, ArrowUpDown, Pencil, Trash2, Loader2, AlignLeft, Eye, ChevronDown, Check, MapPin, Map } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { deleteProperty } from '@/lib/actions/properties';
 import type { PropertyItem, PropertiesResult, OwnerOption } from '@/lib/types/properties';
 import { PROPERTY_TYPES } from '@/lib/types/properties';
 import { TAIWAN_CITIES, getDistrictsByCity } from '@/lib/data/taiwan-address';
 import { PropertyCreateModal } from './PropertyCreateModal';
+import { PropertyMapView } from './PropertyMapView';
 
 const statusVariantMap: Record<string, 'success' | 'warning' | 'error' | 'info' | 'default'> = {
   for_sale: 'success',
@@ -115,6 +116,9 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isPendingDelete, startDeleteTransition] = useTransition();
 
+  // View mode: table vs map
+  const [viewMode, setViewMode] = useState<'table' | 'map'>('table');
+
   // Table layout / view controls
   const [tableAlignH, setTableAlignH] = useState<TableHAlign>('left');
   const [tableAlignV, setTableAlignV] = useState<TableVAlign>('top');
@@ -163,16 +167,6 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
       document.removeEventListener('scroll', handleScrollOrResize, true);
     };
   }, [propertyTypeDropdownOpen, recalcPropertyTypeDropdownPos]);
-
-  const frozenColLeftOffsets = useMemo(() => {
-    const offsets: number[] = [];
-    let acc = 0;
-    for (let i = 0; i < PROPERTIES_COLUMN_COUNT; i++) {
-      offsets.push(acc);
-      acc += COLUMN_WIDTHS_PX[i] ?? 90;
-    }
-    return offsets;
-  }, []);
 
   // Close alignment dropdown on click outside or Escape
   useEffect(() => {
@@ -237,7 +231,6 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
       size: COLUMN_WIDTHS_PX[0],
       header: '物件編號',
       enableSorting: false,
-      enableResizing: false,
       cell: (info) => {
         const pageIndex = table.getState().pagination.pageIndex;
         const pageSize = table.getState().pagination.pageSize;
@@ -252,10 +245,19 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
       size: COLUMN_WIDTHS_PX[17],
       header: '操作',
       enableSorting: false,
-      enableResizing: false,
       cell: (info) => {
         const row = info.row.original;
         const isDeleting = deletingId === row.id;
+        const mapsUrl = (() => {
+          const addr = [row.addressCity, row.addressDistrict, row.addressStreet, row.addressNumber]
+            .filter(Boolean).join('');
+          if (addr) return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`;
+          if (row.latitude != null && row.longitude != null) {
+            return `https://www.google.com/maps/search/?api=1&query=${row.latitude},${row.longitude}`;
+          }
+          return null;
+        })();
+        const hasCoords = row.latitude != null && row.longitude != null;
         return (
           <div className="flex items-center gap-1">
             <button
@@ -273,6 +275,28 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
             >
               {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
             </button>
+            {mapsUrl ? (
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={hasCoords ? `在 Google Maps 開啟（${row.latitude}, ${row.longitude}）` : '在 Google Maps 搜尋地址（尚未設定精確座標）'}
+                className={`p-1.5 rounded-md transition-colors ${
+                  hasCoords
+                    ? 'hover:bg-green-500/10 text-green-600 hover:text-green-500'
+                    : 'hover:bg-text-muted/10 text-text-muted hover:text-text-secondary'
+                }`}
+              >
+                <MapPin size={14} />
+              </a>
+            ) : (
+              <span
+                title="尚未設定地址或座標"
+                className="p-1.5 text-border-default cursor-not-allowed"
+              >
+                <MapPin size={14} />
+              </span>
+            )}
           </div>
         );
       },
@@ -556,6 +580,7 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
     data: filteredData,
     columns,
     columnResizeMode,
+    enableColumnResizing: true,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -565,6 +590,17 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
     onSortingChange: setSorting,
     onPaginationChange: setPagination,
   });
+
+  const frozenColLeftOffsets = useMemo(() => {
+    const offsets: number[] = [];
+    let acc = 0;
+    const allCols = table.getAllColumns();
+    for (let i = 0; i < allCols.length; i++) {
+      offsets.push(acc);
+      acc += allCols[i].getSize();
+    }
+    return offsets;
+  }, [table.getState().columnSizing, table.getAllColumns()]);
 
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-4">
@@ -587,6 +623,33 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
           >
             新增物件
           </button>
+          {/* Table / Map view toggle */}
+          <div className="flex rounded-md border border-border-default overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              title="表格檢視"
+              className={`px-2.5 py-1.5 text-xs flex items-center gap-1 transition-colors ${
+                viewMode === 'table'
+                  ? 'bg-accent text-white'
+                  : 'bg-bg-primary text-text-secondary hover:bg-bg-secondary'
+              }`}
+            >
+              <AlignLeft size={13} /> 表格
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('map')}
+              title="地圖檢視"
+              className={`px-2.5 py-1.5 text-xs flex items-center gap-1 border-l border-border-default transition-colors ${
+                viewMode === 'map'
+                  ? 'bg-accent text-white'
+                  : 'bg-bg-primary text-text-secondary hover:bg-bg-secondary'
+              }`}
+            >
+              <Map size={13} /> 地圖
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => setTypeFilter('all')}
@@ -756,9 +819,14 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
         </div>
       </div>
 
+      {/* Map view */}
+      {viewMode === 'map' && (
+        <PropertyMapView properties={filteredData} />
+      )}
+
       {/* Table: single scroll container (flex-1 min-h-0) so thead sticky works correctly */}
       <div
-        className={`flex-1 min-h-0 flex flex-col bg-bg-secondary border border-border-default rounded-lg overflow-hidden [&_th]:whitespace-normal [&_td]:whitespace-normal [&_th]:break-words [&_td]:break-words [&_th]:min-w-0 [&_td]:min-w-0 [&_th]:overflow-hidden [&_td]:overflow-hidden ${TABLE_H_ALIGN_CLASSES[tableAlignH]} ${TABLE_V_ALIGN_CLASSES[tableAlignV]}`}
+        className={`flex-1 min-h-0 flex flex-col bg-bg-secondary border border-border-default rounded-lg overflow-hidden [&_th]:whitespace-normal [&_td]:whitespace-normal [&_th]:break-words [&_td]:break-words [&_th]:min-w-0 [&_td]:min-w-0 [&_th]:overflow-hidden [&_td]:overflow-hidden ${TABLE_H_ALIGN_CLASSES[tableAlignH]} ${TABLE_V_ALIGN_CLASSES[tableAlignV]} ${viewMode === 'map' ? 'hidden' : ''}`}
       >
         <div className="overflow-auto flex-1 min-h-0">
           <table
@@ -810,10 +878,10 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
                             onMouseDown={header.getResizeHandler()}
                             onTouchStart={header.getResizeHandler()}
                             onClick={(e) => e.stopPropagation()}
-                            className={`absolute right-0 top-0 h-full w-[3px] cursor-col-resize select-none touch-none transition-colors ${
+                            className={`absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none transition-colors z-30 ${
                               header.column.getIsResizing()
-                                ? 'bg-accent'
-                                : 'bg-border-default hover:bg-accent/60'
+                                ? 'bg-accent w-1.5'
+                                : 'bg-transparent group-hover:bg-border-default hover:!bg-accent/60'
                             }`}
                           />
                         )}
