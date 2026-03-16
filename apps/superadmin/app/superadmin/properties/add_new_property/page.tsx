@@ -1,5 +1,4 @@
 // filepath: apps/superadmin/app/superadmin/properties/add_new_property/page.tsx
-import { getOwnersList } from '@/lib/actions/properties';
 import { DashboardLayout } from '@/components/dashboard';
 import { PropertyCreatePageClient } from '@/components/admin/properties/PropertyCreatePageClient';
 
@@ -8,8 +7,6 @@ export const dynamic = 'force-dynamic';
 const BASE = '/superadmin';
 
 export default async function SuperadminAddNewPropertyPage() {
-  const owners = await getOwnersList();
-
   return (
     <DashboardLayout
       currentRole="superadmin"
@@ -22,7 +19,7 @@ export default async function SuperadminAddNewPropertyPage() {
       contentFullHeight
     >
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        <PropertyCreatePageClient owners={owners} />
+        <PropertyCreatePageClient />
       </div>
     </DashboardLayout>
   );

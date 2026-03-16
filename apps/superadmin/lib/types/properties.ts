@@ -76,6 +76,10 @@ export interface PropertyItem {
   latitude?: number | null;
   /** 物件經度（WGS84，直接儲存於 property_sales/rentals.longitude） */
   longitude?: number | null;
+  /** 純土地物件（無建物謄本），地址以地號取代門牌 */
+  isPureLand?: boolean;
+  /** 土地地號，來自土地謄本 OCR（e.g. 大安區○○段 第0345地號） */
+  landNumber?: string | null;
 }
 
 export interface PropertiesResult {
@@ -111,9 +115,11 @@ export interface UpdatePropertyInput {
 }
 
 export interface CreatePropertyInput {
-  ownerId: string;
+  /** System user who created the record; defaults to current session user if omitted */
+  ownerId?: string;
   title: string;
-  address: string;
+  /** Omit on creation — address is sourced from transcript OCR */
+  address?: string;
   addressCity?: string;
   addressDistrict?: string;
   addressStreet?: string;

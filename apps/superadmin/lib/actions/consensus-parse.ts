@@ -28,6 +28,11 @@ import {
   getConflictsNeedingJudge,
   applyJudgeResolutions,
 } from '@/lib/utils/transcript-consensus';
+import {
+  normalizeLocalParsedToBuildingTranscriptData,
+  normalizeLocalParsedToLandTranscriptData,
+} from '@/lib/utils/transcript-parsed-to-form';
+import { parseTaiwanDoorAddress } from '@/lib/utils/taiwan-address-parser';
 
 function hasTranscriptContent(obj: unknown): boolean {
   if (obj === null || obj === undefined) return false;
@@ -72,7 +77,7 @@ export async function parseTranscriptWithConsensus(
   // ─── 1. Fetch document ───────────────────────────────────────────────
   const { data: doc, error: docError } = await adminClient
     .from('property_documents')
-    .select('id, file_path, document_type')
+    .select('id, file_path, document_type, property_id, property_type')
     .eq('id', documentId)
     .eq('is_active', true)
     .single();
@@ -179,6 +184,9 @@ export async function parseTranscriptWithConsensus(
     })
     .eq('id', documentId);
 
+  // ─── 9. Sync address / land_number back to property table ───────────
+  await syncAddressFromTranscript(adminClient, doc, finalMerged);
+
   return { success: true, data: finalMerged, metadata: finalMetadata };
 }
 
@@ -253,6 +261,14 @@ async function singleModelParse(
         confidence_score: 0.5,
       })
       .eq('id', documentId);
+
+    // Sync address / land_number back to property table
+    const { data: docMeta } = await adminClient
+      .from('property_documents')
+      .select('property_id, property_type, document_type')
+      .eq('id', documentId)
+      .single();
+    if (docMeta) await syncAddressFromTranscript(adminClient, docMeta, data);
 
     return { success: true, data, metadata };
   } catch (e) {
@@ -548,5 +564,76 @@ async function getApiKey(
     return await decryptApiKey(keyRow.api_key_encrypted, keyRow.iv);
   } catch {
     return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Address sync: write structured address or land_number back to property table
+// after OCR completes. Silently no-ops on missing data to avoid blocking parse.
+// ---------------------------------------------------------------------------
+
+interface DocMeta {
+  property_id: string | null;
+  property_type: string | null;
+  document_type: string | null;
+}
+
+async function syncAddressFromTranscript(
+  adminClient: ReturnType<typeof createAdminClient>,
+  doc: DocMeta,
+  parsedResult: unknown
+): Promise<void> {
+  const propertyId = doc.property_id;
+  const propertyType = doc.property_type;
+  const documentType = doc.document_type;
+
+  if (!propertyId || !propertyType) return;
+
+  const table = propertyType === 'sales' ? 'property_sales' : 'property_rentals';
+
+  if (documentType === 'building_registry_transcript') {
+    // Extract door address from building transcript and write to address_* columns
+    const data = normalizeLocalParsedToBuildingTranscriptData(parsedResult);
+    const doorAddress = data.description.doorAddress;
+    if (!doorAddress) return;
+
+    const parsed = parseTaiwanDoorAddress(doorAddress);
+
+    await adminClient
+      .from(table)
+      .update({
+        address_city:     parsed.city     ?? null,
+        address_district: parsed.district ?? null,
+        address_street:   parsed.street   ?? null,
+        address_number:   parsed.number   ?? null,
+        address_floor:    parsed.floor    ?? null,
+        address_unit:     parsed.unit     ?? null,
+        is_pure_land:     false,
+      })
+      .eq('id', propertyId);
+
+  } else if (documentType === 'land_registry_transcript') {
+    // Extract land number and check if a building transcript also exists
+    const data = normalizeLocalParsedToLandTranscriptData(parsedResult);
+    const landNumber = data.description.landNumber || null;
+
+    const { data: buildingDoc } = await adminClient
+      .from('property_documents')
+      .select('id')
+      .eq('property_id', propertyId)
+      .eq('document_type', 'building_registry_transcript')
+      .eq('is_active', true)
+      .maybeSingle();
+
+    const updatePayload: Record<string, unknown> = { land_number: landNumber };
+    if (!buildingDoc) {
+      // No building transcript → pure land property
+      updatePayload.is_pure_land = true;
+    }
+
+    await adminClient
+      .from(table)
+      .update(updatePayload)
+      .eq('id', propertyId);
   }
 }

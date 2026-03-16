@@ -8,18 +8,20 @@ import type { StructuredAddress } from '@/lib/types/properties';
  * - 「大安區仁愛路四段345號」
  * - 「仁愛路四段345巷4弄25號之3」
  */
-export function parseTaiwanDoorAddress(full: string): Pick<StructuredAddress, 'street' | 'number' | 'floor' | 'unit'> {
-  const result: Pick<StructuredAddress, 'street' | 'number' | 'floor' | 'unit'> = {};
+export function parseTaiwanDoorAddress(full: string): Pick<StructuredAddress, 'city' | 'district' | 'street' | 'number' | 'floor' | 'unit'> {
+  const result: Pick<StructuredAddress, 'city' | 'district' | 'street' | 'number' | 'floor' | 'unit'> = {};
   if (!full) return result;
 
   let s = full.trim();
 
-  // 1) 去掉前面的縣市 / 區等（若存在）
-  //    e.g. 「臺北市大安區仁愛路四段345號」→「仁愛路四段345號」
-  const cityDistrictPattern = /^(?:[^\d\s]{2,3}(?:市|縣))?(?:[^\d\s]{1,3}(?:區|鎮|鄉|市))?/u;
+  // 1) Capture and strip city/district prefix
+  //    e.g. 「臺北市大安區仁愛路四段345號」→ city: 臺北市, district: 大安區, rest: 「仁愛路四段345號」
+  const cityDistrictPattern = /^([^\d\s]{2,3}(?:市|縣))?([^\d\s]{1,3}(?:區|鎮|鄉|市))?/u;
   const mCity = s.match(cityDistrictPattern);
-  if (mCity && mCity[0]) {
-    s = s.slice(mCity[0].length).trim();
+  if (mCity) {
+    if (mCity[1]) result.city = mCity[1];
+    if (mCity[2]) result.district = mCity[2];
+    s = s.slice((mCity[0] ?? '').length).trim();
   }
 
   // 2) 抓門牌號碼（含「號」「之X」）

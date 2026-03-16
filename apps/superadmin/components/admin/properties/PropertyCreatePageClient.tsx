@@ -2,14 +2,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import type { OwnerOption } from '@/lib/types/properties';
 import { PropertyCreateModal } from './PropertyCreateModal';
 
-interface PropertyCreatePageClientProps {
-  owners: OwnerOption[];
-}
-
-export function PropertyCreatePageClient({ owners }: PropertyCreatePageClientProps) {
+export function PropertyCreatePageClient() {
   const router = useRouter();
 
   const backToList = () => {
@@ -18,10 +13,8 @@ export function PropertyCreatePageClient({ owners }: PropertyCreatePageClientPro
 
   return (
     <PropertyCreateModal
-      owners={owners}
       onClose={backToList}
       onCreated={backToList}
-      pageMode
     />
   );
 }

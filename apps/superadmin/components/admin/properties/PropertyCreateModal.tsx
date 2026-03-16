@@ -2,35 +2,14 @@
 // created: 2026-03-02 | creator: Claude Sonnet 4.6
 'use client';
 
-import { useState, useTransition, useMemo, useRef, useEffect } from 'react';
-import { X, Loader2, Building2, Key, ChevronDown, Lock, MapPin, Search, ExternalLink } from 'lucide-react';
-import { createProperty, updateProperty } from '@/lib/actions/properties';
-import { PropertyMediaSection } from './PropertyMediaSection';
+import { useState, useTransition, useRef, useEffect } from 'react';
+import { X, Loader2, Building2, Key, ChevronDown } from 'lucide-react';
+import { createProperty } from '@/lib/actions/properties';
 import {
   PROPERTY_STATUSES,
   PROPERTY_TYPES,
   type CreatePropertyInput,
-  type UpdatePropertyInput,
-  type OwnerOption,
 } from '@/lib/types/properties';
-import { TAIWAN_CITIES, getDistrictsByCity } from '@/lib/data/taiwan-address';
-import { geocodeAddress } from '@/lib/utils/geocoding';
-
-type ActiveTab = 'edit' | 'photos' | 'blog' | 'transcript' | 'title' | 'contract';
-
-function composeAddress(parts: {
-  city?: string;
-  district?: string;
-  street?: string;
-  number?: string;
-  floor?: string;
-  unit?: string;
-}): string {
-  return [parts.city, parts.district, parts.street, parts.number, parts.floor, parts.unit]
-    .filter(Boolean)
-    .join(' ')
-    .trim();
-}
 
 /** Dropdown + editable numeric input combo */
 function NumberComboBox({
@@ -135,227 +114,54 @@ const statusLabelsMap: Record<string, string> = {
   invalid: '無效案（下架已換手）',
 };
 
-const TAB_LABELS: Record<ActiveTab, string> = {
-  edit: '物件基本資訊',
-  photos: '物件照片',
-  blog: '部落格',
-  transcript: '謄本',
-  title: '權狀',
-  contract: '合約',
-};
-
 interface PropertyCreateModalProps {
-  owners: OwnerOption[];
   onClose: () => void;
   onCreated: () => void;
-  pageMode?: boolean;
 }
 
-export function PropertyCreateModal({ owners, onClose, onCreated }: PropertyCreateModalProps) {
+export function PropertyCreateModal({ onClose, onCreated }: PropertyCreateModalProps) {
   const [isPending, startTransition] = useTransition();
-  const [activeTab, setActiveTab] = useState<ActiveTab>('edit');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-
-  // After first creation, these become available for media tabs
-  const [savedPropertyId, setSavedPropertyId] = useState<string | null>(null);
-  const [savedPropertyType, setSavedPropertyType] = useState<'sale' | 'rental'>('sale');
-  const [savedOwnerId, setSavedOwnerId] = useState<string>('');
 
   // Property type (sale / rental)
   const [propertyListingType, setPropertyListingType] = useState<'sale' | 'rental'>('sale');
 
-  // Owner
-  const [ownerId, setOwnerId] = useState(owners[0]?.id ?? '');
-
   // Form state
   const [title, setTitle] = useState('');
-  const [addressCity, setAddressCity] = useState('');
-  const [addressDistrict, setAddressDistrict] = useState('');
-  const [addressStreet, setAddressStreet] = useState('');
-  const [addressNumber, setAddressNumber] = useState('');
-  const [addressFloor, setAddressFloor] = useState('');
-  const [addressUnit, setAddressUnit] = useState('');
   const [status, setStatus] = useState('pending');
-  const districtOptions = useMemo(() => getDistrictsByCity(addressCity), [addressCity]);
   const [price, setPrice] = useState(0);
   const [monthlyRent, setMonthlyRent] = useState(0);
   const [leaseTerm, setLeaseTerm] = useState(12);
   const [propertyType, setPropertyType] = useState('');
-  const [areaInput, setAreaInput] = useState('');
-  const areaNum = (() => {
-    if (areaInput.trim() === '') return 0;
-    const n = Number(areaInput);
-    return Number.isFinite(n) && n >= 0 ? n : 0;
-  })();
   const [bedrooms, setBedrooms] = useState(0);
   const [bathrooms, setBathrooms] = useState(0);
   const [livingRooms, setLivingRooms] = useState(0);
   const [parkingSpaces, setParkingSpaces] = useState(0);
   const [description, setDescription] = useState('');
-  const [latInput, setLatInput] = useState('');
-  const [lngInput, setLngInput] = useState('');
-  const [isGeocoding, setIsGeocoding] = useState(false);
-  const [geocodeMsg, setGeocodeMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  // Composed address for display / geocoding
-  const composedAddress = useMemo(
-    () =>
-      composeAddress({
-        city: addressCity || undefined,
-        district: addressDistrict || undefined,
-        street: addressStreet || undefined,
-        number: addressNumber || undefined,
-        floor: addressFloor || undefined,
-        unit: addressUnit || undefined,
-      }),
-    [addressCity, addressDistrict, addressStreet, addressNumber, addressFloor, addressUnit],
-  );
-
-  // Validate lat/lng
-  const validLat = useMemo(() => {
-    const n = parseFloat(latInput);
-    return latInput.trim() !== '' && !isNaN(n) && n >= -90 && n <= 90 ? n : null;
-  }, [latInput]);
-  const validLng = useMemo(() => {
-    const n = parseFloat(lngInput);
-    return lngInput.trim() !== '' && !isNaN(n) && n >= -180 && n <= 180 ? n : null;
-  }, [lngInput]);
-
-  const handleGeocode = async () => {
-    const params = {
-      city: addressCity,
-      district: addressDistrict,
-      street: addressStreet,
-      number: addressNumber,
-    };
-
-    if (!params.city && !params.street) {
-      setGeocodeMsg({ type: 'error', text: '請先填寫地址' });
-      return;
-    }
-
-    setIsGeocoding(true);
-    setGeocodeMsg(null);
-
-    try {
-      const result = await geocodeAddress(params);
-
-      if (result) {
-        setLatInput(result.lat.toFixed(6));
-        setLngInput(result.lng.toFixed(6));
-
-        let accuracyText = '座標';
-        if (result.accuracy === 'building') accuracyText = '門牌等級座標';
-        else if (result.accuracy === 'street') accuracyText = '街道等級座標';
-        else if (result.accuracy === 'area') accuracyText = '區域等級座標';
-
-        setGeocodeMsg({
-          type: 'success',
-          text: `已找到${accuracyText}（${result.displayName}）`,
-        });
-      } else {
-        setGeocodeMsg({
-          type: 'error',
-          text: '找不到此地址的座標。請確認路名是否完整（如「仁愛路四段」），或改為手動輸入座標。',
-        });
-      }
-    } catch {
-      setGeocodeMsg({ type: 'error', text: '地理編碼服務暫時無法使用，請手動輸入座標' });
-    } finally {
-      setIsGeocoding(false);
-    }
-  };
 
   // Close on Escape
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [savedPropertyId]);
-
-  function handleClose() {
-    if (savedPropertyId) onCreated();
-    onClose();
-  }
+  }, [onClose]);
 
   function handleSubmit() {
     setFeedback(null);
 
-    const composedAddress = composeAddress({
-      city: addressCity || undefined,
-      district: addressDistrict || undefined,
-      street: addressStreet || undefined,
-      number: addressNumber || undefined,
-      floor: addressFloor || undefined,
-      unit: addressUnit || undefined,
-    });
-
-    if (!composedAddress && !title.trim()) {
-      setFeedback({ type: 'error', message: '請填寫物件名稱或地址' });
-      return;
-    }
-    if (!ownerId) {
-      setFeedback({ type: 'error', message: '請選擇所有權人' });
+    if (!title.trim()) {
+      setFeedback({ type: 'error', message: '請填寫物件名稱' });
       return;
     }
 
-    // If already created, use updateProperty instead
-    if (savedPropertyId) {
-      const updateInput: UpdatePropertyInput = {
-        title: title.trim() || composedAddress,
-        address: composedAddress || title.trim(),
-        addressCity: addressCity || undefined,
-        addressDistrict: addressDistrict || undefined,
-        addressStreet: addressStreet || undefined,
-        addressNumber: addressNumber || undefined,
-        addressFloor: addressFloor || undefined,
-        addressUnit: addressUnit || undefined,
-        status,
-        propertyType: propertyType || undefined,
-        area: areaInput.trim() === '' ? null : (() => { const n = Number(areaInput); return Number.isFinite(n) && n >= 0 ? n : null; })(),
-        bedrooms: bedrooms || null,
-        bathrooms: bathrooms || null,
-        livingRooms: livingRooms || null,
-        parkingSpaces: parkingSpaces || null,
-        latitude: validLat,
-        longitude: validLng,
-      };
-      if (description.trim()) updateInput.description = description;
-      if (savedPropertyType === 'sale') updateInput.price = price;
-      else { updateInput.monthlyRent = monthlyRent; updateInput.leaseTerm = leaseTerm; }
-
-      startTransition(async () => {
-        const result = await updateProperty(savedPropertyId, savedPropertyType, updateInput);
-        if (result.success) {
-          setFeedback({ type: 'success', message: '基本資訊已更新' });
-        } else {
-          setFeedback({ type: 'error', message: result.message });
-        }
-      });
-      return;
-    }
-
-    // First time: create
     const input: CreatePropertyInput = {
-      ownerId,
-      title: title.trim() || composedAddress,
-      address: composedAddress || title.trim(),
-      addressCity: addressCity || undefined,
-      addressDistrict: addressDistrict || undefined,
-      addressStreet: addressStreet || undefined,
-      addressNumber: addressNumber || undefined,
-      addressFloor: addressFloor || undefined,
-      addressUnit: addressUnit || undefined,
+      title: title.trim(),
       status,
       propertyType: propertyType || undefined,
-      area: areaInput.trim() === '' ? null : (() => { const n = Number(areaInput); return Number.isFinite(n) && n >= 0 ? n : null; })(),
       bedrooms: bedrooms || null,
       bathrooms: bathrooms || null,
       livingRooms: livingRooms || null,
       parkingSpaces: parkingSpaces || null,
-      latitude: validLat,
-      longitude: validLng,
     };
     if (description.trim()) input.description = description;
     if (propertyListingType === 'sale') input.price = price;
@@ -363,113 +169,55 @@ export function PropertyCreateModal({ owners, onClose, onCreated }: PropertyCrea
 
     startTransition(async () => {
       const result = await createProperty(propertyListingType, input);
-      if (result.success && result.propertyId) {
-        setSavedPropertyId(result.propertyId);
-        setSavedPropertyType(propertyListingType);
-        setSavedOwnerId(ownerId);
-        setFeedback({ type: 'success', message: '物件已建立！現在可以上傳照片與文件。' });
+      if (result.success) {
+        onCreated();
       } else {
         setFeedback({ type: 'error', message: result.message });
       }
     });
   }
 
-  const isMediaTab = activeTab !== 'edit';
-
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-      <div className="bg-bg-secondary border border-border-default rounded-lg shadow-xl w-full max-w-2xl h-[90vh] flex flex-col">
+      <div className="bg-bg-secondary border border-border-default rounded-lg shadow-xl w-full max-w-2xl flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="shrink-0 bg-bg-secondary border-b border-border-default px-6 py-4 flex items-center justify-between rounded-t-lg">
           <div className="flex items-center gap-3">
             <div
               className={`p-2 rounded-lg ${
-                (savedPropertyType || propertyListingType) === 'sale'
+                propertyListingType === 'sale'
                   ? 'bg-green-500/10 text-green-500'
                   : 'bg-blue-500/10 text-blue-500'
               }`}
             >
-              {(savedPropertyType || propertyListingType) === 'sale' ? <Building2 size={18} /> : <Key size={18} />}
+              {propertyListingType === 'sale' ? <Building2 size={18} /> : <Key size={18} />}
             </div>
-            <div>
-              <h3 className="text-lg font-bold text-text-primary">新增物件</h3>
-              {savedPropertyId && (
-                <p className="text-xs text-text-muted font-mono">{savedPropertyId.slice(0, 8)}...</p>
-              )}
-            </div>
+            <h3 className="text-lg font-bold text-text-primary">新增物件</h3>
           </div>
           <button
-            onClick={handleClose}
+            onClick={onClose}
             className="p-2 hover:bg-bg-tertiary rounded-lg transition-colors text-text-secondary"
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* Tab bar */}
-        <div className="shrink-0 bg-bg-secondary border-b border-border-default px-6 flex gap-1 flex-wrap">
-          {(['edit', 'photos', 'blog', 'transcript', 'title', 'contract'] as ActiveTab[]).map((tab) => {
-            const locked = tab !== 'edit' && !savedPropertyId;
-            return (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => { if (!locked) setActiveTab(tab); }}
-                title={locked ? '請先儲存物件基本資訊' : undefined}
-                className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-1 ${
-                  locked
-                    ? 'border-transparent text-text-muted cursor-not-allowed opacity-50'
-                    : activeTab === tab
-                    ? 'border-accent text-accent'
-                    : 'border-transparent text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                {locked && <Lock size={11} />}
-                {TAB_LABELS[tab]}
-              </button>
-            );
-          })}
-        </div>
-
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
           {feedback && (
-            <div
-              className={`p-3 rounded-lg text-sm ${
-                feedback.type === 'success'
-                  ? 'bg-green-500/10 text-green-500 border border-green-500/20'
-                  : 'bg-red-500/10 text-red-500 border border-red-500/20'
-              }`}
-            >
+            <div className="p-3 rounded-lg text-sm bg-red-500/10 text-red-500 border border-red-500/20">
               {feedback.message}
             </div>
           )}
 
-          {/* Media tabs — only available after property is created */}
-          {isMediaTab && savedPropertyId && (
-            <PropertyMediaSection
-              propertyId={savedPropertyId}
-              propertyType={savedPropertyType}
-              ownerId={savedOwnerId}
-              mode={activeTab as 'photos' | 'transcript' | 'title' | 'contract' | 'blog'}
-            />
-          )}
-
-          {/* Edit form */}
-          {activeTab === 'edit' && (
-          <>
-          {/* Row 0: Listing type — lock once created */}
+          {/* Row 0: Listing type */}
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1.5">
-              物件性質
-              {savedPropertyId && <span className="ml-2 text-xs text-text-muted font-normal">（已建立後無法變更）</span>}
-            </label>
+            <label className="block text-sm font-medium text-text-secondary mb-1.5">物件性質</label>
             <div className="flex gap-2">
               <button
                 type="button"
-                disabled={!!savedPropertyId}
                 onClick={() => setPropertyListingType('sale')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md border text-sm font-medium transition-colors disabled:cursor-not-allowed ${
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md border text-sm font-medium transition-colors ${
                   propertyListingType === 'sale'
                     ? 'bg-green-500/10 border-green-500 text-green-500'
                     : 'border-border-default text-text-secondary hover:bg-bg-tertiary'
@@ -480,9 +228,8 @@ export function PropertyCreateModal({ owners, onClose, onCreated }: PropertyCrea
               </button>
               <button
                 type="button"
-                disabled={!!savedPropertyId}
                 onClick={() => setPropertyListingType('rental')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md border text-sm font-medium transition-colors disabled:cursor-not-allowed ${
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md border text-sm font-medium transition-colors ${
                   propertyListingType === 'rental'
                     ? 'bg-blue-500/10 border-blue-500 text-blue-500'
                     : 'border-border-default text-text-secondary hover:bg-bg-tertiary'
@@ -494,37 +241,18 @@ export function PropertyCreateModal({ owners, onClose, onCreated }: PropertyCrea
             </div>
           </div>
 
-          {/* Row 1: Owner + Status */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1.5">
-                所有權人 <span className="text-red-400">*</span>
-                {savedPropertyId && <span className="ml-1 text-xs text-text-muted font-normal">（已建立後無法變更）</span>}
-              </label>
-              <select
-                value={ownerId}
-                onChange={(e) => setOwnerId(e.target.value)}
-                disabled={!!savedPropertyId}
-                className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <option value="">請選擇所有權人</option>
-                {owners.map((o) => (
-                  <option key={o.id} value={o.id}>{o.displayName}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1.5">狀態</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
-              >
-                {PROPERTY_STATUSES.map((s) => (
-                  <option key={s} value={s}>{statusLabelsMap[s] || s}</option>
-                ))}
-              </select>
-            </div>
+          {/* Row 1: Status */}
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1.5">狀態</label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
+            >
+              {PROPERTY_STATUSES.map((s) => (
+                <option key={s} value={s}>{statusLabelsMap[s] || s}</option>
+              ))}
+            </select>
           </div>
 
           {/* Row 2: Title */}
@@ -539,128 +267,10 @@ export function PropertyCreateModal({ owners, onClose, onCreated }: PropertyCrea
             />
           </div>
 
-          {/* Address */}
-          <div className="space-y-4">
-            <label className="block text-sm font-medium text-text-secondary">地址（台灣分區，從大到小）</label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <span className="block text-xs text-text-muted mb-1">縣市</span>
-                <select
-                  value={addressCity}
-                  onChange={(e) => { setAddressCity(e.target.value); setAddressDistrict(''); }}
-                  className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
-                >
-                  <option value="">請選擇縣市</option>
-                  {TAIWAN_CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div>
-                <span className="block text-xs text-text-muted mb-1">區</span>
-                <select
-                  value={addressDistrict}
-                  onChange={(e) => setAddressDistrict(e.target.value)}
-                  disabled={!addressCity}
-                  className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent disabled:opacity-50"
-                >
-                  <option value="">請選擇區</option>
-                  {districtOptions.map((d) => <option key={d} value={d}>{d}</option>)}
-                </select>
-              </div>
-            </div>
-            <div>
-              <span className="block text-xs text-text-muted mb-1">路 / 段 / 街</span>
-              <input
-                type="text"
-                value={addressStreet}
-                onChange={(e) => setAddressStreet(e.target.value)}
-                placeholder="敦化南路一段、安和路..."
-                className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted"
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <span className="block text-xs text-text-muted mb-1">門牌號碼</span>
-                <input type="text" value={addressNumber} onChange={(e) => setAddressNumber(e.target.value)} placeholder="295號" className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted" />
-              </div>
-              <div>
-                <span className="block text-xs text-text-muted mb-1">樓層</span>
-                <input type="text" value={addressFloor} onChange={(e) => setAddressFloor(e.target.value)} placeholder="3F" className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted" />
-              </div>
-              <div>
-                <span className="block text-xs text-text-muted mb-1">單位號碼</span>
-                <input type="text" value={addressUnit} onChange={(e) => setAddressUnit(e.target.value)} placeholder="之2" className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted" />
-              </div>
-            </div>
-            {(addressCity || addressStreet || addressNumber) && (
-              <p className="text-xs text-text-muted">
-                預覽：{composeAddress({ city: addressCity, district: addressDistrict, street: addressStreet, number: addressNumber, floor: addressFloor, unit: addressUnit }) || '—'}
-              </p>
-            )}
-
-            {/* Location Map (Geocoding) */}
-            <div className="space-y-3 pt-2">
-              <label className="block text-sm font-medium text-text-secondary flex items-center gap-1.5">
-                <MapPin size={14} />
-                地圖定位
-              </label>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <span className="block text-xs text-text-muted mb-1">緯度 Latitude</span>
-                  <input
-                    type="text"
-                    value={latInput}
-                    onChange={(e) => { setLatInput(e.target.value); setGeocodeMsg(null); }}
-                    placeholder="25.033000"
-                    className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted font-mono"
-                  />
-                </div>
-                <div>
-                  <span className="block text-xs text-text-muted mb-1">經度 Longitude</span>
-                  <input
-                    type="text"
-                    value={lngInput}
-                    onChange={(e) => { setLngInput(e.target.value); setGeocodeMsg(null); }}
-                    placeholder="121.565400"
-                    className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleGeocode}
-                  disabled={isGeocoding}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-tertiary border border-border-default rounded-md text-text-secondary hover:border-accent hover:text-accent transition-colors disabled:opacity-50"
-                >
-                  {isGeocoding ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
-                  從地址自動偵測座標
-                </button>
-                {(composedAddress || (validLat && validLng)) && (
-                  <a
-                    href={
-                      composedAddress
-                        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(composedAddress)}`
-                        : `https://www.google.com/maps/search/?api=1&query=${validLat},${validLng}`
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-xs text-text-muted hover:text-accent transition-colors"
-                  >
-                    <ExternalLink size={11} />
-                    在 Google Maps 開啟
-                  </a>
-                )}
-              </div>
-
-              {geocodeMsg && (
-                <p className={`text-xs ${geocodeMsg.type === 'success' ? 'text-green-500' : 'text-red-500'}`}>
-                  {geocodeMsg.text}
-                </p>
-              )}
-            </div>
-          </div>
+          {/* Address note */}
+          <p className="text-xs text-text-muted bg-bg-tertiary border border-border-default rounded-md px-3 py-2">
+            地址將在進入編輯頁，上傳謄本並完成 OCR 解析後自動填入。
+          </p>
 
           {/* Price / Rent */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -705,56 +315,34 @@ export function PropertyCreateModal({ owners, onClose, onCreated }: PropertyCrea
             </div>
           </div>
 
-          {/* Area */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1.5">總面積 (平方公尺)</label>
-              <input type="number" min={0} value={areaInput} onChange={(e) => setAreaInput(e.target.value)} placeholder="0" className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1.5">總坪數</label>
-              <div className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-tertiary text-text-primary text-sm" aria-live="polite">
-                {(areaNum * 0.3025).toFixed(2)} 坪
-              </div>
-            </div>
-          </div>
-
           {/* Description */}
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1.5">描述</label>
             <textarea rows={3} placeholder="輸入物件描述..." value={description} onChange={(e) => setDescription(e.target.value)} className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted resize-y" />
           </div>
-          </>
-          )}
         </div>
 
-        {/* Footer — only on edit tab */}
-        {activeTab === 'edit' && (
-          <div className="shrink-0 bg-bg-secondary border-t border-border-default px-6 py-4 flex items-center justify-between gap-3 rounded-b-lg">
-            {savedPropertyId ? (
-              <p className="text-xs text-green-500">✓ 物件已建立，可切換至其他頁籤上傳照片與文件</p>
-            ) : (
-              <p className="text-xs text-text-muted">儲存後即可上傳照片與文件</p>
-            )}
-            <div className="flex gap-3">
-              <button
-                onClick={handleClose}
-                disabled={isPending}
-                className="px-4 py-2 text-text-secondary hover:bg-bg-tertiary rounded-md transition-colors text-sm disabled:opacity-50"
-              >
-                {savedPropertyId ? '完成' : '取消'}
-              </button>
-              <button
-                onClick={handleSubmit}
-                disabled={isPending}
-                className="px-5 py-2 bg-accent text-white hover:bg-accent-hover rounded-md transition-colors text-sm flex items-center gap-2 disabled:opacity-50"
-              >
-                {isPending && <Loader2 size={14} className="animate-spin" />}
-                {isPending ? (savedPropertyId ? '儲存中...' : '建立中...') : (savedPropertyId ? '儲存變更' : '新增物件')}
-              </button>
-            </div>
+        {/* Footer */}
+        <div className="shrink-0 bg-bg-secondary border-t border-border-default px-6 py-4 flex items-center justify-between gap-3 rounded-b-lg">
+          <p className="text-xs text-text-muted">建立後請至編輯頁上傳照片與文件</p>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              disabled={isPending}
+              className="px-4 py-2 text-text-secondary hover:bg-bg-tertiary rounded-md transition-colors text-sm disabled:opacity-50"
+            >
+              取消
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={isPending}
+              className="px-5 py-2 bg-accent text-white hover:bg-accent-hover rounded-md transition-colors text-sm flex items-center gap-2 disabled:opacity-50"
+            >
+              {isPending && <Loader2 size={14} className="animate-spin" />}
+              {isPending ? '建立中...' : '新增物件'}
+            </button>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

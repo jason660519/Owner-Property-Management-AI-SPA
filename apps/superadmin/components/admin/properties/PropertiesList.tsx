@@ -21,7 +21,8 @@ import {
 import { Search, Home, ArrowUpDown, Pencil, Trash2, Loader2, AlignLeft, Eye, ChevronDown, Check, MapPin, Map } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { deleteProperty } from '@/lib/actions/properties';
-import type { PropertyItem, PropertiesResult, OwnerOption } from '@/lib/types/properties';
+import type { PropertyItem, PropertiesResult } from '@/lib/types/properties';
+import { formatStructuredAddress } from '@/lib/types/properties';
 import { PROPERTY_TYPES } from '@/lib/types/properties';
 import { TAIWAN_CITIES, getDistrictsByCity } from '@/lib/data/taiwan-address';
 import { PropertyCreateModal } from './PropertyCreateModal';
@@ -92,7 +93,7 @@ const FROZEN_COL_STORAGE_KEY = 'properties_list_frozen_col_count_v1';
 const COLUMN_WIDTHS_PX = [72, 90, 200, 72, 88, 88, 130, 72, 52, 52, 92, 100, 72, 110, 64, 100, 100, 92, 92, 92];
 const PROPERTIES_COLUMN_COUNT = COLUMN_WIDTHS_PX.length;
 
-export function PropertiesList({ data: result, owners = [] }: { data: PropertiesResult; owners?: OwnerOption[] }) {
+export function PropertiesList({ data: result }: { data: PropertiesResult }) {
   const router = useRouter();
   const { properties, totalSales, totalRentals } = result;
   const [globalFilter, setGlobalFilter] = useState('');
@@ -380,71 +381,60 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
       },
     },
     {
-      accessorKey: 'addressCity',
-      size: COLUMN_WIDTHS_PX[4],
+      id: 'address',
+      size: COLUMN_WIDTHS_PX[4] + COLUMN_WIDTHS_PX[5] + COLUMN_WIDTHS_PX[6] + COLUMN_WIDTHS_PX[7] + COLUMN_WIDTHS_PX[8] + COLUMN_WIDTHS_PX[9],
       header: () => (
         <div className="flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
-          <span>縣市</span>
-          <select
-            value={cityFilter}
-            onChange={(e) => {
-              setCityFilter(e.target.value);
-              setDistrictFilter('');
-            }}
-            className="w-full max-w-[100px] text-xs bg-bg-primary border border-border-default rounded px-1.5 py-1 text-text-primary focus:outline-none focus:border-accent"
-            title="篩選縣市"
-          >
-            <option value="">全部</option>
-            {TAIWAN_CITIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
+          <span>地址</span>
+          <div className="flex gap-1">
+            <select
+              value={cityFilter}
+              onChange={(e) => { setCityFilter(e.target.value); setDistrictFilter(''); }}
+              className="w-full max-w-[90px] text-xs bg-bg-primary border border-border-default rounded px-1.5 py-1 text-text-primary focus:outline-none focus:border-accent"
+              title="篩選縣市"
+            >
+              <option value="">縣市</option>
+              {TAIWAN_CITIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            <select
+              value={districtFilter}
+              onChange={(e) => setDistrictFilter(e.target.value)}
+              disabled={!cityFilter}
+              className="w-full max-w-[90px] text-xs bg-bg-primary border border-border-default rounded px-1.5 py-1 text-text-primary focus:outline-none focus:border-accent disabled:opacity-40"
+              title="篩選區"
+            >
+              <option value="">區</option>
+              {districtOptions.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </div>
         </div>
       ),
-      enableSorting: true,
-      cell: (info) => (
-        <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
-      ),
+      enableSorting: false,
+      cell: (info) => {
+        const row = info.row.original;
+        const hasAddress = !!(row.addressCity || row.addressStreet || row.addressNumber);
+        if (hasAddress) {
+          return (
+            <span className="text-sm text-text-secondary block min-w-0 max-w-full break-words" title={row.address || ''}>
+              {formatStructuredAddress(row)}
+            </span>
+          );
+        }
+        if (row.isPureLand) {
+          return (
+            <span className="text-xs text-text-muted">
+              純土地物件
+              {row.landNumber && <span className="ml-1 font-mono">（{row.landNumber}）</span>}
+            </span>
+          );
+        }
+        return <span className="text-xs text-text-muted italic">待上傳謄本</span>;
+      },
     },
-    {
-      accessorKey: 'addressDistrict',
-      size: COLUMN_WIDTHS_PX[5],
-      header: () => (
-        <div className="flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
-          <span>區</span>
-          <select
-            value={districtFilter}
-            onChange={(e) => setDistrictFilter(e.target.value)}
-            className="w-full max-w-[100px] text-xs bg-bg-primary border border-border-default rounded px-1.5 py-1 text-text-primary focus:outline-none focus:border-accent"
-            title="篩選區"
-            disabled={!cityFilter}
-          >
-            <option value="">全部</option>
-            {districtOptions.map((d) => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
-        </div>
-      ),
-      enableSorting: true,
-      cell: (info) => (
-        <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
-      ),
-    },
-    { accessorKey: 'addressStreet', size: COLUMN_WIDTHS_PX[6], header: '路／街', cell: (info) => (
-        <span className="text-sm text-text-secondary block min-w-0 max-w-full break-words" title={(info.getValue() as string) || ''}>
-          {(info.getValue() as string) || '—'}
-        </span>
-      ) },
-    { accessorKey: 'addressNumber', size: COLUMN_WIDTHS_PX[7], header: '門牌', cell: (info) => (
-        <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
-      ) },
-    { accessorKey: 'addressFloor', size: COLUMN_WIDTHS_PX[8], header: '樓層', cell: (info) => (
-        <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
-      ) },
-    { accessorKey: 'addressUnit', size: COLUMN_WIDTHS_PX[9], header: '單位', cell: (info) => (
-        <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
-      ) },
     {
       accessorKey: 'propertyType',
       size: COLUMN_WIDTHS_PX[10],
@@ -958,7 +948,6 @@ export function PropertiesList({ data: result, owners = [] }: { data: Properties
       {/* Create Modal */}
       {showCreateModal && (
         <PropertyCreateModal
-          owners={owners}
           onClose={() => setShowCreateModal(false)}
           onCreated={() => router.refresh()}
         />

@@ -5,6 +5,7 @@
 'use server';
 
 import { createAdminClient } from '@/utils/supabase/admin';
+import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { unstable_noStore as noStore } from 'next/cache';
 import type {
@@ -128,6 +129,29 @@ export async function getAllProperties(): Promise<PropertiesResult> {
       }
     }
 
+    // Fetch primary photos for all properties in one batch query
+    const allPropertyIds = [
+      ...(salesData || []).map((r) => r.id as string),
+      ...(rentalsData || []).map((r) => r.id as string),
+    ];
+    const primaryPhotoMap: Record<string, string> = {};
+    if (allPropertyIds.length > 0) {
+      const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '');
+      const { data: primaryPhotos } = await adminClient
+        .from('property_photos')
+        .select('property_id, storage_path')
+        .in('property_id', allPropertyIds)
+        .eq('is_primary', true);
+      if (primaryPhotos) {
+        for (const p of primaryPhotos) {
+          if (p.property_id && !primaryPhotoMap[p.property_id]) {
+            primaryPhotoMap[p.property_id] =
+              `${baseUrl}/storage/v1/object/public/property-photos/${p.storage_path}`;
+          }
+        }
+      }
+    }
+
     // Helper: normalize a DB row into PropertyItem
     function toPropertyItem(
       row: Record<string, unknown>,
@@ -142,18 +166,12 @@ export async function getAllProperties(): Promise<PropertiesResult> {
         title:
           (row.title as string) ?? (details.title as string) ?? (row.address as string),
         address: row.address as string,
-        addressCity:
-          (row.address_city as string) ?? (details.addressCity as string) ?? undefined,
-        addressDistrict:
-          (row.address_district as string) ?? (details.addressDistrict as string) ?? undefined,
-        addressStreet:
-          (row.address_street as string) ?? (details.addressStreet as string) ?? undefined,
-        addressNumber:
-          (row.address_number as string) ?? (details.addressNumber as string) ?? undefined,
-        addressFloor:
-          (row.address_floor as string) ?? (details.addressFloor as string) ?? undefined,
-        addressUnit:
-          (row.address_unit as string) ?? (details.addressUnit as string) ?? undefined,
+        addressCity: (row.address_city as string) ?? undefined,
+        addressDistrict: (row.address_district as string) ?? undefined,
+        addressStreet: (row.address_street as string) ?? undefined,
+        addressNumber: (row.address_number as string) ?? undefined,
+        addressFloor: (row.address_floor as string) ?? undefined,
+        addressUnit: (row.address_unit as string) ?? undefined,
         status: row.status as string,
         price: type === 'sale' ? (row.price as number) : null,
         monthlyRent: type === 'rental' ? (row.monthly_rent as number) : null,
@@ -184,12 +202,11 @@ export async function getAllProperties(): Promise<PropertiesResult> {
           (details.parkingSpaces as number | null) ??
           ((row.has_parking as boolean) ? 1 : 0),
         createdAt: row.created_at as string,
-        mainPhotoUrl:
-          (details.imageUrl as string) ||
-          (Array.isArray(details.images) && (details.images[0] as string)) ||
-          null,
+        mainPhotoUrl: primaryPhotoMap[propertyId] ?? null,
         latitude: (row.latitude as number | null) ?? null,
         longitude: (row.longitude as number | null) ?? null,
+        isPureLand: (row.is_pure_land as boolean) ?? false,
+        landNumber: (row.land_number as string) ?? null,
       };
     }
 
@@ -287,6 +304,19 @@ export async function getPropertyById(id: string): Promise<PropertyItem | null> 
     .maybeSingle();
   const ownerName = (ownerData?.owner_name as string) ?? null;
 
+  // Fetch primary photo from property_photos (SSOT)
+  const { data: primaryPhotoRow } = await adminClient
+    .from('property_photos')
+    .select('storage_path')
+    .eq('property_id', id)
+    .eq('is_primary', true)
+    .limit(1)
+    .maybeSingle();
+  const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '');
+  const mainPhotoUrl = primaryPhotoRow?.storage_path
+    ? `${baseUrl}/storage/v1/object/public/property-photos/${primaryPhotoRow.storage_path}`
+    : null;
+
   const details = (row.details || {}) as Record<string, unknown>;
 
   return {
@@ -294,12 +324,12 @@ export async function getPropertyById(id: string): Promise<PropertyItem | null> 
     type,
     title: (row.title as string) ?? (details.title as string) ?? (row.address as string),
     address: row.address as string,
-    addressCity: (row.address_city as string) ?? (details.addressCity as string) ?? undefined,
-    addressDistrict: (row.address_district as string) ?? (details.addressDistrict as string) ?? undefined,
-    addressStreet: (row.address_street as string) ?? (details.addressStreet as string) ?? undefined,
-    addressNumber: (row.address_number as string) ?? (details.addressNumber as string) ?? undefined,
-    addressFloor: (row.address_floor as string) ?? (details.addressFloor as string) ?? undefined,
-    addressUnit: (row.address_unit as string) ?? (details.addressUnit as string) ?? undefined,
+    addressCity: (row.address_city as string) ?? undefined,
+    addressDistrict: (row.address_district as string) ?? undefined,
+    addressStreet: (row.address_street as string) ?? undefined,
+    addressNumber: (row.address_number as string) ?? undefined,
+    addressFloor: (row.address_floor as string) ?? undefined,
+    addressUnit: (row.address_unit as string) ?? undefined,
     status: row.status as string,
     price: type === 'sale' ? (row.price as number) : null,
     monthlyRent: type === 'rental' ? (row.monthly_rent as number) : null,
@@ -330,14 +360,13 @@ export async function getPropertyById(id: string): Promise<PropertyItem | null> 
       (details.parkingSpaces as number | null) ??
       ((row.has_parking as boolean) ? 1 : 0),
     createdAt: row.created_at as string,
-    mainPhotoUrl:
-      (details.imageUrl as string) ||
-      (Array.isArray(details.images) && (details.images[0] as string)) ||
-      null,
+    mainPhotoUrl,
     buildingTranscript: (details.buildingTranscript as BuildingTranscriptData) ?? null,
     landTranscript: (details.landTranscript as LandTranscriptData) ?? null,
     latitude: (row.latitude as number | null) ?? null,
     longitude: (row.longitude as number | null) ?? null,
+    isPureLand: (row.is_pure_land as boolean) ?? false,
+    landNumber: (row.land_number as string) ?? null,
   };
 }
 
@@ -412,12 +441,15 @@ export async function createProperty(
   const table = type === 'sale' ? 'property_sales' : 'property_rentals';
 
   try {
-    if (!input.ownerId) {
-      return { success: false, message: '請選擇所有權人' };
+    // Resolve ownerId — default to current session user if not provided
+    let resolvedOwnerId = input.ownerId;
+    if (!resolvedOwnerId) {
+      const serverClient = await createClient();
+      const { data: { user } } = await serverClient.auth.getUser();
+      if (!user) return { success: false, message: '無法取得使用者身份，請重新登入' };
+      resolvedOwnerId = user.id;
     }
-    if (!input.address?.trim()) {
-      return { success: false, message: '地址不得為空' };
-    }
+
     if (type === 'sale' && (input.price ?? 0) < 0) {
       return { success: false, message: '價格不能為負數' };
     }
@@ -427,12 +459,6 @@ export async function createProperty(
 
     const details: Record<string, unknown> = {};
     if (input.title) details.title = input.title;
-    if (input.addressCity) details.addressCity = input.addressCity;
-    if (input.addressDistrict) details.addressDistrict = input.addressDistrict;
-    if (input.addressStreet) details.addressStreet = input.addressStreet;
-    if (input.addressNumber) details.addressNumber = input.addressNumber;
-    if (input.addressFloor) details.addressFloor = input.addressFloor;
-    if (input.addressUnit) details.addressUnit = input.addressUnit;
     if (input.propertyType) details.type = input.propertyType;
     if (input.area != null) details.area = input.area;
     if (input.bedrooms != null) details.bedrooms = input.bedrooms;
@@ -442,8 +468,8 @@ export async function createProperty(
     if (input.description) details.description = input.description;
 
     const insertPayload: Record<string, unknown> = {
-      owner_id: input.ownerId,
-      address: input.address,
+      owner_id: resolvedOwnerId,
+      address: input.address ?? '',
       status: input.status || 'pending',
       details,
     };
@@ -565,16 +591,10 @@ export async function updateProperty(
     if (input.latitude !== undefined) updatePayload.latitude = input.latitude;
     if (input.longitude !== undefined) updatePayload.longitude = input.longitude;
 
-    // Merge details JSONB (preserve existing fields; keep details in sync for backward compat)
+    // Merge details JSONB (preserve existing fields; address fields now live only in top-level columns)
     const existingDetails = (existing?.details || {}) as Record<string, unknown>;
     const updatedDetails = { ...existingDetails };
     if (input.title !== undefined) updatedDetails.title = input.title;
-    if (input.addressCity !== undefined) updatedDetails.addressCity = input.addressCity;
-    if (input.addressDistrict !== undefined) updatedDetails.addressDistrict = input.addressDistrict;
-    if (input.addressStreet !== undefined) updatedDetails.addressStreet = input.addressStreet;
-    if (input.addressNumber !== undefined) updatedDetails.addressNumber = input.addressNumber;
-    if (input.addressFloor !== undefined) updatedDetails.addressFloor = input.addressFloor;
-    if (input.addressUnit !== undefined) updatedDetails.addressUnit = input.addressUnit;
     if (input.propertyType !== undefined) updatedDetails.type = input.propertyType;
     if (input.area !== undefined) updatedDetails.area = input.area;
     if (input.bedrooms !== undefined) updatedDetails.bedrooms = input.bedrooms;
@@ -753,18 +773,6 @@ export async function uploadPropertyPhoto(
   if (insertError) {
     await adminClient.storage.from('property-photos').remove([uploadData.path]);
     return { success: false, message: `寫入照片記錄失敗：${insertError.message}` };
-  }
-
-  const table = propertyType === 'sale' ? 'property_sales' : 'property_rentals';
-  const { data: current } = await adminClient.from(table).select('details').eq('id', propertyId).single();
-  if (current?.details && typeof current.details === 'object') {
-    const details = current.details as Record<string, unknown>;
-    const { data: urlData } = adminClient.storage.from('property-photos').getPublicUrl(uploadData.path);
-    const images = (details.images as string[] | undefined) || [];
-    const imageUrl = isPrimary ? urlData.publicUrl : (details.imageUrl as string) || urlData.publicUrl;
-    await adminClient.from(table).update({
-      details: { ...details, imageUrl, images: [...images, urlData.publicUrl] },
-    }).eq('id', propertyId);
   }
 
   revalidatePath('/superadmin/properties');

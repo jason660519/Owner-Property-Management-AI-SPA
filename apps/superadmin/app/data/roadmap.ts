@@ -493,6 +493,20 @@ const RAW_FEATURES: RoadmapFeature[] = [
             developmentProgress: "核心架構與 UI 已完成。2026-03-14 地端 Python 解析器全面升級：(P0.1) schema_converter.py 直接輸出 TranscriptParseOutput 統一格式，消除 buildFromLocalPython 橋接函式；(P1.2) 每個欄位附帶 field_confidences（regex 命中=1.0，空值=0.0）；(P2) local/route.ts 優先呼叫 HTTP 服務（port 8819），HTTP 不可用時自動降級至 CLI subprocess；(P0.2) PDF 無文字層（422）時前端自動觸發雲端解析；(P1.1) 地端解析結果可作為 local/local-regex-parser 虛擬模型注入共識 Pipeline；(P3) CJK 正規化擴充：全形小寫字母、括號變體、全形冒號/標點、日文漢字（証→證、様→樣等）。"
         },
         {
+            name: "物件地址架構重構與自動同步 (Property Address Refactoring)",
+            locatedPage: "superadmin/properties",
+            percentage: 100,
+            phase: "testing",
+            category: "超級管理員 (Super Admin)",
+            points: 5,
+            lastModifiedBy: "Trae AI",
+            lastModifiedDate: "2026/03/17",
+            featureDescription: "將物件地址從單一字串重構為結構化欄位，並實作謄本 OCR 解析結果自動同步至地址欄位的機制。支援純土地物件地號與建物門牌地址。地址不再由人工輸入，以謄本為唯一事實來源。",
+            acceptanceCriteria: "1. property_sales 與 property_rentals 補齊 address_city/district/street/number/floor/unit 欄位。\n2. 新增 is_pure_land 與 land_number 欄位支援純土地物件。\n3. DB Trigger 自動組合 address 完整字串。\n4. consensus-parse.ts 實作 syncAddressFromTranscript() 自動同步 OCR 結果。\n5. PropertyCreateModal 移除地址輸入欄位，改由謄本解析後自動寫入。",
+            devLog: "### 2026-03-17 更新\n- 完成物件地址結構化重構，支援建物門牌與純土地地號。\n- 實作 DB Trigger 同步 address 欄位。\n- 移除手動輸入地址功能，強制以謄本 OCR 解析結果為唯一事實來源 (SSOT)。\n- 更新 PropertiesList 與 PropertyCreateModal 以支援新架構。\n- 撰寫 [物件地址架構說明](docs/technical-selection/property-address-architecture.md) 文件。",
+            docPath: "/docs/technical-selection/property-address-architecture.md"
+        },
+        {
             name: "Prompt 模板庫（儲存 / 載入）",
             locatedPage: "superadmin/settings/evaluations-global-test",
             category: "超級管理員 (Super Admin)",
@@ -517,6 +531,6 @@ const RAW_FEATURES: RoadmapFeature[] = [
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-    lastUpdated: "2026/03/08",
+    lastUpdated: "2026/03/17",
     features: RAW_FEATURES.map(f => ({ ...f, phase: inferPhase(f) })),
 };
