@@ -156,6 +156,9 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTr
   const [parseError, setParseError] = useState<string | null>(null);
   const [showConflicts, setShowConflicts] = useState(false);
 
+  // No OCR model configured guard (shown before parse starts, with link to settings)
+  const [noOcrModelError, setNoOcrModelError] = useState(false);
+
   // AbortController for cancelling the fetch stream
   const abortRef = useRef<AbortController | null>(null);
   const parseRunIdRef = useRef(0);
@@ -222,6 +225,7 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTr
     if (transcriptDocs.length > 0 && !transcriptDocs.some((d) => d.id === selectedDocId)) {
       setSelectedDocId(transcriptDocs[0].id);
       setParseError(null);
+      setNoOcrModelError(false);
     }
   }, [transcriptDocs, selectedDocId]);
 
@@ -511,9 +515,18 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTr
   async function handleParse() {
     if (!selectedDocId || !aiUserId || isParsing) return;
 
+    // Guard: no models assigned at all (regardless of is_enabled flag).
+    // is_enabled is a separate module-level toggle and should not block parsing
+    // when models are actually assigned.
+    if (parserModelSelection.length === 0) {
+      setNoOcrModelError('no-models');
+      setParseError(null);
+      return;
+    }
     const enabledParserModels = parserModelSelection.filter((m) => m.enabled);
-    if (parserModelSelection.length > 0 && enabledParserModels.length === 0) {
-      setParseError('請至少勾選一個解析模型，或在 AI 設定中為「雲端OCR謄本解析」設定解析模型。');
+    if (enabledParserModels.length === 0) {
+      setNoOcrModelError('no-models');
+      setParseError(null);
       return;
     }
 
@@ -523,6 +536,7 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTr
     parseRunIdRef.current += 1;
     const runId = parseRunIdRef.current;
 
+    setNoOcrModelError(false);
     setIsParsing(true);
     setParseError(null);
     setParseResult(null);
@@ -1030,6 +1044,26 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTr
       )}
 
       {/* Error */}
+      {noOcrModelError && (
+        <div className="text-xs text-amber-600 bg-amber-500/10 border border-amber-500/20 rounded px-3 py-2 space-y-1">
+          <p className="font-medium flex items-center gap-1">
+            <AlertTriangle size={13} className="shrink-0" />
+            尚未設定 OCR 解析模型
+          </p>
+          <p>
+            請前往{' '}
+            <Link
+              href={OCR_SETTINGS_HREF}
+              className="underline underline-offset-2 hover:text-amber-700 font-medium"
+              target="_blank"
+            >
+              API 金鑰與模型設定 › OCR 解析
+            </Link>{' '}
+            為「雲端 OCR 謄本解析（解析組）」指派至少一個模型，再回來執行解析。
+          </p>
+        </div>
+      )}
+
       {parseError && (
         <p className="text-xs text-red-500 bg-red-500/10 border border-red-500/20 rounded px-2 py-1.5">
           {parseError}
@@ -1158,11 +1192,13 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTr
                 <button
                   type="button"
                   onClick={() => {
-                    // New unified schema: building/landTranscript is directly usable; legacy format: .parsed
-                    const source = (localParseResult as Record<string, unknown>).landTranscript ??
-                      (localParseResult as Record<string, unknown>).buildingTranscript ??
-                      (localParseResult as Record<string, unknown>).parsed ??
-                      localParseResult;
+                    // New unified schema: pick the matching transcript field based on kind; legacy format: .parsed
+                    const parsed = localParseResult as Record<string, unknown>;
+                    const source = (kind === 'land'
+                      ? (parsed.landTranscript ?? parsed.buildingTranscript)
+                      : (parsed.buildingTranscript ?? parsed.landTranscript))
+                      ?? parsed.parsed
+                      ?? localParseResult;
 
                     if (kind === 'land') {
                       onTranscribe(normalizeLocalParsedToLandTranscriptData(source));

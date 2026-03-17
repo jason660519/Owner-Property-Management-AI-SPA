@@ -114,8 +114,8 @@ export async function getAllProperties(): Promise<PropertiesResult> {
     }
 
     // Fetch real property owners from property_owners table
-    // realOwnerMap: property_id → first owner_name (the actual legal owner)
-    const realOwnerMap: Record<string, string> = {};
+    // ownerAggMap: property_id → { firstName, count } for display like "余逸凡等6人"
+    const ownerAggMap: Record<string, { firstName: string; count: number }> = {};
     const { data: ownersData } = await adminClient
       .from('property_owners')
       .select('property_id, owner_name')
@@ -123,31 +123,30 @@ export async function getAllProperties(): Promise<PropertiesResult> {
 
     if (ownersData) {
       for (const o of ownersData) {
-        if (!realOwnerMap[o.property_id]) {
-          realOwnerMap[o.property_id] = o.owner_name;
+        const pid = o.property_id as string | null;
+        const name = o.owner_name as string | null;
+        if (!pid || !name) continue;
+
+        if (!ownerAggMap[pid]) {
+          ownerAggMap[pid] = { firstName: name, count: 1 };
+        } else {
+          ownerAggMap[pid].count += 1;
         }
       }
     }
 
-    // Fetch primary photos for all properties in one batch query
-    const allPropertyIds = [
-      ...(salesData || []).map((r) => r.id as string),
-      ...(rentalsData || []).map((r) => r.id as string),
-    ];
+    // Fetch all primary photos in one query (no .in() to avoid URL length limits with thousands of IDs)
     const primaryPhotoMap: Record<string, string> = {};
-    if (allPropertyIds.length > 0) {
-      const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '');
-      const { data: primaryPhotos } = await adminClient
-        .from('property_photos')
-        .select('property_id, storage_path')
-        .in('property_id', allPropertyIds)
-        .eq('is_primary', true);
-      if (primaryPhotos) {
-        for (const p of primaryPhotos) {
-          if (p.property_id && !primaryPhotoMap[p.property_id]) {
-            primaryPhotoMap[p.property_id] =
-              `${baseUrl}/storage/v1/object/public/property-photos/${p.storage_path}`;
-          }
+    const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '');
+    const { data: primaryPhotos } = await adminClient
+      .from('property_photos')
+      .select('property_id, storage_path')
+      .eq('is_primary', true);
+    if (primaryPhotos) {
+      for (const p of primaryPhotos) {
+        if (p.property_id && !primaryPhotoMap[p.property_id]) {
+          primaryPhotoMap[p.property_id] =
+            `${baseUrl}/storage/v1/object/public/property-photos/${p.storage_path}`;
         }
       }
     }
@@ -160,6 +159,31 @@ export async function getAllProperties(): Promise<PropertiesResult> {
       const details = (row.details || {}) as Record<string, unknown>;
       const propertyId = row.id as string;
       const systemUserId = row.owner_id as string;
+    const ownerAgg = ownerAggMap[propertyId];
+    let ownerName: string | null = null;
+
+    if (ownerAgg) {
+      ownerName =
+        ownerAgg.count > 1
+          ? `${ownerAgg.firstName}等${ownerAgg.count}人`
+          : ownerAgg.firstName;
+    } else {
+      // Fallback: derive from saved transcript ownership if property_owners 尚未建好
+      const buildingTranscript = details.buildingTranscript as BuildingTranscriptData | undefined;
+      const landTranscript = details.landTranscript as LandTranscriptData | undefined;
+      const buildingOwners = buildingTranscript?.ownership ?? [];
+      const landOwners = landTranscript?.ownership ?? [];
+      const transcriptOwners = buildingOwners.length > 0 ? buildingOwners : landOwners;
+
+      if (transcriptOwners.length > 0) {
+        const first = transcriptOwners[0];
+        const name = typeof first.ownerName === 'string' ? first.ownerName.trim() : '';
+        if (name) {
+          const count = transcriptOwners.length;
+          ownerName = count > 1 ? `${name}等${count}人` : name;
+        }
+      }
+    }
       return {
         id: propertyId,
         type,
@@ -176,7 +200,7 @@ export async function getAllProperties(): Promise<PropertiesResult> {
         price: type === 'sale' ? (row.price as number) : null,
         monthlyRent: type === 'rental' ? (row.monthly_rent as number) : null,
         creatorName: creatorMap[systemUserId] || systemUserId.slice(0, 8),
-        ownerName: realOwnerMap[propertyId] || null,
+        ownerName,
         ownerId: systemUserId,
         area:
           (row.area_registered as number | null) ??
@@ -294,7 +318,7 @@ export async function getPropertyById(id: string): Promise<PropertyItem | null> 
     }
   }
 
-  // Resolve real owner name
+  // Resolve real owner name (first from property_owners; fallback to transcript ownership if needed)
   const { data: ownerData } = await adminClient
     .from('property_owners')
     .select('owner_name')
@@ -302,7 +326,25 @@ export async function getPropertyById(id: string): Promise<PropertyItem | null> 
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle();
-  const ownerName = (ownerData?.owner_name as string) ?? null;
+  let ownerName: string | null = null;
+  if (ownerData?.owner_name) {
+    ownerName = ownerData.owner_name as string;
+  } else {
+    const details = (row.details || {}) as Record<string, unknown>;
+    const buildingTranscript = details.buildingTranscript as BuildingTranscriptData | undefined;
+    const landTranscript = details.landTranscript as LandTranscriptData | undefined;
+    const buildingOwners = buildingTranscript?.ownership ?? [];
+    const landOwners = landTranscript?.ownership ?? [];
+    const transcriptOwners = buildingOwners.length > 0 ? buildingOwners : landOwners;
+    if (transcriptOwners.length > 0) {
+      const first = transcriptOwners[0];
+      const name = typeof first.ownerName === 'string' ? first.ownerName.trim() : '';
+      if (name) {
+        const count = transcriptOwners.length;
+        ownerName = count > 1 ? `${name}等${count}人` : name;
+      }
+    }
+  }
 
   // Fetch primary photo from property_photos (SSOT)
   const { data: primaryPhotoRow } = await adminClient
@@ -408,7 +450,43 @@ export async function savePropertyTranscriptData(
       return { success: false, message: `儲存失敗：${error.message}` };
     }
 
+    // Sync primary legal owner name to property_owners so list page顯示最新「所有權人」
+    // 1) Try buildingTranscript.ownership → first non-empty ownerName
+    // 2) Fallback to landTranscript.ownership
+    const buildingOwners = data.buildingTranscript?.ownership ?? [];
+    const landOwners = data.landTranscript?.ownership ?? [];
+    const primaryOwnerName =
+      buildingOwners.find((o) => o.ownerName && o.ownerName.trim().length > 0)?.ownerName?.trim() ??
+      landOwners.find((o) => o.ownerName && o.ownerName.trim().length > 0)?.ownerName?.trim() ??
+      null;
+
+    if (primaryOwnerName) {
+      // property_owners: upsert first row for this property (keep other columns/rows intact)
+      const { data: existingOwner } = await adminClient
+        .from('property_owners')
+        .select('id')
+        .eq('property_id', id)
+        .eq('property_type', type)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingOwner?.id) {
+        await adminClient
+          .from('property_owners')
+          .update({ owner_name: primaryOwnerName })
+          .eq('id', existingOwner.id);
+      } else {
+        await adminClient.from('property_owners').insert({
+          property_id: id,
+          property_type: type,
+          owner_name: primaryOwnerName,
+        });
+      }
+    }
+
     revalidatePath(`/superadmin/properties/${id}/edit`);
+    revalidatePath('/superadmin/properties');
     return { success: true, message: '謄本資料已成功儲存' };
   } catch (error) {
     return {
@@ -673,20 +751,29 @@ export async function getPropertyPhotos(propertyId: string): Promise<PropertyPho
   const adminClient = createAdminClient();
   const { data: rows, error } = await adminClient
     .from('property_photos')
-    .select('id, storage_path, is_primary, photo_type')
+    .select('id, storage_path, is_primary, photo_type, sort_order, created_at')
     .eq('property_id', propertyId)
     .order('created_at', { ascending: true });
 
   if (error || !rows?.length) return [];
 
+  // Sort in TS: non-zero sort_order ascending, sort_order=0 (unordered) goes to end
+  const sorted = [...rows].sort((a, b) => {
+    const ao = a.sort_order || Infinity;
+    const bo = b.sort_order || Infinity;
+    if (ao !== bo) return ao - bo;
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  });
+
   const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '');
   const bucket = 'property-photos';
-  return rows.map((r) => ({
+  return sorted.map((r) => ({
     id: r.id,
     storagePath: r.storage_path,
     url: `${baseUrl}/storage/v1/object/public/${bucket}/${r.storage_path}`,
     isPrimary: !!r.is_primary,
     photoType: r.photo_type ?? 'interior',
+    sortOrder: r.sort_order ?? 0,
   }));
 }
 
@@ -732,7 +819,132 @@ export async function getDocumentParseResult(documentId: string): Promise<{
   };
 }
 
-/** 上傳物件照片；formData 需含 file (File) */
+/**
+ * Move a photo to a specific position (1-based) within the property.
+ * Renumbers ALL photos in the property so sort_order is always contiguous (1, 2, 3 …).
+ * Position 1 automatically becomes the primary photo.
+ */
+export async function updatePhotoSortOrder(
+  propertyId: string,
+  photoId: string,
+  targetPosition: number
+): Promise<ActionResult> {
+  const adminClient = createAdminClient();
+
+  // Fetch all photos for this property in current display order
+  const { data: rows, error: fetchErr } = await adminClient
+    .from('property_photos')
+    .select('id, sort_order, created_at')
+    .eq('property_id', propertyId)
+    .order('created_at', { ascending: true });
+
+  if (fetchErr || !rows) return { success: false, message: `讀取照片失敗：${fetchErr?.message}` };
+
+  // Sort in TS: non-zero sort_order first (ascending), then created_at for unordered (sort_order === 0)
+  const sorted = [...rows].sort((a, b) => {
+    const ao = a.sort_order || Infinity;
+    const bo = b.sort_order || Infinity;
+    if (ao !== bo) return ao - bo;
+    return new Date(a.created_at as string).getTime() - new Date(b.created_at as string).getTime();
+  });
+
+  // Re-insert the moved photo at the requested position
+  const clamped = Math.max(1, Math.min(targetPosition, sorted.length));
+  const withoutTarget = sorted.filter((r) => r.id !== photoId);
+  withoutTarget.splice(clamped - 1, 0, { id: photoId, sort_order: clamped, created_at: '' });
+
+  // Batch-update sort_order + is_primary for every photo
+  for (let i = 0; i < withoutTarget.length; i++) {
+    const pos = i + 1;
+    const { error } = await adminClient
+      .from('property_photos')
+      .update({
+        sort_order: pos,
+        is_primary: pos === 1,
+        photo_type: pos === 1 ? 'primary' : 'interior',
+      })
+      .eq('id', withoutTarget[i].id);
+    if (error) return { success: false, message: `更新排序失敗：${error.message}` };
+  }
+
+  revalidatePath('/superadmin/properties');
+  return { success: true, message: 'ok' };
+}
+
+/**
+ * Step 1 of direct-upload flow:
+ * Generate a signed upload URL so the browser can PUT the file directly to
+ * Supabase Storage without routing the bytes through Next.js (no body-size limit).
+ * Returns the signed URL, the storage path, and the upload token.
+ */
+export async function createPhotoUploadUrl(
+  propertyId: string,
+  originalFileName: string
+): Promise<ActionResult & { signedUrl?: string; storagePath?: string; token?: string }> {
+  const allowed = /\.(jpe?g|png|webp)$/i;
+  if (!allowed.test(originalFileName)) {
+    return { success: false, message: '僅支援 JPG、PNG、WebP' };
+  }
+  const ext = originalFileName.split('.').pop()!.toLowerCase().replace('jpeg', 'jpg');
+  const storagePath = `${propertyId}/${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
+
+  const adminClient = createAdminClient();
+  const { data, error } = await adminClient.storage
+    .from('property-photos')
+    .createSignedUploadUrl(storagePath);
+
+  if (error || !data) {
+    return { success: false, message: `無法建立上傳授權：${error?.message}` };
+  }
+
+  return { success: true, message: 'ok', signedUrl: data.signedUrl, storagePath, token: data.token };
+}
+
+/**
+ * Step 2 of direct-upload flow:
+ * After the browser has PUT the file via the signed URL, call this to persist
+ * the storage_path reference in the property_photos table.
+ */
+export async function savePhotoMetadata(
+  propertyId: string,
+  storagePath: string,
+  isPrimary: boolean
+): Promise<ActionResult> {
+  const adminClient = createAdminClient();
+
+  // Enforce per-property photo count limit from system_settings
+  const [{ data: settingRow }, { count: existingCount }] = await Promise.all([
+    adminClient.from('system_settings').select('value').eq('key', 'max_photos_per_property').single(),
+    adminClient.from('property_photos').select('*', { count: 'exact', head: true }).eq('property_id', propertyId),
+  ]);
+  const maxPhotos: number = typeof settingRow?.value === 'number' ? settingRow.value : 30;
+  if ((existingCount ?? 0) >= maxPhotos) {
+    await adminClient.storage.from('property-photos').remove([storagePath]);
+    return { success: false, message: `每個物件最多上傳 ${maxPhotos} 張照片（目前已達上限）` };
+  }
+
+  // Auto-set as primary if this is the first photo for the property
+  const autoIsPrimary = isPrimary || (existingCount ?? 0) === 0;
+
+  const { error } = await adminClient.from('property_photos').insert({
+    property_id: propertyId,
+    storage_path: storagePath,
+    is_primary: autoIsPrimary,
+    photo_type: autoIsPrimary ? 'primary' : 'interior',
+    sort_order: autoIsPrimary ? 1 : 0,
+  });
+
+  if (error) {
+    // Clean up the orphaned storage object
+    await adminClient.storage.from('property-photos').remove([storagePath]);
+    return { success: false, message: `寫入照片記錄失敗：${error.message}` };
+  }
+
+  revalidatePath('/superadmin/properties');
+  return { success: true, message: '照片已儲存' };
+}
+
+/** @deprecated Use createPhotoUploadUrl + savePhotoMetadata instead. Kept for reference. */
 export async function uploadPropertyPhoto(
   propertyId: string,
   propertyType: 'sale' | 'rental',

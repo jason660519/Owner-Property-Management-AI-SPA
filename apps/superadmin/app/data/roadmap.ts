@@ -490,7 +490,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
             testStatus: "in_progress",
             docPath: "/docs/implementation-plans/consensus-transcript-parsing-plan.md",
             devLog: "### 完成項目\n- DB Migration：ocr_parse_results 表 + property_documents 新增 consensus_metadata / parse_strategy 欄位\n- TypeScript 型別：ModelParseResult / ConsensusMetadata / ConflictDetail / JudgeResolution\n- Feature Module：拆分 online_ocr → online_ocr_parse（解析組）+ online_ocr_judge（裁判組）\n- 共識演算法：transcript-consensus.ts — 多模型 majority vote、台灣特規正規化、信心分數\n- AI API 共用呼叫器：ai-api-callers.ts — 支援 OpenAI/Anthropic/Gemini/DeepSeek/Grok\n- 共識引擎 Server Action：consensus-parse.ts — 平行呼叫 → 共識投票 → 裁判仲裁 三階段流程\n- 向下相容：parse-transcript.ts 改為 wrapper 委派至共識引擎\n- UI 更新：PropertyMediaSection 新增信心徽章、衝突明細面板、共識 metadata 顯示\n- FeatureModuleSelector 提示文字：解析組建議 2~3 模型、裁判組為可選配置\n### 2026-03-04 新增\n- SSE 串流 API：/api/transcript-parse/stream — POST 端點，以 ReadableStream 逐模型即時回傳解析進度事件\n- TranscriptParseSection 元件：從 PropertyMediaSection 拆出（原 610 行降至 387 行），新增：(1) 可收折「解析設定」面板（顯示已設定之解析/裁判模型、一次性 Prompt 覆寫欄位、跳轉 AI 設定連結）；(2) 解析中以逐模型進度列表取代單一轉圈，即時顯示各模型狀態（等待/解析中/完成/失敗）及耗時\n### 2026-03-07 新增/調整\n- 解析模型單一事實來源：TranscriptParseSection 僅使用 online_ocr_parse 模組綁定的 assigned_models，移除與統一測試 441 個候選模型的耦合，避免使用者在兩處重覆設定\n- 每次謄本解析最多呼叫 5 個成功解析模型：依 OCP 排序逐一呼叫模型，成功數達 5 即停止；若前幾個失敗則依序啟用後續模型，避免一次對數十/數百模型發送 API 呼叫\n- 裁判模型排序備援：後端依 online_ocr_judge 的 assigned_models 順序（含本次 overrideJudgeModel）輪流嘗試裁判模型，任一成功即套用其判決；全部失敗時回退至多模型共識結果\n- JSON 安全性強化：transcript-parse/stream 與 consensus-parse 在儲存裁判 raw_output 時採用 try/catch 保護，裁判回傳畸形 JSON 時僅記錄 error_message，不再中斷整體解析流程\n- 物件編輯頁解析設定 UX：AI 解析謄本設定面板顯示本次實際使用的解析/裁判模型，支援 per-run 勾選啟用與一次性 Prompt 覆寫，並確保畫面與後端實際呼叫模型一致",
-            developmentProgress: "核心架構與 UI 已完成。2026-03-14 地端 Python 解析器全面升級：(P0.1) schema_converter.py 直接輸出 TranscriptParseOutput 統一格式，消除 buildFromLocalPython 橋接函式；(P1.2) 每個欄位附帶 field_confidences（regex 命中=1.0，空值=0.0）；(P2) local/route.ts 優先呼叫 HTTP 服務（port 8819），HTTP 不可用時自動降級至 CLI subprocess；(P0.2) PDF 無文字層（422）時前端自動觸發雲端解析；(P1.1) 地端解析結果可作為 local/local-regex-parser 虛擬模型注入共識 Pipeline；(P3) CJK 正規化擴充：全形小寫字母、括號變體、全形冒號/標點、日文漢字（証→證、様→樣等）。"
+            developmentProgress: "核心架構與 UI 已完成。2026-03-14 地端 Python 解析器全面升級：(P0.1) schema_converter.py 直接輸出 TranscriptParseOutput 統一格式，消除 buildFromLocalPython 橋接函式；(P1.2) 每個欄位附帶 field_confidences（regex 命中=1.0，空值=0.0）；(P2) local/route.ts 優先呼叫 HTTP 服務（port 8819），HTTP 不可用時自動降級至 CLI subprocess；(P0.2) PDF 無文字層（422）時前端自動觸發雲端解析；(P1.1) 地端解析結果可作為 local/local-regex-parser 虛擬模型注入共識 Pipeline；(P3) CJK 正規化擴充：全形小寫字母、括號變體、全形冒號/標點、日文漢字（証→證、様→樣等）。\n### 2026-03-18 新增\n- 解析 Prompt 加入「他項權利部特別說明」：全款購屋無貸款的謄本無他項權利部時，AI 必須輸出 encumbrances: []，不得填入含空字串的物件。\n- 建物/土地謄本表單：謄寫後若 encumbrances 為空陣列，顯示「（空白）－本物件目前無他項權利部」提示訊息，取代舊有的空白表單；使用者點擊「新增他項權利」即可繼續手動填寫。\n- 裁判模型更新為 3 組循序備援：Claude 3.5 Sonnet → Gemini 2.5 Flash → GPT-4o。\n- 謄本種類感知地端解析來源提取：kind = land 時優先使用 landTranscript，kind = building 時優先使用 buildingTranscript。\n- 謄寫前清除所有欄位（clear-first）：所有欄位（header / description / ownership / encumbrances）在謄寫前以 empty* 工廠函式清空，避免不同謄本的資料混入。\n- OCR 未設定模型警告：按下解析按鈕且無可用模型時，顯示 amber 警告並附設定頁連結，取代「所有模型失敗」的錯誤列表。"
         },
         {
             name: "物件地址架構重構與自動同步 (Property Address Refactoring)",
@@ -527,10 +527,21 @@ const RAW_FEATURES: RoadmapFeature[] = [
             lastModifiedDate: "2026/03/08",
             devLog: "### 完成項目\n- 將原本分散在 evaluations-global-test 頁面的「儲存 Prompt」與「載入 Prompt」整合為獨立的 Prompt 管理頁面\n- Server Action：promptActions.ts 新增 updatePrompt（依 id 更新 name/content/updated_at）\n- 新頁面：settings/prompt-management/page.tsx — 左右分割面板佈局：左欄 = 可搜尋的 Prompt 列表（全域計數、hover 顯示複製/刪除操作、二次確認刪除）；右欄 = EditorPanel（新增/編輯，含字元計數、dirty-state 檢查、儲存回覆後自動更新列表）\n- Sidebar nav-items.ts 新增「Prompt 管理」（BookMarked 圖示）導覽項目\n- settings/page.tsx 新增 Prompt 管理入口卡片",
             developmentProgress: "獨立頁面完整實作：新增、編輯、刪除、搜尋、複製內容均已完成，與 saved_prompts 表雲端連接。"
+        },
+        {
+            name: "FinePrint .fp 謄本轉檔工具",
+            locatedPage: "tools/fp-converter",
+            category: "通用/系統 (General/System)",
+            percentage: 100,
+            phase: "development",
+            lastModifiedBy: "Claude Sonnet 4.6",
+            lastModifiedDate: "2026/03/18",
+            devLog: "### 完成項目\n- 逆向工程 FinePrint .fp 二進位格式：發現文字以 UTF-16LE 儲存於固定結構 record（magic: 0x1E ?? 0x40 YY，其中 ??=8+YY×4），無需 Windows 或 FinePrint 即可解析\n- tools/fp-converter/convert_fp.py — CLI 工具，支援三種輸出格式：HTML（推薦）/ Markdown / PDF（fpdf2）\n- 批次測試 109 份「新謄本」資料夾中的 .fp 檔案，全部 109/109 成功轉換，0 失敗\n- HTML 輸出包含完整謄本結構（建物標示部、所有權部、他項權利部、抵押權等），PingFang TC 字型，支援瀏覽器列印為 PDF\n- tools/fp-converter/README.md 完整使用說明\n### 2026/03/18 排版大幅改善\n- 移除全域去重邏輯：改用 content-based 頁碼偵測（第N頁共N頁 pattern），正確保留所有重複結構詞（民國/年/月/日/：）\n- 新增 X-座標感知提取，辨別右對齊 content token vs 頁尾 token\n- 日期片段自動合併：民國 NNN 年 NN 月 NN 日 → 單一字串\n- 單字拆分修正：連續單字元 CJK token 在「：」前自動合併為複合標籤（層數/總面積/住址）\n- 全新表格式 HTML 排版：官方謄本樣式（深藍標題列、欄位表格、位置列）\n- 建物標示部/所有權部欄位正確 label:value 對應（登記日期、登記原因、建物門牌等）",
+            developmentProgress: "完整實作：可在 macOS 批次將 10 年前 Windows FinePrint .fp 格式謄本轉換為 HTML/MD/PDF，無需任何 Windows 環境。"
         }
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-    lastUpdated: "2026/03/17",
+    lastUpdated: "2026/03/18",
     features: RAW_FEATURES.map(f => ({ ...f, phase: inferPhase(f) })),
 };

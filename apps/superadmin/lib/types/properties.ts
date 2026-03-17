@@ -199,6 +199,7 @@ export interface PropertyPhotoItem {
   url: string;
   isPrimary: boolean;
   photoType: string;
+  sortOrder: number;
 }
 
 /** 物件文件（謄本、權狀等，用於編輯 modal 顯示/上傳） */

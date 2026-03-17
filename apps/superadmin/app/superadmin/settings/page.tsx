@@ -5,7 +5,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { BookMarked, Settings } from 'lucide-react';
+import { BookMarked, Images, Settings, FileText } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 
@@ -46,11 +46,7 @@ export default function SettingsPage() {
           </Link>
 
           <Link href="/superadmin/settings/prompt-management" className="block">
-            <Card
-              variant="outlined"
-              padding="lg"
-              hoverable
-            >
+            <Card variant="outlined" padding="lg" hoverable>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BookMarked size={16} />
@@ -58,6 +54,34 @@ export default function SettingsPage() {
                 </CardTitle>
                 <CardDescription>
                   集中管理所有已儲存的 Prompt 模板，可供各功能頁面快速新增、編輯與載入。
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+
+          <Link href="/superadmin/settings/property-rules" className="block">
+            <Card variant="outlined" padding="lg" hoverable>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Images size={16} />
+                  物件上傳規則
+                </CardTitle>
+                <CardDescription>
+                  設定每個物件最多可上傳的照片張數等上傳限制。
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+
+          <Link href="/superadmin/settings/fp-converter" className="block">
+            <Card variant="outlined" padding="lg" hoverable>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText size={16} />
+                  FP 轉 PDF 功能
+                </CardTitle>
+                <CardDescription>
+                  上傳 Windows FinePrint (.fp) 格式謄本，系統自動提取文字並輸出為 PDF 檔案，無需 Windows 環境。
                 </CardDescription>
               </CardHeader>
             </Card>

@@ -516,7 +516,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
         const value = info.getValue() as number | null;
         return (
           <span className="text-sm text-text-secondary">
-            {value != null && value > 0 ? `車位 ${value}` : '-'}
+            {value != null && value > 0 ? `${value} 車位` : '-'}
           </span>
         );
       },

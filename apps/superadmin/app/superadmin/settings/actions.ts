@@ -102,3 +102,41 @@ export async function removeBlacklistEntry(id: string): Promise<{
   revalidatePath('/superadmin/settings');
   return {};
 }
+
+// ── System Settings ───────────────────────────────────────────────────────────
+
+export async function getSystemSetting(key: string): Promise<{
+  value?: unknown;
+  error?: string;
+}> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('system_settings')
+    .select('value')
+    .eq('key', key)
+    .single();
+
+  if (error) return { error: error.message };
+  return { value: data?.value };
+}
+
+export async function updateSystemSetting(
+  key: string,
+  value: unknown
+): Promise<{ error?: string }> {
+  const auth = await requireSuperAdmin();
+  if (auth.error) return { error: auth.error };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('system_settings')
+    .update({ value, updated_at: new Date().toISOString(), updated_by: user?.id ?? null })
+    .eq('key', key);
+
+  if (error) return { error: error.message };
+  revalidatePath('/superadmin/settings/property-rules');
+  return {};
+}

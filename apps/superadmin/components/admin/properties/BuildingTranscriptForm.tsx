@@ -112,6 +112,8 @@ export function BuildingTranscriptForm({
   const [desc, setDesc] = useState<BuildingDescription>(initialData?.description ?? emptyDescription());
   const [ownership, setOwnership] = useState<OwnershipRecord[]>(initialData?.ownership ?? []);
   const [encumbrances, setEncumbrances] = useState<EncumbranceRecord[]>(initialData?.encumbrances ?? []);
+  // True when the last transcript fill returned empty encumbrances — shows "（空白）" notice
+  const [noEncumbrancesNotice, setNoEncumbrancesNotice] = useState(false);
 
   // Always-current snapshot ref — read in the effect as "before" state to avoid stale closures
   const currentStateRef = useRef({ header, desc, ownership, encumbrances });
@@ -124,10 +126,22 @@ export function BuildingTranscriptForm({
       // Read the "before" snapshot from the always-current ref (not stale closure)
       const before = currentStateRef.current;
       const diffs: FieldDiff[] = [];
-      const newHeader = fillFromParsedTranscript.header ?? emptyHeader();
-      const incomingDesc = fillFromParsedTranscript.description ?? emptyDescription();
 
-      // Compare Header
+      // Always start from empty state so every field is cleared before new data fills in.
+      // This prevents fields from a previous transcript leaking into the new one.
+      const newHeader = { ...emptyHeader(), ...(fillFromParsedTranscript.header ?? {}) };
+      const incomingDesc = {
+        ...emptyDescription(),
+        ...(fillFromParsedTranscript.description ?? {}),
+        annexedBuildings: Array.isArray(fillFromParsedTranscript.description?.annexedBuildings)
+          ? fillFromParsedTranscript.description!.annexedBuildings
+          : [],
+        commonAreas: Array.isArray(fillFromParsedTranscript.description?.commonAreas)
+          ? fillFromParsedTranscript.description!.commonAreas
+          : [],
+      };
+
+      // Compare Header (include fields being cleared: old non-empty → new empty)
       const headerLabels: Record<keyof TranscriptHeader, string> = {
         transcriptType: '謄本名稱與種類',
         documentTitle: '建號（完整）',
@@ -141,12 +155,14 @@ export function BuildingTranscriptForm({
         transcriptNotes: '注意事項',
       };
       (Object.keys(headerLabels) as Array<keyof TranscriptHeader>).forEach((k) => {
-        if (newHeader[k] && newHeader[k] !== before.header[k]) {
-          diffs.push({ label: headerLabels[k], from: before.header[k], to: newHeader[k] });
+        const from = before.header[k] ?? '';
+        const to = newHeader[k] ?? '';
+        if (from !== to && (from || to)) {
+          diffs.push({ label: headerLabels[k], from, to });
         }
       });
 
-      // Compare Description
+      // Compare Description (include fields being cleared)
       const descLabels: Partial<Record<keyof BuildingDescription, string>> = {
         buildingNumber: '建號',
         regDate: '登記日期',
@@ -163,47 +179,49 @@ export function BuildingTranscriptForm({
         notes: '其他登記事項',
       };
       (Object.keys(descLabels) as Array<keyof BuildingDescription>).forEach((k) => {
-        if (incomingDesc[k] && incomingDesc[k] !== before.desc[k] && typeof incomingDesc[k] === 'string') {
-          diffs.push({ label: descLabels[k]!, from: before.desc[k] as string, to: incomingDesc[k] as string });
+        if (typeof incomingDesc[k] !== 'string' && typeof before.desc[k] !== 'string') return;
+        const from = (before.desc[k] as string) ?? '';
+        const to = (incomingDesc[k] as string) ?? '';
+        if (from !== to && (from || to)) {
+          diffs.push({ label: descLabels[k]!, from, to });
         }
       });
 
-      // Simple array count comparison for complex sections
-      if (incomingDesc.annexedBuildings?.length !== before.desc.annexedBuildings.length) {
-        diffs.push({ label: '附屬建物數量', from: `${before.desc.annexedBuildings.length}`, to: `${incomingDesc.annexedBuildings?.length ?? 0}` });
+      // Array section diffs
+      if (incomingDesc.annexedBuildings.length !== before.desc.annexedBuildings.length) {
+        diffs.push({ label: '附屬建物數量', from: `${before.desc.annexedBuildings.length}`, to: `${incomingDesc.annexedBuildings.length}` });
       }
-      if (incomingDesc.commonAreas?.length !== before.desc.commonAreas.length) {
-        diffs.push({ label: '共有部分數量', from: `${before.desc.commonAreas.length}`, to: `${incomingDesc.commonAreas?.length ?? 0}` });
+      if (incomingDesc.commonAreas.length !== before.desc.commonAreas.length) {
+        diffs.push({ label: '共有部分數量', from: `${before.desc.commonAreas.length}`, to: `${incomingDesc.commonAreas.length}` });
       }
-      if (fillFromParsedTranscript.ownership?.length !== before.ownership.length) {
-        diffs.push({ label: '所有權人數量', from: `${before.ownership.length}`, to: `${fillFromParsedTranscript.ownership?.length ?? 0}` });
+      const newOwnershipCount = fillFromParsedTranscript.ownership?.length ?? 0;
+      if (newOwnershipCount !== before.ownership.length) {
+        diffs.push({ label: '所有權人數量', from: `${before.ownership.length}`, to: `${newOwnershipCount}` });
       }
-      if (fillFromParsedTranscript.encumbrances?.length !== before.encumbrances.length) {
-        diffs.push({ label: '他項權利數量', from: `${before.encumbrances.length}`, to: `${fillFromParsedTranscript.encumbrances?.length ?? 0}` });
+      const newEncumbranceCount = fillFromParsedTranscript.encumbrances?.length ?? 0;
+      if (newEncumbranceCount !== before.encumbrances.length) {
+        diffs.push({ label: '他項權利數量', from: `${before.encumbrances.length}`, to: `${newEncumbranceCount}` });
       }
 
       setTranscribeDiffs(diffs);
       setTranscribeNoChange(diffs.length === 0);
       setFeedback(null);
 
+      // Apply: clear-first then fill (guaranteed clean slate per transcript)
       setHeader(newHeader);
-      setDesc({
-        ...incomingDesc,
-        annexedBuildings: Array.isArray(incomingDesc.annexedBuildings) ? incomingDesc.annexedBuildings : [],
-        commonAreas: Array.isArray(incomingDesc.commonAreas) ? incomingDesc.commonAreas : [],
-      });
+      setDesc(incomingDesc);
       setOwnership(
-        (fillFromParsedTranscript.ownership?.length ?? 0) > 0
+        newOwnershipCount > 0
           ? fillFromParsedTranscript.ownership!
           : [emptyOwnership()],
       );
-      setEncumbrances(
-        (fillFromParsedTranscript.encumbrances?.length ?? 0) > 0
-          ? fillFromParsedTranscript.encumbrances!
-          : before.encumbrances.length > 0
-            ? before.encumbrances
-            : [emptyEncumbrance()],
-      );
+      if (newEncumbranceCount > 0) {
+        setEncumbrances(fillFromParsedTranscript.encumbrances!);
+        setNoEncumbrancesNotice(false);
+      } else {
+        setEncumbrances([]);
+        setNoEncumbrancesNotice(true);
+      }
 
       // Scroll the diff panel into view after state settles
       setTimeout(() => diffPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
@@ -516,6 +534,11 @@ export function BuildingTranscriptForm({
           <p className="text-sm font-mono text-center text-text-primary mb-2">
             ************** 建物他項權利部 *************
           </p>
+          {noEncumbrancesNotice && encumbrances.length === 0 && (
+            <p className="text-sm text-text-muted text-center py-3 bg-bg-tertiary rounded-lg border border-border-default">
+              （空白）－本物件目前無他項權利部
+            </p>
+          )}
           {encumbrances.map((enc, i) => (
             <div key={enc.id} className="border border-border-default rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between">
@@ -646,7 +669,10 @@ export function BuildingTranscriptForm({
           ))}
           <button
             type="button"
-            onClick={() => setEncumbrances((list) => [...list, emptyEncumbrance()])}
+            onClick={() => {
+              setNoEncumbrancesNotice(false);
+              setEncumbrances((list) => [...list, emptyEncumbrance()]);
+            }}
             className="w-full flex items-center justify-center gap-2 py-2.5 border border-dashed border-border-default rounded-lg text-sm text-text-secondary hover:border-accent hover:text-accent transition-colors"
           >
             <Plus size={14} /> 新增他項權利

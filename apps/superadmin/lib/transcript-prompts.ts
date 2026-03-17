@@ -291,6 +291,7 @@ export const TRANSCRIPT_PARSE_PROMPT = `你是台灣不動產「建物／土地�
 - kind = "building" 時：landTranscript 仍需存在，但可填完整空結構（所有字串為 ""，所有陣列為 []）。
 - kind = "land" 時：buildingTranscript 仍需存在，但可填完整空結構（所有字串為 ""，所有陣列為 []）。
 - ownership / encumbrances / annexedBuildings / commonAreas：若無資料請輸出 []（不要輸出含空物件的陣列）。
+- 【他項權利部特別說明】台灣許多屋主全款購屋無貸款，謄本中可能完全沒有「他項權利部」章節。當你在文件中找不到任何他項權利部內容時，encumbrances 必須輸出 []（空陣列），絕對不要填入含空字串欄位的物件。
 - 所有 id 欄位：用「可重現的字串」避免亂數，例如：
   - ownership.id = "ownership-" + seq
   - encumbrances.id = "encumbrance-" + seq
