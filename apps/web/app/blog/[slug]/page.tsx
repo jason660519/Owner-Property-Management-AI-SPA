@@ -10,10 +10,19 @@ interface BlogPageProps {
 
 async function getBlogBySlug(slug: string) {
   const supabase = createAdminClient();
+  // Next may provide the dynamic segment in an encoded form depending on the URL.
+  // Normalize to the original slug stored in Supabase.
+  let normalizedSlug = slug;
+  try {
+    normalizedSlug = decodeURIComponent(slug);
+  } catch {
+    // If it's already decoded (or contains malformed escape sequences), keep as-is.
+  }
+
   const { data, error } = await supabase
     .from('blog_posts')
     .select('*')
-    .eq('slug', slug)
+    .eq('slug', normalizedSlug)
     .eq('status', 'published')
     .single();
 
@@ -106,6 +115,7 @@ function BlogStyles() {
 
       .highlights-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; }
       .highlight-card { display: flex; flex-direction: column; align-items: center; padding: 1.5rem 1rem; background: #f8fafc; border-radius: .75rem; text-align: center; border: 1px solid #e2e8f0; transition: transform .2s, box-shadow .2s; }
+      a.highlight-card { text-decoration: none; color: inherit; }
       .highlight-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.08); }
       .highlight-icon { font-size: 1.75rem; margin-bottom: .5rem; }
       .highlight-label { font-size: .8rem; color: #64748b; margin-bottom: .25rem; }

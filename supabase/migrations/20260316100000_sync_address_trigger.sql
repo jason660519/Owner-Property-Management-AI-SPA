@@ -3,15 +3,23 @@
 
 CREATE OR REPLACE FUNCTION sync_address_from_parts()
 RETURNS TRIGGER AS $$
+DECLARE
+  parts TEXT;
 BEGIN
-  NEW.address := NULLIF(TRIM(
+  parts := TRIM(
     COALESCE(NEW.address_city, '')      ||
     COALESCE(NEW.address_district, '')  ||
     COALESCE(NEW.address_street, '')    ||
     COALESCE(NEW.address_number, '')    ||
     COALESCE(NEW.address_floor, '')     ||
     COALESCE(NEW.address_unit, '')
-  ), '');
+  );
+  -- Only overwrite `address` when at least one structured part is non-empty;
+  -- otherwise preserve the value passed in the INSERT/UPDATE statement
+  -- (avoids setting address to NULL which violates NOT NULL constraint).
+  IF parts <> '' THEN
+    NEW.address := parts;
+  END IF;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;

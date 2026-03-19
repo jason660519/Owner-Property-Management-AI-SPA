@@ -182,6 +182,12 @@ export type IAMUser = {
   id: string;
   email: string;
   displayName?: string | null;
+  phone?: string | null;
+  lineId?: string | null;
+  wechatId?: string | null;
+  whatsapp?: string | null;
+  facebookUrl?: string | null;
+  instagramUrl?: string | null;
   groups: string[];
   roles: string[];
   createdAt?: string;
@@ -202,23 +208,38 @@ export async function getUsers(): Promise<IAMUser[]> {
 
   const { data: profiles } = await supabase
     .from('users_profile')
-    .select('id, roles, display_name');
+    .select('id, roles, display_name, phone, line_id, wechat_id, whatsapp, facebook_url, instagram_url');
 
-  const profileRolesMap = new Map<string, string[]>();
-  const profileDisplayNameMap = new Map<string, string | null>();
-  (profiles || []).forEach((p: { id: string; roles: string[] | null; display_name: string | null }) => {
-    profileRolesMap.set(p.id, p.roles || []);
-    profileDisplayNameMap.set(p.id, p.display_name ?? null);
-  });
+  type ProfileRow = {
+    id: string;
+    roles: string[] | null;
+    display_name: string | null;
+    phone?: string | null;
+    line_id?: string | null;
+    wechat_id?: string | null;
+    whatsapp?: string | null;
+    facebook_url?: string | null;
+    instagram_url?: string | null;
+  };
+
+  const profileMap = new Map<string, ProfileRow>();
+  (profiles || []).forEach((p: ProfileRow) => profileMap.set(p.id, p));
 
   const userMap = new Map<string, IAMUser>();
   users.forEach((u: { id: string; email: string | null; created_at?: string }) => {
+    const p = profileMap.get(u.id);
     userMap.set(u.id, {
       id: u.id,
       email: u.email || 'No Email',
-      displayName: profileDisplayNameMap.get(u.id) ?? null,
+      displayName: p?.display_name ?? null,
+      phone: p?.phone ?? null,
+      lineId: p?.line_id ?? null,
+      wechatId: p?.wechat_id ?? null,
+      whatsapp: p?.whatsapp ?? null,
+      facebookUrl: p?.facebook_url ?? null,
+      instagramUrl: p?.instagram_url ?? null,
       groups: [],
-      roles: profileRolesMap.get(u.id) || [],
+      roles: p?.roles || [],
       createdAt: u.created_at,
     });
   });
@@ -457,6 +478,131 @@ export async function removeRoleFromUser(userId: string, role: string) {
   if (updateError) {
     return { success: false, message: updateError.message };
   }
+
+  revalidatePath(BASE);
+  return { success: true };
+}
+
+/**
+ * Update a user's phone in users_profile.
+ * Only super_admin can call this.
+ */
+export async function updateUserPhone(
+  userId: string,
+  phone: string
+): Promise<{ success: boolean; message?: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: 'Unauthorized' };
+
+  const { data: profile } = await supabase
+    .from('users_profile')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  const hasSuperAdminRole =
+    profile?.role === 'super_admin' ||
+    user.app_metadata?.roles?.includes('super_admin') ||
+    user.user_metadata?.roles?.includes('super_admin');
+
+  if (!hasSuperAdminRole) return { success: false, message: 'Unauthorized: Admin access required' };
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('users_profile')
+    .update({ phone: phone.trim() || null, updated_at: new Date().toISOString() })
+    .eq('id', userId);
+
+  if (error) return { success: false, message: error.message };
+
+  revalidatePath(BASE);
+  return { success: true };
+}
+
+/**
+ * Update a user's email in auth.users via admin API.
+ * Only super_admin can call this. Changing auth email may require re-verification.
+ */
+export async function updateUserEmail(
+  userId: string,
+  email: string
+): Promise<{ success: boolean; message?: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: 'Unauthorized' };
+
+  const { data: profile } = await supabase
+    .from('users_profile')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  const hasSuperAdminRole =
+    profile?.role === 'super_admin' ||
+    user.app_metadata?.roles?.includes('super_admin') ||
+    user.user_metadata?.roles?.includes('super_admin');
+
+  if (!hasSuperAdminRole) return { success: false, message: 'Unauthorized: Admin access required' };
+
+  const trimmed = email.trim();
+  if (!trimmed || !trimmed.includes('@')) return { success: false, message: 'Invalid email address' };
+
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.updateUserById(userId, { email: trimmed });
+  if (error) return { success: false, message: error.message };
+
+  revalidatePath(BASE);
+  return { success: true };
+}
+
+export interface SocialContacts {
+  lineId?: string | null;
+  wechatId?: string | null;
+  whatsapp?: string | null;
+  facebookUrl?: string | null;
+  instagramUrl?: string | null;
+}
+
+/**
+ * Update a user's social contact IDs/URLs in users_profile.
+ * Only super_admin can call this.
+ */
+export async function updateUserSocialContacts(
+  userId: string,
+  contacts: SocialContacts
+): Promise<{ success: boolean; message?: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: 'Unauthorized' };
+
+  const { data: profile } = await supabase
+    .from('users_profile')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  const hasSuperAdminRole =
+    profile?.role === 'super_admin' ||
+    user.app_metadata?.roles?.includes('super_admin') ||
+    user.user_metadata?.roles?.includes('super_admin');
+
+  if (!hasSuperAdminRole) return { success: false, message: 'Unauthorized: Admin access required' };
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('users_profile')
+    .update({
+      line_id:       contacts.lineId?.trim()       || null,
+      wechat_id:     contacts.wechatId?.trim()     || null,
+      whatsapp:      contacts.whatsapp?.trim()      || null,
+      facebook_url:  contacts.facebookUrl?.trim()  || null,
+      instagram_url: contacts.instagramUrl?.trim() || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', userId);
+
+  if (error) return { success: false, message: error.message };
 
   revalidatePath(BASE);
   return { success: true };

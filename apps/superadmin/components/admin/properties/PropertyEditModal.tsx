@@ -192,10 +192,7 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
   const [bathrooms, setBathrooms] = useState(property.bathrooms ?? 0);
   const [livingRooms, setLivingRooms] = useState(property.livingRooms ?? 0);
   const [parkingSpaces, setParkingSpaces] = useState(property.parkingSpaces ?? 0);
-  const [description, setDescription] = useState('');
-
-  // Load description from property if available (details.description is not in PropertyItem,
-  // so we initialize empty; the server action will merge with existing JSONB)
+  const [description, setDescription] = useState(property.description ?? '');
 
   const statusOptions = PROPERTY_STATUSES;
   const statusLabels = statusLabelsMap;

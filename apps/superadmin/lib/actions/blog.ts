@@ -1,10 +1,16 @@
-// filepath: apps/superadmin/lib/actions/blog.ts
 // Server actions for property blog generation and management
 'use server';
 
 import { createAdminClient } from '@/utils/supabase/admin';
+import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import type { ActionResult } from '@/lib/types/properties';
+import {
+  generateBlogContent,
+  generateSlug,
+  buildCtaSection,
+  type PropertyDataForBlog,
+} from '@/lib/utils/blogTemplate';
 
 export interface BlogPost {
   id: string;
@@ -29,219 +35,109 @@ export interface BlogPost {
   updatedAt: string;
 }
 
-interface PropertyDataForBlog {
-  id: string;
-  type: 'sale' | 'rental';
-  title: string;
-  address: string;
-  addressCity?: string;
-  addressDistrict?: string;
-  addressStreet?: string;
-  price?: number | null;
-  monthlyRent?: number | null;
-  area?: number | null;
-  propertyType?: string | null;
-  bedrooms?: number | null;
-  bathrooms?: number | null;
-  livingRooms?: number | null;
-  parkingSpaces?: number | null;
-  photos: { url: string; isPrimary: boolean; photoType: string }[];
-  description?: string;
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+interface OwnerContact {
+  phone: string | null;
+  email: string | null;
+  lineId: string | null;
+  wechatId: string | null;
+  whatsapp: string | null;
+  facebookUrl: string | null;
+  instagramUrl: string | null;
 }
 
-function generateSlug(data: PropertyDataForBlog): string {
-  const parts: string[] = [];
-  parts.push(data.type === 'sale' ? 'sale' : 'rental');
-  if (data.addressCity) parts.push(data.addressCity);
-  if (data.addressDistrict) parts.push(data.addressDistrict);
-  if (data.title) parts.push(data.title.slice(0, 20));
-  const hash = data.id.slice(0, 8);
-  parts.push(hash);
-  const slug = parts
-    .join('-')
-    .replace(/[^\u4e00-\u9fff\w-]/g, '')
-    .replace(/-+/g, '-')
-    .toLowerCase();
-  return slug || `property-${hash}`;
-}
-
-function formatPrice(price: number | null | undefined, type: 'sale' | 'rental'): string {
-  if (!price) return '洽詢';
-  if (type === 'sale') {
-    if (price >= 10000) return `${(price / 10000).toFixed(0)} 萬`;
-    return `NT$ ${price.toLocaleString()}`;
+/** Get contact info for the currently logged-in session user. */
+async function getSessionUserContact(): Promise<OwnerContact> {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { phone: null, email: null, lineId: null, wechatId: null, whatsapp: null, facebookUrl: null, instagramUrl: null };
+    return getOwnerContact(user.id);
+  } catch {
+    return { phone: null, email: null, lineId: null, wechatId: null, whatsapp: null, facebookUrl: null, instagramUrl: null };
   }
-  return `NT$ ${price.toLocaleString()} / 月`;
 }
 
-function generateBlogContent(data: PropertyDataForBlog): {
-  title: string;
-  excerpt: string;
-  content: string;
-  contentHtml: string;
-  seoTitle: string;
-  seoDescription: string;
-  seoKeywords: string[];
-  tags: string[];
-  category: string;
-} {
+async function getOwnerContact(ownerId: string): Promise<OwnerContact> {
+  try {
+    const adminClient = createAdminClient();
+    const [profileResult, authResult] = await Promise.all([
+      adminClient
+        .from('users_profile')
+        .select('phone, line_id, wechat_id, whatsapp, facebook_url, instagram_url')
+        .eq('id', ownerId)
+        .maybeSingle(),
+      adminClient.auth.admin.getUserById(ownerId),
+    ]);
+    const p = profileResult.data;
+    return {
+      phone:        p?.phone        ?? null,
+      email:        authResult.data?.user?.email ?? null,
+      lineId:       p?.line_id      ?? null,
+      wechatId:     p?.wechat_id    ?? null,
+      whatsapp:     p?.whatsapp     ?? null,
+      facebookUrl:  p?.facebook_url  ?? null,
+      instagramUrl: p?.instagram_url ?? null,
+    };
+  } catch {
+    return { phone: null, email: null, lineId: null, wechatId: null, whatsapp: null, facebookUrl: null, instagramUrl: null };
+  }
+}
+
+async function generateDescriptionWithAI(data: PropertyDataForBlog): Promise<string | null> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
+
   const isSale = data.type === 'sale';
-  const priceValue = isSale ? data.price : data.monthlyRent;
-  const priceLabel = formatPrice(priceValue, data.type);
   const typeLabel = isSale ? '出售' : '出租';
-  const areaDisplay = data.area ? `${(data.area * 0.3025).toFixed(1)} 坪` : null;
-  const layoutParts: string[] = [];
-  if (data.bedrooms) layoutParts.push(`${data.bedrooms}房`);
-  if (data.livingRooms) layoutParts.push(`${data.livingRooms}廳`);
-  if (data.bathrooms) layoutParts.push(`${data.bathrooms}衛`);
-  const layoutStr = layoutParts.join('') || null;
   const locationStr = [data.addressCity, data.addressDistrict].filter(Boolean).join('');
+  const areaDisplay = data.area ? `${(data.area * 0.3025).toFixed(1)} 坪` : '未提供';
+  const layoutParts = [
+    data.bedrooms && `${data.bedrooms}房`,
+    data.livingRooms && `${data.livingRooms}廳`,
+    data.bathrooms && `${data.bathrooms}衛`,
+  ].filter(Boolean).join('');
 
-  const primaryPhoto = data.photos.find((p) => p.isPrimary) || data.photos[0];
-  const galleryPhotos = data.photos.slice(0, 12);
+  const prompt = `你是一位專業的台灣房地產文案撰寫師。請根據以下物件資料，撰寫一段吸引人的中文物件介紹文案（約150-250字）。
 
-  const blogTitle = `【${typeLabel}】${data.title || data.address}${locationStr ? ` — ${locationStr}` : ''}`;
-  const excerpt = [
-    locationStr ? `位於${locationStr}` : null,
-    data.propertyType ? `${data.propertyType}物件` : null,
-    layoutStr,
-    areaDisplay ? `面積約 ${areaDisplay}` : null,
-    `${typeLabel}價格 ${priceLabel}`,
-  ]
-    .filter(Boolean)
-    .join('，');
+物件資料：
+- 交易類型：${typeLabel}
+- 物件類型：${data.propertyType || '住宅'}
+- 地點：${locationStr || data.address}
+- 格局：${layoutParts || '未提供'}
+- 面積：${areaDisplay}
+${data.description ? `- 原始描述：${data.description}` : ''}
 
-  const highlightItems = [
-    { icon: '🏷️', label: isSale ? '售價' : '月租', value: priceLabel },
-    areaDisplay ? { icon: '📐', label: '面積', value: areaDisplay } : null,
-    layoutStr ? { icon: '🏠', label: '格局', value: layoutStr } : null,
-    data.propertyType ? { icon: '🏢', label: '類型', value: data.propertyType } : null,
-    data.parkingSpaces ? { icon: '🚗', label: '車位', value: `${data.parkingSpaces} 個` } : null,
-    locationStr ? { icon: '📍', label: '地區', value: locationStr } : null,
-  ].filter(Boolean) as { icon: string; label: string; value: string }[];
+請撰寫能吸引買方/租客興趣的專業介紹文，突出物件優點與地段價值，使用流暢的繁體中文。不要使用誇大不實用語，也不要在文末加上聯絡資訊。只輸出介紹文本身，不要加標題或前言。`;
 
-  const highlightsHtml = highlightItems
-    .map(
-      (h) =>
-        `<div class="highlight-card"><span class="highlight-icon">${h.icon}</span><span class="highlight-label">${h.label}</span><span class="highlight-value">${h.value}</span></div>`
-    )
-    .join('\n');
-
-  const galleryHtml =
-    galleryPhotos.length > 0
-      ? galleryPhotos
-          .map(
-            (p, i) =>
-              `<div class="gallery-item${i === 0 ? ' gallery-item-featured' : ''}"><img src="${p.url}" alt="${data.title || '物件照片'} - 照片${i + 1}" loading="lazy" /></div>`
-          )
-          .join('\n')
-      : '<div class="no-photos"><p>照片準備中</p></div>';
-
-  const addressParts = [
-    data.addressCity,
-    data.addressDistrict,
-    data.addressStreet,
-    data.address,
-  ].filter(Boolean);
-  const fullAddress = addressParts.length > 0 ? addressParts[addressParts.length - 1] : '詳洽仲介';
-
-  const descriptionSection = data.description
-    ? `<section class="blog-section"><h2>物件說明</h2><div class="description-content"><p>${data.description.replace(/\n/g, '</p><p>')}</p></div></section>`
-    : '';
-
-  const contentHtml = `
-<article class="property-blog">
-  <!-- Hero -->
-  <section class="hero-section">
-    ${primaryPhoto ? `<div class="hero-image"><img src="${primaryPhoto.url}" alt="${data.title || '物件主照'}" /></div>` : '<div class="hero-placeholder"><div class="hero-placeholder-inner">📷 照片準備中</div></div>'}
-    <div class="hero-overlay">
-      <div class="hero-badge">${typeLabel}</div>
-      <h1 class="hero-title">${data.title || data.address}</h1>
-      <p class="hero-location">📍 ${fullAddress}</p>
-    </div>
-  </section>
-
-  <!-- Highlights -->
-  <section class="blog-section">
-    <h2>物件亮點</h2>
-    <div class="highlights-grid">
-      ${highlightsHtml}
-    </div>
-  </section>
-
-  <!-- Gallery -->
-  <section class="blog-section">
-    <h2>物件照片</h2>
-    <div class="gallery-grid">
-      ${galleryHtml}
-    </div>
-  </section>
-
-  ${descriptionSection}
-
-  <!-- Details -->
-  <section class="blog-section">
-    <h2>物件資訊</h2>
-    <div class="details-table">
-      <div class="detail-row"><span class="detail-label">物件類型</span><span class="detail-value">${data.propertyType || '—'}</span></div>
-      <div class="detail-row"><span class="detail-label">${isSale ? '售價' : '月租金'}</span><span class="detail-value price-value">${priceLabel}</span></div>
-      ${areaDisplay ? `<div class="detail-row"><span class="detail-label">面積</span><span class="detail-value">${areaDisplay}</span></div>` : ''}
-      ${layoutStr ? `<div class="detail-row"><span class="detail-label">格局</span><span class="detail-value">${layoutStr}</span></div>` : ''}
-      ${data.parkingSpaces ? `<div class="detail-row"><span class="detail-label">車位</span><span class="detail-value">${data.parkingSpaces} 個</span></div>` : ''}
-      <div class="detail-row"><span class="detail-label">地址</span><span class="detail-value">${fullAddress}</span></div>
-    </div>
-  </section>
-
-  <!-- CTA -->
-  <section class="blog-section cta-section">
-    <h2>有興趣嗎？</h2>
-    <p>歡迎來電或來訊預約看房，我們將為您安排最佳時段。</p>
-    <div class="cta-buttons">
-      <a href="tel:" class="cta-btn cta-btn-primary">📞 立即來電</a>
-      <a href="mailto:" class="cta-btn cta-btn-secondary">✉️ 線上詢問</a>
-    </div>
-  </section>
-</article>`;
-
-  const content = [
-    blogTitle,
-    '',
-    excerpt,
-    '',
-    '## 物件亮點',
-    ...highlightItems.map((h) => `- ${h.icon} ${h.label}：${h.value}`),
-    '',
-    data.description ? `## 物件說明\n${data.description}\n` : '',
-    '## 物件資訊',
-    `- 類型：${data.propertyType || '—'}`,
-    `- ${isSale ? '售價' : '月租'}：${priceLabel}`,
-    areaDisplay ? `- 面積：${areaDisplay}` : '',
-    layoutStr ? `- 格局：${layoutStr}` : '',
-    data.parkingSpaces ? `- 車位：${data.parkingSpaces} 個` : '',
-    `- 地址：${fullAddress}`,
-  ]
-    .filter(Boolean)
-    .join('\n');
-
-  const tags = [
-    data.type === 'sale' ? '出售' : '出租',
-    data.addressCity,
-    data.addressDistrict,
-    data.propertyType,
-  ].filter(Boolean) as string[];
-
-  return {
-    title: blogTitle,
-    excerpt,
-    content,
-    contentHtml,
-    seoTitle: `${blogTitle} | 物件${typeLabel}`,
-    seoDescription: excerpt.slice(0, 160),
-    seoKeywords: tags,
-    tags,
-    category: isSale ? 'property_sale' : 'property_rental',
-  };
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 600,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+    if (!response.ok) return null;
+    const json = await response.json() as { content?: Array<{ text?: string }> };
+    return json.content?.[0]?.text?.trim() ?? null;
+  } catch {
+    return null;
+  }
 }
+
+// ---------------------------------------------------------------------------
+// Public server actions
+// ---------------------------------------------------------------------------
 
 export async function getPropertyBlog(propertyId: string): Promise<BlogPost | null> {
   const adminClient = createAdminClient();
@@ -333,6 +229,22 @@ export async function generatePropertyBlog(
       photos,
       description: details.description as string | undefined,
     };
+
+    // Fetch session user contact info and generate AI description in parallel
+    // Contact info comes from the logged-in agent/admin, not the property owner
+    const [ownerContact, aiDescription] = await Promise.all([
+      getSessionUserContact(),
+      generateDescriptionWithAI(blogData),
+    ]);
+
+    blogData.ownerPhone       = ownerContact.phone;
+    blogData.ownerEmail       = ownerContact.email;
+    blogData.ownerLineId      = ownerContact.lineId;
+    blogData.ownerWechatId    = ownerContact.wechatId;
+    blogData.ownerWhatsapp    = ownerContact.whatsapp;
+    blogData.ownerFacebookUrl = ownerContact.facebookUrl;
+    blogData.ownerInstagramUrl = ownerContact.instagramUrl;
+    blogData.aiDescription    = aiDescription ?? undefined;
 
     const generated = generateBlogContent(blogData);
     const slug = generateSlug(blogData);
@@ -429,12 +341,15 @@ export async function generatePropertyBlog(
       }
     }
 
+    void blogId; // used implicitly via getPropertyBlog
     const blog = await getPropertyBlog(propertyId);
 
     revalidatePath('/superadmin/properties');
     return {
       success: true,
-      message: existing ? '部落格已重新生成' : '部落格已成功生成',
+      message: existing
+        ? `部落格已重新生成${aiDescription ? '（含 AI 文案）' : ''}`
+        : `部落格已成功生成${aiDescription ? '（含 AI 文案）' : ''}`,
       blog: blog || undefined,
     };
   } catch (error) {
@@ -446,9 +361,44 @@ export async function generatePropertyBlog(
   }
 }
 
-export async function publishPropertyBlog(
-  blogId: string
+export async function updatePropertyBlog(
+  blogId: string,
+  data: { title: string; excerpt: string }
 ): Promise<ActionResult> {
+  const adminClient = createAdminClient();
+
+  // Also update hero title in contentHtml for consistency
+  const { data: existing } = await adminClient
+    .from('blog_posts')
+    .select('content_html')
+    .eq('id', blogId)
+    .maybeSingle();
+
+  let updatedContentHtml: string | undefined;
+  if (existing?.content_html) {
+    updatedContentHtml = existing.content_html.replace(
+      /<h1 class="hero-title">[^<]*<\/h1>/,
+      `<h1 class="hero-title">${data.title}</h1>`
+    );
+  }
+
+  const { error } = await adminClient
+    .from('blog_posts')
+    .update({
+      title: data.title,
+      excerpt: data.excerpt,
+      ...(updatedContentHtml ? { content_html: updatedContentHtml } : {}),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', blogId);
+
+  if (error) return { success: false, message: `儲存失敗：${error.message}` };
+
+  revalidatePath('/superadmin/properties');
+  return { success: true, message: '已儲存變更' };
+}
+
+export async function publishPropertyBlog(blogId: string): Promise<ActionResult> {
   const adminClient = createAdminClient();
   const { error } = await adminClient
     .from('blog_posts')
@@ -459,17 +409,13 @@ export async function publishPropertyBlog(
     })
     .eq('id', blogId);
 
-  if (error) {
-    return { success: false, message: `發佈失敗：${error.message}` };
-  }
+  if (error) return { success: false, message: `發佈失敗：${error.message}` };
 
   revalidatePath('/superadmin/properties');
   return { success: true, message: '部落格已發佈' };
 }
 
-export async function unpublishPropertyBlog(
-  blogId: string
-): Promise<ActionResult> {
+export async function unpublishPropertyBlog(blogId: string): Promise<ActionResult> {
   const adminClient = createAdminClient();
   const { error } = await adminClient
     .from('blog_posts')
@@ -479,26 +425,63 @@ export async function unpublishPropertyBlog(
     })
     .eq('id', blogId);
 
-  if (error) {
-    return { success: false, message: `下架失敗：${error.message}` };
-  }
+  if (error) return { success: false, message: `下架失敗：${error.message}` };
 
   revalidatePath('/superadmin/properties');
   return { success: true, message: '部落格已下架' };
 }
 
-export async function deletePropertyBlog(
+/**
+ * Re-sync only the CTA section of a blog's content_html with the latest
+ * owner contact info. Preserves AI copy, photos, and all other sections.
+ */
+export async function syncBlogCTA(
   blogId: string
 ): Promise<ActionResult> {
   const adminClient = createAdminClient();
+
+  // Contact info from the logged-in session user (the agent), not the property owner
+  const [{ data: existing }, ownerContact] = await Promise.all([
+    adminClient.from('blog_posts').select('content_html').eq('id', blogId).maybeSingle(),
+    getSessionUserContact(),
+  ]);
+
+  if (!existing?.content_html) {
+    return { success: false, message: '找不到部落格內容' };
+  }
+
+  const newCtaSection = buildCtaSection({
+    phone:        ownerContact.phone,
+    email:        ownerContact.email,
+    lineId:       ownerContact.lineId,
+    wechatId:     ownerContact.wechatId,
+    whatsapp:     ownerContact.whatsapp,
+    facebookUrl:  ownerContact.facebookUrl,
+    instagramUrl: ownerContact.instagramUrl,
+  });
+
+  // Replace the entire CTA section (from <!-- CTA --> comment to its closing </section>)
+  const updatedHtml = existing.content_html.replace(
+    /<!--\s*CTA\s*-->[\s\S]*?<\/section>/,
+    newCtaSection
+  );
+
   const { error } = await adminClient
     .from('blog_posts')
-    .delete()
+    .update({ content_html: updatedHtml, updated_at: new Date().toISOString() })
     .eq('id', blogId);
 
-  if (error) {
-    return { success: false, message: `刪除失敗：${error.message}` };
-  }
+  if (error) return { success: false, message: `同步失敗：${error.message}` };
+
+  revalidatePath('/superadmin/properties');
+  return { success: true, message: '聯絡方式已同步至部落格 CTA' };
+}
+
+export async function deletePropertyBlog(blogId: string): Promise<ActionResult> {
+  const adminClient = createAdminClient();
+  const { error } = await adminClient.from('blog_posts').delete().eq('id', blogId);
+
+  if (error) return { success: false, message: `刪除失敗：${error.message}` };
 
   revalidatePath('/superadmin/properties');
   return { success: true, message: '部落格已刪除' };

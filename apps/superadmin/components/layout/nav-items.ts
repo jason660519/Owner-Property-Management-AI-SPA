@@ -26,7 +26,6 @@ export const navItems: NavItem[] = [
   { name: 'Overview', href: '/superadmin', icon: Home },
   { name: 'IAM Management', href: '/superadmin/dashboard/iam-management', icon: Shield },
   { name: 'Properties Management', href: '/superadmin/properties', icon: Building },
-  { name: 'Contracts Management', href: '/superadmin/leases', icon: FileText },
   { name: 'Database', href: '/superadmin/dashboard/supabase', icon: Database },
   { name: 'Storage', href: '/superadmin/dashboard/storage', icon: HardDrive },
   { name: 'Behavior Monitor', href: '/superadmin/dashboard/behavior-monitoring', icon: Activity },

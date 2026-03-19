@@ -16,6 +16,14 @@ import {
   FileText,
   ImageIcon,
   AlertCircle,
+  Pencil,
+  X,
+  Save,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  AlertTriangle,
+  Contact,
 } from 'lucide-react';
 import {
   getPropertyBlog,
@@ -23,6 +31,8 @@ import {
   publishPropertyBlog,
   unpublishPropertyBlog,
   deletePropertyBlog,
+  updatePropertyBlog,
+  syncBlogCTA,
   type BlogPost,
 } from '@/lib/actions/blog';
 
@@ -40,13 +50,22 @@ export function PropertyBlogGenerator({
   const [blog, setBlog] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
+  const [isSaving, startSaveTransition] = useTransition();
+  const [isSyncing, startSyncTransition] = useTransition();
   const [feedback, setFeedback] = useState<{
     type: 'success' | 'error';
     message: string;
   } | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showSeo, setShowSeo] = useState(false);
   const [copied, setCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
+
+  // Edit mode states
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editExcerpt, setEditExcerpt] = useState('');
 
   const loadBlog = useCallback(async () => {
     setLoading(true);
@@ -64,8 +83,49 @@ export function PropertyBlogGenerator({
     loadBlog();
   }, [loadBlog]);
 
-  function handleGenerate() {
+  function startEditing() {
+    if (!blog) return;
+    setEditTitle(blog.title);
+    setEditExcerpt(blog.excerpt ?? '');
+    setIsEditing(true);
+  }
+
+  function cancelEditing() {
+    setIsEditing(false);
+  }
+
+  function handleSave() {
+    if (!blog) return;
     setFeedback(null);
+    startSaveTransition(async () => {
+      const result = await updatePropertyBlog(blog.id, {
+        title: editTitle.trim(),
+        excerpt: editExcerpt.trim(),
+      });
+      if (result.success) {
+        await loadBlog();
+        setIsEditing(false);
+        setFeedback({ type: 'success', message: result.message });
+      } else {
+        setFeedback({ type: 'error', message: result.message });
+      }
+    });
+  }
+
+  function handleGenerateClick() {
+    // If already published, ask for confirmation first
+    if (blog?.status === 'published' && !confirmRegenerate) {
+      setConfirmRegenerate(true);
+      setTimeout(() => setConfirmRegenerate(false), 5000);
+      return;
+    }
+    setConfirmRegenerate(false);
+    doGenerate();
+  }
+
+  function doGenerate() {
+    setFeedback(null);
+    setIsEditing(false);
     startTransition(async () => {
       const result = await generatePropertyBlog(propertyId, propertyType, ownerId);
       if (result.success && result.blog) {
@@ -81,9 +141,10 @@ export function PropertyBlogGenerator({
     if (!blog) return;
     setFeedback(null);
     startTransition(async () => {
-      const result = blog.status === 'published'
-        ? await unpublishPropertyBlog(blog.id)
-        : await publishPropertyBlog(blog.id);
+      const result =
+        blog.status === 'published'
+          ? await unpublishPropertyBlog(blog.id)
+          : await publishPropertyBlog(blog.id);
       if (result.success) {
         await loadBlog();
         setFeedback({ type: 'success', message: result.message });
@@ -106,6 +167,20 @@ export function PropertyBlogGenerator({
       const result = await deletePropertyBlog(blog.id);
       if (result.success) {
         setBlog(null);
+        setFeedback({ type: 'success', message: result.message });
+      } else {
+        setFeedback({ type: 'error', message: result.message });
+      }
+    });
+  }
+
+  function handleSyncCTA() {
+    if (!blog) return;
+    setFeedback(null);
+    startSyncTransition(async () => {
+      const result = await syncBlogCTA(blog.id);
+      if (result.success) {
+        await loadBlog();
         setFeedback({ type: 'success', message: result.message });
       } else {
         setFeedback({ type: 'error', message: result.message });
@@ -157,13 +232,13 @@ export function PropertyBlogGenerator({
             <Sparkles className="w-8 h-8 text-accent" />
           </div>
           <h3 className="text-lg font-bold text-text-primary mb-2">
-            一鍵生成銷售部落格
+            AI 一鍵生成銷售部落格
           </h3>
           <p className="text-sm text-text-secondary mb-1">
-            系統將根據物件資料與照片，自動生成專業的銷售頁面
+            系統將呼叫 Claude AI，根據物件資料與照片，自動生成專業銷售文案
           </p>
           <p className="text-xs text-text-muted mb-6">
-            包含物件亮點、照片輪播、詳細資訊、SEO 優化
+            包含 AI 撰寫的物件介紹、照片輪播、詳細資訊、SEO 優化
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-6">
@@ -176,27 +251,32 @@ export function PropertyBlogGenerator({
               <ImageIcon size={14} />
               <span>物件照片</span>
             </div>
+            <span className="text-text-muted">+</span>
+            <div className="flex items-center gap-2 text-xs text-text-muted">
+              <Sparkles size={14} />
+              <span>Claude AI</span>
+            </div>
             <span className="text-text-muted">=</span>
             <div className="flex items-center gap-2 text-xs text-accent font-medium">
-              <Sparkles size={14} />
+              <Globe size={14} />
               <span>銷售部落格</span>
             </div>
           </div>
 
           <button
-            onClick={handleGenerate}
+            onClick={handleGenerateClick}
             disabled={isPending}
             className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 font-medium"
           >
             {isPending ? (
               <>
                 <Loader2 size={18} className="animate-spin" />
-                生成中...
+                AI 生成中...
               </>
             ) : (
               <>
                 <Sparkles size={18} />
-                一鍵生成部落格
+                AI 一鍵生成部落格
               </>
             )}
           </button>
@@ -215,11 +295,7 @@ export function PropertyBlogGenerator({
                     : 'bg-gray-500/10 text-gray-500'
               }`}
             >
-              {blog.status === 'published' ? (
-                <Globe size={12} />
-              ) : (
-                <GlobeLock size={12} />
-              )}
+              {blog.status === 'published' ? <Globe size={12} /> : <GlobeLock size={12} />}
               {blog.status === 'published' ? '已發佈' : '草稿'}
             </span>
 
@@ -237,23 +313,74 @@ export function PropertyBlogGenerator({
             )}
 
             <div className="ml-auto flex items-center gap-2">
+              {!isEditing && (
+                <button
+                  onClick={startEditing}
+                  disabled={isPending || isSaving}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary border border-border-default rounded-md hover:bg-bg-tertiary transition-colors disabled:opacity-50"
+                  title="編輯標題與摘要"
+                >
+                  <Pencil size={12} />
+                  編輯
+                </button>
+              )}
+
+              {/* Sync CTA contact info */}
               <button
-                onClick={handleGenerate}
-                disabled={isPending}
+                onClick={handleSyncCTA}
+                disabled={isPending || isSaving || isSyncing}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary border border-border-default rounded-md hover:bg-bg-tertiary transition-colors disabled:opacity-50"
-                title="重新生成"
+                title="從 IAM 使用者管理同步最新聯絡方式至 CTA，不影響部落格文案"
               >
-                {isPending ? (
+                {isSyncing ? (
                   <Loader2 size={12} className="animate-spin" />
                 ) : (
-                  <RefreshCw size={12} />
+                  <Contact size={12} />
                 )}
-                重新生成
+                同步聯絡方式
               </button>
+
+              {/* Regenerate button — shows warning if already published */}
+              {confirmRegenerate ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-yellow-600 flex items-center gap-1">
+                    <AlertTriangle size={12} />
+                    將覆蓋已發佈內容
+                  </span>
+                  <button
+                    onClick={doGenerate}
+                    disabled={isPending}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors disabled:opacity-50"
+                  >
+                    {isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                    確認重新生成
+                  </button>
+                  <button
+                    onClick={() => setConfirmRegenerate(false)}
+                    className="p-1.5 rounded hover:bg-bg-tertiary transition-colors"
+                  >
+                    <X size={12} className="text-text-muted" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleGenerateClick}
+                  disabled={isPending || isSaving}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary border border-border-default rounded-md hover:bg-bg-tertiary transition-colors disabled:opacity-50"
+                  title="重新生成"
+                >
+                  {isPending ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <RefreshCw size={12} />
+                  )}
+                  重新生成
+                </button>
+              )}
 
               <button
                 onClick={handlePublish}
-                disabled={isPending}
+                disabled={isPending || isSaving}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-50 ${
                   blog.status === 'published'
                     ? 'text-yellow-600 border border-yellow-500/30 hover:bg-yellow-500/10'
@@ -275,7 +402,7 @@ export function PropertyBlogGenerator({
 
               <button
                 onClick={handleDelete}
-                disabled={isPending}
+                disabled={isPending || isSaving}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-50 ${
                   confirmDelete
                     ? 'bg-red-500 text-white'
@@ -289,45 +416,54 @@ export function PropertyBlogGenerator({
             </div>
           </div>
 
-          {/* Blog URL */}
-          {blog.status === 'published' && (
-            <div className="flex items-center gap-2 px-4 py-3 bg-bg-primary border border-border-default rounded-lg">
+          {/* Blog URL — show for both published and draft */}
+          <div className="flex items-center gap-2 px-4 py-3 bg-bg-primary border border-border-default rounded-lg">
+            {blog.status === 'published' ? (
               <Globe size={14} className="text-accent shrink-0" />
-              <span className="text-xs text-text-muted shrink-0">公開網址：</span>
-              <a
-                href={blogUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-accent hover:underline truncate"
-              >
-                {blogUrl}
-              </a>
-              <button
-                onClick={handleCopyUrl}
-                className="ml-auto shrink-0 p-1.5 rounded hover:bg-bg-tertiary transition-colors"
-                title="複製網址"
-              >
-                {copied ? (
-                  <Check size={14} className="text-green-500" />
-                ) : (
-                  <Copy size={14} className="text-text-muted" />
-                )}
-              </button>
-              <a
-                href={blogUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 p-1.5 rounded hover:bg-bg-tertiary transition-colors"
-                title="開啟部落格"
-              >
-                <ExternalLink size={14} className="text-text-muted" />
-              </a>
-            </div>
-          )}
+            ) : (
+              <GlobeLock size={14} className="text-text-muted shrink-0" />
+            )}
+            <span className="text-xs text-text-muted shrink-0">
+              {blog.status === 'published' ? '公開網址：' : '草稿預覽：'}
+            </span>
+            <a
+              href={blogUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`text-sm truncate hover:underline ${
+                blog.status === 'published' ? 'text-accent' : 'text-text-secondary'
+              }`}
+            >
+              {blogUrl}
+            </a>
+            {blog.status === 'draft' && (
+              <span className="text-xs text-text-muted shrink-0">（草稿，需登入）</span>
+            )}
+            <button
+              onClick={handleCopyUrl}
+              className="ml-auto shrink-0 p-1.5 rounded hover:bg-bg-tertiary transition-colors"
+              title="複製網址"
+            >
+              {copied ? (
+                <Check size={14} className="text-green-500" />
+              ) : (
+                <Copy size={14} className="text-text-muted" />
+              )}
+            </button>
+            <a
+              href={blogUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 p-1.5 rounded hover:bg-bg-tertiary transition-colors"
+              title="開啟部落格"
+            >
+              <ExternalLink size={14} className="text-text-muted" />
+            </a>
+          </div>
 
-          {/* Blog Info Card */}
+          {/* Blog Info Card — with inline edit mode */}
           <div className="border border-border-default rounded-lg overflow-hidden">
-            {blog.featuredImageUrl && (
+            {blog.featuredImageUrl && !isEditing && (
               <div className="h-48 overflow-hidden bg-bg-tertiary">
                 <img
                   src={blog.featuredImageUrl}
@@ -337,33 +473,124 @@ export function PropertyBlogGenerator({
               </div>
             )}
             <div className="p-4 space-y-3">
-              <h3 className="font-bold text-text-primary text-base leading-snug">
-                {blog.title}
-              </h3>
-              {blog.excerpt && (
-                <p className="text-sm text-text-secondary leading-relaxed">
-                  {blog.excerpt}
-                </p>
-              )}
-              {blog.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {blog.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="px-2 py-0.5 bg-bg-tertiary text-text-muted text-xs rounded"
+              {isEditing ? (
+                /* Edit mode */
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-text-muted mb-1">文章標題</label>
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border-default rounded-md text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+                      placeholder="文章標題"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-text-muted mb-1">摘要</label>
+                    <textarea
+                      value={editExcerpt}
+                      onChange={(e) => setEditExcerpt(e.target.value)}
+                      rows={3}
+                      className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border-default rounded-md text-text-primary focus:outline-none focus:ring-1 focus:ring-accent resize-none"
+                      placeholder="文章摘要"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      onClick={handleSave}
+                      disabled={isSaving || !editTitle.trim()}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-accent text-white rounded-md hover:bg-accent-hover transition-colors disabled:opacity-50"
                     >
-                      #{tag}
+                      {isSaving ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        <Save size={12} />
+                      )}
+                      儲存
+                    </button>
+                    <button
+                      onClick={cancelEditing}
+                      disabled={isSaving}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary border border-border-default rounded-md hover:bg-bg-tertiary transition-colors disabled:opacity-50"
+                    >
+                      <X size={12} />
+                      取消
+                    </button>
+                    <span className="text-xs text-text-muted">
+                      * 僅更新標題與摘要，不影響正文
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                /* Display mode */
+                <>
+                  <h3 className="font-bold text-text-primary text-base leading-snug">
+                    {blog.title}
+                  </h3>
+                  {blog.excerpt && (
+                    <p className="text-sm text-text-secondary leading-relaxed">{blog.excerpt}</p>
+                  )}
+                  {blog.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {blog.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="px-2 py-0.5 bg-bg-tertiary text-text-muted text-xs rounded"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* SEO Preview Panel */}
+          <div>
+            <button
+              onClick={() => setShowSeo(!showSeo)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary border border-border-default rounded-md hover:bg-bg-tertiary transition-colors"
+            >
+              <Search size={12} />
+              SEO 預覽
+              {showSeo ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
+          </div>
+
+          {showSeo && (
+            <div className="border border-border-default rounded-lg p-4 space-y-3">
+              <p className="text-xs text-text-muted font-medium uppercase tracking-wide">
+                搜尋結果預覽
+              </p>
+              <div className="bg-white rounded-lg p-4 border border-gray-200 font-sans max-w-xl">
+                <p className="text-xs text-green-700 mb-0.5 truncate">
+                  {webUrl} › blog › {blog.slug}
+                </p>
+                <p className="text-[#1a0dab] text-lg leading-snug hover:underline cursor-pointer truncate">
+                  {blog.seoTitle || blog.title}
+                </p>
+                <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                  {blog.seoDescription || blog.excerpt || '（無摘要）'}
+                </p>
+              </div>
+              {blog.seoKeywords.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 items-center">
+                  <span className="text-xs text-text-muted">關鍵字：</span>
+                  {blog.seoKeywords.map((kw) => (
+                    <span
+                      key={kw}
+                      className="px-2 py-0.5 bg-bg-tertiary text-text-muted text-xs rounded border border-border-default"
+                    >
+                      {kw}
                     </span>
                   ))}
                 </div>
               )}
-              <div className="flex items-center gap-4 text-xs text-text-muted pt-1">
-                {blog.seoTitle && (
-                  <span title="SEO 標題">📝 {blog.seoTitle}</span>
-                )}
-              </div>
             </div>
-          </div>
+          )}
 
           {/* Preview Toggle */}
           <div>
@@ -384,9 +611,7 @@ export function PropertyBlogGenerator({
                   <div className="w-3 h-3 rounded-full bg-yellow-400" />
                   <div className="w-3 h-3 rounded-full bg-green-400" />
                 </div>
-                <span className="text-xs text-text-muted ml-2">
-                  部落格預覽
-                </span>
+                <span className="text-xs text-text-muted ml-2">部落格預覽</span>
               </div>
               <div className="bg-white">
                 <iframe
@@ -394,7 +619,7 @@ export function PropertyBlogGenerator({
                   className="w-full border-0"
                   style={{ height: '600px' }}
                   title="Blog Preview"
-                  sandbox="allow-same-origin"
+                  sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
                 />
               </div>
             </div>
@@ -406,6 +631,28 @@ export function PropertyBlogGenerator({
 }
 
 function getBlogPreviewHtml(contentHtml: string, title: string): string {
+  let normalizedContentHtml = contentHtml.replaceAll('物件說明', '物件介紹');
+
+  const heroLocationMatch = normalizedContentHtml.match(
+    /<p class="hero-location">\s*📍\s*([^<]+)\s*<\/p>/,
+  );
+  const fullAddressForMap = heroLocationMatch?.[1]?.trim() || null;
+
+  normalizedContentHtml = normalizedContentHtml.replace(
+    /<div class="highlight-card">\s*<span class="highlight-icon">📍<\/span>\s*<span class="highlight-label">地區<\/span>\s*<span class="highlight-value">([^<]+)<\/span>\s*<\/div>/g,
+    (_match: string, location: string) => {
+      const query = location.trim();
+      const hrefQuery = fullAddressForMap || query;
+      const href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hrefQuery)}`;
+      return `<a class="highlight-card" href="${href}" target="_blank" rel="noopener noreferrer"><span class="highlight-icon">📍</span><span class="highlight-label">物件位址</span><span class="highlight-value">${location}</span></a>`;
+    },
+  );
+
+  normalizedContentHtml = normalizedContentHtml.replaceAll(
+    '<span class="highlight-label">地區</span>',
+    '<span class="highlight-label">物件位址</span>',
+  );
+
   return `<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -417,7 +664,7 @@ function getBlogPreviewHtml(contentHtml: string, title: string): string {
 </style>
 </head>
 <body>
-${contentHtml}
+${normalizedContentHtml}
 </body>
 </html>`;
 }
@@ -444,6 +691,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
 .highlights-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; }
 .highlight-card { display: flex; flex-direction: column; align-items: center; padding: 1.25rem 1rem; background: #f8fafc; border-radius: .75rem; text-align: center; border: 1px solid #e2e8f0; transition: transform .2s, box-shadow .2s; }
+.highlight-card:visited { color: inherit; }
+a.highlight-card { text-decoration: none; color: inherit; }
 .highlight-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.08); }
 .highlight-icon { font-size: 1.5rem; margin-bottom: .5rem; }
 .highlight-label { font-size: .75rem; color: #64748b; margin-bottom: .25rem; }
@@ -474,6 +723,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .cta-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.12); }
 .cta-btn-primary { background: #6366f1; color: #fff; }
 .cta-btn-secondary { background: #fff; color: #6366f1; border: 2px solid #6366f1; }
+.cta-btn-social { background: #f8fafc; color: #334155; border: 2px solid #e2e8f0; }
 
 @media (max-width: 640px) {
   .hero-section { height: 300px; }

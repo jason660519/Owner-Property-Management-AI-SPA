@@ -17,6 +17,7 @@ import {
   getSortedRowModel,
   type SortingState,
   type ColumnResizeMode,
+  type ColumnSizingState,
 } from '@tanstack/react-table';
 import { Search, Home, ArrowUpDown, Pencil, Trash2, Loader2, AlignLeft, Eye, ChevronDown, Check, MapPin, Map } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
@@ -27,6 +28,97 @@ import { PROPERTY_TYPES } from '@/lib/types/properties';
 import { TAIWAN_CITIES, getDistrictsByCity } from '@/lib/data/taiwan-address';
 import { PropertyCreateModal } from './PropertyCreateModal';
 import { PropertyMapView } from './PropertyMapView';
+
+function normalizeTaiwanAddressText(input: string): string {
+  const s = input
+    .trim()
+    .replaceAll('臺', '台')
+    .replaceAll(/\s+/g, '');
+
+  // Convert Chinese numerals before common address markers into Arabic digits:
+  // e.g. 忠孝東路三段 -> 忠孝東路3段, 216巷 -> 216巷 (unchanged), 十六巷 -> 16巷
+  const digitMap: Record<string, number> = { 零: 0, 〇: 0, 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+  const chineseToInt = (token: string): number | null => {
+    // Supports 0-999 (good enough for 台灣地址的段/巷/弄/號常見範圍)
+    let total = 0;
+    let current = 0;
+    let hasAny = false;
+
+    const flush = (unit: number) => {
+      hasAny = true;
+      total += (current === 0 ? 1 : current) * unit;
+      current = 0;
+    };
+
+    for (const ch of token) {
+      if (ch in digitMap) {
+        current = digitMap[ch]!;
+        hasAny = true;
+        continue;
+      }
+      if (ch === '十') { flush(10); continue; }
+      if (ch === '百') { flush(100); continue; }
+      // unknown char inside token
+      return null;
+    }
+    total += current;
+    return hasAny ? total : null;
+  };
+
+  return s.replaceAll(/([零〇一二三四五六七八九十百]+)(段|巷|弄|號)/g, (m, cn, marker) => {
+    const n = chineseToInt(String(cn));
+    if (n == null) return m;
+    return `${n}${marker}`;
+  });
+}
+
+function normalizeCityDistrict(input: string | null | undefined): string {
+  return (input ?? '').trim().replaceAll('臺', '台');
+}
+
+function streetMatchesFilter(street: string | null | undefined, filter: string): boolean {
+  if (!filter) return true;
+  const streetVal = (street ?? '').trim();
+  if (!streetVal) return false;
+
+  // Fast path: exact/prefix match without normalization
+  if (streetVal.startsWith(filter)) return true;
+
+  const nStreet = normalizeTaiwanAddressText(streetVal);
+  const nFilter = normalizeTaiwanAddressText(filter);
+  return nStreet.startsWith(nFilter);
+}
+
+function deriveStreetBaseOptions(street: string): string[] {
+  const s = street.trim();
+  if (!s) return [];
+  // Keep original as-is plus common selectable prefixes:
+  // - base road/street name (e.g. 忠孝東路四段216巷 -> 忠孝東路)
+  // - up to 段 (忠孝東路四段216巷 -> 忠孝東路四段)
+  // - up to 巷 (忠孝東路四段216巷27弄 -> 忠孝東路四段216巷)
+  const out = new Set<string>();
+  out.add(s);
+
+  // Base up to the first road-like marker (prefer longer markers first)
+  const roadMarkers = ['大道', '路', '街'] as const;
+  for (const mk of roadMarkers) {
+    const idx = s.indexOf(mk);
+    if (idx >= 0) {
+      out.add(s.slice(0, idx + mk.length));
+      break;
+    }
+  }
+
+  // Also allow selecting up to 段 if present (忠孝東路四段216巷 -> 忠孝東路四段)
+  const segIdx = s.indexOf('段');
+  if (segIdx >= 0) out.add(s.slice(0, segIdx + 1));
+
+  const laneIdx = s.indexOf('巷');
+  if (laneIdx >= 0) out.add(s.slice(0, laneIdx + 1));
+
+  // Remove overly-short / nonsense results
+  return Array.from(out).filter((v) => v.length >= 2);
+}
 
 const statusVariantMap: Record<string, 'success' | 'warning' | 'error' | 'info' | 'default'> = {
   for_sale: 'success',
@@ -89,8 +181,9 @@ function formatRent(rent: number | null): string {
 
 const FREEZE_ROW_STORAGE_KEY = 'properties_list_freeze_row_v1';
 const FROZEN_COL_STORAGE_KEY = 'properties_list_frozen_col_count_v1';
-/** Pixel widths: 物件編號, 狀態, 物件名稱, 主照片小圖示, 縣市, 區, 路/街, 門牌, 樓層, 單位, 物件類型, 價格, 總面積(坪), 格局, 車位數, 創建人, 所有權人, 操作, 建立日期, 下架日期 */
-const COLUMN_WIDTHS_PX = [72, 90, 200, 72, 88, 88, 130, 72, 52, 52, 92, 100, 72, 110, 64, 100, 100, 92, 92, 92];
+const COLUMN_SIZING_STORAGE_KEY = 'properties_list_column_sizing_v1';
+/** Pixel widths: 物件編號, 狀態, 物件名稱, 主照片小圖示, 縣市, 區, 路/街, 門牌, 樓層, 單位, 物件類型, 價格, 總面積(坪), 格局, 車位數, 創建人, 操作, 建立日期, 下架日期, 內容狀態 */
+const COLUMN_WIDTHS_PX = [72, 90, 200, 72, 88, 88, 130, 72, 52, 52, 92, 100, 72, 110, 64, 100, 92, 92, 92, 168];
 const PROPERTIES_COLUMN_COUNT = COLUMN_WIDTHS_PX.length;
 
 export function PropertiesList({ data: result }: { data: PropertiesResult }) {
@@ -103,6 +196,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
   const [statusFilter, setStatusFilter] = useState('');
   const [cityFilter, setCityFilter] = useState('');
   const [districtFilter, setDistrictFilter] = useState('');
+  const [streetFilter, setStreetFilter] = useState('');
   const [propertyTypeFilter, setPropertyTypeFilter] = useState<string[]>([]);
   const [propertyTypeDropdownOpen, setPropertyTypeDropdownOpen] = useState(false);
   const propertyTypeDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -211,39 +305,77 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
   const filteredData = useMemo(() => {
     let list = typeFilter === 'all' ? properties : properties.filter((p) => p.type === typeFilter);
     if (statusFilter) list = list.filter((p) => p.status === statusFilter);
-    if (cityFilter) list = list.filter((p) => (p.addressCity ?? '') === cityFilter);
-    if (districtFilter) list = list.filter((p) => (p.addressDistrict ?? '') === districtFilter);
+    if (cityFilter) {
+      const nCityFilter = normalizeCityDistrict(cityFilter);
+      list = list.filter((p) => normalizeCityDistrict(p.addressCity) === nCityFilter);
+    }
+    if (districtFilter) {
+      const nDistrictFilter = normalizeCityDistrict(districtFilter);
+      list = list.filter((p) => normalizeCityDistrict(p.addressDistrict) === nDistrictFilter);
+    }
+    if (streetFilter) list = list.filter((p) => streetMatchesFilter(p.addressStreet, streetFilter));
     if (propertyTypeFilter.length > 0) {
       list = list.filter((p) => p.propertyType != null && propertyTypeFilter.includes(p.propertyType));
     }
     return list;
-  }, [properties, typeFilter, statusFilter, cityFilter, districtFilter, propertyTypeFilter]);
+  }, [properties, typeFilter, statusFilter, cityFilter, districtFilter, streetFilter, propertyTypeFilter]);
 
   const districtOptions = useMemo(() => getDistrictsByCity(cityFilter), [cityFilter]);
+  const streetOptions = useMemo(() => {
+    if (!cityFilter || !districtFilter) return [];
+    const nCityFilter = normalizeCityDistrict(cityFilter);
+    const nDistrictFilter = normalizeCityDistrict(districtFilter);
+    const streets = new Set<string>();
+    for (const p of properties) {
+      if (
+        normalizeCityDistrict(p.addressCity) === nCityFilter &&
+        normalizeCityDistrict(p.addressDistrict) === nDistrictFilter &&
+        p.addressStreet
+      ) {
+        for (const opt of deriveStreetBaseOptions(p.addressStreet)) streets.add(opt);
+      }
+    }
+    return Array.from(streets).sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+  }, [properties, cityFilter, districtFilter]);
 
   // Reset to first page when type, status, or location filters change so the table always shows results
   useEffect(() => {
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-  }, [typeFilter, statusFilter, cityFilter, districtFilter, propertyTypeFilter]);
+  }, [typeFilter, statusFilter, cityFilter, districtFilter, streetFilter, propertyTypeFilter]);
 
   const columns: ColumnDef<PropertyItem>[] = [
     {
       id: 'rowNumber',
       size: COLUMN_WIDTHS_PX[0],
-      header: '物件編號',
+      header: '物件代碼',
       enableSorting: false,
       cell: (info) => {
-        const pageIndex = table.getState().pagination.pageIndex;
-        const pageSize = table.getState().pagination.pageSize;
-        const rowIdx = pageIndex * pageSize + info.row.index + 1;
+        const row = info.row.original;
+        // Property type code: S=Sale, R=Rental + building type initial
+        const PROPERTY_TYPE_CODE: Record<string, string> = {
+          '公寓': 'A',    // Apartment
+          '大樓': 'B',    // Building
+          '華廈': 'E',    // Elevator apartment
+          '別墅/透天': 'H', // House
+          '辦公': 'O',    // Office
+          '倉庫': 'W',    // Warehouse
+          '店面': 'S',    // Store
+          '廠房': 'F',    // Factory
+          '土地': 'L',    // Land
+          '單售車位': 'P', // Parking
+          '其他': 'X',    // Other
+        };
+        const txPrefix = row.type === 'sale' ? 'S' : 'R';
+        const typeCode = row.propertyType ? (PROPERTY_TYPE_CODE[row.propertyType] ?? 'X') : '?';
+        const code = `${txPrefix}${typeCode}-${row.id.slice(0, 5).toUpperCase()}`;
         return (
-          <span className="text-xs text-text-muted font-mono">{rowIdx}</span>
+          <span className="text-xs text-text-muted font-mono">{code}</span>
         );
       },
     },
     {
       id: 'actions',
-      size: COLUMN_WIDTHS_PX[17],
+      size: COLUMN_WIDTHS_PX[16],
       header: '操作',
       enableSorting: false,
       cell: (info) => {
@@ -389,7 +521,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
           <div className="flex gap-1">
             <select
               value={cityFilter}
-              onChange={(e) => { setCityFilter(e.target.value); setDistrictFilter(''); }}
+              onChange={(e) => { setCityFilter(e.target.value); setDistrictFilter(''); setStreetFilter(''); }}
               className="w-full max-w-[90px] text-xs bg-bg-primary border border-border-default rounded px-1.5 py-1 text-text-primary focus:outline-none focus:border-accent"
               title="篩選縣市"
             >
@@ -400,7 +532,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
             </select>
             <select
               value={districtFilter}
-              onChange={(e) => setDistrictFilter(e.target.value)}
+              onChange={(e) => { setDistrictFilter(e.target.value); setStreetFilter(''); }}
               disabled={!cityFilter}
               className="w-full max-w-[90px] text-xs bg-bg-primary border border-border-default rounded px-1.5 py-1 text-text-primary focus:outline-none focus:border-accent disabled:opacity-40"
               title="篩選區"
@@ -408,6 +540,18 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
               <option value="">區</option>
               {districtOptions.map((d) => (
                 <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+            <select
+              value={streetFilter}
+              onChange={(e) => setStreetFilter(e.target.value)}
+              disabled={!districtFilter || streetOptions.length === 0}
+              className="w-full max-w-[90px] text-xs bg-bg-primary border border-border-default rounded px-1.5 py-1 text-text-primary focus:outline-none focus:border-accent disabled:opacity-40"
+              title="篩選路/段/街"
+            >
+              <option value="">路/段/街</option>
+              {streetOptions.map((s) => (
+                <option key={s} value={s}>{s}</option>
               ))}
             </select>
           </div>
@@ -531,16 +675,8 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
       ),
     },
     {
-      accessorKey: 'ownerName',
-      size: COLUMN_WIDTHS_PX[16],
-      header: '所有權人',
-      cell: (info) => (
-        <span className="text-sm text-text-secondary">{(info.getValue() as string) || '—'}</span>
-      ),
-    },
-    {
       accessorKey: 'createdAt',
-      size: COLUMN_WIDTHS_PX[18],
+      size: COLUMN_WIDTHS_PX[17],
       header: '建立日期',
       cell: (info) => (
         <span className="text-xs text-text-muted">
@@ -550,7 +686,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
     },
     {
       accessorKey: 'delistedAt',
-      size: COLUMN_WIDTHS_PX[19],
+      size: COLUMN_WIDTHS_PX[18],
       header: '下架日期',
       cell: (info) => {
         const val = info.getValue() as string | null | undefined;
@@ -562,9 +698,92 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
         );
       },
     },
+    {
+      id: 'contentStatus',
+      size: COLUMN_WIDTHS_PX[19],
+      header: '內容狀態',
+      enableSorting: false,
+      cell: (info) => {
+        const row = info.row.original;
+        // Investigation report is stored in localStorage only
+        const hasInvestigation =
+          typeof window !== 'undefined'
+            ? !!localStorage.getItem(`investigation-report-v2-${row.id}`)
+            : false;
+
+        const items: { label: string; abbr: string; has: boolean; detail?: string }[] = [
+          {
+            label: '謄本',
+            abbr: '謄',
+            has: row.hasTranscript ?? false,
+          },
+          {
+            label: '權狀',
+            abbr: '狀',
+            has: row.hasTitleDoc ?? false,
+          },
+          {
+            label: '物件照片',
+            abbr: '照',
+            has: (row.photoCount ?? 0) > 0,
+            detail: (row.photoCount ?? 0) > 0 ? `${row.photoCount} 張` : undefined,
+          },
+          {
+            label: '部落格',
+            abbr: '博',
+            has: row.hasBlog ?? false,
+          },
+          {
+            label: '合約',
+            abbr: '約',
+            has: row.hasContract ?? false,
+          },
+          {
+            label: '調查報告書',
+            abbr: '查',
+            has: hasInvestigation,
+          },
+        ];
+
+        return (
+          <div className="flex flex-wrap gap-1">
+            {items.map((item) => (
+              <span
+                key={item.label}
+                title={`${item.label}：${item.has ? (item.detail ?? '已上傳') : '尚未上傳'}`}
+                className={`inline-flex items-center justify-center w-6 h-6 rounded text-[11px] font-semibold cursor-default select-none transition-colors ${
+                  item.has
+                    ? 'bg-green-500/15 text-green-600 ring-1 ring-green-500/30'
+                    : 'bg-bg-tertiary text-text-muted ring-1 ring-border-default'
+                }`}
+              >
+                {item.abbr}
+              </span>
+            ))}
+          </div>
+        );
+      },
+    },
   ];
 
   const [columnResizeMode] = useState<ColumnResizeMode>('onChange');
+  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const saved = localStorage.getItem(COLUMN_SIZING_STORAGE_KEY);
+      return saved ? (JSON.parse(saved) as ColumnSizingState) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const handleColumnSizingChange = useCallback((updater: ColumnSizingState | ((prev: ColumnSizingState) => ColumnSizingState)) => {
+    setColumnSizing((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      try { localStorage.setItem(COLUMN_SIZING_STORAGE_KEY, JSON.stringify(next)); } catch { /* ignore quota errors */ }
+      return next;
+    });
+  }, []);
 
   const table = useReactTable({
     data: filteredData,
@@ -575,10 +794,11 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    state: { globalFilter, sorting, pagination },
+    state: { globalFilter, sorting, pagination, columnSizing },
     onGlobalFilterChange: setGlobalFilter,
     onSortingChange: setSorting,
     onPaginationChange: setPagination,
+    onColumnSizingChange: handleColumnSizingChange,
   });
 
   const frozenColLeftOffsets = useMemo(() => {

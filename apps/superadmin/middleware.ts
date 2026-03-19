@@ -68,8 +68,8 @@ export async function middleware(request: NextRequest) {
       },
       cookieOptions: {
         name: 'sb-localhost-auth-token',
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'none',
+        secure: true,
       },
     }
   );

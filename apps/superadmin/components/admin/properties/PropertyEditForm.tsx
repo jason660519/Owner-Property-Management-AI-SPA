@@ -3,12 +3,13 @@
 'use client';
 
 import { useState, useTransition, useMemo, useRef, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2, Building2, Key, ChevronDown, MapPin, Search, ExternalLink } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ArrowLeft, ExternalLink, Loader2, Building2, Key, ChevronDown, MapPin, Search } from 'lucide-react';
 import { updateProperty } from '@/lib/actions/properties';
 import { PropertyMediaSection } from './PropertyMediaSection';
 import { PropertyInvestigationReportSection } from './PropertyInvestigationReportSection';
 import { PropertyBlogGenerator } from './PropertyBlogGenerator';
+import { PropertyDescriptionAIAssistant } from './PropertyDescriptionAIAssistant';
 import { TranscriptTabContent } from './TranscriptTabContent';
 import {
   PROPERTY_STATUSES,
@@ -172,9 +173,11 @@ interface PropertyEditFormProps {
 
 export function PropertyEditForm({ property }: PropertyEditFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
-  const [activeTab, setActiveTab] = useState<TabId>('edit');
+  const activeTab: TabId = (searchParams.get('tab') as TabId | null) ?? 'edit';
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const successFeedbackTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
 
   const [title, setTitle] = useState(property.title);
   const [addressCity, setAddressCity] = useState(property.addressCity ?? '');
@@ -201,7 +204,7 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
   const [bathrooms, setBathrooms] = useState(property.bathrooms ?? 0);
   const [livingRooms, setLivingRooms] = useState(property.livingRooms ?? 0);
   const [parkingSpaces, setParkingSpaces] = useState(property.parkingSpaces ?? 0);
-  const [description, setDescription] = useState('');
+  const [description, setDescription] = useState(property.description ?? '');
   const [latInput, setLatInput] = useState(property.latitude != null ? String(property.latitude) : '');
   const [lngInput, setLngInput] = useState(property.longitude != null ? String(property.longitude) : '');
   const [isGeocoding, setIsGeocoding] = useState(false);
@@ -304,6 +307,10 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
 
   function handleSubmit() {
     setFeedback(null);
+    if (successFeedbackTimeoutRef.current) {
+      window.clearTimeout(successFeedbackTimeoutRef.current);
+      successFeedbackTimeoutRef.current = null;
+    }
 
     const input: UpdatePropertyInput = {
       title,
@@ -346,16 +353,26 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
       const result = await updateProperty(property.id, property.type, input);
       if (result.success) {
         setFeedback({ type: 'success', message: result.message });
-        setTimeout(() => {
-          // Use hard navigation to bypass Next.js router cache so the list
-          // reflects the freshly revalidated data from the server action.
-          window.location.href = BACK_URL;
-        }, 800);
+        // Stay on the edit page so the user can continue editing.
+        successFeedbackTimeoutRef.current = window.setTimeout(() => {
+          // Refresh after user can see the success toast/message.
+          router.refresh();
+          setFeedback(null);
+          successFeedbackTimeoutRef.current = null;
+        }, 3000);
       } else {
         setFeedback({ type: 'error', message: result.message });
       }
     });
   }
+
+  useEffect(() => {
+    return () => {
+      if (successFeedbackTimeoutRef.current) {
+        window.clearTimeout(successFeedbackTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
@@ -394,7 +411,11 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
             <button
               key={tab}
               type="button"
-              onClick={() => setActiveTab(tab)}
+              onClick={() => {
+                const params = new URLSearchParams(searchParams.toString());
+                params.set('tab', tab);
+                router.replace(`?${params.toString()}`);
+              }}
               className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
                 activeTab === tab
                   ? 'border-accent text-accent'
@@ -414,7 +435,8 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
               : 'overflow-y-auto space-y-5'
           }`}
         >
-          {feedback && (
+          {/* In 'edit' tab, we render feedback in the bottom footer for better visibility. */}
+          {feedback && activeTab !== 'edit' && (
             <div
               className={`p-3 rounded-lg text-sm shrink-0 ${
                 feedback.type === 'success'
@@ -770,19 +792,26 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
                 </div>
               </div>
 
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-medium text-text-secondary mb-1.5">
-                  描述 <span className="text-text-muted font-normal">(留空則保留原有描述)</span>
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="輸入物件描述..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted resize-y"
-                />
-              </div>
+              <PropertyDescriptionAIAssistant
+                listingType={property.type}
+                title={title}
+                propertyType={propertyType}
+                area={areaNum}
+                bedrooms={bedrooms}
+                bathrooms={bathrooms}
+                livingRooms={livingRooms}
+                parkingSpaces={parkingSpaces}
+                price={price}
+                monthlyRent={monthlyRent}
+                addressCity={addressCity}
+                addressDistrict={addressDistrict}
+                addressStreet={addressStreet}
+                addressNumber={addressNumber}
+                addressFloor={addressFloor}
+                addressUnit={addressUnit}
+                description={description}
+                onDescriptionChange={setDescription}
+              />
 
               <div className="text-xs text-text-muted">
                 創建人：{property.creatorName} &middot; 建立日期：
@@ -794,24 +823,38 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
 
         {/* Footer — only visible on the main edit tab (sub-forms have their own save) */}
         {activeTab === 'edit' && (
-          <div className="shrink-0 border-t border-border-default px-6 py-4 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => router.push(BACK_URL)}
-              disabled={isPending}
-              className="px-4 py-2 text-text-secondary hover:bg-bg-tertiary rounded-md transition-colors text-sm disabled:opacity-50"
-            >
-              返回列表
-            </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isPending}
-              className="px-5 py-2 bg-accent text-white hover:bg-accent-hover rounded-md transition-colors text-sm flex items-center gap-2 disabled:opacity-50"
-            >
-              {isPending && <Loader2 size={14} className="animate-spin" />}
-              {isPending ? '儲存中...' : '儲存變更'}
-            </button>
+          <div className="shrink-0 border-t border-border-default px-6 py-4 flex flex-col sm:flex-row gap-3 sm:items-center">
+            {feedback && (
+              <div
+                className={`p-3 rounded-lg text-sm ${
+                  feedback.type === 'success'
+                    ? 'bg-green-500/10 text-green-500 border border-green-500/20'
+                    : 'bg-red-500/10 text-red-500 border border-red-500/20'
+                }`}
+              >
+                {feedback.message}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 sm:ml-auto w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => router.push(BACK_URL)}
+                disabled={isPending}
+                className="px-4 py-2 text-text-secondary hover:bg-bg-tertiary rounded-md transition-colors text-sm disabled:opacity-50"
+              >
+                返回列表
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isPending}
+                className="px-5 py-2 bg-accent text-white hover:bg-accent-hover rounded-md transition-colors text-sm flex items-center gap-2 disabled:opacity-50"
+              >
+                {isPending && <Loader2 size={14} className="animate-spin" />}
+                {isPending ? '儲存中...' : '儲存變更'}
+              </button>
+            </div>
           </div>
         )}
       </div>

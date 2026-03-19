@@ -26,15 +26,20 @@ export function formatStructuredAddress(item: {
   addressFloor?: string;
   addressUnit?: string;
 }): string {
-  const parts = [
-    item.addressCity,
-    item.addressDistrict,
+  const city = item.addressCity || '';
+  const district = item.addressDistrict || '';
+  const rest = [
     item.addressStreet,
     item.addressNumber,
     item.addressFloor,
     item.addressUnit,
-  ].filter(Boolean) as string[];
-  if (parts.length > 0) return parts.join('／');
+  ].filter(Boolean).join('');
+
+  const parts = [city, district, rest].filter(Boolean);
+  
+  if (parts.length > 0) {
+    return parts.join('  ');
+  }
   return item.address?.trim() || '—';
 }
 
@@ -43,6 +48,8 @@ export interface PropertyItem {
   type: 'sale' | 'rental';
   title: string;
   address: string;
+  /** 物件說明（details.description） */
+  description?: string | null;
   /** 結構化地址（來自 details），用於表單下拉選單 */
   addressCity?: string;
   addressDistrict?: string;
@@ -80,6 +87,17 @@ export interface PropertyItem {
   isPureLand?: boolean;
   /** 土地地號，來自土地謄本 OCR（e.g. 大安區○○段 第0345地號） */
   landNumber?: string | null;
+  // ── Content status indicators (fetched in getAllProperties) ────────
+  /** Total number of photos uploaded to property_photos */
+  photoCount?: number;
+  /** Has at least one transcript document in property_documents */
+  hasTranscript?: boolean;
+  /** Has at least one title document (building/land) in property_documents */
+  hasTitleDoc?: boolean;
+  /** Has at least one blog_posts row linked to this property */
+  hasBlog?: boolean;
+  /** Has at least one contract document in property_documents */
+  hasContract?: boolean;
 }
 
 export interface PropertiesResult {

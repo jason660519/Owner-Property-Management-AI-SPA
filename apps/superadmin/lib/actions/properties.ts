@@ -137,17 +137,44 @@ export async function getAllProperties(): Promise<PropertiesResult> {
 
     // Fetch all primary photos in one query (no .in() to avoid URL length limits with thousands of IDs)
     const primaryPhotoMap: Record<string, string> = {};
+    const photoCountMap: Record<string, number> = {};
     const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '');
     const { data: primaryPhotos } = await adminClient
       .from('property_photos')
-      .select('property_id, storage_path')
-      .eq('is_primary', true);
+      .select('property_id, storage_path, is_primary');
     if (primaryPhotos) {
       for (const p of primaryPhotos) {
-        if (p.property_id && !primaryPhotoMap[p.property_id]) {
+        if (!p.property_id) continue;
+        photoCountMap[p.property_id] = (photoCountMap[p.property_id] ?? 0) + 1;
+        if (p.is_primary && !primaryPhotoMap[p.property_id]) {
           primaryPhotoMap[p.property_id] =
             `${baseUrl}/storage/v1/object/public/property-photos/${p.storage_path}`;
         }
+      }
+    }
+
+    // Fetch document types per property for content status indicators
+    const docTypesMap: Record<string, Set<string>> = {};
+    const { data: allDocs } = await adminClient
+      .from('property_documents')
+      .select('property_id, document_type');
+    if (allDocs) {
+      for (const d of allDocs) {
+        if (!d.property_id || !d.document_type) continue;
+        if (!docTypesMap[d.property_id]) docTypesMap[d.property_id] = new Set();
+        docTypesMap[d.property_id].add(d.document_type as string);
+      }
+    }
+
+    // Fetch blog presence per property
+    const blogPropIds = new Set<string>();
+    const { data: blogData } = await adminClient
+      .from('blog_posts')
+      .select('property_id')
+      .not('property_id', 'is', null);
+    if (blogData) {
+      for (const b of blogData) {
+        if (b.property_id) blogPropIds.add(b.property_id as string);
       }
     }
 
@@ -190,6 +217,7 @@ export async function getAllProperties(): Promise<PropertiesResult> {
         title:
           (row.title as string) ?? (details.title as string) ?? (row.address as string),
         address: row.address as string,
+        description: (typeof details.description === 'string' ? details.description : null),
         addressCity: (row.address_city as string) ?? undefined,
         addressDistrict: (row.address_district as string) ?? undefined,
         addressStreet: (row.address_street as string) ?? undefined,
@@ -231,6 +259,21 @@ export async function getAllProperties(): Promise<PropertiesResult> {
         longitude: (row.longitude as number | null) ?? null,
         isPureLand: (row.is_pure_land as boolean) ?? false,
         landNumber: (row.land_number as string) ?? null,
+        // Content status indicators
+        photoCount: photoCountMap[propertyId] ?? 0,
+        hasTranscript:
+          docTypesMap[propertyId]?.has('building_registry_transcript') ||
+          docTypesMap[propertyId]?.has('land_registry_transcript') ||
+          false,
+        hasTitleDoc:
+          docTypesMap[propertyId]?.has('building_title') ||
+          docTypesMap[propertyId]?.has('land_title') ||
+          false,
+        hasBlog: blogPropIds.has(propertyId),
+        hasContract:
+          docTypesMap[propertyId]?.has('lease_contract') ||
+          docTypesMap[propertyId]?.has('sales_contract') ||
+          false,
       };
     }
 
@@ -366,6 +409,7 @@ export async function getPropertyById(id: string): Promise<PropertyItem | null> 
     type,
     title: (row.title as string) ?? (details.title as string) ?? (row.address as string),
     address: row.address as string,
+    description: (typeof details.description === 'string' ? details.description : null),
     addressCity: (row.address_city as string) ?? undefined,
     addressDistrict: (row.address_district as string) ?? undefined,
     addressStreet: (row.address_street as string) ?? undefined,

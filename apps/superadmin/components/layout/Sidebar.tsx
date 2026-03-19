@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { twMerge } from 'tailwind-merge';
 import { navItems } from './nav-items';
+import { createClient } from '@/utils/supabase/client';
 
 interface SidebarProps {
   accessibleHrefs?: string[];
@@ -13,6 +14,34 @@ interface SidebarProps {
 export function Sidebar({ accessibleHrefs }: SidebarProps) {
   const pathname = usePathname();
   const [isHovered, setIsHovered] = useState(false);
+  const [userEmail, setUserEmail] = useState<string>('Loading...');
+
+  useEffect(() => {
+    const supabase = createClient();
+    const fetchUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.email) {
+        setUserEmail(session.user.email);
+      } else {
+        setUserEmail('Guest User');
+      }
+    };
+    fetchUser();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (session?.user?.email) {
+          setUserEmail(session.user.email);
+        } else {
+          setUserEmail('Guest User');
+        }
+      }
+    );
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
 
   // Filter nav items if accessibleHrefs is provided; otherwise show all
   const visibleItems = accessibleHrefs
@@ -68,7 +97,7 @@ export function Sidebar({ accessibleHrefs }: SidebarProps) {
           })}
         </nav>
 
-        {/* Bottom Section (Optional User Profile or Version) */}
+        {/* Bottom Section */}
         <div className="mt-auto px-2 py-4 border-t border-border-default">
            <div className="flex items-center px-3 py-2">
               <div className="w-8 h-8 rounded-full bg-bg-tertiary flex-shrink-0" />
@@ -78,8 +107,8 @@ export function Sidebar({ accessibleHrefs }: SidebarProps) {
                    isHovered ? "opacity-100 w-auto" : "opacity-0 w-0"
                 )}
               >
-                <p className="text-sm font-medium text-text-primary truncate">Admin User</p>
-                <p className="text-xs text-text-secondary truncate">admin@example.com</p>
+                <p className="text-sm font-medium text-text-primary truncate">User</p>
+                <p className="text-xs text-text-secondary truncate">{userEmail}</p>
               </div>
            </div>
         </div>
