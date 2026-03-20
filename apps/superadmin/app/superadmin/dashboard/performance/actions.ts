@@ -115,3 +115,90 @@ export async function getRecentVitals(limit = 50): Promise<WebVital[]> {
 
   return (data as WebVital[]) ?? [];
 }
+
+export interface ApiLatency {
+  endpoint: string;
+  method: string;
+  avg_latency: number;
+  max_latency: number;
+  p95_latency: number;
+  call_count: number;
+}
+
+/** Fetch Top 10 slowest API endpoints */
+export async function getTopApiLatencies(): Promise<ApiLatency[]> {
+  const supabase = createAdminClient();
+
+  // We query perf_metrics and group by endpoint/method
+  // In a real scenario, we might use a View or a more complex SQL query via RPC.
+  // For now, we'll fetch the raw metrics and group in JS (or use a simple select if volume is low).
+  const { data, error } = await supabase
+    .from('perf_metrics')
+    .select('*')
+    .eq('metric_type', 'api_response_time')
+    .gte('recorded_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+    .order('value', { ascending: false });
+
+  if (error || !data) {
+    console.error('Error fetching API latencies:', error);
+    return [];
+  }
+
+  const groups: Record<string, any> = {};
+  data.forEach((m) => {
+    const endpoint = m.tags?.endpoint || m.metric_name;
+    const method = m.tags?.method || 'UNKNOWN';
+    const key = `${method} ${endpoint}`;
+
+    if (!groups[key]) {
+      groups[key] = {
+        endpoint,
+        method,
+        values: [],
+      };
+    }
+    groups[key].values.push(Number(m.value));
+  });
+
+  const result: ApiLatency[] = Object.values(groups).map((g) => {
+    const sorted = [...g.values].sort((a, b) => a - b);
+    const avg = sorted.reduce((a, b) => a + b, 0) / sorted.length;
+    const p95Idx = Math.floor(sorted.length * 0.95);
+    
+    return {
+      endpoint: g.endpoint,
+      method: g.method,
+      avg_latency: Math.round(avg),
+      max_latency: sorted[sorted.length - 1],
+      p95_latency: sorted[p95Idx],
+      call_count: sorted.length,
+    };
+  });
+
+  return result.sort((a, b) => b.avg_latency - a.avg_latency).slice(0, 10);
+}
+
+export interface DbSlowQuery {
+  query: string;
+  calls: number;
+  total_time: number;
+  avg_time: number;
+}
+
+/** Fetch Top 10 slowest DB queries via pg_stat_statements */
+export async function getSlowQueries(): Promise<DbSlowQuery[]> {
+  const supabase = createAdminClient();
+
+  // In Supabase, we usually need an RPC to query pg_stat_statements because it's in the 'extensions' or 'pg_catalog' schema
+  // and not directly accessible via PostgREST unless exposed.
+  // For now, we'll try to use a simple query or fallback to empty.
+  const { data, error } = await supabase.rpc('get_slow_queries');
+
+  if (error) {
+    // If RPC doesn't exist, return empty or mock for now
+    console.warn('RPC get_slow_queries not found, using empty result.');
+    return [];
+  }
+
+  return (data as DbSlowQuery[]) ?? [];
+}

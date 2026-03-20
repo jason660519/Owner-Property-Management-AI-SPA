@@ -10,6 +10,7 @@ import { PropertyMediaSection } from './PropertyMediaSection';
 import { PropertyInvestigationReportSection } from './PropertyInvestigationReportSection';
 import { PropertyBlogGenerator } from './PropertyBlogGenerator';
 import { PropertyDescriptionAIAssistant } from './PropertyDescriptionAIAssistant';
+import { ContractDraftPreviewSection } from './ContractDraftPreviewSection';
 import { TranscriptTabContent } from './TranscriptTabContent';
 import {
   PROPERTY_STATUSES,
@@ -161,7 +162,7 @@ const TAB_LABELS: Record<TabId, string> = {
   edit: '物件基本資訊',
   photos: '物件照片',
   blog: '部落格',
-  contract: '合約',
+  contract: '預覽合約',
   investigation: '調查報告書',
 };
 
@@ -177,7 +178,7 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
   const [isPending, startTransition] = useTransition();
   const activeTab: TabId = (searchParams.get('tab') as TabId | null) ?? 'edit';
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const successFeedbackTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+  const successFeedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [title, setTitle] = useState(property.title);
   const [addressCity, setAddressCity] = useState(property.addressCity ?? '');
@@ -308,7 +309,7 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
   function handleSubmit() {
     setFeedback(null);
     if (successFeedbackTimeoutRef.current) {
-      window.clearTimeout(successFeedbackTimeoutRef.current);
+      clearTimeout(successFeedbackTimeoutRef.current);
       successFeedbackTimeoutRef.current = null;
     }
 
@@ -354,7 +355,7 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
       if (result.success) {
         setFeedback({ type: 'success', message: result.message });
         // Stay on the edit page so the user can continue editing.
-        successFeedbackTimeoutRef.current = window.setTimeout(() => {
+        successFeedbackTimeoutRef.current = setTimeout(() => {
           // Refresh after user can see the success toast/message.
           router.refresh();
           setFeedback(null);
@@ -369,7 +370,7 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
   useEffect(() => {
     return () => {
       if (successFeedbackTimeoutRef.current) {
-        window.clearTimeout(successFeedbackTimeoutRef.current);
+        clearTimeout(successFeedbackTimeoutRef.current);
       }
     };
   }, []);
@@ -454,13 +455,25 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
             </div>
           )}
 
-          {activeTab !== 'transcript' && (activeTab === 'photos' || activeTab === 'title' || activeTab === 'contract') && (
+          {activeTab !== 'transcript' && (activeTab === 'photos' || activeTab === 'title') && (
             <PropertyMediaSection
               propertyId={property.id}
               propertyType={property.type}
               ownerId={property.ownerId}
               mode={activeTab}
             />
+          )}
+
+          {activeTab === 'contract' && (
+            <div className="space-y-5">
+              <ContractDraftPreviewSection property={property} />
+              <PropertyMediaSection
+                propertyId={property.id}
+                propertyType={property.type}
+                ownerId={property.ownerId}
+                mode="contract"
+              />
+            </div>
           )}
 
           {activeTab === 'blog' && (

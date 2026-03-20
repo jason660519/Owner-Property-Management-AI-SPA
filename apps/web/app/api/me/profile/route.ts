@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { withLatencyLogging } from '@/utils/performance/api-monitor'
 
 export interface MeProfileResponse {
   userId: string
@@ -11,30 +12,32 @@ export interface MeProfileResponse {
 }
 
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json(null, { status: 401 })
+  return withLatencyLogging('/api/me/profile', 'GET', async () => {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json(null, { status: 401 })
 
-  const { data: profile } = await supabase
-    .from('users_profile')
-    .select('full_name, avatar_url, primary_role, roles')
-    .eq('id', user.id)
-    .single()
+    const { data: profile } = await supabase
+      .from('users_profile')
+      .select('full_name, avatar_url, primary_role, roles')
+      .eq('id', user.id)
+      .single()
 
-  const roles: string[] =
-    profile?.roles ||
-    user.app_metadata?.roles ||
-    user.user_metadata?.roles ||
-    []
+    const roles: string[] =
+      profile?.roles ||
+      user.app_metadata?.roles ||
+      user.user_metadata?.roles ||
+      []
 
-  const body: MeProfileResponse = {
-    userId: user.id,
-    email: user.email,
-    full_name: profile?.full_name,
-    avatar_url: profile?.avatar_url,
-    primary_role: profile?.primary_role,
-    roles,
-  }
+    const body: MeProfileResponse = {
+      userId: user.id,
+      email: user.email,
+      full_name: profile?.full_name,
+      avatar_url: profile?.avatar_url,
+      primary_role: profile?.primary_role,
+      roles,
+    }
 
-  return NextResponse.json(body)
+    return NextResponse.json(body)
+  })
 }

@@ -699,6 +699,21 @@ export const FEATURE_MODULES: FeatureModule[] = [
 風格要求：專業但易讀，適合一般民眾理解。`,
   },
   {
+    key: 'property_description',
+    name: '物件介紹文案 AI 助理',
+    description: '根據物件資訊生成銷售或出租用的介紹文案草稿',
+    icon: 'home',
+    category: 'generator',
+    requiredCapabilities: ['text'],
+    defaultPrompt: `你是一位台灣不動產文案企劃。請根據提供的物件事實資料，生成可直接給屋主或管理者審稿的繁體中文物件介紹文案。
+要求如下：
+1. 僅能使用輸入中可驗證的事實，不得自行虛構生活圈、學區、交通、景觀、投報率或裝潢細節
+2. 先整理物件亮點，再寫出自然流暢且可讀性高的介紹段落
+3. 語氣需專業、可信、具銷售力，但避免誇大與空泛形容詞堆砌
+4. 若關鍵資訊缺漏，應改用保守表述，不要補完未知內容
+5. 輸出需可直接作為物件頁描述草稿，避免多餘前言、標籤或清單符號污染正文`,
+  },
+  {
     key: 'ad_generator',
     name: '靜態網頁廣告生成器 AI 助理',
     description: '自動生成物件廣告頁面的 HTML/CSS 內容',

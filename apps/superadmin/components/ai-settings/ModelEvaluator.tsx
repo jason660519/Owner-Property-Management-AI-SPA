@@ -204,6 +204,7 @@ const MODULE_SORT_LABEL: Record<string, string> = {
   web_assistant: 'WAS',
   contract_assistant: 'CAS',
   blog_generator: 'GEN',
+  property_description: 'PDS',
   ad_generator: 'AD',
   software_dev_engineer: 'SDE',
   ttd_engineer: 'TTD',

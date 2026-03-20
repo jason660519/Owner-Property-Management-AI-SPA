@@ -1,15 +1,17 @@
 'use client';
 
-import { Gauge, Clock, BarChart2, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { Gauge, Clock, BarChart2, AlertCircle, CheckCircle, RefreshCw, Zap, Database } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { getLCPRating, getCLSRating, getTTFBRating } from './vitals-utils';
-import type { PerformanceOverview, PageVitalSummary, WebVital } from './actions';
+import type { PerformanceOverview, PageVitalSummary, WebVital, ApiLatency, DbSlowQuery } from './actions';
 
 interface PerformanceMonitorClientProps {
   overview: PerformanceOverview;
   pageSummaries: PageVitalSummary[];
   recentVitals: WebVital[];
+  apiLatencies: ApiLatency[];
+  slowQueries: DbSlowQuery[];
 }
 
 const RATING_COLORS = {
@@ -78,6 +80,8 @@ export default function PerformanceMonitorClient({
   overview,
   pageSummaries,
   recentVitals,
+  apiLatencies,
+  slowQueries,
 }: PerformanceMonitorClientProps) {
   const lcpRating = getLCPRating(overview.avg_lcp_ms);
   const clsRating = getCLSRating(overview.avg_cls);
@@ -227,6 +231,67 @@ export default function PerformanceMonitorClient({
         </Card>
       )}
 
+      {/* API Latency Top 10 */}
+      <Card className="bg-[#2A2A2A] border-[#333333]">
+        <CardHeader className="border-b border-[#333333] pb-4">
+          <CardTitle className="text-white text-base flex items-center gap-2">
+            <Zap className="w-4 h-4 text-yellow-400" />
+            API 響應延遲 Top 10
+            <Badge variant="default" className="ml-2 font-normal text-[10px] bg-yellow-500/10 text-yellow-500 border-yellow-500/20">
+              近 24 小時
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {apiLatencies.length === 0 ? (
+            <div className="p-8 text-center text-gray-500 text-sm">
+              尚無 API 效能資料
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="border-b border-[#333333] text-gray-400 text-xs">
+                  <tr>
+                    <th className="px-4 py-3">方法</th>
+                    <th className="px-4 py-3">端點 (Endpoint)</th>
+                    <th className="px-4 py-3 text-right">平均延遲</th>
+                    <th className="px-4 py-3 text-right">P95 延遲</th>
+                    <th className="px-4 py-3 text-right">最大延遲</th>
+                    <th className="px-4 py-3 text-right">呼叫次數</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#333333]">
+                  {apiLatencies.map((api, idx) => (
+                    <tr key={idx} className="hover:bg-[#333333]/50 transition-colors">
+                      <td className="px-4 py-3">
+                        <Badge variant={api.method === 'GET' ? 'info' : api.method === 'POST' ? 'success' : 'default'} className="text-[10px] px-1.5 py-0">
+                          {api.method}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-white truncate max-w-[300px]" title={api.endpoint}>
+                        {api.endpoint}
+                      </td>
+                      <td className={`px-4 py-3 text-right font-medium ${api.avg_latency > 1000 ? 'text-red-400' : api.avg_latency > 500 ? 'text-yellow-400' : 'text-emerald-400'}`}>
+                        {api.avg_latency}ms
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-400">
+                        {api.p95_latency}ms
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-500">
+                        {api.max_latency}ms
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-400">
+                        {api.call_count.toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Recent Vitals */}
       {recentVitals.length > 0 && (
         <Card className="bg-[#2A2A2A] border-[#333333]">
@@ -282,6 +347,97 @@ export default function PerformanceMonitorClient({
           </CardContent>
         </Card>
       )}
+
+      {/* Database Slow Queries */}
+      <Card className="bg-[#2A2A2A] border-[#333333]">
+        <CardHeader className="border-b border-[#333333] pb-4">
+          <CardTitle className="text-white text-base flex items-center gap-2">
+            <Database className="w-4 h-4 text-purple-400" />
+            資料庫慢查詢 (Slow Queries)
+            <Badge variant="default" className="ml-2 font-normal text-[10px] bg-purple-500/10 text-purple-500 border-purple-500/20">
+              pg_stat_statements
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {slowQueries.length === 0 ? (
+            <div className="p-8 text-center text-gray-500 text-sm">
+              <p>尚未偵測到慢查詢或未啟用 pg_stat_statements 擴充功能</p>
+              <p className="text-[10px] mt-1">請確保已在 Supabase 執行過 <code className="bg-black/30 px-1 rounded">CREATE EXTENSION pg_stat_statements</code></p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="border-b border-[#333333] text-gray-400 text-xs">
+                  <tr>
+                    <th className="px-4 py-3">SQL 查詢語句</th>
+                    <th className="px-4 py-3 text-right">呼叫次數</th>
+                    <th className="px-4 py-3 text-right">平均耗時</th>
+                    <th className="px-4 py-3 text-right">總耗時</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#333333]">
+                  {slowQueries.map((q, idx) => (
+                    <tr key={idx} className="hover:bg-[#333333]/50 transition-colors">
+                      <td className="px-4 py-3 font-mono text-[10px] text-gray-300 max-w-[400px]">
+                        <div className="line-clamp-2" title={q.query}>
+                          {q.query}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-400">
+                        {q.calls.toLocaleString()}
+                      </td>
+                      <td className={`px-4 py-3 text-right font-medium ${q.avg_time > 100 ? 'text-red-400' : 'text-yellow-400'}`}>
+                        {q.avg_time.toFixed(2)}ms
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-500">
+                        {(q.total_time / 1000).toFixed(2)}s
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Industry Best Practices & Recommendations */}
+      <Card className="bg-gradient-to-br from-[#2A2A2A] to-[#1E1E1E] border-[#333333] border-l-4 border-l-cyan-500">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-white text-sm flex items-center gap-2">
+            <BarChart2 className="w-4 h-4 text-cyan-400" />
+            後續優化建議與業界標準
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold text-gray-300 uppercase tracking-wider">業界通常做法 (Industry Standards)</h4>
+              <ul className="text-xs text-gray-400 space-y-2 list-disc pl-4">
+                <li><strong className="text-gray-300">RUM (Real User Monitoring):</strong> 即目前的 Web Vitals 埋點，反映真實用戶在不同網路環境下的感受。</li>
+                <li><strong className="text-gray-300">APM (Application Performance Monitoring):</strong> 追蹤後端 API、資料庫查詢、快取命中率（如 Sentry, New Relic, Datadog）。</li>
+                <li><strong className="text-gray-300">Synthetic Monitoring:</strong> 使用排程指令碼（Lighthouse, Playwright）在乾淨環境下定期測試，建立效能基準。</li>
+                <li><strong className="text-gray-300">SLO/SLA:</strong> 定義服務等級目標（例如：95% 的請求必須在 500ms 內完成）。</li>
+              </ul>
+            </div>
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold text-gray-300 uppercase tracking-wider">開源工具推薦 (Open Source Options)</h4>
+              <ul className="text-xs text-gray-400 space-y-2 list-disc pl-4">
+                <li><strong className="text-gray-300">SigNoz / Uptrace:</strong> 基於 OpenTelemetry 的完整開源 APM 替代方案，可替代 Datadog。</li>
+                <li><strong className="text-gray-300">Prometheus + Grafana:</strong> 業界最常用的基礎設施與業務指標監控組合。</li>
+                <li><strong className="text-gray-300">Axiom:</strong> 專為 Next.js 優化的日誌與監控平台，雖然非完全開源，但有極佳的開發者體驗與免費額度。</li>
+                <li><strong className="text-gray-300">Sentry:</strong> 雖然以錯誤追蹤聞名，但其 Performance 模組對 Next.js 的整合非常深。</li>
+              </ul>
+            </div>
+          </div>
+          <div className="pt-2 border-t border-[#333333]">
+            <p className="text-[10px] text-gray-500">
+              提示：目前已實作基礎 RUM 與 API 延遲記錄。若要進一步自動化，建議設定 <code className="text-cyan-600 bg-cyan-950/20 px-1 rounded">instrumentation.ts</code> 來捕捉所有 Next.js 內部的效能指標。
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

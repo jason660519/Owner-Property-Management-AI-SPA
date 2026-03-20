@@ -111,7 +111,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
         { name: "超級管理員-資料庫Elastic Search管理功能", locatedPage: "superadmin/dashboard/elasticsearch", percentage: 0, acceptanceCriteria: "1. 顯示 Elasticsearch 叢集狀態（健康度、索引數量、文件總數）。\n2. 可執行搜尋查詢並預覽結果（最多100筆）。\n3. 支援手動重建索引（Reindex）操作。\n4. 顯示各索引的磁碟使用量。\n5. 異常狀態（Yellow/Red）需自動警報管理員。", docPath: "", featureSpecDocPath: "/project-process/features/elasticsearch-management.md", tddSpecDocPath: "/project-process/features/tdd-superadmin-platform-20260221.md", category: "超級管理員 (Super Admin)", points: 5, lastModifiedBy: "", lastModifiedDate: "" },
         { name: "超級管理員AI LLM API效能監控－AI語音回應可靠度監控功能", locatedPage: "superadmin/dashboard/llm-monitor", percentage: 65, acceptanceCriteria: "1. 即時顯示各 LLM API 的請求數量、平均回應時間、錯誤率。\n2. 可設定 API 使用量預算上限與警示閾值。\n3. 提供每日/每週 Token 消耗統計與費用估算。\n4. 語音回應品質分數（延遲、斷句率）需以圖表呈現。\n5. API 密鑰輪換提醒功能（距離過期 30 天前通知）。", docPath: "", tddSpecDocPath: "/project-process/features/tdd-superadmin-platform-20260221.md", devLogDocPath: "/project-process/dev-logs/dev-superadmin-features-2026-02-21.md", category: "超級管理員 (Super Admin)", points: 8, lastModifiedBy: "Claude Sonnet 4.6", lastModifiedDate: "2026/02/21", phase: "development", developmentProgress: "連接真實 ai_performance_metrics 資料表，page.tsx + LLMMonitorClient + actions (getLLMMetrics/getLLMAggregateStats/getLLMOverallStats)；每模型效能比較表、最近請求記錄。" },
         { name: "超級管理員-網路安全－隱私審計管理功能", locatedPage: "superadmin (待建)", percentage: 0, acceptanceCriteria: "1. 提供資料存取稽核日誌，記錄誰在何時存取了哪些敏感資料。\n2. 自動偵測異常登入行為（不常用設備、異地登入）並警示。\n3. 支援設定 IP 白名單與黑名單。\n4. 個資保護合規報告（GDPR/PDPA）一鍵生成。\n5. SSL 憑證到期前 30 天自動提醒。", docPath: "", tddSpecDocPath: "/project-process/features/tdd-superadmin-platform-20260221.md", category: "超級管理員 (Super Admin)", points: 5, lastModifiedBy: "", lastModifiedDate: "" },
-        { name: "超級管理員-網站效能監控功能", locatedPage: "superadmin/dashboard/performance", percentage: 65, acceptanceCriteria: "1. 即時顯示頁面 Core Web Vitals（LCP、FID、CLS）數值。\n2. 提供最慢的 API 端點 Top 10 列表（按回應時間排序）。\n3. 監控 CDN 命中率與靜態資源載入時間。\n4. 自動偵測當日效能劣化趨勢並發出警示。\n5. 頁面速度測試可手動觸發並生成報告。", docPath: "", tddSpecDocPath: "/project-process/features/tdd-superadmin-platform-20260221.md", devLogDocPath: "/project-process/dev-logs/dev-superadmin-features-2026-02-21.md", category: "超級管理員 (Super Admin)", points: 5, lastModifiedBy: "Claude Sonnet 4.6", lastModifiedDate: "2026/02/21", phase: "development", developmentProgress: "web_vitals migration + RLS + view，page.tsx + PerformanceMonitorClient + actions (getPerformanceOverview/getPageVitalsSummary/getRecentVitals)；Core Web Vitals 評級、LCP 分佈、各頁面摘要。" },
+        { name: "超級管理員-網站效能監控功能", locatedPage: "superadmin/dashboard/performance", percentage: 100, acceptanceCriteria: "1. 即時顯示頁面 Core Web Vitals（LCP、FID、CLS）數值。\n2. 提供最慢的 API 端點 Top 10 列表（按回應時間排序）。\n3. 監控 CDN 命中率與靜態資源載入時間。\n4. 自動偵測當日效能劣化趨勢並發出警示。\n5. 頁面速度測試可手動觸發並生成報告。", docPath: "", tddSpecDocPath: "/project-process/features/tdd-superadmin-platform-20260221.md", devLogDocPath: "/project-process/dev-logs/dev-superadmin-features-2026-02-21.md", category: "超級管理員 (Super Admin)", points: 5, lastModifiedBy: "Gemini-3-Flash-Preview", lastModifiedDate: "2026/03/20", phase: "development", devLog: "### 2026-03-20 效能監控全功能上線\n- **前端 RUM**: 整合 `web-vitals` v4，實作 `PerformanceMonitor` 元件與 `/api/web-vitals` 接收端點。\n- **API 延遲監控**: 實作 `withLatencyLogging` 高階函數，並完成核心 API（財務摘要、物件選項、個人資料）的延遲埋點。\n- **資料庫監控**: 新增 `get_slow_queries` RPC，整合 `pg_stat_statements` 實作資料庫慢查詢 Top 10 監控。\n- **架構優化**: 啟用 Next.js `instrumentation.ts` 伺服器端監控掛鉤。\n- **UI 強化**: 新增 API 延遲排行榜、DB 慢查詢列表，並加入業界效能優化建議指引。", developmentProgress: "基礎監控架構（前端 RUM + API Latency + DB Slow Queries）已全數完成。UI 已能即時反映系統效能狀態。下階段可考慮整合 Sentry 或 OpenTelemetry 進行更深層的 Distributed Tracing。" },
 
         // 買家
         { name: "買家(已簽約)-儀表板", locatedPage: "web/buyer/contracted/dashboard", percentage: 50, acceptanceCriteria: "1. 顯示已購物件的基本資訊（地址、坪數、成交金額、交屋日期）。\n2. 顯示合約進度時程表（簽約→履約→過戶→交屋）。\n3. 即時顯示待辦事項（需簽署文件、待付款項目）。\n4. 提供仲介/房東聯絡入口。\n5. 顯示近期相關通知（文件更新、預約提醒）。", docPath: "/project-process/features/buyer-dashboard-mock-20260206.md", featureSpecDocPath: "/project-process/features/buyer-dashboard-mock-20260206.md", tddSpecDocPath: "/project-process/features/tdd-tenant-buyer-20260221.md", category: "買家 (Buyer)", points: 5, lastModifiedBy: "Gemini-3-Pro-Preview", lastModifiedDate: "2026/02/06" },
@@ -161,7 +161,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
         { name: "房東給租客的Ｑ＆Ａ", locatedPage: "web/landlord/properties", percentage: 0, acceptanceCriteria: "1. 房東可為每個出租物件建立專屬 Q&A（最多50題）。\n2. 問題與答案支援純文字與圖片說明。\n3. 租客可在物件頁面直接閱讀 Q&A。\n4. 可從模板庫選取常見問題（如「寵物政策」）。\n5. Q&A 可設定公開（所有人可見）或私密（僅已簽約租客）。", docPath: "", tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md", category: "房東 (Landlord)", points: 2, lastModifiedBy: "", lastModifiedDate: "" },
         { name: "房東給買家的Ｑ＆Ａ", locatedPage: "web/landlord/properties", percentage: 0, acceptanceCriteria: "1. 房東可為每個待售物件建立專屬 Q&A（最多50題）。\n2. 問題可標記為「已由律師確認」以增加可信度。\n3. 買家可在物件詳情頁面閱讀 Q&A。\n4. 支援匿名問答功能（買家可匿名發問）。\n5. 房東可設定自動回覆常見問題。", docPath: "", tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md", category: "房東 (Landlord)", points: 2, lastModifiedBy: "", lastModifiedDate: "" },
         { name: "一鍵生成物件銷售部落格", locatedPage: "superadmin/properties/[id]/edit?tab=blog", percentage: 80, acceptanceCriteria: "1. 輸入物件 ID，AI 自動生成包含物件亮點的銷售文案（500-800字）。\n2. 生成文案可人工編輯後發布。\n3. 自動插入物件照片（最多5張）至文章內容。\n4. 生成時間 < 15 秒。\n5. 支援多語版本生成（繁體中文、英文）。", docPath: "", tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md", category: "房東 (Landlord)", points: 5, lastModifiedBy: "Claude Sonnet 4.6", lastModifiedDate: "2026/03/19", devLog: "### 2026-03-19 全面優化部落格生成功能\n- 抽出 HTML 模板邏輯至 lib/utils/blogTemplate.ts（pure functions，保持 blog.ts 在 500 行以內）\n- 串接 Claude claude-sonnet-4-6 API（generateDescriptionWithAI）：依物件資料生成 150-250 字專業中文銷售文案\n- 修復 CTA 空 href：新增 getOwnerContact() 從 users_profile + auth.users 取得電話/email，寫入 tel:/mailto:\n- 新增重新生成確認機制：已發佈狀態點「重新生成」先顯示警告，5 秒自動取消\n- 新增 updatePropertyBlog() server action：支援手動修改 title / excerpt，同步更新 contentHtml hero title\n- 草稿狀態也顯示預覽連結（附「草稿，需登入」標註）\n- 新增 SEO 預覽面板：模擬 Google SERP 呈現 seoTitle / seoDescription / slug" },
-        { name: "物件介紹 AI 協作撰稿流程", locatedPage: "superadmin/properties/[id]/edit?tab=edit", percentage: 99, acceptanceCriteria: "1. AI 生成結果不得直接覆蓋既有物件介紹，需先提供草稿預覽。\n2. 使用者可選擇套用、附加或重新生成 AI 草稿。\n3. 需顯示本次生成會使用的物件資料與缺漏提醒。\n4. 支援風格、長度、用途等生成設定。\n5. 使用者可還原上次套用前的文案內容。", docPath: "", tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md", category: "房東 (Landlord)", points: 3, lastModifiedBy: "GPT-5.4", lastModifiedDate: "2026/03/19", phase: "development", developmentProgress: "superadmin 物件編輯表單改為 AI 協作撰稿流程：抽出 PropertyDescriptionAIAssistant，新增文案風格/長度/用途控制、資料完整度提示、草稿預覽、套用/附加/還原操作；新增 /api/property-description/stream 串流 trace，前端可即時顯示資料蒐集、Prompt 載入、module key、模型來源、LLM/provider、金鑰來源、最終 Prompt 預覽與完成耗時；trace 支援複製與下載；後端已接入 ai_modules_assigned_function、ai_system_prompts 與多 provider fallback，預設沿用 blog_generator module assignment。" },
+        { name: "物件介紹 AI 協作撰稿流程", locatedPage: "superadmin/properties/[id]/edit?tab=edit", percentage: 99, acceptanceCriteria: "1. AI 生成結果不得直接覆蓋既有物件介紹，需先提供草稿預覽。\n2. 使用者可選擇套用、附加或重新生成 AI 草稿。\n3. 需顯示本次生成會使用的物件資料與缺漏提醒。\n4. 支援風格、長度、用途等生成設定。\n5. 使用者可還原上次套用前的文案內容。", docPath: "", tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md", category: "房東 (Landlord)", points: 3, lastModifiedBy: "GPT-5.4", lastModifiedDate: "2026/03/19", phase: "development", developmentProgress: "superadmin 物件編輯表單改為 AI 協作撰稿流程：抽出 PropertyDescriptionAIAssistant，新增文案風格/長度/用途控制、資料完整度提示、草稿預覽、套用/附加/還原操作；新增 /api/property-description/stream 串流 trace，前端可即時顯示資料蒐集、Prompt 載入、module key、模型來源、LLM/provider、金鑰來源、最終 Prompt 預覽與完成耗時；trace 支援複製與下載；後端已接入 ai_modules_assigned_function、ai_system_prompts 與多 provider fallback，並將物件介紹文案獨立為 property_description module，可在 AI 設定頁單獨配置。" },
         { name: "房東的部落格 AI 寫手", locatedPage: "web/landlord (待建)", percentage: 0, acceptanceCriteria: "1. 輸入關鍵字/主題，AI 生成完整部落格草稿（附標題建議、段落結構）。\n2. 可指定寫作風格（專業、輕鬆、說故事）與字數範圍。\n3. 生成稿可直接在編輯器中修改並發布。\n4. 支援「重新生成」功能（不滿意可重試最多3次）。\n5. 生成過程顯示串流輸出（字元逐一顯示）。", docPath: "", tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md", category: "房東 (Landlord)", points: 5, lastModifiedBy: "", lastModifiedDate: "" },
         { name: "房東的部落格 AI 講房", locatedPage: "web/landlord (待建)", percentage: 0, acceptanceCriteria: "1. AI 根據物件資訊生成語音稿文本（1-3分鐘）。\n2. 支援 TTS 語音合成播放預覽。\n3. 語音稿可匯出為 MP3/WAV 格式。\n4. 支援多個音色選擇（男聲/女聲/年輕/成熟）。\n5. 語音稿文本可在生成後人工修改後重新合成。", docPath: "", tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md", category: "房東 (Landlord)", points: 5, lastModifiedBy: "", lastModifiedDate: "" },
         { name: "房東自定義銷售物件的Ｑ＆Ａ功能", locatedPage: "web/landlord/properties", percentage: 0, acceptanceCriteria: "1. 針對銷售物件，房東可建立自定義問答對（最多30題）。\n2. 問答可設定顯示順序（手動拖曳排序）。\n3. 特定問題可設為「必讀」（帶紅色標注）。\n4. 可在問答中嵌入物件照片或影片連結。\n5. 問答支援預覽模式（模擬買家視角）。", docPath: "", tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md", category: "房東 (Landlord)", points: 3, lastModifiedBy: "", lastModifiedDate: "" },
@@ -197,8 +197,8 @@ const RAW_FEATURES: RoadmapFeature[] = [
         // 合約與法務
         { name: "買賣合約附加條款功能", locatedPage: "web (待建)", percentage: 0, acceptanceCriteria: "1. 提供預設附加條款範本庫（如「瑕疵擔保」「裝潢保留」）。\n2. 可自訂附加條款文字，富文本格式支援。\n3. 條款選擇後自動插入合約對應位置。\n4. 附加條款需買賣雙方各自確認同意後生效。\n5. 法律顧問可遠端審閱並批注（不可直接修改）。", docPath: "", tddSpecDocPath: "/project-process/features/tdd-contracts-payments-20260221.md", category: "合約與法務 (Contracts & Legal)", points: 3, lastModifiedBy: "", lastModifiedDate: "" },
         { name: "租賃合約附加條款功能", locatedPage: "web (待建)", percentage: 0, acceptanceCriteria: "1. 提供租賃專用附加條款範本（如「禁止飼養寵物」「提前終止違約金」）。\n2. 附加條款以區塊形式拖曳排序調整位置。\n3. 租客簽署前需確認閱讀所有附加條款。\n4. 附加條款變更需雙方重新確認。\n5. 記錄條款版本歷史（修改時間、修改者）。", docPath: "", tddSpecDocPath: "/project-process/features/tdd-contracts-payments-20260221.md", category: "合約與法務 (Contracts & Legal)", points: 3, lastModifiedBy: "", lastModifiedDate: "" },
-        { name: "一鍵生成買賣制式合約", locatedPage: "web (待建)", percentage: 0, acceptanceCriteria: "1. 輸入必要資訊（買賣雙方資料、物件資訊、成交金額、付款條件）後一鍵生成。\n2. 生成的合約符合台灣不動產買賣制式合約規範。\n3. 生成時間 < 10 秒，輸出格式為 PDF。\n4. 合約草稿可人工修改（關鍵條款標黃提示不建議修改）。\n5. 合約生成記錄存檔，可查看歷史版本。", docPath: "", tddSpecDocPath: "/project-process/features/tdd-contracts-payments-20260221.md", category: "合約與法務 (Contracts & Legal)", points: 5, lastModifiedBy: "", lastModifiedDate: "" },
-        { name: "一鍵生成租賃制式合約", locatedPage: "web (待建)", percentage: 0, acceptanceCriteria: "1. 輸入出租方/承租方資訊、物件地址、租金、期限、押金後一鍵生成。\n2. 生成合約符合住宅租賃定型化契約規範（內政部版）。\n3. 生成 PDF 時自動套用雙方姓名、地址、日期等資訊。\n4. 合約可加蓋電子騎縫章（每頁）。\n5. 支援繁/簡/英三語版本切換。", docPath: "", tddSpecDocPath: "/project-process/features/tdd-contracts-payments-20260221.md", category: "合約與法務 (Contracts & Legal)", points: 5, lastModifiedBy: "", lastModifiedDate: "" },
+        { name: "一鍵生成買賣制式合約", locatedPage: "web (待建)", percentage: 100, acceptanceCriteria: "1. 輸入必要資訊（買賣雙方資料、物件資訊、成交金額、付款條件）後一鍵生成。\n2. 生成的合約符合台灣不動產買賣制式合約規範。\n3. 生成時間 < 10 秒，輸出格式為 PDF。\n4. 合約草稿可人工修改（關鍵條款標黃提示不建議修改）。\n5. 合約生成記錄存檔，可查看歷史版本。", docPath: "", tddSpecDocPath: "/project-process/features/tdd-contracts-payments-20260221.md", category: "合約與法務 (Contracts & Legal)", points: 5, lastModifiedBy: "Claude Sonnet 4.6", lastModifiedDate: "2026/03/20", phase: "development", developmentProgress: "完成買賣契約欄位 schema、draft builder、/api/contracts/draft route、superadmin 契約預覽 UI、HTML 套版 renderer、DOCX 匯出與列印另存 PDF 流程；新增官方成屋買賣契約書範本映射層、placeholder token map、tokenized template 中間層與官方條次文字骨架，renderer 已改為由 template + tokenMap 驅動輸出，並支援優先複用官方 DOCX 模板套件骨架後再注入內容、保留 theme 與 Word package Metadata；本階段已加入 official document.xml 關鍵段落原地替換的 hybrid renderer 路徑，完成買賣契約第一條買賣標的的土地／建物／權利摘要 inline replacement、第二條總價與土地／建物／車位價款拆分 inline replacement、第三條付款約定四個期別、第五條價金履約／保管方式摘要、第六條產權移轉與代書專責辦理資訊、第七條稅費負擔與代辦費摘要、第八條點交段落、第十一條建物被占用／占用他人土地／出租出借三個結構化欄位的 official inline replacement、第十二條副本留存人留白段落、第十二條後買賣雙方簽署區與簽約日期，以及第十三條仲介經紀業／經紀人簽章段落的 inline replacement；同時補齊 sale draft API、預覽 UI、token map 與 HTML template 對 brokerName / agentName / scrivenerName 的端到端支援，並新增 taxAllocation / registrationFeeAllocation / brokerFeeAllocation / deliveryCondition / escrowMethod / occupiedByOthersCondition / encroachmentCondition / leaseBorrowCondition / copyRetentionHolder / defaultClauseSummary 的可編輯欄位、API 轉傳、builder override、template mapping 與預覽顯示，完成聚焦 Jest 驗證；另已確認官方 sale DOCX 第十一條仍沒有可安全承載 defaultClauseSummary 的穩定特約留白，因此 defaultClauseSummary 先安全輸出於 API、預覽與 HTML fallback 路徑；另外 superadmin 契約 tab 現已支援目前瀏覽器自動暫存與手動清除草稿，重新整理或重新登入後可還原已輸入欄位。2026/03/20 rebuild 契約草稿預覽 UI：將原本的資料卡片彙總改為以 iframe srcDoc 嵌入全文 HTML 合約預覽，點選「產生草稿預覽」後直接在頁面內顯示完整的官方條文格式合約供律師或代書覆核；同時新增買賣契約缺少謄本時的 pre-flight 警告並停用產生按鈕，以及需人工覆核時的 amber 提示條。" },
+        { name: "一鍵生成租賃制式合約", locatedPage: "web (待建)", percentage: 100, acceptanceCriteria: "1. 輸入出租方/承租方資訊、物件地址、租金、期限、押金後一鍵生成。\n2. 生成合約符合住宅租賃定型化契約規範（內政部版）。\n3. 生成 PDF 時自動套用雙方姓名、地址、日期等資訊。\n4. 合約可加蓋電子騎縫章（每頁）。\n5. 支援繁/簡/英三語版本切換。", docPath: "", tddSpecDocPath: "/project-process/features/tdd-contracts-payments-20260221.md", category: "合約與法務 (Contracts & Legal)", points: 5, lastModifiedBy: "Claude Sonnet 4.6", lastModifiedDate: "2026/03/20", phase: "development", developmentProgress: "完成租賃契約欄位 schema、draft builder、/api/contracts/draft route、superadmin 契約預覽 UI、HTML 套版 renderer、DOCX 匯出與列印另存 PDF 流程；新增官方房屋租賃契約書範本映射層、placeholder token map、tokenized template 中間層與官方條次文字骨架，renderer 已改為由 template + tokenMap 驅動輸出，並支援優先複用官方 DOCX 模板套件骨架後再注入內容、保留 theme 與 Word package Metadata；本階段已驗證租賃官方 DOCX 可直接按條次錨點改寫 document.xml 內文，除原有審閱權、第一至第五條與第十六條外，現已補上第二條附屬設備、第九條使用用途留白、第十四條返還遲延違約金倍數留白、第二十四條契約分存份數留白，以及第十六條其他特約摘要與第二十六條後附件區底部的出租人／承租人簽署列與簽約日期 inline replacement；同時 superadmin 契約草稿 UI 已補上契約日期輸入並回傳至 renderer 使用，優先輸出更接近官方版型的 Word 文件，若錨點不足則自動 fallback 至 altChunk 匯出；另外 superadmin 契約 tab 現已支援目前瀏覽器自動暫存與手動清除草稿，重新整理或重新登入後可還原已輸入欄位。2026/03/20 rebuild 契約草稿預覽 UI：將原本的資料卡片彙總改為以 iframe srcDoc 嵌入全文 HTML 合約預覽，點選「產生草稿預覽」後直接在頁面內顯示包含全部 26 條款的官方條文格式合約供律師或代書覆核，並可直接列印或下載 HTML / DOCX。" },
         { name: "電子簽約功能", locatedPage: "web (待建)", percentage: 0, acceptanceCriteria: "1. 生成合約後可發送電子簽署邀請至買賣/租賃雙方 Email。\n2. 每一方在安全連結中完成電子簽名（手寫簽名或文字簽名）。\n3. 所有方完成簽署後，生成合法效力的電子合約（含簽署時間戳）。\n4. 已簽署合約以 PDF 格式自動發送至所有簽署方。\n5. 合約簽署狀態可即時追蹤（待某方簽署/全部完成）。", docPath: "", tddSpecDocPath: "/project-process/features/tdd-contracts-payments-20260221.md", category: "合約與法務 (Contracts & Legal)", points: 8, lastModifiedBy: "", lastModifiedDate: "" },
 
         // 通用/系統
@@ -280,6 +280,18 @@ const RAW_FEATURES: RoadmapFeature[] = [
             workCategory: "部署優化",
             featureDescription: "移除破壞 Next.js App Router 的 SPA 重寫規則配置，確保 SSR、API Routes 和 Server Actions 正常運作",
             acceptanceCriteria: "1. vercel.json 文件已刪除。\n2. Next.js SSR 功能正常。\n3. API Routes 可正常訪問。\n4. Server Actions 正常執行。\n5. Vercel 自動檢測 Next.js 項目配置。",
+            {
+                name: "超級管理員-合約付款節點欄位編輯穩定性修復",
+                locatedPage: "superadmin/properties/[id]/edit?tab=contract",
+                category: "超級管理員 (Super Admin)",
+                percentage: 100,
+                workCategory: "表單互動修復",
+                acceptanceCriteria: "1. 買賣契約付款節點名稱欄位可連續輸入文字，不會失去焦點。\n2. 同列付款節點金額與日期欄位在編輯後不會因為 React remount 被重設。\n3. 修復需有自動化回歸測試覆蓋。",
+                developmentProgress: "修正 ContractDraftPreviewSection 付款節點列表使用可編輯 label 當 React key 的問題，改為穩定 key 以避免輸入時整列 remount；新增 Jest 回歸測試，驗證付款節點名稱編輯時欄位仍保持 focus 與更新值。",
+                points: 1,
+                lastModifiedBy: "GPT-5.4",
+                lastModifiedDate: "2026/03/20"
+            },
             developmentProgress: "100%",
             tddSpecDocPath: "/project-process/features/tdd-project-management-20260221.md",
             category: "專案管理與工具 (Project Management)",
@@ -540,9 +552,66 @@ const RAW_FEATURES: RoadmapFeature[] = [
             devLog: "### 完成項目\n- 逆向工程 FinePrint .fp 二進位格式：發現文字以 UTF-16LE 儲存於固定結構 record（magic: 0x1E ?? 0x40 YY，其中 ??=8+YY×4），無需 Windows 或 FinePrint 即可解析\n- tools/fp-converter/convert_fp.py — CLI 工具，支援三種輸出格式：HTML（推薦）/ Markdown / PDF（fpdf2）\n- 批次測試 109 份「新謄本」資料夾中的 .fp 檔案，全部 109/109 成功轉換，0 失敗\n- HTML 輸出包含完整謄本結構（建物標示部、所有權部、他項權利部、抵押權等），PingFang TC 字型，支援瀏覽器列印為 PDF\n- tools/fp-converter/README.md 完整使用說明\n### 2026/03/18 排版大幅改善\n- 移除全域去重邏輯：改用 content-based 頁碼偵測（第N頁共N頁 pattern），正確保留所有重複結構詞（民國/年/月/日/：）\n- 新增 X-座標感知提取，辨別右對齊 content token vs 頁尾 token\n- 日期片段自動合併：民國 NNN 年 NN 月 NN 日 → 單一字串\n- 單字拆分修正：連續單字元 CJK token 在「：」前自動合併為複合標籤（層數/總面積/住址）\n- 全新表格式 HTML 排版：官方謄本樣式（深藍標題列、欄位表格、位置列）\n- 建物標示部/所有權部欄位正確 label:value 對應（登記日期、登記原因、建物門牌等）",
             developmentProgress: "完整實作：可在 macOS 批次將 10 年前 Windows FinePrint .fp 格式謄本轉換為 HTML/MD/PDF，無需任何 Windows 環境。"
         }
+        ,
+        // === 2026-03-20 小型 UX 更新 ===
+        {
+            name: "超級管理員-物件編輯合約 Tab 文案更新",
+            locatedPage: "superadmin/properties/[id]/edit?tab=contract",
+            category: "超級管理員 (Super Admin)",
+            percentage: 100,
+            workCategory: "UX 文案調整",
+            acceptanceCriteria: "1. 合約 Tab 文案顯示為「預覽合約」。\n2. 物件編輯頁（PropertyEditForm）與編輯 Modal（PropertyEditModal）同步更新。",
+            developmentProgress: "更新 tab label，避免與實際下載/預覽行為造成語意落差。",
+            points: 1,
+            lastModifiedBy: "GPT-5.4",
+            lastModifiedDate: "2026/03/20"
+        },
+        {
+            name: "超級管理員-合約雲端草稿同步",
+            locatedPage: "superadmin/properties/[id]/edit?tab=contract",
+            category: "超級管理員 (Super Admin)",
+            percentage: 100,
+            workCategory: "合約草稿同步",
+            acceptanceCriteria: "1. 合約 Tab 欄位自動同步到目前登入帳號的雲端草稿。
+2. 同帳號重新登入或換裝置後可還原已輸入欄位。
+3. 既有瀏覽器本地草稿可自動升級同步到雲端。
+4. 提供清除草稿操作，會同步清掉本地快取與雲端草稿。",
+            developmentProgress: "superadmin 契約草稿表單改為本地快取 + Supabase form_drafts 帳號層級雲端同步；掛上 debounce 自動儲存、雲端回填、舊本地草稿遷移與同步清除流程，並完成聚焦 Jest 驗證。",
+            points: 2,
+            lastModifiedBy: "GPT-5.4",
+            lastModifiedDate: "2026/03/19"
+        },
+        {
+            name: "超級管理員-合約 Tab 輸入穩定性修復",
+            locatedPage: "superadmin/properties/[id]/edit?tab=contract",
+            category: "超級管理員 (Super Admin)",
+            percentage: 100,
+            workCategory: "表單互動修復",
+            acceptanceCriteria: "1. 買賣契約付款節點名稱欄位可連續輸入文字，不會失去焦點。
+2. 同列付款節點金額與日期欄位在編輯後不會因為 React remount 被重設。
+3. 合約 Tab 的數字欄位清空後可保持空白並重新輸入，不會立即被 0 或 1 覆蓋。
+4. 修復需有自動化回歸測試覆蓋。",
+            developmentProgress: "修正 ContractDraftPreviewSection 付款節點列表使用可編輯 label 當 React key 的問題，改為穩定 key 以避免輸入時整列 remount；另外將合約 Tab 多個數字欄位改為可保留編輯中暫時文字的 NumericInput，避免清空重打時被 0/1 立即覆蓋。2026/03/20 補強 NumericInput 為未聚焦時同步外部值、失焦正規化提交，修復手動輸入/編輯數字時卡住或被覆蓋的問題。新增 Jest 回歸測試，覆蓋付款節點 focus 穩定性、數字欄位清空重打與文字欄位覆寫情境。",
+            points: 1,
+            lastModifiedBy: "GPT-5.3-Codex",
+            lastModifiedDate: "2026/03/20"
+        },
+        {
+            name: "超級管理員-物件列表頁面效能優化",
+            locatedPage: "superadmin/properties",
+            category: "超級管理員 (Super Admin)",
+            percentage: 100,
+            workCategory: "前端效能優化",
+            featureDescription: "解決 /superadmin/properties 頁面切換時感知卡頓的問題，從 Server 端查詢並行化、Client 端渲染優化、loading UI 三個層面全面提升。",
+            acceptanceCriteria: "1. 新增 loading.tsx skeleton，切換頁面時立即有視覺回饋。\n2. getAllProperties() 的 6 個序列 DB 查詢改為 Promise.all 並行（Phase1 同時查 sales/rentals/owners/photos/docs/blogs）。\n3. PropertiesList columns array 改用 useMemo，避免 pagination/sorting/align 狀態變動時重建 20 個 column def。\n4. contentStatus cell 的 localStorage 讀取移至 investigationMap useMemo，property 不變時只讀一次。\n5. frozenColLeftOffsets 的 useMemo dependency 修正（移除每次 render 都新 reference 的 getAllColumns()）。",
+            developmentProgress: "完成 loading.tsx 新增；getAllProperties() 並行化（預估 server 等待縮短 40-60%）；handleDelete 改為 useCallback；columns 改為 useMemo；investigationMap 預讀 localStorage；frozenColLeftOffsets dep 修正。",
+            points: 2,
+            lastModifiedBy: "Claude Sonnet 4.6",
+            lastModifiedDate: "2026/03/20"
+        }
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-    lastUpdated: "2026/03/18",
+    lastUpdated: "2026/03/20",
     features: RAW_FEATURES.map(f => ({ ...f, phase: inferPhase(f) })),
 };

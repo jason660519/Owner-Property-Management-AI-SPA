@@ -102,9 +102,9 @@ describe('PropertyDescriptionAIAssistant', () => {
       { type: 'phase', phase: 'collecting_context', message: '蒐集物件資料中…' },
       { type: 'resources', resources: [{ label: '標題', value: '大安區採光三房' }] },
       { type: 'phase', phase: 'loading_prompt', message: '載入 Prompt 模板中…' },
-      { type: 'prompt_loaded', promptName: '物件描述文案', promptSource: 'ai_system_prompt', moduleKey: 'blog_generator', templatePreview: 'template', finalPromptPreview: 'final prompt' },
+      { type: 'prompt_loaded', promptName: '物件描述文案', promptSource: 'ai_system_prompt', moduleKey: 'property_description', templatePreview: 'template', finalPromptPreview: 'final prompt' },
       { type: 'phase', phase: 'selecting_model', message: '選擇 LLM 與金鑰來源中…' },
-      { type: 'model_selected', provider: 'anthropic', model: 'claude-sonnet-4-6', apiKeySource: 'ai_settings', moduleKey: 'blog_generator', selectionSource: 'ai_module' },
+      { type: 'model_selected', provider: 'anthropic', model: 'claude-sonnet-4-6', apiKeySource: 'ai_settings', moduleKey: 'property_description', selectionSource: 'ai_module' },
       { type: 'phase', phase: 'sending_request', message: '正在送出 AI 請求…' },
       { type: 'phase', phase: 'waiting_response', message: '等待 LLM 回應中…' },
       { type: 'response_meta', status: 200, durationMs: 1200 },
@@ -123,7 +123,7 @@ describe('PropertyDescriptionAIAssistant', () => {
     expect(screen.getByText('Provider: anthropic')).toBeInTheDocument();
     expect(screen.getByText('Model: claude-sonnet-4-6')).toBeInTheDocument();
     expect(screen.getByText('名稱: 物件描述文案')).toBeInTheDocument();
-    expect(screen.getAllByText('Module Key: blog_generator').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Module Key: property_description').length).toBeGreaterThan(0);
     expect(screen.getByText('模型來源: AI Module Assignment')).toBeInTheDocument();
     expect(screen.getByText('來源: ai_system_prompts')).toBeInTheDocument();
 

@@ -287,7 +287,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
     return () => { document.removeEventListener('mousedown', handleClick); document.removeEventListener('keydown', handleKey); };
   }, [viewDropdownOpen]);
 
-  const handleDelete = (property: PropertyItem) => {
+  const handleDelete = useCallback((property: PropertyItem) => {
     if (!confirm(`確定要刪除「${property.title}」嗎？此操作無法復原。`)) return;
 
     setDeletingId(property.id);
@@ -300,7 +300,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
       }
       setDeletingId(null);
     });
-  };
+  }, [router]);
 
   const filteredData = useMemo(() => {
     let list = typeFilter === 'all' ? properties : properties.filter((p) => p.type === typeFilter);
@@ -343,7 +343,18 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
   }, [typeFilter, statusFilter, cityFilter, districtFilter, streetFilter, propertyTypeFilter]);
 
-  const columns: ColumnDef<PropertyItem>[] = [
+  // Pre-read investigation report presence from localStorage once per properties change
+  // to avoid N synchronous reads on every render
+  const investigationMap = useMemo(() => {
+    if (typeof window === 'undefined') return {} as Record<string, boolean>;
+    const map: Record<string, boolean> = {};
+    for (const p of properties) {
+      map[p.id] = !!localStorage.getItem(`investigation-report-v2-${p.id}`);
+    }
+    return map;
+  }, [properties]);
+
+  const columns = useMemo<ColumnDef<PropertyItem>[]>(() => [
     {
       id: 'rowNumber',
       size: COLUMN_WIDTHS_PX[0],
@@ -705,11 +716,8 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
       enableSorting: false,
       cell: (info) => {
         const row = info.row.original;
-        // Investigation report is stored in localStorage only
-        const hasInvestigation =
-          typeof window !== 'undefined'
-            ? !!localStorage.getItem(`investigation-report-v2-${row.id}`)
-            : false;
+        // investigationMap is pre-built once per properties change (avoids per-render localStorage reads)
+        const hasInvestigation = investigationMap[row.id] ?? false;
 
         const items: { label: string; abbr: string; has: boolean; detail?: string }[] = [
           {
@@ -764,7 +772,8 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
         );
       },
     },
-  ];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [deletingId, handleDelete, statusFilter, cityFilter, districtFilter, streetFilter, districtOptions, streetOptions, propertyTypeFilter, propertyTypeDropdownOpen, investigationMap, recalcPropertyTypeDropdownPos]);
 
   const [columnResizeMode] = useState<ColumnResizeMode>('onChange');
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(() => {
@@ -810,7 +819,9 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
       acc += allCols[i].getSize();
     }
     return offsets;
-  }, [table.getState().columnSizing, table.getAllColumns()]);
+  // Only columnSizing changes affect offsets; getAllColumns() returns a new ref every render (not a valid dep)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [table.getState().columnSizing]);
 
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-4">

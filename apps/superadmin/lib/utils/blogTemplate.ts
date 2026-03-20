@@ -173,7 +173,7 @@ export function generateBlogContent(data: PropertyDataForBlog): BlogGeneratedCon
   // Prefer AI-generated description, then manual description
   const descriptionText = data.aiDescription || data.description;
   const descriptionSection = descriptionText
-    ? `<section class="blog-section"><h2>物件介紹</h2><div class="description-content"><p>${descriptionText.replace(/\n/g, '</p><p>')}</p></div></section>`
+    ? `<section class="blog-section description-section"><h2>物件介紹</h2><div class="description-content"><p>${descriptionText.replace(/\n\n+/g, '</p><p>').replace(/\n/g, '<br />')}</p></div></section>`
     : '';
 
   const ctaSection = buildCtaSection({
@@ -185,6 +185,15 @@ export function generateBlogContent(data: PropertyDataForBlog): BlogGeneratedCon
     facebookUrl:  data.ownerFacebookUrl,
     instagramUrl: data.ownerInstagramUrl,
   });
+
+  const callHref = data.ownerPhone ? 'tel:' + data.ownerPhone.replace(/\s/g, '') : null;
+  const emailHref = data.ownerEmail ? 'mailto:' + data.ownerEmail : null;
+  const stickyCtaHtml = (callHref || emailHref)
+    ? '<div class="mobile-sticky-cta">'
+      + (callHref ? '<a href="' + callHref + '" class="sticky-btn sticky-btn-call">📞 立即來電</a>' : '')
+      + (emailHref ? '<a href="' + emailHref + '" class="sticky-btn sticky-btn-email">✉️ 發送詢問</a>' : '')
+      + '</div>'
+    : '';
 
   const contentHtml = `
 <article class="property-blog">
@@ -208,10 +217,11 @@ export function generateBlogContent(data: PropertyDataForBlog): BlogGeneratedCon
 
   <!-- Gallery -->
   <section class="blog-section">
-    <h2>物件照片</h2>
-    <div class="gallery-grid">
+    <h2>物件照片 ${galleryPhotos.length > 0 ? `<span class="photo-count-badge">${galleryPhotos.length} 張</span>` : ''}</h2>
+    <div class="gallery-grid blog-gallery-wrapper">
       ${galleryHtml}
     </div>
+    ${galleryPhotos.length > 0 ? '<p class="gallery-tap-hint">點擊照片可放大瀏覽</p>' : ''}
   </section>
 
   ${descriptionSection}
@@ -229,8 +239,20 @@ export function generateBlogContent(data: PropertyDataForBlog): BlogGeneratedCon
     </div>
   </section>
 
+  ${locationMapUrl ? `<!-- Map -->
+  <section class="blog-section">
+    <h2>物件位置</h2>
+    <a href="${locationMapUrl}" target="_blank" rel="noopener noreferrer" class="map-card">
+      <span class="map-card-icon">📍</span>
+      <span class="map-card-body">
+        <span class="map-card-addr">${fullAddress}</span>
+        <span class="map-card-cta">在 Google Maps 開啟 →</span>
+      </span>
+    </a>
+  </section>` : ''}
+
   ${ctaSection}
-</article>`;
+</article>${stickyCtaHtml}`;
 
   const content = [
     blogTitle,

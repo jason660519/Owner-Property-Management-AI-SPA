@@ -1,15 +1,17 @@
 import { Suspense } from 'react';
-import { getPerformanceOverview, getPageVitalsSummary, getRecentVitals } from './actions';
+import { getPerformanceOverview, getPageVitalsSummary, getRecentVitals, getTopApiLatencies, getSlowQueries } from './actions';
 import PerformanceMonitorClient from './PerformanceMonitorClient';
 import { Gauge } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 export default async function PerformancePage() {
-  const [overview, pageSummaries, recentVitals] = await Promise.all([
+  const [overview, pageSummaries, recentVitals, apiLatencies, slowQueries] = await Promise.all([
     getPerformanceOverview(),
     getPageVitalsSummary(),
     getRecentVitals(50),
+    getTopApiLatencies(),
+    getSlowQueries(),
   ]);
 
   return (
@@ -27,6 +29,8 @@ export default async function PerformancePage() {
         overview={overview}
         pageSummaries={pageSummaries}
         recentVitals={recentVitals}
+        apiLatencies={apiLatencies}
+        slowQueries={slowQueries}
       />
     </Suspense>
   );

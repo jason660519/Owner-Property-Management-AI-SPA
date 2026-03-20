@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Key, FlaskConical, ScanText, Globe, FileSignature, BookOpen,
+  Key, FlaskConical, ScanText, Globe, FileSignature, BookOpen, Home,
   Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download, BookMarked,
 } from 'lucide-react';
 import { readLocalStorage, writeLocalStorage } from '@/lib/utils/storage-state';
@@ -20,15 +20,15 @@ import { getProviderById, AI_PROVIDERS } from '@/lib/ai-providers';
 import { SUPPORTED_AI_ENV_KEY_NAMES } from '@/lib/parse-env-keys';
 
 
-type SettingsTab = 'keys' | 'ocr' | 'static-ad' | 'contract' | 'blog';
+type SettingsTab = 'keys' | 'ocr' | 'static-ad' | 'contract' | 'blog' | 'property-description';
 
-const TAB_IDS: SettingsTab[] = ['keys', 'ocr', 'static-ad', 'contract', 'blog'];
+const TAB_IDS: SettingsTab[] = ['keys', 'ocr', 'static-ad', 'contract', 'blog', 'property-description'];
 
 const LS_GLOBAL_PROMPT = 'ai-settings:globalTestPrompt';
 const LS_SAVED_PROMPTS = 'ai-settings:savedPrompts';
 const LS_LAST_PROMPT_NAME_BY_MODULE = 'ai-settings:lastPromptNameByModule';
 
-type SavedPromptCategory = 'general' | 'ocr' | 'static-ad' | 'contract' | 'blog';
+type SavedPromptCategory = 'general' | 'ocr' | 'static-ad' | 'contract' | 'blog' | 'property-description';
 
 type SavedPrompt = {
   id: string;
@@ -138,6 +138,7 @@ const TABS: { id: SettingsTab; label: string; icon: React.ElementType; descripti
   { id: 'static-ad', label: '靜態網頁廣告生成器 AI 助理', icon: Globe, description: '自動生成不動產靜態網頁廣告' },
   { id: 'contract', label: '合約生成AI助理', icon: FileSignature, description: '自動生成不動產合約文件' },
   { id: 'blog', label: '部落格生成 AI 助理設定', icon: BookOpen, description: '自動生成不動產部落格文章' },
+  { id: 'property-description', label: '物件介紹文案 AI 助理設定', icon: Home, description: '自動生成物件介紹草稿與行銷描述' },
 ];
 
 const ENV_IMPORT_TOOLTIP = `從 .env 或 JSON 導入\n支援兩種格式：\n• .env：KEY=value 或 export KEY=value\n• JSON：{"OPENAI_API_KEY":"sk-..."} 等頂層 key\n變數名大小寫不拘、拼寫需正確；僅下列金鑰會被辨識：${SUPPORTED_AI_ENV_KEY_NAMES.join('、')}`;
@@ -146,6 +147,7 @@ const OCR_HIDDEN_MODULE_KEYS = [
   'web_assistant',
   'contract_assistant',
   'blog_generator',
+  'property_description',
   'ad_generator',
   'software_dev_engineer',
   'ttd_engineer',
@@ -157,6 +159,7 @@ const STATIC_AD_HIDDEN_MODULE_KEYS = [
   'web_assistant',
   'contract_assistant',
   'blog_generator',
+  'property_description',
   'software_dev_engineer',
   'ttd_engineer',
 ];
@@ -166,6 +169,7 @@ const CONTRACT_HIDDEN_MODULE_KEYS = [
   'online_ocr_judge',
   'web_assistant',
   'blog_generator',
+  'property_description',
   'ad_generator',
   'software_dev_engineer',
   'ttd_engineer',
@@ -176,6 +180,18 @@ const BLOG_HIDDEN_MODULE_KEYS = [
   'online_ocr_judge',
   'web_assistant',
   'contract_assistant',
+  'property_description',
+  'ad_generator',
+  'software_dev_engineer',
+  'ttd_engineer',
+];
+
+const PROPERTY_DESCRIPTION_HIDDEN_MODULE_KEYS = [
+  'online_ocr_parse',
+  'online_ocr_judge',
+  'web_assistant',
+  'contract_assistant',
+  'blog_generator',
   'ad_generator',
   'software_dev_engineer',
   'ttd_engineer',
@@ -324,6 +340,8 @@ export default function AIServiceSettingsPage() {
         return 'contract';
       case 'blog':
         return 'blog';
+      case 'property-description':
+        return 'property-description';
       case 'keys':
       default:
         return 'general';
@@ -430,6 +448,8 @@ export default function AIServiceSettingsPage() {
         return 'eval_contract_global_prompt';
       case 'blog':
         return 'eval_blog_global_prompt';
+      case 'property-description':
+        return 'eval_property_description_global_prompt';
       case 'keys':
       default:
         return 'eval_general_global_prompt';
@@ -725,6 +745,37 @@ export default function AIServiceSettingsPage() {
             }}
             savedModules={settings.modules}
             hiddenModuleKeys={BLOG_HIDDEN_MODULE_KEYS}
+            onSaveModule={async (moduleKey, isEnabled, assignedModels, config) => {
+              await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
+            }}
+            summarySelectedCount={selectedModelCount}
+            summaryTotalCount={totalAvailableModels}
+            promptVariableLabel={currentCloudPromptName ? `{${currentCloudPromptName}}` : undefined}
+            globalTestPrompt={globalTestPrompt}
+            onChangeGlobalTestPrompt={setGlobalTestPrompt}
+            uploadedFile={uploadedFile}
+            onChangeUploadedFile={setUploadedFile}
+            headerActionsRef={setModelEvaluatorHeaderActions}
+          />
+        );
+      case 'property-description':
+        return (
+          <ModelEvaluator
+            savedKeys={settings.keys}
+            savedModels={settings.models}
+            savedEvaluations={settings.evaluations}
+            validateAllResultsByKeyId={validateAllResultsByKeyId}
+            currentKeys={memoizedCurrentKeys}
+            onSave={settings.saveEvaluations}
+            onTestModel={settings.testModel}
+            onSaveModels={async (providerId, selections) => {
+              await settings.saveModels(
+                providerId as Parameters<typeof settings.saveModels>[0],
+                selections
+              );
+            }}
+            savedModules={settings.modules}
+            hiddenModuleKeys={PROPERTY_DESCRIPTION_HIDDEN_MODULE_KEYS}
             onSaveModule={async (moduleKey, isEnabled, assignedModels, config) => {
               await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
             }}

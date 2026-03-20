@@ -115,6 +115,7 @@ const EVALUATIONS_HIDDEN_MODULE_KEYS = [
   'web_assistant',
   'contract_assistant',
   'blog_generator',
+  'property_description',
   'ad_generator',
   'software_dev_engineer',
   'ttd_engineer',

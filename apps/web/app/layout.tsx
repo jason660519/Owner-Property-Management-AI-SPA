@@ -38,6 +38,7 @@ export const viewport: Viewport = {
 
 import Providers from './providers';
 import { AuthHashErrorHandler } from '@/components/auth/AuthHashErrorHandler';
+import { PerformanceMonitor } from '@/components/performance/PerformanceMonitor';
 
 export default function RootLayout({
   children,
@@ -56,6 +57,7 @@ export default function RootLayout({
       <body className={`${urbanist.variable} ${inter.variable} font-primary`}>
         <Providers>
           <AuthHashErrorHandler />
+          <PerformanceMonitor />
           {children}
         </Providers>
       </body>

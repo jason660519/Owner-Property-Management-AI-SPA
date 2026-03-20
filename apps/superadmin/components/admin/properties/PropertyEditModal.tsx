@@ -8,6 +8,7 @@ import { updateProperty } from '@/lib/actions/properties';
 import { PropertyMediaSection } from './PropertyMediaSection';
 import { PropertyInvestigationReportSection } from './PropertyInvestigationReportSection';
 import { PropertyBlogGenerator } from './PropertyBlogGenerator';
+import { ContractDraftPreviewSection } from './ContractDraftPreviewSection';
 import {
   PROPERTY_STATUSES,
   PROPERTY_TYPES,
@@ -295,7 +296,7 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
               blog: '部落格',
               transcript: '謄本',
               title: '權狀',
-              contract: '合約',
+              contract: '預覽合約',
               investigation: '調查報告書',
             };
             return (
@@ -331,13 +332,25 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
           )}
 
           {/* ── Photos / Documents (謄本／權狀／合約) tabs ── */}
-          {(activeTab === 'photos' || activeTab === 'transcript' || activeTab === 'title' || activeTab === 'contract') && (
+          {(activeTab === 'photos' || activeTab === 'transcript' || activeTab === 'title') && (
             <PropertyMediaSection
               propertyId={property.id}
               propertyType={property.type}
               ownerId={property.ownerId}
               mode={activeTab}
             />
+          )}
+
+          {activeTab === 'contract' && (
+            <div className="space-y-5">
+              <ContractDraftPreviewSection property={property} />
+              <PropertyMediaSection
+                propertyId={property.id}
+                propertyType={property.type}
+                ownerId={property.ownerId}
+                mode="contract"
+              />
+            </div>
           )}
 
           {/* ── 部落格生成器 ── */}

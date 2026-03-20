@@ -101,17 +101,27 @@ async function generateDescriptionWithAI(data: PropertyDataForBlog): Promise<str
     data.bathrooms && `${data.bathrooms}衛`,
   ].filter(Boolean).join('');
 
-  const prompt = `你是一位專業的台灣房地產文案撰寫師。請根據以下物件資料，撰寫一段吸引人的中文物件介紹文案（約150-250字）。
+  const prompt = `你是一位專業的台灣房地產銷售文案師。請根據以下物件資料，撰寫一篇分段的物件介紹（共 4 段，段落之間空一行）。
 
-物件資料：
+【物件資料】
 - 交易類型：${typeLabel}
 - 物件類型：${data.propertyType || '住宅'}
 - 地點：${locationStr || data.address}
 - 格局：${layoutParts || '未提供'}
 - 面積：${areaDisplay}
-${data.description ? `- 原始描述：${data.description}` : ''}
+${data.description ? `- 補充說明：${data.description}` : ''}
 
-請撰寫能吸引買方/租客興趣的專業介紹文，突出物件優點與地段價值，使用流暢的繁體中文。不要使用誇大不實用語，也不要在文末加上聯絡資訊。只輸出介紹文本身，不要加標題或前言。`;
+【請依照以下四段結構，段落間換行，不要加任何標題或編號】
+
+第一段（30-50 字）：以一句觸動人心的情境描述開場，讓讀者能想像在此居住的美好感受。
+
+第二段（60-80 字）：聚焦本物件 2-3 個具體賣點，例如地段優勢、採光、格局實用性或交通便利，使用真實且具體的描述，不要浮誇。
+
+第三段（40-60 字）：描述此地段的周邊日常生活機能（例如超市、公園、捷運、學校等），讓潛在買家感受到生活的便利性。
+
+第四段（25-40 字）：點出最適合這個物件的買家輪廓，例如首購族、換屋家庭、投資客或退休人士。
+
+【要求】使用流暢繁體中文，語氣真誠專業，嚴禁誇大不實用語（如「夢幻」「一生難得」「最頂級」），不要加聯絡資訊、前言或後記，只輸出四段正文本身。`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {

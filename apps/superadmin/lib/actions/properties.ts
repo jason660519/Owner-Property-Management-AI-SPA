@@ -59,23 +59,41 @@ export async function getAllProperties(): Promise<PropertiesResult> {
   const adminClient = createAdminClient();
 
   try {
-    const { data: salesData, error: salesError } = await fetchAllRows(
-      adminClient, 'property_sales',
-    );
+    // Phase 1: fetch all independent data in parallel
+    const [
+      { data: salesData, error: salesError },
+      { data: rentalsData, error: rentalsError },
+      { data: ownersData },
+      { data: primaryPhotos },
+      { data: allDocs },
+      { data: blogData },
+    ] = await Promise.all([
+      fetchAllRows(adminClient, 'property_sales'),
+      fetchAllRows(adminClient, 'property_rentals'),
+      adminClient
+        .from('property_owners')
+        .select('property_id, owner_name')
+        .order('created_at', { ascending: true }),
+      adminClient
+        .from('property_photos')
+        .select('property_id, storage_path, is_primary'),
+      adminClient
+        .from('property_documents')
+        .select('property_id, document_type'),
+      adminClient
+        .from('blog_posts')
+        .select('property_id')
+        .not('property_id', 'is', null),
+    ]);
 
     if (salesError) {
       console.error('[Properties] Error fetching property_sales:', salesError);
     }
-
-    const { data: rentalsData, error: rentalsError } = await fetchAllRows(
-      adminClient, 'property_rentals',
-    );
-
     if (rentalsError) {
       console.error('[Properties] Error fetching property_rentals:', rentalsError);
     }
 
-    // Collect unique owner IDs (system creator) to resolve display names
+    // Phase 2: resolve creator display names (depends on sales/rentals result)
     const creatorIds = new Set<string>();
     (salesData || []).forEach((s) => typeof s.owner_id === 'string' && creatorIds.add(s.owner_id));
     (rentalsData || []).forEach((r) => typeof r.owner_id === 'string' && creatorIds.add(r.owner_id));
@@ -113,14 +131,8 @@ export async function getAllProperties(): Promise<PropertiesResult> {
       }
     }
 
-    // Fetch real property owners from property_owners table
-    // ownerAggMap: property_id → { firstName, count } for display like "余逸凡等6人"
+    // Build lookup maps from phase 1 results
     const ownerAggMap: Record<string, { firstName: string; count: number }> = {};
-    const { data: ownersData } = await adminClient
-      .from('property_owners')
-      .select('property_id, owner_name')
-      .order('created_at', { ascending: true });
-
     if (ownersData) {
       for (const o of ownersData) {
         const pid = o.property_id as string | null;
@@ -135,13 +147,9 @@ export async function getAllProperties(): Promise<PropertiesResult> {
       }
     }
 
-    // Fetch all primary photos in one query (no .in() to avoid URL length limits with thousands of IDs)
     const primaryPhotoMap: Record<string, string> = {};
     const photoCountMap: Record<string, number> = {};
     const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '');
-    const { data: primaryPhotos } = await adminClient
-      .from('property_photos')
-      .select('property_id, storage_path, is_primary');
     if (primaryPhotos) {
       for (const p of primaryPhotos) {
         if (!p.property_id) continue;
@@ -153,11 +161,7 @@ export async function getAllProperties(): Promise<PropertiesResult> {
       }
     }
 
-    // Fetch document types per property for content status indicators
     const docTypesMap: Record<string, Set<string>> = {};
-    const { data: allDocs } = await adminClient
-      .from('property_documents')
-      .select('property_id, document_type');
     if (allDocs) {
       for (const d of allDocs) {
         if (!d.property_id || !d.document_type) continue;
@@ -166,12 +170,7 @@ export async function getAllProperties(): Promise<PropertiesResult> {
       }
     }
 
-    // Fetch blog presence per property
     const blogPropIds = new Set<string>();
-    const { data: blogData } = await adminClient
-      .from('blog_posts')
-      .select('property_id')
-      .not('property_id', 'is', null);
     if (blogData) {
       for (const b of blogData) {
         if (b.property_id) blogPropIds.add(b.property_id as string);
