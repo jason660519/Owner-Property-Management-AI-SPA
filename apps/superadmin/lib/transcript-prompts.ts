@@ -48,6 +48,7 @@ export const TRANSCRIPT_PARSE_PROMPT = `你是台灣不動產「建物／土地�
   建物面積（合計） / 總面積        → totalArea          ← 單位：平方公尺
   層次 / 本戶樓層                  → floorLevel
   各層面積 / 各層樓面積            → floorArea          ← 單位：平方公尺
+  主建物明細（每一層/每一筆）      → mainBuildings[]    ← 每筆含 totalFloors/totalArea/floorLevel/floorArea
   建築完成日期                     → completionDate
   附屬建物用途                     → annexedBuildings[].use
   附屬建物面積                     → annexedBuildings[].area
@@ -55,6 +56,11 @@ export const TRANSCRIPT_PARSE_PROMPT = `你是台灣不動產「建物／土地�
   共有部分面積                     → commonAreas[].area
   共有部分持分 / 應有部分          → commonAreas[].ratio
   其他登記事項 / 備註              → notes
+
+  解析要求（建物標示部）：
+  - 若主建物有多層/多筆（例如樓中樓），mainBuildings 請逐筆輸出，不可只保留第一筆。
+  - commonAreas 每一筆都要盡量完整抽取「buildingNumber + area + ratio」三欄，避免漏欄導致持分換算錯誤。
+  - totalArea 仍填謄本原文總面積；系統會另外依 mainBuildings/annexedBuildings/commonAreas 進行檢核。
 
 ── 建物所有權部 / 土地所有權部（ownership[]）────────
   登記次序                         → seq               ← 保留前導零，如 "0001"
@@ -148,6 +154,9 @@ export const TRANSCRIPT_PARSE_PROMPT = `你是台灣不動產「建物／土地�
       "totalArea": "",
       "floorLevel": "",
       "floorArea": "",
+      "mainBuildings": [
+        { "totalFloors": "", "totalArea": "", "floorLevel": "", "floorArea": "" }
+      ],
       "completionDate": "",
       "annexedBuildings": [
         { "use": "", "area": "" }
@@ -291,10 +300,13 @@ export const TRANSCRIPT_PARSE_PROMPT = `你是台灣不動產「建物／土地�
 - kind = "building" 時：landTranscript 仍需存在，但可填完整空結構（所有字串為 ""，所有陣列為 []）。
 - kind = "land" 時：buildingTranscript 仍需存在，但可填完整空結構（所有字串為 ""，所有陣列為 []）。
 - ownership / encumbrances / annexedBuildings / commonAreas：若無資料請輸出 []（不要輸出含空物件的陣列）。
+- mainBuildings：若文件只有一筆主建物，也請輸出單一物件陣列；若完全無法辨識才輸出 []。
+- commonAreas：每筆優先同時填入 buildingNumber、area、ratio；若只辨識到部分欄位，未辨識欄位填 ""，但不要整筆省略。
 - 【他項權利部特別說明】台灣許多屋主全款購屋無貸款，謄本中可能完全沒有「他項權利部」章節。當你在文件中找不到任何他項權利部內容時，encumbrances 必須輸出 []（空陣列），絕對不要填入含空字串欄位的物件。
 - 所有 id 欄位：用「可重現的字串」避免亂數，例如：
   - ownership.id = "ownership-" + seq
   - encumbrances.id = "encumbrance-" + seq
+  - mainBuildings 若多筆：用 "main-1", "main-2"...
   - annexedBuildings 若多筆：用 "annex-1", "annex-2"...
   - commonAreas 若多筆：用 "common-1", "common-2"...
 - 日期、面積、金額、字號等：以原始文件記載為準，勿自行換算；格式不明確就保留原文。

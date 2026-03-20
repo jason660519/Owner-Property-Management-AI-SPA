@@ -297,7 +297,7 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
               transcript: '謄本',
               title: '權狀',
               contract: '預覽合約',
-              investigation: '調查報告書',
+              investigation: '物件調查報告書',
             };
             return (
               <button

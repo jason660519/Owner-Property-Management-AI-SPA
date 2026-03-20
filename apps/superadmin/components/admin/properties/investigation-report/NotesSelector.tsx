@@ -4,13 +4,47 @@
 
 import { PREDEFINED_NOTES, STANDARD_CLAUSES } from './constants';
 import type { InvestigationReport } from './types';
+import type { PropertyItem } from '@/lib/types/properties';
+
+// Document attachment checklist item
+interface DocItem {
+  label: string;
+  auto: boolean; // auto-detected from property data
+}
+
+function buildDocChecklist(property?: PropertyItem): DocItem[] {
+  const has = (flag: boolean | undefined) => !!flag;
+  return [
+    // Main content
+    { label: '產權調查篇', auto: false },
+    { label: '物件現況調查篇', auto: false },
+    { label: '位置與格局圖', auto: false },
+    { label: '圖片說明書', auto: false },
+    // Attachments
+    { label: '土地權狀影本', auto: has(property?.hasTitleDoc) },
+    { label: '建物權狀影本', auto: has(property?.hasTitleDoc) },
+    { label: '土地謄本', auto: has(property?.hasTranscript) },
+    { label: '建物謄本', auto: has(property?.hasTranscript) },
+    { label: '都市使用分區證明', auto: false },
+    { label: '建築改良物使用執照', auto: false },
+    // Others
+    { label: '地籍圖', auto: false },
+    { label: '建物平面圖', auto: false },
+    { label: '海砂檢測報告', auto: false },
+    { label: '輻射檢測報告', auto: false },
+    { label: '住戶規約', auto: false },
+    { label: '車位平面圖', auto: false },
+  ];
+}
 
 interface Props {
   report: InvestigationReport;
   onChange: (r: InvestigationReport) => void;
+  property?: PropertyItem;
 }
 
-export function NotesSelector({ report, onChange }: Props) {
+export function NotesSelector({ report, onChange, property }: Props) {
+  const docChecklist = buildDocChecklist(property);
   function toggleNote(id: string) {
     const next = report.selectedNotes.includes(id)
       ? report.selectedNotes.filter((n) => n !== id)
@@ -23,6 +57,30 @@ export function NotesSelector({ report, onChange }: Props) {
 
   return (
     <div className="space-y-5">
+      {/* 附件清單（自動連動已上傳文件） */}
+      <div>
+        <h4 className="text-sm font-bold text-text-primary mb-1">附件清單</h4>
+        <p className="text-[10px] text-text-muted mb-2">
+          已上傳的謄本/權狀會自動標示
+          <span className="text-green-500 ml-1">●</span>；其餘可手動確認。
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+          {docChecklist.map((item) => (
+            <div
+              key={item.label}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs ${
+                item.auto
+                  ? 'border-green-500/30 bg-green-500/5 text-green-600'
+                  : 'border-border-default text-text-secondary'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full shrink-0 ${item.auto ? 'bg-green-500' : 'bg-border-default'}`} />
+              {item.label}
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* 標準條款（一～七） — 固定顯示，不可勾選 */}
       <div>
         <h4 className="text-sm font-bold text-text-primary mb-2">

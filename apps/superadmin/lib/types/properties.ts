@@ -266,6 +266,13 @@ export interface CommonAreaEntry {
   ratio: string;
 }
 
+export interface MainBuildingEntry {
+  totalFloors: string;
+  totalArea: string;
+  floorLevel: string;
+  floorArea: string;
+}
+
 export interface BuildingDescription {
   buildingNumber: string;
   regDate: string;
@@ -278,6 +285,8 @@ export interface BuildingDescription {
   totalArea: string;
   floorLevel: string;
   floorArea: string;
+  /** 可重複的主建物明細（樓中樓可有多筆） */
+  mainBuildings: MainBuildingEntry[];
   completionDate: string;
   annexedBuildings: AnnexedBuilding[];
   commonAreas: CommonAreaEntry[];

@@ -19,6 +19,7 @@ import {
   Plus,
   Save,
   Search,
+  ServerCog,
   Trash2,
   X,
 } from 'lucide-react';
@@ -168,9 +169,23 @@ export interface PromptManagerModalProps {
   onLoad?: (content: string, name: string) => void;
   /** Shown in header when no onLoad (e.g. standalone page without opener) to explain how to get 載入. */
   noOpenerHint?: string;
+  /**
+   * If provided, each row shows a "設為系統 Prompt" button.
+   * The id of the saved_prompt that is currently the active system prompt
+   * (used to render the active badge instead of the button).
+   */
+  activeSystemId?: string | null;
+  /** Called when user clicks "設為系統 Prompt"; parent updates activeSystemId after resolution. */
+  onSetAsSystem?: (savedPromptId: string) => Promise<void>;
 }
 
-export function PromptManagerModal({ onClose, onLoad, noOpenerHint }: PromptManagerModalProps) {
+export function PromptManagerModal({
+  onClose,
+  onLoad,
+  noOpenerHint,
+  activeSystemId,
+  onSetAsSystem,
+}: PromptManagerModalProps) {
   const [mounted, setMounted] = useState(false);
   const [prompts, setPrompts] = useState<SavedPrompt[]>([]);
   const [loading, setLoading] = useState(true);
@@ -181,6 +196,7 @@ export function PromptManagerModal({ onClose, onLoad, noOpenerHint }: PromptMana
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [settingSystemId, setSettingSystemId] = useState<string | null>(null);
 
   const selectedPrompt = prompts.find((p) => p.id === selectedId) ?? null;
   const isEditorOpen = isCreating || selectedId !== null;
@@ -264,6 +280,13 @@ export function PromptManagerModal({ onClose, onLoad, noOpenerHint }: PromptMana
     onLoad?.(p.content, p.name);
     // Defer close so parent state (e.g. setCustomPrompt) can commit before unmount
     requestAnimationFrame(() => onClose());
+  };
+
+  const handleSetAsSystem = async (p: SavedPrompt) => {
+    if (!onSetAsSystem) return;
+    setSettingSystemId(p.id);
+    await onSetAsSystem(p.id);
+    setSettingSystemId(null);
   };
 
   if (!mounted) return null;
@@ -446,6 +469,36 @@ export function PromptManagerModal({ onClose, onLoad, noOpenerHint }: PromptMana
                               >
                                 載入
                               </button>
+                            )}
+
+                            {/* Set as system prompt */}
+                            {onSetAsSystem && (
+                              activeSystemId === p.id ? (
+                                <span
+                                  title="此 Prompt 目前為系統 Prompt"
+                                  className="flex items-center gap-0.5 px-2 py-1 text-[11px] rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
+                                >
+                                  <ServerCog size={10} />
+                                  系統
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleSetAsSystem(p);
+                                  }}
+                                  disabled={settingSystemId === p.id}
+                                  title="設為解析系統 Prompt（持久生效）"
+                                  className="flex items-center gap-0.5 px-2 py-1 text-[11px] rounded text-text-secondary hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors disabled:opacity-50"
+                                >
+                                  {settingSystemId === p.id ? (
+                                    <Loader2 size={10} className="animate-spin" />
+                                  ) : (
+                                    <ServerCog size={10} />
+                                  )}
+                                  設為系統
+                                </button>
+                              )
                             )}
 
                             {/* Copy */}

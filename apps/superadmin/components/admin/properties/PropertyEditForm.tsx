@@ -163,7 +163,7 @@ const TAB_LABELS: Record<TabId, string> = {
   photos: '物件照片',
   blog: '部落格',
   contract: '預覽合約',
-  investigation: '調查報告書',
+  investigation: '物件調查報告書',
 };
 
 const ALL_TABS: TabId[] = ['edit', 'transcript', 'title', 'photos', 'blog', 'contract', 'investigation'];

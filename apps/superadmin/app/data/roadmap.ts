@@ -280,18 +280,6 @@ const RAW_FEATURES: RoadmapFeature[] = [
             workCategory: "部署優化",
             featureDescription: "移除破壞 Next.js App Router 的 SPA 重寫規則配置，確保 SSR、API Routes 和 Server Actions 正常運作",
             acceptanceCriteria: "1. vercel.json 文件已刪除。\n2. Next.js SSR 功能正常。\n3. API Routes 可正常訪問。\n4. Server Actions 正常執行。\n5. Vercel 自動檢測 Next.js 項目配置。",
-            {
-                name: "超級管理員-合約付款節點欄位編輯穩定性修復",
-                locatedPage: "superadmin/properties/[id]/edit?tab=contract",
-                category: "超級管理員 (Super Admin)",
-                percentage: 100,
-                workCategory: "表單互動修復",
-                acceptanceCriteria: "1. 買賣契約付款節點名稱欄位可連續輸入文字，不會失去焦點。\n2. 同列付款節點金額與日期欄位在編輯後不會因為 React remount 被重設。\n3. 修復需有自動化回歸測試覆蓋。",
-                developmentProgress: "修正 ContractDraftPreviewSection 付款節點列表使用可編輯 label 當 React key 的問題，改為穩定 key 以避免輸入時整列 remount；新增 Jest 回歸測試，驗證付款節點名稱編輯時欄位仍保持 focus 與更新值。",
-                points: 1,
-                lastModifiedBy: "GPT-5.4",
-                lastModifiedDate: "2026/03/20"
-            },
             developmentProgress: "100%",
             tddSpecDocPath: "/project-process/features/tdd-project-management-20260221.md",
             category: "專案管理與工具 (Project Management)",
@@ -537,9 +525,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
             percentage: 100,
             phase: "development",
             lastModifiedBy: "Claude Sonnet 4.6",
-            lastModifiedDate: "2026/03/08",
-            devLog: "### 完成項目\n- 將原本分散在 evaluations-global-test 頁面的「儲存 Prompt」與「載入 Prompt」整合為獨立的 Prompt 管理頁面\n- Server Action：promptActions.ts 新增 updatePrompt（依 id 更新 name/content/updated_at）\n- 新頁面：settings/prompt-management/page.tsx — 左右分割面板佈局：左欄 = 可搜尋的 Prompt 列表（全域計數、hover 顯示複製/刪除操作、二次確認刪除）；右欄 = EditorPanel（新增/編輯，含字元計數、dirty-state 檢查、儲存回覆後自動更新列表）\n- Sidebar nav-items.ts 新增「Prompt 管理」（BookMarked 圖示）導覽項目\n- settings/page.tsx 新增 Prompt 管理入口卡片",
-            developmentProgress: "獨立頁面完整實作：新增、編輯、刪除、搜尋、複製內容均已完成，與 saved_prompts 表雲端連接。"
+            lastModifiedDate: "2026/03/21",
+            devLog: "### 完成項目\n- 將原本分散在 evaluations-global-test 頁面的「儲存 Prompt」與「載入 Prompt」整合為獨立的 Prompt 管理頁面\n- Server Action：promptActions.ts 新增 updatePrompt（依 id 更新 name/content/updated_at）\n- 新頁面：settings/prompt-management/page.tsx — 左右分割面板佈局：左欄 = 可搜尋的 Prompt 列表（全域計數、hover 顯示複製/刪除操作、二次確認刪除）；右欄 = EditorPanel（新增/編輯，含字元計數、dirty-state 檢查、儲存回覆後自動更新列表）\n- Sidebar nav-items.ts 新增「Prompt 管理」（BookMarked 圖示）導覽項目\n- settings/page.tsx 新增 Prompt 管理入口卡片\n\n### 2026-03-21 更新（SSOT 橋接）\n- Migration 20260321130000：ai_system_prompts 新增 source_saved_prompt_id（FK → saved_prompts，ON DELETE SET NULL），記錄系統 Prompt 來源。\n- promptActions.ts 新增 setAsSystemPrompt(savedPromptId, moduleKey)：將 saved_prompts 一筆提升為 ai_system_prompts（deactivate 舊版，insert 新版，記錄 source_saved_prompt_id）。\n- promptActions.ts 新增 getActiveSystemPromptSourceId(moduleKey)：查詢當前啟用系統 Prompt 的 source_saved_prompt_id，供 UI 顯示 active badge。\n- PromptManagerModal.tsx 新增 activeSystemId / onSetAsSystem props：每列顯示「設為系統」按鈕；已啟用者改顯示「✓ 系統」badge。\n- prompt-management/page.tsx：頁面載入時查詢 activeSystemId，「設為系統」成功後即時更新 badge，實現 saved_prompts → ai_system_prompts 單向 SSOT 橋接。",
+            developmentProgress: "獨立頁面完整實作：CRUD、搜尋、複製、載入均已完成；新增「設為系統 Prompt」功能，saved_prompts 可一鍵提升為解析系統 Prompt（online_ocr_parse）。"
         },
         {
             name: "FinePrint .fp 謄本轉檔工具",
@@ -572,10 +560,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
             category: "超級管理員 (Super Admin)",
             percentage: 100,
             workCategory: "合約草稿同步",
-            acceptanceCriteria: "1. 合約 Tab 欄位自動同步到目前登入帳號的雲端草稿。
-2. 同帳號重新登入或換裝置後可還原已輸入欄位。
-3. 既有瀏覽器本地草稿可自動升級同步到雲端。
-4. 提供清除草稿操作，會同步清掉本地快取與雲端草稿。",
+            acceptanceCriteria: "1. 合約 Tab 欄位自動同步到目前登入帳號的雲端草稿。\n2. 同帳號重新登入或換裝置後可還原已輸入欄位。\n3. 既有瀏覽器本地草稿可自動升級同步到雲端。\n4. 提供清除草稿操作，會同步清掉本地快取與雲端草稿。",
             developmentProgress: "superadmin 契約草稿表單改為本地快取 + Supabase form_drafts 帳號層級雲端同步；掛上 debounce 自動儲存、雲端回填、舊本地草稿遷移與同步清除流程，並完成聚焦 Jest 驗證。",
             points: 2,
             lastModifiedBy: "GPT-5.4",
@@ -587,10 +572,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
             category: "超級管理員 (Super Admin)",
             percentage: 100,
             workCategory: "表單互動修復",
-            acceptanceCriteria: "1. 買賣契約付款節點名稱欄位可連續輸入文字，不會失去焦點。
-2. 同列付款節點金額與日期欄位在編輯後不會因為 React remount 被重設。
-3. 合約 Tab 的數字欄位清空後可保持空白並重新輸入，不會立即被 0 或 1 覆蓋。
-4. 修復需有自動化回歸測試覆蓋。",
+            acceptanceCriteria: "1. 買賣契約付款節點名稱欄位可連續輸入文字，不會失去焦點。\n2. 同列付款節點金額與日期欄位在編輯後不會因為 React remount 被重設。\n3. 合約 Tab 的數字欄位清空後可保持空白並重新輸入，不會立即被 0 或 1 覆蓋。\n4. 修復需有自動化回歸測試覆蓋。",
             developmentProgress: "修正 ContractDraftPreviewSection 付款節點列表使用可編輯 label 當 React key 的問題，改為穩定 key 以避免輸入時整列 remount；另外將合約 Tab 多個數字欄位改為可保留編輯中暫時文字的 NumericInput，避免清空重打時被 0/1 立即覆蓋。2026/03/20 補強 NumericInput 為未聚焦時同步外部值、失焦正規化提交，修復手動輸入/編輯數字時卡住或被覆蓋的問題。新增 Jest 回歸測試，覆蓋付款節點 focus 穩定性、數字欄位清空重打與文字欄位覆寫情境。",
             points: 1,
             lastModifiedBy: "GPT-5.3-Codex",
@@ -608,10 +590,21 @@ const RAW_FEATURES: RoadmapFeature[] = [
             points: 2,
             lastModifiedBy: "Claude Sonnet 4.6",
             lastModifiedDate: "2026/03/20"
+        },
+        {
+            name: "物件調查報告書全面升級（Phase 1-3）",
+            locatedPage: "superadmin/properties/[id]/edit?tab=investigation",
+            category: "超級管理員 (Super Admin)",
+            percentage: 90,
+            workCategory: "功能強化",
+            featureDescription: "對標住商不動產 Excel 物件調查報告書，全面升級 web 版本。Phase1：資料改存 Supabase DB（property_investigation_reports 表）+ 謄本自動填入（建號/建材/完工日/面積/土地/他項限制）+ 列印版面還原成 Excel 兩欄表格。Phase2：完整度指示器（X/N 欄位）+ 附件清單連動已上傳謄本/權狀 + 匯出改版（JSON 下載 + 列印 PDF）+ 版本歷史面板。Phase3：格局圖從已上傳照片選取嵌入報告 + 位置圖顯示地址/座標。新增 migration: 20260321120000_add_property_investigation_reports.sql。",
+            points: 8,
+            lastModifiedBy: "Claude Sonnet 4.6",
+            lastModifiedDate: "2026/03/21"
         }
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-    lastUpdated: "2026/03/20",
+    lastUpdated: "2026/03/21",
     features: RAW_FEATURES.map(f => ({ ...f, phase: inferPhase(f) })),
 };

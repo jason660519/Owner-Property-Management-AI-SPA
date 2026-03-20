@@ -8,6 +8,7 @@ import { savePropertyTranscriptData } from '@/lib/actions/properties';
 import type {
   BuildingTranscriptData,
   BuildingDescription,
+  MainBuildingEntry,
   TranscriptHeader,
   OwnershipRecord,
   EncumbranceRecord,
@@ -17,13 +18,19 @@ const iCls =
   'w-full border border-border-default rounded-md px-2 py-1.5 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent';
 const lCls = 'block text-xs text-text-muted mb-0.5';
 
-function FI({ label, value, onChange, placeholder }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder?: string;
+function FI({ label, value, onChange, placeholder, readOnly = false }: {
+  label: string; value: string; onChange: (v: string) => void; placeholder?: string; readOnly?: boolean;
 }) {
   return (
     <div>
       <p className={lCls}>{label}</p>
-      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder ?? label} className={iCls} />
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder ?? label}
+        readOnly={readOnly}
+        className={`${iCls} ${readOnly ? 'bg-bg-tertiary text-text-secondary cursor-not-allowed' : ''}`}
+      />
     </div>
   );
 }
@@ -43,6 +50,42 @@ function newId() {
   return typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36);
 }
 
+function parseAreaNumber(value: string): number {
+  const normalized = value.replace(/,/g, '').trim();
+  if (!normalized) return 0;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatAreaNumber(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return '';
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, '');
+}
+
+function parseShareRatio(ratio: string): number {
+  const value = ratio.trim().replace(/\s+/g, '');
+  if (!value) return 0;
+  const plainFraction = value.match(/^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/);
+  if (plainFraction) {
+    const numerator = Number(plainFraction[1]);
+    const denominator = Number(plainFraction[2]);
+    if (denominator > 0) return numerator / denominator;
+  }
+  const twFractionMatches = [...value.matchAll(/(\d+(?:\.\d+)?)分之(\d+(?:\.\d+)?)/g)];
+  if (twFractionMatches.length > 0) {
+    const last = twFractionMatches[twFractionMatches.length - 1];
+    const denominator = Number(last[1]);
+    const numerator = Number(last[2]);
+    if (denominator > 0) return numerator / denominator;
+  }
+  if (value.includes('全部')) return 1;
+  return 0;
+}
+
+function getSharedCommonArea(area: string, ratio: string): number {
+  return parseAreaNumber(area) * parseShareRatio(ratio);
+}
+
 function emptyHeader(): TranscriptHeader {
   return {
     transcriptType: '', documentTitle: '', printTime: '', pageInfo: '',
@@ -56,7 +99,17 @@ function emptyDescription(): BuildingDescription {
     buildingNumber: '', regDate: '', regReason: '', doorAddress: '',
     landParcelNumber: '', mainUse: '', mainMaterial: '', totalFloors: '',
     totalArea: '', floorLevel: '', floorArea: '', completionDate: '',
+    mainBuildings: [emptyMainBuilding()],
     annexedBuildings: [], commonAreas: [], notes: '',
+  };
+}
+
+function emptyMainBuilding(): MainBuildingEntry {
+  return {
+    totalFloors: '',
+    totalArea: '',
+    floorLevel: '',
+    floorArea: '',
   };
 }
 
@@ -109,7 +162,7 @@ export function BuildingTranscriptForm({
   const [transcribeDiffs, setTranscribeDiffs] = useState<FieldDiff[]>([]);
   const [transcribeNoChange, setTranscribeNoChange] = useState(false);
   const [header, setHeader] = useState<TranscriptHeader>(initialData?.header ?? emptyHeader());
-  const [desc, setDesc] = useState<BuildingDescription>(initialData?.description ?? emptyDescription());
+  const [desc, setDesc] = useState<BuildingDescription>(() => normalizeDescription(initialData?.description));
   const [ownership, setOwnership] = useState<OwnershipRecord[]>(initialData?.ownership ?? []);
   const [encumbrances, setEncumbrances] = useState<EncumbranceRecord[]>(initialData?.encumbrances ?? []);
   // True when the last transcript fill returned empty encumbrances — shows "（空白）" notice
@@ -119,6 +172,41 @@ export function BuildingTranscriptForm({
   const currentStateRef = useRef({ header, desc, ownership, encumbrances });
   currentStateRef.current = { header, desc, ownership, encumbrances };
   const diffPanelRef = useRef<HTMLDivElement>(null);
+  const computedTotalArea = useMemo(() => {
+    const mainArea = desc.mainBuildings.reduce((sum, entry) => sum + parseAreaNumber(entry.floorArea), 0);
+    const annexedArea = desc.annexedBuildings.reduce((sum, entry) => sum + parseAreaNumber(entry.area), 0);
+    const commonArea = desc.commonAreas.reduce((sum, entry) => sum + getSharedCommonArea(entry.area, entry.ratio), 0);
+    return formatAreaNumber(mainArea + annexedArea + commonArea);
+  }, [desc.mainBuildings, desc.annexedBuildings, desc.commonAreas]);
+
+  useEffect(() => {
+    if (desc.totalArea === computedTotalArea) return;
+    setDesc((d) => ({ ...d, totalArea: computedTotalArea }));
+  }, [computedTotalArea, desc.totalArea]);
+
+  function normalizeDescription(source?: BuildingDescription | null): BuildingDescription {
+    const base = emptyDescription();
+    if (!source) return base;
+    const fallbackMainBuilding: MainBuildingEntry = {
+      totalFloors: source.totalFloors ?? '',
+      totalArea: source.totalArea ?? '',
+      floorLevel: source.floorLevel ?? '',
+      floorArea: source.floorArea ?? '',
+    };
+
+    return {
+      ...base,
+      ...source,
+      mainBuildings: Array.isArray(source.mainBuildings) && source.mainBuildings.length > 0
+        ? source.mainBuildings.map((entry) => ({
+            totalFloors: entry.totalFloors ?? '',
+            totalArea: entry.totalArea ?? '',
+            floorLevel: entry.floorLevel ?? '',
+            floorArea: entry.floorArea ?? '',
+          }))
+        : [fallbackMainBuilding],
+    };
+  }
 
   useEffect(() => {
     if (!fillFromParsedTranscript) return;
@@ -131,8 +219,7 @@ export function BuildingTranscriptForm({
       // This prevents fields from a previous transcript leaking into the new one.
       const newHeader = { ...emptyHeader(), ...(fillFromParsedTranscript.header ?? {}) };
       const incomingDesc = {
-        ...emptyDescription(),
-        ...(fillFromParsedTranscript.description ?? {}),
+        ...normalizeDescription(fillFromParsedTranscript.description),
         annexedBuildings: Array.isArray(fillFromParsedTranscript.description?.annexedBuildings)
           ? fillFromParsedTranscript.description!.annexedBuildings
           : [],
@@ -193,6 +280,9 @@ export function BuildingTranscriptForm({
       }
       if (incomingDesc.commonAreas.length !== before.desc.commonAreas.length) {
         diffs.push({ label: '共有部分數量', from: `${before.desc.commonAreas.length}`, to: `${incomingDesc.commonAreas.length}` });
+      }
+      if (incomingDesc.mainBuildings.length !== before.desc.mainBuildings.length) {
+        diffs.push({ label: '主建物數量', from: `${before.desc.mainBuildings.length}`, to: `${incomingDesc.mainBuildings.length}` });
       }
       const newOwnershipCount = fillFromParsedTranscript.ownership?.length ?? 0;
       if (newOwnershipCount !== before.ownership.length) {
@@ -340,11 +430,75 @@ export function BuildingTranscriptForm({
             <FI label="主要用途" value={desc.mainUse} onChange={(v) => ud('mainUse', v)} placeholder="住家用" />
             <FI label="主要建材" value={desc.mainMaterial} onChange={(v) => ud('mainMaterial', v)} placeholder="鋼筋混凝土造" />
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <FI label="層數" value={desc.totalFloors} onChange={(v) => ud('totalFloors', v)} placeholder="007" />
-            <FI label="總面積 (m²)" value={desc.totalArea} onChange={(v) => ud('totalArea', v)} placeholder="108.31" />
-            <FI label="層次" value={desc.floorLevel} onChange={(v) => ud('floorLevel', v)} placeholder="一層" />
-            <FI label="層次面積 (m²)" value={desc.floorArea} onChange={(v) => ud('floorArea', v)} placeholder="108.31" />
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-text-secondary">主建物</p>
+              <button
+                type="button"
+                onClick={() => ud('mainBuildings', [...desc.mainBuildings, emptyMainBuilding()])}
+                className="flex items-center gap-1 text-xs text-accent hover:text-accent-hover"
+              >
+                <Plus size={12} /> 新增
+              </button>
+            </div>
+            {desc.mainBuildings.map((mainBuilding, i) => (
+              <div key={i} className="flex gap-2 items-start mb-2">
+                <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <FI
+                    label="層數"
+                    value={mainBuilding.totalFloors}
+                    onChange={(v) => {
+                      const next = [...desc.mainBuildings];
+                      next[i] = { ...mainBuilding, totalFloors: v };
+                      ud('mainBuildings', next);
+                      if (i === 0) ud('totalFloors', v);
+                    }}
+                    placeholder="007"
+                  />
+                  <FI
+                    label="層次"
+                    value={mainBuilding.floorLevel}
+                    onChange={(v) => {
+                      const next = [...desc.mainBuildings];
+                      next[i] = { ...mainBuilding, floorLevel: v };
+                      ud('mainBuildings', next);
+                      if (i === 0) ud('floorLevel', v);
+                    }}
+                    placeholder="一層"
+                  />
+                  <FI
+                    label="層次面積 (m²)"
+                    value={mainBuilding.floorArea}
+                    onChange={(v) => {
+                      const next = [...desc.mainBuildings];
+                      next[i] = { ...mainBuilding, floorArea: v };
+                      ud('mainBuildings', next);
+                      if (i === 0) ud('floorArea', v);
+                    }}
+                    placeholder="108.31"
+                  />
+                </div>
+                {desc.mainBuildings.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = desc.mainBuildings.filter((_, idx) => idx !== i);
+                      ud('mainBuildings', next);
+                      if (i === 0) {
+                        const head = next[0] ?? emptyMainBuilding();
+                        ud('totalFloors', head.totalFloors);
+                        ud('totalArea', head.totalArea);
+                        ud('floorLevel', head.floorLevel);
+                        ud('floorArea', head.floorArea);
+                      }
+                    }}
+                    className="mt-5 p-1 text-text-muted hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
           <FI label="建築完成日期" value={desc.completionDate} onChange={(v) => ud('completionDate', v)} placeholder="民國XXX年XX月XX日" />
 
@@ -409,9 +563,9 @@ export function BuildingTranscriptForm({
             </div>
             {desc.commonAreas.map((ca, i) => (
               <div key={i} className="flex gap-2 items-start mb-2">
-                <div className="flex-1 grid grid-cols-3 gap-2">
+                <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <FI
-                    label="建號"
+                    label="共有部分建號"
                     value={ca.buildingNumber}
                     onChange={(v) => {
                       const u = [...desc.commonAreas];
@@ -420,7 +574,7 @@ export function BuildingTranscriptForm({
                     }}
                   />
                   <FI
-                    label="面積 (m²)"
+                    label="共有部分面積 (m²)"
                     value={ca.area}
                     onChange={(v) => {
                       const u = [...desc.commonAreas];
@@ -430,7 +584,7 @@ export function BuildingTranscriptForm({
                     placeholder="894.84"
                   />
                   <FI
-                    label="權利範圍"
+                    label="共有部分權利範圍"
                     value={ca.ratio}
                     onChange={(v) => {
                       const u = [...desc.commonAreas];
@@ -438,6 +592,13 @@ export function BuildingTranscriptForm({
                       ud('commonAreas', u);
                     }}
                     placeholder="89484分之1339"
+                  />
+                  <FI
+                    label="持分後面積 (m²)"
+                    value={formatAreaNumber(getSharedCommonArea(ca.area, ca.ratio))}
+                    onChange={() => {}}
+                    placeholder="自動換算"
+                    readOnly
                   />
                 </div>
                 <button
@@ -449,6 +610,12 @@ export function BuildingTranscriptForm({
                 </button>
               </div>
             ))}
+          </div>
+          <div className="space-y-1">
+            <FI label="總面積 (m²)" value={desc.totalArea} onChange={() => {}} placeholder="自動加總" readOnly />
+            <p className="text-xs text-text-muted">
+              自動計算：主建物層次面積總和 + 附屬建物面積總和 + 共有部分持分後面積總和
+            </p>
           </div>
           <FTA label="其他登記事項" value={desc.notes} onChange={(v) => ud('notes', v)} rows={3} />
         </section>

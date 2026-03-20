@@ -111,6 +111,9 @@ export interface InvestigationReport {
   // ── 注意事項 ──
   selectedNotes: string[];
   customNote: string;
+
+  // ── Phase 3: 格局圖 + 位置圖 ──
+  floorPlanPhotoUrl?: string;
 }
 
 // ── Helpers ──

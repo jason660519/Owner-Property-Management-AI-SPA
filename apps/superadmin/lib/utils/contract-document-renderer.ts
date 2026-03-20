@@ -16,30 +16,45 @@ interface OfficialTemplateRenderResult {
 }
 
 const PRINT_CSS = `
-@page { size: A4; margin: 16mm; }
+@page { size: A4; margin: 20mm 25mm; }
 body {
   font-family: "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
   color: #111827;
-  line-height: 1.7;
-  font-size: 12px;
+  line-height: 1.8;
+  font-size: 11pt;
 }
 h1 {
   text-align: center;
-  font-size: 24px;
+  font-size: 20pt;
+  font-weight: bold;
+  letter-spacing: 4px;
   margin: 0 0 8px;
 }
 h2 {
-  font-size: 16px;
-  margin: 24px 0 8px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid #d1d5db;
+  font-size: 12pt;
+  font-weight: bold;
+  margin: 24px 0 6px;
 }
 h3 {
-  font-size: 14px;
-  margin: 18px 0 8px;
+  font-size: 11pt;
+  font-weight: bold;
+  margin: 16px 0 6px;
 }
-p { margin: 0 0 8px; }
-.muted { color: #6b7280; }
+p { margin: 0 0 6px; }
+ol { margin: 4px 0 8px; padding-left: 24px; }
+ol li { margin-bottom: 4px; }
+.header-info {
+  text-align: center;
+  font-size: 9pt;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+.muted { color: #6b7280; font-size: 9pt; }
+.review-section {
+  border: 1px solid #374151;
+  padding: 10px 14px;
+  margin: 16px 0;
+}
 .summary {
   width: 100%;
   border-collapse: collapse;
@@ -51,14 +66,14 @@ p { margin: 0 0 8px; }
 .schedule td,
 .attachments th,
 .attachments td {
-  border: 1px solid #d1d5db;
-  padding: 8px 10px;
+  border: 1px solid #374151;
+  padding: 6px 10px;
   vertical-align: top;
 }
 .summary th,
 .schedule th,
 .attachments th {
-  width: 180px;
+  width: 160px;
   background: #f3f4f6;
   text-align: left;
   font-weight: 600;
@@ -67,32 +82,45 @@ p { margin: 0 0 8px; }
 .attachments {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 12px;
+  margin-top: 10px;
 }
 .section-card {
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 12px;
-  margin-top: 10px;
+  border: 1px solid #d1d5db;
+  padding: 10px 12px;
+  margin-top: 8px;
   background: #fafafa;
 }
+.signature-section {
+  margin-top: 32px;
+}
+.signature-block {
+  border: 1px solid #374151;
+  min-height: 100px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+.signature-block p { margin: 4px 0; }
+.signature-date {
+  text-align: center;
+  margin-top: 32px;
+  letter-spacing: 2px;
+}
+/* Backward compat for lease template */
 .signature-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
-  margin-top: 32px;
+  gap: 16px;
+  margin-top: 24px;
 }
 .signature-box {
-  border: 1px solid #d1d5db;
-  border-radius: 12px;
-  min-height: 120px;
-  padding: 16px;
+  border: 1px solid #374151;
+  min-height: 100px;
+  padding: 12px 16px;
 }
 .risk {
   margin-top: 16px;
   border: 1px solid #f59e0b;
   background: #fff7ed;
-  border-radius: 10px;
   padding: 12px;
 }
 `;

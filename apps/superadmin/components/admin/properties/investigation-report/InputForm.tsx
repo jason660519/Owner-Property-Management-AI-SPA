@@ -61,9 +61,10 @@ function Section({
 interface Props {
   report: InvestigationReport;
   onChange: (r: InvestigationReport) => void;
+  photos?: import('@/lib/types/properties').PropertyPhotoItem[];
 }
 
-export function InputForm({ report, onChange }: Props) {
+export function InputForm({ report, onChange, photos = [] }: Props) {
   function set<K extends keyof InvestigationReport>(key: K, value: InvestigationReport[K]) {
     onChange({ ...report, [key]: value });
   }
@@ -424,7 +425,52 @@ export function InputForm({ report, onChange }: Props) {
         ))}
       </Section>
 
-      {/* ── 8. 交易條件 ── */}
+      {/* ── 8. 格局圖（從已上傳照片選取） ── */}
+      {photos.length > 0 && (
+        <Section title="八、格局圖（選擇一張作為報告附圖）">
+          <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+            {/* Clear option */}
+            <button
+              type="button"
+              onClick={() => set('floorPlanPhotoUrl', undefined)}
+              className={`aspect-square rounded-md border-2 flex items-center justify-center text-xs transition-colors ${
+                !report.floorPlanPhotoUrl
+                  ? 'border-accent bg-accent/5 text-accent'
+                  : 'border-border-default text-text-muted hover:border-text-muted'
+              }`}
+            >
+              不附
+            </button>
+            {photos.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => set('floorPlanPhotoUrl', p.url)}
+                className={`aspect-square rounded-md border-2 overflow-hidden transition-colors ${
+                  report.floorPlanPhotoUrl === p.url
+                    ? 'border-accent ring-1 ring-accent'
+                    : 'border-border-default hover:border-text-muted'
+                }`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.url} alt="" className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+          {report.floorPlanPhotoUrl && (
+            <div className="mt-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={report.floorPlanPhotoUrl}
+                alt="格局圖"
+                className="max-h-48 rounded-md border border-border-default object-contain"
+              />
+            </div>
+          )}
+        </Section>
+      )}
+
+      {/* ── 9. 交易條件 ── */}
       <Section title="八、交易條件">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Field label="簽約款比例">

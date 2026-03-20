@@ -79,6 +79,7 @@ function emptyDescription(): BuildingDescription {
     totalArea: '',
     floorLevel: '',
     floorArea: '',
+    mainBuildings: [],
     completionDate: '',
     annexedBuildings: [],
     commonAreas: [],
@@ -138,6 +139,12 @@ function buildFromKeyValue(parsed: Record<string, unknown>): BuildingTranscriptD
     totalArea: str(mark['總面積']),
     floorLevel: str(mark['層次']),
     floorArea: str(mark['層次面積']),
+    mainBuildings: [{
+      totalFloors: str(mark['層數']),
+      totalArea: str(mark['總面積']),
+      floorLevel: str(mark['層次']),
+      floorArea: str(mark['層次面積']),
+    }],
     completionDate: str(mark['建築完成日期']),
     annexedBuildings,
     commonAreas,
@@ -452,6 +459,19 @@ function buildFromLocalPython(parsed: Record<string, unknown>): BuildingTranscri
     totalArea: str(desc['total_area']),
     floorLevel: str(firstFloor['層次']),
     floorArea: str(firstFloor['面積']),
+    mainBuildings: floorLevels.length > 0
+      ? floorLevels.map((floor) => ({
+          totalFloors: str(desc['floors']),
+          totalArea: str(desc['total_area']),
+          floorLevel: str(floor['層次']),
+          floorArea: str(floor['面積']),
+        }))
+      : [{
+          totalFloors: str(desc['floors']),
+          totalArea: str(desc['total_area']),
+          floorLevel: str(firstFloor['層次']),
+          floorArea: str(firstFloor['面積']),
+        }],
     completionDate: str(desc['completion_date']),
     annexedBuildings,
     commonAreas,
@@ -539,6 +559,12 @@ function buildFromSections(parsed: Record<string, unknown>, kind: 'building' | '
       totalArea: str(areaSummary['total']),
       floorLevel: '',
       floorArea: str(areaSummary['main_building']),
+      mainBuildings: [{
+        totalFloors: str((profile['floors'] as Record<string, unknown> | undefined)?.[ 'above_ground']),
+        totalArea: str(areaSummary['total']),
+        floorLevel: '',
+        floorArea: str(areaSummary['main_building']),
+      }],
       completionDate: str(profile['completion_date']),
       annexedBuildings: [],
       commonAreas: [],
