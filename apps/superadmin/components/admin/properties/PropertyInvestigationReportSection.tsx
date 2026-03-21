@@ -467,14 +467,99 @@ export function PropertyInvestigationReportSection({ propertyId, property }: Pro
     { key: 'preview', label: '預覽列印' },
   ];
 
+  const actionButtons = (
+    <>
+      {/* Primary: Save */}
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={isSaving}
+        className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-xs rounded-md hover:bg-accent-hover transition-colors disabled:opacity-50"
+      >
+        {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+        {isSaving ? '儲存中…' : '儲存到雲端'}
+      </button>
+
+      {(property?.buildingTranscript || property?.landTranscript) && (
+        <button
+          type="button"
+          onClick={handleReApplyTranscript}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 text-text-secondary hover:bg-bg-tertiary text-xs rounded-md transition-colors border border-border-default"
+        >
+          <Wand2 size={12} />
+          從謄本重新填入
+        </button>
+      )}
+
+      <button
+        type="button"
+        onClick={handleExportJson}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 text-text-secondary hover:bg-bg-tertiary text-xs rounded-md transition-colors"
+      >
+        <Download size={12} />
+        下載 JSON
+      </button>
+
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 text-text-secondary hover:bg-bg-tertiary text-xs rounded-md transition-colors"
+      >
+        <FileSearch size={12} />
+        載入 JSON
+      </button>
+
+      <button
+        type="button"
+        onClick={handleToggleHistory}
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md transition-colors ${
+          showHistory
+            ? 'bg-bg-tertiary text-text-primary'
+            : 'text-text-secondary hover:bg-bg-tertiary'
+        }`}
+      >
+        <History size={12} />
+        版本歷史
+        <ChevronDown
+          size={11}
+          className={`transition-transform ${showHistory ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      <button
+        type="button"
+        onClick={handleReset}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 text-red-500/70 hover:text-red-500 hover:bg-red-500/5 text-xs rounded-md transition-colors"
+      >
+        <RotateCcw size={12} />
+        清除重填
+      </button>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json,application/json"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleImportFromLocal(file);
+          if (e.target) e.target.value = '';
+        }}
+      />
+    </>
+  );
+
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <FileSearch size={18} className="text-accent" />
           <h4 className="text-sm font-bold text-text-primary">物件調查報告書</h4>
           <span className="text-xs text-text-muted">（不動產說明書）</span>
+          <div className="flex flex-wrap items-center gap-1.5 ml-2">
+            {actionButtons}
+          </div>
         </div>
         {/* Completeness badge */}
         <div className={`flex items-center gap-1.5 text-xs font-medium ${completionColor}`}>
@@ -524,92 +609,6 @@ export function PropertyInvestigationReportSection({ propertyId, property }: Pro
       {subTab === 'preview' && (
         <ReportPreview report={report} property={property} />
       )}
-
-      {/* Actions bar */}
-      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border-default">
-        {/* Primary: Save */}
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={isSaving}
-          className="flex items-center gap-1.5 px-4 py-2 bg-accent text-white text-sm rounded-md hover:bg-accent-hover transition-colors disabled:opacity-50"
-        >
-          {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-          {isSaving ? '儲存中…' : '儲存到雲端'}
-        </button>
-
-        {/* Transcript auto-fill */}
-        {(property?.buildingTranscript || property?.landTranscript) && (
-          <button
-            type="button"
-            onClick={handleReApplyTranscript}
-            className="flex items-center gap-1.5 px-3 py-2 text-text-secondary hover:bg-bg-tertiary text-xs rounded-md transition-colors border border-border-default"
-          >
-            <Wand2 size={13} />
-            從謄本重新填入
-          </button>
-        )}
-
-        {/* Download JSON */}
-        <button
-          type="button"
-          onClick={handleExportJson}
-          className="flex items-center gap-1.5 px-3 py-2 text-text-secondary hover:bg-bg-tertiary text-xs rounded-md transition-colors"
-        >
-          <Download size={13} />
-          下載 JSON
-        </button>
-
-        {/* Import */}
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-1.5 px-3 py-2 text-text-secondary hover:bg-bg-tertiary text-xs rounded-md transition-colors"
-        >
-          <FileSearch size={13} />
-          載入 JSON
-        </button>
-
-        {/* Version history */}
-        <button
-          type="button"
-          onClick={handleToggleHistory}
-          className={`flex items-center gap-1.5 px-3 py-2 text-xs rounded-md transition-colors ${
-            showHistory
-              ? 'bg-bg-tertiary text-text-primary'
-              : 'text-text-secondary hover:bg-bg-tertiary'
-          }`}
-        >
-          <History size={13} />
-          版本歷史
-          <ChevronDown
-            size={12}
-            className={`transition-transform ${showHistory ? 'rotate-180' : ''}`}
-          />
-        </button>
-
-        {/* Reset */}
-        <button
-          type="button"
-          onClick={handleReset}
-          className="flex items-center gap-1.5 px-3 py-2 text-red-500/70 hover:text-red-500 hover:bg-red-500/5 text-xs rounded-md transition-colors ml-auto"
-        >
-          <RotateCcw size={13} />
-          清除重填
-        </button>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json,application/json"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) handleImportFromLocal(file);
-            if (e.target) e.target.value = '';
-          }}
-        />
-      </div>
 
       {/* Version History Panel */}
       {showHistory && (

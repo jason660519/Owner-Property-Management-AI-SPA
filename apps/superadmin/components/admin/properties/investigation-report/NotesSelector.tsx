@@ -45,6 +45,7 @@ interface Props {
 
 export function NotesSelector({ report, onChange, property }: Props) {
   const docChecklist = buildDocChecklist(property);
+
   function toggleNote(id: string) {
     const next = report.selectedNotes.includes(id)
       ? report.selectedNotes.filter((n) => n !== id)
@@ -81,27 +82,37 @@ export function NotesSelector({ report, onChange, property }: Props) {
         </div>
       </div>
 
-      {/* 標準條款（一～七） — 固定顯示，不可勾選 */}
+      {/* 標準條款（一～七） — 可勾選 */}
       <div>
         <h4 className="text-sm font-bold text-text-primary mb-2">
           標準買賣雙方義務條款
         </h4>
         <p className="text-[10px] text-text-muted mb-3">
-          以下條款為標準條文，將自動列印於報告書簽名頁。
+          可勾選適用條文，已勾選項目將列印於報告書簽名頁。
         </p>
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {STANDARD_CLAUSES.map((clause) => (
-            <div
-              key={clause.number}
-              className="flex gap-2 px-3 py-2 rounded-md bg-bg-tertiary border border-border-default/50"
+            <label
+              key={clause.id}
+              className={`flex items-start gap-2.5 px-3 py-2 rounded-md border cursor-pointer transition-colors ${
+                report.selectedNotes.includes(clause.id)
+                  ? 'bg-accent/5 border-accent/30'
+                  : 'bg-bg-primary border-border-default hover:border-text-muted'
+              }`}
             >
+              <input
+                type="checkbox"
+                checked={report.selectedNotes.includes(clause.id)}
+                onChange={() => toggleNote(clause.id)}
+                className="mt-0.5 w-3.5 h-3.5 accent-accent shrink-0"
+              />
               <span className="text-xs font-medium text-accent shrink-0 w-5">
                 {clause.number}
               </span>
               <p className="text-xs text-text-secondary leading-relaxed">
                 {clause.text}
               </p>
-            </div>
+            </label>
           ))}
         </div>
       </div>

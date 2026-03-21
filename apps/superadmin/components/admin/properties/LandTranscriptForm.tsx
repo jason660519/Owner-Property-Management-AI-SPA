@@ -93,6 +93,8 @@ interface Props {
   fillFromParsedTranscript?: LandTranscriptData | null;
   /** Called after form has applied fillFromParsedTranscript so parent can clear it */
   onTranscribeApplied?: () => void;
+  /** Which details key to save into. Defaults to 'landTranscript'; use 'parkingLandTranscript' for parking. */
+  transcriptKey?: 'landTranscript' | 'parkingLandTranscript';
 }
 
 interface FieldDiff {
@@ -107,6 +109,7 @@ export function LandTranscriptForm({
   initialData,
   fillFromParsedTranscript,
   onTranscribeApplied,
+  transcriptKey = 'landTranscript',
 }: Props) {
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -236,7 +239,7 @@ export function LandTranscriptForm({
     setFeedback(null);
     startTransition(async () => {
       const result = await savePropertyTranscriptData(propertyId, propertyType, {
-        landTranscript: { header, description: desc, ownership, encumbrances },
+        [transcriptKey]: { header, description: desc, ownership, encumbrances },
       });
       setFeedback({ type: result.success ? 'success' : 'error', message: result.message });
     });

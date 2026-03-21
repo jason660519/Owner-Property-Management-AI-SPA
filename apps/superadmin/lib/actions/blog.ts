@@ -185,10 +185,269 @@ export async function getPropertyBlog(propertyId: string): Promise<BlogPost | nu
   };
 }
 
+export type StylePreset = 'luxury_dark' | 'bright_clean' | 'corporate' | 'warm_japanese';
+
+const STYLE_PRESET_DESCRIPTIONS: Record<StylePreset, string> = {
+  luxury_dark: `
+STYLE: Luxury dark real estate — inspired by high-end Melbourne/Taipei luxury property websites.
+- Background: near-black (#0a0a0a to #111827), section dividers use subtle dark grays
+- Accents: warm gold (#c9a96e) and white, with occasional deep burgundy
+- Hero: full-viewport-height dramatic hero with overlay gradient (transparent → rgba(0,0,0,0.75)), large bold white headline, gold badge pill
+- Navigation tabs: horizontal pill/tab row (物件亮點 / 物件照片 / 物件介紹 / 聯絡我們) — use anchor links
+- Photos: circular-bordered thumbnails in a 3-column grid, main featured photo is large and full-width
+- Typography: large hero title (2.5rem bold), section headings underlined with gold bar
+- Highlight cards: dark card (#1a1a2e) with gold icon, white label, gold value
+- CTA: centered section on dark bg with gold call-to-action buttons
+- Overall mood: premium, cinematic, aspirational`,
+
+  bright_clean: `
+STYLE: Bright clean modern — friendly and approachable property listing.
+- Background: white (#ffffff) with light gray sections (#f8fafc, #f1f5f9)
+- Accents: sky blue (#3b82f6) and teal (#0ea5e9)
+- Hero: 400px tall hero with blue gradient overlay, clean white headline
+- Layout: card-based grid with rounded-xl corners and subtle shadows
+- Photos: standard rectangular gallery grid with soft rounded corners and hover zoom
+- Typography: Inter/system-sans, moderate sizes (hero 2rem, headings 1.25rem)
+- Highlight cards: white cards with blue icon, gray label, dark value
+- CTA: white card with blue primary button, clean border secondary button
+- Overall mood: modern, trustworthy, accessible`,
+
+  corporate: `
+STYLE: Corporate professional — clean commercial real estate style.
+- Background: neutral white (#fff) with dark navy header (#0f172a) and footer
+- Accents: dark navy (#1e3a5f), steel blue (#2563eb), light gray borders
+- Hero: 350px hero with navy gradient overlay, structured headline + subtitle + price badge
+- Layout: two-column detail layout, structured table rows for property specs
+- Photos: strict 3-column masonry-style grid, no rounded corners — sharp rectangular
+- Typography: structured, professional (headings uppercase tracking-wide, body 0.9rem)
+- Highlight cards: table-row style with left navy border, label/value on same line
+- CTA: left-aligned action bar with navy filled button + outlined secondary
+- Overall mood: serious, data-forward, professional`,
+
+  warm_japanese: `
+STYLE: Warm Japanese minimalist — calm, residential, lifestyle-focused.
+- Background: warm cream (#faf8f5), soft beige sections (#f5f0e8)
+- Accents: terracotta (#c4704a), warm brown (#8b5e3c), sage green (#7c9a7e)
+- Hero: full-width hero with warm-toned overlay, serif italic tagline, understated badge
+- Layout: generous whitespace, single-column centered content, max-width 720px
+- Photos: large single featured photo + 2-column grid below, with thin warm border
+- Typography: mix of elegant thin sans (headings) and readable body (1rem, 1.8 line-height)
+- Highlight cards: minimal borderless cards, centered, small emoji icon, light separator line
+- CTA: warm centered section with terracotta filled button, understated text contact list
+- Overall mood: peaceful, lifestyle, homey, intimate`,
+};
+
+/** Generate HTML from a style preset using Claude (no reference URL needed). */
+async function generatePresetStyleHtml(
+  preset: StylePreset,
+  data: PropertyDataForBlog,
+  contact: OwnerContact,
+): Promise<string | null> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
+
+  const isSale = data.type === 'sale';
+  const typeLabel = isSale ? '出售' : '出租';
+  const priceLabel = isSale
+    ? data.price ? `${(data.price / 10000).toFixed(0)} 萬` : '洽詢'
+    : data.monthlyRent ? `NT$ ${data.monthlyRent.toLocaleString()} / 月` : '洽詢';
+  const areaDisplay = data.area ? `${(data.area * 0.3025).toFixed(1)} 坪` : null;
+  const layoutParts = [
+    data.bedrooms    && `${data.bedrooms}房`,
+    data.livingRooms && `${data.livingRooms}廳`,
+    data.bathrooms   && `${data.bathrooms}衛`,
+  ].filter(Boolean).join('');
+  const locationStr = [data.addressCity, data.addressDistrict].filter(Boolean).join('');
+  const photosList = data.photos.slice(0, 12).map((p, i) => `  ${i + 1}. ${p.url}`).join('\n');
+  const ctaLines = [
+    contact.phone    && `電話：${contact.phone}`,
+    contact.email    && `Email：${contact.email}`,
+    contact.lineId   && `LINE ID：${contact.lineId}`,
+    contact.whatsapp && `WhatsApp：${contact.whatsapp}`,
+    contact.wechatId && `WeChat：${contact.wechatId}`,
+  ].filter(Boolean).join('\n');
+
+  const styleDesc = STYLE_PRESET_DESCRIPTIONS[preset];
+
+  const prompt = `You are an expert web designer specializing in property listing pages.
+
+Generate a COMPLETE, STANDALONE single-page HTML property listing using this exact design style:
+
+${styleDesc}
+
+Property data (use Traditional Chinese for all user-facing text):
+- Title: ${data.title || data.address}
+- Type: ${typeLabel}
+- Location: ${locationStr || data.address}
+- Price: ${priceLabel}
+${areaDisplay ? `- Area: ${areaDisplay}` : ''}
+${layoutParts ? `- Layout: ${layoutParts}` : ''}
+${data.propertyType ? `- Building type: ${data.propertyType}` : ''}
+${data.description || data.aiDescription ? `- Description: ${data.aiDescription || data.description}` : ''}
+
+Photos (embed with <img src="URL">):
+${photosList || '  (no photos yet)'}
+
+Contact info for CTA:
+${ctaLines || '  (no contact info)'}
+
+RULES:
+- Output ONLY body content (start with <style> block, then HTML sections)
+- NO doctype, html, head, or body tags
+- NO JavaScript, NO external CDN links
+- All CSS must be in the <style> block
+- Use Traditional Chinese (繁體中文) for all visible text
+- Must be fully responsive (mobile-friendly)
+- Keep total output under 14,000 characters`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 8000,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+    if (!response.ok) return null;
+    const json = await response.json() as { content?: Array<{ text?: string }> };
+    return json.content?.[0]?.text?.trim() ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Fetch a reference URL and extract its HTML for style analysis (strips scripts/styles). */
+async function fetchReferenceHtml(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; PropertyBlogBot/1.0)',
+        Accept: 'text/html',
+      },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const raw = await res.text();
+
+    // Strip <script>, <style> blocks and data URIs to keep the prompt lean
+    const stripped = raw
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/data:[^"';\s]{0,200}/gi, '')
+      .replace(/\s{2,}/g, ' ')
+      .slice(0, 12_000); // keep at most 12k chars
+
+    return stripped;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Use Claude to analyse a reference page's design and generate custom-styled blog HTML.
+ * Falls back to undefined on failure so the caller can use the default template.
+ */
+async function generateCustomStyleHtml(
+  referenceHtml: string,
+  data: PropertyDataForBlog,
+  contact: OwnerContact,
+): Promise<string | null> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
+
+  const isSale = data.type === 'sale';
+  const typeLabel = isSale ? '出售' : '出租';
+  const priceLabel = isSale
+    ? data.price ? `${(data.price / 10000).toFixed(0)} 萬` : '洽詢'
+    : data.monthlyRent ? `NT$ ${data.monthlyRent.toLocaleString()} / 月` : '洽詢';
+  const areaDisplay = data.area ? `${(data.area * 0.3025).toFixed(1)} 坪` : null;
+  const layoutParts = [
+    data.bedrooms    && `${data.bedrooms}房`,
+    data.livingRooms && `${data.livingRooms}廳`,
+    data.bathrooms   && `${data.bathrooms}衛`,
+  ].filter(Boolean).join('');
+  const locationStr = [data.addressCity, data.addressDistrict].filter(Boolean).join('');
+  const photosList = data.photos.slice(0, 12).map((p, i) => `  ${i + 1}. ${p.url}`).join('\n');
+
+  const ctaLines = [
+    contact.phone    && `電話：${contact.phone}`,
+    contact.email    && `Email：${contact.email}`,
+    contact.lineId   && `LINE ID：${contact.lineId}`,
+    contact.whatsapp && `WhatsApp：${contact.whatsapp}`,
+    contact.wechatId && `WeChat：${contact.wechatId}`,
+  ].filter(Boolean).join('\n');
+
+  const prompt = `You are an expert web designer and property marketing specialist.
+
+Below is the HTML source of a reference property listing website that the owner likes.
+Carefully analyze its visual design language: color palette, typography, layout structure, hero style, card styles, section arrangements, and overall mood (luxury, modern, minimalist, warm, etc.).
+
+--- REFERENCE WEBSITE HTML (truncated) ---
+${referenceHtml}
+--- END REFERENCE HTML ---
+
+Now generate a COMPLETE, STANDALONE single-page HTML property listing that:
+1. Faithfully replicates the visual design language of the reference site
+2. Uses the following property data (in Traditional Chinese where appropriate):
+   - Title: ${data.title || data.address}
+   - Type: ${typeLabel}
+   - Location: ${locationStr || data.address}
+   - Price: ${priceLabel}
+   ${areaDisplay ? `- Area: ${areaDisplay}` : ''}
+   ${layoutParts ? `- Layout: ${layoutParts}` : ''}
+   ${data.propertyType ? `- Building type: ${data.propertyType}` : ''}
+   ${data.description ? `- Description: ${data.description}` : ''}
+3. Embeds these property photos (use <img src="URL"> tags):
+${photosList || '  (no photos available)'}
+4. Includes a contact CTA section with:
+${ctaLines || '  (no contact info provided)'}
+5. Is fully responsive (mobile-friendly)
+6. Uses Traditional Chinese (繁體中文) for all user-facing text
+7. Includes SEO meta tags in a <!-- SEO --> comment at the top
+
+CRITICAL OUTPUT RULES:
+- Output ONLY the content that goes inside <body></body> — do NOT include <!DOCTYPE>, <html>, <head>, or <body> tags
+- Start with a <style> block containing all CSS
+- Then the full page content as HTML sections
+- Do NOT use any JavaScript
+- Do NOT use external CDN links — all styles must be inline or in the <style> block
+- Keep total output under 15,000 characters`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 8000,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (!response.ok) return null;
+    const json = await response.json() as { content?: Array<{ text?: string }> };
+    const text = json.content?.[0]?.text?.trim();
+    return text ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function generatePropertyBlog(
   propertyId: string,
   propertyType: 'sale' | 'rental',
-  ownerId: string
+  ownerId: string,
+  options?: { referenceUrl?: string; stylePreset?: StylePreset }
 ): Promise<ActionResult & { blog?: BlogPost }> {
   const adminClient = createAdminClient();
 
@@ -240,23 +499,42 @@ export async function generatePropertyBlog(
       description: details.description as string | undefined,
     };
 
-    // Fetch session user contact info and generate AI description in parallel
-    // Contact info comes from the logged-in agent/admin, not the property owner
-    const [ownerContact, aiDescription] = await Promise.all([
-      getSessionUserContact(),
-      generateDescriptionWithAI(blogData),
+    // Fetch session user contact info; optionally fetch reference URL HTML
+    const [ownerContact, referenceHtml] = await Promise.all([
+      getOwnerContact(ownerId),
+      options?.referenceUrl ? fetchReferenceHtml(options.referenceUrl) : Promise.resolve(null),
     ]);
 
-    blogData.ownerPhone       = ownerContact.phone;
-    blogData.ownerEmail       = ownerContact.email;
-    blogData.ownerLineId      = ownerContact.lineId;
-    blogData.ownerWechatId    = ownerContact.wechatId;
-    blogData.ownerWhatsapp    = ownerContact.whatsapp;
-    blogData.ownerFacebookUrl = ownerContact.facebookUrl;
+    blogData.ownerPhone        = ownerContact.phone;
+    blogData.ownerEmail        = ownerContact.email;
+    blogData.ownerLineId       = ownerContact.lineId;
+    blogData.ownerWechatId     = ownerContact.wechatId;
+    blogData.ownerWhatsapp     = ownerContact.whatsapp;
+    blogData.ownerFacebookUrl  = ownerContact.facebookUrl;
     blogData.ownerInstagramUrl = ownerContact.instagramUrl;
-    blogData.aiDescription    = aiDescription ?? undefined;
 
-    const generated = generateBlogContent(blogData);
+    // Generation priority: referenceUrl > stylePreset > default template
+    let generated = generateBlogContent(blogData);
+    let usedReferenceStyle = false;
+    let usedPresetStyle = false;
+
+    if (referenceHtml) {
+      const customHtml = await generateCustomStyleHtml(referenceHtml, blogData, ownerContact);
+      if (customHtml) {
+        generated = { ...generated, contentHtml: customHtml };
+        usedReferenceStyle = true;
+      }
+    } else if (options?.stylePreset) {
+      const presetHtml = await generatePresetStyleHtml(options.stylePreset, blogData, ownerContact);
+      if (presetHtml) {
+        generated = { ...generated, contentHtml: presetHtml };
+        usedPresetStyle = true;
+      }
+    } else {
+      const aiDescription = await generateDescriptionWithAI(blogData);
+      blogData.aiDescription = aiDescription ?? undefined;
+      generated = generateBlogContent(blogData);
+    }
     const slug = generateSlug(blogData);
 
     const primaryPhoto = photos.find((p) => p.isPrimary) || photos[0];
@@ -355,11 +633,14 @@ export async function generatePropertyBlog(
     const blog = await getPropertyBlog(propertyId);
 
     revalidatePath('/superadmin/properties');
+    const suffix = usedReferenceStyle
+      ? '（已套用參考網頁風格）'
+      : usedPresetStyle
+        ? '（已套用預設風格）'
+        : blogData.aiDescription ? '（含 AI 文案）' : '';
     return {
       success: true,
-      message: existing
-        ? `部落格已重新生成${aiDescription ? '（含 AI 文案）' : ''}`
-        : `部落格已成功生成${aiDescription ? '（含 AI 文案）' : ''}`,
+      message: existing ? `部落格已重新生成${suffix}` : `部落格已成功生成${suffix}`,
       blog: blog || undefined,
     };
   } catch (error) {

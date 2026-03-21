@@ -1,21 +1,47 @@
-'use client';
+"use client";
 
-import React from 'react';
-import Link from 'next/link';
-import { Button } from '../ui/Button';
-import { Card, CardImage, CardContent, CardFooter } from '../ui/Card';
-import styles from './FeaturedProperties.module.css';
-import { Property } from '@/lib/api/properties';
-import { Alert, AlertDescription } from '../ui/Alert';
+import React from "react";
+import Link from "next/link";
+import { Button } from "../ui/Button";
+import { Card, CardImage, CardContent, CardFooter } from "../ui/Card";
+import styles from "./FeaturedProperties.module.css";
+import { Property } from "@/lib/api/properties";
+import { Alert, AlertDescription } from "../ui/Alert";
 
 interface FeaturedPropertiesProps {
   properties: Property[];
   isMock?: boolean;
 }
 
-export function FeaturedProperties({ properties, isMock = false }: FeaturedPropertiesProps) {
-  // Display top 3
+function getWorkflowBadge(property: Property) {
+  return property.status === "sale" ? "買賣協作鏈" : "租賃協作鏈";
+}
+
+function getWorkflowDescription(property: Property) {
+  return property.status === "sale"
+    ? "適合自售房東、買家、仲介與代書接續推進"
+    : "適合自租房東、租客與簽約流程快速銜接";
+}
+
+export function FeaturedProperties({
+  properties,
+  isMock = false,
+}: FeaturedPropertiesProps) {
   const displayedProperties = properties.slice(0, 3);
+  const summaryItems = [
+    {
+      label: "精選案件",
+      value: String(displayedProperties.length),
+    },
+    {
+      label: "免費入口角色",
+      value: "4",
+    },
+    {
+      label: "可串接專業角色",
+      value: "仲介 / 代書 / 律師",
+    },
+  ];
 
   return (
     <section className={styles.section}>
@@ -24,7 +50,8 @@ export function FeaturedProperties({ properties, isMock = false }: FeaturedPrope
         {isMock && (
           <Alert variant="warning" className="mb-8">
             <AlertDescription>
-              ⚠️ 目前系統正使用模擬資料模式（無法連接至資料庫或資料庫為空）。這僅供開發與展示用途。
+              ⚠️
+              目前系統正使用模擬資料模式（無法連接至資料庫或資料庫為空）。這僅供開發與展示用途。
             </AlertDescription>
           </Alert>
         )}
@@ -33,22 +60,38 @@ export function FeaturedProperties({ properties, isMock = false }: FeaturedPrope
         <div className={styles.header}>
           <div className={styles.headerContent}>
             <span className={styles.sparkle}>✨</span>
-            <h2 className={styles.title}>精選物業</h2>
+            <h2 className={styles.title}>精選案件入口</h2>
             <p className={styles.description}>
-              探索我們精心挑選的優質物業，每一間都經過嚴格篩選，確保您獲得最佳的居住體驗。
+              先讓案件進場，再把協作角色接上。這裡展示的不只是物件，而是平台如何把自售、自租、買賣與租賃流程導入同一條工作線。
             </p>
           </div>
-          <Link href="/properties" className={styles.viewAll}>
-            <Button variant="secondary">
-              查看全部物業
-            </Button>
-          </Link>
+          <div className={styles.headerActions}>
+            <Link href="/properties" className={styles.viewAll}>
+              <Button variant="secondary">查看全部案件</Button>
+            </Link>
+            <Link href="/services" className={styles.viewAll}>
+              <Button variant="primary">查看平台能力</Button>
+            </Link>
+          </div>
+        </div>
+
+        <div className={styles.summaryGrid}>
+          {summaryItems.map((item) => (
+            <div key={item.label} className={styles.summaryCard}>
+              <span className={styles.summaryLabel}>{item.label}</span>
+              <strong className={styles.summaryValue}>{item.value}</strong>
+            </div>
+          ))}
         </div>
 
         {/* Properties Grid */}
         <div className={styles.grid}>
           {displayedProperties.map((property) => (
-            <Link key={property.id} href={`/properties/${property.id}`} className={styles.cardLink}>
+            <Link
+              key={property.id}
+              href={`/properties/${property.id}`}
+              className={styles.cardLink}
+            >
               <Card hoverable padding="md">
                 <CardImage
                   src={property.imageUrl}
@@ -56,46 +99,115 @@ export function FeaturedProperties({ properties, isMock = false }: FeaturedPrope
                   aspectRatio="16/9"
                 />
                 <CardContent>
+                  <div className={styles.workflowBadge}>
+                    {getWorkflowBadge(property)}
+                  </div>
                   <div className={styles.propertyHeader}>
                     <h3 className={styles.propertyTitle}>{property.title}</h3>
                   </div>
-                  <p className={styles.propertyDescription}>{property.description}</p>
+                  <p className={styles.propertyDescription}>
+                    {property.description}
+                  </p>
+                  <p className={styles.workflowDescription}>
+                    {getWorkflowDescription(property)}
+                  </p>
 
                   {/* Property Details */}
                   <div className={styles.propertyDetails}>
                     <span className={styles.detail}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M3 21V7C3 5.89543 3.89543 5 5 5H19C20.1046 5 21 5.89543 21 7V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M3 11H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M9 21V16H15V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M3 21V7C3 5.89543 3.89543 5 5 5H19C20.1046 5 21 5.89543 21 7V21"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M3 11H21"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M9 21V16H15V21"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </svg>
                       {property.bedrooms} 房
                     </span>
                     <span className={styles.detail}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M4 12H20V18C20 19.1046 19.1046 20 18 20H6C4.89543 20 4 19.1046 4 18V12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M6 12V6C6 4.89543 6.89543 4 8 4H9C10.1046 4 11 4.89543 11 6V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M4 15H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M4 12H20V18C20 19.1046 19.1046 20 18 20H6C4.89543 20 4 19.1046 4 18V12Z"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M6 12V6C6 4.89543 6.89543 4 8 4H9C10.1046 4 11 4.89543 11 6V12"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M4 15H20"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </svg>
                       {property.bathrooms} 衛
                     </span>
                     <span className={styles.detail}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </svg>
                       {property.type}
                     </span>
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <span className={styles.price}>{property.price}</span>
+                  <div className={styles.footerContent}>
+                    <span className={styles.price}>{property.price}</span>
+                    <span className={styles.footerHint}>查看案件詳情</span>
+                  </div>
                 </CardFooter>
               </Card>
             </Link>
           ))}
         </div>
-
-        {/* Pagination removed as this is a featured section, not a full list */}
       </div>
     </section>
   );

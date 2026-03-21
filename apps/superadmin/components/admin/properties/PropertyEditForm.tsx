@@ -162,7 +162,7 @@ const TAB_LABELS: Record<TabId, string> = {
   edit: '物件基本資訊',
   photos: '物件照片',
   blog: '部落格',
-  contract: '預覽合約',
+  contract: '預覽合約套版',
   investigation: '物件調查報告書',
 };
 
@@ -490,34 +490,36 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
 
           {activeTab === 'edit' && (
             <>
-              {/* Status + Title */}
-              <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-1.5">
-                    狀態
-                  </label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                    className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
-                  >
-                    {PROPERTY_STATUSES.map((s) => (
-                      <option key={s} value={s}>
-                        {statusLabelsMap[s] || s}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-1.5">
-                    物件名稱
-                  </label>
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
-                  />
+              {/* Status + Title in one row */}
+              <div className="overflow-x-auto pb-1">
+                <div className="grid grid-cols-[180px_minmax(280px,1fr)] gap-4 min-w-[500px]">
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1.5">
+                      狀態
+                    </label>
+                    <select
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value)}
+                      className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
+                    >
+                      {PROPERTY_STATUSES.map((s) => (
+                        <option key={s} value={s}>
+                          {statusLabelsMap[s] || s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1.5">
+                      物件名稱
+                    </label>
+                    <input
+                      type="text"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -526,164 +528,85 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
                 <label className="block text-sm font-medium text-text-secondary">
                   地址（台灣分區，從大到小）
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <span className="block text-xs text-text-muted mb-1">縣市</span>
-                    <select
-                      value={addressCity}
-                      onChange={(e) => {
-                        setAddressCity(e.target.value);
-                        setAddressDistrict('');
-                      }}
-                      className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
-                    >
-                      <option value="">請選擇縣市</option>
-                      {TAIWAN_CITIES.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <span className="block text-xs text-text-muted mb-1">區</span>
-                    <select
-                      value={addressDistrict}
-                      onChange={(e) => setAddressDistrict(e.target.value)}
-                      className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
-                      disabled={!addressCity}
-                    >
-                      <option value="">請選擇區</option>
-                      {districtOptions.map((d) => (
-                        <option key={d} value={d}>{d}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <span className="block text-xs text-text-muted mb-1">
-                    路 / 段 / 街（如：敦化南路一段、安和路）
-                  </span>
-                  <input
-                    type="text"
-                    value={addressStreet}
-                    onChange={(e) => setAddressStreet(e.target.value)}
-                    placeholder="敦化南路一段、安和路..."
-                    className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted"
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <span className="block text-xs text-text-muted mb-1">門牌號碼</span>
-                    <input
-                      type="text"
-                      value={addressNumber}
-                      onChange={(e) => setAddressNumber(e.target.value)}
-                      placeholder="295號"
-                      className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted"
-                    />
-                  </div>
-                  <div>
-                    <span className="block text-xs text-text-muted mb-1">樓層</span>
-                    <input
-                      type="text"
-                      value={addressFloor}
-                      onChange={(e) => setAddressFloor(e.target.value)}
-                      placeholder="3F"
-                      className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted"
-                    />
-                  </div>
-                  <div>
-                    <span className="block text-xs text-text-muted mb-1">單位號碼</span>
-                    <input
-                      type="text"
-                      value={addressUnit}
-                      onChange={(e) => setAddressUnit(e.target.value)}
-                      placeholder="之2"
-                      className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted"
-                    />
+                <div className="overflow-x-auto pb-1">
+                  <div className="grid grid-cols-[160px_160px_minmax(260px,1fr)_130px_120px_120px] gap-4 min-w-[1050px]">
+                    <div>
+                      <span className="block text-xs text-text-muted mb-1">縣市</span>
+                      <select
+                        value={addressCity}
+                        onChange={(e) => {
+                          setAddressCity(e.target.value);
+                          setAddressDistrict('');
+                        }}
+                        className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
+                      >
+                        <option value="">請選擇縣市</option>
+                        {TAIWAN_CITIES.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <span className="block text-xs text-text-muted mb-1">區</span>
+                      <select
+                        value={addressDistrict}
+                        onChange={(e) => setAddressDistrict(e.target.value)}
+                        className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
+                        disabled={!addressCity}
+                      >
+                        <option value="">請選擇區</option>
+                        {districtOptions.map((d) => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <span className="block text-xs text-text-muted mb-1">
+                        路 / 段 / 街（如：敦化南路一段、安和路）
+                      </span>
+                      <input
+                        type="text"
+                        value={addressStreet}
+                        onChange={(e) => setAddressStreet(e.target.value)}
+                        placeholder="敦化南路一段、安和路..."
+                        className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted"
+                      />
+                    </div>
+                    <div>
+                      <span className="block text-xs text-text-muted mb-1">門牌號碼</span>
+                      <input
+                        type="text"
+                        value={addressNumber}
+                        onChange={(e) => setAddressNumber(e.target.value)}
+                        placeholder="295號"
+                        className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted"
+                      />
+                    </div>
+                    <div>
+                      <span className="block text-xs text-text-muted mb-1">樓層</span>
+                      <input
+                        type="text"
+                        value={addressFloor}
+                        onChange={(e) => setAddressFloor(e.target.value)}
+                        placeholder="3F"
+                        className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted"
+                      />
+                    </div>
+                    <div>
+                      <span className="block text-xs text-text-muted mb-1">單位號碼</span>
+                      <input
+                        type="text"
+                        value={addressUnit}
+                        onChange={(e) => setAddressUnit(e.target.value)}
+                        placeholder="之2"
+                        className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted"
+                      />
+                    </div>
                   </div>
                 </div>
                 {composedAddress ? (
                   <p className="text-xs text-text-muted">預覽：{composedAddress}</p>
                 ) : null}
-              </div>
-
-              {/* Location Map */}
-              <div className="space-y-3">
-                <label className="block text-sm font-medium text-text-secondary flex items-center gap-1.5">
-                  <MapPin size={14} />
-                  地圖定位
-                </label>
-
-                {/* Lat / Lng inputs */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <span className="block text-xs text-text-muted mb-1">緯度 Latitude</span>
-                    <input
-                      type="text"
-                      value={latInput}
-                      onChange={(e) => { setLatInput(e.target.value); setGeocodeMsg(null); }}
-                      placeholder="25.033000"
-                      className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted font-mono"
-                    />
-                  </div>
-                  <div>
-                    <span className="block text-xs text-text-muted mb-1">經度 Longitude</span>
-                    <input
-                      type="text"
-                      value={lngInput}
-                      onChange={(e) => { setLngInput(e.target.value); setGeocodeMsg(null); }}
-                      placeholder="121.565400"
-                      className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted font-mono"
-                    />
-                  </div>
-                </div>
-
-                {/* Geocode button */}
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={handleGeocode}
-                    disabled={isGeocoding}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-tertiary border border-border-default rounded-md text-text-secondary hover:border-accent hover:text-accent transition-colors disabled:opacity-50"
-                  >
-                    {isGeocoding ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
-                    從地址自動偵測座標
-                  </button>
-                  {mapsOpenUrl && (
-                    <a
-                      href={mapsOpenUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-xs text-text-muted hover:text-accent transition-colors"
-                    >
-                      <ExternalLink size={11} />
-                      在 Google Maps 開啟
-                    </a>
-                  )}
-                </div>
-
-                {geocodeMsg && (
-                  <p className={`text-xs ${geocodeMsg.type === 'success' ? 'text-green-500' : 'text-red-500'}`}>
-                    {geocodeMsg.text}
-                  </p>
-                )}
-
-                {/* Map embed */}
-                {mapEmbedUrl && (
-                  <div className="relative rounded-lg overflow-hidden border border-border-default">
-                    <iframe
-                      key={mapEmbedUrl}
-                      src={mapEmbedUrl}
-                      className="w-full h-56"
-                      loading="lazy"
-                      referrerPolicy="no-referrer-when-downgrade"
-                      title="物件位置地圖"
-                    />
-                    <p className="absolute bottom-1 right-2 text-[10px] text-text-muted bg-bg-primary/80 px-1 rounded">
-                      {composedAddress ? '依中文地址定位' : (validLat !== null && validLng !== null ? `座標定位: ${validLat}, ${validLng}` : '未設定定位')}
-                    </p>
-                  </div>
-                )}
               </div>
 
               {/* Price / Rent */}
@@ -829,6 +752,85 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
               <div className="text-xs text-text-muted">
                 創建人：{property.creatorName} &middot; 建立日期：
                 {new Date(property.createdAt).toLocaleDateString('zh-TW')}
+              </div>
+
+              {/* Location Map */}
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-text-secondary flex items-center gap-1.5">
+                  <MapPin size={14} />
+                  地圖定位
+                </label>
+
+                {/* Lat / Lng inputs */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="block text-xs text-text-muted mb-1">緯度 Latitude</span>
+                    <input
+                      type="text"
+                      value={latInput}
+                      onChange={(e) => { setLatInput(e.target.value); setGeocodeMsg(null); }}
+                      placeholder="25.033000"
+                      className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted font-mono"
+                    />
+                  </div>
+                  <div>
+                    <span className="block text-xs text-text-muted mb-1">經度 Longitude</span>
+                    <input
+                      type="text"
+                      value={lngInput}
+                      onChange={(e) => { setLngInput(e.target.value); setGeocodeMsg(null); }}
+                      placeholder="121.565400"
+                      className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Geocode button */}
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleGeocode}
+                    disabled={isGeocoding}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-tertiary border border-border-default rounded-md text-text-secondary hover:border-accent hover:text-accent transition-colors disabled:opacity-50"
+                  >
+                    {isGeocoding ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
+                    從地址自動偵測座標
+                  </button>
+                  {mapsOpenUrl && (
+                    <a
+                      href={mapsOpenUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-text-muted hover:text-accent transition-colors"
+                    >
+                      <ExternalLink size={11} />
+                      在 Google Maps 開啟
+                    </a>
+                  )}
+                </div>
+
+                {geocodeMsg && (
+                  <p className={`text-xs ${geocodeMsg.type === 'success' ? 'text-green-500' : 'text-red-500'}`}>
+                    {geocodeMsg.text}
+                  </p>
+                )}
+
+                {/* Map embed */}
+                {mapEmbedUrl && (
+                  <div className="relative rounded-lg overflow-hidden border border-border-default">
+                    <iframe
+                      key={mapEmbedUrl}
+                      src={mapEmbedUrl}
+                      className="w-full h-56"
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      title="物件位置地圖"
+                    />
+                    <p className="absolute bottom-1 right-2 text-[10px] text-text-muted bg-bg-primary/80 px-1 rounded">
+                      {composedAddress ? '依中文地址定位' : (validLat !== null && validLng !== null ? `座標定位: ${validLat}, ${validLng}` : '未設定定位')}
+                    </p>
+                  </div>
+                )}
               </div>
             </>
           )}

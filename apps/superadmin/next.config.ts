@@ -4,9 +4,9 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   devIndicators: false,
   serverExternalPackages: ['chokidar'],
-  // Raise Server Action body size limit to support photo uploads (default is 1MB)
+  // Raise Server Action body size limit to support document/contract uploads (default is 1MB)
   serverActions: {
-    bodySizeLimit: '10mb',
+    bodySizeLimit: '20mb',
   },
 }
 

@@ -13,6 +13,7 @@ import {
   Key,
   Settings,
   BookMarked,
+  Mail,
 } from 'lucide-react';
 import type { ElementType } from 'react';
 
@@ -26,6 +27,7 @@ export const navItems: NavItem[] = [
   { name: 'Overview', href: '/superadmin', icon: Home },
   { name: 'IAM Management', href: '/superadmin/dashboard/iam-management', icon: Shield },
   { name: 'Properties Management', href: '/superadmin/properties', icon: Building },
+  { name: 'Contact Leads', href: '/superadmin/contacts', icon: Mail },
   { name: 'Database', href: '/superadmin/dashboard/supabase', icon: Database },
   { name: 'Storage', href: '/superadmin/dashboard/storage', icon: HardDrive },
   { name: 'Behavior Monitor', href: '/superadmin/dashboard/behavior-monitoring', icon: Activity },

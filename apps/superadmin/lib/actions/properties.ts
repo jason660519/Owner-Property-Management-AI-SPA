@@ -21,7 +21,9 @@ import type {
   PropertyDocumentItem,
   BuildingTranscriptData,
   LandTranscriptData,
+  IndependentTitleSaleMode,
 } from '@/lib/types/properties';
+import { parseIndependentTitleSaleMode } from '@/lib/types/properties';
 import { SALE_STATUSES, RENTAL_STATUSES } from '@/lib/types/properties';
 
 /**
@@ -448,6 +450,10 @@ export async function getPropertyById(id: string): Promise<PropertyItem | null> 
     mainPhotoUrl,
     buildingTranscript: (details.buildingTranscript as BuildingTranscriptData) ?? null,
     landTranscript: (details.landTranscript as LandTranscriptData) ?? null,
+    independentTitleSaleMode: parseIndependentTitleSaleMode(details),
+    hasIndependentParking: (row.has_independent_parking as boolean) ?? false,
+    parkingBuildingTranscript: (details.parkingBuildingTranscript as BuildingTranscriptData) ?? null,
+    parkingLandTranscript: (details.parkingLandTranscript as LandTranscriptData) ?? null,
     latitude: (row.latitude as number | null) ?? null,
     longitude: (row.longitude as number | null) ?? null,
     isPureLand: (row.is_pure_land as boolean) ?? false,
@@ -459,7 +465,12 @@ export async function getPropertyById(id: string): Promise<PropertyItem | null> 
 export async function savePropertyTranscriptData(
   id: string,
   type: 'sale' | 'rental',
-  data: { buildingTranscript?: BuildingTranscriptData; landTranscript?: LandTranscriptData }
+  data: {
+    buildingTranscript?: BuildingTranscriptData;
+    landTranscript?: LandTranscriptData;
+    parkingBuildingTranscript?: BuildingTranscriptData;
+    parkingLandTranscript?: LandTranscriptData;
+  }
 ): Promise<ActionResult> {
   const adminClient = createAdminClient();
   const table = type === 'sale' ? 'property_sales' : 'property_rentals';
@@ -482,6 +493,12 @@ export async function savePropertyTranscriptData(
     }
     if (data.landTranscript !== undefined) {
       updatedDetails.landTranscript = data.landTranscript;
+    }
+    if (data.parkingBuildingTranscript !== undefined) {
+      updatedDetails.parkingBuildingTranscript = data.parkingBuildingTranscript;
+    }
+    if (data.parkingLandTranscript !== undefined) {
+      updatedDetails.parkingLandTranscript = data.parkingLandTranscript;
     }
 
     const { error } = await adminClient
@@ -531,6 +548,81 @@ export async function savePropertyTranscriptData(
     revalidatePath(`/superadmin/properties/${id}/edit`);
     revalidatePath('/superadmin/properties');
     return { success: true, message: '謄本資料已成功儲存' };
+  } catch (error) {
+    return {
+      success: false,
+      message: `儲存失敗：${error instanceof Error ? error.message : '未知錯誤'}`,
+    };
+  }
+}
+
+// ── Save Independent Parking Flag ─────────────────────────────────────────
+export async function savePropertyHasIndependentParking(
+  id: string,
+  type: 'sale' | 'rental',
+  value: boolean
+): Promise<ActionResult> {
+  const adminClient = createAdminClient();
+  const table = type === 'sale' ? 'property_sales' : 'property_rentals';
+
+  try {
+    const { error } = await adminClient
+      .from(table)
+      .update({ has_independent_parking: value })
+      .eq('id', id);
+
+    if (error) {
+      return { success: false, message: `儲存失敗：${error.message}` };
+    }
+
+    revalidatePath(`/superadmin/properties/${id}/edit`);
+    return { success: true, message: value ? '已標記為含獨立產權車位' : '已取消獨立產權車位標記' };
+  } catch (error) {
+    return {
+      success: false,
+      message: `儲存失敗：${error instanceof Error ? error.message : '未知錯誤'}`,
+    };
+  }
+}
+
+// ── Independent title sale mode (details JSON, 五擇一) ───────────────────
+export async function savePropertyIndependentTitleSaleMode(
+  id: string,
+  type: 'sale' | 'rental',
+  mode: IndependentTitleSaleMode | null
+): Promise<ActionResult> {
+  const adminClient = createAdminClient();
+  const table = type === 'sale' ? 'property_sales' : 'property_rentals';
+
+  try {
+    const { data: existing, error: fetchError } = await adminClient
+      .from(table)
+      .select('details')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      return { success: false, message: `找不到物件：${fetchError.message}` };
+    }
+
+    const existingDetails = (existing?.details || {}) as Record<string, unknown>;
+    const updatedDetails: Record<string, unknown> = { ...existingDetails };
+    delete updatedDetails.independentTitleSaleBuilding;
+    delete updatedDetails.independentTitleSaleParking;
+    if (mode === null) {
+      delete updatedDetails.independentTitleSaleMode;
+    } else {
+      updatedDetails.independentTitleSaleMode = mode;
+    }
+
+    const { error } = await adminClient.from(table).update({ details: updatedDetails }).eq('id', id);
+
+    if (error) {
+      return { success: false, message: `儲存失敗：${error.message}` };
+    }
+
+    revalidatePath(`/superadmin/properties/${id}/edit`);
+    return { success: true, message: '獨立產權銷售方式已更新' };
   } catch (error) {
     return {
       success: false,
@@ -1049,7 +1141,7 @@ export async function uploadPropertyDocument(
   propertyId: string,
   propertyType: 'sale' | 'rental',
   ownerId: string,
-  documentType: 'land_registry_transcript' | 'building_registry_transcript' | 'building_title' | 'land_title' | 'lease_contract' | 'sales_contract' | 'blog',
+  documentType: 'land_registry_transcript' | 'building_registry_transcript' | 'parking_land_registry_transcript' | 'parking_building_registry_transcript' | 'building_title' | 'land_title' | 'lease_contract' | 'sales_contract' | 'blog',
   formData: FormData
 ): Promise<ActionResult> {
   const file = formData.get('file');
@@ -1155,4 +1247,94 @@ export async function deletePropertyDocument(
 
   revalidatePath('/superadmin/properties');
   return { success: true, message: '文件已刪除' };
+}
+
+// ── Contract File Upload / Listing ────────────────────────────────────────
+
+const CONTRACT_ALLOWED_MIME = [
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword',
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+];
+
+/**
+ * Upload a user-provided contract file (PDF, DOCX, DOC, JPG, PNG).
+ * Stored under property-documents bucket at path:
+ *   {propertyId}/contracts/{templateId}/{timestamp}-{random}.{ext}
+ */
+export async function uploadContractFile(
+  propertyId: string,
+  propertyType: 'sale' | 'rental',
+  ownerId: string,
+  documentType: 'lease_contract' | 'sales_contract',
+  templateId: string,
+  templateLabel: string,
+  formData: FormData
+): Promise<ActionResult> {
+  const file = formData.get('file');
+  if (!file || !(file instanceof File)) return { success: false, message: '請選擇一個檔案' };
+  if (!CONTRACT_ALLOWED_MIME.includes(file.type)) return { success: false, message: '僅支援 PDF、DOCX、DOC、JPG、PNG' };
+  if (file.size > 20 * 1024 * 1024) return { success: false, message: '單檔不得超過 20MB' };
+
+  const adminClient = createAdminClient();
+  const ext = file.name.split('.').pop() || 'pdf';
+  const storagePath = `${propertyId}/contracts/${templateId}/${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
+
+  const { error: uploadError } = await adminClient.storage
+    .from('property-documents')
+    .upload(storagePath, file, { cacheControl: '3600', upsert: false });
+  if (uploadError) return { success: false, message: `檔案上傳失敗：${uploadError.message}` };
+
+  const originalBasename = file.name.replace(/\.[^.]+$/, '');
+  const { error: insertError } = await adminClient.from('property_documents').insert({
+    property_id: propertyId,
+    property_type: propertyType === 'sale' ? 'sales' : 'rentals',
+    owner_id: ownerId,
+    document_type: documentType,
+    document_name: `${templateLabel}-${originalBasename}`,
+    file_path: storagePath,
+    file_size_bytes: file.size,
+    mime_type: file.type,
+    original_filename: file.name,
+    uploaded_by: ownerId,
+  });
+
+  if (insertError) {
+    await adminClient.storage.from('property-documents').remove([storagePath]);
+    return { success: false, message: `寫入記錄失敗：${insertError.message}` };
+  }
+
+  revalidatePath('/superadmin/properties');
+  return { success: true, message: '合約已上傳' };
+}
+
+/** List user-uploaded contract files for a given property + template. */
+export async function getPropertyContractFiles(
+  propertyId: string,
+  documentType: 'lease_contract' | 'sales_contract',
+  templateId: string
+): Promise<import('@/lib/types/properties').PropertyContractFileItem[]> {
+  const adminClient = createAdminClient();
+  const { data: rows, error } = await adminClient
+    .from('property_documents')
+    .select('id, document_name, file_path, mime_type, created_at')
+    .eq('property_id', propertyId)
+    .eq('document_type', documentType)
+    .eq('is_active', true)
+    .like('file_path', `%/contracts/${templateId}/%`)
+    .order('created_at', { ascending: false });
+
+  if (error || !rows?.length) return [];
+
+  return rows.map((r) => ({
+    id: r.id as string,
+    documentName: r.document_name as string,
+    filePath: r.file_path as string,
+    mimeType: (r.mime_type as string) ?? 'application/octet-stream',
+    viewUrl: `/api/documents/${r.id}/view`,
+    createdAt: new Intl.DateTimeFormat('zh-TW', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(r.created_at as string)),
+  }));
 }

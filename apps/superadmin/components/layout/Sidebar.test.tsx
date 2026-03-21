@@ -7,28 +7,49 @@ jest.mock('next/navigation', () => ({
   usePathname: jest.fn(),
 }));
 
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: () => ({
+    auth: {
+      getSession: jest.fn().mockResolvedValue({
+        data: { session: { user: { email: 'admin@test.com' } } },
+      }),
+      onAuthStateChange: jest.fn().mockReturnValue({
+        data: {
+          subscription: {
+            unsubscribe: jest.fn(),
+          },
+        },
+      }),
+    },
+  }),
+}));
+
 describe('Sidebar Component', () => {
   beforeEach(() => {
     (usePathname as jest.Mock).mockReturnValue('/superadmin');
   });
 
-  it('renders all required navigation items', () => {
+  it('renders all required navigation items', async () => {
     render(<Sidebar />);
+    await screen.findByText('admin@test.com');
     
     // Check for icons (using aria-label or just existence of buttons)
     // We expect the English labels to be present in the DOM but maybe hidden or shown on hover
     // Let's check for the existence of the text
     const expectedLabels = [
       'Overview',
-      'User Management',
-      'Group Management',
+      'IAM Management',
       'Properties Management',
-      'Contracts Management',
+      'Contact Leads',
       'Database',
       'Storage',
-      'Impersonate',
-      'IAM Management',
+      'Behavior Monitor',
+      'Performance Monitor',
+      'AI LLM Monitor',
+      'Project Progress Dashboard',
+      'Project Files',
       'AI 服務 / API KEY',
+      'Prompt 管理',
       'Settings'
     ];
 
@@ -39,6 +60,7 @@ describe('Sidebar Component', () => {
 
   it('expands on hover', async () => {
     render(<Sidebar />);
+    await screen.findByText('admin@test.com');
     
     const sidebar = screen.getByLabelText('Main Navigation');
     
@@ -58,11 +80,12 @@ describe('Sidebar Component', () => {
     });
   });
 
-  it('highlights the active link', () => {
-    (usePathname as jest.Mock).mockReturnValue('/superadmin/users');
+  it('highlights the active link', async () => {
+    (usePathname as jest.Mock).mockReturnValue('/superadmin/contacts');
     render(<Sidebar />);
+    await screen.findByText('admin@test.com');
     
-    const activeLink = screen.getByText('User Management').closest('a');
+    const activeLink = screen.getByText('Contact Leads').closest('a');
     expect(activeLink).toHaveClass('bg-emerald-500/10');
     expect(activeLink).toHaveClass('text-emerald-500');
   });

@@ -43,6 +43,36 @@ export function formatStructuredAddress(item: {
   return item.address?.trim() || '—';
 }
 
+/** 獨立產權建築物：銷售方式（五擇一，互斥） */
+export type IndependentTitleSaleMode =
+  | 'building_only'
+  | 'parking_only'
+  | 'together'
+  | 'common_parking_only'
+  | 'building_common_parking_together';
+
+/** 自 details 解析銷售方式（支援 independentTitleSaleMode 與舊版兩個布林） */
+export function parseIndependentTitleSaleMode(
+  details: Record<string, unknown>
+): IndependentTitleSaleMode | null {
+  const raw = details.independentTitleSaleMode;
+  if (
+    raw === 'building_only' ||
+    raw === 'parking_only' ||
+    raw === 'together' ||
+    raw === 'common_parking_only' ||
+    raw === 'building_common_parking_together'
+  ) {
+    return raw;
+  }
+  const b = details.independentTitleSaleBuilding === true;
+  const p = details.independentTitleSaleParking === true;
+  if (b && !p) return 'building_only';
+  if (!b && p) return 'parking_only';
+  if (b && p) return 'together';
+  return null;
+}
+
 export interface PropertyItem {
   id: string;
   type: 'sale' | 'rental';
@@ -79,6 +109,17 @@ export interface PropertyItem {
   buildingTranscript?: BuildingTranscriptData | null;
   /** 土地全部謄本資料（儲存於 details.landTranscript） */
   landTranscript?: LandTranscriptData | null;
+  /**
+   * 獨立產權建築物之銷售方式（五擇一，儲存於 details.independentTitleSaleMode）
+   * 舊資料若僅有 independentTitleSaleBuilding／Parking 布林，於讀取時轉換。
+   */
+  independentTitleSaleMode?: IndependentTitleSaleMode | null;
+  /** 是否含獨立產權車位（有自己的建物＋土地謄本，可分開銷售） */
+  hasIndependentParking?: boolean | null;
+  /** 獨立車位建物謄本（儲存於 details.parkingBuildingTranscript） */
+  parkingBuildingTranscript?: BuildingTranscriptData | null;
+  /** 獨立車位土地謄本（儲存於 details.parkingLandTranscript） */
+  parkingLandTranscript?: LandTranscriptData | null;
   /** 物件緯度（WGS84，直接儲存於 property_sales/rentals.latitude） */
   latitude?: number | null;
   /** 物件經度（WGS84，直接儲存於 property_sales/rentals.longitude） */
@@ -227,6 +268,19 @@ export interface PropertyDocumentItem {
   documentName: string;
   filePath: string;
   url: string;
+}
+
+/** User-uploaded contract file (from lawyer / conveyancer), stored under property-documents bucket */
+export interface PropertyContractFileItem {
+  id: string;
+  documentName: string;
+  filePath: string;
+  /** MIME type: application/pdf | application/vnd.openxmlformats-officedocument.wordprocessingml.document | etc. */
+  mimeType: string;
+  /** Signed-URL viewer endpoint */
+  viewUrl: string;
+  /** Formatted creation timestamp (zh-TW) */
+  createdAt: string;
 }
 
 // ── Transcript / Register Data Types ─────────────────────────────────────

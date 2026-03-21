@@ -70,6 +70,9 @@ function buildHtml(report: InvestigationReport, property?: PropertyItem): string
   const selectedNoteTexts = report.selectedNotes
     .map((id) => PREDEFINED_NOTES.find((n) => n.id === id)?.text)
     .filter(Boolean) as string[];
+  const selectedClauses = STANDARD_CLAUSES.filter((clause) =>
+    report.selectedNotes.includes(clause.id),
+  );
 
   // ── Page 1: Cover ──
   const page1 = `
@@ -222,8 +225,13 @@ function buildHtml(report: InvestigationReport, property?: PropertyItem): string
 </table>`;
 
   // ── Page 3: 不動產說明書（簽名頁 + 附件清單） ──
-  const hasTranscript = !!property?.hasTranscript;
+  // hasTranscript: list-page flag takes priority; fall back to structured transcript data
+  // (getPropertyById doesn't compute hasTranscript, but does populate buildingTranscript/landTranscript)
+  const hasTranscript = !!(property?.hasTranscript || property?.buildingTranscript || property?.landTranscript);
   const hasTitleDoc = !!property?.hasTitleDoc;
+  const hasIndependentParking = !!property?.hasIndependentParking;
+  const hasParkingBuildingTranscript = !!property?.parkingBuildingTranscript;
+  const hasParkingLandTranscript = !!property?.parkingLandTranscript;
 
   function checkMark(checked: boolean) {
     return `<span style="font-size:12px;">${checked ? '■' : '□'}</span>`;
@@ -265,6 +273,12 @@ function buildHtml(report: InvestigationReport, property?: PropertyItem): string
       <td>${checkMark(false)} 公寓大廈使用手冊</td>
       <td>${checkMark(false)} 住戶規約</td>
     </tr>
+    ${hasIndependentParking ? `<tr>
+      <td></td>
+      <td>${checkMark(hasParkingBuildingTranscript)} 車位建物謄本</td>
+      <td>${checkMark(hasParkingLandTranscript)} 車位土地謄本</td>
+      <td></td>
+    </tr>` : ''}
     <tr>
       <td></td>
       <td>${checkMark(false)} 都市使用分區證明</td>
@@ -448,8 +462,8 @@ ${activeLandParcels.length === 0 ? '<p>（尚未填入土地資料）</p>' : act
 <p style="font-size:8.5px;color:#666;margin-top:8px;">附註：以上買賣雙方支付項目為一般原則，若雙方另以契約約定從其約定。</p>`;
 
   // ── Page 8: 注意事項 ──
-  const page8Clauses = STANDARD_CLAUSES.map(
-    (c, i) => `<li class="note-text" style="margin-bottom:5px;"><strong>${c.number}、</strong>${c.text}</li>`,
+  const page8Clauses = selectedClauses.map(
+    (c) => `<li class="note-text" style="margin-bottom:5px;"><strong>${c.number}、</strong>${c.text}</li>`,
   ).join('');
 
   const page8Notes = selectedNoteTexts.length > 0
@@ -463,7 +477,7 @@ ${activeLandParcels.length === 0 ? '<p>（尚未填入土地資料）</p>' : act
   const page8 = `
 <div class="page-break"></div>
 <h3>注意事項</h3>
-<ol>${page8Clauses}</ol>
+${selectedClauses.length > 0 ? `<ol>${page8Clauses}</ol>` : ''}
 ${page8Notes}
 ${customNoteHtml}`;
 
@@ -496,6 +510,9 @@ export function ReportPreview({ report, property }: Props) {
   const selectedNoteTexts = report.selectedNotes
     .map((id) => PREDEFINED_NOTES.find((n) => n.id === id)?.text)
     .filter(Boolean) as string[];
+  const selectedClauseTexts = STANDARD_CLAUSES.filter((clause) =>
+    report.selectedNotes.includes(clause.id),
+  ).map((clause) => `${clause.number}、${clause.text}`);
 
   const handlePrint = useCallback(() => {
     const htmlDoc = buildHtml(report, property);
@@ -696,12 +713,15 @@ export function ReportPreview({ report, property }: Props) {
         </div>
 
         {/* ── 注意事項 ── */}
-        {(selectedNoteTexts.length > 0 || report.customNote) && (
+        {(selectedClauseTexts.length > 0 || selectedNoteTexts.length > 0 || report.customNote) && (
           <div className="p-4">
             <p className="text-[10px] font-bold text-red-500 mb-2">注意事項</p>
             <ul className="space-y-1">
+              {selectedClauseTexts.map((t, i) => (
+                <li key={`clause-${i}`} className="text-[10px] leading-relaxed">＊ {t}</li>
+              ))}
               {selectedNoteTexts.map((t, i) => (
-                <li key={i} className="text-[10px] leading-relaxed">＊ {t}</li>
+                <li key={`note-${i}`} className="text-[10px] leading-relaxed">＊ {t}</li>
               ))}
               {report.customNote && (
                 <li className="text-[10px] leading-relaxed">＊ {report.customNote}</li>

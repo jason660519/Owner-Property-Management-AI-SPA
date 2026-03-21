@@ -70,6 +70,8 @@ interface Props {
   transcriptDocs: PropertyDocumentItem[];
   /** 解析目標：建物謄本 or 土地謄本（預設為建物） */
   kind?: 'building' | 'land';
+  /** 銷售模式，用於自動選擇對應的 Prompt */
+  salesMode?: string;
   /** When provided, show "謄寫" button and call with parse result to fill the form below */
   onTranscribe?: (result: BuildingTranscriptData | LandTranscriptData) => void;
 }
@@ -368,11 +370,23 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTr
   ]);
 
   const storedParsePrompt = useMemo(() => {
+    // 1. 優先嘗試尋找名稱中包含目前銷售模式（如 (building_only)）的 Prompt
+    if (salesMode) {
+      const modeMatch = prompts.find(
+        (p) =>
+          p.module_key === 'online_ocr_parse' &&
+          p.name.includes(`(${salesMode})`) &&
+          p.prompt_content.trim(),
+      );
+      if (modeMatch) return modeMatch.prompt_content;
+    }
+
+    // 2. Fallback: 尋找最新版本的 online_ocr_parse Prompt（即原本的「設為系統 Prompt」邏輯）
     const matched = prompts
       .filter((p) => p.module_key === 'online_ocr_parse' && p.prompt_content.trim())
       .sort((a, b) => b.version - a.version);
     return matched[0]?.prompt_content ?? '';
-  }, [prompts]);
+  }, [prompts, salesMode]);
   const effectiveParsePrompt = storedParsePrompt || TRANSCRIPT_PARSE_PROMPT;
   const isCustomPromptOverridden =
     isPromptDirty && customPrompt.trim().length > 0 && customPrompt.trim() !== effectiveParsePrompt.trim();

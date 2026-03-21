@@ -1,6 +1,8 @@
 // filepath: apps/superadmin/components/admin/properties/investigation-report/types.ts
 // 物件調查報告書 — 完整資料型別定義 (mapping from Excel 秘書-input sheet)
 
+import { STANDARD_CLAUSES } from './constants';
+
 export type TransactionType = 'sale' | 'rental';
 
 /** 土地筆資料（最多 3 筆） */
@@ -207,7 +209,7 @@ export function createEmptyReport(): InvestigationReport {
     paymentSchedule: { ...EMPTY_PAYMENT },
     sellerEquipment: '',
     deliveryCondition: '',
-    selectedNotes: [],
+    selectedNotes: STANDARD_CLAUSES.map((clause) => clause.id),
     customNote: '',
   };
 }

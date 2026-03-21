@@ -37,6 +37,12 @@ export interface PredefinedNote {
   category: 'main' | 'extra';
 }
 
+export interface StandardClause {
+  id: string;
+  number: string;
+  text: string;
+}
+
 export const PREDEFINED_NOTES: PredefinedNote[] = [
   // ── 主要注意事項 (column B) ──
   {
@@ -123,32 +129,39 @@ export const PREDEFINED_NOTES: PredefinedNote[] = [
 ];
 
 /** 標準買賣雙方義務條款 (注意事項 一～七) */
-export const STANDARD_CLAUSES = [
+export const STANDARD_CLAUSES: StandardClause[] = [
   {
+    id: 'clause_01',
     number: '一',
     text: '買賣雙方就本標的物買賣事宜,已確知以下事項,並知悉其權利義務。',
   },
   {
+    id: 'clause_02',
     number: '二',
     text: '買方若欲辦理優惠性貸款（公教、國宅、勞工、首購等）其應具備之資格及條件，由買方自行負責，若因金融機關提供之優惠貸款額度不足時，買方同意依一般利率完成貸款交屋手續。',
   },
   {
+    id: 'clause_03',
     number: '三',
     text: '買方就承購本標的物若欲供營業用途時，請自行確認是否能辦理公司營業登記等相關事宜。住商不動產不保證買方一定可以辦理工商登記。',
   },
   {
+    id: 'clause_04',
     number: '四',
-    text: '增建部份（含頂樓、露台、夾層、一樓空地、平台、一樓圍牆、天井、防火巷、陽台外推、上下樓層打通之內梯等），無所有權，不保證過去沒有被通知拆除或未來不會被拆除及可永久使用，買方已知悉增建所在位置及其權利、義務。',
+    text: '本案若有增建或改建部份（含頂樓、露台、夾層、一樓空地、平台、公共區域、圍牆、天井、防火巷、陽台外推、上下樓層打通之內梯等），大部分無所有權，不保證過去沒有被通知拆除或未來不會被拆除及可永久使用，買方已知悉增建、改建所在位置及其權利、義務',
   },
   {
+    id: 'clause_05',
     number: '五',
     text: '本案若有頂樓、一樓前後院空地增建者，買方願依原住戶間協議或使用習慣承受。',
   },
   {
+    id: 'clause_06',
     number: '六',
     text: '本案買方並未承購停車位者，買方同意依原住戶間協議或大樓管委會規定及住戶規約來使用持分共有地下室、停車空間。',
   },
   {
+    id: 'clause_07',
     number: '七',
     text: '依稅法規定，「先賣後買」或「先買後賣」符合條件者，得向稅捐機關辦理增值稅重購退稅。買賣方如欲辦理退稅時，應自行洽詢稅捐機關以確認資格是否相符，住商不動產不保證一定可以辦理重購退稅。',
   },

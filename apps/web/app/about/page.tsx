@@ -1,208 +1,337 @@
-'use client';
+import Link from "next/link";
+import type { Metadata } from "next";
+import { Header } from "@/components/layout/Header";
+import { Footer } from "@/components/layout/Footer";
+import { Button } from "@/components/ui/Button";
 
-import Link from 'next/link';
-import { Header } from '@/components/layout/Header';
-import { Footer } from '@/components/layout/Footer';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
+export const metadata: Metadata = {
+  title: "關於我們 | 多角色不動產 AI 協作平台",
+  description:
+    "了解 Owner AI 如何將屋主、買家、租客、仲介與專業服務團隊放進同一條不動產協作流程。",
+};
+
+const marketHighlights = [
+  {
+    label: "雙市場",
+    value: "台灣 + 澳洲",
+    description: "同時驗證高頻租賃與高單價交易兩種商業模式。",
+  },
+  {
+    label: "多角色",
+    value: "9+ 角色",
+    description: "從自售屋主到代書律師，都能進入同一個案件流程。",
+  },
+  {
+    label: "收入模型",
+    value: "按案件 / 物件",
+    description: "先讓流量角色免費進場，再向專業角色收費變現。",
+  },
+];
+
+const roleGroups = [
+  {
+    title: "免費流量入口",
+    description: "先讓有需求的人進場，降低買方、租客與自租屋主的使用門檻。",
+    items: ["自租屋主", "租客", "買家"],
+  },
+  {
+    title: "核心付費角色",
+    description: "讓第一線成交與營運角色用案件效率、導流品質與管理能力買單。",
+    items: ["自售屋主", "仲介", "店長 / 老闆"],
+  },
+  {
+    title: "專業協作角色",
+    description:
+      "把簽約、法務、裝修與履保節點接到同一條流程，讓案件真正能走完。",
+    items: ["代書", "律師", "裝修團隊", "履約保證銀行"],
+  },
+];
+
+const principles = [
+  {
+    title: "先導流，再成交",
+    description:
+      "先讓案件與需求可見，再把專業服務接到正確節點，避免每個角色各做各的。",
+  },
+  {
+    title: "同一案件，同一語境",
+    description:
+      "價格、文件、角色分工與下一步都在同一頁面理解，不再分散在聊天工具與試算表。",
+  },
+  {
+    title: "從 AI 助理走向交易作業系統",
+    description:
+      "不只回答問題，而是把導流、協作、簽約與後續服務串成可持續優化的產品。",
+  },
+];
+
+const workflowSteps = [
+  {
+    step: "01",
+    title: "案件建立",
+    description:
+      "屋主、仲介或團隊先把案件上架，定義目前處於買賣或租賃哪一個節點。",
+  },
+  {
+    step: "02",
+    title: "角色加入",
+    description:
+      "買家、租客、代書、律師與裝修角色依案件狀態加入，不需要重複蒐集背景資訊。",
+  },
+  {
+    step: "03",
+    title: "AI 協作推進",
+    description:
+      "平台用 AI 提醒文件缺口、下一步任務與適合介入的專業角色，縮短成交與交屋週期。",
+  },
+];
+
+const supportLanes = [
+  "角色定價與商業模式設計",
+  "公開案件市場與合作導流",
+  "交易 / 租賃協作節點規劃",
+  "團隊導入與 CRM 串接需求盤點",
+];
 
 export default function AboutPage() {
-    return (
-        <div className="min-h-screen bg-[#141414] text-white font-urbanist">
-            <Header />
+  return (
+    <div className="min-h-screen bg-[#111111] text-white font-urbanist">
+      <Header />
 
-            <main>
-                {/* Hero Section */}
-                <section className="pt-32 pb-16 px-6 md:px-12 lg:px-20 relative overflow-hidden">
-                    <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-                        <div className="z-10">
-                            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
-                                我們的使命是<br />
-                                <span className="text-[#7C3AED]">重新定義物業管理體驗</span>
-                            </h1>
-                            <p className="text-[#999999] text-lg mb-8 leading-relaxed">
-                                Owner AI 致力於透過 AI 技術，為房東和租戶創造更透明、高效和愉快的租賃生態系統。我們相信，好的物業管理不僅僅是維護建築，更是連結人與生活的橋樑。
-                            </p>
+      <main>
+        <section className="relative overflow-hidden px-6 pb-16 pt-32 md:px-12 lg:px-20">
+          <div className="absolute inset-x-0 top-0 h-[520px] bg-[radial-gradient(circle_at_top_left,_rgba(245,158,11,0.18),_transparent_35%),radial-gradient(circle_at_top_right,_rgba(14,165,233,0.16),_transparent_35%),linear-gradient(180deg,_rgba(255,255,255,0.02),_rgba(17,17,17,0))]" />
+          <div className="relative mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+            <div>
+              <span className="mb-4 inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm tracking-[0.2em] text-[#F5C96A] uppercase">
+                About Owner AI
+              </span>
+              <h1 className="max-w-4xl text-4xl font-bold leading-tight md:text-5xl lg:text-6xl">
+                我們正在重做不動產服務的協作底層
+              </h1>
+              <p className="mt-6 max-w-3xl text-lg leading-8 text-[#B8B8B8]">
+                一個案件，讓買賣方、租賃方與專業角色共用同一條協作節奏。 Owner
+                AI
+                不再只是房東工具，而是把自售屋主、自租屋主、買家、租客、仲介、代書、律師與合作團隊接進同一個不動產
+                AI 協作平台。
+              </p>
+              <div className="mt-10 flex flex-wrap gap-4">
+                <Link href="/pricing">
+                  <Button size="lg">查看角色定價</Button>
+                </Link>
+                <Link href="/contact?inquiryType=合作提案">
+                  <Button variant="secondary" size="lg">
+                    預約平台導入
+                  </Button>
+                </Link>
+              </div>
+            </div>
 
-                            <div className="grid grid-cols-3 gap-6 border-t border-[#262626] pt-8">
-                                <div>
-                                    <h3 className="text-3xl font-bold text-white mb-2">200+</h3>
-                                    <p className="text-[#999999] text-sm">滿意客戶</p>
-                                </div>
-                                <div>
-                                    <h3 className="text-3xl font-bold text-white mb-2">10k+</h3>
-                                    <p className="text-[#999999] text-sm">物業列表</p>
-                                </div>
-                                <div>
-                                    <h3 className="text-3xl font-bold text-white mb-2">16+</h3>
-                                    <p className="text-[#999999] text-sm">服務年資</p>
-                                </div>
-                            </div>
-                        </div>
+            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-6 shadow-[0_30px_120px_rgba(0,0,0,0.35)] backdrop-blur-sm md:p-8">
+              <div className="grid gap-4">
+                <div className="rounded-2xl border border-[#2B2B2B] bg-[#171717] p-5">
+                  <p className="text-sm uppercase tracking-[0.2em] text-[#8E8E8E]">
+                    市場策略
+                  </p>
+                  <p className="mt-3 text-2xl font-semibold text-white">
+                    台灣與澳洲雙市場策略
+                  </p>
+                  <p className="mt-2 text-sm leading-7 text-[#A0A0A0]">
+                    台灣先驗證高頻交易協作，澳洲同步測試跨角色 SaaS
+                    定價與服務擴張能力。
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-[#2B2B2B] bg-[#171717] p-5">
+                  <p className="text-sm uppercase tracking-[0.2em] text-[#8E8E8E]">
+                    商業模式
+                  </p>
+                  <p className="mt-3 text-2xl font-semibold text-white">
+                    買方、租客、自租屋主先免費進場
+                  </p>
+                  <p className="mt-2 text-sm leading-7 text-[#A0A0A0]">
+                    先把需求聚集，再向仲介、店長、代書、律師與合作團隊收取按案件或按物件費用。
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
-                        <div className="relative">
-                            <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-[#1A1A1A] relative shadow-2xl border border-[#262626]">
-                                <img
-                                    src="/images/property-1.jpg"
-                                    alt="Modern Office"
-                                    className="w-full h-full object-cover opacity-80"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-transparent to-transparent opacity-60"></div>
-                            </div>
+        <section className="px-6 py-10 md:px-12 lg:px-20">
+          <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-3">
+            {marketHighlights.map((item) => (
+              <div
+                key={item.label}
+                className="rounded-3xl border border-white/10 bg-[#171717] p-6"
+              >
+                <p className="text-sm uppercase tracking-[0.18em] text-[#8E8E8E]">
+                  {item.label}
+                </p>
+                <p className="mt-4 text-3xl font-semibold text-white">
+                  {item.value}
+                </p>
+                <p className="mt-3 text-sm leading-7 text-[#A0A0A0]">
+                  {item.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
 
-                            {/* Abstract decorative elements */}
-                            <div className="absolute -z-10 top-10 -right-10 w-40 h-40 bg-[#7C3AED] rounded-full blur-[100px] opacity-20"></div>
-                            <div className="absolute -z-10 -bottom-10 -left-10 w-40 h-40 bg-[#7C3AED] rounded-full blur-[100px] opacity-20"></div>
-                        </div>
-                    </div>
-                </section>
+        <section className="bg-[#151515] px-6 py-20 md:px-12 lg:px-20">
+          <div className="mx-auto max-w-7xl">
+            <div className="max-w-3xl">
+              <p className="text-sm uppercase tracking-[0.2em] text-[#F5C96A]">
+                Role Architecture
+              </p>
+              <h2 className="mt-4 text-3xl font-bold md:text-4xl">
+                把不同角色放進同一個案件生命週期
+              </h2>
+              <p className="mt-5 text-base leading-8 text-[#A8A8A8]">
+                我們把市場上原本斷裂的角色拆成三層：先進場的人、直接成交的人、以及把案件推完的專業協作者。
+              </p>
+            </div>
 
-                {/* Values Section */}
-                <section className="py-20 px-6 md:px-12 lg:px-20 bg-[#1A1A1A]">
-                    <div className="max-w-7xl mx-auto">
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-                            <div className="lg:col-span-1">
-                                <span className="text-[#7C3AED] font-semibold tracking-wider uppercase text-sm mb-2 block">我們的價值觀</span>
-                                <h2 className="text-3xl md:text-4xl font-bold mb-6">信任、卓越、以客為尊</h2>
-                                <p className="text-[#999999] mb-8">
-                                    這些核心價值指引著我們每一個決策，確保我們始終提供最高標準的服務。
-                                </p>
-                                <Button>加入我們</Button>
-                            </div>
+            <div className="mt-12 grid gap-6 lg:grid-cols-3">
+              {roleGroups.map((group) => (
+                <div
+                  key={group.title}
+                  className="rounded-3xl border border-white/10 bg-[#101010] p-6"
+                >
+                  <h3 className="text-2xl font-semibold text-white">
+                    {group.title}
+                  </h3>
+                  <p className="mt-4 text-sm leading-7 text-[#A0A0A0]">
+                    {group.description}
+                  </p>
+                  <ul className="mt-6 space-y-3 text-sm text-[#E9E9E9]">
+                    {group.items.map((item) => (
+                      <li
+                        key={item}
+                        className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3"
+                      >
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
 
-                            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {[
-                                    {
-                                        title: '信任優先',
-                                        desc: '建立透明的關係是我們一切工作的基礎。',
-                                        icon: (
-                                            <svg className="w-6 h-6 text-[#7C3AED]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                            </svg>
-                                        )
-                                    },
-                                    {
-                                        title: '追求卓越',
-                                        desc: '我們不斷優化流程，力求在每個細節上做到完美。',
-                                        icon: (
-                                            <svg className="w-6 h-6 text-[#7C3AED]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                            </svg>
-                                        )
-                                    },
-                                    {
-                                        title: '以客為尊',
-                                        desc: '您的需求是我們的首要考量，我們致力於超越您的期望。',
-                                        icon: (
-                                            <svg className="w-6 h-6 text-[#7C3AED]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                        )
-                                    },
-                                    {
-                                        title: '創新驅動',
-                                        desc: '結合最新 AI 技術，為傳統產業注入新活力。',
-                                        icon: (
-                                            <svg className="w-6 h-6 text-[#7C3AED]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                            </svg>
-                                        )
-                                    }
-                                ].map((item, index) => (
-                                    <div key={index} className="bg-[#141414] p-6 rounded-xl border border-[#262626] hover:border-[#7C3AED]/50 transition-colors">
-                                        <div className="w-12 h-12 rounded-full bg-[#1A1A1A] flex items-center justify-center mb-4 border border-[#262626]">
-                                            {item.icon}
-                                        </div>
-                                        <h3 className="text-xl font-bold mb-2">{item.title}</h3>
-                                        <p className="text-[#999999] text-sm">{item.desc}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </section>
+        <section className="px-6 py-20 md:px-12 lg:px-20">
+          <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.9fr_1.1fr]">
+            <div>
+              <p className="text-sm uppercase tracking-[0.2em] text-[#F5C96A]">
+                Operating Principles
+              </p>
+              <h2 className="mt-4 text-3xl font-bold md:text-4xl">
+                我們怎麼看待這個產品
+              </h2>
+              <p className="mt-5 text-base leading-8 text-[#A8A8A8]">
+                不是再做一個漂亮的刊登頁，而是建立一套能真正承接成交、簽約與後續服務的作業流程。
+              </p>
+            </div>
 
-                {/* Team Section */}
-                <section className="py-20 px-6 md:px-12 lg:px-20">
-                    <div className="max-w-7xl mx-auto">
-                        <div className="text-center max-w-2xl mx-auto mb-16">
-                            <span className="text-[#7C3AED] font-semibold tracking-wider uppercase text-sm mb-2 block">我們的團隊</span>
-                            <h2 className="text-3xl md:text-4xl font-bold mb-4">認識 Owner AI 的專家</h2>
-                            <p className="text-[#999999]">
-                                我們擁有一支經驗豐富、熱情專業的團隊，隨時準備為您提供最佳的房地產服務。
-                            </p>
-                        </div>
+            <div className="grid gap-5">
+              {principles.map((principle) => (
+                <div
+                  key={principle.title}
+                  className="rounded-3xl border border-white/10 bg-[#171717] p-6"
+                >
+                  <h3 className="text-xl font-semibold text-white">
+                    {principle.title}
+                  </h3>
+                  <p className="mt-3 text-sm leading-7 text-[#A0A0A0]">
+                    {principle.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                            {[
-                                {
-                                    name: '張志豪',
-                                    role: '創辦人 & CEO',
-                                    image: '/images/team/member-1.jpg'
-                                },
-                                {
-                                    name: '李雅婷',
-                                    role: '首席運營官',
-                                    image: '/images/team/member-2.jpg'
-                                },
-                                {
-                                    name: '王建國',
-                                    role: '資深物業顧問',
-                                    image: '/images/team/member-3.jpg'
-                                }
-                            ].map((member, index) => (
-                                <Card key={index} hoverable className="text-center p-0 overflow-hidden group">
-                                    <div className="h-80 w-full relative overflow-hidden">
-                                        <img
-                                            src={member.image}
-                                            alt={member.name}
-                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                        />
-                                        <div className="absolute inset-0 bg-gradient-to-t from-[#141414] to-transparent opacity-80 translate-y-full group-hover:translate-y-0 transition-transform duration-300 flex items-end justify-center pb-6">
-                                            <div className="flex gap-4">
-                                                <a href="#" className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-black hover:bg-[#7C3AED] hover:text-white transition-colors">
-                                                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z" /></svg>
-                                                </a>
-                                                <a href="#" className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-black hover:bg-[#7C3AED] hover:text-white transition-colors">
-                                                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" /></svg>
-                                                </a>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <CardContent className="py-6">
-                                        <h3 className="text-xl font-bold text-white">{member.name}</h3>
-                                        <p className="text-[#999999] text-sm mt-1">{member.role}</p>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    </div>
-                </section>
+        <section className="bg-[linear-gradient(180deg,_#151515_0%,_#111111_100%)] px-6 py-20 md:px-12 lg:px-20">
+          <div className="mx-auto max-w-7xl">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div className="max-w-3xl">
+                <p className="text-sm uppercase tracking-[0.2em] text-[#F5C96A]">
+                  Workflow
+                </p>
+                <h2 className="mt-4 text-3xl font-bold md:text-4xl">
+                  從公開案件到成交協作，我們希望流程長這樣
+                </h2>
+              </div>
+              <Link
+                className="text-sm text-[#F5C96A] underline-offset-4 hover:underline"
+                href="/properties"
+              >
+                查看案件市場
+              </Link>
+            </div>
 
-                {/* CTA Section */}
-                <section className="py-20 px-6 md:px-12 lg:px-20 border-t border-[#262626] bg-gradient-to-r from-[#141414] to-[#1A1A1A]">
-                    <div className="max-w-5xl mx-auto relative">
-                        <div className="absolute right-0 top-0 w-64 h-64 bg-[#7C3AED] rounded-full blur-[120px] opacity-20"></div>
+            <div className="mt-12 grid gap-6 lg:grid-cols-3">
+              {workflowSteps.map((step) => (
+                <div
+                  key={step.step}
+                  className="rounded-3xl border border-white/10 bg-[#101010] p-6"
+                >
+                  <p className="text-sm font-semibold tracking-[0.2em] text-[#F5C96A]">
+                    {step.step}
+                  </p>
+                  <h3 className="mt-6 text-2xl font-semibold text-white">
+                    {step.title}
+                  </h3>
+                  <p className="mt-4 text-sm leading-7 text-[#A0A0A0]">
+                    {step.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
 
-                        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
-                            <div>
-                                <h2 className="text-3xl md:text-4xl font-bold mb-4">準備好開始您的旅程了嗎？</h2>
-                                <p className="text-[#999999] max-w-xl">
-                                    探索我們的精選物業，或聯繫我們團隊，讓我們為您找到理想的家。
-                                </p>
-                            </div>
-                            <div className="flex gap-4">
-                                <Link href="/properties">
-                                    <Button variant="primary" size="lg">瀏覽物業</Button>
-                                </Link>
-                                <Button variant="secondary" size="lg">聯繫我們</Button>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-            </main>
+        <section className="px-6 py-20 md:px-12 lg:px-20">
+          <div className="mx-auto grid max-w-7xl gap-10 rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,_rgba(245,158,11,0.08),_rgba(14,165,233,0.08))] p-8 md:p-10 lg:grid-cols-[0.95fr_1.05fr]">
+            <div>
+              <p className="text-sm uppercase tracking-[0.2em] text-[#F5C96A]">
+                Need Help
+              </p>
+              <h2 className="mt-4 text-3xl font-bold md:text-4xl">
+                如果你想把團隊、案件或服務接進平台
+              </h2>
+              <p className="mt-5 text-base leading-8 text-[#C9C9C9]">
+                這一頁不做空泛品牌故事。我們更想直接告訴你，平台目前能支援什麼、下一步能一起盤什麼。
+              </p>
+            </div>
 
-            <Footer />
-        </div>
-    );
+            <div className="grid gap-4">
+              {supportLanes.map((lane) => (
+                <div
+                  key={lane}
+                  className="rounded-2xl border border-white/10 bg-black/20 px-5 py-4 text-sm text-white"
+                >
+                  {lane}
+                </div>
+              ))}
+
+              <div className="mt-4 flex flex-wrap gap-4">
+                <Link href="/contact?inquiryType=合作提案">
+                  <Button size="lg">預約平台導入</Button>
+                </Link>
+                <Link href="/services">
+                  <Button variant="secondary" size="lg">
+                    查看平台能力
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <Footer />
+    </div>
+  );
 }

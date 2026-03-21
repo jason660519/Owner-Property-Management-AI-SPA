@@ -1,52 +1,64 @@
-import { sendContactEmail } from '@/lib/actions/contact';
-import { createClient } from '@/lib/supabase/server';
-import nodemailer from 'nodemailer';
+import { sendContactEmail } from "@/lib/actions/contact";
+import { createAdminClient } from "@/utils/supabase/admin";
+import nodemailer from "nodemailer";
 
 // Mock dependencies
-jest.mock('@/lib/supabase/server', () => ({
-  createClient: jest.fn(),
+jest.mock("@/utils/supabase/admin", () => ({
+  createAdminClient: jest.fn(),
 }));
 
-jest.mock('nodemailer', () => ({
+jest.mock("nodemailer", () => ({
   createTransport: jest.fn().mockReturnValue({
     verify: jest.fn().mockResolvedValue(true),
     sendMail: jest.fn().mockResolvedValue({}),
   }),
 }));
 
-describe('Contact Action Integration Test', () => {
+describe("Contact Action Integration Test", () => {
+  const mockSingle = jest.fn();
+  const mockSelect = jest.fn(() => ({ single: mockSingle }));
+  const mockInsert = jest.fn(() => ({ select: mockSelect }));
   const mockSupabase = {
-    from: jest.fn().mockReturnThis(),
-    insert: jest.fn().mockReturnThis(),
+    from: jest.fn(() => ({ insert: mockInsert })),
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (createClient as jest.Mock).mockResolvedValue(mockSupabase);
-    mockSupabase.insert.mockResolvedValue({ error: null });
+    (createAdminClient as jest.Mock).mockReturnValue(mockSupabase);
+    mockSingle.mockResolvedValue({
+      data: { id: "12345678-1234-1234-1234-1234567890ab" },
+      error: null,
+    });
   });
 
   const validData = {
-    name: 'Test User',
-    email: 'test@example.com',
-    inquiryType: 'general',
-    message: 'Hello world',
-    phone: '1234567890',
+    name: "Test User",
+    email: "test@example.com",
+    inquiryType: "合作提案",
+    message: "Hello world",
+    phone: "1234567890",
+    sourcePath: "/pricing",
+    sourceContext: {
+      entryPoint: "pricing-cta",
+    },
   };
 
-  it('should insert into DB and send email on success', async () => {
+  it("should insert into DB, return lead reference, and send email on success", async () => {
     const result = await sendContactEmail(validData);
 
     expect(result.success).toBe(true);
-    
+    expect(result.leadReference).toBe("LEAD-12345678");
+
     // Verify DB insert
-    expect(mockSupabase.from).toHaveBeenCalledWith('contact_messages');
-    expect(mockSupabase.insert).toHaveBeenCalledWith({
+    expect(mockSupabase.from).toHaveBeenCalledWith("contact_messages");
+    expect(mockInsert).toHaveBeenCalledWith({
       name: validData.name,
       email: validData.email,
       phone: validData.phone,
       inquiry_type: validData.inquiryType,
       message: validData.message,
+      source_path: validData.sourcePath,
+      source_context: validData.sourceContext,
     });
 
     // Verify Email
@@ -54,36 +66,45 @@ describe('Contact Action Integration Test', () => {
     expect(transporter.sendMail).toHaveBeenCalledTimes(2); // Support email + Auto reply
   });
 
-  it('should handle DB failure but still try to send email', async () => {
-    mockSupabase.insert.mockResolvedValue({ error: { message: 'DB Error' } });
-
-    const result = await sendContactEmail(validData);
-
-    // It should still return success if email succeeds (based on logic "Email sent but DB save failed" -> success)
-    expect(result.success).toBe(true); 
-    
-    const transporter = nodemailer.createTransport();
-    expect(transporter.sendMail).toHaveBeenCalled();
-  });
-
-  it('should handle Email failure but still try to insert to DB', async () => {
-    const transporter = nodemailer.createTransport();
-    (transporter.sendMail as jest.Mock).mockRejectedValue(new Error('SMTP Error'));
-
-    const result = await sendContactEmail(validData);
-
-    expect(result.success).toBe(true); // "Saved to DB but email failed" -> success
-    expect(mockSupabase.insert).toHaveBeenCalled();
-  });
-
-  it('should fail if both DB and Email fail', async () => {
-    mockSupabase.insert.mockResolvedValue({ error: { message: 'DB Error' } });
-    const transporter = nodemailer.createTransport();
-    (transporter.sendMail as jest.Mock).mockRejectedValue(new Error('SMTP Error'));
+  it("should fail when DB save fails because lead capture was not created", async () => {
+    mockSingle.mockResolvedValue({
+      data: null,
+      error: { message: "DB Error" },
+    });
 
     const result = await sendContactEmail(validData);
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain('系統錯誤');
+    expect(result.error).toContain("無法建立 lead");
+
+    const transporter = nodemailer.createTransport();
+    expect(transporter.sendMail).not.toHaveBeenCalled();
+  });
+
+  it("should keep lead capture success even if email delivery fails", async () => {
+    const transporter = nodemailer.createTransport();
+    (transporter.sendMail as jest.Mock).mockRejectedValue(
+      new Error("SMTP Error"),
+    );
+
+    const result = await sendContactEmail(validData);
+
+    expect(result.success).toBe(true);
+    expect(result.leadReference).toBe("LEAD-12345678");
+    expect(result.emailSent).toBe(false);
+    expect(mockInsert).toHaveBeenCalled();
+  });
+
+  it("should fail validation for invalid source path", async () => {
+    const transporter = nodemailer.createTransport();
+    (transporter.sendMail as jest.Mock).mockResolvedValue({});
+
+    const result = await sendContactEmail({
+      ...validData,
+      sourcePath: "https://malicious.example",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("資料驗證失敗");
   });
 });
