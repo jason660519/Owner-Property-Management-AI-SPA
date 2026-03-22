@@ -444,7 +444,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/03/22",
     phase: "operations",
     operationsNote:
-      "contact 頁已支援從 pricing / services / about / properties 與 property detail CTA 帶入 inquiryType 與來源資訊，並使用白名單限制可接受的查詢參數。送出後會先建立可追蹤的 lead、回傳 Lead 編號，並在郵件成功或失敗時分別呈現可理解的結果；目前也會把 property detail CTA 來源轉成可讀的來源摘要與來源動作。superadmin 已新增 /superadmin/contacts lead inbox，可直接查看 Lead 編號、來源頁面、來源動作、案件脈絡與狀態。contact utils/page 的 Jest 測試、superadmin contacts/Sidebar Jest 測試與公開 contact submit、property detail funnel Playwright E2E 均已驗證通過。",
+      "contact 頁已支援從 pricing / services / about / properties 與 property detail CTA 帶入 inquiryType 與來源資訊，並使用白名單限制可接受的查詢參數。送出後會先建立可追蹤的 lead、回傳 Lead 編號，並在郵件成功或失敗時分別呈現可理解的結果；目前也會把 property detail CTA 來源轉成可讀的來源摘要與來源動作。superadmin 已新增 /superadmin/contacts lead inbox，可直接查看 Lead 編號、來源頁面、來源動作、案件脈絡與狀態，並可直接將 lead 更新為待處理 / 已讀 / 已回覆 / 已封存，也支援多選後批次更新 lead 狀態；同時支援依關鍵字、狀態、來源類型與詢問類型進行搜尋與篩選，也可進入單筆 lead 詳細頁查看完整聯絡資訊、來源脈絡與原始訊息。contact utils/page/[id] 的 Jest 測試、superadmin contacts/Sidebar/ContactLeadsTable Jest 測試與公開 contact submit、property detail funnel Playwright E2E 均已驗證通過。",
   },
 
   // 第三方加值服務

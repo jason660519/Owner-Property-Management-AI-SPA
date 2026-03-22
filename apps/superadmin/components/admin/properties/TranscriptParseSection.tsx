@@ -27,6 +27,13 @@ import {
   getAvailableModelsListWithStaticFallback,
 } from '@/lib/utils/total-available-models';
 import { getStatusDisplay } from '@/lib/utils/model-status';
+import {
+  deleteSavedPrompt,
+  listSavedPrompts,
+  savePrompt as savePromptAction,
+  updatePrompt,
+  type SavedPrompt as DbSavedPrompt,
+} from '@/app/superadmin/settings/evaluations-global-test/promptActions';
 import { readLocalStorage,
   writeLocalStorage,
   readSessionStorage,
@@ -111,7 +118,7 @@ function detectCategoryFromOutput(output: string | undefined): 'VLM' | 'LLM' | '
   return 'unknown';
 }
 
-export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTranscribe }: Props) {
+export function TranscriptParseSection({ transcriptDocs, kind = 'building', salesMode, onTranscribe }: Props) {
   const {
     userId: aiUserId,
     modules: aiModules,
@@ -159,7 +166,7 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTr
   const [showConflicts, setShowConflicts] = useState(false);
 
   // No OCR model configured guard (shown before parse starts, with link to settings)
-  const [noOcrModelError, setNoOcrModelError] = useState(false);
+  const [noOcrModelError, setNoOcrModelError] = useState<boolean>(false);
 
   // AbortController for cancelling the fetch stream
   const abortRef = useRef<AbortController | null>(null);
@@ -369,24 +376,33 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTr
     filterCategories,
   ]);
 
+  const [dbPrompts, setDbPrompts] = useState<DbSavedPrompt[]>([]);
+
+  // Fetch all saved_prompts (not just active system ones)
+  useEffect(() => {
+    listSavedPrompts().then((res) => {
+      if (res.data) setDbPrompts(res.data);
+    });
+  }, []);
+
   const storedParsePrompt = useMemo(() => {
-    // 1. 優先嘗試尋找名稱中包含目前銷售模式（如 (building_only)）的 Prompt
-    if (salesMode) {
-      const modeMatch = prompts.find(
+    // 1. 優先嘗試從 saved_prompts 中尋找名稱中包含目前銷售模式（如 (building_only)）的 Prompt
+    if (salesMode && dbPrompts.length > 0) {
+      const modeMatch = dbPrompts.find(
         (p) =>
-          p.module_key === 'online_ocr_parse' &&
-          p.name.includes(`(${salesMode})`) &&
-          p.prompt_content.trim(),
+          p.name?.includes(`(${salesMode})`) &&
+          p.content?.trim(),
       );
-      if (modeMatch) return modeMatch.prompt_content;
+      if (modeMatch) return modeMatch.content;
     }
 
     // 2. Fallback: 尋找最新版本的 online_ocr_parse Prompt（即原本的「設為系統 Prompt」邏輯）
+    // 注意：這裡使用 useAISettings() 的 prompts (來自 ai_system_prompts 表)
     const matched = prompts
-      .filter((p) => p.module_key === 'online_ocr_parse' && p.prompt_content.trim())
+      .filter((p) => p.module_key === 'online_ocr_parse' && p.prompt_content?.trim())
       .sort((a, b) => b.version - a.version);
     return matched[0]?.prompt_content ?? '';
-  }, [prompts, salesMode]);
+  }, [prompts, salesMode, dbPrompts]);
   const effectiveParsePrompt = storedParsePrompt || TRANSCRIPT_PARSE_PROMPT;
   const isCustomPromptOverridden =
     isPromptDirty && customPrompt.trim().length > 0 && customPrompt.trim() !== effectiveParsePrompt.trim();
@@ -396,13 +412,12 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTr
     enabledParserCount || parserModelSelection.length || 1,
   );
 
-  // 若使用者尚未輸入過任何 Prompt（localStorage 為空），第一次載入時才帶入系統預設，
-  // 之後就完全以 localStorage 為主，不再被系統預設覆蓋。
+  // 若使用者尚未輸入過任何 Prompt（localStorage 為空），第一次載入或切換模式時自動載入對應 Prompt
   useEffect(() => {
-    if (!isPromptDirty && customPrompt.trim().length === 0) {
+    if (!isPromptDirty) {
       setCustomPrompt(effectiveParsePrompt);
     }
-  }, [effectiveParsePrompt, isPromptDirty, customPrompt]);
+  }, [effectiveParsePrompt, isPromptDirty]);
 
   // When Prompt 管理 is opened in a new tab (e.g. "在新分頁開啟"), 載入 sends postMessage; we apply it here
   useEffect(() => {
@@ -533,13 +548,13 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', onTr
     // is_enabled is a separate module-level toggle and should not block parsing
     // when models are actually assigned.
     if (parserModelSelection.length === 0) {
-      setNoOcrModelError('no-models');
+      setNoOcrModelError(true);
       setParseError(null);
       return;
     }
     const enabledParserModels = parserModelSelection.filter((m) => m.enabled);
     if (enabledParserModels.length === 0) {
-      setNoOcrModelError('no-models');
+      setNoOcrModelError(true);
       setParseError(null);
       return;
     }

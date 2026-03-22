@@ -477,6 +477,7 @@ export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
   }
 
   function handleIndependentTitleSaleModeChange(mode: IndependentTitleSaleMode) {
+    if (isMetaBusy) return;
     const willEnableParking = needsIndependentParkingForMode(mode) && !hasIndependentParking;
     setIndependentTitleSaleMode(mode);
     if (willEnableParking) {
@@ -544,11 +545,16 @@ export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
           ([mode, title]) => (
             <div
               key={mode}
-              className="rounded-lg border border-border-default bg-bg-primary overflow-hidden"
+              className="rounded-lg border border-accent bg-bg-primary ring-1 ring-accent/20 overflow-hidden"
             >
               <div className="shrink-0 px-4 py-3 border-b border-border-default flex items-start justify-between gap-4">
                 <div className="flex flex-1 min-w-0 flex-col gap-1">
-                  <span className="text-sm font-semibold text-text-primary">{title}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-text-primary">{title}</span>
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-accent/10 text-accent border border-accent/20">
+                      目前選定
+                    </span>
+                  </div>
                   <span className="text-xs text-text-muted leading-relaxed">
                     {SALE_MODE_SECTION_HINT[mode]}
                   </span>

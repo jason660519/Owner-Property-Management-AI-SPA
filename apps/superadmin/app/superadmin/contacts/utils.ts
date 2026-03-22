@@ -1,4 +1,99 @@
 import type { ContactLeadSourceContext } from './actions';
+import type { ContactLead } from './actions';
+import {
+  CONTACT_LEAD_SOURCE_TYPE_VALUES,
+  CONTACT_LEAD_STATUS_LABELS,
+  type ContactLeadSourceType,
+  type ContactLeadStatus,
+} from './constants';
+
+export interface ContactLeadFilters {
+  query?: string;
+  status?: ContactLeadStatus;
+  sourceType?: ContactLeadSourceType;
+  inquiryType?: string;
+}
+
+function normalizeTextValue(value?: string | string[]) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const trimmed = raw?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+export function getLeadSourceType(sourcePath?: string): ContactLeadSourceType {
+  if (sourcePath?.startsWith('/properties')) {
+    return 'property';
+  }
+
+  if (sourcePath === '/pricing' || sourcePath === '/services' || sourcePath === '/about') {
+    return 'marketing';
+  }
+
+  return 'other';
+}
+
+export function getContactLeadFilters(
+  searchParams?: Record<string, string | string[] | undefined>,
+): ContactLeadFilters {
+  const query = normalizeTextValue(searchParams?.query);
+  const inquiryType = normalizeTextValue(searchParams?.inquiryType);
+  const status = normalizeTextValue(searchParams?.status);
+  const sourceType = normalizeTextValue(searchParams?.sourceType);
+
+  return {
+    query,
+    inquiryType,
+    status: status && CONTACT_LEAD_STATUS_LABELS[status as ContactLeadStatus] ? (status as ContactLeadStatus) : undefined,
+    sourceType:
+      sourceType && CONTACT_LEAD_SOURCE_TYPE_VALUES.includes(sourceType as ContactLeadSourceType)
+        ? (sourceType as ContactLeadSourceType)
+        : undefined,
+  };
+}
+
+export function filterContactLeads(leads: ContactLead[], filters: ContactLeadFilters) {
+  const query = filters.query?.toLowerCase();
+
+  return leads.filter((lead) => {
+    if (filters.status && lead.status !== filters.status) {
+      return false;
+    }
+
+    if (filters.sourceType && getLeadSourceType(lead.sourcePath) !== filters.sourceType) {
+      return false;
+    }
+
+    if (filters.inquiryType && lead.inquiryType !== filters.inquiryType) {
+      return false;
+    }
+
+    if (!query) {
+      return true;
+    }
+
+    const haystacks = [
+      lead.leadReference,
+      lead.name,
+      lead.email,
+      lead.message,
+      lead.inquiryType,
+      lead.sourceContext?.propertyId,
+      lead.sourceContext?.propertyTitle,
+    ];
+
+    return haystacks.some((value) => value?.toLowerCase().includes(query));
+  });
+}
+
+export function getAvailableInquiryTypes(leads: ContactLead[]) {
+  return Array.from(new Set(leads.map((lead) => lead.inquiryType))).sort((left, right) =>
+    left.localeCompare(right, 'zh-Hant'),
+  );
+}
+
+export function hasActiveLeadFilters(filters: ContactLeadFilters) {
+  return Boolean(filters.query || filters.status || filters.sourceType || filters.inquiryType);
+}
 
 export function formatLeadEntryPoint(entryPoint?: string) {
   switch (entryPoint) {
@@ -83,4 +178,8 @@ export function formatLeadTimestamp(value: string) {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(new Date(value));
+}
+
+export function formatLeadStatus(status: ContactLeadStatus) {
+  return CONTACT_LEAD_STATUS_LABELS[status];
 }

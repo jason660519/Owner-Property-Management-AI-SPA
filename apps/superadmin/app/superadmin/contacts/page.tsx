@@ -1,24 +1,38 @@
 import { Mail } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
-import { Badge } from '@/components/ui/Badge';
+import Link from 'next/link';
 import { getContactLeads } from './actions';
-import { formatLeadSourceSummary, formatLeadTimestamp } from './utils';
+import {
+  CONTACT_LEAD_SOURCE_TYPE_LABELS,
+  CONTACT_LEAD_SOURCE_TYPE_VALUES,
+  CONTACT_LEAD_STATUS_VALUES,
+  CONTACT_LEAD_STATUS_LABELS,
+} from './constants';
+import {
+  filterContactLeads,
+  getAvailableInquiryTypes,
+  getContactLeadFilters,
+  hasActiveLeadFilters,
+} from './utils';
+import { ContactLeadsTable } from './ContactLeadsTable';
 
 export const dynamic = 'force-dynamic';
 
-const statusVariantMap = {
-  new: 'warning',
-  read: 'info',
-  replied: 'success',
-  archived: 'default',
-} as const;
+interface ContactsPageProps {
+  searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>;
+}
 
-export default async function ContactsPage() {
+export default async function ContactsPage({ searchParams }: ContactsPageProps = {}) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const leads = await getContactLeads();
+  const filters = getContactLeadFilters(resolvedSearchParams);
+  const filteredLeads = filterContactLeads(leads, filters);
+  const inquiryTypes = getAvailableInquiryTypes(leads);
+  const filtersActive = hasActiveLeadFilters(filters);
 
-  const totalLeads = leads.length;
-  const newLeads = leads.filter((lead) => lead.status === 'new').length;
-  const propertyFlowLeads = leads.filter((lead) => lead.sourcePath?.startsWith('/properties')).length;
+  const totalLeads = filteredLeads.length;
+  const newLeads = filteredLeads.filter((lead) => lead.status === 'new').length;
+  const propertyFlowLeads = filteredLeads.filter((lead) => lead.sourcePath?.startsWith('/properties')).length;
 
   return (
     <DashboardLayout
@@ -56,59 +70,91 @@ export default async function ContactsPage() {
             </div>
           </div>
 
-          {leads.length === 0 ? (
+          <form method="GET" className="grid gap-3 border-b border-border-default px-6 py-4 md:grid-cols-4">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-text-secondary">關鍵字</span>
+              <input
+                type="search"
+                name="query"
+                defaultValue={filters.query ?? ''}
+                placeholder="姓名、Email、案件標題、Lead 編號"
+                className="w-full rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-text-secondary">狀態</span>
+              <select
+                name="status"
+                defaultValue={filters.status ?? ''}
+                className="w-full rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
+              >
+                <option value="">全部狀態</option>
+                {CONTACT_LEAD_STATUS_VALUES.map((statusValue) => (
+                  <option key={statusValue} value={statusValue}>
+                    {CONTACT_LEAD_STATUS_LABELS[statusValue]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-text-secondary">來源類型</span>
+              <select
+                name="sourceType"
+                defaultValue={filters.sourceType ?? ''}
+                className="w-full rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
+              >
+                <option value="">全部來源</option>
+                {CONTACT_LEAD_SOURCE_TYPE_VALUES.map((sourceType) => (
+                  <option key={sourceType} value={sourceType}>
+                    {CONTACT_LEAD_SOURCE_TYPE_LABELS[sourceType]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-text-secondary">詢問類型</span>
+              <select
+                name="inquiryType"
+                defaultValue={filters.inquiryType ?? ''}
+                className="w-full rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
+              >
+                <option value="">全部類型</option>
+                {inquiryTypes.map((inquiryType) => (
+                  <option key={inquiryType} value={inquiryType}>
+                    {inquiryType}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="flex flex-wrap items-center gap-2 md:col-span-4">
+              <button
+                type="submit"
+                className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white transition hover:bg-accent-hover"
+              >
+                套用篩選
+              </button>
+              {filtersActive ? (
+                <Link
+                  href="/superadmin/contacts"
+                  className="rounded-md border border-border-default px-3 py-2 text-sm font-medium text-text-secondary transition hover:border-accent hover:text-accent"
+                >
+                  清除篩選
+                </Link>
+              ) : null}
+              <p className="text-xs text-text-muted">
+                {filtersActive
+                  ? `目前顯示 ${filteredLeads.length} / ${leads.length} 筆 leads`
+                  : `目前共有 ${leads.length} 筆 leads`}
+              </p>
+            </div>
+          </form>
+
+          {filteredLeads.length === 0 ? (
             <div className="px-6 py-10 text-sm text-text-muted">
-              目前沒有任何 contact leads。
+              {filtersActive ? '目前沒有符合篩選條件的 contact leads。' : '目前沒有任何 contact leads。'}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-border-default text-sm">
-                <thead className="bg-bg-secondary/60">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-medium text-text-secondary">Lead</th>
-                    <th className="px-4 py-3 text-left font-medium text-text-secondary">聯絡人</th>
-                    <th className="px-4 py-3 text-left font-medium text-text-secondary">詢問類型</th>
-                    <th className="px-4 py-3 text-left font-medium text-text-secondary">來源頁面</th>
-                    <th className="px-4 py-3 text-left font-medium text-text-secondary">來源動作</th>
-                    <th className="px-4 py-3 text-left font-medium text-text-secondary">案件</th>
-                    <th className="px-4 py-3 text-left font-medium text-text-secondary">狀態</th>
-                    <th className="px-4 py-3 text-left font-medium text-text-secondary">建立時間</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border-default">
-                  {leads.map((lead) => {
-                    const sourceSummary = formatLeadSourceSummary({
-                      sourcePath: lead.sourcePath,
-                      sourceContext: lead.sourceContext,
-                    });
-
-                    return (
-                      <tr key={lead.id} className="align-top">
-                        <td className="px-4 py-4">
-                          <div className="font-medium text-text-primary">{lead.leadReference}</div>
-                          <p className="mt-1 max-w-xs text-xs text-text-muted">{lead.message}</p>
-                        </td>
-                        <td className="px-4 py-4 text-text-primary">
-                          <div>{lead.name}</div>
-                          <div className="mt-1 text-xs text-text-muted">{lead.email}</div>
-                          {lead.phone ? (
-                            <div className="mt-1 text-xs text-text-muted">{lead.phone}</div>
-                          ) : null}
-                        </td>
-                        <td className="px-4 py-4 text-text-primary">{lead.inquiryType}</td>
-                        <td className="px-4 py-4 text-text-primary">{sourceSummary.sourceLabel}</td>
-                        <td className="px-4 py-4 text-text-primary">{sourceSummary.actionLabel}</td>
-                        <td className="px-4 py-4 text-text-primary">{sourceSummary.propertyLabel ?? '未提供'}</td>
-                        <td className="px-4 py-4">
-                          <Badge variant={statusVariantMap[lead.status]}>{lead.status}</Badge>
-                        </td>
-                        <td className="px-4 py-4 text-text-primary">{formatLeadTimestamp(lead.createdAt)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <ContactLeadsTable leads={filteredLeads} />
           )}
         </section>
       </div>
