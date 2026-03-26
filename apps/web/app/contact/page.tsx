@@ -91,28 +91,23 @@ export default function ContactPage() {
 
       <main>
         {/* Hero Section */}
-        <section className="relative h-[50vh] min-h-[400px] flex items-center justify-center overflow-hidden">
-          <div className="absolute inset-0">
-            <img
-              src="/images/contact-hero.jpg"
-              alt="Contact Hero"
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
-          </div>
-
-          <div className="relative z-10 max-w-7xl mx-auto px-6 md:px-12 lg:px-20 text-center">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
+        <section className="relative overflow-hidden px-6 pb-20 pt-32 md:px-12 lg:px-20">
+          <div className="absolute inset-x-0 top-0 h-[480px] bg-[radial-gradient(circle_at_top_left,_rgba(124,58,237,0.18),_transparent_35%),radial-gradient(circle_at_top_right,_rgba(34,197,94,0.12),_transparent_35%)]" />
+          <div className="relative mx-auto max-w-4xl text-center">
+            <span className="mb-4 inline-flex rounded-full border border-[#7C3AED]/30 bg-[#7C3AED]/10 px-4 py-2 text-sm uppercase tracking-[0.18em] text-[#C7B7FF]">
+              Contact us
+            </span>
+            <h1 className="mb-6 text-4xl font-bold md:text-5xl lg:text-6xl">
               聯絡我們
             </h1>
-            <p className="text-[#999999] text-lg max-w-2xl mx-auto">
-              我們隨時樂意為您解答任何疑問。請填寫下方表單，或透過其他方式與我們聯繫。
+            <p className="mx-auto max-w-2xl text-lg leading-8 text-[#999999]">
+              無論你是想導入平台、洽談合作，或是有台灣不動產流程的具體問題，我們都樂意直接談。
             </p>
           </div>
         </section>
 
         {/* Contact Content */}
-        <section className="py-20 px-6 md:px-12 lg:px-20 bg-[#1A1A1A]">
+        <section className="pb-20 px-6 md:px-12 lg:px-20">
           <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24">
             {/* Contact Information */}
             <div>
@@ -123,24 +118,14 @@ export default function ContactPage() {
                 讓我們開始對話
               </h2>
               <p className="text-[#999999] mb-12 leading-relaxed">
-                無論您是對我們的物業管理服務感興趣，還是有關於現有物業的問題，我們的團隊都隨時準備提供協助。
+                無論你是仲介、店長、代書、律師或企業合作方，我們可以先從了解你的案件流開始，再決定最小可行的導入方式。
               </p>
 
               <div className="space-y-8">
                 <div className="flex items-start gap-6">
                   <div className="w-12 h-12 rounded-full bg-[#141414] border border-[#262626] flex items-center justify-center flex-shrink-0 text-[#7C3AED]">
-                    <svg
-                      className="w-6 h-6"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                      />
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                   </div>
                   <div>
@@ -151,102 +136,74 @@ export default function ContactPage() {
 
                 <div className="flex items-start gap-6">
                   <div className="w-12 h-12 rounded-full bg-[#141414] border border-[#262626] flex items-center justify-center flex-shrink-0 text-[#7C3AED]">
-                    <svg
-                      className="w-6 h-6"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                      />
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                     </svg>
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold mb-1">Mobile</h3>
-                    <p className="text-[#999999]">+61 405 142 777</p>
-                    <p className="text-[#999999]">+61 405 142 777</p>
+                    <h3 className="text-lg font-bold mb-1">聯絡電話</h3>
+                    <p className="text-[#999999]">請透過 Email 或表單預約通話時間</p>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-6">
                   <div className="w-12 h-12 rounded-full bg-[#141414] border border-[#262626] flex items-center justify-center flex-shrink-0 text-[#7C3AED]">
-                    <svg
-                      className="w-6 h-6"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold mb-1">Office</h3>
-                    <p className="text-[#999999]">
-                      2 The Hermitage Way Gledswood Hills
-                    </p>
-                    <p className="text-[#999999]">NSW 2557 Australia</p>
+                    <h3 className="text-lg font-bold mb-1">服務地區</h3>
+                    <p className="text-[#999999]">台灣全台（線上服務）</p>
+                    <p className="text-[#999999]">台北市信義區信義路五段 7 號</p>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-6">
                   <div className="w-12 h-12 rounded-full bg-[#141414] border border-[#262626] flex items-center justify-center flex-shrink-0 text-[#7C3AED]">
-                    <svg
-                      className="w-6 h-6"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold mb-1">營業時間</h3>
-                    <p className="text-[#999999]">週一至週五: 09:00 - 18:00</p>
-                    <p className="text-[#999999]">週末與國定假日休息</p>
+                    <h3 className="text-lg font-bold mb-1">回覆時間</h3>
+                    <p className="text-[#999999]">週一至週五：09:00 - 18:00</p>
+                    <p className="text-[#999999]">一般 24 小時內回覆</p>
                   </div>
                 </div>
               </div>
 
               {/* Social Links */}
-              <div className="mt-12 flex gap-4">
-                {["Facebook", "Line", "Instagram", "LinkedIn"].map((social) => (
-                  <Button
-                    key={social}
-                    variant="icon"
-                    size="md"
-                    className="rounded-full bg-[#262626] hover:bg-[#7C3AED] border-none text-white"
-                  >
-                    <span className="sr-only">{social}</span>
-                    {/* Social Icon Placeholders */}
-                    <svg
-                      className="w-5 h-5"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
+              <div className="mt-12">
+                <p className="text-sm text-[#666666] mb-4 uppercase tracking-wider">社群聯絡</p>
+                <div className="flex gap-4">
+                  {["Facebook", "Line", "Instagram", "LinkedIn"].map((social) => (
+                    <Button
+                      key={social}
+                      variant="icon"
+                      size="md"
+                      className="rounded-full bg-[#262626] hover:bg-[#7C3AED] border-none text-white"
                     >
-                      <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 4.909c3.916 0 7.091 3.175 7.091 7.091 0 3.916-3.175 7.091-7.091 7.091-3.916 0-7.091-3.175-7.091-7.091 0-3.916 3.175-7.091 7.091-7.091z" />
-                    </svg>
-                  </Button>
-                ))}
+                      <span className="sr-only">{social}</span>
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 4.909c3.916 0 7.091 3.175 7.091 7.091 0 3.916-3.175 7.091-7.091 7.091-3.916 0-7.091-3.175-7.091-7.091 0-3.916 3.175-7.091 7.091-7.091z" />
+                      </svg>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quick links */}
+              <div className="mt-10 rounded-2xl border border-[#262626] bg-[#1A1A1A] p-5">
+                <p className="text-sm font-semibold text-[#CCCCCC] mb-3">常見洽詢類型</p>
+                <div className="flex flex-wrap gap-2">
+                  {["仲介方案洽談", "分店導入", "代書合作", "企業 API 串接", "功能建議"].map((tag) => (
+                    <span key={tag} className="rounded-full border border-[#333333] bg-[#111111] px-3 py-1 text-xs text-[#AAAAAA]">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -263,7 +220,7 @@ export default function ContactPage() {
                     </AlertTitle>
                     <AlertDescription>
                       感謝您的聯繫，我們已收到您的訊息。我們的團隊將會在 24
-                      小時內處理這筆 lead。
+                      小時內回覆這筆詢問。
                       <br />
                       <br />
                       <strong>Lead 編號：</strong>
@@ -284,11 +241,10 @@ export default function ContactPage() {
                         </>
                       )}
                       {submissionResult.emailSent ? (
-                        <>請留意您的收件匣（或是垃圾郵件匣）。</>
+                        <>請留意您的收件匣（或垃圾郵件匣）。</>
                       ) : (
                         <>
-                          Lead
-                          已建立，但自動回覆郵件暫時未送出，我們仍會人工跟進。
+                          Lead 已建立，但自動回覆郵件暫時未送出，我們仍會人工跟進。
                         </>
                       )}
                       <Button
@@ -345,11 +301,11 @@ export default function ContactPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-white">
-                          電話
+                          電話（選填）
                         </label>
                         <Input
                           name="phone"
-                          placeholder="請輸入聯絡電話"
+                          placeholder="09xx-xxx-xxx"
                           className="bg-[#1A1A1A] border-[#333333]"
                         />
                       </div>
@@ -358,7 +314,7 @@ export default function ContactPage() {
                           詢問類型
                         </label>
                         <select
-                          defaultValue={initialInquiryType}
+                          defaultValue={initialInquiryType ?? "一般諮詢"}
                           name="inquiryType"
                           className="w-full h-10 px-3 py-2 bg-[#1A1A1A] border border-[#333333] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
                         >
@@ -377,7 +333,7 @@ export default function ContactPage() {
                         required
                         name="message"
                         rows={6}
-                        placeholder="請詳述您的需求或問題..."
+                        placeholder="請描述您的需求，例如：目前案件量、想導入的角色、或具體問題…"
                         className="w-full px-3 py-2 bg-[#1A1A1A] border border-[#333333] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
                       ></textarea>
                     </div>
@@ -389,11 +345,8 @@ export default function ContactPage() {
                         id="scrapi"
                         className="rounded bg-[#1A1A1A] border-[#333333] text-[#7C3AED] focus:ring-[#7C3AED]"
                       />
-                      <label
-                        htmlFor="scrapi"
-                        className="text-sm text-[#999999]"
-                      >
-                        我同意 Owner AI 處理我的個人資料以回應此詢問。
+                      <label htmlFor="scrapi" className="text-sm text-[#999999]">
+                        我同意 Owner AI 處理我的個人資料以回應此詢問，並遵守台灣個人資料保護法相關規定。
                       </label>
                     </div>
 
@@ -418,18 +371,12 @@ export default function ContactPage() {
           </div>
         </section>
 
-        {/* Map Section */}
-        <section className="h-[400px] w-full bg-[#262626] relative flex items-center justify-center">
-          <div className="absolute inset-0 opacity-50">
-            {/* This would be an iframe for Google Maps in production */}
-            <div className="w-full h-full bg-[url('https://upload.wikimedia.org/wikipedia/commons/e/ec/USA_location_map.svg')] bg-cover bg-center grayscale opacity-20"></div>
-          </div>
-          <div className="relative z-10 bg-[#141414] p-8 rounded-xl border border-[#333333] shadow-2xl max-w-sm">
-            <h3 className="text-xl font-bold mb-2">來訪我們</h3>
-            <p className="text-[#999999] mb-4">
-              台北市信義區信義路五段 7 號<br />
-              台北 101 大樓 35 樓
-            </p>
+        {/* Map / Location Section */}
+        <section className="h-[360px] w-full bg-[#1A1A1A] relative flex items-center justify-center border-t border-[#262626]">
+          <div className="relative z-10 bg-[#141414] p-8 rounded-xl border border-[#333333] shadow-2xl max-w-sm w-full mx-6">
+            <h3 className="text-xl font-bold mb-2">服務地區</h3>
+            <p className="text-[#999999] mb-1">台北市信義區信義路五段 7 號</p>
+            <p className="text-[#999999] mb-4">線上服務覆蓋台灣全台</p>
             <Button variant="outline" size="sm" fullWidth>
               在 Google 地圖上查看
             </Button>

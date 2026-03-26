@@ -88,6 +88,7 @@ export function ContactLeadsTable({ leads }: ContactLeadsTableProps) {
             <th className="px-4 py-3 text-left font-medium text-text-secondary">來源頁面</th>
             <th className="px-4 py-3 text-left font-medium text-text-secondary">來源動作</th>
             <th className="px-4 py-3 text-left font-medium text-text-secondary">案件</th>
+            <th className="px-4 py-3 text-left font-medium text-text-secondary">負責人</th>
             <th className="px-4 py-3 text-left font-medium text-text-secondary">狀態</th>
             <th className="px-4 py-3 text-left font-medium text-text-secondary">建立時間</th>
           </tr>
@@ -127,6 +128,9 @@ export function ContactLeadsTable({ leads }: ContactLeadsTableProps) {
                 <td className="px-4 py-4 text-text-primary">{sourceSummary.sourceLabel}</td>
                 <td className="px-4 py-4 text-text-primary">{sourceSummary.actionLabel}</td>
                 <td className="px-4 py-4 text-text-primary">{sourceSummary.propertyLabel ?? '未提供'}</td>
+                <td className="px-4 py-4 text-text-primary">
+                  {lead.assigneeName ?? <span className="text-text-muted">未指派</span>}
+                </td>
                 <td className="px-4 py-4">
                   <div className="space-y-3">
                     <Badge variant={CONTACT_LEAD_STATUS_VARIANTS[lead.status]}>

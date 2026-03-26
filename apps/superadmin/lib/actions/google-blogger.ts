@@ -4,6 +4,7 @@ import { createAdminClient } from '@/utils/supabase/admin';
 import { createClient } from '@/utils/supabase/server';
 import { getIntegrationTokens, savePlatformPost } from './integrations';
 import type { ActionResult } from '@/lib/types/properties';
+import { wrapForBlogger } from '@/lib/utils/blogger-wrapped-html';
 
 interface BloggerPost {
   id?: string;
@@ -89,19 +90,6 @@ async function getValidAccessToken(userId: string): Promise<string | null> {
   }
 
   return row.google_access_token;
-}
-
-/** Wrap HTML content in a minimal blog post wrapper for Blogger compatibility. */
-function wrapForBlogger(title: string, contentHtml: string): string {
-  // Blogger renders raw HTML; inject minimal CSS reset + the content
-  return `<div class="property-listing-post">
-<style>
-.property-listing-post { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 900px; margin: 0 auto; }
-.property-listing-post img { max-width: 100%; height: auto; }
-.property-listing-post a { color: inherit; }
-</style>
-${contentHtml}
-</div>`;
 }
 
 export async function publishToBlogger(

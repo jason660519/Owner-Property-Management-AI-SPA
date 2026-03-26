@@ -3,7 +3,13 @@ import { notFound } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Badge } from '@/components/ui/Badge';
 import { ContactLeadStatusActions } from '@/app/superadmin/contacts/ContactLeadStatusActions';
-import { getContactLeadById } from '@/app/superadmin/contacts/actions';
+import { ContactLeadAssigneeForm } from '@/app/superadmin/contacts/ContactLeadAssigneeForm';
+import { ContactLeadNotesSection } from '@/app/superadmin/contacts/ContactLeadNotesSection';
+import {
+  getContactLeadById,
+  getContactLeadNotes,
+  getSuperadminUsers,
+} from '@/app/superadmin/contacts/actions';
 import { CONTACT_LEAD_STATUS_VARIANTS } from '@/app/superadmin/contacts/constants';
 import {
   formatLeadSourceSummary,
@@ -43,7 +49,12 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
 
 export default async function ContactLeadDetailPage({ params }: ContactLeadDetailPageProps) {
   const { id } = await params;
-  const lead = await getContactLeadById(id);
+
+  const [lead, notes, users] = await Promise.all([
+    getContactLeadById(id),
+    getContactLeadNotes(id),
+    getSuperadminUsers(),
+  ]);
 
   if (!lead) {
     notFound();
@@ -76,6 +87,7 @@ export default async function ContactLeadDetailPage({ params }: ContactLeadDetai
           </Link>
         </div>
 
+        {/* Top 3 info cards */}
         <section className="grid gap-4 lg:grid-cols-3">
           <DetailCard title="Lead 狀態">
             <DetailRow
@@ -105,8 +117,27 @@ export default async function ContactLeadDetailPage({ params }: ContactLeadDetai
           </DetailCard>
         </section>
 
-        <DetailCard title="訊息內容">
-          <p className="whitespace-pre-wrap text-sm leading-7 text-text-primary">{lead.message}</p>
+        {/* Message + Assignee */}
+        <section className="grid gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <DetailCard title="訊息內容">
+              <p className="whitespace-pre-wrap text-sm leading-7 text-text-primary">{lead.message}</p>
+            </DetailCard>
+          </div>
+
+          <DetailCard title="指派負責人">
+            <ContactLeadAssigneeForm
+              leadId={lead.id}
+              currentAssigneeId={lead.assigneeId}
+              currentAssigneeName={lead.assigneeName}
+              users={users}
+            />
+          </DetailCard>
+        </section>
+
+        {/* Notes */}
+        <DetailCard title="備註與回覆紀錄">
+          <ContactLeadNotesSection leadId={lead.id} initialNotes={notes} />
         </DetailCard>
       </div>
     </DashboardLayout>

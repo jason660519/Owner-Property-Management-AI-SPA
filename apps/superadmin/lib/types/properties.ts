@@ -43,13 +43,72 @@ export function formatStructuredAddress(item: {
   return item.address?.trim() || '—';
 }
 
-/** 獨立產權建築物：銷售方式（五擇一，互斥） */
+/** 獨立產權建築物：銷售方式（可複選，存於 details.independentTitleSaleModes） */
 export type IndependentTitleSaleMode =
   | 'building_only'
   | 'parking_only'
   | 'together'
   | 'common_parking_only'
   | 'building_common_parking_together';
+
+const INDEPENDENT_TITLE_SALE_MODE_SET = new Set<IndependentTitleSaleMode>([
+  'building_only',
+  'parking_only',
+  'together',
+  'common_parking_only',
+  'building_common_parking_together',
+]);
+
+/**
+ * 車位涉及的產權類型（可複選：同一物件可同時含獨立產權車位與公設／共有持分車位）。
+ * 儲存於 details.parkingTitleRights；若缺省則由銷售方式推導（見 parseParkingTitleRights）。
+ */
+export type ParkingTitleRight = 'independent' | 'shared_facility';
+
+function legacyParkingTitleRightsFromMode(
+  mode: IndependentTitleSaleMode | null
+): ParkingTitleRight[] {
+  if (!mode) return [];
+  switch (mode) {
+    case 'building_only':
+      return [];
+    case 'parking_only':
+    case 'together':
+      return ['independent'];
+    case 'common_parking_only':
+    case 'building_common_parking_together':
+      return ['shared_facility'];
+    default:
+      return [];
+  }
+}
+
+function legacyParkingTitleRightsFromModes(modes: IndependentTitleSaleMode[]): ParkingTitleRight[] {
+  const acc = new Set<ParkingTitleRight>();
+  for (const m of modes) {
+    for (const r of legacyParkingTitleRightsFromMode(m)) {
+      acc.add(r);
+    }
+  }
+  return [...acc];
+}
+
+/** 自 details 解析車位產權複選；無存檔時依銷售方式（可複選）推導舊資料 */
+export function parseParkingTitleRights(
+  details: Record<string, unknown>,
+  saleModes: IndependentTitleSaleMode[]
+): ParkingTitleRight[] {
+  if (Object.prototype.hasOwnProperty.call(details, 'parkingTitleRights')) {
+    const raw = details.parkingTitleRights;
+    if (!Array.isArray(raw)) return [];
+    const allowed = new Set<ParkingTitleRight>(['independent', 'shared_facility']);
+    const next = raw.filter(
+      (x): x is ParkingTitleRight => typeof x === 'string' && allowed.has(x as ParkingTitleRight)
+    );
+    return [...new Set(next)];
+  }
+  return legacyParkingTitleRightsFromModes(saleModes);
+}
 
 /** 自 details 解析銷售方式（支援 independentTitleSaleMode 與舊版兩個布林） */
 export function parseIndependentTitleSaleMode(
@@ -71,6 +130,79 @@ export function parseIndependentTitleSaleMode(
   if (!b && p) return 'parking_only';
   if (b && p) return 'together';
   return null;
+}
+
+/** 自 details 解析銷售方式複選；無 independentTitleSaleModes 時由單一欄位／舊布林推導 */
+export function parseIndependentTitleSaleModes(
+  details: Record<string, unknown>
+): IndependentTitleSaleMode[] {
+  const rawArr = details.independentTitleSaleModes;
+  if (Array.isArray(rawArr)) {
+    const next = rawArr.filter(
+      (x): x is IndependentTitleSaleMode =>
+        typeof x === 'string' && INDEPENDENT_TITLE_SALE_MODE_SET.has(x as IndependentTitleSaleMode)
+    );
+    return [...new Set(next)];
+  }
+  const one = parseIndependentTitleSaleMode(details);
+  return one ? [one] : [];
+}
+
+export const INDEPENDENT_BUILDING_NUMBER_COUNT_MIN = 1;
+export const INDEPENDENT_BUILDING_NUMBER_COUNT_MAX = 10;
+
+/** 主建物建號筆數（1＝單一建號；2–10＝多建號），存於 details.independentBuildingNumberCount */
+export function clampIndependentBuildingNumberCount(n: number): number {
+  if (!Number.isFinite(n)) return INDEPENDENT_BUILDING_NUMBER_COUNT_MIN;
+  return Math.min(
+    INDEPENDENT_BUILDING_NUMBER_COUNT_MAX,
+    Math.max(INDEPENDENT_BUILDING_NUMBER_COUNT_MIN, Math.round(n))
+  );
+}
+
+export function parseIndependentBuildingNumberCount(details: Record<string, unknown>): number {
+  const raw = details.independentBuildingNumberCount;
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return clampIndependentBuildingNumberCount(raw);
+  }
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    const v = Number(raw);
+    if (Number.isFinite(v)) return clampIndependentBuildingNumberCount(v);
+  }
+  return INDEPENDENT_BUILDING_NUMBER_COUNT_MIN;
+}
+
+/**
+ * 標的建築物之地號筆數（單選），存於 details.subjectLandParcelScope。
+ * not_applicable：地上權／違建等不適用以土地謄本標示；single：單一筆；multi：多筆（搭配 independentLandParcelNumberCount）。
+ */
+export type SubjectLandParcelScope = 'not_applicable' | 'single' | 'multi';
+
+const SUBJECT_LAND_PARCEL_SCOPE_SET = new Set<SubjectLandParcelScope>([
+  'not_applicable',
+  'single',
+  'multi',
+]);
+
+export function parseSubjectLandParcelScope(details: Record<string, unknown>): SubjectLandParcelScope {
+  const raw = details.subjectLandParcelScope;
+  if (typeof raw === 'string' && SUBJECT_LAND_PARCEL_SCOPE_SET.has(raw as SubjectLandParcelScope)) {
+    return raw as SubjectLandParcelScope;
+  }
+  return 'single';
+}
+
+/** 多筆地號時之筆數（1–10），存於 details.independentLandParcelNumberCount */
+export function parseIndependentLandParcelNumberCount(details: Record<string, unknown>): number {
+  const raw = details.independentLandParcelNumberCount;
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return clampIndependentBuildingNumberCount(raw);
+  }
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    const v = Number(raw);
+    if (Number.isFinite(v)) return clampIndependentBuildingNumberCount(v);
+  }
+  return INDEPENDENT_BUILDING_NUMBER_COUNT_MIN;
 }
 
 export interface PropertyItem {
@@ -110,10 +242,29 @@ export interface PropertyItem {
   /** 土地全部謄本資料（儲存於 details.landTranscript） */
   landTranscript?: LandTranscriptData | null;
   /**
-   * 獨立產權建築物之銷售方式（五擇一，儲存於 details.independentTitleSaleMode）
-   * 舊資料若僅有 independentTitleSaleBuilding／Parking 布林，於讀取時轉換。
+   * 獨立產權建築物之銷售方式（可複選，儲存於 details.independentTitleSaleModes）
+   */
+  independentTitleSaleModes?: IndependentTitleSaleMode[] | null;
+  /**
+   * 相容舊程式：等同 independentTitleSaleModes?.[0] ?? null
    */
   independentTitleSaleMode?: IndependentTitleSaleMode | null;
+  /**
+   * 車位產權類型複選（獨立產權／公設產權），與銷售方式搭配使用；存於 details.parkingTitleRights
+   */
+  parkingTitleRights?: ParkingTitleRight[] | null;
+  /**
+   * 主建物建號筆數（1＝單一建號；2–10＝多建號），存於 details.independentBuildingNumberCount
+   */
+  independentBuildingNumberCount?: number | null;
+  /**
+   * 標的建築物之地號筆數（單選），存於 details.subjectLandParcelScope
+   */
+  subjectLandParcelScope?: SubjectLandParcelScope | null;
+  /**
+   * 多筆地號時之筆數（2–10），存於 details.independentLandParcelNumberCount
+   */
+  independentLandParcelNumberCount?: number | null;
   /** 是否含獨立產權車位（有自己的建物＋土地謄本，可分開銷售） */
   hasIndependentParking?: boolean | null;
   /** 獨立車位建物謄本（儲存於 details.parkingBuildingTranscript） */
@@ -268,6 +419,8 @@ export interface PropertyDocumentItem {
   documentName: string;
   filePath: string;
   url: string;
+  /** 多建號分筆：如 mbi:1、mbi:2 */
+  tags?: string[] | null;
 }
 
 /** User-uploaded contract file (from lawyer / conveyancer), stored under property-documents bucket */

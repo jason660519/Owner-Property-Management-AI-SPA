@@ -2,16 +2,27 @@
 
 import { useState, useEffect, useTransition, useCallback } from 'react';
 import {
-  Sparkles, Loader2, ExternalLink, Eye, Globe, GlobeLock, RefreshCw,
-  Trash2, Copy, Check, FileText, ImageIcon, AlertCircle, Pencil, X,
-  Save, Search, ChevronDown, ChevronUp, AlertTriangle, Contact,
+  Loader2, ExternalLink, Eye, Globe, GlobeLock,
+  Copy, Check, AlertCircle, X,
+  Save, Search, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import {
-  getPropertyBlog, generatePropertyBlog, publishPropertyBlog,
-  unpublishPropertyBlog, deletePropertyBlog, updatePropertyBlog,
-  syncBlogCTA, type BlogPost, type StylePreset,
+  getPropertyBlog,
+  generatePropertyBlog,
+  updatePropertyBlog,
+  type BlogPost,
+  type StylePreset,
 } from '@/lib/actions/blog';
 import { getBlogPreviewHtml } from './blog-preview-html';
+import {
+  PROPERTY_BLOG_UPDATED_EVENT,
+  type PropertyBlogUpdatedDetail,
+  dispatchPropertyBlogUpdated,
+} from '@/lib/utils/property-blog-events';
+import {
+  BLOG_SUPABASE_OPEN_EDIT_EVENT,
+  type BlogSupabaseOpenEditDetail,
+} from '@/lib/utils/blog-supabase-ui-events';
 
 interface BlogSupabasePanelProps {
   propertyId: string;
@@ -26,15 +37,12 @@ export function BlogSupabasePanel({
 }: BlogSupabasePanelProps) {
   const [blog, setBlog] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [isSaving, startSaveTransition] = useTransition();
-  const [isSyncing, startSyncTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [showSeo, setShowSeo] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editExcerpt, setEditExcerpt] = useState('');
@@ -42,23 +50,51 @@ export function BlogSupabasePanel({
   const loadBlog = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getPropertyBlog(propertyId);
+      const data = await getPropertyBlog(
+        propertyId,
+        stylePreset ? { stylePreset, targetPlatform: 'local', referenceUrl } : undefined,
+      );
       setBlog(data);
     } catch {
       console.error('[BlogSupabasePanel] Failed to load blog');
     } finally {
       setLoading(false);
     }
-  }, [propertyId]);
+  }, [propertyId, referenceUrl, stylePreset]);
 
-  useEffect(() => { loadBlog(); }, [loadBlog]);
+  useEffect(() => {
+    loadBlog();
+  }, [loadBlog]);
 
-  function startEditing() {
-    if (!blog) return;
-    setEditTitle(blog.title);
-    setEditExcerpt(blog.excerpt ?? '');
-    setIsEditing(true);
-  }
+  useEffect(() => {
+    function onBlogUpdated(e: Event) {
+      const detail = (e as CustomEvent<PropertyBlogUpdatedDetail>).detail;
+      if (detail?.propertyId === propertyId) {
+        void loadBlog();
+      }
+    }
+    window.addEventListener(PROPERTY_BLOG_UPDATED_EVENT, onBlogUpdated);
+    return () => window.removeEventListener(PROPERTY_BLOG_UPDATED_EVENT, onBlogUpdated);
+  }, [propertyId, loadBlog]);
+
+  useEffect(() => {
+    async function onOpenEdit(e: Event) {
+      const detail = (e as CustomEvent<BlogSupabaseOpenEditDetail>).detail;
+      if (detail?.propertyId !== propertyId) return;
+      const data = await getPropertyBlog(propertyId, {
+        stylePreset: detail.stylePreset,
+        targetPlatform: 'local',
+        referenceUrl,
+      });
+      if (!data) return;
+      setBlog(data);
+      setEditTitle(data.title);
+      setEditExcerpt(data.excerpt ?? '');
+      setIsEditing(true);
+    }
+    window.addEventListener(BLOG_SUPABASE_OPEN_EDIT_EVENT, onOpenEdit);
+    return () => window.removeEventListener(BLOG_SUPABASE_OPEN_EDIT_EVENT, onOpenEdit);
+  }, [propertyId, referenceUrl]);
 
   function handleSave() {
     if (!blog) return;
@@ -70,60 +106,19 @@ export function BlogSupabasePanel({
     });
   }
 
-  function handleGenerateClick() {
-    if (blog?.status === 'published' && !confirmRegenerate) {
-      setConfirmRegenerate(true);
-      setTimeout(() => setConfirmRegenerate(false), 5000);
-      return;
-    }
-    setConfirmRegenerate(false);
-    doGenerate();
-  }
-
   function doGenerate() {
     setFeedback(null);
     setIsEditing(false);
     startTransition(async () => {
-      const result = await generatePropertyBlog(propertyId, propertyType, ownerId, { referenceUrl, stylePreset });
-      if (result.success && result.blog) { setBlog(result.blog); }
-      setFeedback({ type: result.success ? 'success' : 'error', message: result.message });
-    });
-  }
-
-  function handlePublish() {
-    if (!blog) return;
-    setFeedback(null);
-    startTransition(async () => {
-      const result = blog.status === 'published'
-        ? await unpublishPropertyBlog(blog.id)
-        : await publishPropertyBlog(blog.id);
-      if (result.success) { await loadBlog(); }
-      setFeedback({ type: result.success ? 'success' : 'error', message: result.message });
-    });
-  }
-
-  function handleDelete() {
-    if (!blog) return;
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      setTimeout(() => setConfirmDelete(false), 3000);
-      return;
-    }
-    setFeedback(null);
-    setConfirmDelete(false);
-    startTransition(async () => {
-      const result = await deletePropertyBlog(blog.id);
-      if (result.success) { setBlog(null); }
-      setFeedback({ type: result.success ? 'success' : 'error', message: result.message });
-    });
-  }
-
-  function handleSyncCTA() {
-    if (!blog) return;
-    setFeedback(null);
-    startSyncTransition(async () => {
-      const result = await syncBlogCTA(blog.id);
-      if (result.success) { await loadBlog(); }
+      const result = await generatePropertyBlog(propertyId, propertyType, ownerId, {
+        referenceUrl,
+        stylePreset,
+        targetPlatform: 'local',
+      });
+      if (result.success && result.blog) {
+        setBlog(result.blog);
+        dispatchPropertyBlogUpdated(propertyId);
+      }
       setFeedback({ type: result.success ? 'success' : 'error', message: result.message });
     });
   }
@@ -153,99 +148,28 @@ export function BlogSupabasePanel({
     return (
       <div className="space-y-4">
         {feedback && <FeedbackBanner feedback={feedback} />}
-        <div className="border-2 border-dashed border-border-default rounded-xl p-8 text-center">
-          <div className="mx-auto w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mb-4">
-            <Sparkles className="w-8 h-8 text-accent" />
-          </div>
-          <h3 className="text-lg font-bold text-text-primary mb-2">AI 一鍵生成銷售部落格</h3>
-          <p className="text-sm text-text-secondary mb-1">
-            {referenceUrl ? '系統將參考你提供的網頁風格，生成相似設計的物件頁面' : '系統將呼叫 Claude AI，根據物件資料與照片，自動生成專業銷售文案'}
+        <div className="border border-dashed border-border-default rounded-lg px-4 py-5 text-center space-y-2">
+          <p className="text-sm text-text-secondary">尚未建立地端廣告頁</p>
+          <p className="text-xs text-text-muted leading-relaxed">
+            請在上方廣告樣式表格中，於任一格套用風格與參考網址後，使用該列右側「重新生成」建立內容（地端與 Blogger 皆適用）。
           </p>
-          <p className="text-xs text-text-muted mb-6">包含 AI 撰寫的物件介紹、照片輪播、詳細資訊、SEO 優化</p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-6">
-            <div className="flex items-center gap-2 text-xs text-text-muted"><FileText size={14} /><span>物件基本資料</span></div>
-            <span className="text-text-muted">+</span>
-            <div className="flex items-center gap-2 text-xs text-text-muted"><ImageIcon size={14} /><span>物件照片</span></div>
-            {referenceUrl && (<><span className="text-text-muted">+</span><div className="flex items-center gap-2 text-xs text-text-muted"><Globe size={14} /><span>參考風格</span></div></>)}
-            <span className="text-text-muted">+</span>
-            <div className="flex items-center gap-2 text-xs text-text-muted"><Sparkles size={14} /><span>Claude AI</span></div>
-          </div>
-          <button onClick={handleGenerateClick} disabled={isPending}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 font-medium">
-            {isPending ? <><Loader2 size={18} className="animate-spin" />AI 生成中...</> : <><Sparkles size={18} />AI 一鍵生成部落格</>}
-          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div id="property-blog-supabase-panel" className="space-y-4">
       {feedback && <FeedbackBanner feedback={feedback} />}
 
-      {/* Status + Actions Bar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
-          blog.status === 'published' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'
-        }`}>
-          {blog.status === 'published' ? <Globe size={12} /> : <GlobeLock size={12} />}
-          {blog.status === 'published' ? '已發佈' : '草稿'}
-        </span>
-        <span className="text-xs text-text-muted">
-          {blog.status === 'published' && blog.publishedAt
-            ? `發佈於 ${new Date(blog.publishedAt).toLocaleDateString('zh-TW')}`
-            : `建立於 ${new Date(blog.createdAt).toLocaleDateString('zh-TW')}`}
-        </span>
-        {blog.viewCount > 0 && (
-          <span className="text-xs text-text-muted flex items-center gap-1"><Eye size={12} />{blog.viewCount} 次瀏覽</span>
-        )}
-
-        <div className="ml-auto flex items-center gap-2 flex-wrap">
-          {!isEditing && (
-            <button onClick={startEditing} disabled={isPending || isSaving}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary border border-border-default rounded-md hover:bg-bg-tertiary transition-colors disabled:opacity-50">
-              <Pencil size={12} />編輯
-            </button>
-          )}
-          <button onClick={handleSyncCTA} disabled={isPending || isSaving || isSyncing}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary border border-border-default rounded-md hover:bg-bg-tertiary transition-colors disabled:opacity-50">
-            {isSyncing ? <Loader2 size={12} className="animate-spin" /> : <Contact size={12} />}
-            同步聯絡方式
-          </button>
-
-          {confirmRegenerate ? (
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-yellow-600 flex items-center gap-1"><AlertTriangle size={12} />將覆蓋已發佈內容</span>
-              <button onClick={doGenerate} disabled={isPending}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors disabled:opacity-50">
-                {isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}確認重新生成
-              </button>
-              <button onClick={() => setConfirmRegenerate(false)} className="p-1.5 rounded hover:bg-bg-tertiary">
-                <X size={12} className="text-text-muted" />
-              </button>
-            </div>
-          ) : (
-            <button onClick={handleGenerateClick} disabled={isPending || isSaving}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary border border-border-default rounded-md hover:bg-bg-tertiary transition-colors disabled:opacity-50">
-              {isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}重新生成
-            </button>
-          )}
-
-          <button onClick={handlePublish} disabled={isPending || isSaving}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-50 ${
-              blog.status === 'published' ? 'text-yellow-600 border border-yellow-500/30 hover:bg-yellow-500/10' : 'text-green-600 border border-green-500/30 hover:bg-green-500/10'
-            }`}>
-            {blog.status === 'published' ? <><GlobeLock size={12} />下架</> : <><Globe size={12} />發佈</>}
-          </button>
-
-          <button onClick={handleDelete} disabled={isPending || isSaving}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-50 ${
-              confirmDelete ? 'bg-red-500 text-white' : 'text-red-500 border border-red-500/30 hover:bg-red-500/10'
-            }`}>
-            <Trash2 size={12} />{confirmDelete ? '確認刪除？' : '刪除'}
-          </button>
+      {blog.viewCount > 0 && (
+        <div className="flex flex-wrap items-center gap-3 text-xs text-text-muted">
+          <span className="flex items-center gap-1">
+            <Eye size={12} />
+            {blog.viewCount} 次瀏覽
+          </span>
         </div>
-      </div>
+      )}
 
       {/* Blog URL */}
       <div className="flex items-center gap-2 px-4 py-3 bg-bg-primary border border-border-default rounded-lg">

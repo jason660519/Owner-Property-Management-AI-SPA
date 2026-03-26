@@ -5,26 +5,26 @@ import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/Button";
 
 export const metadata: Metadata = {
-  title: "關於我們 | 多角色不動產 AI 協作平台",
+  title: "關於我們 | Owner AI — 台灣不動產 AI 協作平台",
   description:
-    "了解 Owner AI 如何將屋主、買家、租客、仲介與專業服務團隊放進同一條不動產協作流程。",
+    "Owner AI 將台灣的自售屋主、買家、租客、仲介、代書與合作專業服務團隊放進同一條不動產協作流程，從刊登到交屋全程在同一平台完成。",
 };
 
 const marketHighlights = [
   {
-    label: "雙市場",
-    value: "台灣 + 澳洲",
-    description: "同時驗證高頻租賃與高單價交易兩種商業模式。",
+    label: "聚焦台灣",
+    value: "全台覆蓋",
+    description: "專為台灣買賣慣例、代書制度、履約保證與謄本流程設計，不是舶來品改裝。",
   },
   {
     label: "多角色",
     value: "9+ 角色",
-    description: "從自售屋主到代書律師，都能進入同一個案件流程。",
+    description: "從自售屋主到履約保證銀行，都能進入同一個案件協作流程。",
   },
   {
     label: "收入模型",
     value: "按案件 / 物件",
-    description: "先讓流量角色免費進場，再向專業角色收費變現。",
+    description: "先讓流量角色免費進場，再向仲介、代書、律師與合作團隊收費變現。",
   },
 ];
 
@@ -56,12 +56,12 @@ const principles = [
   {
     title: "同一案件，同一語境",
     description:
-      "價格、文件、角色分工與下一步都在同一頁面理解，不再分散在聊天工具與試算表。",
+      "價格、謄本、文件、角色分工與下一步都在同一頁面理解，不再分散在聊天工具與試算表。",
   },
   {
     title: "從 AI 助理走向交易作業系統",
     description:
-      "不只回答問題，而是把導流、協作、簽約與後續服務串成可持續優化的產品。",
+      "不只回答問題，而是把導流、協作、代書過戶、簽約與後續服務串成可持續優化的產品。",
   },
 ];
 
@@ -89,7 +89,7 @@ const workflowSteps = [
 const supportLanes = [
   "角色定價與商業模式設計",
   "公開案件市場與合作導流",
-  "交易 / 租賃協作節點規劃",
+  "代書 / 履約保證節點整合",
   "團隊導入與 CRM 串接需求盤點",
 ];
 
@@ -107,13 +107,11 @@ export default function AboutPage() {
                 About Owner AI
               </span>
               <h1 className="max-w-4xl text-4xl font-bold leading-tight md:text-5xl lg:text-6xl">
-                我們正在重做不動產服務的協作底層
+                我們正在重做台灣不動產服務的協作底層
               </h1>
               <p className="mt-6 max-w-3xl text-lg leading-8 text-[#B8B8B8]">
-                一個案件，讓買賣方、租賃方與專業角色共用同一條協作節奏。 Owner
-                AI
-                不再只是房東工具，而是把自售屋主、自租屋主、買家、租客、仲介、代書、律師與合作團隊接進同一個不動產
-                AI 協作平台。
+                一個案件，讓買賣方、租賃方與專業角色共用同一條協作節奏。Owner AI
+                不再只是房東工具，而是把自售屋主、自租屋主、買家、租客、仲介、代書、律師與合作團隊接進同一個台灣不動產 AI 協作平台。
               </p>
               <div className="mt-10 flex flex-wrap gap-4">
                 <Link href="/pricing">
@@ -134,11 +132,10 @@ export default function AboutPage() {
                     市場策略
                   </p>
                   <p className="mt-3 text-2xl font-semibold text-white">
-                    台灣與澳洲雙市場策略
+                    深耕台灣市場
                   </p>
                   <p className="mt-2 text-sm leading-7 text-[#A0A0A0]">
-                    台灣先驗證高頻交易協作，澳洲同步測試跨角色 SaaS
-                    定價與服務擴張能力。
+                    專為台灣買賣慣例與代書制度打造，驗證高頻交易協作與多角色 SaaS 定價模型。
                   </p>
                 </div>
                 <div className="rounded-2xl border border-[#2B2B2B] bg-[#171717] p-5">
@@ -230,7 +227,7 @@ export default function AboutPage() {
                 我們怎麼看待這個產品
               </h2>
               <p className="mt-5 text-base leading-8 text-[#A8A8A8]">
-                不是再做一個漂亮的刊登頁，而是建立一套能真正承接成交、簽約與後續服務的作業流程。
+                不是再做一個漂亮的刊登頁，而是建立一套能真正承接成交、代書過戶與後續服務的台灣不動產作業流程。
               </p>
             </div>
 

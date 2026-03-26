@@ -66,18 +66,8 @@ export async function GET(request: NextRequest) {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
     });
 
-    let blogId = '';
-    let blogUrl = '';
-    let blogName = '';
-
     if (blogsRes.ok) {
-      const blogsData = await blogsRes.json() as BloggerListResponse;
-      const firstBlog = blogsData.items?.[0];
-      if (firstBlog) {
-        blogId = firstBlog.id;
-        blogUrl = firstBlog.url;
-        blogName = firstBlog.name;
-      }
+      await blogsRes.json() as BloggerListResponse;
     }
 
     // Get current user
@@ -97,9 +87,9 @@ export async function GET(request: NextRequest) {
         google_access_token: tokens.access_token,
         google_refresh_token: tokens.refresh_token ?? null,
         google_token_expires_at: expiresAt,
-        google_blog_id: blogId || null,
-        google_blog_url: blogUrl || null,
-        google_blog_name: blogName || null,
+        google_blog_id: null,
+        google_blog_url: null,
+        google_blog_name: null,
         is_connected: true,
         connected_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

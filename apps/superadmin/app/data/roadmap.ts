@@ -706,10 +706,10 @@ const RAW_FEATURES: RoadmapFeature[] = [
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 5,
-    lastModifiedBy: "Claude Sonnet 4.6",
-    lastModifiedDate: "2026/03/19",
+    lastModifiedBy: "GPT-5.3-Codex",
+    lastModifiedDate: "2026/03/22",
     devLog:
-      "### 2026-03-19 全面優化部落格生成功能\n- 抽出 HTML 模板邏輯至 lib/utils/blogTemplate.ts（pure functions，保持 blog.ts 在 500 行以內）\n- 串接 Claude claude-sonnet-4-6 API（generateDescriptionWithAI）：依物件資料生成 150-250 字專業中文銷售文案\n- 修復 CTA 空 href：新增 getOwnerContact() 從 users_profile + auth.users 取得電話/email，寫入 tel:/mailto:\n- 新增重新生成確認機制：已發佈狀態點「重新生成」先顯示警告，5 秒自動取消\n- 新增 updatePropertyBlog() server action：支援手動修改 title / excerpt，同步更新 contentHtml hero title\n- 草稿狀態也顯示預覽連結（附「草稿，需登入」標註）\n- 新增 SEO 預覽面板：模擬 Google SERP 呈現 seoTitle / seoDescription / slug",
+      "### 2026-03-19 全面優化部落格生成功能\n- 抽出 HTML 模板邏輯至 lib/utils/blogTemplate.ts（pure functions，保持 blog.ts 在 500 行以內）\n- 串接 Claude claude-sonnet-4-6 API（generateDescriptionWithAI）：依物件資料生成 150-250 字專業中文銷售文案\n- 修復 CTA 空 href：新增 getOwnerContact() 從 users_profile + auth.users 取得電話/email，寫入 tel:/mailto:\n- 新增重新生成確認機制：已發佈狀態點「重新生成」先顯示警告，5 秒自動取消\n- 新增 updatePropertyBlog() server action：支援手動修改 title / excerpt，同步更新 contentHtml hero title\n- 草稿狀態也顯示預覽連結（附「草稿，需登入」標註）\n- 新增 SEO 預覽面板：模擬 Google SERP 呈現 seoTitle / seoDescription / slug\n\n### 2026-03-22 模板可維護性強化\n- 完成 8 個獨立模板檔（local 4 + google_blogger 4）註解區塊細化，統一為 STYLE IDENTITY / LAYOUT RULES / COMPONENT RULES / EDITABLE GUIDANCE 結構\n- 補齊模板維護註記，降低後續人工調整 Prompt 時的修改風險與理解成本",
   },
   {
     name: "物件介紹 AI 協作撰稿流程",
@@ -1919,16 +1919,69 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "物件部落格多平台發布",
     category: "超級管理員 (Super Admin)",
-    percentage: 88,
+    percentage: 96,
     phase: "development",
     featureDescription:
       "Blog tab 重構為三平台架構：地端 Supabase（現有）、Google Blogger（OAuth2 + Blogger API v3）、Facebook 粉絲頁（Page Access Token + Graph API）。新增「參考網頁風格 URL」功能（用戶貼上任何物件廣告網址，AI 分析設計語言後生成風格相似銷售頁面）與「風格預設選擇器」（4 個預設：豪宅暗色調/清爽明亮/商務簡潔/溫馨日系），不需參考 URL 即可快速生成高品質頁面。設定頁 /superadmin/settings/integrations 管理第三方平台整合。",
     acceptanceCriteria:
       "1. Blog tab 有平台選擇器（Supabase / Google Blogger / Facebook）。\n2. 風格預設選擇器（4 個預設）或參考 URL 擇一使用，AI 生成對應風格 HTML。\n3. Google Blogger OAuth 流程完整（授權 → callback → 儲存 token → 發布）。\n4. 帳號已連但無部落格時顯示引導建立 Blogger 的友善提示。\n5. Facebook Page Access Token 驗證成功後可發布至粉絲頁。",
+    lastModifiedBy: "GPT-5.4",
+    lastModifiedDate: "2026/03/23",
+    developmentProgress:
+      "已完成：DB migration、Google OAuth2 routes、Blogger API v3 CRUD、Facebook Graph API、integrations server actions、BlogSupabasePanel/BlogGooglePanel/BlogFacebookPanel 拆分、平台選擇器、風格預設選擇器（4 個預設 + Claude 生成）、參考 URL 輸入、StylePreset 型別與 blog.ts 整合、BlogGooglePanel 帳號連結但無部落格友善提示修復、Google Blogger 在有參考 URL/風格預設時改為先重新生成再發布（含同步更新流程）並新增單元測試覆蓋。新增：地端 4 份 + Google Blogger 4 份，共 8 份獨立模板檔，並以 targetPlatform 明確切分生成來源，便於後續維護與版本管理。2026/03/22 補強：`blog_posts` 改為真正以 stylePreset + targetPlatform 讀寫與回查、PropertyBlogGenerator/BlogSupabasePanel/BlogGooglePanel/PropertyBlogStyleRowActionCells 全面改為 variant-aware 資料流，避免不同樣式/平台互相讀錯文章；Google OAuth callback 不再自動選第一個 Blogger blog；新增 BlogGooglePanel 與 Google callback 單元測試。2026/03/22 第二波補強：將 reference URL 正式納入 `blog_posts` variant identity 與查詢條件，避免同樣式但不同參考網址互相覆蓋，並把 `blogReferenceUrl` 同步到 URL query 以支援重新整理後仍能定位到正確 variant。2026/03/23 驗證：已在 local Supabase 套用 `20260322223000_add_blog_post_variant_identity.sql`，新增 `lib/actions/blog.test.ts` 驗證 reference URL normalization 與 null-variant lookup，新增 `PropertyBlogGenerator.test.tsx` 驗證 blogPlatform / blogStylePreset / blogReferenceUrl 的 query restore 與 sync/clear 行為，並新增 Playwright `property-blog-query-sync.spec.ts` 實測 superadmin 物件編輯頁在切換 Google Blogger / 商務簡潔樣式 / 參考網址後，重新整理仍能保留 query 與 UI 狀態。待完善：生成/發布流程的完整端到端 E2E。",
+  },
+  {
+    name: "租客維修申請系統",
+    category: "租客 (Tenant)",
+    percentage: 80,
+    phase: "development",
     lastModifiedBy: "Claude Sonnet 4.6",
     lastModifiedDate: "2026/03/22",
     developmentProgress:
-      "已完成：DB migration、Google OAuth2 routes、Blogger API v3 CRUD、Facebook Graph API、integrations server actions、BlogSupabasePanel/BlogGooglePanel/BlogFacebookPanel 拆分、平台選擇器、風格預設選擇器（4 個預設 + Claude 生成）、參考 URL 輸入、StylePreset 型別與 blog.ts 整合、BlogGooglePanel 帳號連結但無部落格友善提示修復。待完善：E2E 測試。",
+      "已完成：maintenance.ts server actions（getMyMaintenanceRequests、createMaintenanceRequest、cancelMaintenanceRequest、getLandlordMaintenanceRequests、updateMaintenanceRequest）、租客維修頁面（/tenant/maintenance）含提交表單與狀態追蹤、房東維修管理頁面（/landlord/maintenance）含列表/篩選/狀態推進/備註輸入、房東 Sidebar 加入維修管理導覽。待完善：照片上傳、廠商指派、費用結算。",
+  },
+  {
+    name: "租賃申請系統（申請表/審核流程/Email通知）",
+    category: "租客 (Tenant)",
+    percentage: 90,
+    phase: "development",
+    lastModifiedBy: "Claude Sonnet 4.6",
+    lastModifiedDate: "2026/03/22",
+    developmentProgress:
+      "已完成：rental_applications DB migration（含 RLS 政策、索引）、applications.ts server actions（getMyApplications、createApplication、submitApplication、withdrawApplication、getLandlordApplications、reviewApplication、getApplicationById、updateApplicationDraft）、租賃申請列表頁（mock data 替換）、申請表填寫頁（/tenant/potential/applications/[id]/edit）含 RHF+Zod 驗證/草稿儲存/送出流程、房東審核頁（/landlord/applications）含展開申請人詳情/核准/婉拒+拒絕原因 Modal、Email 通知系統（lib/email.ts nodemailer）：申請送出通知房東、審核結果通知申請人、SMTP env vars 可設定。待完善：E2E 測試。",
+  },
+  {
+    name: "台灣官方網站全頁面重設計（TW-only）",
+    category: "通用/系統 (General/System)",
+    percentage: 100,
+    phase: "development",
+    lastModifiedBy: "Claude Sonnet 4.6",
+    lastModifiedDate: "2026/03/22",
+    developmentProgress:
+      "已完成：首頁（/）全面改寫（TW專屬文案、6角色入口、6步驟交易流程、FAQ）；關於我們（/about）移除澳洲市場敘述、改為深耕台灣策略；平台能力（/services）新增角色別功能列表（6角色）、AI核心能力（謄本OCR/跟進建議/文件清單）、台灣本地化功能清單；收費方式（/pricing）移除AUD幣別切換、改為純TWD計價、FAQ更新；聯絡我們（/contact）移除澳洲地址、改為台灣辦公室資訊；物件列表（/properties + lib/api/properties.ts）新增 region='TW' 篩選，僅顯示台灣物件。",
+  },
+  {
+    name: "Contact Leads 指派負責人與備註系統",
+    category: "超級管理員 (Super Admin)",
+    percentage: 90,
+    phase: "development",
+    lastModifiedBy: "Claude Sonnet 4.6",
+    lastModifiedDate: "2026/03/22",
+    developmentProgress:
+      "已完成：DB migration 20260322190000（contact_messages 新增 assignee_id/assignee_name、新增 contact_lead_notes 表含 RLS）、actions.ts 新增 getSuperadminUsers、assignContactLead、getContactLeadNotes、addContactLeadNote、deleteContactLeadNote server actions、ContactLeadAssigneeForm 元件（下拉選擇負責人/儲存指派）、ContactLeadNotesSection 元件（新增/刪除備註、note_type: note/reply/internal）、ContactLeadsTable 新增負責人欄位、[id]/page.tsx 整合三個新區塊（訊息+指派/備註）。批次狀態更新前端 UI 已完整（既有功能）。所有現有 Jest 測試（17 tests）均通過。",
+  },
+  {
+    name: "專案文檔與維護腳本清理與規範化 (Docs & Scripts Maintenance)",
+    locatedPage: "docs/, scripts/",
+    percentage: 100,
+    category: "專案管理與工具 (Project Management)",
+    points: 3,
+    featureSpecDocPath: "/docs/scripts-directory-guide.md",
+    docPath: "/docs/scripts-directory-guide.md",
+    devLog: "### 2026-03-22 文檔與腳本全面清理\n- **文檔建立**: 建立 `docs/scripts-directory-guide.md` 腳本目錄說明書，並完成 `docs/台灣房仲 × 履約保證（ESCROW）對照表.md` 與 `docs/台灣辦理不動產過戶方式流程選擇與介紹.md` 法律驗證文檔。\n- **標籤清理**: 自動化移除全站 .md 檔案中的 `<br>` 標籤，並建立 `scripts/clean-md-br.sh` 供日後使用。\n- **目錄審計**: 清理 `scripts/` 目錄，移除 11 個過時且無引用的臨時分析腳本，確保目錄精簡且具備維護價值。\n- **規範化**: 確保所有剩餘腳本均具備明確用途，並符合專案目錄存放規範。",
+    lastModifiedBy: "Gemini-3-Flash-Preview",
+    lastModifiedDate: "2026/03/22",
+    phase: "development",
   },
 ];
 

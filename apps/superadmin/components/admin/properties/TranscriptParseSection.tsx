@@ -77,8 +77,13 @@ interface Props {
   transcriptDocs: PropertyDocumentItem[];
   /** 解析目標：建物謄本 or 土地謄本（預設為建物） */
   kind?: 'building' | 'land';
-  /** 銷售模式，用於自動選擇對應的 Prompt */
+  /** 銷售模式，用於自動選擇對應的 Prompt（名稱含 (salesMode)） */
   salesMode?: string;
+  /**
+   * 優先於 salesMode。須與 Prompt 管理內建範本一致，例如 (single_building_number)。
+   * 用於單一建號／多建號／獨立車位／公設車位等情境。
+   */
+  parseScenarioKey?: string;
   /** When provided, show "謄寫" button and call with parse result to fill the form below */
   onTranscribe?: (result: BuildingTranscriptData | LandTranscriptData) => void;
 }
@@ -118,7 +123,13 @@ function detectCategoryFromOutput(output: string | undefined): 'VLM' | 'LLM' | '
   return 'unknown';
 }
 
-export function TranscriptParseSection({ transcriptDocs, kind = 'building', salesMode, onTranscribe }: Props) {
+export function TranscriptParseSection({
+  transcriptDocs,
+  kind = 'building',
+  salesMode,
+  parseScenarioKey,
+  onTranscribe,
+}: Props) {
   const {
     userId: aiUserId,
     modules: aiModules,
@@ -386,11 +397,12 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', sale
   }, []);
 
   const storedParsePrompt = useMemo(() => {
-    // 1. 優先嘗試從 saved_prompts 中尋找名稱中包含目前銷售模式（如 (building_only)）的 Prompt
-    if (salesMode && dbPrompts.length > 0) {
+    const lookupKey = parseScenarioKey ?? salesMode;
+    // 1. 優先從 saved_prompts 依情境鍵或銷售模式比對名稱，例如 (single_building_number)、(building_only)
+    if (lookupKey && dbPrompts.length > 0) {
       const modeMatch = dbPrompts.find(
         (p) =>
-          p.name?.includes(`(${salesMode})`) &&
+          p.name?.includes(`(${lookupKey})`) &&
           p.content?.trim(),
       );
       if (modeMatch) return modeMatch.content;
@@ -402,7 +414,7 @@ export function TranscriptParseSection({ transcriptDocs, kind = 'building', sale
       .filter((p) => p.module_key === 'online_ocr_parse' && p.prompt_content?.trim())
       .sort((a, b) => b.version - a.version);
     return matched[0]?.prompt_content ?? '';
-  }, [prompts, salesMode, dbPrompts]);
+  }, [prompts, salesMode, parseScenarioKey, dbPrompts]);
   const effectiveParsePrompt = storedParsePrompt || TRANSCRIPT_PARSE_PROMPT;
   const isCustomPromptOverridden =
     isPromptDirty && customPrompt.trim().length > 0 && customPrompt.trim() !== effectiveParsePrompt.trim();

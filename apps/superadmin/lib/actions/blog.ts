@@ -11,6 +11,14 @@ import {
   buildCtaSection,
   type PropertyDataForBlog,
 } from '@/lib/utils/blogTemplate';
+import { luxuryDarkBloggerTemplate } from '@/lib/blog-style-templates/blogger/luxuryDarkTemplate';
+import { brightCleanBloggerTemplate } from '@/lib/blog-style-templates/blogger/brightCleanTemplate';
+import { corporateBloggerTemplate } from '@/lib/blog-style-templates/blogger/corporateTemplate';
+import { warmJapaneseBloggerTemplate } from '@/lib/blog-style-templates/blogger/warmJapaneseTemplate';
+import { luxuryDarkLocalTemplate } from '@/lib/blog-style-templates/local/luxuryDarkTemplate';
+import { brightCleanLocalTemplate } from '@/lib/blog-style-templates/local/brightCleanTemplate';
+import { corporateLocalTemplate } from '@/lib/blog-style-templates/local/corporateTemplate';
+import { warmJapaneseLocalTemplate } from '@/lib/blog-style-templates/local/warmJapaneseTemplate';
 
 export interface BlogPost {
   id: string;
@@ -33,6 +41,10 @@ export interface BlogPost {
   seoKeywords: string[];
   createdAt: string;
   updatedAt: string;
+  blogStylePreset: StylePreset | null;
+  blogTargetPlatform: BlogTargetPlatform | null;
+  referenceUrl: string | null;
+  referenceUrlNormalized: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -149,92 +161,118 @@ ${data.description ? `- 補充說明：${data.description}` : ''}
 // Public server actions
 // ---------------------------------------------------------------------------
 
-export async function getPropertyBlog(propertyId: string): Promise<BlogPost | null> {
+export type StylePreset = 'luxury_dark' | 'bright_clean' | 'corporate' | 'warm_japanese';
+
+export type BlogTargetPlatform = 'local' | 'google_blogger';
+
+export interface BlogVariant {
+  stylePreset: StylePreset;
+  targetPlatform: BlogTargetPlatform;
+  referenceUrl?: string;
+}
+
+function normalizeReferenceUrl(referenceUrl?: string): string | null {
+  const trimmed = referenceUrl?.trim();
+  if (!trimmed) return null;
+
+  try {
+    const parsed = new URL(trimmed);
+    const sortedSearchParams = new URLSearchParams(
+      Array.from(parsed.searchParams.entries()).sort(([leftKey, leftValue], [rightKey, rightValue]) => {
+        const keyCompare = leftKey.localeCompare(rightKey);
+        if (keyCompare !== 0) return keyCompare;
+        return leftValue.localeCompare(rightValue);
+      }),
+    );
+
+    parsed.protocol = parsed.protocol.toLowerCase();
+    parsed.hostname = parsed.hostname.toLowerCase();
+    parsed.hash = '';
+    parsed.pathname = parsed.pathname.replace(/\/+$/, '') || '/';
+    parsed.search = sortedSearchParams.toString() ? `?${sortedSearchParams.toString()}` : '';
+
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function mapBlogRow(data: Record<string, unknown>): BlogPost {
+  const preset = data.blog_style_preset;
+  const platform = data.blog_target_platform;
+
+  return {
+    id: data.id as string,
+    propertyId: (data.property_id as string | null) ?? null,
+    authorId: data.author_id as string,
+    title: data.title as string,
+    slug: data.slug as string,
+    excerpt: (data.excerpt as string | null) ?? null,
+    content: data.content as string,
+    contentHtml: (data.content_html as string | null) ?? null,
+    featuredImageUrl: (data.featured_image_url as string | null) ?? null,
+    category: (data.category as string | null) ?? null,
+    tags: (data.tags as string[] | null) ?? [],
+    status: data.status as 'draft' | 'published' | 'archived',
+    publishedAt: (data.published_at as string | null) ?? null,
+    viewCount: (data.view_count as number | null) ?? 0,
+    likeCount: (data.like_count as number | null) ?? 0,
+    seoTitle: (data.seo_title as string | null) ?? null,
+    seoDescription: (data.seo_description as string | null) ?? null,
+    seoKeywords: (data.seo_keywords as string[] | null) ?? [],
+    createdAt: data.created_at as string,
+    updatedAt: data.updated_at as string,
+    blogStylePreset: typeof preset === 'string' ? (preset as StylePreset) : null,
+    blogTargetPlatform: platform === 'local' || platform === 'google_blogger' ? platform : null,
+    referenceUrl: (data.reference_url as string | null) ?? null,
+    referenceUrlNormalized: (data.reference_url_normalized as string | null) ?? null,
+  };
+}
+
+export async function getPropertyBlog(
+  propertyId: string,
+  variant?: BlogVariant,
+): Promise<BlogPost | null> {
   const adminClient = createAdminClient();
-  const { data, error } = await adminClient
+  let query = adminClient
     .from('blog_posts')
     .select('*')
-    .eq('property_id', propertyId)
+    .eq('property_id', propertyId);
+
+  if (variant) {
+    const normalizedReferenceUrl = normalizeReferenceUrl(variant.referenceUrl);
+
+    query = query
+      .eq('blog_style_preset', variant.stylePreset)
+      .eq('blog_target_platform', variant.targetPlatform);
+
+    query = normalizedReferenceUrl
+      ? query.eq('reference_url_normalized', normalizedReferenceUrl)
+      : query.is('reference_url_normalized', null);
+  }
+
+  const { data, error } = await query
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (error || !data) return null;
 
-  return {
-    id: data.id,
-    propertyId: data.property_id,
-    authorId: data.author_id,
-    title: data.title,
-    slug: data.slug,
-    excerpt: data.excerpt,
-    content: data.content,
-    contentHtml: data.content_html,
-    featuredImageUrl: data.featured_image_url,
-    category: data.category,
-    tags: data.tags || [],
-    status: data.status,
-    publishedAt: data.published_at,
-    viewCount: data.view_count ?? 0,
-    likeCount: data.like_count ?? 0,
-    seoTitle: data.seo_title,
-    seoDescription: data.seo_description,
-    seoKeywords: data.seo_keywords || [],
-    createdAt: data.created_at,
-    updatedAt: data.updated_at,
-  };
+  return mapBlogRow(data as Record<string, unknown>);
 }
 
-export type StylePreset = 'luxury_dark' | 'bright_clean' | 'corporate' | 'warm_japanese';
+const BLOGGER_STYLE_PRESET_DESCRIPTIONS: Record<StylePreset, string> = {
+  luxury_dark: luxuryDarkBloggerTemplate,
+  bright_clean: brightCleanBloggerTemplate,
+  corporate: corporateBloggerTemplate,
+  warm_japanese: warmJapaneseBloggerTemplate,
+};
 
-const STYLE_PRESET_DESCRIPTIONS: Record<StylePreset, string> = {
-  luxury_dark: `
-STYLE: Luxury dark real estate — inspired by high-end Melbourne/Taipei luxury property websites.
-- Background: near-black (#0a0a0a to #111827), section dividers use subtle dark grays
-- Accents: warm gold (#c9a96e) and white, with occasional deep burgundy
-- Hero: full-viewport-height dramatic hero with overlay gradient (transparent → rgba(0,0,0,0.75)), large bold white headline, gold badge pill
-- Navigation tabs: horizontal pill/tab row (物件亮點 / 物件照片 / 物件介紹 / 聯絡我們) — use anchor links
-- Photos: circular-bordered thumbnails in a 3-column grid, main featured photo is large and full-width
-- Typography: large hero title (2.5rem bold), section headings underlined with gold bar
-- Highlight cards: dark card (#1a1a2e) with gold icon, white label, gold value
-- CTA: centered section on dark bg with gold call-to-action buttons
-- Overall mood: premium, cinematic, aspirational`,
-
-  bright_clean: `
-STYLE: Bright clean modern — friendly and approachable property listing.
-- Background: white (#ffffff) with light gray sections (#f8fafc, #f1f5f9)
-- Accents: sky blue (#3b82f6) and teal (#0ea5e9)
-- Hero: 400px tall hero with blue gradient overlay, clean white headline
-- Layout: card-based grid with rounded-xl corners and subtle shadows
-- Photos: standard rectangular gallery grid with soft rounded corners and hover zoom
-- Typography: Inter/system-sans, moderate sizes (hero 2rem, headings 1.25rem)
-- Highlight cards: white cards with blue icon, gray label, dark value
-- CTA: white card with blue primary button, clean border secondary button
-- Overall mood: modern, trustworthy, accessible`,
-
-  corporate: `
-STYLE: Corporate professional — clean commercial real estate style.
-- Background: neutral white (#fff) with dark navy header (#0f172a) and footer
-- Accents: dark navy (#1e3a5f), steel blue (#2563eb), light gray borders
-- Hero: 350px hero with navy gradient overlay, structured headline + subtitle + price badge
-- Layout: two-column detail layout, structured table rows for property specs
-- Photos: strict 3-column masonry-style grid, no rounded corners — sharp rectangular
-- Typography: structured, professional (headings uppercase tracking-wide, body 0.9rem)
-- Highlight cards: table-row style with left navy border, label/value on same line
-- CTA: left-aligned action bar with navy filled button + outlined secondary
-- Overall mood: serious, data-forward, professional`,
-
-  warm_japanese: `
-STYLE: Warm Japanese minimalist — calm, residential, lifestyle-focused.
-- Background: warm cream (#faf8f5), soft beige sections (#f5f0e8)
-- Accents: terracotta (#c4704a), warm brown (#8b5e3c), sage green (#7c9a7e)
-- Hero: full-width hero with warm-toned overlay, serif italic tagline, understated badge
-- Layout: generous whitespace, single-column centered content, max-width 720px
-- Photos: large single featured photo + 2-column grid below, with thin warm border
-- Typography: mix of elegant thin sans (headings) and readable body (1rem, 1.8 line-height)
-- Highlight cards: minimal borderless cards, centered, small emoji icon, light separator line
-- CTA: warm centered section with terracotta filled button, understated text contact list
-- Overall mood: peaceful, lifestyle, homey, intimate`,
+const LOCAL_STYLE_PRESET_DESCRIPTIONS: Record<StylePreset, string> = {
+  luxury_dark: luxuryDarkLocalTemplate,
+  bright_clean: brightCleanLocalTemplate,
+  corporate: corporateLocalTemplate,
+  warm_japanese: warmJapaneseLocalTemplate,
 };
 
 /** Generate HTML from a style preset using Claude (no reference URL needed). */
@@ -242,6 +280,7 @@ async function generatePresetStyleHtml(
   preset: StylePreset,
   data: PropertyDataForBlog,
   contact: OwnerContact,
+  targetPlatform: BlogTargetPlatform,
 ): Promise<string | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
@@ -258,24 +297,26 @@ async function generatePresetStyleHtml(
     data.bathrooms   && `${data.bathrooms}衛`,
   ].filter(Boolean).join('');
   const locationStr = [data.addressCity, data.addressDistrict].filter(Boolean).join('');
-  const photosList = data.photos.slice(0, 12).map((p, i) => `  ${i + 1}. ${p.url}`).join('\n');
+  const photosList = data.photos.slice(0, 12).map((p, i) => `  - Photo ${i + 1}: ${p.url}`).join('\n');
   const ctaLines = [
-    contact.phone    && `電話：${contact.phone}`,
-    contact.email    && `Email：${contact.email}`,
-    contact.lineId   && `LINE ID：${contact.lineId}`,
-    contact.whatsapp && `WhatsApp：${contact.whatsapp}`,
-    contact.wechatId && `WeChat：${contact.wechatId}`,
+    contact.phone    && `Phone: ${contact.phone} (Link as tel:${contact.phone})`,
+    contact.email    && `Email: ${contact.email} (Link as mailto:${contact.email})`,
+    contact.lineId   && `LINE ID: ${contact.lineId} (Link to https://line.me/ti/p/~${contact.lineId})`,
+    contact.whatsapp && `WhatsApp: ${contact.whatsapp} (Link to https://wa.me/${contact.whatsapp.replace(/\D/g,'')})`,
+    contact.wechatId && `WeChat: ${contact.wechatId}`,
   ].filter(Boolean).join('\n');
 
-  const styleDesc = STYLE_PRESET_DESCRIPTIONS[preset];
+  const styleDesc = targetPlatform === 'google_blogger'
+    ? BLOGGER_STYLE_PRESET_DESCRIPTIONS[preset]
+    : LOCAL_STYLE_PRESET_DESCRIPTIONS[preset];
 
-  const prompt = `You are an expert web designer specializing in property listing pages.
+  const prompt = `You are a world-class Web UI/UX Engineer and Real Estate Copywriter.
+Your task is to generate a STANDALONE, high-converting, fully responsive HTML property listing page tailored specifically and safely for Google Blogger.
 
-Generate a COMPLETE, STANDALONE single-page HTML property listing using this exact design style:
-
+===== DESIGN STYLE TO APPLY =====
 ${styleDesc}
 
-Property data (use Traditional Chinese for all user-facing text):
+===== PROPERTY DATA =====
 - Title: ${data.title || data.address}
 - Type: ${typeLabel}
 - Location: ${locationStr || data.address}
@@ -285,20 +326,24 @@ ${layoutParts ? `- Layout: ${layoutParts}` : ''}
 ${data.propertyType ? `- Building type: ${data.propertyType}` : ''}
 ${data.description || data.aiDescription ? `- Description: ${data.aiDescription || data.description}` : ''}
 
-Photos (embed with <img src="URL">):
-${photosList || '  (no photos yet)'}
+===== PHOTOS =====
+Generate a beautifully styled gallery. You MUST use EXACTLY these image URLs in <img> tags.
+Set 'alt' attributes descriptively. Use CSS 'object-fit: cover' and 'width: 100%' so they don't break the layout.
+${photosList || '  (No photos provided, please omit gallery)'}
 
-Contact info for CTA:
-${ctaLines || '  (no contact info)'}
+===== CONTACT / CALL TO ACTION =====
+Create a highly visible, sticky or styled CTA section at the bottom or floating.
+Every contact method MUST be an actual clickable <a> tag with 'target="_blank"' where applicable.
+${ctaLines || '  (No contact info)'}
 
-RULES:
-- Output ONLY body content (start with <style> block, then HTML sections)
-- NO doctype, html, head, or body tags
-- NO JavaScript, NO external CDN links
-- All CSS must be in the <style> block
-- Use Traditional Chinese (繁體中文) for all visible text
-- Must be fully responsive (mobile-friendly)
-- Keep total output under 14,000 characters`;
+===== STRICT GENERATION RULES =====
+1. STRUCTURE: Output ONLY valid HTML wrapped in a single <div class="property-listing-container">. DO NOT include <!DOCTYPE html>, <html>, <head>, or <body> tags. Blogger will inject this inside its own body.
+2. CSS: ALL CSS MUST be scoped. Put all CSS inside a <style> block at the very top of your output. Prefix all your CSS selectors with '.property-listing-container' so it does not infect the rest of the Blogger page. Ensure z-index is set high enough (e.g. z-index: 50) for buttons and links so Blogger's native elements don't block clicks.
+3. IMAGES: Every photo must be loaded via <img src="..." alt="..." style="width: 100%; height: auto; object-fit: cover; border-radius: ...">. Do not use background-images for property photos because users cannot click/expand them easily.
+4. LINKS: All <a> tags must have valid 'href' attributes based on the contact info (tel:, mailto:, https://line.me...). Use target="_blank" rel="noopener noreferrer" for external links. Anchor links (e.g. #gallery) must match valid IDs within the container. Make sure links have position: relative and z-index: 100 so they are clickable.
+5. RESPONSIVENESS: Use CSS Flexbox or CSS Grid. The design MUST format perfectly on mobile (e.g., flex-direction: column) and desktop (grid-template-columns).
+6. CONTENT: Use Traditional Chinese (繁體中文) for all visible text. Structure the data nicely into sections (Highlights, Details, Description, Gallery, CTA). Make it look polished, not just raw text.
+7. ABSOLUTELY NO markdown wrapping (e.g. no \`\`\`html). Output the raw HTML string directly.`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -373,17 +418,17 @@ async function generateCustomStyleHtml(
     data.bathrooms   && `${data.bathrooms}衛`,
   ].filter(Boolean).join('');
   const locationStr = [data.addressCity, data.addressDistrict].filter(Boolean).join('');
-  const photosList = data.photos.slice(0, 12).map((p, i) => `  ${i + 1}. ${p.url}`).join('\n');
+  const photosList = data.photos.slice(0, 12).map((p, i) => `  - Photo ${i + 1}: ${p.url}`).join('\n');
 
   const ctaLines = [
-    contact.phone    && `電話：${contact.phone}`,
-    contact.email    && `Email：${contact.email}`,
-    contact.lineId   && `LINE ID：${contact.lineId}`,
-    contact.whatsapp && `WhatsApp：${contact.whatsapp}`,
-    contact.wechatId && `WeChat：${contact.wechatId}`,
+    contact.phone    && `Phone: ${contact.phone} (Link as tel:${contact.phone})`,
+    contact.email    && `Email: ${contact.email} (Link as mailto:${contact.email})`,
+    contact.lineId   && `LINE ID: ${contact.lineId} (Link to https://line.me/ti/p/~${contact.lineId})`,
+    contact.whatsapp && `WhatsApp: ${contact.whatsapp} (Link to https://wa.me/${contact.whatsapp.replace(/\D/g,'')})`,
+    contact.wechatId && `WeChat: ${contact.wechatId}`,
   ].filter(Boolean).join('\n');
 
-  const prompt = `You are an expert web designer and property marketing specialist.
+  const prompt = `You are a world-class Web UI/UX Engineer and Real Estate Copywriter.
 
 Below is the HTML source of a reference property listing website that the owner likes.
 Carefully analyze its visual design language: color palette, typography, layout structure, hero style, card styles, section arrangements, and overall mood (luxury, modern, minimalist, warm, etc.).
@@ -392,7 +437,7 @@ Carefully analyze its visual design language: color palette, typography, layout 
 ${referenceHtml}
 --- END REFERENCE HTML ---
 
-Now generate a COMPLETE, STANDALONE single-page HTML property listing that:
+Now generate a COMPLETE, STANDALONE single-page HTML property listing tailored specifically and safely for Google Blogger that:
 1. Faithfully replicates the visual design language of the reference site
 2. Uses the following property data (in Traditional Chinese where appropriate):
    - Title: ${data.title || data.address}
@@ -403,21 +448,21 @@ Now generate a COMPLETE, STANDALONE single-page HTML property listing that:
    ${layoutParts ? `- Layout: ${layoutParts}` : ''}
    ${data.propertyType ? `- Building type: ${data.propertyType}` : ''}
    ${data.description ? `- Description: ${data.description}` : ''}
-3. Embeds these property photos (use <img src="URL"> tags):
-${photosList || '  (no photos available)'}
+3. Embeds these property photos:
+   You MUST use EXACTLY these image URLs in <img> tags. Set 'alt' attributes descriptively. Use CSS 'object-fit: cover'.
+${photosList || '  (No photos available, please omit gallery)'}
 4. Includes a contact CTA section with:
-${ctaLines || '  (no contact info provided)'}
-5. Is fully responsive (mobile-friendly)
-6. Uses Traditional Chinese (繁體中文) for all user-facing text
-7. Includes SEO meta tags in a <!-- SEO --> comment at the top
+   Every contact method MUST be an actual clickable <a> tag with 'target="_blank"' where applicable.
+${ctaLines || '  (No contact info provided)'}
 
-CRITICAL OUTPUT RULES:
-- Output ONLY the content that goes inside <body></body> — do NOT include <!DOCTYPE>, <html>, <head>, or <body> tags
-- Start with a <style> block containing all CSS
-- Then the full page content as HTML sections
-- Do NOT use any JavaScript
-- Do NOT use external CDN links — all styles must be inline or in the <style> block
-- Keep total output under 15,000 characters`;
+===== STRICT GENERATION RULES =====
+1. STRUCTURE: Output ONLY valid HTML wrapped in a single <div class="property-listing-container">. DO NOT include <!DOCTYPE html>, <html>, <head>, or <body> tags. Blogger will inject this inside its own body.
+2. CSS: ALL CSS MUST be scoped. Put all CSS inside a <style> block at the very top of your output. Prefix all your CSS selectors with '.property-listing-container' so it does not infect the rest of the Blogger page. Ensure z-index is set high enough (e.g. z-index: 50) for buttons and links so Blogger's native elements don't block clicks.
+3. IMAGES: Every photo must be loaded via <img src="..." alt="..." style="width: 100%; height: auto; object-fit: cover; border-radius: ...">. Do not use background-images for property photos because users cannot click/expand them easily.
+4. LINKS: All <a> tags must have valid 'href' attributes based on the contact info. Use target="_blank" rel="noopener noreferrer" for external links. Anchor links (e.g. #gallery) must match valid IDs within the container. Make sure links have position: relative and z-index: 100 so they are clickable.
+5. RESPONSIVENESS: Use CSS Flexbox or CSS Grid. The design MUST format parfaitement on mobile (e.g., flex-direction: column) and desktop.
+6. CONTENT: Use Traditional Chinese (繁體中文) for all visible text. Structure the data nicely into sections. Make it look polished.
+7. ABSOLUTELY NO markdown wrapping (e.g. no \`\`\`html). Output the raw HTML string directly.`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -447,7 +492,7 @@ export async function generatePropertyBlog(
   propertyId: string,
   propertyType: 'sale' | 'rental',
   ownerId: string,
-  options?: { referenceUrl?: string; stylePreset?: StylePreset }
+  options?: { referenceUrl?: string; stylePreset?: StylePreset; targetPlatform?: BlogTargetPlatform }
 ): Promise<ActionResult & { blog?: BlogPost }> {
   const adminClient = createAdminClient();
 
@@ -518,6 +563,11 @@ export async function generatePropertyBlog(
     let usedReferenceStyle = false;
     let usedPresetStyle = false;
 
+    const targetPlatform = options?.targetPlatform ?? 'local';
+    const variantPreset = options?.stylePreset ?? 'luxury_dark';
+    const normalizedReferenceUrl = normalizeReferenceUrl(options?.referenceUrl);
+    const trimmedReferenceUrl = options?.referenceUrl?.trim() || null;
+
     if (referenceHtml) {
       const customHtml = await generateCustomStyleHtml(referenceHtml, blogData, ownerContact);
       if (customHtml) {
@@ -525,7 +575,7 @@ export async function generatePropertyBlog(
         usedReferenceStyle = true;
       }
     } else if (options?.stylePreset) {
-      const presetHtml = await generatePresetStyleHtml(options.stylePreset, blogData, ownerContact);
+      const presetHtml = await generatePresetStyleHtml(options.stylePreset, blogData, ownerContact, targetPlatform);
       if (presetHtml) {
         generated = { ...generated, contentHtml: presetHtml };
         usedPresetStyle = true;
@@ -539,14 +589,26 @@ export async function generatePropertyBlog(
 
     const primaryPhoto = photos.find((p) => p.isPrimary) || photos[0];
 
-    const { data: existing } = await adminClient
+    let existingQuery = adminClient
       .from('blog_posts')
       .select('id')
       .eq('property_id', propertyId)
-      .limit(1)
-      .maybeSingle();
+      .eq('blog_style_preset', variantPreset)
+      .eq('blog_target_platform', targetPlatform);
+
+    existingQuery = normalizedReferenceUrl
+      ? existingQuery.eq('reference_url_normalized', normalizedReferenceUrl)
+      : existingQuery.is('reference_url_normalized', null);
+
+    const { data: existing } = await existingQuery.maybeSingle();
 
     let blogId: string;
+    const variantColumns = {
+      blog_style_preset: variantPreset,
+      blog_target_platform: targetPlatform,
+      reference_url: trimmedReferenceUrl,
+      reference_url_normalized: normalizedReferenceUrl,
+    };
 
     if (existing) {
       const { error: updateError } = await adminClient
@@ -563,6 +625,7 @@ export async function generatePropertyBlog(
           seo_title: generated.seoTitle,
           seo_description: generated.seoDescription,
           seo_keywords: generated.seoKeywords,
+          ...variantColumns,
           updated_at: new Date().toISOString(),
         })
         .eq('id', existing.id);
@@ -586,6 +649,7 @@ export async function generatePropertyBlog(
           category: generated.category,
           tags: generated.tags,
           status: 'draft',
+          ...variantColumns,
           seo_title: generated.seoTitle,
           seo_description: generated.seoDescription,
           seo_keywords: generated.seoKeywords,
@@ -610,6 +674,7 @@ export async function generatePropertyBlog(
               category: generated.category,
               tags: generated.tags,
               status: 'draft',
+              ...variantColumns,
               seo_title: generated.seoTitle,
               seo_description: generated.seoDescription,
               seo_keywords: generated.seoKeywords,
@@ -629,8 +694,12 @@ export async function generatePropertyBlog(
       }
     }
 
-    void blogId; // used implicitly via getPropertyBlog
-    const blog = await getPropertyBlog(propertyId);
+    void blogId;
+    const blog = await getPropertyBlog(propertyId, {
+      stylePreset: variantPreset,
+      targetPlatform,
+      referenceUrl: trimmedReferenceUrl ?? undefined,
+    });
 
     revalidatePath('/superadmin/properties');
     const suffix = usedReferenceStyle

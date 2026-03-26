@@ -35,9 +35,9 @@
 
 | 階段        | 任務名稱                                                                                                                                | 預計完成日 | 優先級 |
 | :---------- | :-------------------------------------------------------------------------------------------------------------------------------------- | :--------- | :----- |
-| **Phase 2** | **權限顆粒度深化 (Fine-grained Permissions)** <br> - 定義每個 Role 對應的具體 RLS Policy <br> - 實作前端 CASL 規則與後端 RLS 的同步機制 | 2026-02-15 | High   |
-| **Phase 3** | **稽核與歷程 (Audit Logs)** <br> - 記錄「誰在何時把誰加入了哪個群組」 <br> - 權限變更的完整 Log                                         | 2026-02-28 | Medium |
-| **Phase 4** | **動態矩陣視圖 (Dynamic Matrix View)** <br> - 在 Admin Console 繪製即時的 Permission Matrix <br> - 可視化檢查目前系統的安全覆蓋率       | 2026-03-10 | Low    |
+| **Phase 2** | **權限顆粒度深化 (Fine-grained Permissions)**  - 定義每個 Role 對應的具體 RLS Policy  - 實作前端 CASL 規則與後端 RLS 的同步機制 | 2026-02-15 | High   |
+| **Phase 3** | **稽核與歷程 (Audit Logs)**  - 記錄「誰在何時把誰加入了哪個群組」  - 權限變更的完整 Log                                         | 2026-02-28 | Medium |
+| **Phase 4** | **動態矩陣視圖 (Dynamic Matrix View)**  - 在 Admin Console 繪製即時的 Permission Matrix  - 可視化檢查目前系統的安全覆蓋率       | 2026-03-10 | Low    |
 
 ### 2.2 待解決技術問題
 - **CASL 與 RLS 的同步**: 目前前端的 `ability.ts` 規則是手寫的，尚未與資料庫的 RLS Policy 自動對齊。需設計一套機制確保兩者邏輯一致。

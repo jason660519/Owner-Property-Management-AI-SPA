@@ -12,15 +12,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   BookMarked,
-  Check,
   FilePen,
-  FlaskConical,
   Loader2,
   Plus,
   Save,
   Search,
-  ServerCog,
-  Trash2,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -31,6 +27,7 @@ import {
   updatePrompt,
   type SavedPrompt,
 } from '@/app/superadmin/settings/evaluations-global-test/promptActions';
+import type { TranscriptParsePreset } from '@/lib/transcript-parse-scenario-prompts';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -170,21 +167,17 @@ export interface PromptManagerModalProps {
   /** Shown in header when no onLoad (e.g. standalone page without opener) to explain how to get 載入. */
   noOpenerHint?: string;
   /**
-   * If provided, each row shows a "設為系統 Prompt" button.
-   * The id of the saved_prompt that is currently the active system prompt
-   * (used to render the active badge instead of the button).
+   * 謄本解析四情境範本（單一建號／多建號／獨立車位／公設車位），一鍵寫入 saved_prompts。
+   * 名稱含 (scenarioKey) 供物件謄本頁自動套用。
    */
-  activeSystemId?: string | null;
-  /** Called when user clicks "設為系統 Prompt"; parent updates activeSystemId after resolution. */
-  onSetAsSystem?: (savedPromptId: string) => Promise<void>;
+  transcriptParsePresets?: readonly TranscriptParsePreset[];
 }
 
 export function PromptManagerModal({
   onClose,
   onLoad,
   noOpenerHint,
-  activeSystemId,
-  onSetAsSystem,
+  transcriptParsePresets,
 }: PromptManagerModalProps) {
   const [mounted, setMounted] = useState(false);
   const [prompts, setPrompts] = useState<SavedPrompt[]>([]);
@@ -196,7 +189,8 @@ export function PromptManagerModal({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [settingSystemId, setSettingSystemId] = useState<string | null>(null);
+  const [creatingPresetId, setCreatingPresetId] = useState<string | null>(null);
+  const [presetError, setPresetError] = useState<string | null>(null);
 
   const selectedPrompt = prompts.find((p) => p.id === selectedId) ?? null;
   const isEditorOpen = isCreating || selectedId !== null;
@@ -282,11 +276,24 @@ export function PromptManagerModal({
     requestAnimationFrame(() => onClose());
   };
 
-  const handleSetAsSystem = async (p: SavedPrompt) => {
-    if (!onSetAsSystem) return;
-    setSettingSystemId(p.id);
-    await onSetAsSystem(p.id);
-    setSettingSystemId(null);
+  const handleCreateFromTranscriptPreset = async (preset: TranscriptParsePreset) => {
+    // If a prompt with the same name already exists, select it instead of creating a duplicate
+    const existing = prompts.find((p) => p.name === preset.suggestedName);
+    if (existing) {
+      setIsCreating(false);
+      setSelectedId(existing.id);
+      return;
+    }
+
+    setPresetError(null);
+    setCreatingPresetId(preset.id);
+    const result = await savePrompt(preset.suggestedName, preset.content);
+    setCreatingPresetId(null);
+    if (result.error) {
+      setPresetError(result.error);
+      return;
+    }
+    if (result.data) handleSaved(result.data);
   };
 
   if (!mounted) return null;
@@ -388,6 +395,51 @@ export function PromptManagerModal({
                 共 {prompts.length} 個{search && ` · 篩選後 ${filtered.length} 個`}
               </div>
 
+              {transcriptParsePresets && transcriptParsePresets.length > 0 && (() => {
+                const uncreatdPresets = transcriptParsePresets.filter(
+                  (p) => !prompts.some((sp) => sp.name === p.suggestedName),
+                );
+                if (uncreatdPresets.length === 0) return null;
+                return (
+                  <div className="px-4 py-3 border-b border-border-subtle bg-bg-tertiary/40">
+                    <p className="text-[11px] font-semibold text-text-secondary mb-1.5">
+                      謄本解析情境 Prompt
+                    </p>
+                    <p className="text-[10px] text-text-muted leading-relaxed mb-2">
+                      建立後名稱會含 <code className="text-[10px] text-accent">(scenarioKey)</code>，物件謄本頁會依單一建號／多建號／獨立車位／公設車位自動套用。
+                    </p>
+                    {presetError && (
+                      <p className="text-[11px] text-red-400 mb-2">{presetError}</p>
+                    )}
+                    <ul className="space-y-1.5">
+                      {uncreatdPresets.map((preset) => (
+                        <li key={preset.id}>
+                          <button
+                            type="button"
+                            disabled={!!creatingPresetId}
+                            onClick={() => void handleCreateFromTranscriptPreset(preset)}
+                            className="w-full text-left rounded-md px-2.5 py-2 border border-border-default bg-bg-primary hover:border-accent/40 hover:bg-bg-secondary transition-colors disabled:opacity-50"
+                          >
+                            <span className="flex items-center gap-2 text-xs font-medium text-text-primary">
+                              {creatingPresetId === preset.id && (
+                                <Loader2 size={12} className="animate-spin shrink-0 text-text-muted" />
+                              )}
+                              {preset.label}
+                            </span>
+                            <span className="block text-[10px] text-text-muted mt-0.5 line-clamp-2">
+                              {preset.description}
+                            </span>
+                            <span className="block text-[10px] text-text-muted/80 mt-1 font-mono truncate">
+                              {preset.suggestedName}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
+
               {/* List */}
               <div className="flex-1 overflow-y-auto">
                 {loading ? (
@@ -469,36 +521,6 @@ export function PromptManagerModal({
                               >
                                 載入
                               </button>
-                            )}
-
-                            {/* Set as system prompt */}
-                            {onSetAsSystem && (
-                              activeSystemId === p.id ? (
-                                <span
-                                  title="此 Prompt 目前為系統 Prompt"
-                                  className="flex items-center gap-0.5 px-2 py-1 text-[11px] rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
-                                >
-                                  <ServerCog size={10} />
-                                  系統
-                                </span>
-                              ) : (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    void handleSetAsSystem(p);
-                                  }}
-                                  disabled={settingSystemId === p.id}
-                                  title="設為解析系統 Prompt（持久生效）"
-                                  className="flex items-center gap-0.5 px-2 py-1 text-[11px] rounded text-text-secondary hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors disabled:opacity-50"
-                                >
-                                  {settingSystemId === p.id ? (
-                                    <Loader2 size={10} className="animate-spin" />
-                                  ) : (
-                                    <ServerCog size={10} />
-                                  )}
-                                  設為系統
-                                </button>
-                              )
                             )}
 
                             {/* Copy */}

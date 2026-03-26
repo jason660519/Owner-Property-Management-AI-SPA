@@ -174,6 +174,8 @@ describe('getContactLeadById', () => {
                   propertyId: 'sale-2',
                   propertyTitle: '台北大安整合案件',
                 },
+                assignee_id: null,
+                assignee_name: null,
               },
               error: null,
             }),

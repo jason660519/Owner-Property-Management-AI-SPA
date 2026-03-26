@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 
 interface NumberComboBoxProps {
@@ -18,12 +19,24 @@ interface NumberComboBoxProps {
  * - Parent state is only updated on blur, not on every keystroke.
  * - External value changes are pushed to the DOM via ref when the input is
  *   not focused (useEffect + document.activeElement guard).
+ * - Dropdown is rendered in a portal with position:fixed so it is not clipped
+ *   by ancestor overflow (e.g. overflow-x-auto toolbars); options need no
+ *   inner scroll for 0–6.
  */
 export function NumberComboBox({ value, onChange, min = 0 }: NumberComboBoxProps) {
   const [open, setOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const options = [0, 1, 2, 3, 4, 5, 6];
+
+  const updateMenuPosition = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setMenuPos({ top: r.bottom + 4, left: r.left, width: r.width });
+  }, []);
 
   // Sync external value → DOM when NOT focused (e.g., dropdown selection from
   // another code path, or parent resets the field).
@@ -34,15 +47,37 @@ export function NumberComboBox({ value, onChange, min = 0 }: NumberComboBoxProps
     }
   }, [value]);
 
+  useLayoutEffect(() => {
+    if (!open) {
+      setMenuPos(null);
+      return;
+    }
+    updateMenuPosition();
+  }, [open, updateMenuPosition]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onScrollOrResize = () => updateMenuPosition();
+    window.addEventListener('scroll', onScrollOrResize, true);
+    window.addEventListener('resize', onScrollOrResize);
+    return () => {
+      window.removeEventListener('scroll', onScrollOrResize, true);
+      window.removeEventListener('resize', onScrollOrResize);
+    };
+  }, [open, updateMenuPosition]);
+
   // Close dropdown on outside click / Escape
   useEffect(() => {
     if (!open) return;
     const onMouseDown = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const t = e.target as Node;
+      if (containerRef.current?.contains(t)) return;
+      if (menuRef.current?.contains(t)) return;
+      setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
     document.addEventListener('mousedown', onMouseDown);
     document.addEventListener('keydown', onKey);
     return () => {
@@ -68,6 +103,40 @@ export function NumberComboBox({ value, onChange, min = 0 }: NumberComboBoxProps
     onChange(n);
     setOpen(false);
   }
+
+  const dropdown =
+    open &&
+    menuPos &&
+    typeof document !== 'undefined' &&
+    createPortal(
+      <div
+        ref={menuRef}
+        className="fixed z-[300] rounded-md border border-border-default bg-bg-primary py-1 shadow-lg"
+        style={{
+          top: menuPos.top,
+          left: menuPos.left,
+          width: menuPos.width,
+          minWidth: '4rem',
+        }}
+      >
+        {options.map((n) => (
+          <button
+            key={n}
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => selectOption(n)}
+            className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
+              value === n
+                ? 'bg-accent/10 text-accent font-medium'
+                : 'text-text-primary hover:bg-bg-secondary'
+            }`}
+          >
+            {n}
+          </button>
+        ))}
+      </div>,
+      document.body,
+    );
 
   return (
     <div ref={containerRef} className="relative">
@@ -99,26 +168,7 @@ export function NumberComboBox({ value, onChange, min = 0 }: NumberComboBoxProps
         </button>
       </div>
 
-      {open && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-bg-primary border border-border-default rounded-md shadow-lg max-h-48 overflow-y-auto">
-          {options.map((n) => (
-            <button
-              key={n}
-              type="button"
-              // Prevent input from blurring before this click is processed
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => selectOption(n)}
-              className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
-                value === n
-                  ? 'bg-accent/10 text-accent font-medium'
-                  : 'text-text-primary hover:bg-bg-secondary'
-              }`}
-            >
-              {n}
-            </button>
-          ))}
-        </div>
-      )}
+      {dropdown}
     </div>
   );
 }

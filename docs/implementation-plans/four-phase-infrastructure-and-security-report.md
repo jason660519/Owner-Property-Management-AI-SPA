@@ -121,7 +121,7 @@
 | **後端**       | Supabase**Pro**（固定月費 + 用量）                                                                                                                      | 更高 DB 連線數、Storage 與頻寬；仍無需自建 DB。    |
 | **前端**       | Vercel**Pro**（若需更多 bandwidth / 團隊協作）                                                                                                          | 更好效能與分析。                                   |
 | **大檔案**     | 維持 Supabase Storage；可加**Cloudflare CDN** 或 Supabase 內建 CDN 降低延遲與出口流量。                                                                 | 見[§3 大檔案策略](#3-大檔案儲存策略雲端-vs-客戶端)。 |
-| **家裡硬體**   | **NAS**：自動備份 DB/Storage 重要資料（例如 rclone + 排程）。<br>**AMD PC**：可選開 Self-hosted Supabase / Staging 做演練或災備演練，非必要。 | 備份與演練提高可恢復性，不增加日常維運。           |
+| **家裡硬體**   | **NAS**：自動備份 DB/Storage 重要資料（例如 rclone + 排程）。**AMD PC**：可選開 Self-hosted Supabase / Staging 做演練或災備演練，非必要。 | 備份與演練提高可恢復性，不增加日常維運。           |
 | **預估月成本** | 約 50～150 USD（依 Storage/流量而定）                                                                                                                         | 仍以訂閱收入可覆蓋為目標。                         |
 
 **結論**：仍以雲端為主，家裡做備份與可選 Staging，ROI 維持良好。
@@ -137,7 +137,7 @@
 | **後端**         | Supabase**Pro + 用量擴展**，或評估 **Team/Enterprise**；必要時 **Read Replicas** 分離讀寫。                                                  | 避免自建 DB 維運，把時間留給產品與客戶。                   |
 | **大檔案 / CDN** | **強烈建議**：Storage 前掛 CDN（Cloudflare 或 Supabase 合作 CDN），或將「大檔」遷到 **Cloudflare R2 / AWS S3 + CloudFront** 等以降低 egress 成本。 | 照片/影片/PDF 流量大，CDN + 廉價物件儲存可顯著省錢並加速。 |
 | **前端**         | Vercel Pro / 企業方案；必要時邊緣快取與 ISR 優化。                                                                                                             | 全球用戶（台+澳）延遲與穩定性重要。                        |
-| **家裡硬體**     | **NAS**：正式納入異地/本地備份節點（加密備份）。<br>**AMD PC**：可作為 CI/build 或輕量 Staging，不建議扛生產。                                 | 硬體當備援與工具，不當單點。                               |
+| **家裡硬體**     | **NAS**：正式納入異地/本地備份節點（加密備份）。**AMD PC**：可作為 CI/build 或輕量 Staging，不建議扛生產。                                 | 硬體當備援與工具，不當單點。                               |
 | **預估月成本**   | 約 300～800 USD（依流量與儲存）                                                                                                                                | 以 5000 房東訂閱攤提，仍可維持合理 ROI。                   |
 
 **結論**：雲端擴展 + CDN/廉價大檔儲存；家裡設備專注備份與開發/CI。

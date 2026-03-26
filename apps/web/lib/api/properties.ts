@@ -187,8 +187,8 @@ async function fetchAllProperties(supabase: Awaited<ReturnType<typeof createClie
     error: string | null;
 }> {
     const [salesResult, rentalsResult] = await Promise.all([
-        supabase.from('property_sales').select('*').order('created_at', { ascending: false }),
-        supabase.from('property_rentals').select('*').order('created_at', { ascending: false }),
+        supabase.from('property_sales').select('*').eq('region', 'TW').order('created_at', { ascending: false }),
+        supabase.from('property_rentals').select('*').eq('region', 'TW').order('created_at', { ascending: false }),
     ]);
 
     if (salesResult.error || rentalsResult.error) {
@@ -269,8 +269,8 @@ export async function getProperty(id: string): Promise<Property | null> {
 
     // Query both tables in parallel - same pattern as getProperties()
     const [salesResult, rentalsResult] = await Promise.all([
-        supabase.from('property_sales').select('*').eq('id', id).maybeSingle(),
-        supabase.from('property_rentals').select('*').eq('id', id).maybeSingle(),
+        supabase.from('property_sales').select('*').eq('id', id).eq('region', 'TW').maybeSingle(),
+        supabase.from('property_rentals').select('*').eq('id', id).eq('region', 'TW').maybeSingle(),
     ]);
 
     // Check sales table first

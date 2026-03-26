@@ -5,6 +5,7 @@
     "build": "npm run build --workspaces",
     "dev": "./start.sh menu",
     "dev:web": "npm run dev --workspace web",
+    "dev:web-au": "npm run dev --workspace web-au",
     "dev:superadmin": "npm run dev --workspace superadmin",
     "dev:mobile": "npm run dev --workspace mobile",
     "dev:stop": "./stop.sh",

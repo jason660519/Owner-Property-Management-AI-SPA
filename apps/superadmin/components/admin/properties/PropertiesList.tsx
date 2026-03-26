@@ -182,7 +182,7 @@ function formatRent(rent: number | null): string {
 const FREEZE_ROW_STORAGE_KEY = 'properties_list_freeze_row_v1';
 const FROZEN_COL_STORAGE_KEY = 'properties_list_frozen_col_count_v1';
 const COLUMN_SIZING_STORAGE_KEY = 'properties_list_column_sizing_v1';
-/** Pixel widths: 物件編號, 狀態, 物件名稱, 主照片小圖示, 縣市, 區, 路/街, 門牌, 樓層, 單位, 物件類型, 價格, 總面積(坪), 格局, 車位數, 創建人, 操作, 建立日期, 下架日期, 內容狀態 */
+/** Pixel widths: 物件編號, 狀態, 物件名稱, 主照片小圖示, 縣市, 區, 路/街, 門牌, 樓層, 單位, 物件類型, 價格, 總面積(坪), 格局, 車位數, 創建人, 操作, 建立日期, 下架日期, 內容狀態（表頭最右為：內容狀態、建立日期、下架日期） */
 const COLUMN_WIDTHS_PX = [72, 90, 200, 72, 88, 88, 130, 72, 52, 52, 92, 100, 72, 110, 64, 100, 92, 92, 92, 168];
 const PROPERTIES_COLUMN_COUNT = COLUMN_WIDTHS_PX.length;
 
@@ -686,30 +686,6 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
       ),
     },
     {
-      accessorKey: 'createdAt',
-      size: COLUMN_WIDTHS_PX[17],
-      header: '建立日期',
-      cell: (info) => (
-        <span className="text-xs text-text-muted">
-          {new Date(info.getValue() as string).toLocaleDateString('zh-TW')}
-        </span>
-      ),
-    },
-    {
-      accessorKey: 'delistedAt',
-      size: COLUMN_WIDTHS_PX[18],
-      header: '下架日期',
-      cell: (info) => {
-        const val = info.getValue() as string | null | undefined;
-        if (!val) return <span className="text-xs text-text-muted">-</span>;
-        return (
-          <span className="text-xs text-text-muted">
-            {new Date(val).toLocaleDateString('zh-TW')}
-          </span>
-        );
-      },
-    },
-    {
       id: 'contentStatus',
       size: COLUMN_WIDTHS_PX[19],
       header: '內容狀態',
@@ -769,6 +745,30 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
               </span>
             ))}
           </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'createdAt',
+      size: COLUMN_WIDTHS_PX[17],
+      header: '建立日期',
+      cell: (info) => (
+        <span className="text-xs text-text-muted">
+          {new Date(info.getValue() as string).toLocaleDateString('zh-TW')}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'delistedAt',
+      size: COLUMN_WIDTHS_PX[18],
+      header: '下架日期',
+      cell: (info) => {
+        const val = info.getValue() as string | null | undefined;
+        if (!val) return <span className="text-xs text-text-muted">-</span>;
+        return (
+          <span className="text-xs text-text-muted">
+            {new Date(val).toLocaleDateString('zh-TW')}
+          </span>
         );
       },
     },

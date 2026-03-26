@@ -5,24 +5,19 @@
 // Closing it navigates back to the Settings page.
 // When opened via window.open (e.g. from TranscriptParseSection "在新分頁開啟"),
 // provides onLoad so "載入此 Prompt 至目前頁面" posts to opener and fills the caller's prompt field.
-// Also supports "設為系統 Prompt" to promote a saved_prompt to ai_system_prompts (persistent).
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard';
 import {
   PromptManagerModal,
   PROMPT_LOAD_MESSAGE_TYPE,
 } from '@/components/ai-settings/PromptManagerModal';
-import {
-  getActiveSystemPromptSourceId,
-  setAsSystemPrompt,
-} from '@/app/superadmin/settings/evaluations-global-test/promptActions';
+import { TRANSCRIPT_PARSE_SCENARIO_PRESETS } from '@/lib/transcript-parse-scenario-prompts';
 
 export default function PromptManagementPage() {
   const router = useRouter();
   const [hasOpener, setHasOpener] = useState(false);
-  const [activeSystemId, setActiveSystemId] = useState<string | null>(null);
 
   useEffect(() => {
     setHasOpener(
@@ -30,13 +25,6 @@ export default function PromptManagementPage() {
         !!window.opener &&
         !(window.opener as Window).closed,
     );
-  }, []);
-
-  // Fetch which saved_prompt is currently the active system prompt for OCR parse
-  useEffect(() => {
-    getActiveSystemPromptSourceId('online_ocr_parse').then((result) => {
-      if (!result.error) setActiveSystemId(result.data ?? null);
-    });
   }, []);
 
   const handleLoadToOpener = (content: string, name: string) => {
@@ -51,11 +39,6 @@ export default function PromptManagementPage() {
       );
     }
   };
-
-  const handleSetAsSystem = useCallback(async (savedPromptId: string) => {
-    const result = await setAsSystemPrompt(savedPromptId, 'online_ocr_parse');
-    if (!result.error) setActiveSystemId(savedPromptId);
-  }, []);
 
   return (
     <DashboardLayout
@@ -77,8 +60,7 @@ export default function PromptManagementPage() {
             ? '從「謄本解析」或「統一測試」頁面點擊「在新分頁開啟」後，此處會顯示「載入至目前頁面」按鈕，可將選定的 Prompt 自動填回該頁。'
             : undefined
         }
-        activeSystemId={activeSystemId}
-        onSetAsSystem={handleSetAsSystem}
+        transcriptParsePresets={TRANSCRIPT_PARSE_SCENARIO_PRESETS}
       />
     </DashboardLayout>
   );

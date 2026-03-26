@@ -3,105 +3,14 @@
 'use client';
 
 import { useState, useTransition, useRef, useEffect } from 'react';
-import { X, Loader2, Building2, Key, ChevronDown } from 'lucide-react';
+import { X, Loader2, Building2, Key } from 'lucide-react';
 import { createProperty } from '@/lib/actions/properties';
 import {
   PROPERTY_STATUSES,
   PROPERTY_TYPES,
   type CreatePropertyInput,
 } from '@/lib/types/properties';
-
-/** Dropdown + editable numeric input combo */
-function NumberComboBox({
-  value,
-  onChange,
-  min = 0,
-}: {
-  value: number;
-  onChange: (v: number) => void;
-  min?: number;
-}) {
-  const [open, setOpen] = useState(false);
-  const [localText, setLocalText] = useState(String(value));
-  const focused = useRef(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const options = [1, 2, 3, 4, 5, 6];
-
-  useEffect(() => {
-    if (!focused.current) setLocalText(String(value));
-  }, [value]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('mousedown', handleClick);
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.removeEventListener('mousedown', handleClick);
-      document.removeEventListener('keydown', handleKey);
-    };
-  }, [open]);
-
-  return (
-    <div ref={ref} className="relative">
-      <div className="flex">
-        <input
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          value={localText}
-          onFocus={() => { focused.current = true; }}
-          onBlur={() => {
-            focused.current = false;
-            const cleaned = localText.replace(/[^0-9]/g, '');
-            const num = cleaned === '' ? min : Math.max(min, parseInt(cleaned, 10));
-            setLocalText(String(num));
-            onChange(num);
-          }}
-          onChange={(e) => {
-            const raw = e.target.value.replace(/[^0-9]/g, '');
-            setLocalText(raw);
-            if (raw !== '') onChange(Math.max(min, parseInt(raw, 10)));
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') { (e.target as HTMLInputElement).blur(); return; }
-            if (['Backspace', 'Delete', 'Tab', 'Escape', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
-            if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) return;
-            if (!/^[0-9]$/.test(e.key)) e.preventDefault();
-          }}
-          className="w-full border border-border-default rounded-l-md px-2 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-        />
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          className="shrink-0 border border-l-0 border-border-default rounded-r-md px-1.5 bg-bg-primary hover:bg-bg-secondary text-text-secondary transition-colors focus:outline-none focus:border-accent"
-          tabIndex={-1}
-        >
-          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
-        </button>
-      </div>
-      {open && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-bg-primary border border-border-default rounded-md shadow-lg max-h-48 overflow-y-auto">
-          {options.map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => { onChange(n); setLocalText(String(n)); setOpen(false); }}
-              className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
-                value === n ? 'bg-accent/10 text-accent font-medium' : 'text-text-primary hover:bg-bg-secondary'
-              }`}
-            >
-              {n}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+import { NumberComboBox } from './NumberComboBox';
 
 const statusLabelsMap: Record<string, string> = {
   for_sale: '出售中',

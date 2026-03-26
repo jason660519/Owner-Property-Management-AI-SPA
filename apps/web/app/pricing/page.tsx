@@ -14,24 +14,20 @@ import {
   CardDescription,
 } from "@/components/ui/Card";
 
-type Currency = "TWD" | "AUD";
 type BillingCycle = "monthly" | "yearly";
 
-const freeRoles = ["自售房東", "自租房東", "租客", "買家"];
+const freeRoles = ["自租房東", "租客", "買家"];
 
 const pricingPlans = [
   {
     id: "free-entry",
     title: "免費流量入口",
-    description: "給房東、租客、買家免費使用，優先累積案件與需求。",
+    description: "給自租屋主、租客、買家免費使用，優先累積需求與案件。",
     badge: "免費角色",
-    prices: {
-      TWD: { monthly: 0, yearly: 0 },
-      AUD: { monthly: 0, yearly: 0 },
-    },
+    prices: { monthly: 0, yearly: 0 },
     features: [
-      "自售房東、自租房東、租客、買家皆可免費建立帳號",
-      "基本刊登、詢問整合、看屋安排與文件上傳",
+      "自租屋主、租客、買家皆可免費建立帳號",
+      "出租刊登、詢問整合、看屋安排與文件上傳",
       "基本 AI 助理、任務追蹤與訊息通知",
       "高成本 AI 功能採配額制，避免無上限濫用",
     ],
@@ -39,18 +35,28 @@ const pricingPlans = [
     variant: "secondary" as const,
   },
   {
+    id: "self-sell",
+    title: "自售屋主版",
+    description: "不透過仲介自行出售的屋主，按物件付費取得完整工具。",
+    badge: "按物件計費",
+    prices: { monthly: 800, yearly: 7680 },
+    secondaryPrice: "或每刊登物件 NT$500 - NT$1,200（一次性）",
+    features: [
+      "物件刊登、AI 產品說明書生成與帶看管理",
+      "詢問整合、買方資格初篩與意願追蹤",
+      "斡旋金 / 要約書流程支援",
+      "代書與律師協作節點銜接",
+    ],
+    cta: "查看自售方案",
+    variant: "secondary" as const,
+  },
+  {
     id: "agent-pro",
     title: "仲介個人版",
     description: "給不動產營業員與經紀人使用的案件工作台。",
     badge: "按案件 / 月費",
-    prices: {
-      TWD: { monthly: 1500, yearly: 15300 },
-      AUD: { monthly: 69, yearly: 704 },
-    },
-    secondaryPrice: {
-      TWD: "或每活躍案件 NT$300 - NT$800",
-      AUD: "或每活躍案件 AUD 12 - AUD 25",
-    },
+    prices: { monthly: 1500, yearly: 15300 },
+    secondaryPrice: "或每活躍案件 NT$300 - NT$800",
     features: [
       "案件 CRM、客資管理與帶看進度追蹤",
       "AI 跟進建議、待辦提醒與節點推進",
@@ -66,14 +72,8 @@ const pricingPlans = [
     title: "分店管理版",
     description: "給房仲店長、加盟主與老闆的團隊管理方案。",
     badge: "團隊方案",
-    prices: {
-      TWD: { monthly: 6000, yearly: 61200 },
-      AUD: { monthly: 249, yearly: 2539 },
-    },
-    secondaryPrice: {
-      TWD: "超額席次與超額案件量另計",
-      AUD: "Additional seats and active cases billed separately",
-    },
+    prices: { monthly: 6000, yearly: 61200 },
+    secondaryPrice: "超額席次與超額案件量另計",
     features: [
       "分店案件池、名單分配與主管總覽",
       "團隊成交率、帶看率、跟進率分析",
@@ -88,7 +88,7 @@ const pricingPlans = [
     title: "企業合作版",
     description: "給履約保證銀行、大型房仲品牌與合作通路。",
     badge: "客製報價",
-    customLabel: "Custom",
+    customLabel: "洽談",
     features: [
       "履約節點、文件審核與資金里程碑監控",
       "企業級報表、稽核與 API 串接",
@@ -103,26 +103,17 @@ const pricingPlans = [
 const servicePricing = [
   {
     role: "過戶代書",
-    pricing: {
-      TWD: "每案件 NT$500 - NT$1,500",
-      AUD: "Per case AUD 20 - AUD 60",
-    },
+    pricing: "每案件 NT$500 - NT$1,500",
     note: "文件清單、補件提醒、過戶節點同步",
   },
   {
     role: "律師",
-    pricing: {
-      TWD: "每案件 NT$1,500 - NT$5,000",
-      AUD: "Per case AUD 60 - AUD 180",
-    },
+    pricing: "每案件 NT$1,500 - NT$5,000",
     note: "契約審閱、條款風險標記、爭議支援",
   },
   {
     role: "裝修團隊",
-    pricing: {
-      TWD: "每專案 NT$500 - NT$2,000",
-      AUD: "Per project AUD 20 - AUD 80",
-    },
+    pricing: "每專案 NT$500 - NT$2,000",
     note: "接案、報價、工期回報、驗收節點",
   },
 ];
@@ -131,7 +122,7 @@ const comparisonRows = [
   {
     label: "適用角色",
     values: [
-      "房東 / 租客 / 買家",
+      "自租屋主 / 租客 / 買家",
       "仲介個人",
       "店長 / 老闆",
       "銀行 / 大型合作方",
@@ -172,19 +163,14 @@ const comparisonRows = [
 
 const faqs = [
   {
-    question: "為什麼房東、租客、買家目前免費？",
+    question: "為什麼自租屋主、租客、買家免費，自售屋主要收費？",
     answer:
-      "平台現階段優先建立案件流與需求池，讓房東、租客、買家先低門檻進入；真正的收費重心放在承接案件的專業服務角色。",
+      "自租屋主、租客、買家進場是為了建立需求池與案件流；自售屋主則是有明確交易目的的主動方，需要 AI 文案、斡旋追蹤、代書協作等完整工具，因此採按物件或月費方式收費，確保服務品質。",
   },
   {
     question: "仲介一定要買月費嗎？",
     answer:
       "不一定。平台優先支援按案件或按物件收費，讓個人仲介可先用小額方式驗證；穩定使用後再升級月費方案。",
-  },
-  {
-    question: "台灣與澳洲方案差在哪裡？",
-    answer:
-      "兩地共用同一套商業邏輯，但價格帶、付款習慣、法規與合作夥伴會分市場調整，因此頁面提供 TWD 與 AUD 兩種檢視方式。",
   },
   {
     question: "代書、律師、裝修團隊為什麼不放在主方案卡？",
@@ -194,23 +180,21 @@ const faqs = [
   {
     question: "高成本 AI 功能如何計價？",
     answer:
-      "OCR、批量文件解析、進階 AI 協作與大量內容生成會採配額或加購設計，避免免費層無限制消耗成本。",
+      "OCR、批量文件解析（謄本 / 建物謄本）、進階 AI 協作與大量內容生成會採配額或加購設計，避免免費層無限制消耗成本。",
+  },
+  {
+    question: "年付方案有哪些優惠？",
+    answer:
+      "年付方案相當於月付 × 10.2 個月，等同享有近兩個月免費。適合已確認案件量穩定、想鎖定成本的仲介個人或分店。",
   },
 ];
 
-function formatPrice(amount: number, currency: Currency) {
-  if (amount === 0) {
-    return currency === "TWD" ? "NT$0" : "AUD 0";
-  }
-
-  const formatted = new Intl.NumberFormat(
-    currency === "TWD" ? "zh-TW" : "en-AU",
-  ).format(amount);
-  return currency === "TWD" ? `NT$${formatted}` : `AUD ${formatted}`;
+function formatPrice(amount: number, cycle: BillingCycle) {
+  if (amount === 0) return "NT$0";
+  return `NT$${new Intl.NumberFormat("zh-TW").format(amount)}`;
 }
 
 export default function PricingPage() {
-  const [currency, setCurrency] = useState<Currency>("TWD");
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
 
   return (
@@ -231,7 +215,7 @@ export default function PricingPage() {
               房東、租客、買家先免費使用；仲介、店長、老闆與合作專業角色按案件或按方案付費。
             </p>
             <p className="text-[#999999] text-base max-w-2xl mx-auto mb-8">
-              適用台灣與澳洲市場，先驗證案件流，再擴張團隊與企業合作。
+              自租屋主、租客、買家免費；自售屋主按物件付費；仲介、店長與專業角色按方案付費。
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
@@ -248,24 +232,7 @@ export default function PricingPage() {
                   onClick={() => setBillingCycle("yearly")}
                   className={`px-4 py-2 rounded-full text-sm transition-colors ${billingCycle === "yearly" ? "bg-[#7C3AED] text-white" : "text-[#999999]"}`}
                 >
-                  年付
-                </button>
-              </div>
-
-              <div className="inline-flex rounded-full border border-[#262626] bg-[#1A1A1A] p-1">
-                <button
-                  type="button"
-                  onClick={() => setCurrency("TWD")}
-                  className={`px-4 py-2 rounded-full text-sm transition-colors ${currency === "TWD" ? "bg-[#7C3AED] text-white" : "text-[#999999]"}`}
-                >
-                  TWD
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCurrency("AUD")}
-                  className={`px-4 py-2 rounded-full text-sm transition-colors ${currency === "AUD" ? "bg-[#7C3AED] text-white" : "text-[#999999]"}`}
-                >
-                  AUD
+                  年付（省 2 個月）
                 </button>
               </div>
             </div>
@@ -326,18 +293,15 @@ export default function PricingPage() {
                       <>
                         <div className="flex items-baseline mb-3">
                           <span className="text-4xl md:text-5xl font-bold">
-                            {formatPrice(
-                              plan.prices[currency][billingCycle],
-                              currency,
-                            )}
+                            {formatPrice((plan as { prices: Record<BillingCycle, number> }).prices[billingCycle], billingCycle)}
                           </span>
                           <span className="text-[#999999] ml-2">
-                            {billingCycle === "monthly" ? "/ 期" : "/ 年"}
+                            {billingCycle === "monthly" ? "/ 月" : "/ 年"}
                           </span>
                         </div>
                         {"secondaryPrice" in plan && plan.secondaryPrice && (
                           <p className="text-sm text-[#999999] mb-8 text-center">
-                            {plan.secondaryPrice[currency]}
+                            {plan.secondaryPrice}
                           </p>
                         )}
                         {!("secondaryPrice" in plan) && (
@@ -377,9 +341,7 @@ export default function PricingPage() {
                       className="w-full"
                     >
                       <Button
-                        variant={
-                          plan.variant === "primary" ? "primary" : "secondary"
-                        }
+                        variant={plan.variant === "primary" ? "primary" : "secondary"}
                         className="w-full"
                         size="lg"
                       >
@@ -393,6 +355,7 @@ export default function PricingPage() {
           </div>
         </section>
 
+        {/* Professional service pricing */}
         <section className="pb-20 px-6 md:px-12 lg:px-20">
           <div className="max-w-6xl mx-auto rounded-3xl border border-[#262626] bg-[#1A1A1A] p-6 md:p-8">
             <div className="flex flex-col gap-3 mb-8">
@@ -406,11 +369,11 @@ export default function PricingPage() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] border-collapse text-left">
+              <table className="w-full min-w-[640px] border-collapse text-left">
                 <thead>
                   <tr className="border-b border-[#262626] text-sm text-[#999999]">
                     <th className="py-4 pr-4 font-medium">角色</th>
-                    <th className="py-4 pr-4 font-medium">價格帶</th>
+                    <th className="py-4 pr-4 font-medium">價格帶（TWD）</th>
                     <th className="py-4 font-medium">主要價值</th>
                   </tr>
                 </thead>
@@ -424,7 +387,7 @@ export default function PricingPage() {
                         {service.role}
                       </td>
                       <td className="py-4 pr-4 text-[#CCCCCC]">
-                        {service.pricing[currency]}
+                        {service.pricing}
                       </td>
                       <td className="py-4 text-[#999999]">{service.note}</td>
                     </tr>
@@ -435,6 +398,7 @@ export default function PricingPage() {
           </div>
         </section>
 
+        {/* Comparison table */}
         <section className="pb-20 px-6 md:px-12 lg:px-20">
           <div className="max-w-6xl mx-auto rounded-3xl border border-[#262626] bg-[#101010] p-6 md:p-8 overflow-hidden">
             <div className="flex flex-col gap-3 mb-8">
@@ -485,6 +449,7 @@ export default function PricingPage() {
           </div>
         </section>
 
+        {/* FAQ */}
         <section className="py-20 px-6 md:px-12 lg:px-20 border-t border-[#262626] bg-[#141414]">
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="text-3xl font-bold mb-6">常見問題</h2>
@@ -502,6 +467,7 @@ export default function PricingPage() {
           </div>
         </section>
 
+        {/* CTA */}
         <section className="pb-24 px-6 md:px-12 lg:px-20 bg-[#141414]">
           <div className="max-w-5xl mx-auto rounded-[32px] border border-[#262626] bg-gradient-to-br from-[#1A1A1A] to-[#111111] p-8 md:p-10 text-center">
             <span className="inline-flex px-4 py-2 rounded-full border border-[#7C3AED]/30 bg-[#7C3AED]/10 text-[#C7B7FF] text-sm uppercase tracking-[0.18em] mb-6">
@@ -513,8 +479,7 @@ export default function PricingPage() {
               現在就可以開始談導入
             </h2>
             <p className="text-[#999999] max-w-3xl mx-auto mb-8 leading-7">
-              平台已經不是單純刊登工具，而是把案件、文件、角色與節點收斂到同一個工作流。你可以先從單一案件、單一
-              agent 或單一分店開始，不必一次性全面導入。
+              平台已經不是單純刊登工具，而是把案件、文件、角色與節點收斂到同一個工作流。你可以先從單一案件、單一仲介或單一分店開始，不必一次性全面導入。
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-4">
               <Link href="/contact?inquiryType=%E5%90%88%E4%BD%9C%E6%8F%90%E6%A1%88">

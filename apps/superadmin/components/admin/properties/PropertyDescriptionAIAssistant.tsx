@@ -247,6 +247,8 @@ interface PropertyDescriptionAIAssistantProps {
   addressUnit: string;
   description: string;
   onDescriptionChange: (value: string) => void;
+  /** When true, omit the bottom「最終物件介紹」textarea (e.g. parent renders a larger editor above). */
+  hideDescriptionTextarea?: boolean;
 }
 
 export function PropertyDescriptionAIAssistant({
@@ -268,6 +270,7 @@ export function PropertyDescriptionAIAssistant({
   addressUnit,
   description,
   onDescriptionChange,
+  hideDescriptionTextarea = false,
 }: PropertyDescriptionAIAssistantProps) {
   const [tone, setTone] = useState<DescriptionGenerationTone>('professional');
   const [length, setLength] = useState<DescriptionGenerationLength>('medium');
@@ -859,19 +862,21 @@ export function PropertyDescriptionAIAssistant({
         )}
       </div>
 
-      <div>
-        <label htmlFor="property-description" className="mb-1.5 block text-sm font-medium text-text-secondary">
-          最終物件介紹
-        </label>
-        <textarea
-          id="property-description"
-          rows={6}
-          placeholder="輸入最終物件介紹，或先用 AI 產生草稿後再手動調整..."
-          value={description}
-          onChange={(event) => onDescriptionChange(event.target.value)}
-          className="w-full resize-y rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-accent focus:outline-none"
-        />
-      </div>
+      {!hideDescriptionTextarea && (
+        <div>
+          <label htmlFor="property-description" className="mb-1.5 block text-sm font-medium text-text-secondary">
+            最終物件介紹
+          </label>
+          <textarea
+            id="property-description"
+            rows={6}
+            placeholder="輸入最終物件介紹，或先用 AI 產生草稿後再手動調整..."
+            value={description}
+            onChange={(event) => onDescriptionChange(event.target.value)}
+            className="w-full resize-y rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-accent focus:outline-none"
+          />
+        </div>
+      )}
     </div>
   );
 }

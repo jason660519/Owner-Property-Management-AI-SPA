@@ -48,6 +48,8 @@ describe('ContactsPage', () => {
           propertyTitle: '台北大安整合案件',
         },
         leadReference: 'LEAD-12345678',
+        assigneeId: null,
+        assigneeName: null,
       },
     ]);
 
@@ -99,6 +101,8 @@ describe('ContactsPage', () => {
           propertyTitle: '台北大安整合案件',
         },
         leadReference: 'LEAD-11111111',
+        assigneeId: null,
+        assigneeName: null,
       },
       {
         id: 'lead-2',
@@ -114,6 +118,8 @@ describe('ContactsPage', () => {
           entryPoint: 'pricing-cta',
         },
         leadReference: 'LEAD-22222222',
+        assigneeId: null,
+        assigneeName: null,
       },
     ]);
 

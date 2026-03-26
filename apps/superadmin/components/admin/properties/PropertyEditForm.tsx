@@ -4,12 +4,13 @@
 
 import { useState, useTransition, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, ExternalLink, Loader2, Building2, Key, ChevronDown, MapPin, Search } from 'lucide-react';
+import { ArrowLeft, Loader2, Building2, Key } from 'lucide-react';
 import { updateProperty } from '@/lib/actions/properties';
 import { PropertyMediaSection } from './PropertyMediaSection';
 import { PropertyInvestigationReportSection } from './PropertyInvestigationReportSection';
 import { PropertyBlogGenerator } from './PropertyBlogGenerator';
-import { PropertyDescriptionAIAssistant } from './PropertyDescriptionAIAssistant';
+import { PropertyIntroductionTab } from './PropertyIntroductionTab';
+import { PropertyMapLocationTab } from './PropertyMapLocationTab';
 import { ContractDraftPreviewSection } from './ContractDraftPreviewSection';
 import { TranscriptTabContent } from './TranscriptTabContent';
 import {
@@ -20,6 +21,7 @@ import {
 } from '@/lib/types/properties';
 import { TAIWAN_CITIES, getDistrictsByCity } from '@/lib/data/taiwan-address';
 import { geocodeAddress } from '@/lib/utils/geocoding';
+import { NumberComboBox } from './NumberComboBox';
 
 function composeAddress(parts: {
   city?: string;
@@ -35,112 +37,6 @@ function composeAddress(parts: {
     .trim();
 }
 
-function NumberComboBox({
-  value,
-  onChange,
-  min = 0,
-}: {
-  value: number;
-  onChange: (v: number) => void;
-  min?: number;
-}) {
-  const [open, setOpen] = useState(false);
-  const [localText, setLocalText] = useState(String(value));
-  const focused = useRef(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const options = [1, 2, 3, 4, 5, 6];
-
-  useEffect(() => {
-    if (!focused.current) {
-      setLocalText(String(value));
-    }
-  }, [value]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', handleClick);
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.removeEventListener('mousedown', handleClick);
-      document.removeEventListener('keydown', handleKey);
-    };
-  }, [open]);
-
-  return (
-    <div ref={ref} className="relative">
-      <div className="flex">
-        <input
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          value={localText}
-          onFocus={() => { focused.current = true; }}
-          onBlur={() => {
-            focused.current = false;
-            const cleaned = localText.replace(/[^0-9]/g, '');
-            const num = cleaned === '' ? min : Math.max(min, parseInt(cleaned, 10));
-            setLocalText(String(num));
-            onChange(num);
-          }}
-          onChange={(e) => {
-            const raw = e.target.value.replace(/[^0-9]/g, '');
-            setLocalText(raw);
-            if (raw !== '') {
-              onChange(Math.max(min, parseInt(raw, 10)));
-            }
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              (e.target as HTMLInputElement).blur();
-              return;
-            }
-            if (['Backspace', 'Delete', 'Tab', 'Escape', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
-            if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) return;
-            if (!/^[0-9]$/.test(e.key)) e.preventDefault();
-          }}
-          className="w-full border border-border-default rounded-l-md px-2 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-        />
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          className="shrink-0 border border-l-0 border-border-default rounded-r-md px-1.5 bg-bg-primary hover:bg-bg-secondary text-text-secondary transition-colors focus:outline-none focus:border-accent"
-          tabIndex={-1}
-        >
-          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
-        </button>
-      </div>
-      {open && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-bg-primary border border-border-default rounded-md shadow-lg max-h-48 overflow-y-auto">
-          {options.map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => {
-                onChange(n);
-                setLocalText(String(n));
-                setOpen(false);
-              }}
-              className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
-                value === n
-                  ? 'bg-accent/10 text-accent font-medium'
-                  : 'text-text-primary hover:bg-bg-secondary'
-              }`}
-            >
-              {n}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 const statusLabelsMap: Record<string, string> = {
   for_sale: '出售中',
   for_rent: '出租中',
@@ -154,19 +50,46 @@ const statusLabelsMap: Record<string, string> = {
 
 const BACK_URL = '/superadmin/properties';
 
-type TabId = 'edit' | 'photos' | 'blog' | 'transcript' | 'title' | 'contract' | 'investigation';
+type TabId =
+  | 'edit'
+  | 'photos'
+  | 'floor_plan'
+  | 'introduction'
+  | 'advertisement_creators'
+  | 'transcript'
+  | 'building_land_area_detail'
+  | 'title'
+  | 'map_location'
+  | 'contract'
+  | 'investigation';
 
 const TAB_LABELS: Record<TabId, string> = {
   transcript: '謄本',
+  building_land_area_detail: '建物土地面積明細表',
   title: '權狀',
   edit: '物件基本資訊',
+  map_location: 'Google 地圖定位',
   photos: '物件照片',
-  blog: '部落格',
+  floor_plan: '物件格局圖',
+  introduction: '物件介紹',
+  advertisement_creators: '一鍵生成 物件廣告',
   contract: '預覽合約套版',
   investigation: '物件調查報告書',
 };
 
-const ALL_TABS: TabId[] = ['edit', 'transcript', 'title', 'photos', 'blog', 'contract', 'investigation'];
+const ALL_TABS: TabId[] = [
+  'edit',
+  'transcript',
+  'building_land_area_detail',
+  'title',
+  'map_location',
+  'photos',
+  'floor_plan',
+  'introduction',
+  'advertisement_creators',
+  'contract',
+  'investigation',
+];
 
 interface PropertyEditFormProps {
   property: PropertyItem;
@@ -234,28 +157,6 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
       }) || property.address,
     [addressCity, addressDistrict, addressStreet, addressNumber, addressFloor, addressUnit, property.address],
   );
-
-  // Google Maps embed URL (address preferred for better building-level positioning in TW)
-  const mapEmbedUrl = useMemo(() => {
-    if (composedAddress) {
-      return `https://maps.google.com/maps?q=${encodeURIComponent(composedAddress)}&output=embed&hl=zh-TW`;
-    }
-    if (validLat !== null && validLng !== null) {
-      return `https://maps.google.com/maps?q=${validLat},${validLng}&z=16&output=embed&hl=zh-TW`;
-    }
-    return null;
-  }, [validLat, validLng, composedAddress]);
-
-  // External Google Maps link (address preferred)
-  const mapsOpenUrl = useMemo(() => {
-    if (composedAddress) {
-      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(composedAddress)}`;
-    }
-    if (validLat !== null && validLng !== null) {
-      return `https://www.google.com/maps/search/?api=1&query=${validLat},${validLng}`;
-    }
-    return null;
-  }, [validLat, validLng, composedAddress]);
 
   // Auto-geocode using OpenStreetMap Nominatim (free, no API key)
   // Note: OSM Taiwan data has street-level coverage but NOT building-level (house numbers).
@@ -437,7 +338,10 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
           }`}
         >
           {/* In 'edit' tab, we render feedback in the bottom footer for better visibility. */}
-          {feedback && activeTab !== 'edit' && (
+          {feedback &&
+            activeTab !== 'edit' &&
+            activeTab !== 'introduction' &&
+            activeTab !== 'map_location' && (
             <div
               className={`p-3 rounded-lg text-sm shrink-0 ${
                 feedback.type === 'success'
@@ -455,7 +359,17 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
             </div>
           )}
 
-          {activeTab !== 'transcript' && (activeTab === 'photos' || activeTab === 'title') && (
+          {activeTab === 'building_land_area_detail' && (
+            <div className="rounded-lg border border-border-default bg-bg-primary p-6 space-y-3">
+              <h3 className="text-sm font-semibold text-text-primary">建物土地面積明細表</h3>
+              <p className="text-xs text-text-muted leading-relaxed">
+                此區將用於彙整建物、土地面積與持分等明細（與謄本／權狀對照）。表單與儲存欄位可後續再接資料庫與匯出。
+              </p>
+            </div>
+          )}
+
+          {activeTab !== 'transcript' &&
+            (activeTab === 'photos' || activeTab === 'title' || activeTab === 'floor_plan') && (
             <PropertyMediaSection
               propertyId={property.id}
               propertyType={property.type}
@@ -476,7 +390,7 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
             </div>
           )}
 
-          {activeTab === 'blog' && (
+          {activeTab === 'advertisement_creators' && (
             <PropertyBlogGenerator
               propertyId={property.id}
               propertyType={property.type}
@@ -488,11 +402,60 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
             <PropertyInvestigationReportSection propertyId={property.id} property={property} />
           )}
 
+          {activeTab === 'introduction' && (
+            <PropertyIntroductionTab
+              propertyId={property.id}
+              listingType={property.type}
+              title={title}
+              propertyType={propertyType}
+              area={areaNum}
+              bedrooms={bedrooms}
+              bathrooms={bathrooms}
+              livingRooms={livingRooms}
+              parkingSpaces={parkingSpaces}
+              price={price}
+              monthlyRent={monthlyRent}
+              addressCity={addressCity}
+              addressDistrict={addressDistrict}
+              addressStreet={addressStreet}
+              addressNumber={addressNumber}
+              addressFloor={addressFloor}
+              addressUnit={addressUnit}
+              description={description}
+              onDescriptionChange={setDescription}
+            />
+          )}
+
+          {activeTab === 'map_location' && (
+            <PropertyMapLocationTab
+              composedAddress={composedAddress}
+              latInput={latInput}
+              lngInput={lngInput}
+              onLatInputChange={(v) => {
+                setLatInput(v);
+                setGeocodeMsg(null);
+              }}
+              onLngInputChange={(v) => {
+                setLngInput(v);
+                setGeocodeMsg(null);
+              }}
+              isGeocoding={isGeocoding}
+              geocodeMsg={geocodeMsg}
+              onGeocodeFromAddress={handleGeocode}
+            />
+          )}
+
           {activeTab === 'edit' && (
             <>
-              {/* Status + Title in one row */}
+              {/* 狀態、名稱、售價／租金、類型、格局、總面積／總坪數（面積在最右）— 同一列 */}
               <div className="overflow-x-auto pb-1">
-                <div className="grid grid-cols-[180px_minmax(280px,1fr)] gap-4 min-w-[500px]">
+                <div
+                  className={
+                    property.type === 'sale'
+                      ? 'grid min-w-[1180px] grid-cols-[180px_minmax(200px,1.6fr)_minmax(132px,180px)_minmax(140px,220px)_minmax(88px,104px)_minmax(88px,104px)_minmax(88px,104px)_minmax(88px,104px)_minmax(110px,130px)_minmax(96px,118px)] gap-3 items-end'
+                      : 'grid min-w-[1280px] grid-cols-[180px_minmax(200px,1.4fr)_minmax(120px,150px)_minmax(88px,104px)_minmax(140px,220px)_minmax(88px,104px)_minmax(88px,104px)_minmax(88px,104px)_minmax(88px,104px)_minmax(110px,130px)_minmax(96px,118px)] gap-3 items-end'
+                  }
+                >
                   <div>
                     <label className="block text-sm font-medium text-text-secondary mb-1.5">
                       狀態
@@ -509,7 +472,7 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
                       ))}
                     </select>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <label className="block text-sm font-medium text-text-secondary mb-1.5">
                       物件名稱
                     </label>
@@ -520,16 +483,126 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
                       className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
                     />
                   </div>
+
+                  <div className="min-w-0">
+                    {property.type === 'sale' ? (
+                      <>
+                        <label className="block text-sm font-medium text-text-secondary mb-1.5">
+                          售價 (NT$)
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={price}
+                          onChange={(e) => setPrice(Number(e.target.value))}
+                          className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <label className="block text-sm font-medium text-text-secondary mb-1.5">
+                          月租金 (NT$)
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={monthlyRent}
+                          onChange={(e) => setMonthlyRent(Number(e.target.value))}
+                          className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
+                        />
+                      </>
+                    )}
+                  </div>
+
+                  {property.type === 'rental' && (
+                    <div className="min-w-0">
+                      <label className="block text-sm font-medium text-text-secondary mb-1.5">
+                        租期 (月)
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={leaseTerm}
+                        onChange={(e) => setLeaseTerm(Number(e.target.value))}
+                        className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                  )}
+
+                  <div className="min-w-0">
+                    <label className="block text-sm font-medium text-text-secondary mb-1.5">
+                      物件類型
+                    </label>
+                    <select
+                      value={propertyType}
+                      onChange={(e) => setPropertyType(e.target.value)}
+                      className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
+                    >
+                      <option value="">請選擇物件類型</option>
+                      {PROPERTY_TYPES.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="min-w-0">
+                    <span className="block text-xs text-text-muted mb-1">房</span>
+                    <NumberComboBox value={bedrooms} onChange={setBedrooms} />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block text-xs text-text-muted mb-1">廳</span>
+                    <NumberComboBox value={livingRooms} onChange={setLivingRooms} />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block text-xs text-text-muted mb-1">衛</span>
+                    <NumberComboBox value={bathrooms} onChange={setBathrooms} />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block text-xs text-text-muted mb-1">車位</span>
+                    <NumberComboBox value={parkingSpaces} onChange={setParkingSpaces} />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1.5">
+                      總面積 (㎡)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={areaInput}
+                      onChange={(e) => setAreaInput(e.target.value)}
+                      placeholder="0"
+                      className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1.5">
+                      總坪數
+                    </label>
+                    <div
+                      className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-tertiary text-text-primary text-sm"
+                      aria-live="polite"
+                    >
+                      {(areaNum * 0.3025).toFixed(2)} 坪
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* Address */}
               <div className="space-y-4">
-                <label className="block text-sm font-medium text-text-secondary">
-                  地址（台灣分區，從大到小）
-                </label>
+                <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+                  <label className="text-sm font-medium text-text-secondary shrink-0">
+                    地址
+                  </label>
+                  {composedAddress ? (
+                    <p className="text-xs text-text-muted text-left flex-1 min-w-0">
+                      預覽：{composedAddress}
+                    </p>
+                  ) : null}
+                </div>
                 <div className="overflow-x-auto pb-1">
-                  <div className="grid grid-cols-[160px_160px_minmax(260px,1fr)_130px_120px_120px] gap-4 min-w-[1050px]">
+                  <div className="grid grid-cols-[160px_160px_minmax(260px,1fr)_130px_120px_120px_minmax(200px,280px)] gap-4 min-w-[1180px] items-start">
                     <div>
                       <span className="block text-xs text-text-muted mb-1">縣市</span>
                       <select
@@ -602,242 +675,27 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
                         className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted"
                       />
                     </div>
+                    <div className="min-w-0">
+                      <span
+                        className="block text-xs text-text-muted mb-1 opacity-0 select-none pointer-events-none"
+                        aria-hidden="true"
+                      >
+                        —
+                      </span>
+                      <div className="text-xs text-text-muted py-2 leading-snug">
+                        創建人：{property.creatorName} &middot; 建立日期：
+                        {new Date(property.createdAt).toLocaleDateString('zh-TW')}
+                      </div>
+                    </div>
                   </div>
                 </div>
-                {composedAddress ? (
-                  <p className="text-xs text-text-muted">預覽：{composedAddress}</p>
-                ) : null}
-              </div>
-
-              {/* Price / Rent */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  {property.type === 'sale' ? (
-                    <>
-                      <label className="block text-sm font-medium text-text-secondary mb-1.5">
-                        售價 (NT$)
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={price}
-                        onChange={(e) => setPrice(Number(e.target.value))}
-                        className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <label className="block text-sm font-medium text-text-secondary mb-1.5">
-                        月租金 (NT$)
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={monthlyRent}
-                        onChange={(e) => setMonthlyRent(Number(e.target.value))}
-                        className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
-                      />
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Lease term (rental only) */}
-              {property.type === 'rental' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-1.5">
-                      租期 (月)
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={leaseTerm}
-                      onChange={(e) => setLeaseTerm(Number(e.target.value))}
-                      className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Property type */}
-              <div>
-                <label className="block text-sm font-medium text-text-secondary mb-1.5">
-                  物件類型
-                </label>
-                <select
-                  value={propertyType}
-                  onChange={(e) => setPropertyType(e.target.value)}
-                  className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
-                >
-                  <option value="">請選擇物件類型</option>
-                  {PROPERTY_TYPES.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 格局 */}
-              <div>
-                <label className="block text-sm font-medium text-text-secondary mb-1.5">格局</label>
-                <div className="grid grid-cols-4 gap-4">
-                  <div>
-                    <span className="block text-xs text-text-muted mb-1">房</span>
-                    <NumberComboBox value={bedrooms} onChange={setBedrooms} />
-                  </div>
-                  <div>
-                    <span className="block text-xs text-text-muted mb-1">廳</span>
-                    <NumberComboBox value={livingRooms} onChange={setLivingRooms} />
-                  </div>
-                  <div>
-                    <span className="block text-xs text-text-muted mb-1">衛</span>
-                    <NumberComboBox value={bathrooms} onChange={setBathrooms} />
-                  </div>
-                  <div>
-                    <span className="block text-xs text-text-muted mb-1">車位</span>
-                    <NumberComboBox value={parkingSpaces} onChange={setParkingSpaces} />
-                  </div>
-                </div>
-              </div>
-
-              {/* 面積 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-1.5">
-                    總面積 (平方公尺)
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={areaInput}
-                    onChange={(e) => setAreaInput(e.target.value)}
-                    placeholder="0"
-                    className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-1.5">
-                    總坪數
-                  </label>
-                  <div
-                    className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-tertiary text-text-primary text-sm"
-                    aria-live="polite"
-                  >
-                    {(areaNum * 0.3025).toFixed(2)} 坪
-                  </div>
-                </div>
-              </div>
-
-              <PropertyDescriptionAIAssistant
-                listingType={property.type}
-                title={title}
-                propertyType={propertyType}
-                area={areaNum}
-                bedrooms={bedrooms}
-                bathrooms={bathrooms}
-                livingRooms={livingRooms}
-                parkingSpaces={parkingSpaces}
-                price={price}
-                monthlyRent={monthlyRent}
-                addressCity={addressCity}
-                addressDistrict={addressDistrict}
-                addressStreet={addressStreet}
-                addressNumber={addressNumber}
-                addressFloor={addressFloor}
-                addressUnit={addressUnit}
-                description={description}
-                onDescriptionChange={setDescription}
-              />
-
-              <div className="text-xs text-text-muted">
-                創建人：{property.creatorName} &middot; 建立日期：
-                {new Date(property.createdAt).toLocaleDateString('zh-TW')}
-              </div>
-
-              {/* Location Map */}
-              <div className="space-y-3">
-                <label className="block text-sm font-medium text-text-secondary flex items-center gap-1.5">
-                  <MapPin size={14} />
-                  地圖定位
-                </label>
-
-                {/* Lat / Lng inputs */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <span className="block text-xs text-text-muted mb-1">緯度 Latitude</span>
-                    <input
-                      type="text"
-                      value={latInput}
-                      onChange={(e) => { setLatInput(e.target.value); setGeocodeMsg(null); }}
-                      placeholder="25.033000"
-                      className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted font-mono"
-                    />
-                  </div>
-                  <div>
-                    <span className="block text-xs text-text-muted mb-1">經度 Longitude</span>
-                    <input
-                      type="text"
-                      value={lngInput}
-                      onChange={(e) => { setLngInput(e.target.value); setGeocodeMsg(null); }}
-                      placeholder="121.565400"
-                      className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted font-mono"
-                    />
-                  </div>
-                </div>
-
-                {/* Geocode button */}
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={handleGeocode}
-                    disabled={isGeocoding}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-tertiary border border-border-default rounded-md text-text-secondary hover:border-accent hover:text-accent transition-colors disabled:opacity-50"
-                  >
-                    {isGeocoding ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
-                    從地址自動偵測座標
-                  </button>
-                  {mapsOpenUrl && (
-                    <a
-                      href={mapsOpenUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-xs text-text-muted hover:text-accent transition-colors"
-                    >
-                      <ExternalLink size={11} />
-                      在 Google Maps 開啟
-                    </a>
-                  )}
-                </div>
-
-                {geocodeMsg && (
-                  <p className={`text-xs ${geocodeMsg.type === 'success' ? 'text-green-500' : 'text-red-500'}`}>
-                    {geocodeMsg.text}
-                  </p>
-                )}
-
-                {/* Map embed */}
-                {mapEmbedUrl && (
-                  <div className="relative rounded-lg overflow-hidden border border-border-default">
-                    <iframe
-                      key={mapEmbedUrl}
-                      src={mapEmbedUrl}
-                      className="w-full h-56"
-                      loading="lazy"
-                      referrerPolicy="no-referrer-when-downgrade"
-                      title="物件位置地圖"
-                    />
-                    <p className="absolute bottom-1 right-2 text-[10px] text-text-muted bg-bg-primary/80 px-1 rounded">
-                      {composedAddress ? '依中文地址定位' : (validLat !== null && validLng !== null ? `座標定位: ${validLat}, ${validLng}` : '未設定定位')}
-                    </p>
-                  </div>
-                )}
               </div>
             </>
           )}
         </div>
 
-        {/* Footer — only visible on the main edit tab (sub-forms have their own save) */}
-        {activeTab === 'edit' && (
+        {/* Footer — edit + 物件介紹 + 地圖定位（皆寫入同一筆物件資料） */}
+        {(activeTab === 'edit' || activeTab === 'introduction' || activeTab === 'map_location') && (
           <div className="shrink-0 border-t border-border-default px-6 py-4 flex flex-col sm:flex-row gap-3 sm:items-center">
             {feedback && (
               <div

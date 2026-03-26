@@ -26,16 +26,18 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   lease_contract: '租約',
   sales_contract: '買賣合約',
   blog: '部落格',
+  floor_plan: '物件格局圖',
 };
 
-export type DocumentSectionMode = 'photos' | 'transcript' | 'title' | 'contract' | 'blog';
+export type DocumentSectionMode = 'photos' | 'transcript' | 'title' | 'contract' | 'blog' | 'floor_plan';
 
-/** document_type 依分區：謄本 / 權狀(建物+土地) / 合約(租約+買賣) / 部落格 */
+/** document_type 依分區：謄本 / 權狀(建物+土地) / 合約(租約+買賣) / 部落格 / 格局圖 */
 const DOC_TYPES_BY_MODE: Record<Exclude<DocumentSectionMode, 'photos'>, string[]> = {
   transcript: ['land_registry_transcript'],
   title: ['building_title', 'land_title'],
   contract: ['lease_contract', 'sales_contract'],
   blog: ['blog'],
+  floor_plan: ['floor_plan'],
 };
 
 type DocType =
@@ -44,7 +46,8 @@ type DocType =
   | 'land_title'
   | 'lease_contract'
   | 'sales_contract'
-  | 'blog';
+  | 'blog'
+  | 'floor_plan';
 
 interface Props {
   propertyId: string;
@@ -59,12 +62,20 @@ const DEFAULT_DOC_TYPE_BY_MODE: Record<Exclude<DocumentSectionMode, 'photos'>, D
   title: 'building_title',
   contract: 'lease_contract',
   blog: 'blog',
+  floor_plan: 'floor_plan',
 };
 
 export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }: Props) {
   const [activeTab, setActiveTab] = useState<'photos' | 'documents'>(mode === 'photos' || !mode ? 'photos' : 'documents');
   const isPhotoMode = mode === 'photos' || (!mode && activeTab === 'photos');
-  const isDocMode = mode === 'documents' || mode === 'transcript' || mode === 'title' || mode === 'contract' || mode === 'blog' || (!mode && activeTab === 'documents');
+  const isDocMode =
+    mode === 'documents' ||
+    mode === 'transcript' ||
+    mode === 'title' ||
+    mode === 'contract' ||
+    mode === 'blog' ||
+    mode === 'floor_plan' ||
+    (!mode && activeTab === 'documents');
   const docSectionMode: Exclude<DocumentSectionMode, 'photos'> | null = mode && mode !== 'photos' && mode !== 'documents' ? mode : null;
   const effectiveTab = mode === 'photos' ? 'photos' : isDocMode ? 'documents' : (mode ?? activeTab);
 
@@ -82,7 +93,17 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
     return documents.filter((d) => allowed.includes(d.documentType));
   }, [documents, docSectionMode]);
   const defaultDocType = docSectionMode ? DEFAULT_DOC_TYPE_BY_MODE[docSectionMode] : 'land_registry_transcript';
-  const uploadDocTypeOptions: DocType[] = docSectionMode ? (DOC_TYPES_BY_MODE[docSectionMode] as DocType[]) : ['land_registry_transcript', 'building_title', 'land_title', 'lease_contract', 'sales_contract', 'blog'];
+  const uploadDocTypeOptions: DocType[] = docSectionMode
+    ? (DOC_TYPES_BY_MODE[docSectionMode] as DocType[])
+    : [
+        'land_registry_transcript',
+        'building_title',
+        'land_title',
+        'lease_contract',
+        'sales_contract',
+        'blog',
+        'floor_plan',
+      ];
 
   // Photo upload state
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -499,10 +520,12 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
           </div>
         </div>
       ) : (
-        /* ── Documents (謄本／權狀／合約／部落格) ── */
+        /* ── Documents (謄本／權狀／合約／部落格／格局圖) ── */
         <div className="space-y-4">
           {displayDocuments.length === 0 ? (
-            <p className="text-text-muted text-xs">尚無文件</p>
+            <p className="text-text-muted text-xs">
+              {docSectionMode === 'floor_plan' ? '尚無格局圖' : '尚無文件'}
+            </p>
           ) : (
             <ul className="space-y-1.5">
               {displayDocuments.map((doc) => (
@@ -542,10 +565,22 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
           {/* Upload new document */}
           <div className="border border-dashed border-border-default rounded-md p-3 space-y-2.5">
             <p className="text-xs font-medium text-text-secondary">
-              新增文件 <span className="text-text-muted font-normal">(PDF / JPG / PNG / WebP，最大 20 MB)</span>
+              {docSectionMode === 'floor_plan' ? (
+                <>
+                  上傳格局圖{' '}
+                  <span className="text-text-muted font-normal">(PDF / JPG / PNG / WebP，最大 20 MB)</span>
+                </>
+              ) : (
+                <>
+                  新增文件{' '}
+                  <span className="text-text-muted font-normal">(PDF / JPG / PNG / WebP，最大 20 MB)</span>
+                </>
+              )}
             </p>
             <div>
-              <label className="block text-xs text-text-muted mb-1">文件類型</label>
+              <label className="block text-xs text-text-muted mb-1">
+                {docSectionMode === 'floor_plan' ? '檔案類型' : '文件類型'}
+              </label>
               <select
                 value={docType}
                 onChange={(e) => setDocType(e.target.value as DocType)}
@@ -576,7 +611,11 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
               ) : (
                 <Upload size={12} />
               )}
-              {isDocUploading ? '上傳中…' : '上傳文件'}
+              {isDocUploading
+                ? '上傳中…'
+                : docSectionMode === 'floor_plan'
+                  ? '上傳格局圖'
+                  : '上傳文件'}
             </button>
           </div>
 

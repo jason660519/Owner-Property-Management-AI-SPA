@@ -2,12 +2,13 @@
 // created: 2026-02-14 | creator: Claude Opus 4.6
 'use client';
 
-import { useState, useTransition, useMemo, useRef, useEffect } from 'react';
-import { X, Loader2, Building2, Key, ChevronDown } from 'lucide-react';
+import { useState, useTransition, useMemo } from 'react';
+import { X, Loader2, Building2, Key } from 'lucide-react';
 import { updateProperty } from '@/lib/actions/properties';
 import { PropertyMediaSection } from './PropertyMediaSection';
 import { PropertyInvestigationReportSection } from './PropertyInvestigationReportSection';
 import { PropertyBlogGenerator } from './PropertyBlogGenerator';
+import { PropertyIntroductionTab } from './PropertyIntroductionTab';
 import { ContractDraftPreviewSection } from './ContractDraftPreviewSection';
 import {
   PROPERTY_STATUSES,
@@ -16,6 +17,7 @@ import {
   type UpdatePropertyInput,
 } from '@/lib/types/properties';
 import { TAIWAN_CITIES, getDistrictsByCity } from '@/lib/data/taiwan-address';
+import { NumberComboBox } from './NumberComboBox';
 
 /** 由結構化地址零件組成完整地址（例：台北市 大安區 敦化南路一段 295號 3F 之2） */
 function composeAddress(parts: {
@@ -30,116 +32,6 @@ function composeAddress(parts: {
     .filter(Boolean)
     .join(' ')
     .trim();
-}
-
-/** Dropdown + editable numeric input combo (options 1–6, accepts any non-negative integer) */
-function NumberComboBox({
-  value,
-  onChange,
-  min = 0,
-}: {
-  value: number;
-  onChange: (v: number) => void;
-  min?: number;
-}) {
-  const [open, setOpen] = useState(false);
-  const [localText, setLocalText] = useState(String(value));
-  const focused = useRef(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const options = [1, 2, 3, 4, 5, 6];
-
-  // Only sync parent value → localText when the input is NOT focused
-  // This prevents the useEffect from overwriting user keystrokes
-  useEffect(() => {
-    if (!focused.current) {
-      setLocalText(String(value));
-    }
-  }, [value]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', handleClick);
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.removeEventListener('mousedown', handleClick);
-      document.removeEventListener('keydown', handleKey);
-    };
-  }, [open]);
-
-  return (
-    <div ref={ref} className="relative">
-      <div className="flex">
-        <input
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          value={localText}
-          onFocus={() => { focused.current = true; }}
-          onBlur={() => {
-            focused.current = false;
-            // Commit: if empty or non-numeric, fall back to min
-            const cleaned = localText.replace(/[^0-9]/g, '');
-            const num = cleaned === '' ? min : Math.max(min, parseInt(cleaned, 10));
-            setLocalText(String(num));
-            onChange(num);
-          }}
-          onChange={(e) => {
-            const raw = e.target.value.replace(/[^0-9]/g, '');
-            setLocalText(raw);
-            if (raw !== '') {
-              onChange(Math.max(min, parseInt(raw, 10)));
-            }
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              (e.target as HTMLInputElement).blur();
-              return;
-            }
-            if (['Backspace', 'Delete', 'Tab', 'Escape', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
-            if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) return;
-            if (!/^[0-9]$/.test(e.key)) e.preventDefault();
-          }}
-          className="w-full border border-border-default rounded-l-md px-2 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-        />
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          className="shrink-0 border border-l-0 border-border-default rounded-r-md px-1.5 bg-bg-primary hover:bg-bg-secondary text-text-secondary transition-colors focus:outline-none focus:border-accent"
-          tabIndex={-1}
-        >
-          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
-        </button>
-      </div>
-      {open && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-bg-primary border border-border-default rounded-md shadow-lg max-h-48 overflow-y-auto">
-          {options.map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => {
-                onChange(n);
-                setLocalText(String(n));
-                setOpen(false);
-              }}
-              className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
-                value === n
-                  ? 'bg-accent/10 text-accent font-medium'
-                  : 'text-text-primary hover:bg-bg-secondary'
-              }`}
-            >
-              {n}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 }
 
 const statusLabelsMap: Record<string, string> = {
@@ -161,7 +53,18 @@ interface PropertyEditModalProps {
 
 export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditModalProps) {
   const [isPending, startTransition] = useTransition();
-  const [activeTab, setActiveTab] = useState<'edit' | 'photos' | 'blog' | 'transcript' | 'title' | 'contract' | 'investigation'>('edit');
+  const [activeTab, setActiveTab] = useState<
+    | 'edit'
+    | 'photos'
+    | 'floor_plan'
+    | 'introduction'
+    | 'blog'
+    | 'transcript'
+    | 'building_land_area_detail'
+    | 'title'
+    | 'contract'
+    | 'investigation'
+  >('edit');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null
   );
@@ -289,12 +192,28 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
 
         {/* Tab bar – fixed below header, never scrolls */}
         <div className="shrink-0 bg-bg-secondary border-b border-border-default px-6 flex gap-1 flex-wrap">
-          {(['edit', 'photos', 'blog', 'transcript', 'title', 'contract', 'investigation'] as const).map((tab) => {
+          {(
+            [
+              'edit',
+              'photos',
+              'floor_plan',
+              'introduction',
+              'blog',
+              'transcript',
+              'building_land_area_detail',
+              'title',
+              'contract',
+              'investigation',
+            ] as const
+          ).map((tab) => {
             const labels: Record<typeof tab, string> = {
               edit: '物件基本資訊',
               photos: '物件照片',
+              floor_plan: '物件格局圖',
+              introduction: '物件介紹',
               blog: '部落格',
               transcript: '謄本',
+              building_land_area_detail: '建物土地面積明細表',
               title: '權狀',
               contract: '預覽合約',
               investigation: '物件調查報告書',
@@ -332,13 +251,25 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
           )}
 
           {/* ── Photos / Documents (謄本／權狀／合約) tabs ── */}
-          {(activeTab === 'photos' || activeTab === 'transcript' || activeTab === 'title') && (
+          {(activeTab === 'photos' ||
+            activeTab === 'transcript' ||
+            activeTab === 'title' ||
+            activeTab === 'floor_plan') && (
             <PropertyMediaSection
               propertyId={property.id}
               propertyType={property.type}
               ownerId={property.ownerId}
               mode={activeTab}
             />
+          )}
+
+          {activeTab === 'building_land_area_detail' && (
+            <div className="rounded-lg border border-border-default bg-bg-primary p-6 space-y-3">
+              <h3 className="text-sm font-semibold text-text-primary">建物土地面積明細表</h3>
+              <p className="text-xs text-text-muted leading-relaxed">
+                此區將用於彙整建物、土地面積與持分等明細（與謄本／權狀對照）。表單與儲存欄位可後續再接資料庫與匯出。
+              </p>
+            </div>
           )}
 
           {activeTab === 'contract' && (
@@ -365,6 +296,30 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
           {/* ── 物件調查報告書 ── */}
           {activeTab === 'investigation' && (
             <PropertyInvestigationReportSection propertyId={property.id} property={property} />
+          )}
+
+          {activeTab === 'introduction' && (
+            <PropertyIntroductionTab
+              propertyId={property.id}
+              listingType={property.type}
+              title={title}
+              propertyType={propertyType}
+              area={areaNum}
+              bedrooms={bedrooms}
+              bathrooms={bathrooms}
+              livingRooms={livingRooms}
+              parkingSpaces={parkingSpaces}
+              price={price}
+              monthlyRent={monthlyRent}
+              addressCity={addressCity}
+              addressDistrict={addressDistrict}
+              addressStreet={addressStreet}
+              addressNumber={addressNumber}
+              addressFloor={addressFloor}
+              addressUnit={addressUnit}
+              description={description}
+              onDescriptionChange={setDescription}
+            />
           )}
 
           {/* ── Edit form ── */}
@@ -403,7 +358,7 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
 
           {/* Address: 縣市 → 區 → 路/段/街 → 門牌、樓層、單位 */}
           <div className="space-y-4">
-            <label className="block text-sm font-medium text-text-secondary">地址（台灣分區，從大到小）</label>
+            <label className="block text-sm font-medium text-text-secondary">地址</label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <span className="block text-xs text-text-muted mb-1">縣市</span>
@@ -606,19 +561,9 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
             </div>
           </div>
 
-          {/* Row 7: Description */}
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1.5">
-              描述 <span className="text-text-muted font-normal">(留空則保留原有描述)</span>
-            </label>
-            <textarea
-              rows={3}
-              placeholder="輸入物件描述..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted resize-y"
-            />
-          </div>
+          <p className="text-xs text-text-muted rounded-md border border-border-default border-dashed bg-bg-tertiary/40 px-3 py-2">
+            物件介紹、匯入／下載 .md、AI 撰稿請使用「物件介紹」分頁。
+          </p>
 
           {/* Info line */}
           <div className="text-xs text-text-muted">
@@ -629,8 +574,8 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
           )}
         </div>
 
-        {/* Footer – fixed at bottom, only show save/cancel on edit tab */}
-        {activeTab === 'edit' && (
+        {/* Footer – edit + 物件介紹 */}
+        {(activeTab === 'edit' || activeTab === 'introduction') && (
         <div className="shrink-0 bg-bg-secondary border-t border-border-default px-6 py-4 flex justify-end gap-3 rounded-b-lg">
           <button
             onClick={onClose}

@@ -22,8 +22,17 @@ import type {
   BuildingTranscriptData,
   LandTranscriptData,
   IndependentTitleSaleMode,
+  ParkingTitleRight,
+  SubjectLandParcelScope,
 } from '@/lib/types/properties';
-import { parseIndependentTitleSaleMode } from '@/lib/types/properties';
+import {
+  parseIndependentTitleSaleModes,
+  parseParkingTitleRights,
+  parseIndependentBuildingNumberCount,
+  clampIndependentBuildingNumberCount,
+  parseSubjectLandParcelScope,
+  parseIndependentLandParcelNumberCount,
+} from '@/lib/types/properties';
 import { SALE_STATUSES, RENTAL_STATUSES } from '@/lib/types/properties';
 
 /**
@@ -404,6 +413,8 @@ export async function getPropertyById(id: string): Promise<PropertyItem | null> 
     : null;
 
   const details = (row.details || {}) as Record<string, unknown>;
+  const independentTitleSaleModes = parseIndependentTitleSaleModes(details);
+  const independentTitleSaleMode = independentTitleSaleModes[0] ?? null;
 
   return {
     id,
@@ -450,7 +461,16 @@ export async function getPropertyById(id: string): Promise<PropertyItem | null> 
     mainPhotoUrl,
     buildingTranscript: (details.buildingTranscript as BuildingTranscriptData) ?? null,
     landTranscript: (details.landTranscript as LandTranscriptData) ?? null,
-    independentTitleSaleMode: parseIndependentTitleSaleMode(details),
+    independentTitleSaleModes,
+    independentTitleSaleMode,
+    parkingTitleRights: parseParkingTitleRights(details, independentTitleSaleModes),
+    independentBuildingNumberCount: parseIndependentBuildingNumberCount(details),
+    subjectLandParcelScope: parseSubjectLandParcelScope(details),
+    independentLandParcelNumberCount: (() => {
+      const scope = parseSubjectLandParcelScope(details);
+      if (scope !== 'multi') return null;
+      return Math.max(2, parseIndependentLandParcelNumberCount(details));
+    })(),
     hasIndependentParking: (row.has_independent_parking as boolean) ?? false,
     parkingBuildingTranscript: (details.parkingBuildingTranscript as BuildingTranscriptData) ?? null,
     parkingLandTranscript: (details.parkingLandTranscript as LandTranscriptData) ?? null,
@@ -585,11 +605,11 @@ export async function savePropertyHasIndependentParking(
   }
 }
 
-// ── Independent title sale mode (details JSON, 五擇一) ───────────────────
-export async function savePropertyIndependentTitleSaleMode(
+// ── Independent title sale modes (details JSON, 可複選) ──────────────────
+export async function savePropertyIndependentTitleSaleModes(
   id: string,
   type: 'sale' | 'rental',
-  mode: IndependentTitleSaleMode | null
+  modes: IndependentTitleSaleMode[]
 ): Promise<ActionResult> {
   const adminClient = createAdminClient();
   const table = type === 'sale' ? 'property_sales' : 'property_rentals';
@@ -609,10 +629,11 @@ export async function savePropertyIndependentTitleSaleMode(
     const updatedDetails: Record<string, unknown> = { ...existingDetails };
     delete updatedDetails.independentTitleSaleBuilding;
     delete updatedDetails.independentTitleSaleParking;
-    if (mode === null) {
-      delete updatedDetails.independentTitleSaleMode;
+    delete updatedDetails.independentTitleSaleMode;
+    if (modes.length === 0) {
+      delete updatedDetails.independentTitleSaleModes;
     } else {
-      updatedDetails.independentTitleSaleMode = mode;
+      updatedDetails.independentTitleSaleModes = modes;
     }
 
     const { error } = await adminClient.from(table).update({ details: updatedDetails }).eq('id', id);
@@ -622,7 +643,148 @@ export async function savePropertyIndependentTitleSaleMode(
     }
 
     revalidatePath(`/superadmin/properties/${id}/edit`);
-    return { success: true, message: '獨立產權銷售方式已更新' };
+    return { success: true, message: '銷售方式已更新' };
+  } catch (error) {
+    return {
+      success: false,
+      message: `儲存失敗：${error instanceof Error ? error.message : '未知錯誤'}`,
+    };
+  }
+}
+
+// ── Parking title rights (details JSON, 車位產權複選) ─────────────────────
+export async function savePropertyParkingTitleRights(
+  id: string,
+  type: 'sale' | 'rental',
+  rights: ParkingTitleRight[]
+): Promise<ActionResult> {
+  const adminClient = createAdminClient();
+  const table = type === 'sale' ? 'property_sales' : 'property_rentals';
+
+  try {
+    const { data: existing, error: fetchError } = await adminClient
+      .from(table)
+      .select('details')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      return { success: false, message: `找不到物件：${fetchError.message}` };
+    }
+
+    const existingDetails = (existing?.details || {}) as Record<string, unknown>;
+    const updatedDetails: Record<string, unknown> = { ...existingDetails };
+    updatedDetails.parkingTitleRights = [...new Set(rights)];
+
+    const hasIndependent = rights.includes('independent');
+    const { error } = await adminClient
+      .from(table)
+      .update({
+        details: updatedDetails,
+        has_independent_parking: hasIndependent,
+      })
+      .eq('id', id);
+
+    if (error) {
+      return { success: false, message: `儲存失敗：${error.message}` };
+    }
+
+    revalidatePath(`/superadmin/properties/${id}/edit`);
+    return { success: true, message: '車位產權類型已更新' };
+  } catch (error) {
+    return {
+      success: false,
+      message: `儲存失敗：${error instanceof Error ? error.message : '未知錯誤'}`,
+    };
+  }
+}
+
+// ── 主建物建號筆數（details.independentBuildingNumberCount，1–10；null 清除） ─
+export async function savePropertyIndependentBuildingNumberCount(
+  id: string,
+  type: 'sale' | 'rental',
+  count: number | null
+): Promise<ActionResult> {
+  const adminClient = createAdminClient();
+  const table = type === 'sale' ? 'property_sales' : 'property_rentals';
+
+  try {
+    const { data: existing, error: fetchError } = await adminClient
+      .from(table)
+      .select('details')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      return { success: false, message: `找不到物件：${fetchError.message}` };
+    }
+
+    const existingDetails = (existing?.details || {}) as Record<string, unknown>;
+    const updatedDetails: Record<string, unknown> = { ...existingDetails };
+    if (count === null) {
+      delete updatedDetails.independentBuildingNumberCount;
+    } else {
+      updatedDetails.independentBuildingNumberCount = clampIndependentBuildingNumberCount(count);
+    }
+
+    const { error } = await adminClient.from(table).update({ details: updatedDetails }).eq('id', id);
+
+    if (error) {
+      return { success: false, message: `儲存失敗：${error.message}` };
+    }
+
+    revalidatePath(`/superadmin/properties/${id}/edit`);
+    return { success: true, message: '建號筆數已更新' };
+  } catch (error) {
+    return {
+      success: false,
+      message: `儲存失敗：${error instanceof Error ? error.message : '未知錯誤'}`,
+    };
+  }
+}
+
+// ── 標的建築物地號筆數（details.subjectLandParcelScope + independentLandParcelNumberCount） ─
+export async function savePropertySubjectLandParcelSettings(
+  id: string,
+  type: 'sale' | 'rental',
+  scope: SubjectLandParcelScope,
+  landParcelCount: number | null
+): Promise<ActionResult> {
+  const adminClient = createAdminClient();
+  const table = type === 'sale' ? 'property_sales' : 'property_rentals';
+
+  try {
+    const { data: existing, error: fetchError } = await adminClient
+      .from(table)
+      .select('details')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      return { success: false, message: `找不到物件：${fetchError.message}` };
+    }
+
+    const existingDetails = (existing?.details || {}) as Record<string, unknown>;
+    const updatedDetails: Record<string, unknown> = { ...existingDetails };
+    updatedDetails.subjectLandParcelScope = scope;
+
+    if (scope === 'multi' && landParcelCount !== null) {
+      updatedDetails.independentLandParcelNumberCount = clampIndependentBuildingNumberCount(landParcelCount);
+      if ((updatedDetails.independentLandParcelNumberCount as number) < 2) {
+        updatedDetails.independentLandParcelNumberCount = 2;
+      }
+    } else {
+      delete updatedDetails.independentLandParcelNumberCount;
+    }
+
+    const { error } = await adminClient.from(table).update({ details: updatedDetails }).eq('id', id);
+
+    if (error) {
+      return { success: false, message: `儲存失敗：${error.message}` };
+    }
+
+    revalidatePath(`/superadmin/properties/${id}/edit`);
+    return { success: true, message: '地號筆數設定已更新' };
   } catch (error) {
     return {
       success: false,
@@ -918,7 +1080,7 @@ export async function getPropertyDocuments(
   const adminClient = createAdminClient();
   const { data: rows, error } = await adminClient
     .from('property_documents')
-    .select('id, document_type, document_name, file_path')
+    .select('id, document_type, document_name, file_path, tags')
     .eq('property_id', propertyId)
     .eq('is_active', true)
     .order('created_at', { ascending: false });
@@ -931,6 +1093,7 @@ export async function getPropertyDocuments(
     documentType: r.document_type,
     documentName: r.document_name,
     filePath: r.file_path,
+    tags: (r.tags as string[] | null) ?? null,
     url: `/api/documents/${r.id}/view`,
   }));
 }
@@ -1134,6 +1297,7 @@ const DOC_TYPE_NAME: Record<string, string> = {
   lease_contract: '租約',
   sales_contract: '買賣合約',
   blog: '部落格',
+  floor_plan: '物件格局圖',
 };
 
 /** 上傳物件文件（謄本／權狀／合約／部落格）；formData 需含 file (File) */
@@ -1141,7 +1305,7 @@ export async function uploadPropertyDocument(
   propertyId: string,
   propertyType: 'sale' | 'rental',
   ownerId: string,
-  documentType: 'land_registry_transcript' | 'building_registry_transcript' | 'parking_land_registry_transcript' | 'parking_building_registry_transcript' | 'building_title' | 'land_title' | 'lease_contract' | 'sales_contract' | 'blog',
+  documentType: 'land_registry_transcript' | 'building_registry_transcript' | 'parking_land_registry_transcript' | 'parking_building_registry_transcript' | 'building_title' | 'land_title' | 'lease_contract' | 'sales_contract' | 'blog' | 'floor_plan',
   formData: FormData
 ): Promise<ActionResult> {
   const file = formData.get('file');
@@ -1169,10 +1333,21 @@ export async function uploadPropertyDocument(
   }
 
   const docType = propertyType === 'sale' ? 'sales' : 'rentals';
-  // Build display name: "類型-原檔名", e.g. "謄本-仁愛路四段122號.pdf"
+  const mbiRaw = formData.get('multiBuildingIndex');
+  let multiBuildingSlot: number | null = null;
+  if (typeof mbiRaw === 'string' && /^\d+$/.test(mbiRaw.trim())) {
+    const n = parseInt(mbiRaw, 10);
+    if (n >= 1 && n <= 10) multiBuildingSlot = n;
+  }
+  const tags =
+    multiBuildingSlot != null ? [`mbi:${multiBuildingSlot}`] : null;
+
+  // Build display name: "類型-原檔名", e.g. "謄本-仁愛路四段122號.pdf"；多建號加「第N筆-」
   const typeLabel = DOC_TYPE_NAME[documentType] ?? documentType;
   const originalBasename = file.name.replace(/\.[^.]+$/, ''); // strip extension
-  const documentName = `${typeLabel}-${originalBasename}`;
+  const slotPrefix =
+    multiBuildingSlot != null ? `第${multiBuildingSlot}筆-` : '';
+  const documentName = `${typeLabel}-${slotPrefix}${originalBasename}`;
   const { error: insertError } = await adminClient.from('property_documents').insert({
     property_id: propertyId,
     property_type: docType,
@@ -1184,6 +1359,7 @@ export async function uploadPropertyDocument(
     mime_type: file.type,
     original_filename: file.name,
     uploaded_by: ownerId,
+    ...(tags ? { tags } : {}),
   });
 
   if (insertError) {

@@ -12,14 +12,18 @@ jest.mock("@/components/layout/Footer", () => ({
 }));
 
 describe("ServicesPage", () => {
-  test("應顯示多角色平台能力與導流連結", () => {
+  test("應顯示委託型態比較表與導流連結", () => {
     render(<ServicesPage />);
 
+    expect(screen.getByRole("heading", { name: /台灣不動產全流程 AI 協作平台/i })).toBeInTheDocument();
     expect(
-      screen.getByText(/多角色不動產 AI 協作平台能力/i),
+      screen.getByRole("heading", {
+        name: /OwneAI \+ 屋主自售 vs 一般約 vs 專任約/i,
+      }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/仲介與分店營運/i)).toBeInTheDocument();
-    expect(screen.getByText(/代書與律師協作/i)).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /OwneAI \+ 屋主自售/i })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /^一般約$/i })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /^專任約$/i })).toBeInTheDocument();
 
     const consultationLinks = screen.getAllByRole("link", {
       name: /預約導入諮詢/i,
@@ -27,7 +31,7 @@ describe("ServicesPage", () => {
 
     expect(consultationLinks[0]).toHaveAttribute(
       "href",
-      "/contact?inquiryType=%E5%90%88%E4%BD%9C%E6%8F%90%E6%A1%88",
+      "/contact?inquiryType=合作提案",
     );
   });
 });

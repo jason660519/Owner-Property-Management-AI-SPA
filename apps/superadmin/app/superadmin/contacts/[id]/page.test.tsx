@@ -4,11 +4,18 @@ import { render, screen } from '@testing-library/react';
 import ContactLeadDetailPage from '@/app/superadmin/contacts/[id]/page';
 
 const mockGetContactLeadById = jest.fn();
+const mockGetContactLeadNotes = jest.fn();
+const mockGetSuperadminUsers = jest.fn();
 const mockNotFound = jest.fn();
 
 jest.mock('@/app/superadmin/contacts/actions', () => ({
   getContactLeadById: (id: string) => mockGetContactLeadById(id),
+  getContactLeadNotes: (id: string) => mockGetContactLeadNotes(id),
+  getSuperadminUsers: () => mockGetSuperadminUsers(),
   updateContactLeadStatus: jest.fn(),
+  assignContactLead: jest.fn(),
+  addContactLeadNote: jest.fn(),
+  deleteContactLeadNote: jest.fn(),
 }));
 
 jest.mock('next/navigation', () => ({
@@ -33,6 +40,8 @@ jest.mock('@/components/dashboard/DashboardLayout', () => ({
 describe('ContactLeadDetailPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetContactLeadNotes.mockResolvedValue([]);
+    mockGetSuperadminUsers.mockResolvedValue([]);
   });
 
   test('renders lead detail information', async () => {
@@ -52,6 +61,8 @@ describe('ContactLeadDetailPage', () => {
         propertyTitle: '台北大安整合案件',
       },
       leadReference: 'LEAD-12345678',
+      assigneeId: null,
+      assigneeName: null,
     });
 
     const ui = await ContactLeadDetailPage({

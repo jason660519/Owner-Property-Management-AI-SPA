@@ -4,7 +4,7 @@
 # Owner Property Management - 統一啟動腳本
 # ==========================================
 # 功能：整合開發環境啟動、服務管理、依賴檢查
-# 用法：./start.sh [all|web|admin|ocr|test|menu]
+# 用法：./start.sh [all|web|web-au|admin|ocr|test|menu]
 
 set -e
 
@@ -75,7 +75,7 @@ ensure_web_env_supabase() {
         echo -e "${YELLOW}⚠️  無法取得 Supabase 金鑰，請手動設定 .env.local${NC}"
         return 0
     fi
-    for app in web superadmin; do
+    for app in web web-au superadmin; do
         local env_file="$PROJECT_ROOT/apps/$app/.env.local"
         if [ -f "$env_file" ]; then
             # 移除舊的 Supabase 相關變數與本腳本寫入的註解，保留其餘
@@ -126,6 +126,22 @@ start_web() {
     fi
 }
 
+start_web_au() {
+    echo -e "${BLUE}🦘 啟動 Web App AU (Port 3002)...${NC}"
+    if lsof -i :3002 > /dev/null 2>&1; then
+        echo -e "${YELLOW}⚠️  Web App AU 已在運行${NC}"
+    else
+        cd "$PROJECT_ROOT/apps/web-au"
+        if [ "$1" == "bg" ]; then
+            nohup npm run dev > "$LOG_DIR/nextjs-au.log" 2>&1 &
+            echo -e "${GREEN}✅ Web App AU (Background) 啟動成功${NC}"
+        else
+            osascript -e "tell application \"Terminal\" to do script \"cd '$PROJECT_ROOT/apps/web-au' && npm run dev\"" >/dev/null 2>&1 &
+            echo -e "${GREEN}✅ Web App AU (Terminal) 啟動成功${NC}"
+        fi
+    fi
+}
+
 start_admin() {
     echo -e "${BLUE}🔐 啟動 Superadmin (Port 3001)...${NC}"
     if lsof -i :3001 > /dev/null 2>&1; then
@@ -172,13 +188,15 @@ start_all() {
     check_dependencies
     ensure_supabase_running
     start_web "bg"
+    start_web_au "bg"
     start_admin "bg"
     start_ocr
-    
+
     echo ""
     echo -e "${GREEN}🎉 所有服務啟動程序已完成${NC}"
-    echo -e "   • Web App:          http://localhost:3000"
-    echo -e "   • Superadmin:       http://localhost:3001/superadmin/dashboard (亦可作為統一登入入口)"
+    echo -e "   • Web App (TW):     http://localhost:3000"
+    echo -e "   • Web App (AU):     http://localhost:3002"
+    echo -e "   • Superadmin:       http://localhost:3001/superadmin/dashboard"
     echo -e "   • OCR Service:      http://localhost:8819"
     echo -e "   • Supabase Studio:  http://localhost:54323"
     echo -e "   • Mailpit (Email):  http://localhost:54324"
@@ -193,6 +211,7 @@ start_all() {
 clean_cache() {
     echo -e "${YELLOW}🧹 清除快取...${NC}"
     rm -rf "$PROJECT_ROOT/apps/web/.next"
+    rm -rf "$PROJECT_ROOT/apps/web-au/.next"
     rm -rf "$PROJECT_ROOT/apps/superadmin/.next"
     echo -e "${GREEN}✅ 完成${NC}"
 }
@@ -242,24 +261,26 @@ show_menu() {
     echo -e "${BLUE}   Owner Property Management - 啟動選單 ${NC}"
     echo -e "${BLUE}════════════════════════════════════════${NC}"
     echo "1) 🚀 啟動所有服務 (背景執行)"
-    echo "2) 🌐 啟動 Web App (獨立視窗)"
-    echo "3) 🔐 啟動 Superadmin (獨立視窗)"
-    echo "4) 👁️  啟動 OCR/VLM 後端"
-    echo "5) 🧪 執行 Superadmin 測試 (含截圖)"
-    echo "6) 🧹 清除快取"
-    echo "7) 🛑 停止所有服務"
+    echo "2) 🌐 啟動 Web App TW (Port 3000)"
+    echo "3) 🦘 啟動 Web App AU (Port 3002)"
+    echo "4) 🔐 啟動 Superadmin (Port 3001)"
+    echo "5) 👁️  啟動 OCR/VLM 後端"
+    echo "6) 🧪 執行 Superadmin 測試 (含截圖)"
+    echo "7) 🧹 清除快取 (TW + AU + Superadmin)"
+    echo "8) 🛑 停止所有服務"
     echo "0) 離開"
     echo ""
     read -p "請輸入選項: " choice
-    
+
     case $choice in
         1) start_all ;;
         2) check_dependencies; ensure_supabase_running; start_web ;;
-        3) check_dependencies; ensure_supabase_running; start_admin ;;
-        4) check_dependencies; ensure_supabase_running; start_ocr ;;
-        5) run_tests ;;
-        6) clean_cache ;;
-        7) ./stop.sh ;;
+        3) check_dependencies; ensure_supabase_running; start_web_au ;;
+        4) check_dependencies; ensure_supabase_running; start_admin ;;
+        5) check_dependencies; ensure_supabase_running; start_ocr ;;
+        6) run_tests ;;
+        7) clean_cache ;;
+        8) ./stop.sh ;;
         0) exit 0 ;;
         *) echo "無效選項"; sleep 1; show_menu ;;
     esac
@@ -267,12 +288,13 @@ show_menu() {
 
 # --- 主邏輯 ---
 case "${1:-menu}" in
-    all) start_all ;;
-    web) check_dependencies; ensure_supabase_running; start_web ;;
-    admin) check_dependencies; ensure_supabase_running; start_admin ;;
-    ocr) check_dependencies; ensure_supabase_running; start_ocr ;;
-    test) run_tests ;;
-    clean) clean_cache ;;
-    menu) show_menu ;;
-    *) echo "用法: $0 [all|web|admin|ocr|test|clean|menu]" ;;
+    all)    start_all ;;
+    web)    check_dependencies; ensure_supabase_running; start_web ;;
+    web-au) check_dependencies; ensure_supabase_running; start_web_au ;;
+    admin)  check_dependencies; ensure_supabase_running; start_admin ;;
+    ocr)    check_dependencies; ensure_supabase_running; start_ocr ;;
+    test)   run_tests ;;
+    clean)  clean_cache ;;
+    menu)   show_menu ;;
+    *)      echo "用法: $0 [all|web|web-au|admin|ocr|test|clean|menu]" ;;
 esac
