@@ -22,7 +22,11 @@ import {
   extractJsonFromOutput,
   mimeFromPath,
 } from '@/lib/utils/ai-api-callers';
-import { TRANSCRIPT_PARSE_PROMPT, TRANSCRIPT_JUDGE_PROMPT } from '@/lib/transcript-prompts';
+import {
+  TRANSCRIPT_PARSE_PROMPT,
+  TRANSCRIPT_JUDGE_PROMPT,
+  withTranscriptParseKindDirective,
+} from '@/lib/transcript-prompts';
 import {
   buildConsensus,
   getConflictsNeedingJudge,
@@ -123,8 +127,12 @@ export async function parseTranscriptWithConsensus(
   }
 
   // ─── 3. Fetch system prompt (if custom) ─────────────────────────────
-  const systemPrompt = await fetchSystemPrompt(adminClient, resolvedUserId, 'online_ocr_parse')
+  const basePrompt = await fetchSystemPrompt(adminClient, resolvedUserId, 'online_ocr_parse')
     ?? TRANSCRIPT_PARSE_PROMPT;
+  const { prompt: systemPrompt } = withTranscriptParseKindDirective(
+    doc.document_type as string | null | undefined,
+    basePrompt,
+  );
 
   // ─── 4. Single vs consensus mode ────────────────────────────────────
   if (parserModels.length === 1) {

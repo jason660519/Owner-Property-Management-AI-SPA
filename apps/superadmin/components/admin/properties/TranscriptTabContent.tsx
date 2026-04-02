@@ -759,6 +759,7 @@ interface TranscriptTabContentProps {
 
 export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
   const { userId: aiUserId } = useAISettings();
+  const transcriptUploadSectionRef = useRef<HTMLParagraphElement>(null);
   const [documents, setDocuments] = useState<PropertyDocumentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasIndependentParking, setHasIndependentParking] = useState<boolean>(
@@ -800,6 +801,8 @@ export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
   const [isDetectingLandCount, setIsDetectingLandCount] = useState(false);
   const [landDetectResult, setLandDetectResult] = useState<DetectLandCountResult | null>(null);
   const [landDetectError, setLandDetectError] = useState<string | null>(null);
+  const [selectedBuildingDetectDocId, setSelectedBuildingDetectDocId] = useState<string | null>(null);
+  const [selectedLandDetectDocId, setSelectedLandDetectDocId] = useState<string | null>(null);
 
   const refresh = async () => {
     const list = await getPropertyDocuments(property.id);
@@ -808,12 +811,16 @@ export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
 
   useEffect(() => {
     let cancelled = false;
-    getPropertyDocuments(property.id).then((list) => {
-      if (!cancelled) setDocuments(list);
-    }).finally(() => {
-      if (!cancelled) setIsLoading(false);
-    });
-    return () => { cancelled = true; };
+    getPropertyDocuments(property.id)
+      .then((list) => {
+        if (!cancelled) setDocuments(list);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [property.id]);
 
   useEffect(() => {
@@ -836,6 +843,8 @@ export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
     );
     setLandDetectResult(null);
     setLandDetectError(null);
+    setSelectedBuildingDetectDocId(null);
+    setSelectedLandDetectDocId(null);
   }, [
     property.id,
     property.hasIndependentParking,
@@ -882,9 +891,21 @@ export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
     });
   }
 
+  function scrollToUploadSection() {
+    transcriptUploadSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   async function handleDetectBuildingCount() {
-    const firstBuildingDoc = documents.find((d) => d.documentType === 'building_registry_transcript');
-    if (!firstBuildingDoc || isMetaBusy || isDetectingBuildingCount) return;
+    const buildingDocsForDetect = documents.filter(
+      (d) => d.documentType === 'building_registry_transcript',
+    );
+    if (!buildingDocsForDetect.length || isMetaBusy || isDetectingBuildingCount) return;
+    const targetId =
+      selectedBuildingDetectDocId &&
+      buildingDocsForDetect.some((d) => d.id === selectedBuildingDetectDocId)
+        ? selectedBuildingDetectDocId
+        : buildingDocsForDetect[0]?.id;
+    if (!targetId) return;
     setIsDetectingBuildingCount(true);
     setDetectResult(null);
     setDetectError(null);
@@ -892,7 +913,7 @@ export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
       const res = await fetch('/api/transcript-parse/detect-building-count', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ documentId: firstBuildingDoc.id, userId: aiUserId }),
+        body: JSON.stringify({ documentId: targetId, userId: aiUserId }),
       });
       const data = (await res.json().catch(() => ({}))) as { count?: number; buildingNumbers?: string[]; error?: string };
       if (!res.ok) {
@@ -906,12 +927,21 @@ export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
         return;
       }
       setDetectResult({ count: detectedCount, buildingNumbers: detectedNumbers });
-      handleBuildingNumberSelect(detectedCount);
     } catch (e) {
       setDetectError(e instanceof Error ? e.message : '偵測失敗，請重試');
     } finally {
       setIsDetectingBuildingCount(false);
     }
+  }
+
+  function applyDetectedBuildingCount() {
+    if (!detectResult) return;
+    const detected = clampIndependentBuildingNumberCount(detectResult.count);
+    if (detected <= 1) {
+      selectBuildingScopeSingle();
+      return;
+    }
+    handleBuildingNumberSelect(detected);
   }
 
   function handleLandParcelNumberSelect(next: number) {
@@ -926,8 +956,15 @@ export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
   }
 
   async function handleDetectLandCount() {
-    const firstLandDoc = documents.find((d) => d.documentType === 'land_registry_transcript');
-    if (!firstLandDoc || isMetaBusy || isDetectingLandCount) return;
+    const landDocsForDetect = documents.filter(
+      (d) => d.documentType === 'land_registry_transcript',
+    );
+    if (!landDocsForDetect.length || isMetaBusy || isDetectingLandCount) return;
+    const targetId =
+      selectedLandDetectDocId && landDocsForDetect.some((d) => d.id === selectedLandDetectDocId)
+        ? selectedLandDetectDocId
+        : landDocsForDetect[0]?.id;
+    if (!targetId) return;
     setIsDetectingLandCount(true);
     setLandDetectResult(null);
     setLandDetectError(null);
@@ -935,7 +972,7 @@ export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
       const res = await fetch('/api/transcript-parse/detect-land-count', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ documentId: firstLandDoc.id, userId: aiUserId }),
+        body: JSON.stringify({ documentId: targetId, userId: aiUserId }),
       });
       const data = (await res.json().catch(() => ({}))) as {
         count?: number;
@@ -953,26 +990,30 @@ export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
         return;
       }
       setLandDetectResult({ count: detectedCount, landParcelNumbers: detectedNumbers });
-      if (detectedCount === 1) {
-        setSubjectLandParcelScope('single');
-        setLandParcelNumberCount(1);
-        startLandParcelTransition(async () => {
-          await savePropertySubjectLandParcelSettings(property.id, property.type, 'single', null);
-        });
-      } else {
-        const c = clampIndependentBuildingNumberCount(detectedCount);
-        const stored = Math.max(2, c);
-        setSubjectLandParcelScope('multi');
-        setLandParcelNumberCount(stored);
-        startLandParcelTransition(async () => {
-          await savePropertySubjectLandParcelSettings(property.id, property.type, 'multi', stored);
-        });
-      }
     } catch (e) {
       setLandDetectError(e instanceof Error ? e.message : '偵測失敗，請重試');
     } finally {
       setIsDetectingLandCount(false);
     }
+  }
+
+  function applyDetectedLandCount() {
+    if (!landDetectResult) return;
+    if (landDetectResult.count <= 1) {
+      selectLandScopeSingle();
+      return;
+    }
+    const c = clampIndependentBuildingNumberCount(landDetectResult.count);
+    const stored = Math.max(2, c);
+    if (subjectLandParcelScope !== 'multi') {
+      setSubjectLandParcelScope('multi');
+      setLandParcelNumberCount(stored);
+      startLandParcelTransition(async () => {
+        await savePropertySubjectLandParcelSettings(property.id, property.type, 'multi', stored);
+      });
+      return;
+    }
+    handleLandParcelNumberSelect(stored);
   }
 
   function selectLandScopeNotApplicable() {
@@ -1136,9 +1177,52 @@ export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
         <div
           className="px-4 py-3 space-y-2.5"
           role="radiogroup"
-          aria-label="標的建築物建號筆數（單選，無／單一建號／多建號擇一）"
+          aria-labelledby={`transcript-building-scope-label-${property.id}`}
         >
-          <p className="text-xs font-medium text-text-secondary">標的建築物建號筆數(單選)</p>
+          <p
+            id={`transcript-building-scope-label-${property.id}`}
+            className="text-xs font-medium text-text-secondary"
+          >
+            標的建築物建號筆數(單選)
+          </p>
+          <p className="text-xs text-text-muted">本步驟將依謄本檔案協助你設定建號/地號筆數</p>
+          <div className="rounded-md border border-border-default bg-bg-secondary px-3 py-2 space-y-2">
+            <div className="flex items-start gap-2 text-xs text-text-secondary">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border-default bg-bg-primary text-[11px] font-semibold">
+                1
+              </span>
+              <div className="flex-1">
+                <p>上傳謄本</p>
+                {!documents.some((d) => d.documentType === 'building_registry_transcript') ? (
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <span className="text-red-500">尚未上傳建物謄本，無法進行 AI 偵測</span>
+                    <button
+                      type="button"
+                      onClick={scrollToUploadSection}
+                      aria-label="捲動到上傳謄本區塊"
+                      className="inline-flex items-center rounded-md border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[11px] font-medium text-red-500 hover:bg-red-500/15 transition-colors"
+                    >
+                      捲動到上傳區
+                    </button>
+                  </div>
+                ) : (
+                  <p className="mt-1 text-text-muted">已上傳建物謄本，可繼續下一步。</p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-start gap-2 text-xs text-text-secondary">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border-default bg-bg-primary text-[11px] font-semibold">
+                2
+              </span>
+              <p className="pt-0.5">選擇要偵測的謄本（可先從下拉清單挑檔案）</p>
+            </div>
+            <div className="flex items-start gap-2 text-xs text-text-secondary">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border-default bg-bg-primary text-[11px] font-semibold">
+                3
+              </span>
+              <p className="pt-0.5">執行 AI 偵測，確認結果後再套用筆數</p>
+            </div>
+          </div>
           {isTitleSalePending && (
             <div className="flex items-center gap-2 text-xs text-text-muted">
               <Loader2 size={14} className="animate-spin shrink-0" aria-hidden />
@@ -1183,6 +1267,47 @@ export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
             </label>
             {isMultiBuildingNumber ? (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md py-1 -my-1">
+                {(() => {
+                  const buildingDocsForDetect = documents.filter(
+                    (d) => d.documentType === 'building_registry_transcript',
+                  );
+                  return buildingDocsForDetect.length > 0 ? (
+                    <select
+                      value={
+                        selectedBuildingDetectDocId ??
+                        buildingDocsForDetect[0]?.id ??
+                        ''
+                      }
+                      onChange={(e) =>
+                        setSelectedBuildingDetectDocId(
+                          e.target.value || null,
+                        )
+                      }
+                      disabled={isMetaBusy}
+                      aria-label="要用來偵測建號數的建物謄本"
+                      className="h-8 min-w-[8rem] rounded-md border border-border-default bg-bg-primary px-2 text-xs text-text-primary cursor-pointer disabled:opacity-50"
+                    >
+                      {buildingDocsForDetect.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.documentName}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null;
+                })()}
+                <select
+                  value={buildingNumberCount}
+                  onChange={(e) => handleBuildingNumberSelect(Number(e.target.value))}
+                  disabled={isMetaBusy}
+                  aria-label="建號筆數（2–10）"
+                  className="h-8 min-w-[3rem] rounded-md border border-border-default bg-bg-primary px-2 text-xs text-text-primary cursor-pointer disabled:opacity-50"
+                >
+                  {BUILDING_NUMBER_COUNT_OPTIONS.filter((n) => n >= 2).map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
                 {/* AI detect button */}
                 {(() => {
                   const hasBuildingDoc = documents.some(
@@ -1207,14 +1332,23 @@ export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
                 })()}
                 {/* Detect result */}
                 {detectResult && (
-                  <span className="text-xs text-text-secondary">
-                    偵測到 <span className="font-medium text-text-primary">{detectResult.count}</span> 筆建號
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="text-text-secondary">
+                      AI 偵測：<span className="font-medium text-text-primary">{detectResult.count}</span> 筆
+                      ／目前設定：<span className="font-medium text-text-primary">{buildingNumberCount}</span> 筆
+                    </span>
                     {detectResult.buildingNumbers.length > 0 && (
-                      <span className="text-text-muted ml-1">
-                        （{detectResult.buildingNumbers.join('、')}）
-                      </span>
+                      <span className="text-text-muted">（{detectResult.buildingNumbers.join('、')}）</span>
                     )}
-                  </span>
+                    <button
+                      type="button"
+                      onClick={applyDetectedBuildingCount}
+                      disabled={isMetaBusy}
+                      className="inline-flex items-center h-7 px-3 rounded-md border border-accent/30 bg-accent/10 text-xs font-medium text-accent hover:bg-accent/15 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      套用 AI 筆數
+                    </button>
+                  </div>
                 )}
                 {!detectResult && !detectError && (
                   <span className="text-xs text-text-muted">
@@ -1252,9 +1386,52 @@ export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
         <div
           className="px-4 py-3 space-y-2.5"
           role="radiogroup"
-          aria-label="標的建築物地號筆數（單選：不適用／單一／多地號）"
+          aria-labelledby={`transcript-land-scope-label-${property.id}`}
         >
-          <p className="text-xs font-medium text-text-secondary">標的建築物地號筆數（單選）</p>
+          <p
+            id={`transcript-land-scope-label-${property.id}`}
+            className="text-xs font-medium text-text-secondary"
+          >
+            標的建築物地號筆數（單選）
+          </p>
+          <p className="text-xs text-text-muted">本步驟將依謄本檔案協助你設定建號/地號筆數</p>
+          <div className="rounded-md border border-border-default bg-bg-secondary px-3 py-2 space-y-2">
+            <div className="flex items-start gap-2 text-xs text-text-secondary">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border-default bg-bg-primary text-[11px] font-semibold">
+                1
+              </span>
+              <div className="flex-1">
+                <p>上傳謄本</p>
+                {!documents.some((d) => d.documentType === 'land_registry_transcript') ? (
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <span className="text-red-500">尚未上傳土地謄本，無法進行 AI 偵測</span>
+                    <button
+                      type="button"
+                      onClick={scrollToUploadSection}
+                      aria-label="捲動到上傳謄本區塊"
+                      className="inline-flex items-center rounded-md border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[11px] font-medium text-red-500 hover:bg-red-500/15 transition-colors"
+                    >
+                      捲動到上傳區
+                    </button>
+                  </div>
+                ) : (
+                  <p className="mt-1 text-text-muted">已上傳土地謄本，可繼續下一步。</p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-start gap-2 text-xs text-text-secondary">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border-default bg-bg-primary text-[11px] font-semibold">
+                2
+              </span>
+              <p className="pt-0.5">選擇要偵測的謄本（可先從下拉清單挑檔案）</p>
+            </div>
+            <div className="flex items-start gap-2 text-xs text-text-secondary">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border-default bg-bg-primary text-[11px] font-semibold">
+                3
+              </span>
+              <p className="pt-0.5">執行 AI 偵測，確認結果後再套用筆數</p>
+            </div>
+          </div>
           {isLandParcelPending && (
             <div className="flex items-center gap-2 text-xs text-text-muted">
               <Loader2 size={14} className="animate-spin shrink-0" aria-hidden />
@@ -1297,6 +1474,34 @@ export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
             </label>
             {isLandScopeMulti ? (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md py-1 -my-1">
+                {(() => {
+                  const landDocsForDetect = documents.filter(
+                    (d) => d.documentType === 'land_registry_transcript',
+                  );
+                  return landDocsForDetect.length > 0 ? (
+                    <select
+                      value={
+                        selectedLandDetectDocId ??
+                        landDocsForDetect[0]?.id ??
+                        ''
+                      }
+                      onChange={(e) =>
+                        setSelectedLandDetectDocId(
+                          e.target.value || null,
+                        )
+                      }
+                      disabled={isMetaBusy}
+                      aria-label="要用來偵測地號數的土地謄本"
+                      className="h-8 min-w-[8rem] rounded-md border border-border-default bg-bg-primary px-2 text-xs text-text-primary cursor-pointer disabled:opacity-50"
+                    >
+                      {landDocsForDetect.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.documentName}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null;
+                })()}
                 <select
                   value={landParcelNumberCount}
                   onChange={(e) => handleLandParcelNumberSelect(Number(e.target.value))}
@@ -1332,14 +1537,23 @@ export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
                   );
                 })()}
                 {landDetectResult && (
-                  <span className="text-xs text-text-secondary">
-                    偵測到 <span className="font-medium text-text-primary">{landDetectResult.count}</span> 筆地號
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="text-text-secondary">
+                      AI 偵測：<span className="font-medium text-text-primary">{landDetectResult.count}</span> 筆
+                      ／目前設定：<span className="font-medium text-text-primary">{landParcelNumberCount}</span> 筆
+                    </span>
                     {landDetectResult.landParcelNumbers.length > 0 && (
-                      <span className="text-text-muted ml-1">
-                        （{landDetectResult.landParcelNumbers.join('、')}）
-                      </span>
+                      <span className="text-text-muted">（{landDetectResult.landParcelNumbers.join('、')}）</span>
                     )}
-                  </span>
+                    <button
+                      type="button"
+                      onClick={applyDetectedLandCount}
+                      disabled={isMetaBusy}
+                      className="inline-flex items-center h-7 px-3 rounded-md border border-accent/30 bg-accent/10 text-xs font-medium text-accent hover:bg-accent/15 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      套用 AI 筆數
+                    </button>
+                  </div>
                 )}
                 {!landDetectResult && !landDetectError && (
                   <span className="text-xs text-text-muted">
@@ -1384,7 +1598,9 @@ export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
         </div>
       </div>
 
-      <p className="text-xs font-medium text-text-secondary px-0.5">上傳謄本&gt;選擇解析方式&gt;謄寫</p>
+      <p ref={transcriptUploadSectionRef} className="text-xs font-medium text-text-secondary px-0.5">
+        上傳謄本&gt;選擇解析方式&gt;謄寫
+      </p>
 
       {hasTranscriptSelection ? (
         <div className="rounded-lg border border-accent bg-bg-primary ring-1 ring-accent/20 overflow-hidden">

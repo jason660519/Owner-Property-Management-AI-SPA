@@ -1,43 +1,36 @@
 'use client';
 
-import { useState, useEffect, useTransition, useCallback } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import {
   Loader2, ExternalLink, Eye, Globe, GlobeLock,
   Copy, Check, AlertCircle, X,
   Save, Search, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import {
-  getPropertyBlog,
-  generatePropertyBlog,
   updatePropertyBlog,
   type BlogPost,
   type StylePreset,
 } from '@/lib/actions/blog';
 import { getBlogPreviewHtml } from './blog-preview-html';
 import {
-  PROPERTY_BLOG_UPDATED_EVENT,
-  type PropertyBlogUpdatedDetail,
-  dispatchPropertyBlogUpdated,
-} from '@/lib/utils/property-blog-events';
-import {
-  BLOG_SUPABASE_OPEN_EDIT_EVENT,
   type BlogSupabaseOpenEditDetail,
+  BLOG_SUPABASE_OPEN_EDIT_EVENT,
 } from '@/lib/utils/blog-supabase-ui-events';
+import { dispatchPropertyBlogUpdated } from '@/lib/utils/property-blog-events';
 
 interface BlogSupabasePanelProps {
   propertyId: string;
-  propertyType: 'sale' | 'rental';
-  ownerId: string;
-  referenceUrl?: string;
-  stylePreset?: StylePreset;
+  /** Blog data passed from parent (batch-loaded). null = no blog for this variant. */
+  blog: BlogPost | null;
+  /** Whether the parent is still loading */
+  loading: boolean;
+  /** Called after any mutation so parent can refresh variants */
+  onMutation: () => void;
 }
 
 export function BlogSupabasePanel({
-  propertyId, propertyType, ownerId, referenceUrl, stylePreset,
+  propertyId, blog, loading, onMutation,
 }: BlogSupabasePanelProps) {
-  const [blog, setBlog] = useState<BlogPost | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [, startTransition] = useTransition();
   const [isSaving, startSaveTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -47,77 +40,28 @@ export function BlogSupabasePanel({
   const [editTitle, setEditTitle] = useState('');
   const [editExcerpt, setEditExcerpt] = useState('');
 
-  const loadBlog = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await getPropertyBlog(
-        propertyId,
-        stylePreset ? { stylePreset, targetPlatform: 'local', referenceUrl } : undefined,
-      );
-      setBlog(data);
-    } catch {
-      console.error('[BlogSupabasePanel] Failed to load blog');
-    } finally {
-      setLoading(false);
-    }
-  }, [propertyId, referenceUrl, stylePreset]);
-
+  // Listen for open-edit events from table row action
   useEffect(() => {
-    loadBlog();
-  }, [loadBlog]);
-
-  useEffect(() => {
-    function onBlogUpdated(e: Event) {
-      const detail = (e as CustomEvent<PropertyBlogUpdatedDetail>).detail;
-      if (detail?.propertyId === propertyId) {
-        void loadBlog();
-      }
-    }
-    window.addEventListener(PROPERTY_BLOG_UPDATED_EVENT, onBlogUpdated);
-    return () => window.removeEventListener(PROPERTY_BLOG_UPDATED_EVENT, onBlogUpdated);
-  }, [propertyId, loadBlog]);
-
-  useEffect(() => {
-    async function onOpenEdit(e: Event) {
+    function onOpenEdit(e: Event) {
       const detail = (e as CustomEvent<BlogSupabaseOpenEditDetail>).detail;
-      if (detail?.propertyId !== propertyId) return;
-      const data = await getPropertyBlog(propertyId, {
-        stylePreset: detail.stylePreset,
-        targetPlatform: 'local',
-        referenceUrl,
-      });
-      if (!data) return;
-      setBlog(data);
-      setEditTitle(data.title);
-      setEditExcerpt(data.excerpt ?? '');
+      if (detail?.propertyId !== propertyId || !blog) return;
+      setEditTitle(blog.title);
+      setEditExcerpt(blog.excerpt ?? '');
       setIsEditing(true);
     }
     window.addEventListener(BLOG_SUPABASE_OPEN_EDIT_EVENT, onOpenEdit);
     return () => window.removeEventListener(BLOG_SUPABASE_OPEN_EDIT_EVENT, onOpenEdit);
-  }, [propertyId, referenceUrl]);
+  }, [propertyId, blog]);
 
   function handleSave() {
     if (!blog) return;
     setFeedback(null);
     startSaveTransition(async () => {
       const result = await updatePropertyBlog(blog.id, { title: editTitle.trim(), excerpt: editExcerpt.trim() });
-      if (result.success) { await loadBlog(); setIsEditing(false); }
-      setFeedback({ type: result.success ? 'success' : 'error', message: result.message });
-    });
-  }
-
-  function doGenerate() {
-    setFeedback(null);
-    setIsEditing(false);
-    startTransition(async () => {
-      const result = await generatePropertyBlog(propertyId, propertyType, ownerId, {
-        referenceUrl,
-        stylePreset,
-        targetPlatform: 'local',
-      });
-      if (result.success && result.blog) {
-        setBlog(result.blog);
+      if (result.success) {
+        setIsEditing(false);
         dispatchPropertyBlogUpdated(propertyId);
+        onMutation();
       }
       setFeedback({ type: result.success ? 'success' : 'error', message: result.message });
     });
@@ -141,9 +85,6 @@ export function BlogSupabasePanel({
     );
   }
 
-  const webUrl = process.env.NEXT_PUBLIC_WEB_URL || 'http://localhost:3000';
-  const blogUrl = blog ? `${webUrl}/blog/${blog.slug}` : '';
-
   if (!blog) {
     return (
       <div className="space-y-4">
@@ -151,12 +92,15 @@ export function BlogSupabasePanel({
         <div className="border border-dashed border-border-default rounded-lg px-4 py-5 text-center space-y-2">
           <p className="text-sm text-text-secondary">尚未建立地端廣告頁</p>
           <p className="text-xs text-text-muted leading-relaxed">
-            請在上方廣告樣式表格中，於任一格套用風格與參考網址後，使用該列右側「重新生成」建立內容（地端與 Blogger 皆適用）。
+            請在上方廣告樣式表格中，選擇風格後點擊該列右側「重生」按鈕來生成內容。
           </p>
         </div>
       </div>
     );
   }
+
+  const webUrl = process.env.NEXT_PUBLIC_WEB_URL || 'http://localhost:3000';
+  const blogUrl = `${webUrl}/blog/${blog.slug}`;
 
   return (
     <div id="property-blog-supabase-panel" className="space-y-4">

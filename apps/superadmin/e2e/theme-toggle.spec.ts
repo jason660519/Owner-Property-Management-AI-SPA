@@ -1,17 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { loginAsSuperadmin } from './utils/superadmin-auth';
 
 test.describe('Theme Toggle', () => {
   test('should switch between light and dark themes and persist preference', async ({ page }) => {
-    // 1. Login first
-    await page.goto('/login');
-    await page.fill('input[type="email"]', 'a0405142777@gmail.com');
-    await page.fill('input[type="password"]', 'NewPassword123!');
-    await page.click('button[type="submit"]');
-
-    // 2. Wait for any redirect after login (likely /superadmin)
-    await page.waitForURL(/\/superadmin/);
+    await loginAsSuperadmin(page, 'http://localhost:3001');
     
-    // 3. Force navigate to dashboard to ensure we have the header
     await page.goto('/superadmin/dashboard');
     
     // Ensure the header is loaded

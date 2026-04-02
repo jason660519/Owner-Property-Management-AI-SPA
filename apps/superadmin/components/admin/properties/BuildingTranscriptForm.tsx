@@ -13,6 +13,11 @@ import type {
   OwnershipRecord,
   EncumbranceRecord,
 } from '@/lib/types/properties';
+import {
+  parseAreaNumber,
+  formatAreaNumber,
+  getSharedCommonArea,
+} from '@/lib/utils/area-calc';
 
 const iCls =
   'w-full border border-border-default rounded-md px-2 py-1.5 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent';
@@ -50,41 +55,8 @@ function newId() {
   return typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36);
 }
 
-function parseAreaNumber(value: string): number {
-  const normalized = value.replace(/,/g, '').trim();
-  if (!normalized) return 0;
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function formatAreaNumber(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) return '';
-  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, '');
-}
-
-function parseShareRatio(ratio: string): number {
-  const value = ratio.trim().replace(/\s+/g, '');
-  if (!value) return 0;
-  const plainFraction = value.match(/^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/);
-  if (plainFraction) {
-    const numerator = Number(plainFraction[1]);
-    const denominator = Number(plainFraction[2]);
-    if (denominator > 0) return numerator / denominator;
-  }
-  const twFractionMatches = [...value.matchAll(/(\d+(?:\.\d+)?)分之(\d+(?:\.\d+)?)/g)];
-  if (twFractionMatches.length > 0) {
-    const last = twFractionMatches[twFractionMatches.length - 1];
-    const denominator = Number(last[1]);
-    const numerator = Number(last[2]);
-    if (denominator > 0) return numerator / denominator;
-  }
-  if (value.includes('全部')) return 1;
-  return 0;
-}
-
-function getSharedCommonArea(area: string, ratio: string): number {
-  return parseAreaNumber(area) * parseShareRatio(ratio);
-}
+// parseAreaNumber, formatAreaNumber, parseShareRatio, getSharedCommonArea
+// are imported from @/lib/utils/area-calc
 
 function emptyHeader(): TranscriptHeader {
   return {

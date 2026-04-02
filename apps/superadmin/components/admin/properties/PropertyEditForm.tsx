@@ -13,6 +13,8 @@ import { PropertyIntroductionTab } from './PropertyIntroductionTab';
 import { PropertyMapLocationTab } from './PropertyMapLocationTab';
 import { ContractDraftPreviewSection } from './ContractDraftPreviewSection';
 import { TranscriptTabContent } from './TranscriptTabContent';
+import { BuildingLandAreaDetailTab } from './BuildingLandAreaDetailTab';
+import { ZoningUsageTab } from './ZoningUsageTab';
 import {
   PROPERTY_STATUSES,
   PROPERTY_TYPES,
@@ -58,6 +60,7 @@ type TabId =
   | 'advertisement_creators'
   | 'transcript'
   | 'building_land_area_detail'
+  | 'zoning_usage'
   | 'title'
   | 'map_location'
   | 'contract'
@@ -66,29 +69,31 @@ type TabId =
 const TAB_LABELS: Record<TabId, string> = {
   transcript: '謄本',
   building_land_area_detail: '建物土地面積明細表',
+  zoning_usage: '使用分區',
   title: '權狀',
   edit: '物件基本資訊',
   map_location: 'Google 地圖定位',
   photos: '物件照片',
   floor_plan: '物件格局圖',
   introduction: '物件介紹',
-  advertisement_creators: '一鍵生成 物件廣告',
-  contract: '預覽合約套版',
+  advertisement_creators: '網頁廣告',
+  contract: '各類合約書套版',
   investigation: '物件調查報告書',
 };
 
 const ALL_TABS: TabId[] = [
   'edit',
+  'introduction',
   'transcript',
   'building_land_area_detail',
+  'zoning_usage',
   'title',
   'map_location',
   'photos',
   'floor_plan',
-  'introduction',
-  'advertisement_creators',
-  'contract',
   'investigation',
+  'contract',
+  'advertisement_creators',
 ];
 
 interface PropertyEditFormProps {
@@ -353,55 +358,6 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
             </div>
           )}
 
-          {activeTab === 'transcript' && (
-            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-              <TranscriptTabContent property={property} />
-            </div>
-          )}
-
-          {activeTab === 'building_land_area_detail' && (
-            <div className="rounded-lg border border-border-default bg-bg-primary p-6 space-y-3">
-              <h3 className="text-sm font-semibold text-text-primary">建物土地面積明細表</h3>
-              <p className="text-xs text-text-muted leading-relaxed">
-                此區將用於彙整建物、土地面積與持分等明細（與謄本／權狀對照）。表單與儲存欄位可後續再接資料庫與匯出。
-              </p>
-            </div>
-          )}
-
-          {activeTab !== 'transcript' &&
-            (activeTab === 'photos' || activeTab === 'title' || activeTab === 'floor_plan') && (
-            <PropertyMediaSection
-              propertyId={property.id}
-              propertyType={property.type}
-              ownerId={property.ownerId}
-              mode={activeTab}
-            />
-          )}
-
-          {activeTab === 'contract' && (
-            <div className="space-y-5">
-              <ContractDraftPreviewSection property={property} />
-              <PropertyMediaSection
-                propertyId={property.id}
-                propertyType={property.type}
-                ownerId={property.ownerId}
-                mode="contract"
-              />
-            </div>
-          )}
-
-          {activeTab === 'advertisement_creators' && (
-            <PropertyBlogGenerator
-              propertyId={property.id}
-              propertyType={property.type}
-              ownerId={property.ownerId}
-            />
-          )}
-
-          {activeTab === 'investigation' && (
-            <PropertyInvestigationReportSection propertyId={property.id} property={property} />
-          )}
-
           {activeTab === 'introduction' && (
             <PropertyIntroductionTab
               propertyId={property.id}
@@ -423,6 +379,55 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
               addressUnit={addressUnit}
               description={description}
               onDescriptionChange={setDescription}
+            />
+          )}
+
+          {activeTab === 'transcript' && (
+            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+              <TranscriptTabContent property={property} />
+            </div>
+          )}
+
+          {activeTab === 'building_land_area_detail' && (
+            <BuildingLandAreaDetailTab property={property} />
+          )}
+
+          {activeTab === 'zoning_usage' && (
+            <ZoningUsageTab property={property} />
+          )}
+
+          {activeTab !== 'transcript' &&
+            (activeTab === 'photos' || activeTab === 'title' || activeTab === 'floor_plan') && (
+            <PropertyMediaSection
+              propertyId={property.id}
+              propertyType={property.type}
+              ownerId={property.ownerId}
+              mode={activeTab}
+            />
+          )}
+
+          {activeTab === 'investigation' && (
+            <PropertyInvestigationReportSection propertyId={property.id} property={property} />
+          )}
+
+          {activeTab === 'contract' && (
+            <div className="space-y-5">
+              <ContractDraftPreviewSection property={property} />
+              <PropertyMediaSection
+                propertyId={property.id}
+                propertyType={property.type}
+                ownerId={property.ownerId}
+                mode="contract"
+              />
+            </div>
+          )}
+
+          {activeTab === 'advertisement_creators' && (
+            <PropertyBlogGenerator
+              propertyId={property.id}
+              propertyType={property.type}
+              ownerId={property.ownerId}
+              property={property}
             />
           )}
 

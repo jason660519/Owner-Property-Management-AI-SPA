@@ -286,6 +286,8 @@ export interface PropertyItem {
   hasTranscript?: boolean;
   /** Has at least one title document (building/land) in property_documents */
   hasTitleDoc?: boolean;
+  /** Has at least one floor plan document in property_documents */
+  hasFloorPlan?: boolean;
   /** Has at least one blog_posts row linked to this property */
   hasBlog?: boolean;
   /** Has at least one contract document in property_documents */

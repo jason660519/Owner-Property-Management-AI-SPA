@@ -12,6 +12,7 @@ import type {
   LandDescription,
   LandOwnershipRecord,
 } from '@/lib/types/properties';
+import type { TranscriptParseOutput } from '@/lib/types/transcript';
 
 
 function str(v: unknown): string {
@@ -287,7 +288,9 @@ function buildLandFromKeyValue(parsed: Record<string, unknown>): LandTranscriptD
       currentDeclaredLandValuePerSqm: str(item['當期申報地價']),
       prevTransferValueYear: str(item['前次移轉現值年度']),
       prevTransferValuePerSqm: str(item['前次移轉現值']),
-      historicalRatios: str(item['歷次資格']),
+      historicalRatios: str(
+        item['歷次取得權利範圍'] ?? item['歷次資格'],
+      ),
     });
   }
 
@@ -408,6 +411,9 @@ function buildLandFromLocalPython(parsed: Record<string, unknown>): LandTranscri
     jointGuaranteeLandNumbers: str(item['common_collateral_land']),
     jointGuaranteeBuildingNumbers: str(item['common_collateral_building']),
     notes: str(item['other_notes']),
+    debtScope: str(item['debt_scope'] ?? item['債權範圍']),
+    debtConfirmDate: str(item['debt_confirm_date'] ?? item['債權確定日期']),
+    otherGuaranteeScope: str(item['other_guarantee_scope'] ?? item['其他擔保範圍']),
   }));
 
   return { header, description, ownership, encumbrances };
@@ -718,4 +724,57 @@ export function normalizeLocalParsedToLandTranscriptData(parsed: unknown): LandT
   if (asRecord(r['sections'])) return buildFromSections(r, 'land') as LandTranscriptData;
   if (asRecord(r['meta']) || asRecord(r['land_description'])) return buildLandFromLocalPython(r);
   return buildLandFromKeyValue(r);
+}
+
+function transcriptSliceLooksEmpty(slice: unknown): boolean {
+  if (slice == null || typeof slice !== 'object' || Array.isArray(slice)) return true;
+  const s = slice as Record<string, unknown>;
+  for (const key of ['ownership', 'encumbrances'] as const) {
+    const arr = s[key];
+    if (Array.isArray(arr) && arr.length > 0) return false;
+  }
+  const desc = s.description;
+  if (desc && typeof desc === 'object' && !Array.isArray(desc)) {
+    if (Object.values(desc as Record<string, unknown>).some((v) => String(v ?? '').trim() !== '')) {
+      return false;
+    }
+  }
+  const header = s.header;
+  if (header && typeof header === 'object' && !Array.isArray(header)) {
+    if (Object.values(header as Record<string, unknown>).some((v) => String(v ?? '').trim() !== '')) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * 從雲端 TranscriptParseOutput 取出要謄寫進表單的資料，並經 normalize（與地端「謄寫」一致）。
+ * 若模型誤將土地內容寫在 buildingTranscript，在土地欄謄寫時仍會回退嘗試另一區塊或整包 JSON。
+ */
+export function transcriptDataForTranscribeFromParseOutput(
+  output: TranscriptParseOutput,
+  kind: 'building' | 'land',
+): BuildingTranscriptData | LandTranscriptData {
+  const raw = output as unknown as Record<string, unknown>;
+  if (kind === 'land') {
+    const lt = raw.landTranscript;
+    if (!transcriptSliceLooksEmpty(lt)) {
+      return normalizeLocalParsedToLandTranscriptData(lt);
+    }
+    const bt = raw.buildingTranscript;
+    if (!transcriptSliceLooksEmpty(bt)) {
+      return normalizeLocalParsedToLandTranscriptData(bt);
+    }
+    return normalizeLocalParsedToLandTranscriptData(output);
+  }
+  const bt = raw.buildingTranscript;
+  if (!transcriptSliceLooksEmpty(bt)) {
+    return normalizeLocalParsedToBuildingTranscriptData(bt);
+  }
+  const lt = raw.landTranscript;
+  if (!transcriptSliceLooksEmpty(lt)) {
+    return normalizeLocalParsedToBuildingTranscriptData(lt);
+  }
+  return normalizeLocalParsedToBuildingTranscriptData(output);
 }

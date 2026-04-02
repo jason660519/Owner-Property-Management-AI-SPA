@@ -279,6 +279,9 @@ export async function getAllProperties(): Promise<PropertiesResult> {
           docTypesMap[propertyId]?.has('building_title') ||
           docTypesMap[propertyId]?.has('land_title') ||
           false,
+        hasFloorPlan:
+          docTypesMap[propertyId]?.has('floor_plan') ||
+          false,
         hasBlog: blogPropIds.has(propertyId),
         hasContract:
           docTypesMap[propertyId]?.has('lease_contract') ||
@@ -350,6 +353,20 @@ export async function getPropertyById(id: string): Promise<PropertyItem | null> 
   }
 
   const systemUserId = row.owner_id as string;
+
+  const [{ count: photoCount }, { data: docRows }] = await Promise.all([
+    adminClient
+      .from('property_photos')
+      .select('id', { count: 'exact', head: true })
+      .eq('property_id', id),
+    adminClient
+      .from('property_documents')
+      .select('document_type')
+      .eq('property_id', id)
+      .eq('is_active', true),
+  ]);
+
+  const docTypes = new Set<string>((docRows ?? []).map((row) => row.document_type as string));
 
   // Resolve creator display name
   let creatorName = systemUserId.slice(0, 8);
@@ -459,6 +476,7 @@ export async function getPropertyById(id: string): Promise<PropertyItem | null> 
       ((row.has_parking as boolean) ? 1 : 0),
     createdAt: row.created_at as string,
     mainPhotoUrl,
+    photoCount: photoCount ?? 0,
     buildingTranscript: (details.buildingTranscript as BuildingTranscriptData) ?? null,
     landTranscript: (details.landTranscript as LandTranscriptData) ?? null,
     independentTitleSaleModes,
@@ -478,6 +496,13 @@ export async function getPropertyById(id: string): Promise<PropertyItem | null> 
     longitude: (row.longitude as number | null) ?? null,
     isPureLand: (row.is_pure_land as boolean) ?? false,
     landNumber: (row.land_number as string) ?? null,
+    hasTranscript:
+      docTypes.has('building_registry_transcript') ||
+      docTypes.has('land_registry_transcript'),
+    hasTitleDoc:
+      docTypes.has('building_title') ||
+      docTypes.has('land_title'),
+    hasFloorPlan: docTypes.has('floor_plan'),
   };
 }
 
@@ -1513,4 +1538,99 @@ export async function getPropertyContractFiles(
     viewUrl: `/api/documents/${r.id}/view`,
     createdAt: new Intl.DateTimeFormat('zh-TW', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(r.created_at as string)),
   }));
+}
+
+// ── Zoning / Environment Conditions ──────────────────────────────────────
+
+export interface ZoningEnvData {
+  landUseZone: string;
+  extensionLocation: string;
+  hasGroundVegetation: boolean;
+  hasGroundBuilding: boolean;
+  announcedLandValue: number | null;
+  roadWidthMeters: number | null;
+  frontageMeter: number | null;
+  depthMeters: number | null;
+}
+
+const ZONING_ENV_FIELDS =
+  'land_use_zone, extension_location, has_ground_vegetation, has_ground_building, announced_land_value, road_width_meters, frontage_meters, depth_meters';
+
+function mapEnvRow(row: Record<string, unknown>): ZoningEnvData {
+  return {
+    landUseZone: (row.land_use_zone as string) ?? '',
+    extensionLocation: (row.extension_location as string) ?? '',
+    hasGroundVegetation: (row.has_ground_vegetation as boolean) ?? false,
+    hasGroundBuilding: (row.has_ground_building as boolean) ?? false,
+    announcedLandValue: row.announced_land_value != null ? Number(row.announced_land_value) : null,
+    roadWidthMeters: row.road_width_meters != null ? Number(row.road_width_meters) : null,
+    frontageMeter: row.frontage_meters != null ? Number(row.frontage_meters) : null,
+    depthMeters: row.depth_meters != null ? Number(row.depth_meters) : null,
+  };
+}
+
+export async function getPropertyZoningEnv(
+  propertyId: string,
+  propertyType: 'sale' | 'rental'
+): Promise<ZoningEnvData | null> {
+  noStore();
+  const adminClient = createAdminClient();
+  const { data, error } = await adminClient
+    .from('property_environment_conditions')
+    .select(ZONING_ENV_FIELDS)
+    .eq('property_id', propertyId)
+    .eq('property_type', propertyType)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return mapEnvRow(data as Record<string, unknown>);
+}
+
+export async function savePropertyZoningEnv(
+  propertyId: string,
+  propertyType: 'sale' | 'rental',
+  input: Partial<ZoningEnvData>
+): Promise<ActionResult> {
+  const adminClient = createAdminClient();
+
+  const payload: Record<string, unknown> = {};
+  if (input.landUseZone !== undefined) payload.land_use_zone = input.landUseZone;
+  if (input.extensionLocation !== undefined) payload.extension_location = input.extensionLocation;
+  if (input.hasGroundVegetation !== undefined) payload.has_ground_vegetation = input.hasGroundVegetation;
+  if (input.hasGroundBuilding !== undefined) payload.has_ground_building = input.hasGroundBuilding;
+  if (input.announcedLandValue !== undefined) payload.announced_land_value = input.announcedLandValue;
+  if (input.roadWidthMeters !== undefined) payload.road_width_meters = input.roadWidthMeters;
+  if (input.frontageMeter !== undefined) payload.frontage_meters = input.frontageMeter;
+  if (input.depthMeters !== undefined) payload.depth_meters = input.depthMeters;
+
+  try {
+    // Check if row exists
+    const { data: existing } = await adminClient
+      .from('property_environment_conditions')
+      .select('id')
+      .eq('property_id', propertyId)
+      .eq('property_type', propertyType)
+      .maybeSingle();
+
+    if (existing?.id) {
+      const { error } = await adminClient
+        .from('property_environment_conditions')
+        .update(payload)
+        .eq('id', existing.id);
+      if (error) return { success: false, message: `更新失敗：${error.message}` };
+    } else {
+      const { error } = await adminClient
+        .from('property_environment_conditions')
+        .insert({ property_id: propertyId, property_type: propertyType, ...payload });
+      if (error) return { success: false, message: `新增失敗：${error.message}` };
+    }
+
+    revalidatePath(`/superadmin/properties/${propertyId}/edit`);
+    return { success: true, message: '使用分區資料已儲存' };
+  } catch (error) {
+    return {
+      success: false,
+      message: `儲存失敗：${error instanceof Error ? error.message : '未知錯誤'}`,
+    };
+  }
 }

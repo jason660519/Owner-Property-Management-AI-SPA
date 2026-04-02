@@ -21,7 +21,7 @@ import {
   extractJsonFromOutput,
   mimeFromPath,
 } from '@/lib/utils/ai-api-callers';
-import { TRANSCRIPT_PARSE_PROMPT } from '@/lib/transcript-prompts';
+import { TRANSCRIPT_PARSE_PROMPT, withTranscriptParseKindDirective } from '@/lib/transcript-prompts';
 import {
   buildConsensus,
   getConflictsNeedingJudge,
@@ -194,7 +194,11 @@ export async function POST(request: NextRequest) {
 
         // ── 4. Resolve system prompt ───────────────────────────────────
         const storedPrompt = await fetchSystemPrompt(adminClient, resolvedUserId, 'online_ocr_parse');
-        const systemPrompt = customPrompt?.trim() || storedPrompt || TRANSCRIPT_PARSE_PROMPT;
+        const basePrompt = customPrompt?.trim() || storedPrompt || TRANSCRIPT_PARSE_PROMPT;
+        const { prompt: systemPrompt } = withTranscriptParseKindDirective(
+          doc.document_type as string | null | undefined,
+          basePrompt,
+        );
 
         // Emit model info so the UI can pre-populate the progress list
         send({

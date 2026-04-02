@@ -41,6 +41,7 @@ import { readLocalStorage,
 import {
   normalizeLocalParsedToBuildingTranscriptData,
   normalizeLocalParsedToLandTranscriptData,
+  transcriptDataForTranscribeFromParseOutput,
 } from '@/lib/utils/transcript-parsed-to-form';
 import Link from 'next/link';
 
@@ -1176,11 +1177,7 @@ export function TranscriptParseSection({
                   type="button"
                   onClick={() => {
                     if (!parseResult) return;
-                    const dataToFill =
-                      kind === 'building'
-                        ? parseResult.buildingTranscript
-                        : parseResult.landTranscript;
-                    onTranscribe(dataToFill);
+                    onTranscribe(transcriptDataForTranscribeFromParseOutput(parseResult, kind));
                   }}
                   disabled={!parseResult}
                   className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-border-default hover:bg-bg-tertiary text-text-secondary disabled:opacity-50"

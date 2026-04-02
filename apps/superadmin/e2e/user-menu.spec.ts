@@ -1,15 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { loginAsSuperadmin } from './utils/superadmin-auth';
 
 const BASE_URL = 'http://localhost:3001';
 
 test.describe('Superadmin User Menu', () => {
   test.beforeEach(async ({ page }) => {
-    // Login first
-    await page.goto(`${BASE_URL}/login`);
-    await page.fill('input[type="email"]', 'a0405142777@gmail.com');
-    await page.fill('input[type="password"]', 'NewPassword123!');
-    await page.click('button[type="submit"]');
-    await page.waitForURL(/\/superadmin/);
+    await loginAsSuperadmin(page, BASE_URL);
   });
 
   test('Should open user menu and navigate to Profile', async ({ page }) => {

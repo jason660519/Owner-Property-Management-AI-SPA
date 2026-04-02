@@ -312,6 +312,38 @@ export const TRANSCRIPT_PARSE_PROMPT = `你是台灣不動產「建物／土地�
 - 日期、面積、金額、字號等：以原始文件記載為準，勿自行換算；格式不明確就保留原文。
 - 若文件模糊無法辨識：該欄位填 ""，不要猜。`;
 
+/** 雲端解析時依 DB 文件類型強制對應的 JSON kind／主要填入區塊 */
+export type TranscriptFileParseKind = 'building' | 'land';
+
+/**
+ * 依 property_documents.document_type 決定應填滿 buildingTranscript 或 landTranscript。
+ * 與 TranscriptTabContent 的 DOC_TYPE_BY_KIND 一致。
+ */
+export function resolveTranscriptParseKindFromDocumentType(
+  documentType: string | null | undefined,
+): TranscriptFileParseKind {
+  return documentType === 'land_registry_transcript' ||
+    documentType === 'parking_land_registry_transcript'
+    ? 'land'
+    : 'building';
+}
+
+/**
+ * 在 Parser 系統 Prompt 前加上「檔案於系統中的登記類型」導向。
+ * 避免 VLM 自行誤判 kind 而將土地謄本內容全寫入 buildingTranscript，造成土地謄寫欄位空白。
+ */
+export function withTranscriptParseKindDirective(
+  documentType: string | null | undefined,
+  basePrompt: string,
+): { parseKind: TranscriptFileParseKind; prompt: string } {
+  const parseKind = resolveTranscriptParseKindFromDocumentType(documentType);
+  const directive =
+    parseKind === 'land'
+      ? '【系統已登記檔案類型：土地謄本】\n輸出 JSON 時頂層 "kind" 必須為 "land"。請將文件中土地標示部、土地所有權部、土地他項權利部之內容完整對應至 landTranscript（header、description、ownership、encumbrances）。buildingTranscript 必須為完整空結構：所有字串為 ""，mainBuildings／annexedBuildings／commonAreas／ownership／encumbrances 皆為 []，不可將土地內容寫入 buildingTranscript。\n\n'
+      : '【系統已登記檔案類型：建物謄本】\n輸出 JSON 時頂層 "kind" 必須為 "building"。請完整填寫 buildingTranscript；landTranscript 必須為完整空結構（字串皆 ""、陣列皆 []）。\n\n';
+  return { parseKind, prompt: `${directive}${basePrompt}` };
+}
+
 // -----------------------------------------------------------------------------
 // TRANSCRIPT_JUDGE_PROMPT
 // Used by the judge model in Phase 3 (conflict resolution).

@@ -3,17 +3,12 @@ import userEvent from '@testing-library/user-event';
 
 import { BlogGooglePanel } from '../BlogGooglePanel';
 import { getIntegration, getPlatformPost } from '@/lib/actions/integrations';
-import { getPropertyBlog, generatePropertyBlog } from '@/lib/actions/blog';
 import { publishToBlogger } from '@/lib/actions/google-blogger';
+import type { BlogPost } from '@/lib/actions/blog';
 
 jest.mock('@/lib/actions/integrations', () => ({
   getIntegration: jest.fn(),
   getPlatformPost: jest.fn(),
-}));
-
-jest.mock('@/lib/actions/blog', () => ({
-  getPropertyBlog: jest.fn(),
-  generatePropertyBlog: jest.fn(),
 }));
 
 jest.mock('@/lib/actions/google-blogger', () => ({
@@ -24,42 +19,48 @@ jest.mock('@/lib/actions/google-blogger', () => ({
 
 const mockGetIntegration = getIntegration as jest.MockedFunction<typeof getIntegration>;
 const mockGetPlatformPost = getPlatformPost as jest.MockedFunction<typeof getPlatformPost>;
-const mockGetPropertyBlog = getPropertyBlog as jest.MockedFunction<typeof getPropertyBlog>;
-const mockGeneratePropertyBlog = generatePropertyBlog as jest.MockedFunction<typeof generatePropertyBlog>;
 const mockPublishToBlogger = publishToBlogger as jest.MockedFunction<typeof publishToBlogger>;
 
+function makeBlog(overrides: Partial<BlogPost> = {}): BlogPost {
+  return {
+    id: 'blog-old',
+    propertyId: 'property-1',
+    authorId: 'owner-1',
+    title: '舊版本標題',
+    slug: 'old-blog',
+    excerpt: null,
+    content: 'old-content',
+    contentHtml: '<div>old</div>',
+    featuredImageUrl: null,
+    category: null,
+    tags: ['舊標籤'],
+    status: 'draft',
+    publishedAt: null,
+    viewCount: 0,
+    likeCount: 0,
+    seoTitle: null,
+    seoDescription: null,
+    seoKeywords: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    blogStylePreset: 'luxury_dark',
+    blogTargetPlatform: 'google_blogger',
+    referenceUrl: null,
+    referenceUrlNormalized: null,
+    ...overrides,
+  };
+}
+
 describe('BlogGooglePanel', () => {
+  const onMutation = jest.fn();
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('loads and publishes the selected google blogger variant', async () => {
+  it('publishes blog to Google Blogger when connected', async () => {
     const user = userEvent.setup();
-
-    const existingBlog = {
-      id: 'blog-old',
-      propertyId: 'property-1',
-      authorId: 'owner-1',
-      title: '舊版本標題',
-      slug: 'old-blog',
-      excerpt: null,
-      content: 'old-content',
-      contentHtml: '<div>old</div>',
-      featuredImageUrl: null,
-      category: null,
-      tags: ['舊標籤'],
-      status: 'draft' as const,
-      publishedAt: null,
-      viewCount: 0,
-      likeCount: 0,
-      seoTitle: null,
-      seoDescription: null,
-      seoKeywords: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      blogStylePreset: 'luxury_dark' as const,
-      blogTargetPlatform: 'google_blogger' as const,
-    };
+    const blog = makeBlog();
 
     mockGetIntegration.mockResolvedValue({
       platform: 'google_blogger',
@@ -70,7 +71,6 @@ describe('BlogGooglePanel', () => {
       tokenExpiresAt: null,
       connectedAt: new Date().toISOString(),
     });
-    mockGetPropertyBlog.mockResolvedValue(existingBlog);
     mockGetPlatformPost.mockResolvedValue(null);
     mockPublishToBlogger.mockResolvedValue({
       success: true,
@@ -82,20 +82,13 @@ describe('BlogGooglePanel', () => {
     render(
       <BlogGooglePanel
         propertyId="property-1"
-        propertyType="sale"
-        ownerId="owner-1"
-        referenceUrl="https://example.com/style-ref"
+        blog={blog}
+        loading={false}
         stylePreset="luxury_dark"
+        referenceUrl="https://example.com/style-ref"
+        onMutation={onMutation}
       />
     );
-
-    await waitFor(() => {
-      expect(mockGetPropertyBlog).toHaveBeenCalledWith('property-1', {
-        referenceUrl: 'https://example.com/style-ref',
-        stylePreset: 'luxury_dark',
-        targetPlatform: 'google_blogger',
-      });
-    });
 
     const publishBtn = await screen.findByRole('button', { name: '發布至 Google Blogger' });
     await user.click(publishBtn);
@@ -109,109 +102,25 @@ describe('BlogGooglePanel', () => {
     });
   });
 
-  it('regenerates with the current style options', async () => {
-    const user = userEvent.setup();
-
-    const existingBlog = {
-      id: 'blog-old',
-      propertyId: 'property-1',
-      authorId: 'owner-1',
-      title: '舊版本標題',
-      slug: 'old-blog',
-      excerpt: null,
-      content: 'old-content',
-      contentHtml: '<div>old</div>',
-      featuredImageUrl: null,
-      category: null,
-      tags: ['舊標籤'],
-      status: 'draft' as const,
-      publishedAt: null,
-      viewCount: 0,
-      likeCount: 0,
-      seoTitle: null,
-      seoDescription: null,
-      seoKeywords: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      blogStylePreset: 'luxury_dark' as const,
-      blogTargetPlatform: 'google_blogger' as const,
-    };
-
-    mockGetIntegration.mockResolvedValue({
-      platform: 'google_blogger',
-      isConnected: true,
-      blogId: 'google-blog-id',
-      blogUrl: 'https://example.blogspot.com',
-      blogName: 'My Blog',
-      tokenExpiresAt: null,
-      connectedAt: new Date().toISOString(),
-    });
-    mockGetPropertyBlog.mockResolvedValue(existingBlog);
-    mockGetPlatformPost.mockResolvedValue(null);
-    mockGeneratePropertyBlog.mockResolvedValue({
-      success: true,
-      message: 'ok',
-      blog: existingBlog,
-    });
-
-    render(
-      <BlogGooglePanel
-        propertyId="property-1"
-        propertyType="sale"
-        ownerId="owner-1"
-        referenceUrl="https://example.com/style-ref"
-        stylePreset="luxury_dark"
-      />
-    );
-
-    const regenerateBtn = await screen.findByRole('button', { name: '重新生成（套用目前樣式）' });
-    await user.click(regenerateBtn);
-
-    await waitFor(() => {
-      expect(mockGeneratePropertyBlog).toHaveBeenCalledWith('property-1', 'sale', 'owner-1', {
-        referenceUrl: 'https://example.com/style-ref',
-        stylePreset: 'luxury_dark',
-        targetPlatform: 'google_blogger',
-      });
-    });
-  });
-
   it('allows user to copy generated content for manual publishing', async () => {
     const user = userEvent.setup();
-    const originalClipboard = { ...navigator.clipboard };
     const writeTextMock = jest.fn().mockResolvedValue(undefined);
-    
+    const originalClipboard = { ...navigator.clipboard };
+
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText: writeTextMock },
       writable: true,
     });
 
-    const existingBlog = {
+    const blog = makeBlog({
       id: 'blog-ex',
-      propertyId: 'property-1',
-      authorId: 'owner-1',
       title: '手動文章標題',
       contentHtml: '<div>手動內容 HTML</div>',
       slug: 'manual-blog',
-      excerpt: null,
-      content: 'text',
-      featuredImageUrl: null,
-      category: null,
       tags: [],
-      status: 'draft' as const,
-      publishedAt: null,
-      viewCount: 0,
-      likeCount: 0,
-      seoTitle: null,
-      seoDescription: null,
-      seoKeywords: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      blogStylePreset: 'luxury_dark' as const,
-      blogTargetPlatform: 'google_blogger' as const,
-    };
+    });
 
-    // Use not connected to trigger the UI easily and see the copy buttons
+    // Not connected — triggers manual copy UI
     mockGetIntegration.mockResolvedValue({
       platform: 'google_blogger',
       isConnected: false,
@@ -221,21 +130,20 @@ describe('BlogGooglePanel', () => {
       tokenExpiresAt: null,
       connectedAt: null,
     });
-    mockGetPropertyBlog.mockResolvedValue(existingBlog);
     mockGetPlatformPost.mockResolvedValue(null);
 
     render(
       <BlogGooglePanel
         propertyId="property-1"
-        propertyType="sale"
-        ownerId="owner-1"
+        blog={blog}
+        loading={false}
+        onMutation={onMutation}
       />
     );
 
     const toggleManualCopyBtn = await screen.findByRole('button', { name: '手動複製貼上（備用）' });
     await user.click(toggleManualCopyBtn);
 
-    // Wait for the copy title button to appear
     const copyTitleBtn = await screen.findByRole('button', { name: '複製標題' });
     const copyContentBtn = await screen.findByRole('button', { name: '複製 HTML' });
 
@@ -245,7 +153,6 @@ describe('BlogGooglePanel', () => {
     await user.click(copyContentBtn);
     expect(writeTextMock).toHaveBeenCalledWith('<div>手動內容 HTML</div>');
 
-    // Restore clipboard
     Object.defineProperty(navigator, 'clipboard', {
       value: originalClipboard,
       writable: true,

@@ -7,13 +7,17 @@
 import React, { useState, useMemo } from 'react';
 import { Save, RotateCcw, ChevronDown, ChevronUp, Check, Info } from 'lucide-react';
 import { TRANSCRIPT_PARSE_PROMPT, TRANSCRIPT_JUDGE_PROMPT } from '@/lib/transcript-prompts';
+import {
+  DETECT_BUILDING_COUNT_PROMPT,
+  DETECT_BUILDING_COUNT_PROMPT_MODULE_KEY,
+} from '@/lib/transcript-detect-prompts';
 import type { SavedPrompt } from '@/lib/hooks/useAISettings';
 
 // provider value used when saving – OCR prompts are model-agnostic
 const OCR_PROMPT_PROVIDER = 'global';
 
 interface PanelConfig {
-  moduleKey: 'online_ocr_parse' | 'online_ocr_judge';
+  moduleKey: 'online_ocr_parse' | 'online_ocr_judge' | typeof DETECT_BUILDING_COUNT_PROMPT_MODULE_KEY;
   title: string;
   badge: string;
   badgeClass: string;
@@ -29,6 +33,14 @@ const PANELS: PanelConfig[] = [
     badgeClass: 'bg-blue-500/15 text-blue-400 border border-blue-500/20',
     description: '所有解析模型共用同一份 Prompt。儲存後下次雲端解析即套用，不影響此次暫時性修改。',
     defaultPrompt: TRANSCRIPT_PARSE_PROMPT,
+  },
+  {
+    moduleKey: DETECT_BUILDING_COUNT_PROMPT_MODULE_KEY,
+    title: '建號筆數偵測 Prompt',
+    badge: '建號偵測',
+    badgeClass: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20',
+    description: '「AI 偵測建號數」功能使用。可依團隊判讀規則自行調整，不影響謄本全文解析 Prompt。',
+    defaultPrompt: DETECT_BUILDING_COUNT_PROMPT,
   },
   {
     moduleKey: 'online_ocr_judge',

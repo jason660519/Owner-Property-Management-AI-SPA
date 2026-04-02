@@ -9,20 +9,16 @@ import { decryptApiKey } from '@/lib/crypto';
 import { resolveUserId } from '@/lib/resolve-ai-settings-user';
 import type { AIProvider } from '@/lib/ai-providers';
 import { CALLERS, extractJsonFromOutput, mimeFromPath } from '@/lib/utils/ai-api-callers';
+import {
+  DETECT_BUILDING_COUNT_PROMPT,
+  DETECT_BUILDING_COUNT_PROMPT_MODULE_KEY,
+  DETECT_BUILDING_COUNT_PROMPT_NAME,
+  DETECT_BUILDING_COUNT_PROMPT_PROVIDER,
+} from '@/lib/transcript-detect-prompts';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const DETECT_PROMPT = `請仔細閱讀此建物謄本，找出其中所有獨立的「建號」（建物號碼）。
-
-建號通常出現於謄本各區塊的標示部，格式如「建號：XXXX」、「建物號碼：XXXX」，或建物謄本首頁與每筆標題行。
-若謄本含多個建號區塊，請逐一列出所有不重複的建號。
-
-請只回傳以下 JSON 格式（不含任何說明文字）：
-{"count": 2, "buildingNumbers": ["0001", "0002"]}
-
-若謄本只有一個建號，請回傳：{"count": 1, "buildingNumbers": ["XXXX"]}
-若無法辨識，請回傳：{"count": 0, "buildingNumbers": []}`;
 
 interface DetectRequestBody {
   documentId?: string;
@@ -123,7 +119,10 @@ export async function POST(request: NextRequest) {
   // ── 5. Call AI ─────────────────────────────────────────────────────────────
   let rawText: string;
   try {
-    const result = await caller(apiKey, model.model, fileBase64, mimeType, DETECT_PROMPT);
+    const systemPrompt =
+      (await fetchSystemPrompt(adminClient, resolvedUserId, DETECT_BUILDING_COUNT_PROMPT_MODULE_KEY)) ??
+      DETECT_BUILDING_COUNT_PROMPT;
+    const result = await caller(apiKey, model.model, fileBase64, mimeType, systemPrompt);
     if (!result.ok) {
       return NextResponse.json(
         { error: `AI 呼叫失敗：${result.error ?? '未知錯誤'}` },
@@ -213,4 +212,25 @@ async function getApiKey(
   } catch {
     return null;
   }
+}
+
+async function fetchSystemPrompt(
+  adminClient: ReturnType<typeof createAdminClient>,
+  userId: string,
+  moduleKey: string,
+): Promise<string | null> {
+  const { data } = await adminClient
+    .from('ai_system_prompts')
+    .select('prompt_content')
+    .eq('user_id', userId)
+    .eq('module_key', moduleKey)
+    .eq('provider', DETECT_BUILDING_COUNT_PROMPT_PROVIDER)
+    .eq('prompt_name', DETECT_BUILDING_COUNT_PROMPT_NAME)
+    .eq('is_active', true)
+    .order('version', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data?.prompt_content || typeof data.prompt_content !== 'string') return null;
+  const prompt = data.prompt_content.trim();
+  return prompt || null;
 }

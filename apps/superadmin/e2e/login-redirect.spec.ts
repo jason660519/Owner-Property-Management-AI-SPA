@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { loginAsSuperadmin, submitSuperadminLogin } from './utils/superadmin-auth';
 
 // This test suite verifies login redirection logic on Port 3001 (Superadmin App).
 // Since 2026-02-13, Port 3001 acts as a unified login entry point:
@@ -36,11 +37,7 @@ test.describe('Superadmin Login Redirection & UI', () => {
 
   test('Should validate returnUrl (allow safe local redirect)', async ({ page }) => {
     await page.goto(`${BASE_URL}/login?returnUrl=/superadmin/dashboard/users`);
-    
-    await page.fill('input[type="email"]', 'a0405142777@gmail.com');
-    await page.fill('input[type="password"]', 'NewPassword123!');
-    
-    await page.click('button[type="submit"]');
+    await submitSuperadminLogin(page, /dashboard|localhost:3000/);
     
     // Expect redirect to the specific page on 3001
     // Note: If user is not super_admin in DB, this will redirect to 3000.
@@ -48,9 +45,6 @@ test.describe('Superadmin Login Redirection & UI', () => {
     // For the purpose of "delivering code", we assume the code logic is correct.
     // But to pass the test, the user must be super_admin.
     // We will relax the assertion if we can't control the DB, but ideally we expect success.
-    
-    // We wait for URL to change
-    await page.waitForURL(/dashboard|localhost:3000/);
     
     if (page.url().includes('localhost:3000')) {
         console.warn('Redirected to main site (3000). User might not be super_admin.');
@@ -65,15 +59,9 @@ test.describe('Superadmin Login Redirection & UI', () => {
 
   test('Should validate returnUrl (block external redirect)', async ({ page }) => {
     await page.goto(`${BASE_URL}/login?returnUrl=https://google.com`);
-    
-    await page.fill('input[type="email"]', 'a0405142777@gmail.com');
-    await page.fill('input[type="password"]', 'NewPassword123!');
-    
-    await page.click('button[type="submit"]');
+    await submitSuperadminLogin(page, /superadmin|localhost:3000/);
     
     // Expect fallback to dashboard on 3001, NOT google.com
-    await page.waitForURL(/superadmin|localhost:3000/);
-    
     if (!page.url().includes('localhost:3000')) {
         await expect(page).toHaveURL(`${BASE_URL}/superadmin`);
     }
@@ -81,30 +69,16 @@ test.describe('Superadmin Login Redirection & UI', () => {
 
   test('Should validate returnUrl (block different port redirect)', async ({ page }) => {
     await page.goto(`${BASE_URL}/login?returnUrl=http://localhost:3000/dashboard`);
-    
-    await page.fill('input[type="email"]', 'a0405142777@gmail.com');
-    await page.fill('input[type="password"]', 'NewPassword123!');
-    
-    await page.click('button[type="submit"]');
+    await submitSuperadminLogin(page, /superadmin|localhost:3000/);
     
     // Expect fallback to dashboard on 3001
-    await page.waitForURL(/superadmin|localhost:3000/);
-    
     if (!page.url().includes('localhost:3000')) {
         await expect(page).toHaveURL(`${BASE_URL}/superadmin`);
     }
   });
 
   test('Super Admin should be redirected to Superadmin Dashboard (Port 3001)', async ({ page }) => {
-    await page.goto(`${BASE_URL}/login`);
-    
-    await page.fill('input[type="email"]', 'a0405142777@gmail.com');
-    await page.fill('input[type="password"]', 'NewPassword123!');
-    
-    await page.click('button[type="submit"]');
-    
-    // Expect strict redirect to Superadmin Dashboard
-    await page.waitForURL(/superadmin/);
+    await loginAsSuperadmin(page, BASE_URL);
     await expect(page).toHaveURL(/\/superadmin/);
     
     // Ensure we are NOT on Port 3000

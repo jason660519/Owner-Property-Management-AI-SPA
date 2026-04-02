@@ -1,21 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { loginAsSuperadmin } from './utils/superadmin-auth';
 
 const BASE_URL = 'http://localhost:3001';
 
 test.describe('IAM Management Page', () => {
   test.beforeEach(async ({ page }) => {
-    // 1. Go to login page
-    await page.goto(`${BASE_URL}/login`);
-    
-    // 2. Perform Login
-    await page.fill('input[type="email"]', 'a0405142777@gmail.com');
-    await page.fill('input[type="password"]', 'NewPassword123!');
-    await page.click('button[type="submit"]');
-    
-    // 3. Wait for redirect to dashboard
-    await page.waitForURL(/\/superadmin/);
-    
-    // 4. Navigate to the IAM Management page
+    await loginAsSuperadmin(page, BASE_URL);
     await page.goto(`${BASE_URL}/superadmin/dashboard/iam-management`);
   });
 

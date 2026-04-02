@@ -2,64 +2,51 @@
 
 import { useState, useEffect, useTransition, useCallback } from 'react';
 import {
-  Globe, Loader2, ExternalLink, CheckCircle, AlertCircle, Sparkles,
-  Trash2, RefreshCw, Copy, Check, FileCode, Eye, EyeOff, AlertTriangle,
+  Globe, Loader2, ExternalLink, CheckCircle, AlertCircle,
+  Trash2, RefreshCw, Copy, Check, FileCode, Eye, EyeOff,
   ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { getIntegration, getPlatformPost, type GoogleBloggerIntegration } from '@/lib/actions/integrations';
-import { getPropertyBlog, generatePropertyBlog, type StylePreset } from '@/lib/actions/blog';
-import type { BlogPost } from '@/lib/actions/blog';
+import type { BlogPost, StylePreset } from '@/lib/actions/blog';
 import { publishToBlogger, updateBloggerPost, deleteBloggerPost } from '@/lib/actions/google-blogger';
 import { getBlogPreviewHtml } from './blog-preview-html';
-import {
-  PROPERTY_BLOG_UPDATED_EVENT,
-  type PropertyBlogUpdatedDetail,
-  dispatchPropertyBlogUpdated,
-} from '@/lib/utils/property-blog-events';
+import { dispatchPropertyBlogUpdated } from '@/lib/utils/property-blog-events';
 
 interface BlogGooglePanelProps {
   propertyId: string;
-  propertyType: 'sale' | 'rental';
-  ownerId: string;
-  referenceUrl?: string;
+  /** Blog data passed from parent (batch-loaded). null = no blog for this variant. */
+  blog: BlogPost | null;
+  /** Whether the parent is still loading */
+  loading: boolean;
   stylePreset?: StylePreset;
+  referenceUrl?: string;
+  /** Called after any mutation so parent can refresh variants */
+  onMutation: () => void;
 }
 
-export function BlogGooglePanel({ propertyId, propertyType, ownerId, referenceUrl, stylePreset }: BlogGooglePanelProps) {
+export function BlogGooglePanel({
+  propertyId, blog, loading, stylePreset, referenceUrl, onMutation,
+}: BlogGooglePanelProps) {
   const [integration, setIntegration] = useState<GoogleBloggerIntegration | null>(null);
-  const [blog, setBlog] = useState<BlogPost | null>(null);
   const [platformPost, setPlatformPost] = useState<{ external_id: string; external_url: string | null; status: string } | null>(null);
   const [loadingInit, setLoadingInit] = useState(true);
 
-  // Separate transitions: generate vs publish/sync actions
-  const [isGenerating, startGenerateTransition] = useTransition();
   const [isSyncing, startSyncTransition] = useTransition();
-
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
   const [copyStatus, setCopyStatus] = useState<'title' | 'content' | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [showManualCopy, setShowManualCopy] = useState(false);
 
-  const hasStyleParam = Boolean(referenceUrl || stylePreset);
-
-  const loadVariantBlog = useCallback(async () => {
+  // Load integration status and platform post mapping (not blog content — that comes from props)
+  const loadIntegrationState = useCallback(async () => {
     setLoadingInit(true);
     try {
-      const [intData, blogData] = await Promise.all([
-        getIntegration('google_blogger'),
-        getPropertyBlog(
-          propertyId,
-          stylePreset ? { stylePreset, targetPlatform: 'google_blogger', referenceUrl } : undefined,
-        ),
-      ]);
-
+      const intData = await getIntegration('google_blogger');
       setIntegration(intData as GoogleBloggerIntegration | null);
-      setBlog(blogData);
 
-      if (blogData) {
-        const pp = await getPlatformPost(blogData.id, 'google_blogger');
+      if (blog) {
+        const pp = await getPlatformPost(blog.id, 'google_blogger');
         setPlatformPost(pp);
       } else {
         setPlatformPost(null);
@@ -70,50 +57,12 @@ export function BlogGooglePanel({ propertyId, propertyType, ownerId, referenceUr
     } finally {
       setLoadingInit(false);
     }
-  }, [propertyId, referenceUrl, stylePreset]);
+  }, [blog]);
 
   useEffect(() => {
-    void loadVariantBlog();
-  }, [loadVariantBlog]);
+    void loadIntegrationState();
+  }, [loadIntegrationState]);
 
-  useEffect(() => {
-    function onPropertyBlogUpdated(e: Event) {
-      const detail = (e as CustomEvent<PropertyBlogUpdatedDetail>).detail;
-      if (detail?.propertyId !== propertyId) return;
-      void loadVariantBlog();
-    }
-
-    window.addEventListener(PROPERTY_BLOG_UPDATED_EVENT, onPropertyBlogUpdated);
-    return () => window.removeEventListener(PROPERTY_BLOG_UPDATED_EVENT, onPropertyBlogUpdated);
-  }, [loadVariantBlog, propertyId]);
-
-  // Generate content only (no publish). Used for first-time generation or explicit regenerate.
-  function handleGenerate(confirmOverwrite = false) {
-    // If a Blogger post is already published and user hasn't confirmed, ask first
-    if (platformPost && platformPost.status !== 'deleted' && !confirmOverwrite) {
-      setConfirmRegenerate(true);
-      setTimeout(() => setConfirmRegenerate(false), 5000);
-      return;
-    }
-    setConfirmRegenerate(false);
-    setFeedback(null);
-    startGenerateTransition(async () => {
-      const result = await generatePropertyBlog(propertyId, propertyType, ownerId, {
-        referenceUrl,
-        stylePreset,
-        targetPlatform: 'google_blogger',
-      });
-      if (!result.success || !result.blog) {
-        setFeedback({ type: 'error', message: result.message });
-        return;
-      }
-      setBlog(result.blog);
-      dispatchPropertyBlogUpdated(propertyId);
-      setFeedback({ type: 'success', message: '廣告頁已生成。確認內容後可發布至 Blogger。' });
-    });
-  }
-
-  // Publish to Blogger using current blog content. Does NOT regenerate.
   function handlePublish() {
     if (!blog) return;
     setFeedback(null);
@@ -131,11 +80,11 @@ export function BlogGooglePanel({ propertyId, propertyType, ownerId, referenceUr
           status: 'published',
         });
         dispatchPropertyBlogUpdated(propertyId);
+        onMutation();
       }
     });
   }
 
-  // Sync current blog content to Blogger. Does NOT regenerate.
   function handleSync() {
     if (!blog || !platformPost) return;
     setFeedback(null);
@@ -146,33 +95,10 @@ export function BlogGooglePanel({ propertyId, propertyType, ownerId, referenceUr
         tags: blog.tags,
       });
       setFeedback({ type: result.success ? 'success' : 'error', message: result.message });
-      if (result.success) dispatchPropertyBlogUpdated(propertyId);
-    });
-  }
-
-  // Regenerate content AND immediately sync to Blogger.
-  function handleRegenerateAndSync() {
-    if (!blog || !platformPost) return;
-    setFeedback(null);
-    startGenerateTransition(async () => {
-      const genResult = await generatePropertyBlog(propertyId, propertyType, ownerId, {
-        referenceUrl,
-        stylePreset,
-        targetPlatform: 'google_blogger',
-      });
-      if (!genResult.success || !genResult.blog) {
-        setFeedback({ type: 'error', message: genResult.message });
-        return;
+      if (result.success) {
+        dispatchPropertyBlogUpdated(propertyId);
+        onMutation();
       }
-      const latestBlog = genResult.blog;
-      setBlog(latestBlog);
-      const syncResult = await updateBloggerPost(latestBlog.id, platformPost.external_id, {
-        title: latestBlog.title,
-        contentHtml: latestBlog.contentHtml ?? '',
-        tags: latestBlog.tags,
-      });
-      setFeedback({ type: syncResult.success ? 'success' : 'error', message: syncResult.message });
-      if (syncResult.success) dispatchPropertyBlogUpdated(propertyId);
     });
   }
 
@@ -191,6 +117,7 @@ export function BlogGooglePanel({ propertyId, propertyType, ownerId, referenceUr
       if (result.success) {
         setPlatformPost(null);
         dispatchPropertyBlogUpdated(propertyId);
+        onMutation();
       }
     });
   }
@@ -203,8 +130,7 @@ export function BlogGooglePanel({ propertyId, propertyType, ownerId, referenceUr
     } catch { /* ignore */ }
   };
 
-  // ─── Loading ───────────────────────────────────────────────────────────────
-  if (loadingInit) {
+  if (loading || loadingInit) {
     return (
       <div className="flex items-center justify-center py-16">
         <Loader2 className="w-6 h-6 animate-spin text-text-muted" />
@@ -215,12 +141,12 @@ export function BlogGooglePanel({ propertyId, propertyType, ownerId, referenceUr
 
   const accountConnected = integration?.isConnected === true;
   const blogSelected = accountConnected && !!integration?.blogId;
-  const isPending = isGenerating || isSyncing;
+  const isPending = isSyncing;
 
-  // ─── Not connected ─────────────────────────────────────────────────────────
+  // Not connected
   if (!accountConnected) {
     return (
-      <div className="space-y-4">
+      <div id="property-blog-google-panel" className="space-y-4">
         <SetupGate
           icon={<Globe size={28} className="text-[#ea4335]" />}
           iconBg="bg-[#ea4335]/10"
@@ -233,22 +159,17 @@ export function BlogGooglePanel({ propertyId, propertyType, ownerId, referenceUr
             </a>
           }
         />
-        <ManualCopySection
-          blog={blog}
-          copyStatus={copyStatus}
-          onCopy={handleCopy}
-          show={showManualCopy}
-          onToggle={() => setShowManualCopy((v) => !v)}
-          blogPostUrl="https://www.blogger.com"
-        />
+        <ManualCopySection blog={blog} copyStatus={copyStatus} onCopy={handleCopy}
+          show={showManualCopy} onToggle={() => setShowManualCopy((v) => !v)}
+          blogPostUrl="https://www.blogger.com" />
       </div>
     );
   }
 
-  // ─── Connected but no blog selected ───────────────────────────────────────
+  // Connected but no blog selected
   if (!blogSelected) {
     return (
-      <div className="space-y-4">
+      <div id="property-blog-google-panel" className="space-y-4">
         <SetupGate
           icon={<AlertCircle size={28} className="text-amber-500" />}
           iconBg="bg-amber-500/10"
@@ -267,24 +188,18 @@ export function BlogGooglePanel({ propertyId, propertyType, ownerId, referenceUr
             </div>
           }
         />
-        <ManualCopySection
-          blog={blog}
-          copyStatus={copyStatus}
-          onCopy={handleCopy}
-          show={showManualCopy}
-          onToggle={() => setShowManualCopy((v) => !v)}
-          blogPostUrl="https://www.blogger.com"
-        />
+        <ManualCopySection blog={blog} copyStatus={copyStatus} onCopy={handleCopy}
+          show={showManualCopy} onToggle={() => setShowManualCopy((v) => !v)}
+          blogPostUrl="https://www.blogger.com" />
       </div>
     );
   }
 
-  // ─── Fully connected ───────────────────────────────────────────────────────
+  // Fully connected
   const isPublished = !!platformPost && platformPost.status !== 'deleted';
 
   return (
-    <div className="space-y-4">
-      {/* Feedback */}
+    <div id="property-blog-google-panel" className="space-y-4">
       {feedback && (
         <div className={`p-3 rounded-lg text-sm flex items-start gap-2 ${
           feedback.type === 'success'
@@ -296,7 +211,7 @@ export function BlogGooglePanel({ propertyId, propertyType, ownerId, referenceUr
         </div>
       )}
 
-      {/* ① 整合狀態列 */}
+      {/* Integration status */}
       <div className="flex items-center gap-3 px-3 py-2.5 bg-bg-tertiary rounded-lg border border-border-default">
         <Globe size={14} className="text-[#ea4335] shrink-0" />
         <div className="min-w-0 flex-1">
@@ -313,7 +228,7 @@ export function BlogGooglePanel({ propertyId, propertyType, ownerId, referenceUr
         </span>
       </div>
 
-      {/* ② 內容來源（本站部落格） */}
+      {/* Content source section */}
       <section className="border border-border-default rounded-lg overflow-hidden">
         <div className="flex items-center gap-2 px-4 py-2.5 bg-bg-tertiary border-b border-border-default">
           <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">內容來源（本站部落格）</span>
@@ -323,23 +238,14 @@ export function BlogGooglePanel({ propertyId, propertyType, ownerId, referenceUr
         <div className="p-4 space-y-3">
           {blog ? (
             <>
-              {/* Content summary */}
               <div className="space-y-1">
                 <p className="text-sm font-medium text-text-primary leading-snug">{blog.title}</p>
                 <p className="text-xs text-text-muted">
                   內容更新於 {new Date(blog.updatedAt).toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  {hasStyleParam && (
-                    <span className="ml-2 text-accent">
-                      · 已選擇樣式{stylePreset ? `（${stylePreset}）` : ''}
-                      ，重新生成後將套用
-                    </span>
-                  )}
                 </p>
               </div>
 
-              {/* Actions row */}
               <div className="flex flex-wrap items-center gap-2">
-                {/* Preview toggle */}
                 <button
                   onClick={() => setShowPreview((v) => !v)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border-default text-text-secondary rounded-md hover:bg-bg-tertiary transition-colors"
@@ -347,38 +253,8 @@ export function BlogGooglePanel({ propertyId, propertyType, ownerId, referenceUr
                   {showPreview ? <EyeOff size={12} /> : <Eye size={12} />}
                   {showPreview ? '隱藏預覽' : '預覽內容'}
                 </button>
-
-                {/* Regenerate — requires confirm if already published */}
-                {confirmRegenerate ? (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-amber-600 flex items-center gap-1">
-                      <AlertTriangle size={12} />將覆蓋 Blogger 已發布文章
-                    </span>
-                    <button
-                      onClick={() => handleGenerate(true)}
-                      disabled={isPending}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-amber-500 text-white rounded-md hover:bg-amber-600 transition-colors disabled:opacity-50"
-                    >
-                      {isGenerating ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-                      確認重新生成
-                    </button>
-                    <button onClick={() => setConfirmRegenerate(false)} className="p-1.5 rounded hover:bg-bg-tertiary">
-                      <span className="text-xs text-text-muted">取消</span>
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => handleGenerate(false)}
-                    disabled={isPending}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border-default text-text-secondary rounded-md hover:bg-bg-tertiary transition-colors disabled:opacity-50"
-                  >
-                    {isGenerating ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-                    重新生成{hasStyleParam ? '（套用目前樣式）' : ''}
-                  </button>
-                )}
               </div>
 
-              {/* HTML preview iframe */}
               {showPreview && blog.contentHtml && (
                 <div className="border border-border-default rounded-lg overflow-hidden mt-2">
                   <div className="bg-bg-tertiary px-4 py-1.5 border-b border-border-default flex items-center gap-2">
@@ -402,24 +278,17 @@ export function BlogGooglePanel({ propertyId, propertyType, ownerId, referenceUr
               )}
             </>
           ) : (
-            /* No blog content yet */
-            <div className="text-center py-4 space-y-3">
+            <div className="text-center py-4 space-y-2">
               <p className="text-sm text-text-secondary">尚未生成廣告內容。</p>
-              <button
-                onClick={() => handleGenerate(false)}
-                disabled={isPending}
-                className="inline-flex items-center gap-2 px-4 py-2 border border-border-default text-sm text-text-secondary rounded-lg hover:bg-bg-tertiary transition-colors disabled:opacity-50"
-              >
-                {isGenerating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                AI 生成廣告頁{hasStyleParam ? '（套用目前樣式）' : ''}
-              </button>
-              <p className="text-xs text-text-muted">生成後可先預覽，確認無誤再發布至 Blogger</p>
+              <p className="text-xs text-text-muted">
+                請在上方廣告樣式表格中，選擇風格後點擊該列右側「重生」按鈕來生成內容。
+              </p>
             </div>
           )}
         </div>
       </section>
 
-      {/* ③ Blogger 發布狀態 */}
+      {/* Blogger publish status */}
       <section className="border border-border-default rounded-lg overflow-hidden">
         <div className="flex items-center gap-2 px-4 py-2.5 bg-bg-tertiary border-b border-border-default">
           <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">Google Blogger 發布狀態</span>
@@ -428,24 +297,18 @@ export function BlogGooglePanel({ propertyId, propertyType, ownerId, referenceUr
         <div className="p-4">
           {isPublished ? (
             <div className="space-y-3">
-              {/* Published status */}
               <div className="flex items-center gap-2">
                 <CheckCircle size={14} className="text-green-500 shrink-0" />
                 <span className="text-sm font-medium text-text-primary">已發布至 Google Blogger</span>
               </div>
               {platformPost.external_url && (
-                <a
-                  href={platformPost.external_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-accent hover:underline break-all"
-                >
+                <a href={platformPost.external_url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm text-accent hover:underline break-all">
                   <ExternalLink size={13} className="shrink-0" />
                   {platformPost.external_url}
                 </a>
               )}
 
-              {/* Sync / Regenerate+Sync / Delete */}
               <div className="flex flex-wrap gap-2 pt-1">
                 <button
                   onClick={handleSync}
@@ -456,18 +319,6 @@ export function BlogGooglePanel({ propertyId, propertyType, ownerId, referenceUr
                   {isSyncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
                   同步現有內容到 Blogger
                 </button>
-
-                {hasStyleParam && (
-                  <button
-                    onClick={handleRegenerateAndSync}
-                    disabled={isPending || !blog}
-                    title="重新生成廣告頁（套用目前樣式），並立即同步到 Blogger"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-accent/40 text-accent rounded-md hover:bg-accent/10 transition-colors disabled:opacity-50"
-                  >
-                    {isGenerating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                    重新生成並同步
-                  </button>
-                )}
 
                 <button
                   onClick={handleDelete}
@@ -482,7 +333,6 @@ export function BlogGooglePanel({ propertyId, propertyType, ownerId, referenceUr
               </div>
             </div>
           ) : (
-            /* Not published */
             <div className="space-y-2">
               <p className="text-sm text-text-secondary">
                 {blog ? '內容已生成，可發布至 Blogger。' : '請先在上方生成廣告內容。'}
@@ -495,32 +345,23 @@ export function BlogGooglePanel({ propertyId, propertyType, ownerId, referenceUr
                 {isSyncing ? <Loader2 size={16} className="animate-spin" /> : <Globe size={16} />}
                 發布至 Google Blogger
               </button>
-              <p className="text-xs text-text-muted">
-                發布後可隨時同步內容或從 Blogger 刪除。
-              </p>
+              <p className="text-xs text-text-muted">發布後可隨時同步內容或從 Blogger 刪除。</p>
             </div>
           )}
         </div>
       </section>
 
-      {/* ④ 手動複製（折疊，備用） */}
-      <ManualCopySection
-        blog={blog}
-        copyStatus={copyStatus}
-        onCopy={handleCopy}
-        show={showManualCopy}
-        onToggle={() => setShowManualCopy((v) => !v)}
+      {/* Manual copy (fallback) */}
+      <ManualCopySection blog={blog} copyStatus={copyStatus} onCopy={handleCopy}
+        show={showManualCopy} onToggle={() => setShowManualCopy((v) => !v)}
         blogPostUrl={
           integration.blogId
             ? `https://www.blogger.com/blog/post/create/${integration.blogId}`
             : 'https://www.blogger.com'
-        }
-      />
+        } />
     </div>
   );
 }
-
-// ─── Sub-components ──────────────────────────────────────────────────────────
 
 function SetupGate({
   icon, iconBg, title, desc, actions,

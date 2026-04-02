@@ -10,6 +10,7 @@ import { PropertyInvestigationReportSection } from './PropertyInvestigationRepor
 import { PropertyBlogGenerator } from './PropertyBlogGenerator';
 import { PropertyIntroductionTab } from './PropertyIntroductionTab';
 import { ContractDraftPreviewSection } from './ContractDraftPreviewSection';
+import { BuildingLandAreaDetailTab } from './BuildingLandAreaDetailTab';
 import {
   PROPERTY_STATUSES,
   PROPERTY_TYPES,
@@ -264,12 +265,7 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
           )}
 
           {activeTab === 'building_land_area_detail' && (
-            <div className="rounded-lg border border-border-default bg-bg-primary p-6 space-y-3">
-              <h3 className="text-sm font-semibold text-text-primary">建物土地面積明細表</h3>
-              <p className="text-xs text-text-muted leading-relaxed">
-                此區將用於彙整建物、土地面積與持分等明細（與謄本／權狀對照）。表單與儲存欄位可後續再接資料庫與匯出。
-              </p>
-            </div>
+            <BuildingLandAreaDetailTab property={property} />
           )}
 
           {activeTab === 'contract' && (
@@ -290,6 +286,7 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
               propertyId={property.id}
               propertyType={property.type}
               ownerId={property.ownerId}
+              property={property}
             />
           )}
 

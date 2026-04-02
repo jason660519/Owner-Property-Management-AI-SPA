@@ -1,15 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { loginAsSuperadmin } from '../utils/superadmin-auth';
 
 const BASE_URL = 'http://localhost:3001';
 const STORAGE_URL = `${BASE_URL}/superadmin/dashboard/storage`;
 
 test.describe('Superadmin – Cloud Storage Dashboard quotas tab', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto(`${BASE_URL}/login`);
-    await page.fill('input[type="email"]', 'a0405142777@gmail.com');
-    await page.fill('input[type="password"]', 'NewPassword123!');
-    await page.click('button[type="submit"]');
-    await page.waitForURL(/\/superadmin/);
+    await loginAsSuperadmin(page, BASE_URL);
   });
 
   test('can navigate to storage dashboard and open quotas tab', async ({ page }) => {

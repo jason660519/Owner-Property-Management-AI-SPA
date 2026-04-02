@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useEffect, useCallback } from 'react';
+import { useState, useTransition } from 'react';
 import {
   AlertTriangle,
   Contact,
@@ -15,18 +15,13 @@ import {
 import {
   deletePropertyBlog,
   generatePropertyBlog,
-  getPropertyBlog,
   publishPropertyBlog,
   syncBlogCTA,
   unpublishPropertyBlog,
   type BlogPost,
   type StylePreset,
 } from '@/lib/actions/blog';
-import {
-  PROPERTY_BLOG_UPDATED_EVENT,
-  type PropertyBlogUpdatedDetail,
-  dispatchPropertyBlogUpdated,
-} from '@/lib/utils/property-blog-events';
+import { dispatchPropertyBlogUpdated } from '@/lib/utils/property-blog-events';
 import { dispatchBlogSupabaseOpenEdit } from '@/lib/utils/blog-supabase-ui-events';
 
 type RowPlatform = 'supabase' | 'google_blogger';
@@ -38,6 +33,10 @@ export interface PropertyBlogStyleRowActionCellsProps {
   propertyType: 'sale' | 'rental';
   ownerId: string;
   referenceUrl?: string;
+  /** Blog data passed from parent (batch-loaded) */
+  blog: BlogPost | null;
+  /** Whether the parent is still loading variants */
+  loading: boolean;
   onApplyRowStyle: () => void;
   onMutation: () => void;
 }
@@ -49,48 +48,17 @@ export function PropertyBlogStyleRowActionCells({
   propertyType,
   ownerId,
   referenceUrl,
+  blog,
+  loading,
   onApplyRowStyle,
   onMutation,
 }: PropertyBlogStyleRowActionCellsProps) {
-  const [blog, setBlog] = useState<BlogPost | null>(null);
-  const [loading, setLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
   const [isSyncing, startSyncTransition] = useTransition();
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const targetPlatform = rowPlatform === 'supabase' ? 'local' : 'google_blogger';
-
-  const loadBlog = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await getPropertyBlog(propertyId, {
-        stylePreset: rowStylePreset,
-        targetPlatform,
-        referenceUrl,
-      });
-      setBlog(data);
-    } catch {
-      console.error('[BlogVariantRowActions] Failed to load blog');
-    } finally {
-      setLoading(false);
-    }
-  }, [propertyId, referenceUrl, rowStylePreset, targetPlatform]);
-
-  useEffect(() => {
-    void loadBlog();
-  }, [loadBlog]);
-
-  useEffect(() => {
-    function onUpdated(e: Event) {
-      const detail = (e as CustomEvent<PropertyBlogUpdatedDetail>).detail;
-      if (detail?.propertyId !== propertyId) return;
-      void loadBlog();
-    }
-
-    window.addEventListener(PROPERTY_BLOG_UPDATED_EVENT, onUpdated);
-    return () => window.removeEventListener(PROPERTY_BLOG_UPDATED_EVENT, onUpdated);
-  }, [loadBlog, propertyId]);
 
   function notify() {
     dispatchPropertyBlogUpdated(propertyId);
@@ -114,9 +82,7 @@ export function PropertyBlogStyleRowActionCells({
     startSyncTransition(async () => {
       const result = await syncBlogCTA(blog.id);
       if (result.success) notify();
-      else {
-        window.alert(result.message || '同步失敗');
-      }
+      else window.alert(result.message || '同步失敗');
     });
   }
 
@@ -135,9 +101,7 @@ export function PropertyBlogStyleRowActionCells({
         targetPlatform,
       });
       if (result.success) notify();
-      else {
-        window.alert(result.message || '重新生成失敗');
-      }
+      else window.alert(result.message || '重新生成失敗');
     });
   }
 
@@ -147,9 +111,7 @@ export function PropertyBlogStyleRowActionCells({
     startTransition(async () => {
       const result = await unpublishPropertyBlog(blog.id);
       if (result.success) notify();
-      else {
-        window.alert(result.message || '下架失敗');
-      }
+      else window.alert(result.message || '下架失敗');
     });
   }
 
@@ -165,9 +127,7 @@ export function PropertyBlogStyleRowActionCells({
     startTransition(async () => {
       const result = await deletePropertyBlog(blog.id);
       if (result.success) notify();
-      else {
-        window.alert(result.message || '刪除失敗');
-      }
+      else window.alert(result.message || '刪除失敗');
     });
   }
 
@@ -274,9 +234,7 @@ export function PropertyBlogStyleRowActionCells({
               startTransition(async () => {
                 const result = await publishPropertyBlog(blog.id);
                 if (result.success) notify();
-                else {
-                  window.alert(result.message || '發佈失敗');
-                }
+                else window.alert(result.message || '發佈失敗');
               });
             }}
             className={`${btnBase} text-green-600 border border-green-500/30 hover:bg-green-500/10`}
