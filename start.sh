@@ -10,7 +10,7 @@ set -e
 
 # --- 配置 ---
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOG_DIR="/tmp"
+LOG_DIR="$PROJECT_ROOT/logs/dev"
 ENV_FILE="$PROJECT_ROOT/.env"
 
 # --- 顏色定義 ---
@@ -44,6 +44,10 @@ check_dependencies() {
     check_command node || exit 1
     check_command supabase || exit 1
     check_command python3 || exit 1
+}
+
+ensure_log_dir() {
+    mkdir -p "$LOG_DIR"
 }
 
 ensure_supabase_running() {
@@ -117,6 +121,7 @@ start_web() {
         cd "$PROJECT_ROOT/apps/web"
         # 判斷是否為背景模式
         if [ "$1" == "bg" ]; then
+            ensure_log_dir
             nohup npm run dev > "$LOG_DIR/nextjs.log" 2>&1 &
             echo -e "${GREEN}✅ Web App (Background) 啟動成功${NC}"
         else
@@ -133,6 +138,7 @@ start_web_au() {
     else
         cd "$PROJECT_ROOT/apps/web-au"
         if [ "$1" == "bg" ]; then
+            ensure_log_dir
             nohup npm run dev > "$LOG_DIR/nextjs-au.log" 2>&1 &
             echo -e "${GREEN}✅ Web App AU (Background) 啟動成功${NC}"
         else
@@ -149,6 +155,7 @@ start_admin() {
     else
         cd "$PROJECT_ROOT/apps/superadmin"
         if [ "$1" == "bg" ]; then
+            ensure_log_dir
             nohup npm run dev > "$LOG_DIR/superadmin.log" 2>&1 &
             echo -e "${GREEN}✅ Superadmin (Background) 啟動成功${NC}"
         else
@@ -176,6 +183,7 @@ start_ocr() {
         fi
         
         # 啟動
+        ensure_log_dir
         nohup python minimal_app.py > "$LOG_DIR/ocr_service.log" 2>&1 &
         deactivate
         cd "$PROJECT_ROOT"
@@ -186,6 +194,7 @@ start_ocr() {
 start_all() {
     echo -e "${BLUE}🚀 正在啟動所有服務 (背景模式)...${NC}"
     check_dependencies
+    ensure_log_dir
     ensure_supabase_running
     start_web "bg"
     start_web_au "bg"

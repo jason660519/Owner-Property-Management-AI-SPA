@@ -323,7 +323,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "公司首頁",
     locatedPage: "web/",
-    percentage: 97,
+    percentage: 98,
     acceptanceCriteria:
       "1. 首頁需在 3 秒內完成首屏渲染（LCP < 2.5s）。\n2. 清楚展示產品核心功能（房東管理、租客管理、AI功能）。\n3. 包含客戶見證/評價區塊（至少3則）。\n4. CTA 按鈕（立即試用、聯絡我們）可正常觸發對應頁面。\n5. RWD 支援：手機/平板/桌機版面正確顯示。",
     docPath: "/project-process/features/company-homepage.md",
@@ -1918,17 +1918,21 @@ const RAW_FEATURES: RoadmapFeature[] = [
 
   {
     name: "物件部落格多平台發布",
+    locatedPage: "superadmin/properties/[id]/edit?tab=advertisement_creators",
     category: "超級管理員 (Super Admin)",
-    percentage: 96,
+    percentage: 99,
     phase: "development",
+    docPath: "/project-process/features/property-advertisement-workflow-redesign-20260330.md",
+    featureSpecDocPath:
+      "/project-process/features/property-advertisement-workflow-redesign-20260330.md",
     featureDescription:
       "Blog tab 重構為三平台架構：地端 Supabase（現有）、Google Blogger（OAuth2 + Blogger API v3）、Facebook 粉絲頁（Page Access Token + Graph API）。新增「參考網頁風格 URL」功能（用戶貼上任何物件廣告網址，AI 分析設計語言後生成風格相似銷售頁面）與「風格預設選擇器」（4 個預設：豪宅暗色調/清爽明亮/商務簡潔/溫馨日系），不需參考 URL 即可快速生成高品質頁面。設定頁 /superadmin/settings/integrations 管理第三方平台整合。",
     acceptanceCriteria:
       "1. Blog tab 有平台選擇器（Supabase / Google Blogger / Facebook）。\n2. 風格預設選擇器（4 個預設）或參考 URL 擇一使用，AI 生成對應風格 HTML。\n3. Google Blogger OAuth 流程完整（授權 → callback → 儲存 token → 發布）。\n4. 帳號已連但無部落格時顯示引導建立 Blogger 的友善提示。\n5. Facebook Page Access Token 驗證成功後可發布至粉絲頁。",
     lastModifiedBy: "GPT-5.4",
-    lastModifiedDate: "2026/03/23",
+    lastModifiedDate: "2026/03/30",
     developmentProgress:
-      "已完成：DB migration、Google OAuth2 routes、Blogger API v3 CRUD、Facebook Graph API、integrations server actions、BlogSupabasePanel/BlogGooglePanel/BlogFacebookPanel 拆分、平台選擇器、風格預設選擇器（4 個預設 + Claude 生成）、參考 URL 輸入、StylePreset 型別與 blog.ts 整合、BlogGooglePanel 帳號連結但無部落格友善提示修復、Google Blogger 在有參考 URL/風格預設時改為先重新生成再發布（含同步更新流程）並新增單元測試覆蓋。新增：地端 4 份 + Google Blogger 4 份，共 8 份獨立模板檔，並以 targetPlatform 明確切分生成來源，便於後續維護與版本管理。2026/03/22 補強：`blog_posts` 改為真正以 stylePreset + targetPlatform 讀寫與回查、PropertyBlogGenerator/BlogSupabasePanel/BlogGooglePanel/PropertyBlogStyleRowActionCells 全面改為 variant-aware 資料流，避免不同樣式/平台互相讀錯文章；Google OAuth callback 不再自動選第一個 Blogger blog；新增 BlogGooglePanel 與 Google callback 單元測試。2026/03/22 第二波補強：將 reference URL 正式納入 `blog_posts` variant identity 與查詢條件，避免同樣式但不同參考網址互相覆蓋，並把 `blogReferenceUrl` 同步到 URL query 以支援重新整理後仍能定位到正確 variant。2026/03/23 驗證：已在 local Supabase 套用 `20260322223000_add_blog_post_variant_identity.sql`，新增 `lib/actions/blog.test.ts` 驗證 reference URL normalization 與 null-variant lookup，新增 `PropertyBlogGenerator.test.tsx` 驗證 blogPlatform / blogStylePreset / blogReferenceUrl 的 query restore 與 sync/clear 行為，並新增 Playwright `property-blog-query-sync.spec.ts` 實測 superadmin 物件編輯頁在切換 Google Blogger / 商務簡潔樣式 / 參考網址後，重新整理仍能保留 query 與 UI 狀態。待完善：生成/發布流程的完整端到端 E2E。",
+      "已完成：DB migration、Google OAuth2 routes、Blogger API v3 CRUD、Facebook Graph API、integrations server actions、BlogSupabasePanel/BlogGooglePanel/BlogFacebookPanel 拆分、平台選擇器、風格預設選擇器（4 個預設 + Claude 生成）、參考 URL 輸入、StylePreset 型別與 blog.ts 整合、BlogGooglePanel 帳號連結但無部落格友善提示修復、Google Blogger 在有參考 URL/風格預設時改為先重新生成再發布（含同步更新流程）並新增單元測試覆蓋。新增：地端 4 份 + Google Blogger 4 份，共 8 份獨立模板檔，並以 targetPlatform 明確切分生成來源，便於後續維護與版本管理。2026/03/22 補強：`blog_posts` 改為真正以 stylePreset + targetPlatform 讀寫與回查、PropertyBlogGenerator/BlogSupabasePanel/BlogGooglePanel/PropertyBlogStyleRowActionCells 全面改為 variant-aware 資料流，避免不同樣式/平台互相讀錯文章；Google OAuth callback 不再自動選第一個 Blogger blog；新增 BlogGooglePanel 與 Google callback 單元測試。2026/03/22 第二波補強：將 reference URL 正式納入 `blog_posts` variant identity 與查詢條件，避免同樣式但不同參考網址互相覆蓋，並把 `blogReferenceUrl` 同步到 URL query 以支援重新整理後仍能定位到正確 variant。2026/03/23 驗證：已在 local Supabase 套用 `20260322223000_add_blog_post_variant_identity.sql`，新增 `lib/actions/blog.test.ts` 驗證 reference URL normalization 與 null-variant lookup，新增 `PropertyBlogGenerator.test.tsx` 驗證 blogPlatform / blogStylePreset / blogReferenceUrl 的 query restore 與 sync/clear 行為，並新增 Playwright `property-blog-query-sync.spec.ts` 實測 superadmin 物件編輯頁在切換 Google Blogger / 商務簡潔樣式 / 參考網址後，重新整理仍能保留 query 與 UI 狀態。2026/03/30 補充：已完成新版「物件廣告生成流程重規劃 Spec」、Wireframe/元件結構稿、Implementation Tasks，以及更細的開發順序文件 `/project-process/features/property-advertisement-dev-order-20260330.md`。同日已開始落地第一張工單：PropertyBlogGenerator 先接上新的 content-first builder 骨架，將內容區塊、風格選擇、草稿概念與輸出流程改成 step-based 版面，同時保留既有 query restore 與平台發布能力。本次再完成第二張工單：新增 readiness summary、可勾選的內容區塊卡片，以及「系統模板 / 參考網址模式」互斥切換，並同步更新 Jest 與 Playwright query-sync 規格。接著完成第三張小工單：readiness summary 不再使用靜態 mapping，先改由 property 真實欄位動態判斷基本資料、照片、介紹與定位可用性，並新增 property-advertisement-readiness utility 與對應單元測試。最新進度再擴充為 8 個內容區塊：除了基本資料、照片、介紹、定位外，已納入謄本連結、建物與土地面積明細表、權狀連結、物件格局圖；單筆物件載入流程也會同步帶入 hasTranscript / hasTitleDoc / hasFloorPlan 等文件旗標，讓 builder 在編輯頁可依真實資料來源動態顯示可用性。Step 3 也已從 placeholder 改為可操作的「生成廣告草稿」主 CTA，會依目前選定的平台、模板或參考網址直接呼叫既有 variant-aware generate flow，讓使用者不必再依賴下方樣式列按鈕才能開始。最新補齊：selected sections 已正式帶入 generatePropertyBlog action 與 AI prompt context，並持久化到 `blog_posts.generation_context`；前端在生成完成後與重新整理後都會顯示「本次草稿帶入內容」摘要，讓 builder 的內容選擇不再只是暫時 UI 狀態。最新再補上 canonical builder draft persistence：PropertyBlogGenerator 已重用既有 `form_drafts` + localStorage helper，自動保存平台、風格模式、preset/reference URL 與 selected sections，重新整理或回到同一物件時會先還原最近 builder 狀態，同時保留 URL query override 能力。另已擴充 Playwright `property-blog-query-sync.spec.ts`，加入 builder draft restore / query override 流程，並把登入改為讀取 `PLAYWRIGHT_SUPERADMIN_EMAIL` / `PLAYWRIGHT_SUPERADMIN_PASSWORD`，同時改成 serial 以避免共享 draft 狀態互相干擾；目前在本地因未提供有效測試帳密而安全 skip。待完善：在有效 superadmin 測試帳號可用後，補跑完整端到端驗證。",
   },
   {
     name: "租客維修申請系統",
@@ -1978,14 +1982,14 @@ const RAW_FEATURES: RoadmapFeature[] = [
     points: 3,
     featureSpecDocPath: "/docs/scripts-directory-guide.md",
     docPath: "/docs/scripts-directory-guide.md",
-    devLog: "### 2026-03-22 文檔與腳本全面清理\n- **文檔建立**: 建立 `docs/scripts-directory-guide.md` 腳本目錄說明書，並完成 `docs/台灣房仲 × 履約保證（ESCROW）對照表.md` 與 `docs/台灣辦理不動產過戶方式流程選擇與介紹.md` 法律驗證文檔。\n- **標籤清理**: 自動化移除全站 .md 檔案中的 `<br>` 標籤，並建立 `scripts/clean-md-br.sh` 供日後使用。\n- **目錄審計**: 清理 `scripts/` 目錄，移除 11 個過時且無引用的臨時分析腳本，確保目錄精簡且具備維護價值。\n- **規範化**: 確保所有剩餘腳本均具備明確用途，並符合專案目錄存放規範。",
-    lastModifiedBy: "Gemini-3-Flash-Preview",
-    lastModifiedDate: "2026/03/22",
+    devLog: "### 2026-03-22 文檔與腳本全面清理\n- **文檔建立**: 建立 `docs/scripts-directory-guide.md` 腳本目錄說明書，並完成 `docs/台灣房仲 × 履約保證（ESCROW）對照表.md` 與 `docs/台灣辦理不動產過戶方式流程選擇與介紹.md` 法律驗證文檔。\n- **標籤清理**: 自動化移除全站 .md 檔案中的 `<br>` 標籤，並建立 `scripts/clean-md-br.sh` 供日後使用。\n- **目錄審計**: 清理 `scripts/` 目錄，移除 11 個過時且無引用的臨時分析腳本，確保目錄精簡且具備維護價值。\n- **規範化**: 確保所有剩餘腳本均具備明確用途，並符合專案目錄存放規範。\n### 2026-04-02 啟停腳本一致化\n- **日誌落點一致化**: 將 `start.sh` 的背景執行日誌從系統暫存目錄 `/tmp` 改為專案內 `logs/dev`。\n- **停止腳本對齊**: 更新 `stop.sh`，改清理 `logs/dev` 內對應日誌，並保留舊 `/tmp` 路徑清理作為相容層。\n- **服務埠對齊**: `stop.sh` 補上 Web AU 3002，並將 OCR 停止埠對齊為 8819，同時保留 8000 舊埠清理。\n- **穩定性補強**: `start.sh` 新增日誌目錄自動建立，避免首次啟動或目錄不存在時寫檔失敗。\n- **操作文件補齊**: README 與 `docs/scripts-directory-guide.md` 已補上 `logs/dev` 用途、對應服務與 `start.sh` / `stop.sh` 的日誌行為說明。",
+    lastModifiedBy: "GitHub Copilot GPT-5.4",
+    lastModifiedDate: "2026/04/02",
     phase: "development",
   },
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/03/22",
+  lastUpdated: "2026/04/02",
   features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
 };

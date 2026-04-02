@@ -39,6 +39,19 @@
 ./start.sh all    # 一鍵啟動全部服務
 ```
 
+背景模式啟動時，服務輸出會寫入專案內的 `logs/dev/`：
+
+- `logs/dev/nextjs.log`：Web App (3000)
+- `logs/dev/nextjs-au.log`：Web App AU (3002)
+- `logs/dev/superadmin.log`：Superadmin (3001)
+- `logs/dev/ocr_service.log`：OCR Service (8819)
+
+用途：
+
+- 背景啟動後查錯用，避免關掉終端就看不到輸出
+- 快速確認服務是否真的啟動完成（例如 `Ready`、`Uvicorn running`）
+- 配合 `./stop.sh` 一起清理本輪開發日誌
+
 啟動後訪問：
 - 主站 (房東/租客/買家)：http://localhost:3000
 - Superadmin 後台：http://localhost:3001/superadmin/dashboard

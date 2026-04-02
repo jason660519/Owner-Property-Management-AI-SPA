@@ -55,6 +55,30 @@
 
 ---
 
+## ▶️ 專案啟停腳本補充
+
+### `start.sh`
+
+- 用途：統一啟動 Web、Web AU、Superadmin、OCR 與本地 Supabase 相依流程。
+- 常用指令：
+   - `./start.sh`：互動式選單
+   - `./start.sh all`：背景模式啟動全部主要服務
+- 背景模式日誌位置：`logs/dev/`
+   - `logs/dev/nextjs.log`：Web App (3000)
+   - `logs/dev/nextjs-au.log`：Web App AU (3002)
+   - `logs/dev/superadmin.log`：Superadmin (3001)
+   - `logs/dev/ocr_service.log`：OCR Service (8819)
+- 設計目的：讓背景執行的服務保留 stdout/stderr，方便查啟動失敗、埠衝突、環境變數缺漏等問題。
+
+### `stop.sh`
+
+- 用途：統一停止本機主要服務，並清理對應背景日誌。
+- 目前會處理的主要埠：3000、3001、3002、8819。
+- 日誌清理行為：優先清理 `logs/dev/` 內的對應檔案，並保留舊 `/tmp` 路徑清理作為相容層。
+- Supabase：會詢問是否一併停止 Docker 內的本地 Supabase。
+
+---
+
 ## 📝 使用規範
 
 1. **禁止直接在根目錄執行破壞性指令**：執行腳本前請確認當前工作目錄。
