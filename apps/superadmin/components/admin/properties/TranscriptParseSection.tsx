@@ -296,7 +296,9 @@ export function TranscriptParseSection({
 
   // Compute configured models from AI settings
   const ocrParseModule = useMemo(
-    () => aiModules.find((m) => m.module_key === 'online_ocr_parse' || m.module_key === 'online_ocr'),
+    () =>
+      aiModules.find((m) => m.module_key === 'online_ocr_parse') ||
+      aiModules.find((m) => m.module_key === 'online_ocr'),
     [aiModules],
   );
   const ocrJudgeModule = useMemo(

@@ -20,32 +20,48 @@ interface DropdownItem {
 async function postQuery(endpoint: string, body: Record<string, string>): Promise<DropdownItem[]> {
   const res = await fetch(`${BASE_URL}/${endpoint}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Origin': 'https://zone.udd.gov.taipei',
+      'Referer': 'https://zone.udd.gov.taipei/ZoneSearch.aspx',
+    },
     body: JSON.stringify(body),
+    next: { revalidate: 3600 },
   });
-  if (!res.ok) throw new Error(`Taipei zoning API returned ${res.status}`);
+  if (!res.ok) throw new Error(`台北市使用分區 API 回傳錯誤 (${res.status})`);
   const json = (await res.json()) as QueryResult;
-  if (!json.Success) throw new Error(`API error: ${json.Code}`);
-  return JSON.parse(json.DataInfo) as DropdownItem[];
+  if (!json.Success) throw new Error(`API 錯誤: ${json.Code}`);
+
+  try {
+    return JSON.parse(json.DataInfo) as DropdownItem[];
+  } catch {
+    throw new Error(`無法解析 API 回傳資料 (DataInfo): ${json.DataInfo.substring(0, 100)}...`);
+  }
 }
 
 /**
  * Find the best matching item from a dropdown list by comparing text.
- * The dropdown items have an ID field and a display text field.
+ * Handles potential key casing differences.
  */
 function findMatch(
   items: DropdownItem[],
   textKey: string,
   target: string
 ): DropdownItem | null {
-  if (!target) return null;
-  // Exact match first
-  const exact = items.find((it) => String(it[textKey]) === target);
+  if (!target || !items.length) return null;
+
+  const normalizedTarget = target.trim();
+
+  const firstItem = items[0];
+  const actualKey = Object.keys(firstItem).find(k => k.toLowerCase() === textKey.toLowerCase()) || textKey;
+
+  const exact = items.find((it) => String(it[actualKey] || '').trim() === normalizedTarget);
   if (exact) return exact;
-  // Contains match
+
   const contains = items.find((it) => {
-    const val = String(it[textKey] ?? '');
-    return val.includes(target) || target.includes(val);
+    const val = String(it[actualKey] ?? '').trim();
+    return val.includes(normalizedTarget) || normalizedTarget.includes(val);
   });
   return contains ?? null;
 }
@@ -145,25 +161,32 @@ export async function queryTaipeiZoning(
       areSubId = String(subsections[0]['AreSubID']);
     }
 
-    // Step 4: Query zoning
+    const motherNoPadded = parsed.motherNo.padStart(4, '0');
+    const childNoPadded = parsed.childNo.padStart(4, '0');
+
     const queryPayload = [{
       options: '單筆查詢',
       num: '1',
       secid: secId,
       aresecid: areSecId,
       aresubid: areSubId,
-      aremno: parsed.motherNo,
-      arepno: parsed.childNo,
+      aremno: motherNoPadded,
+      arepno: childNoPadded,
       aremnostart: '',
       aremnoend: '',
     }];
 
     const zoningRes = await fetch(`${BASE_URL}/QueryZone.ashx`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Origin': 'https://zone.udd.gov.taipei',
+        'Referer': 'https://zone.udd.gov.taipei/ZoneSearch.aspx',
+      },
       body: JSON.stringify(queryPayload),
     });
-    if (!zoningRes.ok) throw new Error(`Zoning query returned ${zoningRes.status}`);
+    if (!zoningRes.ok) throw new Error(`使用分區查詢請求失敗 (${zoningRes.status})`);
 
     const zoningJson = (await zoningRes.json()) as QueryResult;
     if (!zoningJson.Success || zoningJson.Code !== '0000') {

@@ -1,14 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   FileText, Save, Loader2,
   ExternalLink, Search, CheckCircle2, AlertCircle,
+  MapPin, ChevronDown,
 } from 'lucide-react';
 import type { PropertyItem } from '@/lib/types/properties';
 import {
   getPropertyZoningEnv,
   savePropertyZoningEnv,
+  getPropertyDocuments,
+  getDocumentParseResult,
   type ZoningEnvData,
 } from '@/lib/actions/properties';
 import { queryTaipeiZoning, type TaipeiZoningResult } from '@/lib/actions/taipei-zoning';
@@ -49,27 +52,35 @@ function TaipeiZoningAutoQuery({
   landNumber,
   districtHint,
   onResult,
+  otherLandParcels = [],
 }: {
   landNumber: string;
   districtHint: string;
   onResult: (zone: string, rawRecords: Record<string, string>[]) => void;
+  otherLandParcels?: { label: string; value: string }[];
 }) {
   const [querying, setQuerying] = useState(false);
   const [result, setResult] = useState<TaipeiZoningResult | null>(null);
+  const [landNumberInput, setLandNumberInput] = useState(landNumber);
+  const [showDropdown, setShowDropdown] = useState(false);
 
-  const parsed = parseLandNumber(landNumber);
+  useEffect(() => {
+    setLandNumberInput(landNumber);
+  }, [landNumber]);
+
+  const parsed = parseLandNumber(landNumberInput);
   const canQuery = !!parsed;
 
   const handleQuery = useCallback(async () => {
     setQuerying(true);
     setResult(null);
-    const res = await queryTaipeiZoning(landNumber, districtHint);
+    const res = await queryTaipeiZoning(landNumberInput, districtHint);
     setResult(res);
     if (res.success && res.data?.zone) {
       onResult(res.data.zone, res.data.raw);
     }
     setQuerying(false);
-  }, [landNumber, districtHint, onResult]);
+  }, [landNumberInput, districtHint, onResult]);
 
   return (
     <div className={cardCls}>
@@ -82,11 +93,70 @@ function TaipeiZoningAutoQuery({
       </div>
 
       <div className="px-4 pb-4 space-y-3">
+        <div className="space-y-1.5">
+          <label className="block text-xs text-text-secondary">土地地號（含行政區、段、小段、號碼）</label>
+          <div className="flex gap-2 relative">
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                className={`${inputCls} pr-10`}
+                placeholder="例：大安區仁愛段二小段 0367-0000"
+                value={landNumberInput}
+                onChange={(e) => {
+                  setLandNumberInput(e.target.value);
+                  setResult(null);
+                }}
+              />
+              {otherLandParcels.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowDropdown(!showDropdown)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-primary transition-colors"
+                  title="選擇其他土地謄本地號"
+                >
+                  <ChevronDown size={16} />
+                </button>
+              )}
+
+              {/* Dropdown for other land parcels */}
+              {showDropdown && otherLandParcels.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-bg-primary border border-border-default rounded-md shadow-lg max-h-60 overflow-y-auto">
+                  {otherLandParcels.map((parcel, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-bg-secondary transition-colors border-b border-border-default last:border-0"
+                      onClick={() => {
+                        setLandNumberInput(parcel.value);
+                        setShowDropdown(false);
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <MapPin size={12} className="text-accent" />
+                        <span className="truncate">{parcel.label}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleQuery}
+              disabled={!canQuery || querying}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-accent text-white text-sm font-medium hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            >
+              {querying ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+              {querying ? '查詢中…' : '自動查詢台北市使用分區'}
+            </button>
+          </div>
+        </div>
+
         {/* Parsed land number preview */}
         {parsed ? (
           <div className="rounded-md bg-bg-secondary px-3 py-2 text-xs space-y-1">
-            <p className="text-text-muted">來源：土地謄本解析（地號欄位）</p>
-            <p className="text-text-secondary">解析地號：<span className="text-text-primary font-medium">{landNumber}</span></p>
+            <p className="text-text-muted">地號解析預覽：</p>
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-text-muted">
               <span>行政區：<span className="text-text-primary">{parsed.district || districtHint || '—'}</span></span>
               <span>段：<span className="text-text-primary">{parsed.section}</span></span>
@@ -94,22 +164,11 @@ function TaipeiZoningAutoQuery({
               <span>地號：<span className="text-text-primary">{parsed.motherNo}-{parsed.childNo}</span></span>
             </div>
           </div>
-        ) : (
+        ) : landNumberInput.trim() !== '' && (
           <div className="rounded-md bg-bg-secondary px-3 py-2 text-xs text-text-muted">
-            無法解析土地謄本地號，請確認謄本已解析且地號格式正確（如「大安區仁愛段二小段 0367-0000」）。
+            無法解析土地地號，請確認格式正確（如「大安區仁愛段二小段 0367-0000」）。
           </div>
         )}
-
-        {/* Query button */}
-        <button
-          type="button"
-          onClick={handleQuery}
-          disabled={!canQuery || querying}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-accent text-white text-sm font-medium hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {querying ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-          {querying ? '查詢中…' : '自動查詢台北市使用分區'}
-        </button>
 
         {/* Result display */}
         {result && (
@@ -167,6 +226,7 @@ function ZoningEditForm({
   transcriptUseZone,
   landNumber,
   districtHint,
+  otherLandParcels = [],
 }: {
   propertyId: string;
   propertyType: 'sale' | 'rental';
@@ -174,6 +234,7 @@ function ZoningEditForm({
   transcriptUseZone: string;
   landNumber: string;
   districtHint: string;
+  otherLandParcels?: { label: string; value: string }[];
 }) {
   const [form, setForm] = useState<ZoningEnvData>({
     landUseZone: initial?.landUseZone || transcriptUseZone || '',
@@ -202,8 +263,8 @@ function ZoningEditForm({
   }, [setField]);
 
   // Determine if Taipei auto-query is available
-  const isTaipei = districtHint !== '' || landNumber !== '';
-  const hasLandNumber = landNumber !== '';
+  const isTaipei = districtHint !== '' || landNumber !== '' || otherLandParcels.length > 0;
+  const hasLandNumber = landNumber !== '' || otherLandParcels.length > 0;
 
   return (
     <>
@@ -213,6 +274,7 @@ function ZoningEditForm({
           landNumber={landNumber}
           districtHint={districtHint}
           onResult={handleAutoQueryResult}
+          otherLandParcels={otherLandParcels}
         />
       )}
 
@@ -271,22 +333,64 @@ interface ZoningUsageTabProps {
 
 export function ZoningUsageTab({ property }: ZoningUsageTabProps) {
   const landDesc = property.landTranscript?.description;
-  const useZone = landDesc?.useZone ?? '';
-  const landNumber = landDesc?.landNumber ?? '';
+  const landTitle = property.landTranscript?.header?.documentTitle || '';
+  const transcriptUseZone = landDesc?.useZone ?? '';
+  const transcriptLandNumber = landDesc?.landNumber ?? '';
   const districtHint = property.addressDistrict ?? '';
 
-  // Fetch environment conditions for the editable form
+  const defaultSearchValue = useMemo(() => {
+    if (landTitle) return landTitle;
+    if (districtHint && transcriptLandNumber) return `${districtHint} ${transcriptLandNumber}`;
+    return transcriptLandNumber;
+  }, [landTitle, districtHint, transcriptLandNumber]);
+
   const [envData, setEnvData] = useState<ZoningEnvData | null>(null);
   const [envLoading, setEnvLoading] = useState(true);
+  const [otherLandParcels, setOtherLandParcels] = useState<{ label: string; value: string }[]>([]);
 
   useEffect(() => {
     let cancelled = false;
+
     getPropertyZoningEnv(property.id, property.type).then((data) => {
       if (!cancelled) {
         setEnvData(data);
         setEnvLoading(false);
       }
     });
+
+    getPropertyDocuments(property.id).then(async (docs) => {
+      if (cancelled) return;
+
+      const landDocs = docs.filter(d =>
+        d.documentType === 'land_registry_transcript' ||
+        d.documentType === 'parking_land_registry_transcript'
+      );
+
+      const parcels: { label: string; value: string }[] = [];
+
+      for (const doc of landDocs) {
+        const res = await getDocumentParseResult(doc.id);
+        if (res?.parsedResult?.landTranscript) {
+          const lt = res.parsedResult.landTranscript;
+          const title = lt.header?.documentTitle;
+          const num = lt.description?.landNumber;
+          if (title) {
+            parcels.push({ label: title, value: title });
+          } else if (num) {
+            parcels.push({ label: `${doc.documentName}: ${num}`, value: num });
+          }
+        }
+      }
+
+      if (!cancelled) {
+        // Filter out duplicates and the main one if it's already in the list
+        const uniqueParcels = parcels.filter((p, index, self) =>
+          index === self.findIndex((t) => t.value === p.value)
+        );
+        setOtherLandParcels(uniqueParcels);
+      }
+    });
+
     return () => { cancelled = true; };
   }, [property.id, property.type]);
 
@@ -311,9 +415,10 @@ export function ZoningUsageTab({ property }: ZoningUsageTabProps) {
           propertyId={property.id}
           propertyType={property.type}
           initial={envData}
-          transcriptUseZone={useZone}
-          landNumber={landNumber}
+          transcriptUseZone={transcriptUseZone}
+          landNumber={defaultSearchValue}
           districtHint={districtHint}
+          otherLandParcels={otherLandParcels}
         />
       )}
 

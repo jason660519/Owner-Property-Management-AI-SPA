@@ -425,6 +425,7 @@ export interface PropertyDocumentItem {
   documentName: string;
   filePath: string;
   url: string;
+  createdAt?: string;
   /** 多建號分筆：如 mbi:1、mbi:2 */
   tags?: string[] | null;
 }

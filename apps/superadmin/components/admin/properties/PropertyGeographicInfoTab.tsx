@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { ExternalLink, MapPin, Download, Loader2, Map as MapIcon, Trash2 } from 'lucide-react';
 import { formatStructuredAddress, type PropertyItem } from '@/lib/types/properties';
 import { fetchCadastralMap, deleteCadastralMap, type FetchResult } from '@/lib/actions/cadastral-maps';
+import { getPropertyDocuments } from '@/lib/actions/properties';
 import {
   GIS_SOURCE_LABELS,
   GIS_SOURCE_URLS,
@@ -70,6 +71,41 @@ export function PropertyGeographicInfoTab({ property }: { property: PropertyItem
   const [fetchState, setFetchState] = useState<FetchState>(INITIAL_STATE);
   /** Prevents double-submit (e.g. rapid clicks) before React state catches up */
   const fetchInFlightRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setFetchState((prev) => ({ ...prev, fetchingLayer: null, error: null }));
+
+    getPropertyDocuments(property.id).then((docs) => {
+      if (cancelled) return;
+      const results: MapResult[] = docs
+        .filter((d) => d.documentType === 'cadastral_map')
+        .map((d) => {
+          const layersTag = (d.tags ?? []).find((t) => t.startsWith('gis:'))?.split(':')[1] as MapLayerPreset | undefined;
+          const sourceTag = (d.tags ?? []).find((t) => t.startsWith('source:'))?.split(':')[1] as GisSource | undefined;
+          const sourceFinal = sourceTag ?? 'historygis';
+
+          return {
+            url: d.url,
+            storagePath: d.filePath,
+            documentId: d.id,
+            source: sourceFinal,
+            sourceUrl: GIS_SOURCE_URLS[sourceFinal],
+            fetchedAt: d.createdAt ?? new Date().toISOString(),
+            label: LAYER_LABELS[layersTag ?? 'cadastral'],
+          };
+        });
+
+      setFetchState((prev) => ({
+        ...prev,
+        results,
+      }));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [property.id]);
 
   const hasAddress = !!(property.addressDistrict && property.addressStreet && property.addressNumber);
   const canFetch = hasCoords || hasAddress;

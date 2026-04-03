@@ -1111,7 +1111,7 @@ export async function getPropertyDocuments(
   const adminClient = createAdminClient();
   const { data: rows, error } = await adminClient
     .from('property_documents')
-    .select('id, document_type, document_name, file_path, tags')
+    .select('id, document_type, document_name, file_path, tags, created_at')
     .eq('property_id', propertyId)
     .eq('is_active', true)
     .order('created_at', { ascending: false });
@@ -1125,6 +1125,7 @@ export async function getPropertyDocuments(
     documentName: r.document_name,
     filePath: r.file_path,
     tags: (r.tags as string[] | null) ?? null,
+    createdAt: r.created_at,
     url: `/api/documents/${r.id}/view`,
   }));
 }

@@ -22,15 +22,14 @@ export function parseLandNumber(raw: string): ParsedLandNumber | null {
 
   const cleaned = raw.replace(/\s+/g, ' ').trim();
 
-  // Match: [optional district]section[subsection] number
   const m = cleaned.match(
-    /^(?:([^\s]+?區))?(.+?段)(?:(一|二|三|四|五|六|七|八|九|十)?小段)?\s+第?(\d+)(?:-(\d+))?(?:地號|建號)?$/
+    /^(?:([^\s]+?區)\s*)?(.+?段)(?:\s*(一|二|三|四|五|六|七|八|九|十)?小段)?\s*第?\s*(\d+)(?:-(\d+))?(?:\s*(?:地號|建號))?$/
   );
   if (!m) return null;
 
   return {
-    district: m[1] || '',
-    section: m[2],               // e.g. "仁愛段"
+    district: (m[1] || '').trim(),
+    section: m[2].trim(),               // e.g. "仁愛段"
     subsection: m[3] ? `${m[3]}小段` : '',  // e.g. "二小段" or ""
     motherNo: m[4],              // e.g. "0367"
     childNo: m[5] || '0000',    // e.g. "0000"
