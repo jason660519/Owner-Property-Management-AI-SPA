@@ -15,6 +15,7 @@ import { ContractDraftPreviewSection } from './ContractDraftPreviewSection';
 import { TranscriptTabContent } from './TranscriptTabContent';
 import { BuildingLandAreaDetailTab } from './BuildingLandAreaDetailTab';
 import { ZoningUsageTab } from './ZoningUsageTab';
+import { PropertyGeographicInfoTab } from './PropertyGeographicInfoTab';
 import {
   PROPERTY_STATUSES,
   PROPERTY_TYPES,
@@ -56,13 +57,16 @@ type TabId =
   | 'edit'
   | 'photos'
   | 'floor_plan'
+  | 'building_measurement_survey'
   | 'introduction'
   | 'advertisement_creators'
   | 'transcript'
   | 'building_land_area_detail'
   | 'zoning_usage'
+  | 'geographic_info'
   | 'title'
   | 'map_location'
+  | 'transaction_comparables'
   | 'contract'
   | 'investigation';
 
@@ -70,13 +74,16 @@ const TAB_LABELS: Record<TabId, string> = {
   transcript: '謄本',
   building_land_area_detail: '建物土地面積明細表',
   zoning_usage: '使用分區',
+  geographic_info: '地理資訊',
   title: '權狀',
   edit: '物件基本資訊',
   map_location: 'Google 地圖定位',
   photos: '物件照片',
-  floor_plan: '物件格局圖',
+  floor_plan: '格局圖',
+  building_measurement_survey: '建物測量成果圖',
   introduction: '物件介紹',
   advertisement_creators: '網頁廣告',
+  transaction_comparables: '成交行情表',
   contract: '各類合約書套版',
   investigation: '物件調查報告書',
 };
@@ -87,12 +94,15 @@ const ALL_TABS: TabId[] = [
   'transcript',
   'building_land_area_detail',
   'zoning_usage',
+  'geographic_info',
   'title',
   'map_location',
   'photos',
   'floor_plan',
-  'investigation',
+  'building_measurement_survey',
+  'transaction_comparables',
   'contract',
+  'investigation',
   'advertisement_creators',
 ];
 
@@ -389,15 +399,23 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
           )}
 
           {activeTab === 'building_land_area_detail' && (
-            <BuildingLandAreaDetailTab property={property} />
+            <BuildingLandAreaDetailTab property={property} propertyId={property.id} propertyType={property.type} />
           )}
 
           {activeTab === 'zoning_usage' && (
             <ZoningUsageTab property={property} />
           )}
 
+          {activeTab === 'geographic_info' && (
+            <PropertyGeographicInfoTab property={property} />
+          )}
+
           {activeTab !== 'transcript' &&
-            (activeTab === 'photos' || activeTab === 'title' || activeTab === 'floor_plan') && (
+            (activeTab === 'photos' ||
+              activeTab === 'title' ||
+              activeTab === 'floor_plan' ||
+              activeTab === 'building_measurement_survey' ||
+              activeTab === 'transaction_comparables') && (
             <PropertyMediaSection
               propertyId={property.id}
               propertyType={property.type}

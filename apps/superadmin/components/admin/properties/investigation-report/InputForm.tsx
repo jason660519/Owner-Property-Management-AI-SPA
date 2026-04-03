@@ -147,7 +147,7 @@ export function InputForm({ report, onChange, photos = [] }: Props) {
       {/* ── 2. 建物資訊 ── */}
       <Section title="二、建物資訊">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Field label="建物名稱" span={2}>
+          <Field label="社區/大樓名稱" span={2}>
             <input className={inputCls} value={report.buildingName} onChange={(e) => set('buildingName', e.target.value)} placeholder="如：都會名園" />
           </Field>
           <Field label="主要用途">

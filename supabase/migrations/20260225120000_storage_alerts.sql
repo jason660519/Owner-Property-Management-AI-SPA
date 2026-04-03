@@ -22,10 +22,10 @@ CREATE POLICY "super_admin_manage_storage_alerts"
   USING (
     EXISTS (
       SELECT 1
-      FROM iam_user_group_memberships m
+      FROM iam_group_members m
       JOIN iam_groups g ON g.id = m.group_id
       WHERE m.user_id = auth.uid()
-        AND g.name = 'super_admins'
+        AND g.name = 'Administrators'
     )
   );
 

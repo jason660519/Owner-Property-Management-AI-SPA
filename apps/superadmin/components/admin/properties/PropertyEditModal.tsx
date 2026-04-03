@@ -58,11 +58,13 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
     | 'edit'
     | 'photos'
     | 'floor_plan'
+    | 'building_measurement_survey'
     | 'introduction'
     | 'blog'
     | 'transcript'
     | 'building_land_area_detail'
     | 'title'
+    | 'transaction_comparables'
     | 'contract'
     | 'investigation'
   >('edit');
@@ -198,11 +200,13 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
               'edit',
               'photos',
               'floor_plan',
+              'building_measurement_survey',
               'introduction',
               'blog',
               'transcript',
               'building_land_area_detail',
               'title',
+              'transaction_comparables',
               'contract',
               'investigation',
             ] as const
@@ -210,12 +214,14 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
             const labels: Record<typeof tab, string> = {
               edit: '物件基本資訊',
               photos: '物件照片',
-              floor_plan: '物件格局圖',
+              floor_plan: '格局圖',
+              building_measurement_survey: '建物測量成果圖',
               introduction: '物件介紹',
               blog: '部落格',
               transcript: '謄本',
               building_land_area_detail: '建物土地面積明細表',
               title: '權狀',
+              transaction_comparables: '成交行情表',
               contract: '預覽合約',
               investigation: '物件調查報告書',
             };
@@ -255,7 +261,9 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
           {(activeTab === 'photos' ||
             activeTab === 'transcript' ||
             activeTab === 'title' ||
-            activeTab === 'floor_plan') && (
+            activeTab === 'floor_plan' ||
+            activeTab === 'building_measurement_survey' ||
+            activeTab === 'transaction_comparables') && (
             <PropertyMediaSection
               propertyId={property.id}
               propertyType={property.type}
@@ -265,7 +273,7 @@ export function PropertyEditModal({ property, onClose, onSaved }: PropertyEditMo
           )}
 
           {activeTab === 'building_land_area_detail' && (
-            <BuildingLandAreaDetailTab property={property} />
+            <BuildingLandAreaDetailTab property={property} propertyId={property.id} propertyType={property.type} />
           )}
 
           {activeTab === 'contract' && (

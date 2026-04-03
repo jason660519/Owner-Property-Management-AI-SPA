@@ -170,7 +170,7 @@ describe('PropertyBlogGenerator', () => {
     expect(screen.getByRole('checkbox', { name: '建物與土地面積明細表' })).not.toBeDisabled();
     expect(screen.getByRole('checkbox', { name: '權狀連結' })).not.toBeDisabled();
     expect(screen.getByRole('checkbox', { name: '地段與生活機能' })).toBeDisabled();
-    expect(screen.getByRole('checkbox', { name: '物件格局圖' })).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: '格局圖' })).toBeDisabled();
 
     await waitFor(() => {
       expect(mockGetPropertyBlogVariants).toHaveBeenCalledWith('property-1', 'local', undefined);
@@ -206,7 +206,7 @@ describe('PropertyBlogGenerator', () => {
     expect(screen.getByRole('checkbox', { name: '建物與土地面積明細表' })).toBeDisabled();
     expect(screen.getByRole('checkbox', { name: '權狀連結' })).toBeDisabled();
     expect(screen.getByRole('checkbox', { name: '地段與生活機能' })).not.toBeDisabled();
-    expect(screen.getByRole('checkbox', { name: '物件格局圖' })).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: '格局圖' })).toBeDisabled();
 
     await waitFor(() => {
       expect(mockGetPropertyBlogVariants).toHaveBeenCalledWith('property-1', 'local', undefined);

@@ -14,11 +14,17 @@ import {
   Wand2,
   CheckCircle,
 } from 'lucide-react';
-import type { PropertyItem, PropertyPhotoItem } from '@/lib/types/properties';
+import type { PropertyDocumentItem, PropertyItem, PropertyPhotoItem } from '@/lib/types/properties';
 import type { InvestigationReport, LandParcel } from './investigation-report/types';
-import { createEmptyReport, EMPTY_LAND_PARCEL } from './investigation-report/types';
+import {
+  createEmptyReport,
+  EMPTY_LAND_PARCEL,
+  normalizeConditionStatement,
+} from './investigation-report/types';
 import { InputForm } from './investigation-report/InputForm';
 import { NotesSelector } from './investigation-report/NotesSelector';
+import { AttachmentPicker } from './investigation-report/AttachmentPicker';
+import { ConditionStatementForm } from './investigation-report/ConditionStatementForm';
 import { ReportPreview } from './investigation-report/ReportPreview';
 import {
   loadInvestigationReport,
@@ -27,13 +33,24 @@ import {
   loadInvestigationVersion,
   type InvestigationReportVersion,
 } from '@/lib/actions/investigationReport';
-import { getPropertyPhotos } from '@/lib/actions/properties';
+import { getPropertyDocuments, getPropertyPhotos } from '@/lib/actions/properties';
 import type {
   BuildingTranscriptData,
   LandTranscriptData,
 } from '@/lib/types/properties';
 
-type SubTab = 'input' | 'notes' | 'preview';
+type SubTab = 'condition' | 'input' | 'notes' | 'attachments' | 'preview';
+
+/** 舊版 JSON 可能缺少附件／屋況欄位 */
+function normalizeReportPayload(r: InvestigationReport): InvestigationReport {
+  return {
+    ...r,
+    reportAttachments: Array.isArray(r.reportAttachments) ? r.reportAttachments : [],
+    reportAttachmentSupplement:
+      typeof r.reportAttachmentSupplement === 'string' ? r.reportAttachmentSupplement : '',
+    conditionStatement: normalizeConditionStatement(r.conditionStatement),
+  };
+}
 
 interface Props {
   propertyId: string;
@@ -300,6 +317,7 @@ export function PropertyInvestigationReportSection({ propertyId, property }: Pro
   const [showHistory, setShowHistory] = useState(false);
   const [isLoadingVersion, setIsLoadingVersion] = useState(false);
   const [photos, setPhotos] = useState<PropertyPhotoItem[]>([]);
+  const [documents, setDocuments] = useState<PropertyDocumentItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const propertyType: 'sales' | 'rentals' = property?.type === 'sale' ? 'sales' : 'rentals';
@@ -314,14 +332,14 @@ export function PropertyInvestigationReportSection({ propertyId, property }: Pro
         if (cancelled) return;
 
         if (dbData) {
-          setReport(dbData);
+          setReport(normalizeReportPayload(dbData));
         } else {
           // Try localStorage fallback
           try {
             const stored = localStorage.getItem(storageKey);
             if (stored) {
               const parsed = JSON.parse(stored) as InvestigationReport;
-              setReport(parsed);
+              setReport(normalizeReportPayload(parsed));
             } else if (property) {
               const prefill = prefillFromProperty(property);
               setReport((prev) => ({ ...prev, ...prefill }));
@@ -345,10 +363,16 @@ export function PropertyInvestigationReportSection({ propertyId, property }: Pro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [propertyId]);
 
-  // Load photos for floor plan picker
+  // Load photos for floor plan picker + 附件勾選
   useEffect(() => {
     getPropertyPhotos(propertyId)
       .then(setPhotos)
+      .catch(() => {});
+  }, [propertyId]);
+
+  useEffect(() => {
+    getPropertyDocuments(propertyId)
+      .then(setDocuments)
       .catch(() => {});
   }, [propertyId]);
 
@@ -394,7 +418,7 @@ export function PropertyInvestigationReportSection({ propertyId, property }: Pro
       if (error || !data) {
         showFeedback('error', '載入版本失敗');
       } else {
-        setReport(data);
+        setReport(normalizeReportPayload(data));
         showFeedback('success', '已載入指定版本');
         setShowHistory(false);
       }
@@ -437,7 +461,7 @@ export function PropertyInvestigationReportSection({ propertyId, property }: Pro
     reader.onload = () => {
       try {
         const parsed = JSON.parse(String(reader.result ?? '')) as InvestigationReport;
-        setReport(parsed);
+        setReport(normalizeReportPayload(parsed));
         try { localStorage.setItem(storageKey, JSON.stringify(parsed)); } catch { /* ignore */ }
         showFeedback('success', '已從本地報告載入內容');
       } catch {
@@ -462,8 +486,10 @@ export function PropertyInvestigationReportSection({ propertyId, property }: Pro
     completionPct >= 80 ? 'text-green-500' : completionPct >= 50 ? 'text-amber-500' : 'text-red-500';
 
   const SUB_TABS: { key: SubTab; label: string }[] = [
+    { key: 'condition', label: '屋況說明書' },
     { key: 'input', label: '資料輸入' },
     { key: 'notes', label: '注意事項' },
+    { key: 'attachments', label: '選取附件' },
     { key: 'preview', label: '預覽列印' },
   ];
 
@@ -600,11 +626,22 @@ export function PropertyInvestigationReportSection({ propertyId, property }: Pro
       )}
 
       {/* Tab content */}
+      {subTab === 'condition' && (
+        <ConditionStatementForm report={report} onChange={setReport} />
+      )}
       {subTab === 'input' && (
         <InputForm report={report} onChange={setReport} photos={photos} />
       )}
       {subTab === 'notes' && (
         <NotesSelector report={report} onChange={setReport} property={property} />
+      )}
+      {subTab === 'attachments' && (
+        <AttachmentPicker
+          report={report}
+          onChange={setReport}
+          documents={documents}
+          photos={photos}
+        />
       )}
       {subTab === 'preview' && (
         <ReportPreview report={report} property={property} />

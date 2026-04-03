@@ -42,7 +42,7 @@ export const ADVERTISEMENT_SECTION_CONFIGS: AdvertisementSectionConfig[] = [
   },
   {
     id: 'floor-plan',
-    title: '物件格局圖',
+    title: '格局圖',
     description: '在廣告頁中附上格局圖，讓買方或租客更快理解空間配置。',
     fixTargetLabel: '前往格局圖頁籤',
   },

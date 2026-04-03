@@ -2,11 +2,12 @@
 // 物件調查報告書 — 預覽 + 列印 (忠實還原住商 Excel 格式)
 'use client';
 
-import { useRef, useCallback } from 'react';
+import { useCallback } from 'react';
 import { Printer, MapPin } from 'lucide-react';
 import type { InvestigationReport } from './types';
-import { sqmToPing, calcShareArea, calcBuildingTotal } from './types';
+import { sqmToPing, calcShareArea, calcBuildingTotal, hasConditionStatementContent } from './types';
 import { PREDEFINED_NOTES, STANDARD_CLAUSES } from './constants';
+import { CONDITION_STATEMENT_META } from './condition-statement-meta';
 import type { PropertyItem } from '@/lib/types/properties';
 
 interface Props {
@@ -18,6 +19,14 @@ const fullAddress = (r: InvestigationReport) =>
   [r.region, r.addressStreet, r.addressNumber].filter(Boolean).join(' ');
 
 const tLabel = (r: InvestigationReport) => (r.transactionType === 'sale' ? '售' : '租');
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 // ── Print CSS ──────────────────────────────────────────────────────────────
 const PRINT_CSS = `
@@ -161,7 +170,7 @@ function buildHtml(report: InvestigationReport, property?: PropertyItem): string
       <!-- Left: Building info | Right: Areas, Land, Parking -->
       <td colspan="3" style="vertical-align:top; padding:0;">
         <table style="width:100%; border:none;">
-          <tr><td class="lbl" style="border-top:none;border-left:none;">建物名稱</td><td class="vw" style="border-top:none;border-right:none;">${report.buildingName || '—'}</td></tr>
+          <tr><td class="lbl" style="border-top:none;border-left:none;">社區/大樓名稱</td><td class="vw" style="border-top:none;border-right:none;">${report.buildingName || '—'}</td></tr>
           <tr><td class="lbl" style="border-left:none;">建築完成日</td><td class="vw" style="border-right:none;">${report.completionDate || '—'}&nbsp;&nbsp;屋齡:&nbsp;${report.buildingAge || '—'}年</td></tr>
           <tr><td class="lbl" style="border-left:none;">樓層</td><td class="vw" style="border-right:none;">${report.floorInfo || '—'}</td></tr>
           <tr><td class="lbl" style="border-left:none;">格局</td><td class="vw" style="border-right:none;">${report.layout || '—'}</td></tr>
@@ -223,6 +232,32 @@ function buildHtml(report: InvestigationReport, property?: PropertyItem): string
     </tr>
   </tbody>
 </table>`;
+
+  // ── 屋況說明書（至少填一欄才輸出此頁） ──
+  const cs = report.conditionStatement;
+  const hasCond = hasConditionStatementContent(cs);
+  const conditionPrintRows: [string, string][] = CONDITION_STATEMENT_META.map((row) => [
+    row.title,
+    cs[row.key],
+  ]);
+  const conditionPage = !hasCond
+    ? ''
+    : `
+<div class="page-break"></div>
+<h2 style="font-size:16px;text-align:center;letter-spacing:3px;margin-bottom:4px;">屋況說明書</h2>
+<p style="font-size:8.5px;color:#666;text-align:center;margin:0 0 14px;">${escapeHtml(addr)}　·　案名：${escapeHtml(report.caseName || '—')}</p>
+<table>
+${conditionPrintRows
+  .map(
+    ([title, val]) =>
+      `<tr><td class="lbl" style="width:30%;vertical-align:top;">${escapeHtml(title)}</td><td class="vw" style="white-space:pre-wrap;">${
+        val.trim() ? escapeHtml(val.trim()) : '—'
+      }</td></tr>`,
+  )
+  .join('')}
+</table>
+<p style="font-size:8px;color:#666;margin-top:12px;line-height:1.5;">※ 本說明係依賣方／屋主揭露及現場看屋情形填寫，買方仍應自行詳查；欄位為「—」不代表無該等情事。</p>
+`;
 
   // ── Page 3: 不動產說明書（簽名頁 + 附件清單） ──
   // hasTranscript: list-page flag takes priority; fall back to structured transcript data
@@ -481,18 +516,43 @@ ${selectedClauses.length > 0 ? `<ol>${page8Clauses}</ol>` : ''}
 ${page8Notes}
 ${customNoteHtml}`;
 
+  const atts = report.reportAttachments ?? [];
+  const supp = report.reportAttachmentSupplement?.trim() ?? '';
+  const page9 =
+    atts.length === 0 && !supp
+      ? ''
+      : `
+<div class="page-break"></div>
+<h3>報告附加參考</h3>
+<p style="font-size:8.5px;color:#666;margin:4px 0 8px;">以下為製作單位於本報告勾選之參考文件或照片名稱；實體檔案請依物件檔案庫為準。</p>
+${
+  atts.length > 0
+    ? `<ol class="note-text" style="margin:6px 0 0 16px;">${atts
+        .map(
+          (a) =>
+            `<li style="margin-bottom:4px;">${escapeHtml(a.label)} <span style="color:#666;font-size:8.5px;">（${
+              a.kind === 'document' ? '文件' : '照片'
+            }）</span></li>`,
+        )
+        .join('')}</ol>`
+    : ''
+}
+${supp ? `<p class="note-text" style="margin-top:12px;white-space:pre-wrap;">${escapeHtml(supp)}</p>` : ''}`;
+
   return `<!DOCTYPE html><html><head><meta charset="utf-8"/>
 <title>物件調查報告書 - ${report.caseName || '未命名'}</title>
 <style>${PRINT_CSS}</style>
 </head><body>
 ${page1}
 ${page2}
+${conditionPage}
 ${page3}
 ${page4}
 ${page5}
 ${page6}
 ${page7}
 ${page8}
+${page9}
 </body></html>`;
 }
 
@@ -578,7 +638,7 @@ export function ReportPreview({ report, property }: Props) {
             {/* Left: Building info */}
             <div className="border-r border-border-default divide-y divide-border-default">
               {[
-                ['建物名稱', report.buildingName],
+                ['社區/大樓名稱', report.buildingName],
                 ['建築完成日', report.completionDate ? `${report.completionDate}  屋齡: ${report.buildingAge}年` : '—'],
                 ['樓　　層', report.floorInfo],
                 ['格　　局', report.layout],
@@ -712,6 +772,33 @@ export function ReportPreview({ report, property }: Props) {
           </div>
         </div>
 
+        {/* ── 屋況說明書 ── */}
+        {hasConditionStatementContent(report.conditionStatement) && (
+          <div className="p-4 border-t border-border-default">
+            <p className="text-[10px] font-bold text-text-secondary mb-1">屋況說明書</p>
+            <p className="text-[10px] text-text-muted mb-3">
+              {addr || '—'}　·　案名：{report.caseName || '—'}
+            </p>
+            <div className="space-y-0 border border-border-default rounded-md divide-y divide-border-default overflow-hidden">
+              {CONDITION_STATEMENT_META.map((row) => {
+                const val = report.conditionStatement[row.key]?.trim();
+                return (
+                  <div
+                    key={row.key}
+                    className="px-2 py-1.5 grid grid-cols-1 sm:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] gap-1.5 text-[10px]"
+                  >
+                    <span className="text-text-muted font-medium">{row.title}</span>
+                    <span className="text-text-primary whitespace-pre-wrap">{val || '—'}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-[9px] text-text-muted mt-2 leading-relaxed">
+              ※ 依賣方揭露及看屋情形填寫；「—」不代表無該等情事。
+            </p>
+          </div>
+        )}
+
         {/* ── 注意事項 ── */}
         {(selectedClauseTexts.length > 0 || selectedNoteTexts.length > 0 || report.customNote) && (
           <div className="p-4">
@@ -727,6 +814,32 @@ export function ReportPreview({ report, property }: Props) {
                 <li className="text-[10px] leading-relaxed">＊ {report.customNote}</li>
               )}
             </ul>
+          </div>
+        )}
+
+        {(report.reportAttachments.length > 0 || report.reportAttachmentSupplement.trim()) && (
+          <div className="p-4 border-t border-border-default">
+            <p className="text-[10px] font-bold text-text-secondary mb-2">報告附加參考</p>
+            <p className="text-[10px] text-text-muted mb-2">
+              已勾選之文件／照片將列印於報告末頁；檔案本體請於物件後台開啟。
+            </p>
+            {report.reportAttachments.length > 0 && (
+              <ol className="list-decimal list-inside space-y-1 mb-3">
+                {report.reportAttachments.map((a) => (
+                  <li key={`${a.kind}-${a.id}`} className="text-[10px] text-text-primary">
+                    {a.label}
+                    <span className="text-text-muted ml-1">
+                      （{a.kind === 'document' ? '文件' : '照片'}）
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
+            {report.reportAttachmentSupplement.trim() && (
+              <p className="text-[10px] text-text-secondary whitespace-pre-wrap border border-border-default rounded-md p-2 bg-bg-secondary">
+                {report.reportAttachmentSupplement}
+              </p>
+            )}
           </div>
         )}
       </div>

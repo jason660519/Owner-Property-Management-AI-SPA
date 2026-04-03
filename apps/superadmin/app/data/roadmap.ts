@@ -1728,14 +1728,14 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "超級管理員-物件管理（新增物件含媒體上傳）",
     locatedPage: "superadmin/properties",
     category: "超級管理員 (Super Admin)",
-    percentage: 90,
+    percentage: 93,
     phase: "development",
-    lastModifiedBy: "Claude Sonnet 4.6",
-    lastModifiedDate: "2026/03/02",
+    lastModifiedBy: "GitHub Copilot GPT-5.4",
+    lastModifiedDate: "2026/04/03",
     devLog:
-      "### 完成項目\n- getOwnersList() / createProperty() server actions（lib/actions/properties.ts）\n- CreatePropertyInput / OwnerOption 型別（lib/types/properties.ts）\n- PropertyCreateModal.tsx：含完整 6 頁籤（物件基本資訊 / 物件照片 / 謄本 / 權狀 / 合約 / 部落格）；兩段式建立流程：第一次儲存建立物件取得 ID，後續 tabs 接入 PropertyMediaSection；物件類型與所有權人建立後鎖定\n- PropertiesList.tsx：新增物件按鈕接入 PropertyCreateModal，onCreated 觸發 router.refresh()\n- properties/page.tsx：並行 fetch getAllProperties() + getOwnersList() 後傳入 PropertiesList",
+      "### 完成項目\n- getOwnersList() / createProperty() server actions（lib/actions/properties.ts）\n- CreatePropertyInput / OwnerOption 型別（lib/types/properties.ts）\n- PropertyCreateModal.tsx：含完整 6 頁籤（物件基本資訊 / 物件照片 / 謄本 / 權狀 / 合約 / 部落格）；兩段式建立流程：第一次儲存建立物件取得 ID，後續 tabs 接入 PropertyMediaSection；物件類型與所有權人建立後鎖定\n- PropertiesList.tsx：新增物件按鈕接入 PropertyCreateModal，onCreated 觸發 router.refresh()\n- properties/page.tsx：並行 fetch getAllProperties() + getOwnersList() 後傳入 PropertiesList\n### 2026-04-02 新增\n- PropertyMediaSection：floor_plan 頁籤新增已上傳格局圖 inline 預覽卡片，圖片直接顯示、PDF 以內嵌預覽呈現，避免使用者只能看檔名與外部連結\n- floor_plan 上傳區新增待上傳預覽，選檔後即可先確認檔案內容，再決定是否送出\n- 新增 PropertyMediaSection.test.tsx，覆蓋既有格局圖預覽與上傳後刷新預覽兩個情境，並以 Jest `--runTestsByPath` 驗證通過\n### 2026-04-03 新增\n- PropertyEditForm：在「使用分區」右側新增「地理資訊」分頁（PropertyGeographicInfoTab），顯示結構化地址、WGS84 座標與 Google Maps / OpenStreetMap 外部連結；雙圖資來源（歷史圖資展示系統 / 地理資訊e點通）各支援地籍圖、建物套繪圖、合併擷取，結果 signed URL 預覽並寫入 property_documents\n### 2026-04-03 補強（TDD / 穩定性）\n- 有 WGS84 時僅傳座標至 fetchCadastralMap（不再併傳門牌，避免混淆）；擷取結果列表 key 改為 storagePath；刪除改以 documentId + storagePath 辨識；ArcGIS job 輪詢第一次立即查狀態；物件編輯頁 export maxDuration=120s；新增 buildOperationalLayers / fetchCadastralMap 來源矩陣與 PropertyGeographicInfoTab 互動測試（Jest 22 例）\n### 2026-04-03 實價成交三報表（近一年）\n- lib/utils/real-price-comparables.ts：六都方圓 1km／其他縣市 2km、同街段（路街或謄本地段）、同里；Haversine 與近一年篩選\n- LVR_COMPARABLES_JSON_PATH：伺服器讀取正規化 JSON 陣列作為成交來源（未設定則表格為空仍產出 PDF）\n- lib/actions/transaction-comparables.ts：generateTransactionComparableDocuments 產出三份 PDF 寫入 property_documents（tags comparable:auto + comparable:kind:*），重產時取代同類舊檔\n- PropertyMediaSection 成交行情表：一鍵產出三份；新增 document_type transaction_comparables_nearby / _street_section / _village\n- PropertyGeographicInfoTab：村里欄位寫入 details.addressVillage；updateProperty / getPropertyById / getAllProperties 串接\n- real-price-comparable-pdf.ts（pdf-lib + Noto Sans TC woff2）、單元測試 real-price-comparables.test.ts",
     developmentProgress:
-      "物件列表與編輯功能（含 PropertyEditModal + PropertyMediaSection）已完成；本次新增物件建立功能，6-tab create modal 完成。待補強：表單欄位前端 validation、建立後自動跳至媒體頁籤。",
+      "物件列表與編輯功能（含 PropertyEditModal + PropertyMediaSection）已完成；本次已補強格局圖頁籤的上傳前/上傳後預覽，並新增最新上傳成功標記，降低媒體上傳誤判。待補強：表單欄位前端 validation、建立後自動跳至媒體頁籤。",
   },
   {
     name: "雲端 OCR 多模型共識謄本解析",
@@ -1875,7 +1875,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     percentage: 90,
     workCategory: "功能強化",
     featureDescription:
-      "對標住商不動產 Excel 物件調查報告書，全面升級 web 版本。Phase1：資料改存 Supabase DB（property_investigation_reports 表）+ 謄本自動填入（建號/建材/完工日/面積/土地/他項限制）+ 列印版面還原成 Excel 兩欄表格。Phase2：完整度指示器（X/N 欄位）+ 附件清單連動已上傳謄本/權狀 + 匯出改版（JSON 下載 + 列印 PDF）+ 版本歷史面板。Phase3：格局圖從已上傳照片選取嵌入報告 + 位置圖顯示地址/座標。新增 migration: 20260321120000_add_property_investigation_reports.sql。",
+      "對標住商不動產 Excel 物件調查報告書，全面升級 web 版本。Phase1：資料改存 Supabase DB（property_investigation_reports 表）+ 謄本自動填入（建號/建材/完工日/面積/土地/他項限制）+ 列印版面還原成 Excel 兩欄表格。Phase2：完整度指示器（X/N 欄位）+ 附件清單連動已上傳謄本/權狀 + 匯出改版（JSON 下載 + 列印 PDF）+ 版本歷史面板。Phase3：格局圖從已上傳照片選取嵌入報告 + 位置圖顯示地址/座標。Phase3+：「選取附件」子分頁可勾選物件已上傳文件與照片納入報告參考，並支援附加說明文字，列印末頁「報告附加參考」。「屋況說明書」子分頁（七項現況揭露欄位）列印於個案調查表後。新增 migration: 20260321120000_add_property_investigation_reports.sql。",
     points: 8,
     lastModifiedBy: "Claude Sonnet 4.6",
     lastModifiedDate: "2026/03/21",

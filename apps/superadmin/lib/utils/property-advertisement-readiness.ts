@@ -107,7 +107,7 @@ export function buildPropertyAdvertisementReadiness(
         return {
           ...section,
           status: available ? 'available' : 'unavailable',
-          unavailableReason: available ? undefined : '尚未上傳物件格局圖。',
+          unavailableReason: available ? undefined : '尚未上傳格局圖。',
           fixTargetLabel: available ? undefined : section.fixTargetLabel,
           defaultSelected: false,
         };

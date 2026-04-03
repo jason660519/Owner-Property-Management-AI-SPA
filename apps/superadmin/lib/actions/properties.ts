@@ -234,6 +234,8 @@ export async function getAllProperties(): Promise<PropertiesResult> {
         addressNumber: (row.address_number as string) ?? undefined,
         addressFloor: (row.address_floor as string) ?? undefined,
         addressUnit: (row.address_unit as string) ?? undefined,
+        addressVillage:
+          typeof details.addressVillage === 'string' ? details.addressVillage : undefined,
         status: row.status as string,
         price: type === 'sale' ? (row.price as number) : null,
         monthlyRent: type === 'rental' ? (row.monthly_rent as number) : null,
@@ -445,6 +447,8 @@ export async function getPropertyById(id: string): Promise<PropertyItem | null> 
     addressNumber: (row.address_number as string) ?? undefined,
     addressFloor: (row.address_floor as string) ?? undefined,
     addressUnit: (row.address_unit as string) ?? undefined,
+    addressVillage:
+      typeof details.addressVillage === 'string' ? details.addressVillage : undefined,
     status: row.status as string,
     price: type === 'sale' ? (row.price as number) : null,
     monthlyRent: type === 'rental' ? (row.monthly_rent as number) : null,
@@ -866,6 +870,7 @@ export async function createProperty(
     if (input.livingRooms != null) details.livingRooms = input.livingRooms;
     if (input.parkingSpaces != null) details.parkingSpaces = input.parkingSpaces;
     if (input.description) details.description = input.description;
+    if (input.addressVillage) details.addressVillage = input.addressVillage;
 
     const insertPayload: Record<string, unknown> = {
       owner_id: resolvedOwnerId,
@@ -1002,6 +1007,7 @@ export async function updateProperty(
     if (input.livingRooms !== undefined) updatedDetails.livingRooms = input.livingRooms;
     if (input.parkingSpaces !== undefined) updatedDetails.parkingSpaces = input.parkingSpaces;
     if (input.description !== undefined) updatedDetails.description = input.description;
+    if (input.addressVillage !== undefined) updatedDetails.addressVillage = input.addressVillage;
 
     updatePayload.details = updatedDetails;
 
@@ -1322,7 +1328,12 @@ const DOC_TYPE_NAME: Record<string, string> = {
   lease_contract: '租約',
   sales_contract: '買賣合約',
   blog: '部落格',
-  floor_plan: '物件格局圖',
+  floor_plan: '格局圖',
+  building_measurement_survey: '建物測量成果圖',
+  transaction_comparables: '成交行情表',
+  transaction_comparables_nearby: '附近成交價',
+  transaction_comparables_street_section: '同街段成交價',
+  transaction_comparables_village: '同里成交價',
 };
 
 /** 上傳物件文件（謄本／權狀／合約／部落格）；formData 需含 file (File) */
@@ -1330,7 +1341,7 @@ export async function uploadPropertyDocument(
   propertyId: string,
   propertyType: 'sale' | 'rental',
   ownerId: string,
-  documentType: 'land_registry_transcript' | 'building_registry_transcript' | 'parking_land_registry_transcript' | 'parking_building_registry_transcript' | 'building_title' | 'land_title' | 'lease_contract' | 'sales_contract' | 'blog' | 'floor_plan',
+  documentType: 'land_registry_transcript' | 'building_registry_transcript' | 'parking_land_registry_transcript' | 'parking_building_registry_transcript' | 'building_title' | 'land_title' | 'lease_contract' | 'sales_contract' | 'blog' | 'floor_plan' | 'building_measurement_survey' | 'transaction_comparables' | 'transaction_comparables_nearby' | 'transaction_comparables_street_section' | 'transaction_comparables_village',
   formData: FormData
 ): Promise<ActionResult> {
   const file = formData.get('file');
@@ -1544,28 +1555,18 @@ export async function getPropertyContractFiles(
 
 export interface ZoningEnvData {
   landUseZone: string;
-  extensionLocation: string;
   hasGroundVegetation: boolean;
   hasGroundBuilding: boolean;
-  announcedLandValue: number | null;
-  roadWidthMeters: number | null;
-  frontageMeter: number | null;
-  depthMeters: number | null;
 }
 
 const ZONING_ENV_FIELDS =
-  'land_use_zone, extension_location, has_ground_vegetation, has_ground_building, announced_land_value, road_width_meters, frontage_meters, depth_meters';
+  'land_use_zone, has_ground_vegetation, has_ground_building';
 
 function mapEnvRow(row: Record<string, unknown>): ZoningEnvData {
   return {
     landUseZone: (row.land_use_zone as string) ?? '',
-    extensionLocation: (row.extension_location as string) ?? '',
     hasGroundVegetation: (row.has_ground_vegetation as boolean) ?? false,
     hasGroundBuilding: (row.has_ground_building as boolean) ?? false,
-    announcedLandValue: row.announced_land_value != null ? Number(row.announced_land_value) : null,
-    roadWidthMeters: row.road_width_meters != null ? Number(row.road_width_meters) : null,
-    frontageMeter: row.frontage_meters != null ? Number(row.frontage_meters) : null,
-    depthMeters: row.depth_meters != null ? Number(row.depth_meters) : null,
   };
 }
 
@@ -1595,13 +1596,8 @@ export async function savePropertyZoningEnv(
 
   const payload: Record<string, unknown> = {};
   if (input.landUseZone !== undefined) payload.land_use_zone = input.landUseZone;
-  if (input.extensionLocation !== undefined) payload.extension_location = input.extensionLocation;
   if (input.hasGroundVegetation !== undefined) payload.has_ground_vegetation = input.hasGroundVegetation;
   if (input.hasGroundBuilding !== undefined) payload.has_ground_building = input.hasGroundBuilding;
-  if (input.announcedLandValue !== undefined) payload.announced_land_value = input.announcedLandValue;
-  if (input.roadWidthMeters !== undefined) payload.road_width_meters = input.roadWidthMeters;
-  if (input.frontageMeter !== undefined) payload.frontage_meters = input.frontageMeter;
-  if (input.depthMeters !== undefined) payload.depth_meters = input.depthMeters;
 
   try {
     // Check if row exists

@@ -28,10 +28,10 @@ CREATE POLICY "super_admin_read_behavior_logs"
   ON behavior_logs FOR SELECT
   USING (
     EXISTS (
-      SELECT 1 FROM iam_user_group_memberships m
+      SELECT 1 FROM iam_group_members m
       JOIN iam_groups g ON g.id = m.group_id
       WHERE m.user_id = auth.uid()
-        AND g.name = 'super_admins'
+        AND g.name = 'Administrators'
     )
   );
 

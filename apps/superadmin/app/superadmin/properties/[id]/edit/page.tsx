@@ -7,6 +7,9 @@ import { DashboardLayout } from '@/components/dashboard';
 
 export const dynamic = 'force-dynamic';
 
+/** Server Actions (e.g. GIS map export polling ArcGIS) may exceed default limits on slow days */
+export const maxDuration = 120;
+
 const BASE = '/superadmin';
 
 interface PropertyEditPageProps {

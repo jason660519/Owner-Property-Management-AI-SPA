@@ -114,11 +114,72 @@ export interface InvestigationReport {
   selectedNotes: string[];
   customNote: string;
 
+  /** 報告書附加參考：從物件已上傳文件／照片中勾選 */
+  reportAttachments: ReportAttachmentSelection[];
+  /** 附加說明（純文字，列印於報告末頁） */
+  reportAttachmentSupplement: string;
+
+  /** 屋況說明書（各項現況揭露） */
+  conditionStatement: PropertyConditionStatement;
+
   // ── Phase 3: 格局圖 + 位置圖 ──
   floorPlanPhotoUrl?: string;
 }
 
+/** 調查報告勾選的附件（存於 JSON，與物件文件／照片 id 對應） */
+export interface ReportAttachmentSelection {
+  kind: 'document' | 'photo';
+  id: string;
+  label: string;
+  /** 照片為公開 URL；文件為後台檢視路徑（列印時僅顯示名稱） */
+  url: string;
+}
+
+/** 屋況說明書（物件現況揭露，供報告列印與存檔） */
+export interface PropertyConditionStatement {
+  /** 建物主體、室內外裝修、牆地天花板等現況 */
+  structureInterior: string;
+  /** 漏水、滲水、壁癌等 */
+  waterLeakage: string;
+  /** 白蟻、蟲鼠、其他公害 */
+  pests: string;
+  /** 增建、違建或未登記部分 */
+  unregisteredParts: string;
+  /** 鄰地、鄰房、特殊使用關係 */
+  neighborsSpecial: string;
+  /** 固定設備、機械停車、共用部分等 */
+  equipmentFacilities: string;
+  /** 其他約定或重要說明 */
+  otherRemarks: string;
+}
+
 // ── Helpers ──
+
+export const EMPTY_CONDITION_STATEMENT: PropertyConditionStatement = {
+  structureInterior: '',
+  waterLeakage: '',
+  pests: '',
+  unregisteredParts: '',
+  neighborsSpecial: '',
+  equipmentFacilities: '',
+  otherRemarks: '',
+};
+
+export function normalizeConditionStatement(
+  raw: PropertyConditionStatement | null | undefined,
+): PropertyConditionStatement {
+  if (!raw || typeof raw !== 'object') {
+    return { ...EMPTY_CONDITION_STATEMENT };
+  }
+  return {
+    ...EMPTY_CONDITION_STATEMENT,
+    ...raw,
+  };
+}
+
+export function hasConditionStatementContent(cs: PropertyConditionStatement): boolean {
+  return Object.values(cs).some((v) => typeof v === 'string' && v.trim().length > 0);
+}
 
 export const EMPTY_LAND_PARCEL: LandParcel = {
   lotNumber: '',
@@ -211,6 +272,9 @@ export function createEmptyReport(): InvestigationReport {
     deliveryCondition: '',
     selectedNotes: STANDARD_CLAUSES.map((clause) => clause.id),
     customNote: '',
+    reportAttachments: [],
+    reportAttachmentSupplement: '',
+    conditionStatement: { ...EMPTY_CONDITION_STATEMENT },
   };
 }
 

@@ -1,209 +1,231 @@
 -- Reset role permissions to use 16 new resource IDs
 -- Removes the 7 old resource names and inserts role-appropriate defaults
 
--- Step 1: Remove old resource names
-DELETE FROM public.iam_role_permissions
-WHERE resource IN ('Properties','Users','Contracts','Reports','Finance','Logs','Config');
+DO $$
+DECLARE
+  role_super_admin UUID;
+  role_system_engineer UUID;
+  role_cybersecurity_engineer UUID;
+  role_auditor UUID;
+  role_landlord UUID;
+  role_agent UUID;
+  role_tenant UUID;
+  role_contract_tenant UUID;
+  role_buyer UUID;
+  role_contract_buyer UUID;
+  role_potential_buyer UUID;
+  role_potential_tenant UUID;
+  role_vendor UUID;
+  role_service_provider UUID;
+  role_register UUID;
+BEGIN
+  -- Get Role IDs
+  SELECT id INTO role_super_admin FROM public.iam_roles WHERE name = 'super_admin';
+  SELECT id INTO role_system_engineer FROM public.iam_roles WHERE name = 'system_engineer';
+  SELECT id INTO role_cybersecurity_engineer FROM public.iam_roles WHERE name = 'cybersecurity_engineer';
+  SELECT id INTO role_auditor FROM public.iam_roles WHERE name = 'auditor';
+  SELECT id INTO role_landlord FROM public.iam_roles WHERE name = 'landlord';
+  SELECT id INTO role_agent FROM public.iam_roles WHERE name = 'agent';
+  SELECT id INTO role_tenant FROM public.iam_roles WHERE name = 'tenant';
+  SELECT id INTO role_contract_tenant FROM public.iam_roles WHERE name = 'contract_tenant';
+  SELECT id INTO role_buyer FROM public.iam_roles WHERE name = 'buyer';
+  SELECT id INTO role_contract_buyer FROM public.iam_roles WHERE name = 'contract_buyer';
+  SELECT id INTO role_potential_buyer FROM public.iam_roles WHERE name = 'potential_buyer';
+  SELECT id INTO role_potential_tenant FROM public.iam_roles WHERE name = 'potential_tenant';
+  SELECT id INTO role_vendor FROM public.iam_roles WHERE name = 'vendor';
+  SELECT id INTO role_service_provider FROM public.iam_roles WHERE name = 'service_provider';
+  SELECT id INTO role_register FROM public.iam_roles WHERE name = 'register';
 
--- Step 2: Insert new permissions per role
--- ON CONFLICT: upsert so running twice is safe
--- Resources: rental_properties | sales_properties | buildings
---            lease_contracts   | sales_contracts  | agent_authorizations
---            rental_ledger     | sales_ledger      | bank_accounts
---            iam_users         | iam_roles_groups
---            system_logs | audit_trails | system_config | storage | ai_services
+  -- Step 1: Remove old resource names
+  DELETE FROM public.iam_role_permissions
+  WHERE resource IN ('Properties','Users','Contracts','Reports','Finance','Logs','Config');
 
--- ─────────────────────────────────────────────────────────────────────────────
--- super_admin : Full access to everything
--- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
-  ('6da6777c-a3d6-450a-bbf3-89c7bcb555c0','rental_properties',    '{create,read,update,delete,manage}','all'),
-  ('6da6777c-a3d6-450a-bbf3-89c7bcb555c0','sales_properties',     '{create,read,update,delete,manage}','all'),
-  ('6da6777c-a3d6-450a-bbf3-89c7bcb555c0','buildings',            '{create,read,update,delete,manage}','all'),
-  ('6da6777c-a3d6-450a-bbf3-89c7bcb555c0','lease_contracts',      '{create,read,update,delete,manage}','all'),
-  ('6da6777c-a3d6-450a-bbf3-89c7bcb555c0','sales_contracts',      '{create,read,update,delete,manage}','all'),
-  ('6da6777c-a3d6-450a-bbf3-89c7bcb555c0','agent_authorizations', '{create,read,update,delete,manage}','all'),
-  ('6da6777c-a3d6-450a-bbf3-89c7bcb555c0','rental_ledger',        '{create,read,update,delete,manage}','all'),
-  ('6da6777c-a3d6-450a-bbf3-89c7bcb555c0','sales_ledger',         '{create,read,update,delete,manage}','all'),
-  ('6da6777c-a3d6-450a-bbf3-89c7bcb555c0','bank_accounts',        '{create,read,update,delete,manage}','all'),
-  ('6da6777c-a3d6-450a-bbf3-89c7bcb555c0','iam_users',            '{create,read,update,delete,manage}','all'),
-  ('6da6777c-a3d6-450a-bbf3-89c7bcb555c0','iam_roles_groups',     '{create,read,update,delete,manage}','all'),
-  ('6da6777c-a3d6-450a-bbf3-89c7bcb555c0','system_logs',          '{create,read,update,delete,manage}','all'),
-  ('6da6777c-a3d6-450a-bbf3-89c7bcb555c0','audit_trails',         '{create,read,update,delete,manage}','all'),
-  ('6da6777c-a3d6-450a-bbf3-89c7bcb555c0','system_config',        '{create,read,update,delete,manage}','all'),
-  ('6da6777c-a3d6-450a-bbf3-89c7bcb555c0','storage',              '{create,read,update,delete,manage}','all'),
-  ('6da6777c-a3d6-450a-bbf3-89c7bcb555c0','ai_services',          '{create,read,update,delete,manage}','all')
-ON CONFLICT (role_id, resource) DO UPDATE
-  SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  -- Step 2: Insert new permissions per role
 
--- ─────────────────────────────────────────────────────────────────────────────
--- system_engineer : System maintenance & DevOps
--- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
-  ('0a6c55e8-578c-4987-9d2f-d5795de94892','system_logs',      '{create,read,update,delete,manage}','all'),
-  ('0a6c55e8-578c-4987-9d2f-d5795de94892','system_config',    '{create,read,update,delete,manage}','all'),
-  ('0a6c55e8-578c-4987-9d2f-d5795de94892','storage',          '{create,read,update,delete,manage}','all'),
-  ('0a6c55e8-578c-4987-9d2f-d5795de94892','ai_services',      '{create,read,update,delete,manage}','all'),
-  ('0a6c55e8-578c-4987-9d2f-d5795de94892','audit_trails',     '{read}','all'),
-  ('0a6c55e8-578c-4987-9d2f-d5795de94892','iam_users',        '{read}','all'),
-  ('0a6c55e8-578c-4987-9d2f-d5795de94892','rental_properties','{read}','all'),
-  ('0a6c55e8-578c-4987-9d2f-d5795de94892','sales_properties', '{read}','all'),
-  ('0a6c55e8-578c-4987-9d2f-d5795de94892','buildings',        '{read}','all')
-ON CONFLICT (role_id, resource) DO UPDATE
-  SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  -- super_admin
+  IF role_super_admin IS NOT NULL THEN
+    INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
+      (role_super_admin,'rental_properties',    '{create,read,update,delete,manage}','all'),
+      (role_super_admin,'sales_properties',     '{create,read,update,delete,manage}','all'),
+      (role_super_admin,'buildings',            '{create,read,update,delete,manage}','all'),
+      (role_super_admin,'lease_contracts',      '{create,read,update,delete,manage}','all'),
+      (role_super_admin,'sales_contracts',      '{create,read,update,delete,manage}','all'),
+      (role_super_admin,'agent_authorizations', '{create,read,update,delete,manage}','all'),
+      (role_super_admin,'rental_ledger',        '{create,read,update,delete,manage}','all'),
+      (role_super_admin,'sales_ledger',         '{create,read,update,delete,manage}','all'),
+      (role_super_admin,'bank_accounts',        '{create,read,update,delete,manage}','all'),
+      (role_super_admin,'iam_users',            '{create,read,update,delete,manage}','all'),
+      (role_super_admin,'iam_roles_groups',     '{create,read,update,delete,manage}','all'),
+      (role_super_admin,'system_logs',          '{create,read,update,delete,manage}','all'),
+      (role_super_admin,'audit_trails',         '{create,read,update,delete,manage}','all'),
+      (role_super_admin,'system_config',        '{create,read,update,delete,manage}','all'),
+      (role_super_admin,'storage',              '{create,read,update,delete,manage}','all'),
+      (role_super_admin,'ai_services',          '{create,read,update,delete,manage}','all')
+    ON CONFLICT (role_id, resource) DO UPDATE
+      SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  END IF;
 
--- ─────────────────────────────────────────────────────────────────────────────
--- cybersecurity_engineer : Security audits & threat monitoring
--- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
-  ('3e6bc9f3-3c00-4d72-8a0f-7d8bb9b1e304','audit_trails',     '{create,read,update,delete,manage}','all'),
-  ('3e6bc9f3-3c00-4d72-8a0f-7d8bb9b1e304','system_logs',      '{read}','all'),
-  ('3e6bc9f3-3c00-4d72-8a0f-7d8bb9b1e304','system_config',    '{read}','all'),
-  ('3e6bc9f3-3c00-4d72-8a0f-7d8bb9b1e304','iam_users',        '{read}','all'),
-  ('3e6bc9f3-3c00-4d72-8a0f-7d8bb9b1e304','iam_roles_groups', '{read}','all')
-ON CONFLICT (role_id, resource) DO UPDATE
-  SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  -- system_engineer
+  IF role_system_engineer IS NOT NULL THEN
+    INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
+      (role_system_engineer,'system_logs',      '{create,read,update,delete,manage}','all'),
+      (role_system_engineer,'system_config',    '{create,read,update,delete,manage}','all'),
+      (role_system_engineer,'storage',          '{create,read,update,delete,manage}','all'),
+      (role_system_engineer,'ai_services',      '{create,read,update,delete,manage}','all'),
+      (role_system_engineer,'audit_trails',     '{read}','all'),
+      (role_system_engineer,'iam_users',        '{read}','all'),
+      (role_system_engineer,'rental_properties','{read}','all'),
+      (role_system_engineer,'sales_properties', '{read}','all'),
+      (role_system_engineer,'buildings',        '{read}','all')
+    ON CONFLICT (role_id, resource) DO UPDATE
+      SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  END IF;
 
--- ─────────────────────────────────────────────────────────────────────────────
--- auditor : Read-only financial records
--- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
-  ('bbdd558e-04e4-4500-857d-3bc68e3eef38','rental_ledger',   '{read}','all'),
-  ('bbdd558e-04e4-4500-857d-3bc68e3eef38','sales_ledger',    '{read}','all'),
-  ('bbdd558e-04e4-4500-857d-3bc68e3eef38','bank_accounts',   '{read}','all'),
-  ('bbdd558e-04e4-4500-857d-3bc68e3eef38','lease_contracts', '{read}','all'),
-  ('bbdd558e-04e4-4500-857d-3bc68e3eef38','sales_contracts', '{read}','all'),
-  ('bbdd558e-04e4-4500-857d-3bc68e3eef38','audit_trails',    '{read}','all'),
-  ('bbdd558e-04e4-4500-857d-3bc68e3eef38','rental_properties','{read}','all'),
-  ('bbdd558e-04e4-4500-857d-3bc68e3eef38','sales_properties', '{read}','all')
-ON CONFLICT (role_id, resource) DO UPDATE
-  SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  -- cybersecurity_engineer
+  IF role_cybersecurity_engineer IS NOT NULL THEN
+    INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
+      (role_cybersecurity_engineer,'audit_trails',     '{create,read,update,delete,manage}','all'),
+      (role_cybersecurity_engineer,'system_logs',      '{read}','all'),
+      (role_cybersecurity_engineer,'system_config',    '{read}','all'),
+      (role_cybersecurity_engineer,'iam_users',        '{read}','all'),
+      (role_cybersecurity_engineer,'iam_roles_groups', '{read}','all')
+    ON CONFLICT (role_id, resource) DO UPDATE
+      SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  END IF;
 
--- ─────────────────────────────────────────────────────────────────────────────
--- landlord : Manage own properties & contracts
--- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
-  ('c1a46754-c534-430f-a05a-707b7a5540f2','rental_properties',    '{create,read,update,delete}','own'),
-  ('c1a46754-c534-430f-a05a-707b7a5540f2','buildings',            '{create,read,update,delete}','own'),
-  ('c1a46754-c534-430f-a05a-707b7a5540f2','lease_contracts',      '{create,read,update,delete}','own'),
-  ('c1a46754-c534-430f-a05a-707b7a5540f2','rental_ledger',        '{create,read,update,delete}','own'),
-  ('c1a46754-c534-430f-a05a-707b7a5540f2','agent_authorizations', '{create,read,update,delete}','own'),
-  ('c1a46754-c534-430f-a05a-707b7a5540f2','storage',              '{create,read}','own')
-ON CONFLICT (role_id, resource) DO UPDATE
-  SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  -- auditor
+  IF role_auditor IS NOT NULL THEN
+    INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
+      (role_auditor,'rental_ledger',   '{read}','all'),
+      (role_auditor,'sales_ledger',    '{read}','all'),
+      (role_auditor,'bank_accounts',   '{read}','all'),
+      (role_auditor,'lease_contracts', '{read}','all'),
+      (role_auditor,'sales_contracts', '{read}','all'),
+      (role_auditor,'audit_trails',    '{read}','all'),
+      (role_auditor,'rental_properties','{read}','all'),
+      (role_auditor,'sales_properties', '{read}','all')
+    ON CONFLICT (role_id, resource) DO UPDATE
+      SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  END IF;
 
--- ─────────────────────────────────────────────────────────────────────────────
--- agent : Manage authorized landlord properties
--- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
-  ('bc07f303-2f38-473b-a864-b350876ac47e','rental_properties',    '{create,read,update}','assigned'),
-  ('bc07f303-2f38-473b-a864-b350876ac47e','sales_properties',     '{create,read,update}','assigned'),
-  ('bc07f303-2f38-473b-a864-b350876ac47e','buildings',            '{read}','assigned'),
-  ('bc07f303-2f38-473b-a864-b350876ac47e','lease_contracts',      '{create,read,update}','assigned'),
-  ('bc07f303-2f38-473b-a864-b350876ac47e','sales_contracts',      '{create,read,update}','assigned'),
-  ('bc07f303-2f38-473b-a864-b350876ac47e','agent_authorizations', '{create,read,update,delete}','own'),
-  ('bc07f303-2f38-473b-a864-b350876ac47e','rental_ledger',        '{read}','assigned'),
-  ('bc07f303-2f38-473b-a864-b350876ac47e','sales_ledger',         '{read}','assigned'),
-  ('bc07f303-2f38-473b-a864-b350876ac47e','storage',              '{create,read}','assigned')
-ON CONFLICT (role_id, resource) DO UPDATE
-  SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  -- landlord
+  IF role_landlord IS NOT NULL THEN
+    INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
+      (role_landlord,'rental_properties',    '{create,read,update,delete}','own'),
+      (role_landlord,'buildings',            '{create,read,update,delete}','own'),
+      (role_landlord,'lease_contracts',      '{create,read,update,delete}','own'),
+      (role_landlord,'rental_ledger',        '{create,read,update,delete}','own'),
+      (role_landlord,'agent_authorizations', '{create,read,update,delete}','own'),
+      (role_landlord,'storage',              '{create,read}','own')
+    ON CONFLICT (role_id, resource) DO UPDATE
+      SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  END IF;
 
--- ─────────────────────────────────────────────────────────────────────────────
--- tenant : View own lease & pay rent
--- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
-  ('55610802-7358-43da-be2b-2140be7a76df','rental_properties','{read}','all'),
-  ('55610802-7358-43da-be2b-2140be7a76df','lease_contracts',  '{read}','own'),
-  ('55610802-7358-43da-be2b-2140be7a76df','rental_ledger',    '{read}','own'),
-  ('55610802-7358-43da-be2b-2140be7a76df','storage',          '{read}','own')
-ON CONFLICT (role_id, resource) DO UPDATE
-  SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  -- agent
+  IF role_agent IS NOT NULL THEN
+    INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
+      (role_agent,'rental_properties',    '{create,read,update}','assigned'),
+      (role_agent,'sales_properties',     '{create,read,update}','assigned'),
+      (role_agent,'buildings',            '{read}','assigned'),
+      (role_agent,'lease_contracts',      '{create,read,update}','assigned'),
+      (role_agent,'sales_contracts',      '{create,read,update}','assigned'),
+      (role_agent,'agent_authorizations', '{create,read,update,delete}','own'),
+      (role_agent,'rental_ledger',        '{read}','assigned'),
+      (role_agent,'sales_ledger',         '{read}','assigned'),
+      (role_agent,'storage',              '{create,read}','assigned')
+    ON CONFLICT (role_id, resource) DO UPDATE
+      SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  END IF;
 
--- ─────────────────────────────────────────────────────────────────────────────
--- contract_tenant : Active lease tenant (can update own ledger entries)
--- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
-  ('50fff421-4ccc-4972-aad9-1e3a88903fa3','rental_properties','{read}','all'),
-  ('50fff421-4ccc-4972-aad9-1e3a88903fa3','buildings',        '{read}','assigned'),
-  ('50fff421-4ccc-4972-aad9-1e3a88903fa3','lease_contracts',  '{read}','own'),
-  ('50fff421-4ccc-4972-aad9-1e3a88903fa3','rental_ledger',    '{create,read,update,delete}','own'),
-  ('50fff421-4ccc-4972-aad9-1e3a88903fa3','storage',          '{create,read}','own')
-ON CONFLICT (role_id, resource) DO UPDATE
-  SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  -- tenant
+  IF role_tenant IS NOT NULL THEN
+    INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
+      (role_tenant,'rental_properties','{read}','all'),
+      (role_tenant,'lease_contracts',  '{read}','own'),
+      (role_tenant,'rental_ledger',    '{read}','own'),
+      (role_tenant,'storage',          '{read}','own')
+    ON CONFLICT (role_id, resource) DO UPDATE
+      SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  END IF;
 
--- ─────────────────────────────────────────────────────────────────────────────
--- buyer : View own purchase data
--- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
-  ('918e5c59-f2b1-4a8c-947a-2edc40e3e0b2','sales_properties','{read}','all'),
-  ('918e5c59-f2b1-4a8c-947a-2edc40e3e0b2','sales_contracts', '{read}','own'),
-  ('918e5c59-f2b1-4a8c-947a-2edc40e3e0b2','sales_ledger',    '{read}','own')
-ON CONFLICT (role_id, resource) DO UPDATE
-  SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  -- contract_tenant
+  IF role_contract_tenant IS NOT NULL THEN
+    INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
+      (role_contract_tenant,'rental_properties','{read}','all'),
+      (role_contract_tenant,'buildings',        '{read}','assigned'),
+      (role_contract_tenant,'lease_contracts',  '{read}','own'),
+      (role_contract_tenant,'rental_ledger',    '{create,read,update,delete}','own'),
+      (role_contract_tenant,'storage',          '{create,read}','own')
+    ON CONFLICT (role_id, resource) DO UPDATE
+      SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  END IF;
 
--- ─────────────────────────────────────────────────────────────────────────────
--- contract_buyer : Active purchase contract buyer
--- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
-  ('de62a79c-31dc-44c9-98d9-8dba14e59cd9','sales_properties','{read}','all'),
-  ('de62a79c-31dc-44c9-98d9-8dba14e59cd9','sales_contracts', '{read}','own'),
-  ('de62a79c-31dc-44c9-98d9-8dba14e59cd9','sales_ledger',    '{create,read,update,delete}','own'),
-  ('de62a79c-31dc-44c9-98d9-8dba14e59cd9','storage',         '{create,read}','own')
-ON CONFLICT (role_id, resource) DO UPDATE
-  SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  -- buyer
+  IF role_buyer IS NOT NULL THEN
+    INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
+      (role_buyer,'sales_properties','{read}','all'),
+      (role_buyer,'sales_contracts', '{read}','own'),
+      (role_buyer,'sales_ledger',    '{read}','own')
+    ON CONFLICT (role_id, resource) DO UPDATE
+      SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  END IF;
 
--- ─────────────────────────────────────────────────────────────────────────────
--- potential_buyer : Browsing sales listings
--- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
-  ('cd627b07-b52d-44c2-aa2b-fd5f05b1d8a5','sales_properties',  '{read}','all'),
-  ('cd627b07-b52d-44c2-aa2b-fd5f05b1d8a5','rental_properties', '{read}','all')
-ON CONFLICT (role_id, resource) DO UPDATE
-  SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  -- contract_buyer
+  IF role_contract_buyer IS NOT NULL THEN
+    INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
+      (role_contract_buyer,'sales_properties','{read}','all'),
+      (role_contract_buyer,'sales_contracts', '{read}','own'),
+      (role_contract_buyer,'sales_ledger',    '{create,read,update,delete}','own'),
+      (role_contract_buyer,'storage',         '{create,read}','own')
+    ON CONFLICT (role_id, resource) DO UPDATE
+      SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  END IF;
 
--- ─────────────────────────────────────────────────────────────────────────────
--- potential_tenant : View public listings & make appointments
--- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
-  ('0d8e8095-3880-4cde-a14d-ccc889769d29','rental_properties','{read}','all'),
-  ('0d8e8095-3880-4cde-a14d-ccc889769d29','sales_properties', '{read}','all')
-ON CONFLICT (role_id, resource) DO UPDATE
-  SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  -- potential_buyer
+  IF role_potential_buyer IS NOT NULL THEN
+    INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
+      (role_potential_buyer,'sales_properties',  '{read}','all'),
+      (role_potential_buyer,'rental_properties', '{read}','all')
+    ON CONFLICT (role_id, resource) DO UPDATE
+      SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  END IF;
 
--- ─────────────────────────────────────────────────────────────────────────────
--- vendor : View assigned work orders
--- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
-  ('1be1bb35-8f78-497b-9f8c-c103f01aafeb','buildings',         '{read}','assigned'),
-  ('1be1bb35-8f78-497b-9f8c-c103f01aafeb','rental_properties', '{read}','assigned'),
-  ('1be1bb35-8f78-497b-9f8c-c103f01aafeb','storage',           '{create,read}','assigned')
-ON CONFLICT (role_id, resource) DO UPDATE
-  SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  -- potential_tenant
+  IF role_potential_tenant IS NOT NULL THEN
+    INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
+      (role_potential_tenant,'rental_properties','{read}','all'),
+      (role_potential_tenant,'sales_properties', '{read}','all')
+    ON CONFLICT (role_id, resource) DO UPDATE
+      SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  END IF;
 
--- ─────────────────────────────────────────────────────────────────────────────
--- service_provider : Service providers and contractors
--- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
-  ('3ea06193-ee81-41e5-ad15-b05fad3119b7','buildings',         '{read,update}','assigned'),
-  ('3ea06193-ee81-41e5-ad15-b05fad3119b7','rental_properties', '{read}','assigned'),
-  ('3ea06193-ee81-41e5-ad15-b05fad3119b7','storage',           '{create,read}','assigned')
-ON CONFLICT (role_id, resource) DO UPDATE
-  SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  -- vendor
+  IF role_vendor IS NOT NULL THEN
+    INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
+      (role_vendor,'buildings',         '{read}','assigned'),
+      (role_vendor,'rental_properties', '{read}','assigned'),
+      (role_vendor,'storage',           '{create,read}','assigned')
+    ON CONFLICT (role_id, resource) DO UPDATE
+      SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  END IF;
 
--- ─────────────────────────────────────────────────────────────────────────────
--- register : Default registered user (no role assigned yet)
--- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
-  ('92bec9ef-8f30-413f-adb5-588dd1d4aced','rental_properties','{read}','all'),
-  ('92bec9ef-8f30-413f-adb5-588dd1d4aced','sales_properties', '{read}','all')
-ON CONFLICT (role_id, resource) DO UPDATE
-  SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  -- service_provider
+  IF role_service_provider IS NOT NULL THEN
+    INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
+      (role_service_provider,'buildings',         '{read,update}','assigned'),
+      (role_service_provider,'rental_properties', '{read}','assigned'),
+      (role_service_provider,'storage',           '{create,read}','assigned')
+    ON CONFLICT (role_id, resource) DO UPDATE
+      SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  END IF;
 
--- ─────────────────────────────────────────────────────────────────────────────
--- unregister : Anonymous visitors (public listings only)
--- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
-  ('1b3a8f7d-e492-40c0-9428-0502334dd3e0','rental_properties','{read}','all'),
-  ('1b3a8f7d-e492-40c0-9428-0502334dd3e0','sales_properties', '{read}','all')
-ON CONFLICT (role_id, resource) DO UPDATE
-  SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  -- register
+  IF role_register IS NOT NULL THEN
+    INSERT INTO public.iam_role_permissions (role_id, resource, actions, scope) VALUES
+      (role_register,'rental_properties','{read}','all'),
+      (role_register,'sales_properties', '{read}','all')
+    ON CONFLICT (role_id, resource) DO UPDATE
+      SET actions = EXCLUDED.actions, scope = EXCLUDED.scope;
+  END IF;
+
+END $$;

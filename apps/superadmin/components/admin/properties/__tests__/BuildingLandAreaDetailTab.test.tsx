@@ -6,6 +6,19 @@ import type {
   LandTranscriptData,
 } from '@/lib/types/properties';
 
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    refresh: jest.fn(),
+    prefetch: jest.fn(),
+  }),
+}));
+
+jest.mock('@/lib/actions/properties', () => ({
+  savePropertyTranscriptData: jest.fn().mockResolvedValue({ success: true, message: 'ok' }),
+}));
+
 function makeProperty(overrides: Partial<PropertyItem> = {}): PropertyItem {
   return {
     id: 'test-id',
@@ -136,7 +149,7 @@ function makeLandTranscript(
 describe('BuildingLandAreaDetailTab', () => {
   describe('no transcript data', () => {
     it('shows empty state message when no transcripts exist', () => {
-      render(<BuildingLandAreaDetailTab property={makeProperty()} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={makeProperty()} />);
       expect(screen.getByText(/尚未有謄本資料/)).toBeInTheDocument();
     });
   });
@@ -146,7 +159,7 @@ describe('BuildingLandAreaDetailTab', () => {
       const property = makeProperty({
         buildingTranscript: makeBuildingTranscript(),
       });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       expect(screen.getByText(/00123建號/)).toBeInTheDocument();
     });
 
@@ -154,7 +167,7 @@ describe('BuildingLandAreaDetailTab', () => {
       const property = makeProperty({
         buildingTranscript: makeBuildingTranscript(),
       });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       expect(screen.getByText('85.32')).toBeInTheDocument();
     });
 
@@ -167,7 +180,7 @@ describe('BuildingLandAreaDetailTab', () => {
           ],
         }),
       });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       expect(screen.getByText('5層')).toBeInTheDocument();
       expect(screen.getByText('6層')).toBeInTheDocument();
       expect(screen.getByText('50.00')).toBeInTheDocument();
@@ -178,7 +191,7 @@ describe('BuildingLandAreaDetailTab', () => {
       const property = makeProperty({
         buildingTranscript: makeBuildingTranscript(),
       });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       expect(screen.getByText('陽台')).toBeInTheDocument();
       expect(screen.getByText('12.50')).toBeInTheDocument();
       expect(screen.getByText('雨遮')).toBeInTheDocument();
@@ -189,7 +202,7 @@ describe('BuildingLandAreaDetailTab', () => {
       const property = makeProperty({
         buildingTranscript: makeBuildingTranscript(),
       });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       expect(screen.getByText('00456建號')).toBeInTheDocument();
       expect(screen.getByText('10000分之150')).toBeInTheDocument();
     });
@@ -198,7 +211,7 @@ describe('BuildingLandAreaDetailTab', () => {
       const property = makeProperty({
         buildingTranscript: makeBuildingTranscript(),
       });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       // 5000 * 150/10000 = 75
       expect(screen.getByText('75')).toBeInTheDocument();
     });
@@ -209,7 +222,7 @@ describe('BuildingLandAreaDetailTab', () => {
       const property = makeProperty({
         landTranscript: makeLandTranscript(),
       });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       expect(screen.getByText(/0345地號/)).toBeInTheDocument();
     });
 
@@ -217,7 +230,7 @@ describe('BuildingLandAreaDetailTab', () => {
       const property = makeProperty({
         landTranscript: makeLandTranscript(),
       });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       expect(screen.getByText('800')).toBeInTheDocument();
     });
 
@@ -225,7 +238,7 @@ describe('BuildingLandAreaDetailTab', () => {
       const property = makeProperty({
         landTranscript: makeLandTranscript(),
       });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       expect(screen.getByText('10000分之350')).toBeInTheDocument();
     });
 
@@ -233,7 +246,7 @@ describe('BuildingLandAreaDetailTab', () => {
       const property = makeProperty({
         landTranscript: makeLandTranscript(),
       });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       // 800 * 350/10000 = 28 — appears in both land table and summary
       const matches = screen.getAllByText('28');
       expect(matches.length).toBeGreaterThanOrEqual(1);
@@ -253,7 +266,7 @@ describe('BuildingLandAreaDetailTab', () => {
           commonAreas: [],
         }),
       });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       expect(screen.getByText(/車位建號99999/)).toBeInTheDocument();
     });
 
@@ -261,7 +274,7 @@ describe('BuildingLandAreaDetailTab', () => {
       const property = makeProperty({
         buildingTranscript: makeBuildingTranscript(),
       });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       expect(screen.queryByText(/獨立車位/)).not.toBeInTheDocument();
     });
   });
@@ -281,12 +294,13 @@ describe('BuildingLandAreaDetailTab', () => {
           ],
         }),
       });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       // main=100 + annexed=10 + common=100 = 210
       const summarySection = screen.getByTestId('area-summary');
-      // The summary row should contain 210 as the grand total
-      const totalRow = within(summarySection).getByText('建物總面積合計').closest('tr')!;
-      expect(within(totalRow).getByText('210')).toBeInTheDocument();
+      // The "建物面積" summary row should contain 210
+      const buildingRow = within(summarySection).getByText('建物面積').closest('tr')!;
+      expect(within(buildingRow).getByText('210')).toBeInTheDocument();
+      expect(screen.queryByText('建物總面積合計')).not.toBeInTheDocument();
     });
 
     it('shows ping conversion in summary', () => {
@@ -299,11 +313,11 @@ describe('BuildingLandAreaDetailTab', () => {
           commonAreas: [],
         }),
       });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       // 33.06 / 3.305785 ≈ 10.00
       const summarySection = screen.getByTestId('area-summary');
-      const totalRow = within(summarySection).getByText('建物總面積合計').closest('tr')!;
-      expect(within(totalRow).getByText(/坪/)).toBeInTheDocument();
+      const buildingRow = within(summarySection).getByText('建物面積').closest('tr')!;
+      expect(within(buildingRow).getByText('10.00')).toBeInTheDocument();
     });
   });
 
@@ -313,7 +327,7 @@ describe('BuildingLandAreaDetailTab', () => {
         isPureLand: true,
         landTranscript: makeLandTranscript(),
       });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       expect(screen.getByText(/0345地號/)).toBeInTheDocument();
       expect(screen.queryByText(/主建物/)).not.toBeInTheDocument();
     });
@@ -324,7 +338,7 @@ describe('BuildingLandAreaDetailTab', () => {
       const property = makeProperty({
         buildingTranscript: makeBuildingTranscript(),
       });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       expect(screen.getByText('住家用')).toBeInTheDocument();
       expect(screen.getByText('鋼筋混凝土造')).toBeInTheDocument();
     });
@@ -342,7 +356,7 @@ describe('BuildingLandAreaDetailTab', () => {
           commonAreas: [],
         }),
       });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       expect(screen.getByText('七層')).toBeInTheDocument();
       // 110.36 appears in main table, subtotal, and summary
       expect(screen.getAllByText('110.36').length).toBeGreaterThanOrEqual(1);
@@ -358,7 +372,7 @@ describe('BuildingLandAreaDetailTab', () => {
       // Simulate legacy data where mainBuildings key is missing
       delete (transcript.description as unknown as Record<string, unknown>).mainBuildings;
       const property = makeProperty({ buildingTranscript: transcript });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       expect(screen.getByText('五層')).toBeInTheDocument();
       expect(screen.getAllByText('85').length).toBeGreaterThanOrEqual(1);
     });
@@ -373,11 +387,11 @@ describe('BuildingLandAreaDetailTab', () => {
           commonAreas: [],
         }),
       });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       // main=100 + annexed=10 = 110
       const summarySection = screen.getByTestId('area-summary');
-      const totalRow = within(summarySection).getByText('建物總面積合計').closest('tr')!;
-      expect(within(totalRow).getByText('110')).toBeInTheDocument();
+      const buildingRow = within(summarySection).getByText('建物面積').closest('tr')!;
+      expect(within(buildingRow).getByText('110')).toBeInTheDocument();
     });
   });
 
@@ -386,7 +400,7 @@ describe('BuildingLandAreaDetailTab', () => {
       const property = makeProperty({
         landTranscript: makeLandTranscript({ area: ' 平方公尺' }),
       });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       expect(screen.getByText(/土地面積數值缺漏/)).toBeInTheDocument();
     });
 
@@ -396,7 +410,7 @@ describe('BuildingLandAreaDetailTab', () => {
           commonAreas: [],
         }),
       });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       expect(screen.getByText(/未包含共有部分/)).toBeInTheDocument();
     });
 
@@ -409,7 +423,7 @@ describe('BuildingLandAreaDetailTab', () => {
           commonAreas: [],
         }),
       });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       expect(screen.getByText(/主建物面積缺漏/)).toBeInTheDocument();
     });
 
@@ -418,7 +432,7 @@ describe('BuildingLandAreaDetailTab', () => {
         buildingTranscript: makeBuildingTranscript(),
         landTranscript: makeLandTranscript(),
       });
-      render(<BuildingLandAreaDetailTab property={property} />);
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
       expect(screen.queryByText(/缺漏/)).not.toBeInTheDocument();
     });
   });

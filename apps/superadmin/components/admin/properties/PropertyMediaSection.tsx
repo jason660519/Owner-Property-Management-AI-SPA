@@ -15,6 +15,7 @@ import {
   deletePropertyPhoto,
   deletePropertyDocument,
 } from '@/lib/actions/properties';
+import { generateTransactionComparableDocuments } from '@/lib/actions/transaction-comparables';
 import type { PropertyPhotoItem, PropertyDocumentItem } from '@/lib/types/properties';
 import { TranscriptParseSection } from './TranscriptParseSection';
 
@@ -26,18 +27,93 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   lease_contract: '租約',
   sales_contract: '買賣合約',
   blog: '部落格',
-  floor_plan: '物件格局圖',
+  floor_plan: '格局圖',
+  building_measurement_survey: '建物測量成果圖',
+  transaction_comparables: '成交行情表',
+  transaction_comparables_nearby: '附近成交價',
+  transaction_comparables_street_section: '同街段成交價',
+  transaction_comparables_village: '同里成交價',
 };
 
-export type DocumentSectionMode = 'photos' | 'transcript' | 'title' | 'contract' | 'blog' | 'floor_plan';
+export type DocumentSectionMode =
+  | 'photos'
+  | 'transcript'
+  | 'title'
+  | 'contract'
+  | 'blog'
+  | 'floor_plan'
+  | 'building_measurement_survey'
+  | 'transaction_comparables';
 
-/** document_type 依分區：謄本 / 權狀(建物+土地) / 合約(租約+買賣) / 部落格 / 格局圖 */
+type VisualPlanSectionMode = 'floor_plan' | 'building_measurement_survey' | 'transaction_comparables';
+
+function isVisualPlanSection(
+  mode: DocumentSectionMode | undefined,
+): mode is VisualPlanSectionMode {
+  return (
+    mode === 'floor_plan' ||
+    mode === 'building_measurement_survey' ||
+    mode === 'transaction_comparables'
+  );
+}
+
+function visualPlanCopy(mode: VisualPlanSectionMode) {
+  if (mode === 'transaction_comparables') {
+    return {
+      empty: '尚無成交行情表',
+      uploadLead: '上傳成交行情表',
+      uploadBtn: '上傳成交行情表',
+      fileTypeLabel: '檔案類型',
+      badgeEn: 'Comparables',
+      docImageAlt: (name: string) => `成交行情表預覽：${name}`,
+      docPdfTitle: (name: string) => `成交行情表 PDF 預覽：${name}`,
+      latestNote: '已完成上傳，這是最新一份成交行情表。',
+      pendingImageAlt: '待上傳成交行情表預覽',
+      pendingPdfTitle: '待上傳成交行情表 PDF 預覽',
+    };
+  }
+  if (mode === 'building_measurement_survey') {
+    return {
+      empty: '尚無建物測量成果圖',
+      uploadLead: '上傳建物測量成果圖',
+      uploadBtn: '上傳建物測量成果圖',
+      fileTypeLabel: '檔案類型',
+      badgeEn: 'Building survey',
+      docImageAlt: (name: string) => `建物測量成果圖預覽：${name}`,
+      docPdfTitle: (name: string) => `建物測量成果圖 PDF 預覽：${name}`,
+      latestNote: '已完成上傳，這是最新一份建物測量成果圖。',
+      pendingImageAlt: '待上傳建物測量成果圖預覽',
+      pendingPdfTitle: '待上傳建物測量成果圖 PDF 預覽',
+    };
+  }
+  return {
+    empty: '尚無格局圖',
+    uploadLead: '上傳格局圖',
+    uploadBtn: '上傳格局圖',
+    fileTypeLabel: '檔案類型',
+    badgeEn: 'Floor Plan',
+    docImageAlt: (name: string) => `格局圖預覽：${name}`,
+    docPdfTitle: (name: string) => `格局圖 PDF 預覽：${name}`,
+    latestNote: '已完成上傳，這是最新一張格局圖。',
+    pendingImageAlt: '待上傳格局圖預覽',
+    pendingPdfTitle: '待上傳格局圖 PDF 預覽',
+  };
+}
+
+/** document_type 依分區：謄本 / 權狀(建物+土地) / 合約(租約+買賣) / 部落格 / 格局圖 / 建物測量成果圖 / 成交行情表 */
 const DOC_TYPES_BY_MODE: Record<Exclude<DocumentSectionMode, 'photos'>, string[]> = {
   transcript: ['land_registry_transcript'],
   title: ['building_title', 'land_title'],
   contract: ['lease_contract', 'sales_contract'],
   blog: ['blog'],
   floor_plan: ['floor_plan'],
+  building_measurement_survey: ['building_measurement_survey'],
+  transaction_comparables: [
+    'transaction_comparables',
+    'transaction_comparables_nearby',
+    'transaction_comparables_street_section',
+    'transaction_comparables_village',
+  ],
 };
 
 type DocType =
@@ -47,7 +123,12 @@ type DocType =
   | 'lease_contract'
   | 'sales_contract'
   | 'blog'
-  | 'floor_plan';
+  | 'floor_plan'
+  | 'building_measurement_survey'
+  | 'transaction_comparables'
+  | 'transaction_comparables_nearby'
+  | 'transaction_comparables_street_section'
+  | 'transaction_comparables_village';
 
 interface Props {
   propertyId: string;
@@ -57,12 +138,22 @@ interface Props {
   mode?: DocumentSectionMode | 'documents';
 }
 
+function isImagePreviewable(value: string) {
+  return /\.(png|jpe?g|webp)$/i.test(value);
+}
+
+function isPdfPreviewable(value: string) {
+  return /\.pdf$/i.test(value);
+}
+
 const DEFAULT_DOC_TYPE_BY_MODE: Record<Exclude<DocumentSectionMode, 'photos'>, DocType> = {
   transcript: 'land_registry_transcript',
   title: 'building_title',
   contract: 'lease_contract',
   blog: 'blog',
   floor_plan: 'floor_plan',
+  building_measurement_survey: 'building_measurement_survey',
+  transaction_comparables: 'transaction_comparables',
 };
 
 export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }: Props) {
@@ -75,6 +166,8 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
     mode === 'contract' ||
     mode === 'blog' ||
     mode === 'floor_plan' ||
+    mode === 'building_measurement_survey' ||
+    mode === 'transaction_comparables' ||
     (!mode && activeTab === 'documents');
   const docSectionMode: Exclude<DocumentSectionMode, 'photos'> | null = mode && mode !== 'photos' && mode !== 'documents' ? mode : null;
   const effectiveTab = mode === 'photos' ? 'photos' : isDocMode ? 'documents' : (mode ?? activeTab);
@@ -85,6 +178,7 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null
   );
+  const [isGeneratingComparables, setIsGeneratingComparables] = useState(false);
 
   // Document types allowed in current section (when docSectionMode is set)
   const filteredDocuments = useMemo(() => {
@@ -103,6 +197,11 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
         'sales_contract',
         'blog',
         'floor_plan',
+        'building_measurement_survey',
+        'transaction_comparables',
+        'transaction_comparables_nearby',
+        'transaction_comparables_street_section',
+        'transaction_comparables_village',
       ];
 
   // Photo upload state
@@ -126,11 +225,38 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
   const [docFile, setDocFile] = useState<File | null>(null);
   const [docType, setDocType] = useState<DocType>(defaultDocType);
   const [isDocUploading, setIsDocUploading] = useState(false);
+  const [docPreviewUrl, setDocPreviewUrl] = useState<string | null>(null);
+  const [latestUploadedDocId, setLatestUploadedDocId] = useState<string | null>(null);
 
   useEffect(() => {
     if (docSectionMode) setDocType(DEFAULT_DOC_TYPE_BY_MODE[docSectionMode]);
   }, [docSectionMode]);
+
+  useEffect(() => {
+    if (!isVisualPlanSection(docSectionMode) || !docFile) {
+      setDocPreviewUrl((prev) => {
+        if (prev) {
+          URL.revokeObjectURL(prev);
+        }
+        return null;
+      });
+      return;
+    }
+
+    const nextPreviewUrl = URL.createObjectURL(docFile);
+    setDocPreviewUrl((prev) => {
+      if (prev) {
+        URL.revokeObjectURL(prev);
+      }
+      return nextPreviewUrl;
+    });
+
+    return () => {
+      URL.revokeObjectURL(nextPreviewUrl);
+    };
+  }, [docFile, docSectionMode]);
   const displayDocuments = docSectionMode ? filteredDocuments : documents;
+  const visualUploadCopy = isVisualPlanSection(docSectionMode) ? visualPlanCopy(docSectionMode) : null;
 
   // AI 解析謄本 — filtered doc list passed to TranscriptParseSection
   const transcriptDocs = useMemo(
@@ -289,6 +415,26 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
     }
   }
 
+  async function handleGenerateTransactionComparables() {
+    if (propertyType !== 'sale') return;
+    setIsGeneratingComparables(true);
+    setFeedback(null);
+    try {
+      const result = await generateTransactionComparableDocuments(propertyId);
+      if (result.success) {
+        const extra = result.notes?.length ? ` ${result.notes.join(' ')}` : '';
+        showFeedback('success', `${result.message}${extra}`);
+        const updated = await getPropertyDocuments(propertyId);
+        setDocuments(updated);
+      } else {
+        const extra = result.notes?.length ? ` ${result.notes.join(' ')}` : '';
+        showFeedback('error', `${result.message}${extra}`);
+      }
+    } finally {
+      setIsGeneratingComparables(false);
+    }
+  }
+
   async function handleDocUpload() {
     if (!docFile) return;
     setIsDocUploading(true);
@@ -302,6 +448,11 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
       if (docInputRef.current) docInputRef.current.value = '';
       const updated = await getPropertyDocuments(propertyId);
       setDocuments(updated);
+      const latestUploadedDoc =
+        [...updated]
+          .reverse()
+          .find((doc) => doc.documentType === docType) ?? null;
+      setLatestUploadedDocId(latestUploadedDoc?.id ?? null);
     } else {
       showFeedback('error', result.message);
     }
@@ -520,12 +671,122 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
           </div>
         </div>
       ) : (
-        /* ── Documents (謄本／權狀／合約／部落格／格局圖) ── */
+        /* ── Documents (謄本／權狀／合約／部落格／格局圖／建物測量成果圖) ── */
         <div className="space-y-4">
+          {docSectionMode === 'transaction_comparables' && propertyType === 'sale' && (
+            <div className="rounded-lg border border-border-default bg-bg-secondary/60 px-4 py-3 space-y-2">
+              <p className="text-xs font-medium text-text-secondary">自動產出（近一年實價成交）</p>
+              <p className="text-[11px] text-text-muted leading-relaxed">
+                依內政部開放資料匯入檔（環境變數 LVR_COMPARABLES_JSON_PATH）篩選並產出三份 PDF：直轄市方圓 1
+                公里／其他縣市 2 公里之「附近成交價」、門牌路街或地段一致之「同街段成交價」、同村里之「同里成交價」。同里報表請在「地理資訊」填寫里名；附近報表請在「地圖／座標」設定
+                WGS84。
+              </p>
+              <button
+                type="button"
+                onClick={() => void handleGenerateTransactionComparables()}
+                disabled={isGeneratingComparables}
+                className="inline-flex items-center gap-1.5 rounded-md border border-accent bg-accent/15 px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/25 transition-colors disabled:opacity-45"
+              >
+                {isGeneratingComparables ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <FileText size={12} />
+                )}
+                {isGeneratingComparables ? '產出中…' : '產出三份成交行情 PDF'}
+              </button>
+            </div>
+          )}
           {displayDocuments.length === 0 ? (
             <p className="text-text-muted text-xs">
-              {docSectionMode === 'floor_plan' ? '尚無格局圖' : '尚無文件'}
+              {isVisualPlanSection(docSectionMode)
+                ? visualPlanCopy(docSectionMode).empty
+                : '尚無文件'}
             </p>
+          ) : isVisualPlanSection(docSectionMode) ? (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {displayDocuments.map((doc) => {
+                const vc = visualPlanCopy(docSectionMode);
+                const isImage = isImagePreviewable(doc.filePath);
+                const isPdf = isPdfPreviewable(doc.filePath);
+                const isLatestUploaded = doc.id === latestUploadedDocId;
+
+                return (
+                  <article
+                    key={doc.id}
+                    className={`overflow-hidden rounded-lg border bg-bg-tertiary transition-colors ${
+                      isLatestUploaded
+                        ? 'border-green-500 shadow-[0_0_0_1px_rgba(34,197,94,0.18)]'
+                        : 'border-border-default'
+                    }`}
+                  >
+                    <div className="aspect-[4/3] bg-bg-secondary">
+                      {isImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={doc.url}
+                          alt={vc.docImageAlt(doc.documentName)}
+                          className="h-full w-full object-contain"
+                        />
+                      ) : isPdf ? (
+                        <iframe
+                          src={doc.url}
+                          title={vc.docPdfTitle(doc.documentName)}
+                          className="h-full w-full border-0"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center px-4 text-center text-xs text-text-muted">
+                          此檔案格式暫不支援 inline 預覽，請改用右下角開啟檢查。
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-text-muted">
+                          {vc.badgeEn}
+                        </div>
+                        {isLatestUploaded && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-green-500/25 bg-green-500/12 px-2 py-1 text-[11px] font-medium text-green-600">
+                            <Star size={11} className="fill-current" />
+                            上傳成功
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-1 truncate text-xs font-medium text-text-primary">
+                        {doc.documentName}
+                      </div>
+
+                      {isLatestUploaded && (
+                        <div className="rounded-md bg-green-500/8 px-2 py-1.5 text-[11px] text-green-700">
+                          {vc.latestNote}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-end gap-1">
+                        <a
+                          href={doc.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded-md border border-border-default px-2 py-1 text-xs text-text-secondary transition-colors hover:text-accent"
+                          title="開啟文件"
+                        >
+                          <ExternalLink size={12} /> 開啟
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => handleDocDelete(doc)}
+                          className="inline-flex items-center gap-1 rounded-md border border-border-default px-2 py-1 text-xs text-text-secondary transition-colors hover:text-red-500"
+                          title="刪除文件"
+                        >
+                          <Trash2 size={12} /> 刪除
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
           ) : (
             <ul className="space-y-1.5">
               {displayDocuments.map((doc) => (
@@ -565,9 +826,9 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
           {/* Upload new document */}
           <div className="border border-dashed border-border-default rounded-md p-3 space-y-2.5">
             <p className="text-xs font-medium text-text-secondary">
-              {docSectionMode === 'floor_plan' ? (
+              {visualUploadCopy ? (
                 <>
-                  上傳格局圖{' '}
+                  {visualUploadCopy.uploadLead}{' '}
                   <span className="text-text-muted font-normal">(PDF / JPG / PNG / WebP，最大 20 MB)</span>
                 </>
               ) : (
@@ -579,7 +840,7 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
             </p>
             <div>
               <label className="block text-xs text-text-muted mb-1">
-                {docSectionMode === 'floor_plan' ? '檔案類型' : '文件類型'}
+                {visualUploadCopy ? visualUploadCopy.fileTypeLabel : '文件類型'}
               </label>
               <select
                 value={docType}
@@ -600,6 +861,37 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
               onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
               className="w-full text-xs text-text-secondary file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-bg-tertiary file:text-text-secondary hover:file:bg-border-default cursor-pointer"
             />
+            {visualUploadCopy && docFile && docPreviewUrl && (
+              <div className="overflow-hidden rounded-lg border border-border-default bg-bg-tertiary">
+                <div className="flex items-center justify-between border-b border-border-default px-3 py-2">
+                  <div>
+                    <div className="text-xs font-medium text-text-primary">待上傳預覽</div>
+                    <div className="text-[11px] text-text-muted">{docFile.name}</div>
+                  </div>
+                </div>
+
+                <div className="aspect-[4/3] bg-bg-secondary">
+                  {docFile.type.startsWith('image/') || isImagePreviewable(docFile.name) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={docPreviewUrl}
+                      alt={visualUploadCopy.pendingImageAlt}
+                      className="h-full w-full object-contain"
+                    />
+                  ) : docFile.type === 'application/pdf' || isPdfPreviewable(docFile.name) ? (
+                    <iframe
+                      src={docPreviewUrl}
+                      title={visualUploadCopy.pendingPdfTitle}
+                      className="h-full w-full border-0"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center px-4 text-center text-xs text-text-muted">
+                      此檔案格式暫不支援 inline 預覽。
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             <button
               type="button"
               onClick={handleDocUpload}
@@ -611,11 +903,7 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
               ) : (
                 <Upload size={12} />
               )}
-              {isDocUploading
-                ? '上傳中…'
-                : docSectionMode === 'floor_plan'
-                  ? '上傳格局圖'
-                  : '上傳文件'}
+              {isDocUploading ? '上傳中…' : visualUploadCopy ? visualUploadCopy.uploadBtn : '上傳文件'}
             </button>
           </div>
 

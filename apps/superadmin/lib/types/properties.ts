@@ -217,6 +217,8 @@ export interface PropertyItem {
   addressDistrict?: string;
   addressStreet?: string;
   addressNumber?: string;
+  /** 村里（例：龍門里），存於 details.addressVillage，供同里成交報表比對 */
+  addressVillage?: string;
   addressFloor?: string;
   addressUnit?: string;
   status: string;
@@ -307,6 +309,7 @@ export interface UpdatePropertyInput {
   addressDistrict?: string;
   addressStreet?: string;
   addressNumber?: string;
+  addressVillage?: string;
   addressFloor?: string;
   addressUnit?: string;
   status?: string;
@@ -336,6 +339,7 @@ export interface CreatePropertyInput {
   addressDistrict?: string;
   addressStreet?: string;
   addressNumber?: string;
+  addressVillage?: string;
   addressFloor?: string;
   addressUnit?: string;
   status: string;

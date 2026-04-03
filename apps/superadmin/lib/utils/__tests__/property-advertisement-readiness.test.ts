@@ -140,7 +140,7 @@ describe('property-advertisement-readiness', () => {
     expect(sections.find((section) => section.id === 'floor-plan')).toEqual(
       expect.objectContaining({
         status: 'unavailable',
-        unavailableReason: '尚未上傳物件格局圖。',
+        unavailableReason: '尚未上傳格局圖。',
       }),
     );
   });
