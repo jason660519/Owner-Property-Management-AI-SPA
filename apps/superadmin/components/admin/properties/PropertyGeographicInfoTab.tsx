@@ -1,10 +1,8 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useCallback, useRef } from 'react';
 import { ExternalLink, MapPin, Download, Loader2, Map as MapIcon, Trash2 } from 'lucide-react';
 import { formatStructuredAddress, type PropertyItem } from '@/lib/types/properties';
-import { updateProperty } from '@/lib/actions/properties';
 import { fetchCadastralMap, deleteCadastralMap, type FetchResult } from '@/lib/actions/cadastral-maps';
 import {
   GIS_SOURCE_LABELS,
@@ -56,36 +54,10 @@ const LAYER_LABELS: Record<MapLayerPreset, string> = {
 };
 
 export function PropertyGeographicInfoTab({ property }: { property: PropertyItem }) {
-  const router = useRouter();
   const addressLine = formatStructuredAddress(property);
   const lat = property.latitude;
   const lng = property.longitude;
   const hasCoords = lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng);
-
-  const [villageDraft, setVillageDraft] = useState(property.addressVillage ?? '');
-  const [villageSaving, setVillageSaving] = useState(false);
-  const [villageFeedback, setVillageFeedback] = useState<{ type: 'ok' | 'err'; text: string } | null>(
-    null,
-  );
-
-  useEffect(() => {
-    setVillageDraft(property.addressVillage ?? '');
-  }, [property.id, property.addressVillage]);
-
-  const saveVillage = useCallback(async () => {
-    setVillageSaving(true);
-    setVillageFeedback(null);
-    const res = await updateProperty(property.id, property.type, {
-      addressVillage: villageDraft.trim() || '',
-    });
-    setVillageSaving(false);
-    if (res.success) {
-      setVillageFeedback({ type: 'ok', text: '里名已儲存（供「同里成交價」報表比對）。' });
-      router.refresh();
-    } else {
-      setVillageFeedback({ type: 'err', text: res.message });
-    }
-  }, [property.id, property.type, villageDraft, router]);
 
   const googleUrl = hasCoords
     ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
@@ -210,7 +182,7 @@ export function PropertyGeographicInfoTab({ property }: { property: PropertyItem
       <div className="flex items-start gap-2 text-sm text-text-muted">
         <MapPin size={18} className="text-accent shrink-0 mt-0.5" />
         <p>
-          檢視物件的結構化地址與 WGS84 座標，並可自動擷取台北市地籍圖與建物套繪圖。
+          檢視物件結構化地址（與「物件編輯」頁一致），並可自動擷取台北市地籍圖與建物套繪圖。
         </p>
       </div>
 
@@ -220,58 +192,6 @@ export function PropertyGeographicInfoTab({ property }: { property: PropertyItem
           地址
         </h3>
         <p className="text-sm text-text-primary leading-relaxed">{addressLine}</p>
-      </div>
-
-      {/* Coordinates card */}
-      <div className={cardCls}>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted mb-2">
-          WGS84 座標
-        </h3>
-        {hasCoords ? (
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm font-mono text-text-primary">
-            <dt className="text-text-secondary">緯度</dt>
-            <dd>{lat.toFixed(6)}</dd>
-            <dt className="text-text-secondary">經度</dt>
-            <dd>{lng.toFixed(6)}</dd>
-          </dl>
-        ) : (
-          <p className="text-sm text-text-muted">尚未設定座標</p>
-        )}
-      </div>
-
-      {/* 村里 — 同里成交報表 */}
-      <div className={cardCls}>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted mb-2">
-          村里（同里成交價報表）
-        </h3>
-        <p className="text-[11px] text-text-muted mb-2">
-          請填寫正式里名（例：龍門里），與政府統計村里名稱一致時，「同里成交價」PDF 才能正確篩選。
-        </p>
-        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-          <input
-            type="text"
-            value={villageDraft}
-            onChange={(e) => setVillageDraft(e.target.value)}
-            placeholder="例：龍門里"
-            className="flex-1 min-w-0 border border-border-default rounded-md px-3 py-2 text-sm bg-bg-primary text-text-primary focus:outline-none focus:border-accent"
-          />
-          <button
-            type="button"
-            onClick={() => void saveVillage()}
-            disabled={villageSaving}
-            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-accent bg-accent/15 px-3 py-2 text-xs font-medium text-accent hover:bg-accent/25 transition-colors disabled:opacity-45 shrink-0"
-          >
-            {villageSaving ? <Loader2 size={14} className="animate-spin" /> : null}
-            {villageSaving ? '儲存中…' : '儲存里名'}
-          </button>
-        </div>
-        {villageFeedback && (
-          <p
-            className={`text-xs mt-2 ${villageFeedback.type === 'ok' ? 'text-green-600' : 'text-error'}`}
-          >
-            {villageFeedback.text}
-          </p>
-        )}
       </div>
 
       {/* External links */}

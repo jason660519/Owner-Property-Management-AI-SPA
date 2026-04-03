@@ -11,14 +11,6 @@ jest.mock('@/lib/actions/cadastral-maps', () => ({
   deleteCadastralMap: jest.fn(),
 }));
 
-jest.mock('@/lib/actions/properties', () => ({
-  updateProperty: jest.fn(),
-}));
-
-jest.mock('next/navigation', () => ({
-  useRouter: () => ({ refresh: jest.fn() }),
-}));
-
 const mockFetch = fetchCadastralMap as jest.MockedFunction<typeof fetchCadastralMap>;
 const mockDelete = deleteCadastralMap as jest.MockedFunction<typeof deleteCadastralMap>;
 

@@ -25,12 +25,13 @@ const statusLabelsMap: Record<string, string> = {
 
 interface PropertyCreateModalProps {
   onClose: () => void;
-  onCreated: () => void;
+  onCreated: (propertyId?: string) => void;
 }
 
 export function PropertyCreateModal({ onClose, onCreated }: PropertyCreateModalProps) {
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Property type (sale / rental)
   const [propertyListingType, setPropertyListingType] = useState<'sale' | 'rental'>('sale');
@@ -55,13 +56,25 @@ export function PropertyCreateModal({ onClose, onCreated }: PropertyCreateModalP
     return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
 
+  function validate() {
+    const newErrors: Record<string, string> = {};
+    if (!title.trim()) newErrors.title = '請填寫物件名稱';
+    if (!propertyType) newErrors.propertyType = '請選擇物件類型';
+    
+    if (propertyListingType === 'sale') {
+      if (price <= 0) newErrors.price = '售價需大於 0';
+    } else {
+      if (monthlyRent <= 0) newErrors.monthlyRent = '月租金需大於 0';
+      if (leaseTerm <= 0) newErrors.leaseTerm = '租期需至少 1 個月';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }
+
   function handleSubmit() {
     setFeedback(null);
-
-    if (!title.trim()) {
-      setFeedback({ type: 'error', message: '請填寫物件名稱' });
-      return;
-    }
+    if (!validate()) return;
 
     const input: CreatePropertyInput = {
       title: title.trim(),
@@ -79,7 +92,7 @@ export function PropertyCreateModal({ onClose, onCreated }: PropertyCreateModalP
     startTransition(async () => {
       const result = await createProperty(propertyListingType, input);
       if (result.success) {
-        onCreated();
+        onCreated(result.propertyId);
       } else {
         setFeedback({ type: 'error', message: result.message });
       }
@@ -172,8 +185,11 @@ export function PropertyCreateModal({ onClose, onCreated }: PropertyCreateModalP
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="如：敦南華夏四房+車位"
-              className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted"
+              className={`w-full border rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent placeholder-text-muted ${
+                errors.title ? 'border-red-500' : 'border-border-default'
+              }`}
             />
+            {errors.title && <p className="mt-1 text-xs text-red-500">{errors.title}</p>}
           </div>
 
           {/* Address note */}
@@ -187,19 +203,46 @@ export function PropertyCreateModal({ onClose, onCreated }: PropertyCreateModalP
               {propertyListingType === 'sale' ? (
                 <>
                   <label className="block text-sm font-medium text-text-secondary mb-1.5">售價 (NT$)</label>
-                  <input type="number" min={0} value={price} onChange={(e) => setPrice(Number(e.target.value))} className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent" />
+                  <input
+                    type="number"
+                    min={0}
+                    value={price}
+                    onChange={(e) => setPrice(Number(e.target.value))}
+                    className={`w-full border rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent ${
+                      errors.price ? 'border-red-500' : 'border-border-default'
+                    }`}
+                  />
+                  {errors.price && <p className="mt-1 text-xs text-red-500">{errors.price}</p>}
                 </>
               ) : (
                 <>
                   <label className="block text-sm font-medium text-text-secondary mb-1.5">月租金 (NT$)</label>
-                  <input type="number" min={0} value={monthlyRent} onChange={(e) => setMonthlyRent(Number(e.target.value))} className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent" />
+                  <input
+                    type="number"
+                    min={0}
+                    value={monthlyRent}
+                    onChange={(e) => setMonthlyRent(Number(e.target.value))}
+                    className={`w-full border rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent ${
+                      errors.monthlyRent ? 'border-red-500' : 'border-border-default'
+                    }`}
+                  />
+                  {errors.monthlyRent && <p className="mt-1 text-xs text-red-500">{errors.monthlyRent}</p>}
                 </>
               )}
             </div>
             {propertyListingType === 'rental' && (
               <div>
                 <label className="block text-sm font-medium text-text-secondary mb-1.5">租期 (月)</label>
-                <input type="number" min={1} value={leaseTerm} onChange={(e) => setLeaseTerm(Number(e.target.value))} className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent" />
+                <input
+                  type="number"
+                  min={1}
+                  value={leaseTerm}
+                  onChange={(e) => setLeaseTerm(Number(e.target.value))}
+                  className={`w-full border rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent ${
+                    errors.leaseTerm ? 'border-red-500' : 'border-border-default'
+                  }`}
+                />
+                {errors.leaseTerm && <p className="mt-1 text-xs text-red-500">{errors.leaseTerm}</p>}
               </div>
             )}
           </div>
@@ -207,10 +250,17 @@ export function PropertyCreateModal({ onClose, onCreated }: PropertyCreateModalP
           {/* Property type */}
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1.5">物件類型</label>
-            <select value={propertyType} onChange={(e) => setPropertyType(e.target.value)} className="w-full border border-border-default rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent">
+            <select
+              value={propertyType}
+              onChange={(e) => setPropertyType(e.target.value)}
+              className={`w-full border rounded-md px-3 py-2 bg-bg-primary text-text-primary text-sm focus:outline-none focus:border-accent ${
+                errors.propertyType ? 'border-red-500' : 'border-border-default'
+              }`}
+            >
               <option value="">請選擇物件類型</option>
               {PROPERTY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
+            {errors.propertyType && <p className="mt-1 text-xs text-red-500">{errors.propertyType}</p>}
           </div>
 
           {/* 格局 */}

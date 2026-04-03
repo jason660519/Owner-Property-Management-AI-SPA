@@ -1728,14 +1728,29 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "超級管理員-物件管理（新增物件含媒體上傳）",
     locatedPage: "superadmin/properties",
     category: "超級管理員 (Super Admin)",
-    percentage: 93,
+    percentage: 96,
     phase: "development",
-    lastModifiedBy: "GitHub Copilot GPT-5.4",
-    lastModifiedDate: "2026/04/03",
+    lastModifiedBy: "Gemini-3-Flash-Preview",
+    lastModifiedDate: "2026/04/04",
     devLog:
-      "### 完成項目\n- getOwnersList() / createProperty() server actions（lib/actions/properties.ts）\n- CreatePropertyInput / OwnerOption 型別（lib/types/properties.ts）\n- PropertyCreateModal.tsx：含完整 6 頁籤（物件基本資訊 / 物件照片 / 謄本 / 權狀 / 合約 / 部落格）；兩段式建立流程：第一次儲存建立物件取得 ID，後續 tabs 接入 PropertyMediaSection；物件類型與所有權人建立後鎖定\n- PropertiesList.tsx：新增物件按鈕接入 PropertyCreateModal，onCreated 觸發 router.refresh()\n- properties/page.tsx：並行 fetch getAllProperties() + getOwnersList() 後傳入 PropertiesList\n### 2026-04-02 新增\n- PropertyMediaSection：floor_plan 頁籤新增已上傳格局圖 inline 預覽卡片，圖片直接顯示、PDF 以內嵌預覽呈現，避免使用者只能看檔名與外部連結\n- floor_plan 上傳區新增待上傳預覽，選檔後即可先確認檔案內容，再決定是否送出\n- 新增 PropertyMediaSection.test.tsx，覆蓋既有格局圖預覽與上傳後刷新預覽兩個情境，並以 Jest `--runTestsByPath` 驗證通過\n### 2026-04-03 新增\n- PropertyEditForm：在「使用分區」右側新增「地理資訊」分頁（PropertyGeographicInfoTab），顯示結構化地址、WGS84 座標與 Google Maps / OpenStreetMap 外部連結；雙圖資來源（歷史圖資展示系統 / 地理資訊e點通）各支援地籍圖、建物套繪圖、合併擷取，結果 signed URL 預覽並寫入 property_documents\n### 2026-04-03 補強（TDD / 穩定性）\n- 有 WGS84 時僅傳座標至 fetchCadastralMap（不再併傳門牌，避免混淆）；擷取結果列表 key 改為 storagePath；刪除改以 documentId + storagePath 辨識；ArcGIS job 輪詢第一次立即查狀態；物件編輯頁 export maxDuration=120s；新增 buildOperationalLayers / fetchCadastralMap 來源矩陣與 PropertyGeographicInfoTab 互動測試（Jest 22 例）\n### 2026-04-03 實價成交三報表（近一年）\n- lib/utils/real-price-comparables.ts：六都方圓 1km／其他縣市 2km、同街段（路街或謄本地段）、同里；Haversine 與近一年篩選\n- LVR_COMPARABLES_JSON_PATH：伺服器讀取正規化 JSON 陣列作為成交來源（未設定則表格為空仍產出 PDF）\n- lib/actions/transaction-comparables.ts：generateTransactionComparableDocuments 產出三份 PDF 寫入 property_documents（tags comparable:auto + comparable:kind:*），重產時取代同類舊檔\n- PropertyMediaSection 成交行情表：一鍵產出三份；新增 document_type transaction_comparables_nearby / _street_section / _village\n- PropertyGeographicInfoTab：村里欄位寫入 details.addressVillage；updateProperty / getPropertyById / getAllProperties 串接\n- real-price-comparable-pdf.ts（pdf-lib + Noto Sans TC woff2）、單元測試 real-price-comparables.test.ts",
+      "### 完成項目\n- getOwnersList() / createProperty() server actions（lib/actions/properties.ts）\n- CreatePropertyInput / OwnerOption 型別（lib/types/properties.ts）\n- PropertyCreateModal.tsx：含完整 6 頁籤（物件基本資訊 / 物件照片 / 謄本 / 權狀 / 合約 / 部落格）；兩段式建立流程：第一次儲存建立物件取得 ID，後續 tabs 接入 PropertyMediaSection；物件類型與所有權人建立後鎖定\n- PropertiesList.tsx：新增物件按鈕接入 PropertyCreateModal，onCreated 觸發 router.refresh()\n- properties/page.tsx：並行 fetch getAllProperties() + getOwnersList() 後傳入 PropertiesList\n### 2026-04-02 新增\n- PropertyMediaSection：floor_plan 頁籤新增已上傳格局圖 inline 預覽卡片，圖片直接顯示、PDF 以內嵌預覽呈現，避免使用者只能看檔名與外部連結\n- floor_plan 上傳區新增待上傳預覽，選檔後即可先確認檔案內容，再決定是否送出\n- 新增 PropertyMediaSection.test.tsx，覆蓋既有格局圖預覽與上傳後刷新預覽兩個情境，並以 Jest `--runTestsByPath` 驗證通過\n### 2026-04-03 新增\n- PropertyEditForm：在「使用分區」右側新增「地理資訊」分頁（PropertyGeographicInfoTab），顯示結構化地址、WGS84 座標與 Google Maps / OpenStreetMap 外部連結；雙圖資來源（歷史圖資展示系統 / 地理資訊e點通）各支援地籍圖、建物套繪圖、合併擷取，結果 signed URL 預覽並寫入 property_documents\n### 2026-04-03 補強（TDD / 穩定性）\n- 有 WGS84 時僅傳座標至 fetchCadastralMap（不再併傳門牌，避免混淆）；擷取結果列表 key 改為 storagePath；刪除改以 documentId + storagePath 辨識；ArcGIS job 輪詢第一次立即查狀態；物件編輯頁 export maxDuration=120s；新增 buildOperationalLayers / fetchCadastralMap 來源矩陣與 PropertyGeographicInfoTab 互動測試（Jest 22 例）\n### 2026-04-03 實價成交三報表（近一年）\n- lib/utils/real-price-comparables.ts：六都方圓 1km／其他縣市 2km、同街段（路街或謄本地段）、同里；Haversine 與近一年篩選\n- LVR_COMPARABLES_JSON_PATH：伺服器讀取正規化 JSON 陣列作為成交來源（未設定則表格為空仍產出 PDF）\n- lib/actions/transaction-comparables.ts：generateTransactionComparableDocuments 產出三份 PDF 寫入 property_documents（tags comparable:auto + comparable:kind:*），重產時取代同類舊檔\n- PropertyMediaSection 成交行情表：一鍵產出三份；新增 document_type transaction_comparables_nearby / _street_section / _village\n- PropertyGeographicInfoTab：村里欄位寫入 details.addressVillage；updateProperty / getPropertyById / getAllProperties 串接\n- real-price-comparable-pdf.ts（pdf-lib + Noto Sans TC woff2）、單元測試 real-price-comparables.test.ts\n### 2026-04-04 實價行情優化 (TDD)\n- **PDF 內容空白修復**: loadComparableSalesFromDb 實作分頁抓取（最高支援 10,000 筆），解決行政區成交量大於 1,000 筆時資料池不完整導致的空白問題。\n- **字體渲染修復**: PDF 優先載入 macOS 系統 `Arial Unicode.ttf`，徹底解決 Noto Sans 子集缺少中文字元導致的報表空白問題。\n- **自動定位強化**: 整合 `geocodeAddress` 多重定位策略，成功後自動同步座標回 DB；附近成交價新增「自定義半徑選擇器」(0.5km - 5.0km)，提升查詢靈活性。\n- **驗證**: 建立 `comparables.test.ts` 驗證過濾邏輯，並透過 `diagnosis.test.ts` 完成生產資料連通性檢查。",
     developmentProgress:
-      "物件列表與編輯功能（含 PropertyEditModal + PropertyMediaSection）已完成；本次已補強格局圖頁籤的上傳前/上傳後預覽，並新增最新上傳成功標記，降低媒體上傳誤判。待補強：表單欄位前端 validation、建立後自動跳至媒體頁籤。",
+      "物件列表與編輯功能（含 PropertyEditModal + PropertyMediaSection）已完成；實價行情功能已達成 TDD 綠燈狀態，支援分頁大數據、自定義半徑與精確字體渲染。下一步：表單欄位前端 validation、建立後自動跳至媒體頁籤。",
+  },
+  {
+    name: "超級管理員-實價登錄資料自動化同步管理",
+    locatedPage: "superadmin/settings/lvr-sync",
+    category: "超級管理員 (Super Admin)",
+    percentage: 100,
+    phase: "development",
+    lastModifiedBy: "Gemini-3-Flash-Preview",
+    lastModifiedDate: "2026/04/04",
+    featureDescription:
+      "提供圖形化介面讓管理員手動觸發內政部實價登錄 Open Data 同步。支援全台 22 縣市增量更新、自動去重、以及資料庫現有數據統計監控。",
+    acceptanceCriteria:
+      "1. 管理員可從 22 縣市下拉選單選擇目標縣市進行更新。\n2. 實作 DB Unique Constraint 確保相同成交紀錄不重疊匯入。\n3. 同步過程支援並行下載最近 4 季資料包並以 UPSERT 寫入。\n4. 資料統計看板需即時顯示各縣市總筆數與最後更新時間（created_at）。\n5. 繞過 Supabase 1,000 筆查詢限制，提供精確的萬級計數。",
+    devLog:
+      "### 2026-04-04 實價資料同步管理工具上線\n- **管理頁面**: 建立 `/superadmin/settings/lvr-sync` 頁面，整合同步控制與資料統計兩大功能。\n- **增量更新機制**: 捨棄舊有的「先刪後抓」邏輯，改為「下載最新 -> 自動去重 -> 增量累積」，支援建立多年期歷史資料庫。\n- **資料去重**: Migration 20260404100000 為 `lvr_land_transactions` 增加唯一約束（縣市/行政區/日期/價格/面積/地址），並實作 upsert 邏輯。\n- **統計優化**: `getLvrStatsAction` 採用並行 COUNT 查詢，解決統計數字卡在 1,000 筆的問題，並新增「最後更新日」顯示。\n- **資料來源**: 直接對接內政部 Open Data 季資料 API (https://plvr.land.moi.gov.tw/)。",
   },
   {
     name: "雲端 OCR 多模型共識謄本解析",
@@ -1990,6 +2005,6 @@ const RAW_FEATURES: RoadmapFeature[] = [
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/02",
+  lastUpdated: "2026/04/04",
   features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
 };

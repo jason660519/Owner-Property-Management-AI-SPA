@@ -42,12 +42,31 @@ export interface PropertyComparableContext {
   asOf: Date;
 }
 
+/** 台灣地址通用正規化：台/臺、一/1、空格處理 */
+export function normalizeTaiwanAddress(s: string): string {
+  if (!s) return '';
+  return s
+    .replace(/\s/g, '')
+    .replace(/台/g, '臺')
+    .replace(/一/g, '1')
+    .replace(/二/g, '2')
+    .replace(/三/g, '3')
+    .replace(/四/g, '4')
+    .replace(/五/g, '5')
+    .replace(/六/g, '6')
+    .replace(/七/g, '7')
+    .replace(/八/g, '8')
+    .replace(/九/g, '9')
+    .replace(/十/g, '10') // 簡易處理，實務上十位數需更複雜正則，此處先解決基本匹配
+    .trim();
+}
+
 export function normalizeTaiwanCity(city: string): string {
-  return city.replace(/\s/g, '').replace(/台/g, '臺').trim();
+  return normalizeTaiwanAddress(city);
 }
 
 export function normalizeDistrictLabel(district: string): string {
-  return district.replace(/\s/g, '').trim();
+  return normalizeTaiwanAddress(district);
 }
 
 export function isSpecialMunicipality(city: string): boolean {
@@ -119,6 +138,87 @@ function normalizeAddrFragment(s: string): string {
   return s.replace(/\s/g, '').replace(/台/g, '臺').toLowerCase();
 }
 
+/**
+ * 門牌／位置摘要比對：台→臺、去空白與星號遮罩、全形數字→半形。
+ * 刻意不使用 `normalizeTaiwanAddress` 內的一→1、四→4 等替換，以免「四段」被改成「4段」導致比對失敗。
+ */
+export function normalizeComparableAddressText(s: string): string {
+  const noStars = s.replace(/[\s*＊]+/g, '');
+  let t = noStars.replace(/台/g, '臺');
+  t = t.replace(/[\uFF10-\uFF19]/g, (c) =>
+    String.fromCharCode(c.charCodeAt(0) - 0xff10 + 0x30),
+  );
+  return t.toLowerCase();
+}
+
+/**
+ * Extract village (里) from street field if user typed it there.
+ * e.g. "敦化南路一段光武里" → { cleanStreet: "敦化南路一段", village: "光武里" }
+ */
+function extractVillageFromStreet(street: string): { cleanStreet: string; village: string | null } {
+  // Match pattern: ...XXX里 at the end of street, or XXX里 anywhere
+  // Village names are typically 2-4 chars + 里
+  const match = street.match(/([\u4e00-\u9fff]{1,4}里)$/);
+  if (match) {
+    return {
+      cleanStreet: street.slice(0, -match[1].length).trim(),
+      village: match[1],
+    };
+  }
+  // Also try mid-string: "XX里YY路" → not a village suffix, skip
+  return { cleanStreet: street, village: null };
+}
+
+/**
+ * 當 `address_street` 未寫入但 `address` 有完整字串時，扣掉縣市／區／門牌後推斷路街（與編輯頁顯示一致）。
+ */
+export function inferStreetFromPropertyAddress(
+  property: Pick<
+    PropertyItem,
+    'address' | 'addressCity' | 'addressDistrict' | 'addressStreet' | 'addressNumber'
+  >,
+): string {
+  const fromField = property.addressStreet?.trim();
+  if (fromField) return fromField;
+
+  const city = property.addressCity?.trim() ?? '';
+  const district = property.addressDistrict?.trim() ?? '';
+  let rest = (property.address ?? '').replace(/\s/g, '');
+  if (!rest) return '';
+
+  const stripLeading = (s: string, prefix: string): string => {
+    if (!prefix) return s;
+    const variants = [
+      prefix.replace(/\s/g, ''),
+      prefix.replace(/\s/g, '').replace(/台/g, '臺'),
+      prefix.replace(/\s/g, '').replace(/臺/g, '台'),
+    ];
+    for (const v of variants) {
+      if (s.startsWith(v)) return s.slice(v.length);
+    }
+    return s;
+  };
+
+  rest = stripLeading(rest, city);
+  rest = stripLeading(rest, district);
+
+  const num = property.addressNumber?.replace(/\s/g, '') ?? '';
+  if (num.length >= 1 && rest.endsWith(num)) {
+    rest = rest.slice(0, -num.length);
+  }
+  rest = rest.replace(/(\d|０-９)+樓.*$/u, '');
+  rest = rest.replace(/之\d+.*$/u, '');
+  rest = rest.replace(/^[之]+/, '');
+  const trimmed = rest.trim();
+  if (trimmed.length >= 2) return trimmed;
+
+  const raw = (property.address ?? '').replace(/\s/g, '');
+  const m = raw.match(
+    /([\u4e00-\u9fff○〇]{2,}(?:路|街)(?:[一二三四五六七八九十百千]+段|[\u4e00-\u9fff○〇]{1,4}(?:巷|弄))?)/,
+  );
+  return m?.[1]?.trim() ?? '';
+}
+
 export function buildComparableContextFromProperty(
   property: PropertyItem,
   asOf = new Date(),
@@ -127,14 +227,20 @@ export function buildComparableContextFromProperty(
   const district = property.addressDistrict?.trim() ?? '';
   if (!city || !district) return null;
 
-  const street = property.addressStreet?.trim() ?? '';
-  const villageRaw = property.addressVillage?.trim() ?? '';
-  const village = villageRaw.length > 0 ? villageRaw : null;
+  const rawStreet =
+    property.addressStreet?.trim() || inferStreetFromPropertyAddress(property);
+  const villageFromField = property.addressVillage?.trim() ?? '';
+
+  // If user typed village (里) in the street field, extract it
+  const { cleanStreet, village: villageFromStreet } = extractVillageFromStreet(rawStreet);
+  const village = villageFromField.length > 0
+    ? villageFromField
+    : villageFromStreet;
 
   return {
     city,
     district,
-    street,
+    street: cleanStreet,
     village,
     landSectionTokens: buildLandSectionTokensFromProperty(property),
     lat: property.latitude ?? null,
@@ -158,25 +264,75 @@ function sameCity(row: NormalizedComparableSale, ctx: PropertyComparableContext)
   return normalizeTaiwanCity(row.city) === normalizeTaiwanCity(ctx.city);
 }
 
-/** 附近成交：同縣市、座標在直轄市 1km／其他 2km 內、近一年；列印時附直線距離 */
+export type NearbyComparableRow = NormalizedComparableSale & {
+  /** 直線距離；開放資料無座標時改以同行政區＋路街近似，為 null */
+  distanceKm: number | null;
+};
+
+/** 路街比對用關鍵字（正規化後）；可擴充多組以後援比對 */
+export function buildStreetMatchKeys(street: string): string[] {
+  const n = normalizeComparableAddressText(street);
+  if (n.length < 2) return [];
+  const keys = new Set<string>([n]);
+  return [...keys];
+}
+
+function matchesStreetDistrictFallback(
+  row: NormalizedComparableSale,
+  ctx: PropertyComparableContext,
+  streetKeys: string[],
+): boolean {
+  if (normalizeDistrictLabel(row.district) !== normalizeDistrictLabel(ctx.district)) return false;
+  if (streetKeys.length === 0) return false;
+  const snippetKey = normalizeComparableAddressText(row.addressSnippet);
+  return streetKeys.some((k) => k.length >= 2 && snippetKey.includes(k));
+}
+
+/**
+ * 附近成交：有物件座標時優先 Haversine（直轄市 1km／其他 2km）；案件無座標或無法定位時改同行政區＋路街。
+ * 無物件座標時（僅能依編輯頁結構化地址）亦以同行政區＋路街近似，距離欄為 —。
+ */
 export function filterNearbyComparables(
   rows: NormalizedComparableSale[],
   ctx: PropertyComparableContext,
-): Array<NormalizedComparableSale & { distanceKm: number }> {
-  if (ctx.lat == null || ctx.lng == null) return [];
+): NearbyComparableRow[] {
+  const streetKeys = buildStreetMatchKeys(ctx.street);
+  const hasStreetKey = streetKeys.length > 0;
+  const hasPropertyCoords = ctx.lat != null && ctx.lng != null;
 
-  const out: Array<NormalizedComparableSale & { distanceKm: number }> = [];
+  const out: NearbyComparableRow[] = [];
   for (const r of rows) {
     if (!sameCity(r, ctx)) continue;
-    if (r.latitude == null || r.longitude == null) continue;
     if (!isWithinLastYear(r.transactionDate, ctx.asOf)) continue;
-    const distanceKm = haversineKm(ctx.lat, ctx.lng, r.latitude, r.longitude);
-    if (distanceKm > ctx.radiusKm) continue;
-    out.push({ ...r, distanceKm });
+
+    if (hasPropertyCoords) {
+      if (r.latitude != null && r.longitude != null) {
+        const distanceKm = haversineKm(ctx.lat!, ctx.lng!, r.latitude, r.longitude);
+        if (distanceKm > ctx.radiusKm) continue;
+        out.push({ ...r, distanceKm });
+        continue;
+      }
+      if (matchesStreetDistrictFallback(r, ctx, streetKeys)) {
+        out.push({ ...r, distanceKm: null });
+      }
+      continue;
+    }
+
+    if (matchesStreetDistrictFallback(r, ctx, streetKeys)) {
+      out.push({ ...r, distanceKm: null });
+    }
   }
-  out.sort(
-    (a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime(),
-  );
+
+  out.sort((a, b) => {
+    const ta = new Date(a.transactionDate).getTime();
+    const tb = new Date(b.transactionDate).getTime();
+    const da = a.distanceKm;
+    const db = b.distanceKm;
+    if (da != null && db != null && da !== db) return da - db;
+    if (da != null && db == null) return -1;
+    if (da == null && db != null) return 1;
+    return tb - ta;
+  });
   return out;
 }
 
@@ -185,9 +341,9 @@ export function filterStreetSectionComparables(
   rows: NormalizedComparableSale[],
   ctx: PropertyComparableContext,
 ): NormalizedComparableSale[] {
-  const streetNorm = normalizeAddrFragment(ctx.street);
-  const hasStreet = streetNorm.length >= 2;
-  const sectionNorms = ctx.landSectionTokens.map(normalizeAddrFragment).filter(Boolean);
+  const streetKeys = buildStreetMatchKeys(ctx.street);
+  const hasStreet = streetKeys.length > 0;
+  const sectionNorms = ctx.landSectionTokens.map(normalizeComparableAddressText).filter(Boolean);
 
   if (!hasStreet && sectionNorms.length === 0) return [];
 
@@ -196,14 +352,14 @@ export function filterStreetSectionComparables(
     if (!sameCityAndDistrict(r, ctx)) continue;
     if (!isWithinLastYear(r.transactionDate, ctx.asOf)) continue;
 
-    const snippetNorm = normalizeAddrFragment(r.addressSnippet);
-    const streetMatch = hasStreet && snippetNorm.includes(streetNorm);
+    const snippetNorm = normalizeComparableAddressText(r.addressSnippet);
+    const streetMatch = hasStreet && streetKeys.some((k) => snippetNorm.includes(k));
 
     const sectionMatch =
       sectionNorms.length > 0 &&
       (sectionNorms.some((sn) => snippetNorm.includes(sn)) ||
         r.landSectionTokens.some((tok) => {
-          const tn = normalizeAddrFragment(tok);
+          const tn = normalizeComparableAddressText(tok);
           return sectionNorms.some((sn) => tn.includes(sn) || sn.includes(tn));
         }));
 
@@ -215,29 +371,3 @@ export function filterStreetSectionComparables(
   return out;
 }
 
-function normalizeVillageName(v: string): string {
-  return v.replace(/\s/g, '').replace(/台/g, '臺');
-}
-
-/** 同里：同行政區且村里欄位一致（物件須填寫里名） */
-export function filterVillageComparables(
-  rows: NormalizedComparableSale[],
-  ctx: PropertyComparableContext,
-): NormalizedComparableSale[] {
-  if (!ctx.village?.trim()) return [];
-
-  const target = normalizeVillageName(ctx.village);
-
-  const out: NormalizedComparableSale[] = [];
-  for (const r of rows) {
-    if (!sameCityAndDistrict(r, ctx)) continue;
-    if (!isWithinLastYear(r.transactionDate, ctx.asOf)) continue;
-    if (!r.village?.trim()) continue;
-    if (normalizeVillageName(r.village) !== target) continue;
-    out.push(r);
-  }
-  out.sort(
-    (a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime(),
-  );
-  return out;
-}

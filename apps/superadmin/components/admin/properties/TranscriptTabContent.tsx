@@ -22,6 +22,7 @@ import {
   ChevronDown,
   ChevronUp,
   ScanSearch,
+  X,
 } from 'lucide-react';
 import {
   getPropertyDocuments,
@@ -321,13 +322,21 @@ function TranscriptColumn({
       <div className="flex-1 min-h-0 overflow-y-scroll p-4 space-y-4">
         {feedback && (
           <div
-            className={`p-2.5 rounded-md text-xs ${
+            className={`p-2.5 rounded-md text-xs relative group ${
               feedback.type === 'success'
                 ? 'bg-green-500/10 text-green-500 border border-green-500/20'
                 : 'bg-red-500/10 text-red-500 border border-red-500/20'
             }`}
           >
-            {feedback.message}
+            <div className="pr-6">{feedback.message}</div>
+            <button
+              type="button"
+              onClick={() => setFeedback(null)}
+              className="absolute top-2 right-2 p-1 rounded-md hover:bg-black/5 transition-colors opacity-60 hover:opacity-100"
+              title="關閉提示"
+            >
+              <X size={14} />
+            </button>
           </div>
         )}
 

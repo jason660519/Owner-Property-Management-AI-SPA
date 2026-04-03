@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start -p 3001",
     "lint": "eslint .",
-    "test": "jest"
+    "test": "jest",
+    "test:lvr-integration": "bash scripts/run-lvr-integration-test.sh"
   },
   "dependencies": {
     "@fontsource/noto-sans-tc": "^5.2.9",

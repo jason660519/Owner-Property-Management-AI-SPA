@@ -12,8 +12,10 @@ jest.mock('next/cache', () => ({
   revalidateTag: jest.fn(),
 }))
 
-// Mock fetch globally
-global.fetch = jest.fn()
+// Mock fetch globally（整合測試設 SUPABASE_INTEGRATION_TEST=1 以使用真實 fetch 連本機／遠端 Supabase）
+if (process.env.SUPABASE_INTEGRATION_TEST !== '1') {
+  global.fetch = jest.fn()
+}
 
 // Mock Request and Response for Next.js
 if (typeof Request === 'undefined') {

@@ -8,6 +8,7 @@ import { HardDrive, File, Trash2, AlertTriangle, PieChart, BarChart2, Activity }
 import {
   deleteFile,
   setUserQuota,
+  batchDeleteFiles,
   type StorageSummary,
   type FileTypeStat,
   type OrphanedFile,
@@ -15,6 +16,7 @@ import {
 } from '@/app/actions/storage';
 import { getQuotaUsagePercent } from '@/app/superadmin/dashboard/storage/storage-quota-utils';
 import { useRouter } from 'next/navigation';
+import { Loader2, CheckSquare, Square, Download, FolderInput } from 'lucide-react';
 
 function formatBytes(bytes: number, decimals = 2) {
   if (!+bytes) return '0 Bytes';
@@ -37,7 +39,62 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
   const [orphanedFiles, setOrphanedFiles] = useState(initialOrphanedFiles);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [savingQuotaFor, setSavingQuotaFor] = useState<string | null>(null);
+  const [selectedOrphans, setSelectedOrphans] = useState<Set<string>>(new Set());
+  const [isBatchDeleting, setIsBatchDeleting] = useState(false);
   const router = useRouter();
+
+  // Find a global quota for total monitoring (optional, or just use 1GB as a benchmark)
+  const GLOBAL_QUOTA_BYTES = 1024 * 1024 * 1024; // 1GB
+  const globalUsagePercent = Math.min(100, (summary.totalSize / GLOBAL_QUOTA_BYTES) * 100);
+  const isGlobalQuotaHigh = globalUsagePercent > 75;
+
+  const toggleSelectAll = () => {
+    if (selectedOrphans.size === orphanedFiles.length) {
+      setSelectedOrphans(new Set());
+    } else {
+      setSelectedOrphans(new Set(orphanedFiles.map(f => `${f.bucket_id}:${f.name}`)));
+    }
+  };
+
+  const toggleSelect = (bucketId: string, name: string) => {
+    const key = `${bucketId}:${name}`;
+    const next = new Set(selectedOrphans);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setSelectedOrphans(next);
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedOrphans.size === 0) return;
+    if (!confirm(`確定要刪除選取的 ${selectedOrphans.size} 個孤兒檔案嗎？此操作無法復原。`)) return;
+
+    setIsBatchDeleting(true);
+    try {
+      // Group by bucket
+      const byBucket: Record<string, string[]> = {};
+      selectedOrphans.forEach(key => {
+        const [bucket, name] = key.split(':');
+        if (!byBucket[bucket]) byBucket[bucket] = [];
+        byBucket[bucket].push(name);
+      });
+
+      let totalDeleted = 0;
+      for (const [bucket, paths] of Object.entries(byBucket)) {
+        const result = await batchDeleteFiles(bucket, paths);
+        totalDeleted += result.deleted;
+      }
+
+      alert(`已成功刪除 ${totalDeleted} 個檔案`);
+      setOrphanedFiles(prev => prev.filter(f => !selectedOrphans.has(`${f.bucket_id}:${f.name}`)));
+      setSelectedOrphans(new Set());
+      router.refresh();
+    } catch (error) {
+      alert('批次刪除失敗');
+      console.error(error);
+    } finally {
+      setIsBatchDeleting(false);
+    }
+  };
 
   const handleDelete = async (bucket: string, path: string) => {
     if (!confirm('Are you sure you want to delete this file? This action cannot be undone.')) return;
@@ -55,27 +112,21 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
   };
 
   const handleEditQuota = async (quota: StorageQuota) => {
-    const currentGb = quota.quota_bytes / (1024 ** 3);
+    const currentMb = quota.quota_mb || 0;
     // eslint-disable-next-line no-alert
-    const input = window.prompt('請輸入新的配額上限 (GB)：', currentGb.toFixed(2));
+    const input = window.prompt('請輸入新的配額上限 (MB)：', currentMb.toString());
     if (!input) return;
 
-    const parsed = Number.parseFloat(input);
+    const parsed = Number.parseInt(input);
     if (!Number.isFinite(parsed) || parsed <= 0) {
       // eslint-disable-next-line no-alert
       window.alert('請輸入大於 0 的數值');
       return;
     }
 
-    const newQuotaBytes = Math.round(parsed * 1024 ** 3);
     setSavingQuotaFor(quota.user_id);
     try {
-      const result = await setUserQuota(quota.user_id, newQuotaBytes);
-      if (!result.success) {
-        // eslint-disable-next-line no-alert
-        window.alert(result.error ?? '更新配額失敗');
-        return;
-      }
+      await setUserQuota(quota.user_id, parsed);
       // eslint-disable-next-line no-alert
       window.alert('配額已更新');
       router.refresh();
@@ -122,6 +173,16 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
 
       {activeTab === 'overview' && (
         <div className="space-y-6">
+            {/* Quota Alerts */}
+            {isGlobalQuotaHigh && (
+              <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 flex items-center gap-3 animate-pulse">
+                <AlertTriangle className="w-5 h-5" />
+                <div className="text-sm font-medium">
+                  儲存空間警告：總體使用率已達 {globalUsagePercent.toFixed(1)}% ({formatBytes(summary.totalSize)} / {formatBytes(GLOBAL_QUOTA_BYTES)})
+                </div>
+              </div>
+            )}
+
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card>
@@ -130,9 +191,15 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
                             <div className="p-3 bg-blue-500/10 rounded-full">
                                 <HardDrive className="w-6 h-6 text-blue-500" />
                             </div>
-                            <div>
+                            <div className="flex-1">
                                 <p className="text-sm text-text-muted">總使用空間</p>
-                                <h3 className="text-2xl font-bold">{formatBytes(summary.total_size_bytes)}</h3>
+                                <h3 className="text-2xl font-bold">{formatBytes(summary.totalSize)}</h3>
+                                <div className="mt-2 w-full bg-bg-tertiary rounded-full h-1.5">
+                                  <div 
+                                    className={`h-1.5 rounded-full transition-all ${isGlobalQuotaHigh ? 'bg-red-500' : 'bg-accent'}`} 
+                                    style={{ width: `${globalUsagePercent}%` }} 
+                                  />
+                                </div>
                             </div>
                         </div>
                     </CardContent>
@@ -145,7 +212,8 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
                             </div>
                             <div>
                                 <p className="text-sm text-text-muted">總檔案數</p>
-                                <h3 className="text-2xl font-bold">{summary.total_files.toLocaleString()}</h3>
+                                <h3 className="text-2xl font-bold">{summary.totalFiles.toLocaleString()}</h3>
+                                <p className="text-xs text-text-muted mt-1">橫跨 {Object.keys(summary.byBucket).length} 個 Buckets</p>
                             </div>
                         </div>
                     </CardContent>
@@ -185,7 +253,7 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
                                     <div className="h-2 bg-bg-tertiary rounded-full overflow-hidden">
                                         <div 
                                             className="h-full bg-accent" 
-                                            style={{ width: `${(ft.size / summary.total_size_bytes) * 100}%` }}
+                                            style={{ width: `${(ft.size / summary.totalSize) * 100}%` }}
                                         />
                                     </div>
                                 </div>
@@ -203,16 +271,16 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
                     </CardHeader>
                     <CardContent>
                          <div className="space-y-4">
-                            {summary.buckets.map((b) => (
-                                <div key={b.name} className="space-y-1">
+                            {Object.entries(summary.byBucket).map(([name, stats]) => (
+                                <div key={name} className="space-y-1">
                                     <div className="flex justify-between text-sm">
-                                        <span>{b.name}</span>
-                                        <span>{formatBytes(b.size)}</span>
+                                        <span>{name}</span>
+                                        <span>{formatBytes(stats.size)}</span>
                                     </div>
                                     <div className="h-2 bg-bg-tertiary rounded-full overflow-hidden">
                                         <div 
                                             className="h-full bg-purple-500" 
-                                            style={{ width: `${summary.total_size_bytes > 0 ? (b.size / summary.total_size_bytes) * 100 : 0}%` }}
+                                            style={{ width: `${summary.totalSize > 0 ? (stats.size / summary.totalSize) * 100 : 0}%` }}
                                         />
                                     </div>
                                 </div>
@@ -221,6 +289,7 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
                     </CardContent>
                 </Card>
             </div>
+
              <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -239,48 +308,105 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
 
       {activeTab === 'orphaned' && (
         <Card>
-            <CardHeader>
-                <CardTitle>孤兒檔案列表 (未被資料庫參照)</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <div>
+                    <CardTitle>孤兒檔案列表 (未被資料庫參照)</CardTitle>
+                    <p className="text-xs text-text-muted mt-1">這些檔案存在於 Storage 但在資料庫中找不到對應紀錄，建議清理以節省空間。</p>
+                </div>
+                <div className="flex items-center gap-2">
+                    {selectedOrphans.size > 0 && (
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={handleBatchDelete}
+                            disabled={isBatchDeleting}
+                            className="bg-red-600 hover:bg-red-700"
+                        >
+                            {isBatchDeleting ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <Trash2 className="w-4 h-4 mr-1.5" />
+                            )}
+                            刪除選取 ({selectedOrphans.size})
+                        </Button>
+                    )}
+                </div>
             </CardHeader>
             <CardContent>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
                         <thead className="text-text-muted border-b border-border-default">
                             <tr>
+                                <th className="p-3 w-10">
+                                    <button onClick={toggleSelectAll} className="text-text-muted hover:text-accent">
+                                        {selectedOrphans.size === orphanedFiles.length && orphanedFiles.length > 0 ? (
+                                            <CheckSquare className="w-4 h-4" />
+                                        ) : (
+                                            <Square className="w-4 h-4" />
+                                        )}
+                                    </button>
+                                </th>
                                 <th className="p-3">Bucket</th>
                                 <th className="p-3">檔案路徑</th>
                                 <th className="p-3">大小</th>
                                 <th className="p-3">建立時間</th>
-                                <th className="p-3">操作</th>
+                                <th className="p-3 text-right">操作</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-700">
+                        <tbody className="divide-y divide-border-default">
                             {orphanedFiles.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="p-4 text-center text-text-secondary">
-                                        無孤兒檔案
+                                    <td colSpan={6} className="p-8 text-center text-text-secondary italic">
+                                        恭喜！目前沒有偵測到任何孤兒檔案。
                                     </td>
                                 </tr>
                             ) : (
-                                orphanedFiles.map((file) => (
-                                    <tr key={file.name}>
-                                        <td className="p-3">{file.bucket_id}</td>
-                                        <td className="p-3 font-mono text-xs">{file.name}</td>
-                                        <td className="p-3">{formatBytes(file.size)}</td>
-                                        <td className="p-3">{new Date(file.created_at).toLocaleDateString()}</td>
-                                        <td className="p-3">
-                                            <Button 
-                                                variant="primary" 
-                                                size="sm"
-                                                onClick={() => handleDelete(file.bucket_id, file.name)}
-                                                disabled={deleting === file.name}
-                                                className="bg-red-600 hover:bg-red-700"
-                                            >
-                                                {deleting === file.name ? 'Deleting...' : <Trash2 className="w-4 h-4" />}
-                                            </Button>
-                                        </td>
-                                    </tr>
-                                ))
+                                orphanedFiles.map((file) => {
+                                    const isSelected = selectedOrphans.has(`${file.bucket_id}:${file.name}`);
+                                    return (
+                                        <tr key={`${file.bucket_id}:${file.name}`} className={`hover:bg-bg-tertiary/20 transition-colors ${isSelected ? 'bg-accent/5' : ''}`}>
+                                            <td className="p-3">
+                                                <button onClick={() => toggleSelect(file.bucket_id, file.name)} className="text-text-muted hover:text-accent">
+                                                    {isSelected ? <CheckSquare className="w-4 h-4 text-accent" /> : <Square className="w-4 h-4" />}
+                                                </button>
+                                            </td>
+                                            <td className="p-3">
+                                                <span className="px-2 py-0.5 rounded-full bg-bg-tertiary text-[10px] font-medium uppercase">
+                                                    {file.bucket_id}
+                                                </span>
+                                            </td>
+                                            <td className="p-3 font-mono text-xs break-all max-w-md" title={file.name}>
+                                                {file.name}
+                                            </td>
+                                            <td className="p-3 whitespace-nowrap">{formatBytes(file.size)}</td>
+                                            <td className="p-3 whitespace-nowrap text-text-muted text-xs">
+                                                {new Date(file.created_at).toLocaleString('zh-TW')}
+                                            </td>
+                                            <td className="p-3 text-right">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <a 
+                                                        href={file.url} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                        className="p-1.5 rounded hover:bg-bg-tertiary text-text-secondary transition-colors"
+                                                        title="預覽"
+                                                    >
+                                                        <Activity className="w-4 h-4" />
+                                                    </a>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="sm"
+                                                        onClick={() => handleDelete(file.bucket_id, file.name)}
+                                                        disabled={deleting === file.name}
+                                                        className="text-text-muted hover:text-red-500 hover:bg-red-500/10"
+                                                    >
+                                                        {deleting === file.name ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                                    </Button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
@@ -318,12 +444,12 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
                       const percentLabel = `${(usage * 100).toFixed(1)}%`;
                       const isHigh = usage >= 0.75;
                       return (
-                        <tr key={quota.id} className={isHigh ? 'bg-red-500/5' : undefined}>
+                        <tr key={quota.user_id} className={isHigh ? 'bg-red-500/5' : undefined}>
                           <td className="p-3 font-mono text-xs max-w-xs truncate" title={quota.user_id}>
                             {quota.user_id}
                           </td>
                           <td className="p-3">
-                            {formatBytes(quota.used_bytes)} / {formatBytes(quota.quota_bytes)}
+                            {formatBytes(quota.used_bytes)} / {formatBytes(quota.quota_mb * 1024 * 1024)}
                           </td>
                           <td className="p-3">
                             <div className="flex items-center gap-2">

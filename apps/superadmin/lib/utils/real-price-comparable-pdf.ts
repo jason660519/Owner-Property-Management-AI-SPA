@@ -14,19 +14,30 @@ const FONT_SIZE = 8;
 
 export type ComparablePdfKind = 'nearby' | 'street_section' | 'village';
 
+const NOTO_SANS_TC_FILES = [
+  'noto-sans-tc-chinese-traditional-400-normal.woff2',
+  'noto-sans-tc-chinese-traditional-400-normal.woff',
+  'noto-sans-tc-0-400-normal.woff2',
+] as const;
+
 function resolveNotoSansTcWoff2Path(): string | null {
-  const rel = join(
-    'node_modules',
-    '@fontsource',
-    'noto-sans-tc',
-    'files',
-    'noto-sans-tc-chinese-traditional-400-normal.woff2',
-  );
-  const roots = [process.cwd(), join(process.cwd(), '..'), join(process.cwd(), '..', '..')];
-  for (const r of roots) {
-    const p = join(r, rel);
-    if (existsSync(p)) return p;
+  // 優先使用 macOS 內建的全字元 Unicode 字體，避免使用不完整的 Noto Sans TC 子集 (Subset 0 只含拉丁)
+  const macOSArialUnicode = '/System/Library/Fonts/Supplemental/Arial Unicode.ttf';
+  if (existsSync(macOSArialUnicode)) return macOSArialUnicode;
+
+  // Linux/Fallback: 尋找 Noto Sans TC (雖然分頁報表可能有子集問題，但作為次選)
+  const relParts = ['node_modules', '@fontsource', 'noto-sans-tc', 'files'] as const;
+  let dir = process.cwd();
+  for (let depth = 0; depth < 8; depth++) {
+    for (const name of NOTO_SANS_TC_FILES) {
+      const p = join(dir, ...relParts, name);
+      if (existsSync(p)) return p;
+    }
+    const parent = join(dir, '..');
+    if (parent === dir) break;
+    dir = parent;
   }
+
   return null;
 }
 
@@ -50,8 +61,9 @@ function drawLine(
   text: string,
   maxWidth?: number,
 ): number {
-  const line = maxWidth != null ? ellipsize(text, Math.floor(maxWidth / (size * 0.55))) : text;
-  page.drawText(line, { x, y, size, font, color: rgb(0.1, 0.1, 0.12) });
+  if (!text) return y;
+  // 移除過於侵略性的截斷，避免中文字元寬度計算錯誤導致完全不顯示
+  page.drawText(text, { x, y, size, font, color: rgb(0.1, 0.1, 0.12) });
   return y - ROW_H;
 }
 
@@ -63,7 +75,7 @@ export interface ComparablePdfBuildInput {
   warnings: string[];
   rows: Array<
     NormalizedComparableSale & {
-      distanceKm?: number;
+      distanceKm?: number | null;
     }
   >;
   generatedAtLabel: string;
@@ -71,122 +83,173 @@ export interface ComparablePdfBuildInput {
 
 export async function buildComparableSalesPdf(input: ComparablePdfBuildInput): Promise<Uint8Array> {
   const fontPath = resolveNotoSansTcWoff2Path();
-  if (!fontPath) {
-    throw new Error(
-      '找不到 Noto Sans TC 字型（@fontsource/noto-sans-tc）。請在專案根目錄執行 npm install。',
-    );
-  }
-
+  
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
-  const fontBytes = readFileSync(fontPath);
-  const font = await pdfDoc.embedFont(fontBytes, { subset: true });
-  const fontMono = await pdfDoc.embedFont(StandardFonts.Courier);
+
+  let font: PDFFont;
+  if (fontPath) {
+    const fontBytes = readFileSync(fontPath);
+    font = await pdfDoc.embedFont(new Uint8Array(fontBytes), { subset: true });
+  } else {
+    // 即使找不到字體，也絕不能崩潰，退而求其次使用 Helvetica
+    console.error('[PDF] Font not found, using fallback Helvetica');
+    font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  }
+
+  const fontMono = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
   let page = pdfDoc.addPage([595.28, 841.89]);
   const pageW = page.getWidth();
   let y = page.getHeight() - MARGIN;
 
-  y = drawLine(page, font, MARGIN, y, 14, input.reportTitle);
-  y -= 4;
-  y = drawLine(page, fontMono, MARGIN, y, 8, input.generatedAtLabel);
-  y -= 8;
+  // 1. 標題
+  page.drawText(input.reportTitle, {
+    x: MARGIN,
+    y: y,
+    size: 14,
+    font: font,
+    color: rgb(0, 0, 0)
+  });
+  y -= 20;
 
+  // 2. 產製時間
+  page.drawText(input.generatedAtLabel, {
+    x: MARGIN,
+    y: y,
+    size: 8,
+    font: font,
+    color: rgb(0.4, 0.4, 0.4)
+  });
+  y -= 20;
+
+  // 3. 物件資訊
   for (const pl of input.propertyLines) {
-    y = drawLine(page, font, MARGIN, y, FONT_SIZE, pl, pageW - 2 * MARGIN);
-  }
-  y -= 4;
-
-  y = drawLine(page, font, MARGIN, y, 9, '篩選條件');
-  for (const cl of input.criteriaLines) {
-    y = drawLine(page, font, MARGIN, y, FONT_SIZE, `· ${cl}`, pageW - 2 * MARGIN);
-  }
-  y -= 4;
-
-  for (const w of input.warnings) {
-    y = drawLine(page, font, MARGIN, y, FONT_SIZE, `※ ${w}`, pageW - 2 * MARGIN);
-  }
-  if (input.warnings.length > 0) y -= 4;
-
-  const slice = input.rows.slice(0, MAX_ROWS);
-  const headers =
-    input.kind === 'nearby'
-      ? ['交易日', '總價(萬)', '建物㎡', '單價/㎡', '型態', '樓層', '距離km', '位置摘要']
-      : ['交易日', '總價(萬)', '建物㎡', '單價/㎡', '型態', '樓層', '位置摘要'];
-
-  const colXs =
-    input.kind === 'nearby'
-      ? [MARGIN, 92, 138, 178, 228, 278, 318, 368]
-      : [MARGIN, 92, 138, 178, 228, 278, 328];
-
-  y = drawLine(page, font, MARGIN, y, 9, `成交案件（近一年，最多 ${MAX_ROWS} 筆；資料來源：貴單位匯入之開放資料）`);
-  y -= 2;
-
-  const headerBaselineY = y;
-  for (let i = 0; i < headers.length; i++) {
-    page.drawText(headers[i], {
-      x: colXs[i],
-      y: headerBaselineY,
-      size: 7,
-      font,
-      color: rgb(0.2, 0.2, 0.25),
+    page.drawText(pl, {
+      x: MARGIN,
+      y: y,
+      size: 9,
+      font: font,
+      color: rgb(0.2, 0.2, 0.2)
     });
+    y -= 14;
   }
-  y = headerBaselineY - ROW_H;
+  y -= 10;
+
+  // 4. 篩選條件
+  page.drawText('篩選條件 (Search Criteria):', {
+    x: MARGIN,
+    y: y,
+    size: 10,
+    font: font,
+    color: rgb(0, 0, 0)
+  });
+  y -= 14;
+  for (const cl of input.criteriaLines) {
+    page.drawText(`• ${cl}`, {
+      x: MARGIN + 10,
+      y: y,
+      size: 8,
+      font: font,
+      color: rgb(0.3, 0.3, 0.3)
+    });
+    y -= 12;
+  }
+  y -= 15;
+
+  // 5. 警示訊息 (如有)
+  if (input.warnings.length > 0) {
+    for (const w of input.warnings) {
+      page.drawText(`[!] ${w}`, {
+        x: MARGIN,
+        y: y,
+        size: 9,
+        font: font,
+        color: rgb(0.8, 0, 0)
+      });
+      y -= 14;
+    }
+    y -= 10;
+  }
+
+  // 6. 表頭與列表
+  page.drawText('成交案件 (Transactions):', {
+    x: MARGIN,
+    y: y,
+    size: 10,
+    font: font,
+    color: rgb(0, 0, 0)
+  });
+  y -= 16;
+
+  const headers = input.kind === 'nearby'
+    ? ['日期', '總價(萬)', '面積㎡', '單價/㎡', '型態', '樓層', '距離', '位置']
+    : ['日期', '總價(萬)', '面積㎡', '單價/㎡', '型態', '樓層', '位置'];
+
+  const colXs = input.kind === 'nearby'
+    ? [MARGIN, 100, 150, 190, 240, 290, 330, 380]
+    : [MARGIN, 100, 150, 190, 240, 290, 340];
+
+  // 畫表頭
+  headers.forEach((h, i) => {
+    page.drawText(h, {
+      x: colXs[i],
+      y: y,
+      size: 8,
+      font: font,
+      color: rgb(0, 0, 0)
+    });
+  });
+  y -= 14;
   page.drawLine({
     start: { x: MARGIN, y: y + 10 },
     end: { x: pageW - MARGIN, y: y + 10 },
-    thickness: 0.4,
-    color: rgb(0.75, 0.75, 0.78),
+    thickness: 1,
+    color: rgb(0.8, 0.8, 0.8)
   });
 
+  const slice = input.rows.slice(0, MAX_ROWS);
   if (slice.length === 0) {
-    y = drawLine(page, font, MARGIN, y, FONT_SIZE, '（無符合條件之成交資料）');
+    page.drawText('(無符合條件之成交資料 / No data matches found)', {
+      x: MARGIN,
+      y: y,
+      size: 9,
+      font: font,
+      color: rgb(0.5, 0.5, 0.5)
+    });
   } else {
-    for (const r of slice) {
-      if (y < MARGIN + 48) {
+    for (const row of slice) {
+      if (y < MARGIN + 20) {
         page = pdfDoc.addPage([595.28, 841.89]);
         y = page.getHeight() - MARGIN;
       }
-      const row: string[] = [
-        r.transactionDate,
-        formatWan(r.totalPriceTwd),
-        r.buildingAreaSqm != null ? String(r.buildingAreaSqm) : '—',
-        r.unitPricePerSqm != null ? String(Math.round(r.unitPricePerSqm)) : '—',
-        ellipsize(r.buildingType ?? '—', 8),
-        ellipsize(r.floor ?? '—', 6),
+
+      const vals = [
+        row.transactionDate,
+        formatWan(row.totalPriceTwd),
+        row.buildingAreaSqm?.toString() || '-',
+        row.unitPricePerSqm?.toLocaleString() || '-',
+        row.buildingType || '-',
+        row.floor || '-',
       ];
       if (input.kind === 'nearby') {
-        row.push(r.distanceKm != null ? r.distanceKm.toFixed(3) : '—');
-        row.push(ellipsize(r.addressSnippet, 28));
-      } else {
-        row.push(ellipsize(r.addressSnippet, 34));
+        vals.push(
+          row.distanceKm != null ? `${row.distanceKm.toFixed(2)}km` : '—',
+        );
       }
-      for (let i = 0; i < row.length; i++) {
-        page.drawText(row[i], {
+      vals.push(row.addressSnippet);
+
+      vals.forEach((v, i) => {
+        page.drawText(v, {
           x: colXs[i],
-          y,
+          y: y,
           size: 7,
-          font: i === 1 ? fontMono : font,
-          color: rgb(0.12, 0.12, 0.14),
+          font: font,
+          color: rgb(0.2, 0.2, 0.2)
         });
-      }
+      });
       y -= ROW_H;
     }
-  }
-
-  y -= 8;
-  if (y < MARGIN + 72) {
-    page = pdfDoc.addPage([595.28, 841.89]);
-    y = page.getHeight() - MARGIN;
-  }
-
-  const foot = [
-    '聲明：本表由系統依貴單位提供之成交資料與上述條件自動篩選產出，僅供參考。',
-    '正式揭露仍應以內政部不動產交易實價查詢服務網（https://lvr.land.moi.gov.tw/）及政府開放資料為準。',
-  ];
-  for (const f of foot) {
-    y = drawLine(page, font, MARGIN, y, 7, f, pageW - 2 * MARGIN);
   }
 
   return pdfDoc.save();

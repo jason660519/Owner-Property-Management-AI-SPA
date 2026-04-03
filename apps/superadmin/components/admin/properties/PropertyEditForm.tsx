@@ -4,7 +4,7 @@
 
 import { useState, useTransition, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Loader2, Building2, Key } from 'lucide-react';
+import { ArrowLeft, Loader2, Building2, Key, X } from 'lucide-react';
 import { updateProperty } from '@/lib/actions/properties';
 import { PropertyMediaSection } from './PropertyMediaSection';
 import { PropertyInvestigationReportSection } from './PropertyInvestigationReportSection';
@@ -270,13 +270,8 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
       const result = await updateProperty(property.id, property.type, input);
       if (result.success) {
         setFeedback({ type: 'success', message: result.message });
-        // Stay on the edit page so the user can continue editing.
-        successFeedbackTimeoutRef.current = setTimeout(() => {
-          // Refresh after user can see the success toast/message.
-          router.refresh();
-          setFeedback(null);
-          successFeedbackTimeoutRef.current = null;
-        }, 3000);
+        // 移除自動消失邏輯，讓使用者有足夠時間閱讀，需手動點擊 X 關閉
+        router.refresh();
       } else {
         setFeedback({ type: 'error', message: result.message });
       }
@@ -358,13 +353,21 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
             activeTab !== 'introduction' &&
             activeTab !== 'map_location' && (
             <div
-              className={`p-3 rounded-lg text-sm shrink-0 ${
+              className={`p-3 rounded-lg text-sm shrink-0 relative group ${
                 feedback.type === 'success'
                   ? 'bg-green-500/10 text-green-500 border border-green-500/20'
                   : 'bg-red-500/10 text-red-500 border border-red-500/20'
               }`}
             >
-              {feedback.message}
+              <div className="pr-6">{feedback.message}</div>
+              <button
+                type="button"
+                onClick={() => setFeedback(null)}
+                className="absolute top-3 right-3 p-1 rounded-md hover:bg-black/5 transition-colors opacity-60 hover:opacity-100"
+                title="關閉提示"
+              >
+                <X size={14} />
+              </button>
             </div>
           )}
 
@@ -722,13 +725,21 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
           <div className="shrink-0 border-t border-border-default px-6 py-4 flex flex-col sm:flex-row gap-3 sm:items-center">
             {feedback && (
               <div
-                className={`p-3 rounded-lg text-sm ${
+                className={`p-3 rounded-lg text-sm relative group flex-1 ${
                   feedback.type === 'success'
                     ? 'bg-green-500/10 text-green-500 border border-green-500/20'
                     : 'bg-red-500/10 text-red-500 border border-red-500/20'
                 }`}
               >
-                {feedback.message}
+                <div className="pr-6">{feedback.message}</div>
+                <button
+                  type="button"
+                  onClick={() => setFeedback(null)}
+                  className="absolute top-3 right-3 p-1 rounded-md hover:bg-black/5 transition-colors opacity-60 hover:opacity-100"
+                  title="關閉提示"
+                >
+                  <X size={14} />
+                </button>
               </div>
             )}
 

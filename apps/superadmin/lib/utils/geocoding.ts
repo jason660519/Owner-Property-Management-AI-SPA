@@ -2,6 +2,8 @@
 // Address geocoding utility using OpenStreetMap Nominatim.
 // Note: Nominatim usage policy requires a valid User-Agent and max 1 request/second.
 
+import { normalizeTaiwanAddress } from '@/lib/utils/real-price-comparables';
+
 export interface GeocodeResult {
   lat: number;
   lng: number;
@@ -76,11 +78,17 @@ function getAccuracy(result: any): GeocodeResult['accuracy'] {
 export async function geocodeAddress(params: GeocodeParams): Promise<GeocodeResult | null> {
   const { city, district, street, number, rawAddress } = params;
 
+  const norm = (s: string) => normalizeTaiwanAddress(s.trim());
+
   // Strategies ordered from most specific to least specific.
   const strategies: Record<string, string>[] = [];
 
   // 1. Raw address or full composed address string (Highest priority for "Chinese Address" positioning)
-  const fullAddress = rawAddress || (city && street ? `${city}${district || ''}${street}${number || ''}` : null);
+  const fullAddress = rawAddress
+    ? norm(rawAddress)
+    : city && street
+      ? norm(`${city}${district || ''}${street}${number || ''}`)
+      : null;
   if (fullAddress) {
     // Try to strip floor/unit as they usually confuse geocoders
     const cleanFull = fullAddress.replace(/(?:\d+樓|之\d+).*$/, '').trim();
@@ -88,12 +96,13 @@ export async function geocodeAddress(params: GeocodeParams): Promise<GeocodeResu
       strategies.push({ q: cleanFull, countrycodes: 'tw' });
     }
     strategies.push({ q: fullAddress, countrycodes: 'tw' });
+    strategies.push({ q: `臺灣${fullAddress}`, countrycodes: 'tw' });
   }
 
   // 2. Structured: City + District + Street + Number
   if (city && street && number) {
     strategies.push({
-      q: `${city}${district || ''}${street}${number}`,
+      q: norm(`${city}${district || ''}${street}${number}`),
       countrycodes: 'tw',
     });
   }
@@ -101,7 +110,7 @@ export async function geocodeAddress(params: GeocodeParams): Promise<GeocodeResu
   // 3. Structured: City + District + Street
   if (city && street) {
     strategies.push({
-      q: `${city}${district || ''}${street}`,
+      q: norm(`${city}${district || ''}${street}`),
       countrycodes: 'tw',
     });
   }
@@ -109,9 +118,9 @@ export async function geocodeAddress(params: GeocodeParams): Promise<GeocodeResu
   // 4. City + Street only (fallback for district mismatches)
   if (city && street) {
     strategies.push({
-      street: street as string,
-      city: district || '',
-      county: city as string,
+      street: norm(street),
+      city: district ? norm(district) : '',
+      county: norm(city),
       countrycodes: 'tw',
     });
   }

@@ -6,7 +6,7 @@
 import { useState, useEffect, useTransition } from 'react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
-import { Loader2, Save, Images } from 'lucide-react';
+import { Loader2, Save, Images, X } from 'lucide-react';
 import { getSystemSetting, updateSystemSetting } from '../actions';
 
 export default function PropertyRulesPage() {
@@ -24,7 +24,7 @@ export default function PropertyRulesPage() {
 
   function showFeedback(type: 'success' | 'error', message: string) {
     setFeedback({ type, message });
-    setTimeout(() => setFeedback(null), 3500);
+    // 移除自動消失邏輯，需手動關閉
   }
 
   function handleSave() {
@@ -61,13 +61,21 @@ export default function PropertyRulesPage() {
 
         {feedback && (
           <div
-            className={`p-3 rounded-md text-sm ${
+            className={`p-3 rounded-md text-sm relative group ${
               feedback.type === 'success'
                 ? 'bg-green-500/10 text-green-500 border border-green-500/20'
                 : 'bg-red-500/10 text-red-500 border border-red-500/20'
             }`}
           >
-            {feedback.message}
+            <div className="pr-6">{feedback.message}</div>
+            <button
+              type="button"
+              onClick={() => setFeedback(null)}
+              className="absolute top-3 right-3 p-1 rounded-md hover:bg-black/5 transition-colors opacity-60 hover:opacity-100"
+              title="關閉提示"
+            >
+              <X size={14} />
+            </button>
           </div>
         )}
 

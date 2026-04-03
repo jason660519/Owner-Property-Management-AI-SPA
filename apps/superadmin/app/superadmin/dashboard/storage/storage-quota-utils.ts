@@ -1,12 +1,13 @@
 export interface StorageQuotaLike {
-  quota_bytes: number;
+  quota_mb: number;
   used_bytes: number;
 }
 
 /** Calculate usage ratio (0–1) for a given quota-like record */
 export function getQuotaUsagePercent(quota: StorageQuotaLike): number {
-  if (quota.quota_bytes <= 0) return 0;
-  return quota.used_bytes / quota.quota_bytes;
+  const quotaBytes = (quota.quota_mb || 0) * 1024 * 1024;
+  if (quotaBytes <= 0) return 0;
+  return quota.used_bytes / quotaBytes;
 }
 
 /** Filter quotas that exceed a given usage threshold (default: 75%) */

@@ -2,153 +2,175 @@
 
 import { createAdminClient } from '@/utils/supabase/admin';
 
-export interface StorageSummary {
-  total_size_bytes: number;
-  total_files: number;
-  buckets: {
-    name: string;
-    count: number;
-    size: number;
-  }[];
-}
-
-export interface FileTypeStat {
-  type: string;
-  count: number;
-  size: number;
-}
-
-export interface OrphanedFile {
+export type OrphanedFile = {
   name: string;
   bucket_id: string;
   size: number;
   created_at: string;
   url: string;
-}
+};
 
-export async function getStorageSummary(): Promise<StorageSummary> {
-  const supabase = createAdminClient();
-  const { data, error } = await supabase.rpc('get_storage_summary');
-  
-  if (error) {
-    console.error('Error fetching storage summary:', error);
-    throw new Error('Failed to fetch storage summary');
-  }
-  
-  return data as StorageSummary;
-}
-
-export async function getFileTypeDistribution(): Promise<FileTypeStat[]> {
-  const supabase = createAdminClient();
-  const { data, error } = await supabase.rpc('get_storage_file_types');
-  
-  if (error) {
-    console.error('Error fetching file types:', error);
-    throw new Error('Failed to fetch file types');
-  }
-  
-  return data as FileTypeStat[];
-}
-
-export async function getOrphanedFiles(limit = 100): Promise<OrphanedFile[]> {
-  const supabase = createAdminClient();
-  const { data, error } = await supabase.rpc('identify_orphaned_files', { limit_count: limit });
-  
-  if (error) {
-    console.error('Error identifying orphaned files:', error);
-    throw new Error('Failed to identify orphaned files');
-  }
-  
-  return data as OrphanedFile[];
-}
-
-export async function deleteFile(bucket: string, path: string): Promise<void> {
-  const supabase = createAdminClient();
-  const { error } = await supabase.storage.from(bucket).remove([path]);
-  
-  if (error) {
-    console.error('Error deleting file:', error);
-    throw new Error(`Failed to delete file: ${error.message}`);
-  }
-}
-
-export async function updateUserQuota(userId: string, quotaBytes: number): Promise<void> {
-  const supabase = createAdminClient();
-  const { error } = await supabase
-    .from('users_profile')
-    .update({ storage_quota_bytes: quotaBytes })
-    .eq('id', userId);
-
-  if (error) {
-    console.error('Error updating quota:', error);
-    throw new Error('Failed to update quota');
-  }
-}
-
-export interface StorageQuota {
-  id: string;
+export type StorageQuota = {
   user_id: string;
-  quota_bytes: number;
+  user_name?: string;
+  quota_mb: number;
   used_bytes: number;
-  notes: string | null;
   updated_at: string;
-}
+};
 
-/** Fetch all storage quotas (admin) */
-export async function getStorageQuotas(): Promise<StorageQuota[]> {
-  const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from('storage_quotas')
-    .select('*')
-    .order('updated_at', { ascending: false });
+export type FileTypeStat = {
+  type: string;
+  count: number;
+  size: number;
+};
 
-  if (error) {
-    console.error('Error fetching storage quotas:', error);
-    return [];
-  }
-  return (data as StorageQuota[]) ?? [];
-}
+export type StorageSummary = {
+  totalSize: number;
+  totalFiles: number;
+  byBucket: Record<string, { size: number; count: number }>;
+  byType: FileTypeStat[];
+};
 
-/** Upsert user quota into storage_quotas table */
-export async function setUserQuota(
-  userId: string,
-  quotaBytes: number,
-  notes?: string
-): Promise<{ success: boolean; error?: string }> {
-  const supabase = createAdminClient();
-  const { error } = await supabase
-    .from('storage_quotas')
-    .upsert({ user_id: userId, quota_bytes: quotaBytes, notes: notes ?? null }, { onConflict: 'user_id' });
+/**
+ * Get overall storage summary across all buckets
+ */
+export async function getStorageSummary(): Promise<StorageSummary> {
+  const adminClient = createAdminClient();
+  const buckets = ['property-photos', 'property-documents'];
+  
+  const summary: StorageSummary = {
+    totalSize: 0,
+    totalFiles: 0,
+    byBucket: {},
+    byType: [],
+  };
 
-  if (error) {
-    console.error('Error setting user quota:', error);
-    return { success: false, error: error.message };
-  }
-  return { success: true };
-}
+  const typeMap: Record<string, { count: number; size: number }> = {};
 
-/** Batch delete files from a bucket */
-export async function batchDeleteFiles(
-  bucket: string,
-  paths: string[]
-): Promise<{ success: boolean; deleted: number; errors: string[] }> {
-  if (paths.length === 0) return { success: true, deleted: 0, errors: [] };
+  for (const bucket of buckets) {
+    const { data: files, error } = await adminClient.storage.from(bucket).list('', {
+      limit: 1000,
+      sortBy: { column: 'name', order: 'asc' },
+    });
 
-  const supabase = createAdminClient();
-  const errors: string[] = [];
-  let deleted = 0;
-
-  // Process in chunks of 20 to avoid hitting limits
-  const chunkSize = 20;
-  for (let i = 0; i < paths.length; i += chunkSize) {
-    const chunk = paths.slice(i, i + chunkSize);
-    const { data, error } = await supabase.storage.from(bucket).remove(chunk);
     if (error) {
-      errors.push(error.message);
-    } else {
-      deleted += data?.length ?? 0;
+      console.error(`Error listing files in ${bucket}:`, error);
+      continue;
+    }
+
+    let bucketSize = 0;
+    let bucketCount = 0;
+
+    for (const file of files || []) {
+      if (file.id === undefined) continue; // Skip folders
+      
+      bucketSize += file.metadata.size;
+      bucketCount++;
+
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'unknown';
+      if (!typeMap[ext]) typeMap[ext] = { count: 0, size: 0 };
+      typeMap[ext].count++;
+      typeMap[ext].size += file.metadata.size;
+    }
+
+    summary.byBucket[bucket] = { size: bucketSize, count: bucketCount };
+    summary.totalSize += bucketSize;
+    summary.totalFiles += bucketCount;
+  }
+
+  summary.byType = Object.entries(typeMap).map(([type, stats]) => ({
+    type,
+    ...stats,
+  })).sort((a, b) => b.size - a.size);
+
+  return summary;
+}
+
+/**
+ * Find orphaned files (files in storage but not in DB)
+ */
+export async function getOrphanedFiles(): Promise<OrphanedFile[]> {
+  const adminClient = createAdminClient();
+  const orphans: OrphanedFile[] = [];
+
+  // 1. Get all file paths from DB tables
+  const { data: photos } = await adminClient.from('property_photos').select('storage_path');
+  const { data: docs } = await adminClient.from('property_documents').select('storage_path');
+  
+  const dbPaths = new Set([
+    ...(photos || []).map(p => p.storage_path),
+    ...(docs || []).map(d => d.storage_path),
+  ]);
+
+  // 2. Scan buckets and compare
+  const buckets = ['property-photos', 'property-documents'];
+  for (const bucket of buckets) {
+    const { data: files } = await adminClient.storage.from(bucket).list('', { limit: 1000 });
+    
+    for (const file of files || []) {
+      if (file.id === undefined) continue; // Skip folders
+      
+      if (!dbPaths.has(file.name)) {
+        const { data: urlData } = await adminClient.storage.from(bucket).createSignedUrl(file.name, 3600);
+        orphans.push({
+          name: file.name,
+          bucket_id: bucket,
+          size: file.metadata.size,
+          created_at: file.created_at,
+          url: urlData?.signedUrl || '',
+        });
+      }
     }
   }
 
-  return { success: errors.length === 0, deleted, errors };
+  return orphans;
+}
+
+/**
+ * Get storage quotas for all users
+ */
+export async function getStorageQuotas(): Promise<StorageQuota[]> {
+  const adminClient = createAdminClient();
+  
+  // Get all quotas
+  const { data: quotas } = await adminClient.from('storage_quotas').select('*');
+  
+  // Get usage per user (based on owner_id in properties)
+  const { data: usage } = await adminClient.rpc('get_storage_usage_per_user');
+
+  return (quotas || []).map(q => {
+    const userUsage = (usage || []).find((u: any) => u.user_id === q.user_id);
+    return {
+      user_id: q.user_id,
+      quota_mb: q.quota_mb,
+      used_bytes: userUsage?.total_bytes || 0,
+      updated_at: q.updated_at,
+    };
+  });
+}
+
+export async function deleteFile(bucketId: string, path: string) {
+  const adminClient = createAdminClient();
+  const { error } = await adminClient.storage.from(bucketId).remove([path]);
+  if (error) throw error;
+  return { success: true };
+}
+
+export async function setUserQuota(userId: string, quotaMb: number) {
+  const adminClient = createAdminClient();
+  const { error } = await adminClient
+    .from('storage_quotas')
+    .upsert({ user_id: userId, quota_mb: quotaMb, updated_at: new Date().toISOString() });
+  if (error) throw error;
+  return { success: true };
+}
+
+/**
+ * Batch delete files from a bucket
+ */
+export async function batchDeleteFiles(bucketId: string, paths: string[]) {
+  const adminClient = createAdminClient();
+  const { data, error } = await adminClient.storage.from(bucketId).remove(paths);
+  if (error) throw error;
+  return { success: true, deleted: data?.length || 0 };
 }

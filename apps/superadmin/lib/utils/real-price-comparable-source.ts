@@ -1,82 +1,111 @@
 // filepath: apps/superadmin/lib/utils/real-price-comparable-source.ts
-// 載入正規化後的實價成交列（供報表篩選）。資料來源：環境變數 LVR_COMPARABLES_JSON_PATH 指向 JSON 陣列檔。
+// Load real-price transaction data. Priority: DB → auto-fetch from government → JSON fallback.
 
-import { existsSync, readFileSync } from 'fs';
-import type { NormalizedComparableSale } from '@/lib/utils/real-price-comparables';
+import { createAdminClient } from '@/utils/supabase/admin';
+import type { NormalizedComparableSale, PropertyComparableContext } from '@/lib/utils/real-price-comparables';
+import { autoFetchLvrDataIfNeeded, resolveCityName } from '@/lib/utils/lvr-open-data';
 
-function numOrNull(v: unknown): number | null {
-  if (typeof v === 'number' && Number.isFinite(v)) return v;
-  if (typeof v === 'string' && v.trim() !== '') {
-    const n = Number(v);
-    if (Number.isFinite(n)) return n;
+/** 從資料庫載入最近一年的成交資料 (按縣市＋行政區篩選，支援 台/臺 正規化) */
+export async function loadComparableSalesFromDb(ctx: PropertyComparableContext): Promise<{
+  rows: NormalizedComparableSale[];
+  dbError?: string;
+}> {
+  const adminClient = createAdminClient();
+  const start = new Date(ctx.asOf);
+  start.setFullYear(start.getFullYear() - 1);
+
+  // Normalize city name (台北市 → 臺北市) to match DB convention
+  const normalizedCity = resolveCityName(ctx.city);
+
+  // Use district to narrow down the pool (1000+ per district is still common in big cities)
+  // Implementing pagination to fetch all rows for the city/district
+  const PAGE_SIZE = 1000;
+  let allRows: any[] = [];
+  let from = 0;
+
+  for (;;) {
+    const { data, error } = await adminClient
+      .from('lvr_land_transactions')
+      .select('*')
+      .eq('city', normalizedCity)
+      .eq('district', ctx.district)
+      .gte('transaction_date', start.toISOString().slice(0, 10))
+      .lte('transaction_date', ctx.asOf.toISOString().slice(0, 10))
+      .order('transaction_date', { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) {
+      return { rows: allRows.length > 0 ? mapToNormalized(allRows) : [], dbError: error.message };
+    }
+
+    if (!data || data.length === 0) break;
+    allRows = allRows.concat(data);
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+
+    // Safety limit to avoid infinite loop or memory blowup
+    if (allRows.length >= 10000) break;
   }
-  return null;
+
+  return { rows: mapToNormalized(allRows) };
 }
 
-function strOrEmpty(v: unknown): string {
-  return typeof v === 'string' ? v.trim() : '';
+function mapToNormalized(data: any[]): NormalizedComparableSale[] {
+  return data.map((o) => ({
+    transactionDate: o.transaction_date,
+    totalPriceTwd: Number(o.total_price_twd),
+    buildingAreaSqm: o.building_area_sqm ? Number(o.building_area_sqm) : null,
+    unitPricePerSqm: o.unit_price_per_sqm ? Number(o.unit_price_per_sqm) : null,
+    buildingType: o.building_type,
+    floor: o.floor,
+    addressSnippet: o.address_snippet,
+    latitude: o.latitude,
+    longitude: o.longitude,
+    city: o.city,
+    district: o.district,
+    village: o.village,
+    landSectionTokens: o.land_section_tokens || [],
+  }));
 }
 
-function strOrNull(v: unknown): string | null {
-  const s = strOrEmpty(v);
-  return s.length > 0 ? s : null;
+export interface LoadComparablesResult {
+  rows: NormalizedComparableSale[];
+  /** Notes about auto-fetch progress */
+  fetchNotes: string[];
 }
 
-/** 自單筆 JSON 物件解析；欄位不符則略過該筆 */
-export function parseComparableSaleRow(raw: unknown): NormalizedComparableSale | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const o = raw as Record<string, unknown>;
-  const transactionDate = strOrEmpty(o.transactionDate);
-  const totalPriceTwd = numOrNull(o.totalPriceTwd);
-  const city = strOrEmpty(o.city);
-  const district = strOrEmpty(o.district);
-  const addressSnippet = strOrEmpty(o.addressSnippet);
-  if (!transactionDate || totalPriceTwd == null || !city || !district || !addressSnippet) {
-    return null;
+/**
+ * Load comparable sales: DB first, auto-fetch from government if empty, then retry DB.
+ */
+export async function loadComparableSalesCombined(ctx: PropertyComparableContext): Promise<LoadComparablesResult> {
+  const notes: string[] = [];
+
+  // 1. Try DB first
+  let { rows, dbError } = await loadComparableSalesFromDb(ctx);
+  if (dbError) {
+    notes.push(`讀取成交資料表失敗（請確認已執行 migration：lvr_land_transactions）：${dbError}`);
+  }
+  if (rows.length > 0) {
+    return { rows, fetchNotes: notes };
   }
 
-  let landSectionTokens: string[] = [];
-  if (Array.isArray(o.landSectionTokens)) {
-    landSectionTokens = o.landSectionTokens.filter((x): x is string => typeof x === 'string');
+  // 2. DB empty → auto-fetch from government open data
+  const fetchResult = await autoFetchLvrDataIfNeeded(ctx.city, ctx.asOf);
+
+  if (fetchResult.fetched) {
+    notes.push(fetchResult.message);
+
+    if (fetchResult.totalInserted > 0) {
+      const second = await loadComparableSalesFromDb(ctx);
+      rows = second.rows;
+      if (second.dbError) {
+        notes.push(`匯入後讀取失敗：${second.dbError}`);
+      }
+      return { rows, fetchNotes: notes };
+    }
+  } else if (fetchResult.message) {
+    notes.push(fetchResult.message);
   }
 
-  return {
-    transactionDate,
-    totalPriceTwd,
-    buildingAreaSqm: numOrNull(o.buildingAreaSqm),
-    unitPricePerSqm: numOrNull(o.unitPricePerSqm),
-    buildingType: strOrNull(o.buildingType),
-    floor: strOrNull(o.floor),
-    addressSnippet,
-    latitude: numOrNull(o.latitude),
-    longitude: numOrNull(o.longitude),
-    city,
-    district,
-    village: strOrNull(o.village),
-    landSectionTokens,
-  };
-}
-
-export function loadComparableSalesFromJsonFile(absPath: string): NormalizedComparableSale[] {
-  if (!absPath || !existsSync(absPath)) return [];
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(readFileSync(absPath, 'utf8')) as unknown;
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(parsed)) return [];
-  const out: NormalizedComparableSale[] = [];
-  for (const item of parsed) {
-    const row = parseComparableSaleRow(item);
-    if (row) out.push(row);
-  }
-  return out;
-}
-
-/** 優先讀取 LVR_COMPARABLES_JSON_PATH；未設定或讀取失敗則回傳空陣列 */
-export function loadComparableSalesFromEnv(): NormalizedComparableSale[] {
-  const p = process.env.LVR_COMPARABLES_JSON_PATH?.trim();
-  if (!p) return [];
-  return loadComparableSalesFromJsonFile(p);
+  return { rows: [], fetchNotes: notes };
 }

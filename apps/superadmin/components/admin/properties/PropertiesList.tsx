@@ -1180,7 +1180,13 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
       {showCreateModal && (
         <PropertyCreateModal
           onClose={() => setShowCreateModal(false)}
-          onCreated={() => router.refresh()}
+          onCreated={(propertyId) => {
+            setShowCreateModal(false);
+            if (propertyId) {
+              window.open(`/superadmin/properties/${propertyId}/edit?tab=media`, '_blank');
+            }
+            router.refresh();
+          }}
         />
       )}
 

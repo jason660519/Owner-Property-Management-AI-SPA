@@ -5,7 +5,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { BookMarked, Images, FileText, Share2 } from 'lucide-react';
+import { BookMarked, Images, FileText, Share2, RefreshCw } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 
@@ -99,9 +99,24 @@ export default function SettingsPage() {
               </CardHeader>
             </Card>
           </Link>
+
+          <Link href="/superadmin/settings/lvr-sync" className="block">
+            <Card variant="outlined" padding="lg" hoverable>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <RefreshCw size={16} />
+                  實價登錄資料同步
+                </CardTitle>
+                <CardDescription>
+                  手動觸發內政部實價登錄 Open Data 同步，更新各縣市成交行情資料庫。
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
         </div>
 
       </div>
     </DashboardLayout>
   );
 }
+

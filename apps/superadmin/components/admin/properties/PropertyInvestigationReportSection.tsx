@@ -13,6 +13,7 @@ import {
   ChevronDown,
   Wand2,
   CheckCircle,
+  X,
 } from 'lucide-react';
 import type { PropertyDocumentItem, PropertyItem, PropertyPhotoItem } from '@/lib/types/properties';
 import type { InvestigationReport, LandParcel } from './investigation-report/types';
@@ -378,7 +379,7 @@ export function PropertyInvestigationReportSection({ propertyId, property }: Pro
 
   function showFeedback(type: 'success' | 'error', message: string) {
     setFeedback({ type, message });
-    setTimeout(() => setFeedback(null), 3500);
+    // 移除自動消失邏輯，需手動關閉
   }
 
   async function handleSave() {
@@ -615,13 +616,21 @@ export function PropertyInvestigationReportSection({ propertyId, property }: Pro
       {/* Feedback */}
       {feedback && (
         <div
-          className={`p-2.5 rounded-md text-xs ${
+          className={`p-2.5 rounded-md text-xs relative group ${
             feedback.type === 'success'
               ? 'bg-green-500/10 text-green-500 border border-green-500/20'
               : 'bg-red-500/10 text-red-500 border border-red-500/20'
           }`}
         >
-          {feedback.message}
+          <div className="pr-6">{feedback.message}</div>
+          <button
+            type="button"
+            onClick={() => setFeedback(null)}
+            className="absolute top-2 right-2 p-1 rounded-md hover:bg-black/5 transition-colors opacity-60 hover:opacity-100"
+            title="關閉提示"
+          >
+            <X size={14} />
+          </button>
         </div>
       )}
 

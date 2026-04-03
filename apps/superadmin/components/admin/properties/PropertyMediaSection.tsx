@@ -4,7 +4,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Trash2, FileText, Star, ExternalLink, Loader2, Upload } from 'lucide-react';
+import { Trash2, FileText, Star, ExternalLink, Loader2, Upload, X } from 'lucide-react';
 import {
   getPropertyPhotos,
   getPropertyDocuments,
@@ -15,7 +15,10 @@ import {
   deletePropertyPhoto,
   deletePropertyDocument,
 } from '@/lib/actions/properties';
-import { generateTransactionComparableDocuments } from '@/lib/actions/transaction-comparables';
+import {
+  generateNearbyComparableDocument,
+  generateStreetSectionComparableDocument,
+} from '@/lib/actions/transaction-comparables';
 import type { PropertyPhotoItem, PropertyDocumentItem } from '@/lib/types/properties';
 import { TranscriptParseSection } from './TranscriptParseSection';
 
@@ -32,7 +35,6 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   transaction_comparables: '成交行情表',
   transaction_comparables_nearby: '附近成交價',
   transaction_comparables_street_section: '同街段成交價',
-  transaction_comparables_village: '同里成交價',
 };
 
 export type DocumentSectionMode =
@@ -112,7 +114,6 @@ const DOC_TYPES_BY_MODE: Record<Exclude<DocumentSectionMode, 'photos'>, string[]
     'transaction_comparables',
     'transaction_comparables_nearby',
     'transaction_comparables_street_section',
-    'transaction_comparables_village',
   ],
 };
 
@@ -127,8 +128,7 @@ type DocType =
   | 'building_measurement_survey'
   | 'transaction_comparables'
   | 'transaction_comparables_nearby'
-  | 'transaction_comparables_street_section'
-  | 'transaction_comparables_village';
+  | 'transaction_comparables_street_section';
 
 interface Props {
   propertyId: string;
@@ -201,7 +201,6 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
         'transaction_comparables',
         'transaction_comparables_nearby',
         'transaction_comparables_street_section',
-        'transaction_comparables_village',
       ];
 
   // Photo upload state
@@ -228,12 +227,24 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
   const [docPreviewUrl, setDocPreviewUrl] = useState<string | null>(null);
   const [latestUploadedDocId, setLatestUploadedDocId] = useState<string | null>(null);
 
+  // Transaction Comparables states
+  const [isGeneratingNearby, setIsGeneratingNearby] = useState(false);
+  const [isGeneratingStreet, setIsGeneratingStreet] = useState(false);
+  const [nearbyRadius, setNearbyRadius] = useState<number>(1.0);
+
   useEffect(() => {
-    if (docSectionMode) setDocType(DEFAULT_DOC_TYPE_BY_MODE[docSectionMode]);
+    if (docSectionMode) {
+      setDocType(DEFAULT_DOC_TYPE_BY_MODE[docSectionMode]);
+    }
+    // Set default radius based on city if possible
+    if (docSectionMode === 'transaction_comparables') {
+      // Default to 1.0, user can change
+      setNearbyRadius(1.0);
+    }
   }, [docSectionMode]);
 
   useEffect(() => {
-    if (!isVisualPlanSection(docSectionMode) || !docFile) {
+    if (!docSectionMode || !isVisualPlanSection(docSectionMode as VisualPlanSectionMode) || !docFile) {
       setDocPreviewUrl((prev) => {
         if (prev) {
           URL.revokeObjectURL(prev);
@@ -256,7 +267,7 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
     };
   }, [docFile, docSectionMode]);
   const displayDocuments = docSectionMode ? filteredDocuments : documents;
-  const visualUploadCopy = isVisualPlanSection(docSectionMode) ? visualPlanCopy(docSectionMode) : null;
+  const visualUploadCopy = docSectionMode && isVisualPlanSection(docSectionMode as unknown as DocumentSectionMode) ? visualPlanCopy(docSectionMode as unknown as VisualPlanSectionMode) : null;
 
   // AI 解析謄本 — filtered doc list passed to TranscriptParseSection
   const transcriptDocs = useMemo(
@@ -277,7 +288,7 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
 
   function showFeedback(type: 'success' | 'error', message: string) {
     setFeedback({ type, message });
-    setTimeout(() => setFeedback(null), 3500);
+    // 移除自動消失邏輯，讓使用者有足夠時間閱讀，需手動點擊 X 關閉
   }
 
   /**
@@ -415,23 +426,41 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
     }
   }
 
-  async function handleGenerateTransactionComparables() {
+  async function handleGenerateNearby() {
     if (propertyType !== 'sale') return;
-    setIsGeneratingComparables(true);
+    setIsGeneratingNearby(true);
     setFeedback(null);
     try {
-      const result = await generateTransactionComparableDocuments(propertyId);
+      const result = await generateNearbyComparableDocument(propertyId, nearbyRadius);
       if (result.success) {
         const extra = result.notes?.length ? ` ${result.notes.join(' ')}` : '';
         showFeedback('success', `${result.message}${extra}`);
         const updated = await getPropertyDocuments(propertyId);
         setDocuments(updated);
       } else {
-        const extra = result.notes?.length ? ` ${result.notes.join(' ')}` : '';
-        showFeedback('error', `${result.message}${extra}`);
+        showFeedback('error', result.message);
       }
     } finally {
-      setIsGeneratingComparables(false);
+      setIsGeneratingNearby(false);
+    }
+  }
+
+  async function handleGenerateStreet() {
+    if (propertyType !== 'sale') return;
+    setIsGeneratingStreet(true);
+    setFeedback(null);
+    try {
+      const result = await generateStreetSectionComparableDocument(propertyId);
+      if (result.success) {
+        const extra = result.notes?.length ? ` ${result.notes.join(' ')}` : '';
+        showFeedback('success', `${result.message}${extra}`);
+        const updated = await getPropertyDocuments(propertyId);
+        setDocuments(updated);
+      } else {
+        showFeedback('error', result.message);
+      }
+    } finally {
+      setIsGeneratingStreet(false);
     }
   }
 
@@ -501,13 +530,21 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
       {/* Inline feedback */}
       {feedback && (
         <div
-          className={`p-2.5 rounded-md text-xs ${
+          className={`p-2.5 rounded-md text-xs relative group ${
             feedback.type === 'success'
               ? 'bg-green-500/10 text-green-500 border border-green-500/20'
               : 'bg-red-500/10 text-red-500 border border-red-500/20'
           }`}
         >
-          {feedback.message}
+          <div className="pr-6">{feedback.message}</div>
+          <button
+            type="button"
+            onClick={() => setFeedback(null)}
+            className="absolute top-2 right-2 p-1 rounded-md hover:bg-black/5 transition-colors opacity-60 hover:opacity-100"
+            title="關閉提示"
+          >
+            <X size={14} />
+          </button>
         </div>
       )}
 
@@ -674,38 +711,70 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
         /* ── Documents (謄本／權狀／合約／部落格／格局圖／建物測量成果圖) ── */
         <div className="space-y-4">
           {docSectionMode === 'transaction_comparables' && propertyType === 'sale' && (
-            <div className="rounded-lg border border-border-default bg-bg-secondary/60 px-4 py-3 space-y-2">
-              <p className="text-xs font-medium text-text-secondary">自動產出（近一年實價成交）</p>
-              <p className="text-[11px] text-text-muted leading-relaxed">
-                依內政部開放資料匯入檔（環境變數 LVR_COMPARABLES_JSON_PATH）篩選並產出三份 PDF：直轄市方圓 1
-                公里／其他縣市 2 公里之「附近成交價」、門牌路街或地段一致之「同街段成交價」、同村里之「同里成交價」。同里報表請在「地理資訊」填寫里名；附近報表請在「地圖／座標」設定
-                WGS84。
+            <div className="rounded-lg border border-border-default bg-bg-secondary/60 px-4 py-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-text-secondary">自動產出成交行情（近一年實價成交）</p>
+                <div className="flex items-center gap-2">
+                  <label htmlFor="nearby-radius" className="text-[10px] text-text-muted">搜尋半徑：</label>
+                  <select
+                    id="nearby-radius"
+                    value={nearbyRadius}
+                    onChange={(e) => setNearbyRadius(parseFloat(e.target.value))}
+                    className="rounded border border-border-default bg-bg-primary px-1.5 py-0.5 text-[10px] text-text-primary focus:outline-none focus:border-accent"
+                  >
+                    <option value="0.5">0.5 km</option>
+                    <option value="1.0">1.0 km</option>
+                    <option value="1.5">1.5 km</option>
+                    <option value="2.0">2.0 km</option>
+                    <option value="3.0">3.0 km</option>
+                    <option value="5.0">5.0 km</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleGenerateNearby()}
+                  disabled={isGeneratingNearby}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-accent bg-accent/15 px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/25 transition-colors disabled:opacity-45"
+                >
+                  {isGeneratingNearby ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <FileText size={12} />
+                  )}
+                  {isGeneratingNearby ? '產出中…' : `1. 附近成交價 (${nearbyRadius}km)`}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void handleGenerateStreet()}
+                  disabled={isGeneratingStreet}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-accent bg-accent/15 px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/25 transition-colors disabled:opacity-45"
+                >
+                  {isGeneratingStreet ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <FileText size={12} />
+                  )}
+                  {isGeneratingStreet ? '產出中…' : '2. 同街段成交價'}
+                </button>
+              </div>
+              <p className="text-[10px] text-text-muted leading-relaxed">
+                * 系統將自動從內政部開放資料下載成交紀錄。附近：指定半徑範圍（需座標）；同街段：路名或地段一致。
               </p>
-              <button
-                type="button"
-                onClick={() => void handleGenerateTransactionComparables()}
-                disabled={isGeneratingComparables}
-                className="inline-flex items-center gap-1.5 rounded-md border border-accent bg-accent/15 px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/25 transition-colors disabled:opacity-45"
-              >
-                {isGeneratingComparables ? (
-                  <Loader2 size={12} className="animate-spin" />
-                ) : (
-                  <FileText size={12} />
-                )}
-                {isGeneratingComparables ? '產出中…' : '產出三份成交行情 PDF'}
-              </button>
             </div>
           )}
           {displayDocuments.length === 0 ? (
             <p className="text-text-muted text-xs">
-              {isVisualPlanSection(docSectionMode)
-                ? visualPlanCopy(docSectionMode).empty
+              {docSectionMode && isVisualPlanSection(docSectionMode as unknown as DocumentSectionMode)
+                ? visualPlanCopy(docSectionMode as unknown as VisualPlanSectionMode).empty
                 : '尚無文件'}
             </p>
-          ) : isVisualPlanSection(docSectionMode) ? (
+          ) : docSectionMode && isVisualPlanSection(docSectionMode as unknown as DocumentSectionMode) ? (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {displayDocuments.map((doc) => {
-                const vc = visualPlanCopy(docSectionMode);
+                const vc = visualPlanCopy(docSectionMode as unknown as VisualPlanSectionMode);
                 const isImage = isImagePreviewable(doc.filePath);
                 const isPdf = isPdfPreviewable(doc.filePath);
                 const isLatestUploaded = doc.id === latestUploadedDocId;
