@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   CheckCheck,
@@ -16,6 +16,8 @@ import {
   Sparkles,
   XCircle,
 } from 'lucide-react';
+import { AIOperationStatusPill } from '@/components/ui/AIOperationStatusPill';
+import { useOperationTimer } from '@/lib/hooks/useOperationTimer';
 import {
   type DescriptionGenerationGoal,
   type DescriptionGenerationLength,
@@ -279,30 +281,13 @@ export function PropertyDescriptionAIAssistant({
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [lastAppliedDescription, setLastAppliedDescription] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generationElapsedSeconds, setGenerationElapsedSeconds] = useState<number>(0);
   const [phaseMessage, setPhaseMessage] = useState('');
   const [traceSteps, setTraceSteps] = useState<TraceStep[]>(createInitialTraceSteps);
   const [traceDetails, setTraceDetails] = useState<TraceDetails>(getInitialTraceDetails);
   const [showTraceDetails, setShowTraceDetails] = useState(false);
   const [traceActionMessage, setTraceActionMessage] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    if (!isGenerating) {
-      setGenerationElapsedSeconds(0);
-      return;
-    }
-
-    const startedAt = Date.now();
-    setGenerationElapsedSeconds(0);
-
-    const intervalId = window.setInterval(() => {
-      const elapsed = (Date.now() - startedAt) / 1000;
-      setGenerationElapsedSeconds(Number(elapsed.toFixed(1)));
-    }, 100);
-
-    return () => window.clearInterval(intervalId);
-  }, [isGenerating]);
+  const { elapsedSeconds: generationElapsedSeconds } = useOperationTimer(isGenerating, { precisionDecimals: 1, tickMs: 100 });
 
   const dataSignals = useMemo(
     () => [
@@ -728,60 +713,24 @@ export function PropertyDescriptionAIAssistant({
             <Sparkles className={`h-4 w-4 ${isGenerating ? 'animate-pulse' : ''}`} />
             {isGenerating ? '草稿產生中…' : '產生 AI 草稿'}
           </button>
-          {isGenerating && (
-            <span
-              role="status"
-              aria-live="polite"
-              className="inline-flex items-center gap-2 rounded-full border border-border-default bg-bg-secondary px-3 py-1 text-xs text-text-secondary"
-            >
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              <span>AI 正在生成中</span>
-              <span className="text-text-muted">
-                <Clock3 className="mr-1 inline h-3.5 w-3.5" />
-                已經過 {generationElapsedSeconds.toFixed(1)}s
-              </span>
-            </span>
-          )}
-          {!isGenerating && generationResultSummary.status !== 'idle' && (
-            <span
-              role="status"
-              aria-live="polite"
-              className="inline-flex flex-wrap items-center gap-2 rounded-full border border-border-default bg-bg-secondary px-3 py-1 text-xs text-text-secondary"
-            >
-              {generationResultSummary.status === 'success' ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                  本次生成完成
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5">
-                  <XCircle className="h-3.5 w-3.5 text-red-500" />
-                  本次生成失敗
-                </span>
-              )}
-              {generationResultSummary.durationSeconds != null && (
-                <span className="inline-flex items-center gap-1 text-text-muted">
-                  <Clock3 className="h-3.5 w-3.5" />
-                  {generationResultSummary.durationSeconds.toFixed(1)}s
-                </span>
-              )}
-              {generationResultSummary.totalTokens != null && (
-                <span className="text-text-muted">
-                  Tokens {generationResultSummary.totalTokens.toLocaleString()}（in{' '}
-                  {(generationResultSummary.inputTokens ?? 0).toLocaleString()} / out{' '}
-                  {(generationResultSummary.outputTokens ?? 0).toLocaleString()}）
-                </span>
-              )}
-              {generationResultSummary.provider && generationResultSummary.model && (
-                <span className="text-text-muted">
-                  {generationResultSummary.provider}/{generationResultSummary.model}
-                </span>
-              )}
-              {generationResultSummary.responseStatus != null && (
-                <span className="text-text-muted">HTTP {generationResultSummary.responseStatus}</span>
-              )}
-            </span>
-          )}
+          <AIOperationStatusPill
+            status={generationResultSummary.status}
+            elapsedSeconds={generationElapsedSeconds}
+            summary={
+              generationResultSummary.status === 'running'
+                ? null
+                : {
+                    durationSeconds: generationResultSummary.durationSeconds,
+                    responseStatus: generationResultSummary.responseStatus,
+                    provider: generationResultSummary.provider,
+                    model: generationResultSummary.model,
+                    usage: {
+                      inputTokens: generationResultSummary.inputTokens,
+                      outputTokens: generationResultSummary.outputTokens,
+                    },
+                  }
+            }
+          />
           <span className="text-xs text-text-muted">生成後先預覽，再決定是否套用到最終文案。</span>
         </div>
 

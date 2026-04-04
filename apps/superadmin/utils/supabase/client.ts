@@ -1,5 +1,7 @@
 import { createBrowserClient } from '@supabase/ssr';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 export function createClient() {
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,8 +9,8 @@ export function createClient() {
     {
       cookieOptions: {
         name: 'sb-localhost-auth-token',
-        sameSite: 'none',
-        secure: true,
+        sameSite: 'lax',
+        secure: isProduction,
       },
     }
   );

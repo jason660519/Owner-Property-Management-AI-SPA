@@ -52,6 +52,9 @@ export async function middleware(request: NextRequest) {
 
   const response = NextResponse.next({ request });
 
+  // 與 apps/web 一致：本機 http://localhost 須 lax + 非 Secure，否則 session cookie 無法寫入／帶上
+  const isProduction = process.env.NODE_ENV === 'production';
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -68,8 +71,8 @@ export async function middleware(request: NextRequest) {
       },
       cookieOptions: {
         name: 'sb-localhost-auth-token',
-        sameSite: 'none',
-        secure: true,
+        sameSite: 'lax',
+        secure: isProduction,
       },
     }
   );

@@ -15,8 +15,6 @@ import type {
   CreatePropertyInput,
   OwnerOption,
   ActionResult,
-  SaleStatus,
-  RentalStatus,
   PropertyPhotoItem,
   PropertyDocumentItem,
   BuildingTranscriptData,
@@ -33,7 +31,6 @@ import {
   parseSubjectLandParcelScope,
   parseIndependentLandParcelNumberCount,
 } from '@/lib/types/properties';
-import { SALE_STATUSES, RENTAL_STATUSES } from '@/lib/types/properties';
 
 /**
  * Paginated fetch: Supabase/PostgREST caps each request at `max_rows` (default 1000).
@@ -1108,6 +1105,7 @@ export async function getPropertyPhotos(propertyId: string): Promise<PropertyPho
 export async function getPropertyDocuments(
   propertyId: string
 ): Promise<PropertyDocumentItem[]> {
+  noStore();
   const adminClient = createAdminClient();
   const { data: rows, error } = await adminClient
     .from('property_documents')
@@ -1119,7 +1117,9 @@ export async function getPropertyDocuments(
   if (error || !rows?.length) return [];
 
   // 謄本為隱私：不暴露直接 Storage URL，改為需權限檢查的檢視 API（會 302 到短期 signed URL）
-  return rows.map((r) => ({
+  return rows
+    .filter((r): r is typeof r & { id: string } => typeof r.id === 'string' && r.id.length > 0)
+    .map((r) => ({
     id: r.id,
     documentType: r.document_type,
     documentName: r.document_name,
@@ -1136,6 +1136,7 @@ export async function getDocumentParseResult(documentId: string): Promise<{
   consensusMetadata: import('@/lib/types/transcript').ConsensusMetadata | null;
 } | null> {
   if (!documentId) return null;
+  noStore();
   const adminClient = createAdminClient();
   const { data, error } = await adminClient
     .from('property_documents')

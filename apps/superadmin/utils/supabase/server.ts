@@ -1,6 +1,8 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 export async function createClient() {
   const cookieStore = await cookies();
   return createServerClient(
@@ -23,8 +25,8 @@ export async function createClient() {
       },
       cookieOptions: {
         name: 'sb-localhost-auth-token',
-        sameSite: 'none',
-        secure: true,
+        sameSite: 'lax',
+        secure: isProduction,
       },
     }
   );

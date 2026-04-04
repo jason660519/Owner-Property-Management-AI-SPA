@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Bot, ChevronDown, ChevronUp, Download, FileText, FileUp, Loader2, Printer } from 'lucide-react';
+import { AIOperationStatusPill } from '@/components/ui/AIOperationStatusPill';
+import { useOperationTimer } from '@/lib/hooks/useOperationTimer';
 import type { ContractDraft, SalePaymentMilestone } from '@/lib/types/contracts';
 import type { PropertyItem } from '@/lib/types/properties';
 import { readLocalStorage, writeLocalStorage } from '@/lib/utils/storage-state';
@@ -65,7 +67,7 @@ function buildInitialForm(property: PropertyItem, contractType: 'lease' | 'sale'
 export function ContractDraftPanel({ property, templateId, templateLabel, contractType }: ContractDraftPanelProps) {
   const storageKey = `${STORAGE_PREFIX}${property.id}:${templateId}`;
   const cloudFormKey = storageKey;
-  const initialForm = useMemo(() => buildInitialForm(property, contractType), [property.id, property.monthlyRent, property.price, contractType]);
+  const initialForm = useMemo(() => buildInitialForm(property, contractType), [property, contractType]);
 
   const hasHydratedRef = useRef(false);
   const skipPersistRef = useRef(false);
@@ -85,6 +87,12 @@ export function ContractDraftPanel({ property, templateId, templateLabel, contra
   const [draftVersions, setDraftVersions] = useState<DraftVersionOption[]>([]);
   const [selectedVersionId, setSelectedVersionId] = useState('');
   const [newVersionName, setNewVersionName] = useState('');
+
+  const {
+    elapsedSeconds: generateElapsedSeconds,
+    lastDurationSeconds: generateDurationSeconds,
+    reset: resetGenerateTimer,
+  } = useOperationTimer(status === 'loading', { precisionDecimals: 1, tickMs: 100 });
 
   const previewHtml = useMemo(() => (draft ? renderContractDocumentHtml(draft) : ''), [draft]);
 
@@ -173,6 +181,7 @@ export function ContractDraftPanel({ property, templateId, templateLabel, contra
   }
 
   async function handleGenerateDraft() {
+    resetGenerateTimer();
     setStatus('loading'); setErrorMessage(null);
     const parsedIncludedItems = form.includedItemsInput.split(/[\n,，]/).map(s => s.trim()).filter(Boolean);
     const payload = contractType === 'lease'
@@ -337,6 +346,20 @@ export function ContractDraftPanel({ property, templateId, templateLabel, contra
               產生草稿預覽
             </button>
             <button type="button" onClick={() => { void handleClearDraft(); }} className="inline-flex items-center gap-2 rounded-md border border-border-default bg-bg-primary px-4 py-2 text-sm font-medium text-text-primary">清除草稿</button>
+            <AIOperationStatusPill
+              status={status === 'loading' ? 'running' : status === 'success' ? 'success' : status === 'error' ? 'error' : 'idle'}
+              elapsedSeconds={generateElapsedSeconds}
+              summary={
+                status === 'loading' || status === 'idle'
+                  ? null
+                  : {
+                      durationSeconds: generateDurationSeconds,
+                    }
+              }
+              runningLabel="AI 正在生成草稿"
+              successLabel="草稿已生成"
+              errorLabel="草稿生成失敗"
+            />
             {errorMessage && <span className="text-sm text-red-500">{errorMessage}</span>}
           </div>
 

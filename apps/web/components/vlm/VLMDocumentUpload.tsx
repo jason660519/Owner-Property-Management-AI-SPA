@@ -16,6 +16,8 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { Loader2, Upload, FileText, Settings } from 'lucide-react';
+import { AIOperationStatusPill } from '@/components/ui/AIOperationStatusPill';
+import { useOperationTimer } from '@/hooks/useOperationTimer';
 import { useVLMKeyManager } from '@/hooks/useVLMKeyManager';
 import { VLMApiKeyDrawer } from './VLMApiKeyDrawer';
 import { ParsedResultPreview } from './ParsedResultPreview';
@@ -30,6 +32,32 @@ interface VLMDocumentUploadProps {
     land_lot_number?: string;
   }) => void;
 }
+
+type FieldValidation = {
+  is_valid: boolean;
+  error_message?: string;
+  confidence?: number;
+};
+
+type VLMExtractedData = {
+  owner_name?: string;
+  property_address?: string;
+  building_number?: string;
+  land_lot_number?: string;
+};
+
+type VLMParseResult = {
+  extracted_data: VLMExtractedData;
+  field_validations?: Record<string, FieldValidation>;
+  confidence_score?: number;
+  warnings?: string[];
+  error_message?: string;
+  status?: string;
+};
+
+type UploadResponse = {
+  document_id: string;
+};
 
 const OCR_SERVICE_URL = process.env.NEXT_PUBLIC_OCR_SERVICE_URL || 'http://localhost:8819';
 const POLLING_INTERVAL = 2000; // 2 seconds
@@ -50,10 +78,13 @@ export function VLMDocumentUpload({ onComplete }: VLMDocumentUploadProps) {
   const { hasKey, checkKeyStatus, isLoading: keyLoading } = useVLMKeyManager();
   const [showKeyDrawer, setShowKeyDrawer] = useState(false);
   const [uploadState, setUploadState] = useState<UploadState>('idle');
-  const [documentId, setDocumentId] = useState<string | null>(null);
-  const [parsedData, setParsedData] = useState<any>(null);
+  const [parsedData, setParsedData] = useState<VLMParseResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pollingAttempts, setPollingAttempts] = useState(0);
+  const isRunning = uploadState === 'uploading' || uploadState === 'processing';
+  const operationStatus =
+    isRunning ? 'running' : uploadState === 'completed' ? 'success' : uploadState === 'failed' ? 'error' : 'idle';
+  const { elapsedSeconds, lastDurationSeconds, reset: resetTimer } = useOperationTimer(isRunning, { precisionDecimals: 1, tickMs: 100 });
 
   // Check key status on mount
   useEffect(() => {
@@ -87,6 +118,7 @@ export function VLMDocumentUpload({ onComplete }: VLMDocumentUploadProps) {
       return;
     }
 
+    resetTimer();
     setUploadState('uploading');
     setError(null);
 
@@ -110,8 +142,7 @@ export function VLMDocumentUpload({ onComplete }: VLMDocumentUploadProps) {
         throw new Error(errorData.detail || 'Upload failed');
       }
 
-      const data = await response.json();
-      setDocumentId(data.document_id);
+      const data = await response.json() as UploadResponse;
       setUploadState('processing');
 
       // Start polling for status
@@ -140,7 +171,7 @@ export function VLMDocumentUpload({ onComplete }: VLMDocumentUploadProps) {
           throw new Error('Failed to check status');
         }
 
-        const data = await response.json();
+        const data = await response.json() as VLMParseResult;
 
         if (data.status === 'completed') {
           setParsedData(data);
@@ -177,7 +208,7 @@ export function VLMDocumentUpload({ onComplete }: VLMDocumentUploadProps) {
   /**
    * Handle auto-fill
    */
-  const handleAutoFill = (mode: 'one_click' | 'selective', data: any) => {
+  const handleAutoFill = (mode: 'one_click' | 'selective', data: Partial<VLMExtractedData>) => {
     onComplete?.(data);
   };
 
@@ -186,10 +217,10 @@ export function VLMDocumentUpload({ onComplete }: VLMDocumentUploadProps) {
    */
   const handleReset = () => {
     setUploadState('idle');
-    setDocumentId(null);
     setParsedData(null);
     setError(null);
     setPollingAttempts(0);
+    resetTimer();
   };
 
   return (
@@ -262,6 +293,13 @@ export function VLMDocumentUpload({ onComplete }: VLMDocumentUploadProps) {
                 <h3 className="text-lg font-semibold">上傳中...</h3>
                 <p className="text-sm text-gray-600">正在將文件上傳至伺服器</p>
               </div>
+              <div className="flex justify-center">
+                <AIOperationStatusPill
+                  status={operationStatus}
+                  elapsedSeconds={elapsedSeconds}
+                  runningLabel="上傳中"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -275,9 +313,15 @@ export function VLMDocumentUpload({ onComplete }: VLMDocumentUploadProps) {
               <Loader2 className="h-12 w-12 text-blue-600 animate-spin mx-auto" />
               <div>
                 <h3 className="text-lg font-semibold">AI 解析中...</h3>
-                <p className="text-sm text-gray-600">
-                  正在使用 VLM 解析文件內容 ({pollingAttempts * 2}秒)
-                </p>
+                <p className="text-sm text-gray-600">正在使用 VLM 解析文件內容</p>
+              </div>
+              <div className="flex flex-col items-center gap-2">
+                <AIOperationStatusPill
+                  status={operationStatus}
+                  elapsedSeconds={elapsedSeconds}
+                  runningLabel="AI 解析中"
+                />
+                <p className="text-[11px] text-gray-500">輪詢次數：{pollingAttempts.toLocaleString()}</p>
               </div>
             </div>
           </CardContent>
@@ -287,6 +331,13 @@ export function VLMDocumentUpload({ onComplete }: VLMDocumentUploadProps) {
       {/* Completed State */}
       {uploadState === 'completed' && parsedData && (
         <div className="space-y-4">
+          <div className="flex justify-center">
+            <AIOperationStatusPill
+              status={operationStatus}
+              summary={{ durationSeconds: lastDurationSeconds }}
+              successLabel="本次解析完成"
+            />
+          </div>
           <ParsedResultPreview data={parsedData} onAutoFill={handleAutoFill} />
           <Button variant="outline" onClick={handleReset} className="w-full">
             重新上傳其他文件
@@ -298,6 +349,13 @@ export function VLMDocumentUpload({ onComplete }: VLMDocumentUploadProps) {
       {uploadState === 'failed' && (
         <Card>
           <CardContent className="pt-6">
+            <div className="mb-3 flex justify-center">
+              <AIOperationStatusPill
+                status={operationStatus}
+                summary={{ durationSeconds: lastDurationSeconds }}
+                errorLabel="本次解析失敗"
+              />
+            </div>
             <Alert variant="destructive">
               <AlertDescription>
                 <strong>解析失敗</strong>

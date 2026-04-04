@@ -13,7 +13,6 @@ describe('LLMMonitorClient (AI usage logs)', () => {
           models_count: 0,
         }}
         aggregateStats={[]}
-        recentMetrics={[]}
         usageLogs={[
           {
             id: 'log-1',

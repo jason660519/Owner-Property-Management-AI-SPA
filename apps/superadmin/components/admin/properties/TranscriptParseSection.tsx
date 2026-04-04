@@ -3,12 +3,14 @@
 // AI 謄本解析區塊 — pre-execution settings panel + real-time per-model progress + results display.
 'use client';
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Brain, Loader2, ChevronDown, ChevronUp, Settings2,
   AlertTriangle, CheckCircle2, XCircle, Clock, ExternalLink,
   Copy, Download, Scale, Info, PenLine, BookMarked, FileCode,
 } from 'lucide-react';
+import { AIOperationStatusPill } from '@/components/ui/AIOperationStatusPill';
+import { useOperationTimer } from '@/lib/hooks/useOperationTimer';
 import { useAISettings, type SavedModel } from '@/lib/hooks/useAISettings';
 import { TRANSCRIPT_PARSE_PROMPT } from '@/lib/transcript-prompts';
 import {
@@ -28,15 +30,14 @@ import {
 } from '@/lib/utils/total-available-models';
 import { getStatusDisplay } from '@/lib/utils/model-status';
 import {
-  deleteSavedPrompt,
   listSavedPrompts,
-  savePrompt as savePromptAction,
-  updatePrompt,
   type SavedPrompt as DbSavedPrompt,
 } from '@/app/superadmin/settings/evaluations-global-test/promptActions';
-import { readLocalStorage,
+import {
+  readLocalStorage,
   writeLocalStorage,
   readSessionStorage,
+  writeSessionStorage,
 } from '@/lib/utils/storage-state';
 import {
   normalizeLocalParsedToBuildingTranscriptData,
@@ -45,29 +46,24 @@ import {
 } from '@/lib/utils/transcript-parsed-to-form';
 import Link from 'next/link';
 
-// ---------------------------------------------------------------------------
-// SSE event types (mirrors the streaming route)
-// ---------------------------------------------------------------------------
-
-type SSEEvent =
-  | { type: 'init' | 'downloading' | 'consensus' | 'saving'; message: string }
-  | { type: 'models_loaded'; parserModels: Array<{ provider: string; model: string }>; judgeModel: { provider: string; model: string } | null }
-  | { type: 'parse_start'; total: number; concurrency: number; targetSuccessCount: number }
-  | { type: 'model_start'; provider: string; model: string; index: number }
-  | { type: 'model_result'; provider: string; model: string; index: number; success: boolean; duration_ms: number; error?: string }
-  | { type: 'model_cancelled'; provider: string; model: string; index: number }
-  | { type: 'model_skipped'; provider: string; model: string; index: number }
-  | { type: 'judge_start'; message: string; conflictCount: number }
-  | { type: 'judge_done'; success: boolean }
-  | { type: 'complete'; result: TranscriptParseOutput; metadata: ConsensusMetadata }
-  | { type: 'error'; message: string };
-
 interface ModelProgressItem {
   provider: string;
   model: string;
   status: 'pending' | 'running' | 'success' | 'error' | 'cancelled' | 'skipped';
   duration_ms?: number;
   error?: string;
+}
+
+function normalizeJobProgress(raw: unknown): ModelProgressItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (row): row is ModelProgressItem =>
+      row !== null &&
+      typeof row === 'object' &&
+      typeof (row as ModelProgressItem).provider === 'string' &&
+      typeof (row as ModelProgressItem).model === 'string' &&
+      typeof (row as ModelProgressItem).status === 'string',
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -98,6 +94,7 @@ const LS_FILTER_CATEGORIES = 'ai-eval-filter:categories';
 const LS_LAST_CUSTOM_PROMPT = 'transcript-parse:lastCustomPrompt';
 const LS_SHOW_SETTINGS = 'transcript-parse:showSettings';
 const LS_LOCAL_PARSE_PREFIX = 'transcript-parse:local-result:';
+const ssActiveCloudJobKey = (documentId: string) => `transcript-parse:active-cloud-job:${documentId}`;
 
 const VALID_STATUS_VALUES = new Set(['vlm_ok', 'llm_ok', 'not_working', 'untested']);
 const VALID_CATEGORY_VALUES = new Set(['VLM', 'LLM', 'unknown']);
@@ -166,8 +163,12 @@ export function TranscriptParseSection({
   type ParserModelSelection = { provider: string; model: string; priority?: number; enabled: boolean };
   const [parserModelSelection, setParserModelSelection] = useState<ParserModelSelection[]>([]);
 
-  // Parse state
-  const [isParsing, setIsParsing] = useState(false);
+  // Parse state (background job + poll — survives navigation)
+  const [cloudJobId, setCloudJobId] = useState<string | null>(null);
+  const [cloudJobDocId, setCloudJobDocId] = useState<string | null>(null);
+  const [cloudJobStatus, setCloudJobStatus] = useState<
+    'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled' | null
+  >(null);
   const [phaseLabel, setPhaseLabel] = useState('');
   const [modelProgress, setModelProgress] = useState<ModelProgressItem[]>([]);
 
@@ -180,14 +181,24 @@ export function TranscriptParseSection({
   // No OCR model configured guard (shown before parse starts, with link to settings)
   const [noOcrModelError, setNoOcrModelError] = useState<boolean>(false);
 
-  // AbortController for cancelling the fetch stream
-  const abortRef = useRef<AbortController | null>(null);
-  const parseRunIdRef = useRef(0);
+  const selectedDocIdRef = useRef(selectedDocId);
+  selectedDocIdRef.current = selectedDocId;
 
   // Local Python parse state
   const [isLocalParsing, setIsLocalParsing] = useState(false);
   const [localParseResult, setLocalParseResult] = useState<Record<string, unknown> | null>(null);
   const [localParseError, setLocalParseError] = useState<string | null>(null);
+
+  const isCloudParsing =
+    Boolean(cloudJobId) &&
+    cloudJobDocId === selectedDocId &&
+    (cloudJobStatus === 'queued' || cloudJobStatus === 'running');
+
+  const {
+    elapsedSeconds: parseElapsedSeconds,
+    lastDurationSeconds: parseLastDurationSeconds,
+    reset: resetParseTimer,
+  } = useOperationTimer(isCloudParsing, { precisionDecimals: 1, tickMs: 100 });
 
   const targetLabel = kind === 'land' ? '土地謄本' : '建物謄本';
 
@@ -241,10 +252,20 @@ export function TranscriptParseSection({
     return () => window.removeEventListener('storage', handler);
   }, []);
 
-  // Auto-select first document when list changes
+  // 與文件列表同步：列表為空時清空選取；選取 id 不在列表中（例如 DB 重置後仍留舊 UUID）時改選第一筆
   useEffect(() => {
-    if (transcriptDocs.length > 0 && !transcriptDocs.some((d) => d.id === selectedDocId)) {
-      setSelectedDocId(transcriptDocs[0].id);
+    if (transcriptDocs.length === 0) {
+      if (selectedDocId) {
+        setSelectedDocId('');
+        setParseError(null);
+        setNoOcrModelError(false);
+      }
+      return;
+    }
+    const firstId = transcriptDocs[0]?.id;
+    if (!firstId) return;
+    if (!transcriptDocs.some((d) => d.id === selectedDocId)) {
+      setSelectedDocId(firstId);
       setParseError(null);
       setNoOcrModelError(false);
     }
@@ -293,6 +314,109 @@ export function TranscriptParseSection({
     });
     return () => { cancelled = true; };
   }, [selectedDocId]);
+
+  // 從 session 還原「此文件」尚未結束的背景解析任務（換頁後回來可續盯進度）
+  useEffect(() => {
+    if (!selectedDocId || typeof window === 'undefined') return;
+    const jid = readSessionStorage<string | null>(ssActiveCloudJobKey(selectedDocId), null);
+    if (!jid) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/transcript-parse/jobs/${jid}`);
+        if (cancelled) return;
+        if (!res.ok) {
+          writeSessionStorage(ssActiveCloudJobKey(selectedDocId), null);
+          return;
+        }
+        const d = (await res.json()) as {
+          status: string;
+          phaseMessage?: string | null;
+          progress?: unknown;
+        };
+        if (cancelled) return;
+        if (d.status === 'queued' || d.status === 'running') {
+          setCloudJobId(jid);
+          setCloudJobDocId(selectedDocId);
+          setCloudJobStatus(d.status);
+          setPhaseLabel(d.phaseMessage ?? '');
+          setModelProgress(normalizeJobProgress(d.progress));
+        } else {
+          writeSessionStorage(ssActiveCloudJobKey(selectedDocId), null);
+        }
+      } catch {
+        writeSessionStorage(ssActiveCloudJobKey(selectedDocId), null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDocId]);
+
+  // 輪詢背景任務狀態（離開頁面時仍持續到任務結束，回同頁可再接上）
+  useEffect(() => {
+    if (!cloudJobId) return;
+
+    const tick = async () => {
+      try {
+        const res = await fetch(`/api/transcript-parse/jobs/${cloudJobId}`);
+        if (!res.ok) return;
+        const d = (await res.json()) as {
+          status: string;
+          phaseMessage?: string | null;
+          progress?: unknown;
+          errorMessage?: string | null;
+          propertyDocumentId?: string;
+        };
+
+        const st = d.status;
+        if (st === 'queued' || st === 'running' || st === 'succeeded' || st === 'failed' || st === 'cancelled') {
+          setCloudJobStatus(st);
+        }
+        setPhaseLabel(d.phaseMessage ?? '');
+        setModelProgress(normalizeJobProgress(d.progress));
+
+        const docId = d.propertyDocumentId ?? cloudJobDocId ?? undefined;
+
+        if (st === 'succeeded') {
+          if (docId) writeSessionStorage(ssActiveCloudJobKey(docId), null);
+          setCloudJobId(null);
+          setCloudJobDocId(null);
+          setCloudJobStatus(null);
+          setPhaseLabel('');
+          const sel = selectedDocIdRef.current;
+          if (docId && sel === docId) {
+            const parseRes = await getDocumentParseResult(docId);
+            if (parseRes?.parsedResult != null) {
+              setParseResult(parseRes.parsedResult);
+              setParseMetadata(parseRes.consensusMetadata ?? null);
+            }
+          }
+          setParseError(null);
+          return;
+        }
+
+        if (st === 'failed' || st === 'cancelled') {
+          if (docId) writeSessionStorage(ssActiveCloudJobKey(docId), null);
+          setCloudJobId(null);
+          setCloudJobDocId(null);
+          setCloudJobStatus(null);
+          setPhaseLabel('');
+          if (docId && selectedDocIdRef.current === docId) {
+            setParseError(
+              d.errorMessage ?? (st === 'cancelled' ? '任務已取消' : '解析失敗'),
+            );
+          }
+        }
+      } catch {
+        // 輪詢暫時失敗略過
+      }
+    };
+
+    void tick();
+    const id = setInterval(() => void tick(), 2000);
+    return () => clearInterval(id);
+  }, [cloudJobId, cloudJobDocId]);
 
   // Compute configured models from AI settings
   const ocrParseModule = useMemo(
@@ -394,9 +518,11 @@ export function TranscriptParseSection({
 
   // Fetch all saved_prompts (not just active system ones)
   useEffect(() => {
-    listSavedPrompts().then((res) => {
-      if (res.data) setDbPrompts(res.data);
-    });
+    void listSavedPrompts()
+      .then((res) => {
+        if (res.data) setDbPrompts(res.data);
+      })
+      .catch(() => {});
   }, []);
 
   const storedParsePrompt = useMemo(() => {
@@ -479,89 +605,15 @@ export function TranscriptParseSection({
     setParserModelSelection([]);
   }, [ocrParseModule]);
 
-  // SSE event dispatcher
-  const handleSSEEvent = useCallback((event: SSEEvent) => {
-    switch (event.type) {
-      case 'init':
-      case 'downloading':
-      case 'consensus':
-      case 'saving':
-        setPhaseLabel(event.message);
-        break;
-
-      case 'models_loaded':
-        setModelProgress(
-          event.parserModels.map((m) => ({ provider: m.provider, model: m.model, status: 'pending' as const })),
-        );
-        setPhaseLabel('準備中…');
-        break;
-
-      case 'parse_start':
-        setPhaseLabel(`解析中（同時 ${event.concurrency} 個）…`);
-        break;
-
-      case 'model_start':
-        setModelProgress((prev) =>
-          prev.map((p, i) => (i === event.index ? { ...p, status: 'running' as const } : p)),
-        );
-        break;
-
-      case 'model_result':
-        setModelProgress((prev) =>
-          prev.map((p, i) =>
-            i === event.index
-              ? { ...p, status: event.success ? ('success' as const) : ('error' as const), duration_ms: event.duration_ms, error: event.error }
-              : p,
-          ),
-        );
-        break;
-
-      case 'model_cancelled':
-        setModelProgress((prev) =>
-          prev.map((p, i) =>
-            i === event.index
-              ? { ...p, status: 'cancelled' as const }
-              : p,
-          ),
-        );
-        break;
-
-      case 'model_skipped':
-        setModelProgress((prev) =>
-          prev.map((p, i) =>
-            i === event.index
-              ? { ...p, status: 'skipped' as const }
-              : p,
-          ),
-        );
-        break;
-
-      case 'judge_start':
-        setPhaseLabel(event.message);
-        break;
-
-      case 'judge_done':
-        setPhaseLabel(event.success ? '裁判完成' : '裁判無法解決，保留共識結果');
-        break;
-
-      case 'complete':
-        setParseResult(event.result);
-        setParseMetadata(event.metadata);
-        setPhaseLabel('');
-        break;
-
-      case 'error':
-        setParseError(event.message);
-        break;
-    }
-  }, []);
-
   async function handleParse() {
-    if (!selectedDocId || !aiUserId || isParsing) return;
+    if (!selectedDocId || !aiUserId || isCloudParsing) return;
+    if (!transcriptDocs.some((d) => d.id === selectedDocId)) {
+      setParseError('選取的文件已不在列表中，請重新整理頁面或改選謄本後再試。');
+      return;
+    }
 
-    // Guard: no models assigned at all (regardless of is_enabled flag).
-    // is_enabled is a separate module-level toggle and should not block parsing
-    // when models are actually assigned.
+    resetParseTimer();
+
     if (parserModelSelection.length === 0) {
       setNoOcrModelError(true);
       setParseError(null);
@@ -574,31 +626,21 @@ export function TranscriptParseSection({
       return;
     }
 
-    abortRef.current?.abort();
-    const abort = new AbortController();
-    abortRef.current = abort;
-    parseRunIdRef.current += 1;
-    const runId = parseRunIdRef.current;
-
     setNoOcrModelError(false);
-    setIsParsing(true);
     setParseError(null);
     setParseResult(null);
     setParseMetadata(null);
     setShowConflicts(false);
     setModelProgress([]);
-    setPhaseLabel('初始化中…');
+    setPhaseLabel('排隊中…');
 
-    // P1.1: Include local parse result in consensus if one is available.
-    // The local result (now in TranscriptParseOutput unified schema) participates
-    // as a virtual "local/local-regex-parser" model in Phase 2 majority voting.
     const localResultForConsensus =
       localParseResult && 'kind' in localParseResult
         ? (localParseResult as unknown as import('@/lib/types/transcript').TranscriptParseOutput & { field_confidences?: Record<string, number> })
         : undefined;
 
     try {
-      const response = await fetch('/api/transcript-parse/stream', {
+      const response = await fetch('/api/transcript-parse/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -613,65 +655,18 @@ export function TranscriptParseSection({
           overrideJudgeModel: effectiveJudgeModel ?? undefined,
           injectedLocalResult: localResultForConsensus,
         }),
-        signal: abort.signal,
       });
-
-      if (!response.ok || !response.body) {
-        setParseError(`串流請求失敗 (${response.status})`);
+      const data = (await response.json()) as { jobId?: string; error?: string };
+      if (!response.ok || !data.jobId) {
+        setParseError(data.error ?? `建立任務失敗 (${response.status})`);
         return;
       }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      function processBuffer() {
-        const chunks = buffer.split('\n\n');
-        buffer = chunks.pop() ?? '';
-        for (const chunk of chunks) {
-          if (!chunk.startsWith('data: ')) continue;
-          try {
-            if (parseRunIdRef.current !== runId) continue;
-            handleSSEEvent(JSON.parse(chunk.slice(6)) as SSEEvent);
-          } catch {
-            // Ignore malformed events
-          }
-        }
-      }
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (value) {
-          buffer += decoder.decode(value, { stream: true });
-          processBuffer();
-        }
-        if (done) {
-          // 串流結束後處理 buffer 內剩餘內容，避免漏掉最後的 complete 事件
-          if (buffer.trim()) {
-            const chunks = buffer.split('\n\n');
-            for (const chunk of chunks) {
-              if (!chunk.startsWith('data: ')) continue;
-              try {
-                if (parseRunIdRef.current !== runId) break;
-                handleSSEEvent(JSON.parse(chunk.slice(6)) as SSEEvent);
-              } catch {
-                // Ignore malformed events
-              }
-            }
-          }
-          break;
-        }
-      }
+      setCloudJobId(data.jobId);
+      setCloudJobDocId(selectedDocId);
+      setCloudJobStatus('queued');
+      writeSessionStorage(ssActiveCloudJobKey(selectedDocId), data.jobId);
     } catch (e) {
-      if (e instanceof Error && e.name === 'AbortError') return;
-      if (parseRunIdRef.current !== runId) return;
-      setParseError(e instanceof Error ? e.message : '解析失敗');
-    } finally {
-      if (abortRef.current === abort && parseRunIdRef.current === runId) {
-        abortRef.current = null;
-        setIsParsing(false);
-        setPhaseLabel('');
-      }
+      setParseError(e instanceof Error ? e.message : '建立任務失敗');
     }
   }
 
@@ -774,6 +769,31 @@ export function TranscriptParseSection({
     URL.revokeObjectURL(url);
   }
 
+  const parseStatus: 'idle' | 'running' | 'success' | 'error' = isCloudParsing
+    ? 'running'
+    : parseError
+      ? 'error'
+      : parseResult
+        ? 'success'
+        : 'idle';
+
+  const parseUsageSummary = useMemo(() => {
+    if (!parseMetadata) return null;
+    const promptTokens =
+      parseMetadata.models_used.reduce((sum, m) => sum + (m.token_usage?.prompt_tokens ?? 0), 0) +
+      (parseMetadata.judge_used?.token_usage?.prompt_tokens ?? 0);
+    const completionTokens =
+      parseMetadata.models_used.reduce((sum, m) => sum + (m.token_usage?.completion_tokens ?? 0), 0) +
+      (parseMetadata.judge_used?.token_usage?.completion_tokens ?? 0);
+    if (promptTokens === 0 && completionTokens === 0) return null;
+    return { inputTokens: promptTokens, outputTokens: completionTokens };
+  }, [parseMetadata]);
+
+  const parseDurationSeconds = useMemo(() => {
+    if (parseMetadata) return Number((parseMetadata.total_duration_ms / 1000).toFixed(1));
+    return parseLastDurationSeconds;
+  }, [parseMetadata, parseLastDurationSeconds]);
+
   return (
     <div className="border border-dashed border-border-default rounded-md p-3 space-y-3">
       {/* Header */}
@@ -824,6 +844,9 @@ export function TranscriptParseSection({
 
       <p className="text-xs text-text-muted">
         選擇已上傳的{targetLabel}，由「雲端OCR謄本解析」指定之 AI 模型解析，輸出重要資訊 JSON。若為 PDF，會一併傳給 Claude、Gemini、OpenAI、Grok、DeepSeek 等；若某家 API 回報不支援，可改傳 JPG/PNG。
+      </p>
+      <p className="text-[11px] text-text-muted border border-border-default/60 rounded-md px-2 py-1.5 bg-bg-tertiary/50">
+        雲端解析為背景任務：可切換分頁或離開本頁，伺服器會繼續解析；回到謄本並選取同一文件時會自動接上進度，完成後結果寫入資料庫並顯示於此。
       </p>
 
       {/* 統一測試 vs 雲端解析謄本 說明：避免誤解「統一測試通過」=「單一物件解析一定成功」 */}
@@ -934,7 +957,7 @@ export function TranscriptParseSection({
                 value={parserConcurrency}
                 onChange={(e) => setParserConcurrency(Number(e.target.value))}
                 className="border border-border-default rounded-md px-2 py-1.5 bg-bg-primary text-text-primary text-xs focus:outline-none focus:border-accent"
-                disabled={isParsing}
+                disabled={isCloudParsing}
               >
                 {PARSER_CONCURRENCY_OPTIONS.map((value) => (
                   <option key={value} value={value}>
@@ -987,7 +1010,7 @@ export function TranscriptParseSection({
               placeholder="留空則使用 AI 設定中已儲存的 Prompt（若無則使用預設 Prompt）"
               rows={4}
               className="w-full border border-border-default rounded-md px-2.5 py-1.5 bg-bg-primary text-text-primary text-xs resize-y focus:outline-none focus:border-accent placeholder:text-text-muted"
-              disabled={isParsing}
+              disabled={isCloudParsing}
             />
             {!isPromptDirty && customPrompt.trim().length === 0 && (
               <p className="text-text-muted">
@@ -1026,7 +1049,7 @@ export function TranscriptParseSection({
             setParseError(null);
           }}
           className="w-full border border-border-default rounded-md px-2 py-1.5 bg-bg-primary text-text-primary text-xs focus:outline-none focus:border-accent"
-          disabled={isParsing}
+          disabled={isCloudParsing}
         >
           <option value="">請選擇</option>
           {transcriptDocs.map((d) => (
@@ -1040,23 +1063,23 @@ export function TranscriptParseSection({
         <button
           type="button"
           onClick={handleParse}
-          disabled={!selectedDocId || isParsing}
+          disabled={!selectedDocId || isCloudParsing}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-xs rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40"
         >
-          {isParsing ? <Loader2 size={12} className="animate-spin" /> : <Brain size={12} />}
-          {isParsing ? (phaseLabel || '解析中…') : `雲端解析${targetLabel}`}
+          {isCloudParsing ? <Loader2 size={12} className="animate-spin" /> : <Brain size={12} />}
+          {isCloudParsing ? (phaseLabel || '解析中…') : `雲端解析${targetLabel}`}
         </button>
         <button
           type="button"
           onClick={handleLocalParse}
-          disabled={!selectedDocId || isLocalParsing || isParsing}
+          disabled={!selectedDocId || isLocalParsing || isCloudParsing}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-xs rounded-md hover:bg-emerald-700 transition-colors disabled:opacity-40"
           title="使用本機 Python regex 解析器（需啟動 backend/ocr_service）"
         >
           {isLocalParsing ? <Loader2 size={12} className="animate-spin" /> : <FileCode size={12} />}
           {isLocalParsing ? '解析中…' : `地端解析${targetLabel}`}
         </button>
-        {!isParsing && parserModelSelection.length > 0 && (
+        {!isCloudParsing && parserModelSelection.length > 0 && (
           <span className="text-[11px] text-text-muted">
             同時 {effectiveParserConcurrency} 個
             {effectiveParserConcurrency < parserConcurrency && (
@@ -1064,10 +1087,25 @@ export function TranscriptParseSection({
             )}
           </span>
         )}
+        <AIOperationStatusPill
+          status={parseStatus}
+          elapsedSeconds={parseElapsedSeconds}
+          summary={
+            parseStatus === 'running' || parseStatus === 'idle'
+              ? null
+              : {
+                  durationSeconds: parseDurationSeconds,
+                  usage: parseUsageSummary,
+                }
+          }
+          runningLabel={`AI 解析${targetLabel}中`}
+          successLabel="本次解析完成"
+          errorLabel="本次解析失敗"
+        />
       </div>
 
       {/* ── Real-time model progress ──────────────────────────────────── */}
-      {(isParsing || parseError || parseResult) && modelProgress.length > 0 && (
+      {(isCloudParsing || parseError || parseResult) && modelProgress.length > 0 && (
         <div className="border border-border-default rounded-md p-2.5 space-y-1.5 bg-bg-tertiary">
           <p className="text-xs font-medium text-text-secondary">解析進度</p>
           {modelProgress.map((m, i) => (
@@ -1080,7 +1118,7 @@ export function TranscriptParseSection({
       )}
 
       {/* Phase label when no model list yet (init / downloading) */}
-      {isParsing && modelProgress.length === 0 && phaseLabel && (
+      {isCloudParsing && modelProgress.length === 0 && phaseLabel && (
         <div className="flex items-center gap-1.5 text-xs text-text-muted">
           <Loader2 size={11} className="animate-spin" />
           {phaseLabel}
