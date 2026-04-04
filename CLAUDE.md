@@ -8,15 +8,15 @@ Monorepo — 主要開發 `apps/web/`（Port 3000）與 `apps/superadmin/`（Por
 
 ## 規則檔案索引
 
-| 用途 | 路徑 |
-| :--- | :--- |
-| 通用規則（命名、Git、檔案組織、進度更新） | `.claude/rules/general.md` |
-| 前端規則（Next.js、React、Tailwind） | `.claude/rules/frontend/react-next.md` |
-| 後端規則（Supabase、RLS、Migration） | `.claude/rules/backend/supabase.md` |
-| 專案記憶（/memory 用、架構與功能摘要） | `.claude/memory/`（MEMORY.md、architecture.md、features.md） |
-| 檔案命名詳細規範 | `docs/file-naming-guidelines.md` |
-| 專案進度儀表板更新 | `docs/update-project-progress-guide.md` |
-| UI/UX 設計規範 | `docs/design-guidelines/UNIFIED_DESIGN_STANDARD.md` |
+| 用途                                      | 路徑                                                           |
+| :---------------------------------------- | :------------------------------------------------------------- |
+| 通用規則（命名、Git、檔案組織、進度更新） | `.claude/rules/general.md`                                   |
+| 前端規則（Next.js、React、Tailwind）      | `.claude/rules/frontend/react-next.md`                       |
+| 後端規則（Supabase、RLS、Migration）      | `.claude/rules/backend/supabase.md`                          |
+| 專案記憶（/memory 用、架構與功能摘要）    | `.claude/memory/`（MEMORY.md、architecture.md、features.md） |
+| 檔案命名詳細規範                          | `docs/file-naming-guidelines.md`                             |
+| 專案進度儀表板更新                        | `docs/update-project-progress-guide.md`                      |
+| UI/UX 設計規範                            | `docs/design-guidelines/UNIFIED_DESIGN_STANDARD.md`          |
 
 ## 硬性規定
 
@@ -24,7 +24,7 @@ Monorepo — 主要開發 `apps/web/`（Port 3000）與 `apps/superadmin/`（Por
 - SQL 只能放 `supabase/migrations/`，格式 `YYYYMMDDHHMMSS_描述.sql`
 - 文檔/臨時檔不能放根目錄，單檔不超過 500 行
 
-## 啟動
+## 啟動專案開發環境
 
 ```bash
 # 先開 Docker Desktop，再執行：
@@ -88,35 +88,47 @@ supabase/
 - `(dashboard)/` — 需登入的通用後台
 - `landlord/` — 房東功能（受 middleware role guard 保護）
 - `tenant/` / `buyer/` — 租客/買家（各有 potential、contracted 子路由）
+- `agent/` — 仲介功能
+- `service-provider/` — 服務提供者/廠商（role: `service_provider` 或 `vendor`）
 - `portal/` — 任何已登入用戶皆可存取
 - `onboarding/` — 新用戶角色設定流程
 
-**Middleware（`apps/web/middleware.ts`）**：依 `ROUTE_ROLE_GUARDS` 表格做角色驗證，`super_admin` 繞過所有 guard。
+**Middleware（`apps/web/middleware.ts`）**：依 `ROUTE_ROLE_GUARDS` 表格做角色驗證，`super_admin` 繞過所有 guard。**角色模擬（Role Simulation）**：super_admin 可透過 `x-simulation-role` cookie 以其他角色身份瀏覽，middleware 會驗證真實角色為 super_admin 後才允許模擬，防止 cookie 偽造提權。
 
 ### apps/superadmin 路由結構
 
 所有頁面在 `/superadmin/` 前綴下（`apps/superadmin/app/superadmin/`）：
 
 - `dashboard/` — 主控台（行為監控、IAM、LLM monitor、storage、Supabase 管理等）
-- `properties/` — 物件管理（sale + rental，含照片/文件上傳）
+- `properties/` — 物件管理（sale + rental，含照片/文件上傳、AI 謄本解析、廣告文案生成）
+- `settings/api_key_and_model_setting/` — AI provider API key 管理與模型評測（ModelEvaluator）
 - `users/`, `groups/`, `roles/` — 使用者與權限管理
 - `logs/`, `verifications/`, `leases/` — 日誌、驗證、租約
+
+**Superadmin AI 功能管線**（`apps/superadmin/lib/`）：
+
+- `lib/actions/propertyAI.ts` — AI 謄本解析（VLM OCR → transcript → structured form）
+- `lib/actions/cadastral-maps.ts` / `lib/utils/cadastral-map-fetcher.ts` — 地籍圖自動抓取
+- `lib/actions/lvr-sync.ts` / `lib/utils/lvr-open-data.ts` — 實價登錄資料同步
+- `lib/utils/property-advertisement-readiness.ts` — 廣告刊登前置檢查
+- `lib/hooks/useAISettings.ts` — AI 設定（API key + 模型）的 hook，供設定頁使用
 
 **Middleware（`apps/superadmin/middleware.ts`）**：先做 IP 黑名單檢查（`check_superadmin_blacklist` RPC），再驗證 `super_admin` 角色（來自 IAM `get_user_roles` RPC 或 `user_metadata`）。
 
 ### Supabase 客戶端選擇規則
 
-| 情境 | Import |
-| :--- | :----- |
-| Server Component / Server Action（遵守 RLS） | `createClient` from `@/utils/supabase/server` |
-| Client Component | `createClient` from `@/utils/supabase/client` |
-| Superadmin（繞過 RLS，使用 service_role） | `createAdminClient` from `@/utils/supabase/admin` |
+| 情境                                         | Import                                                |
+| :------------------------------------------- | :---------------------------------------------------- |
+| Server Component / Server Action（遵守 RLS） | `createClient` from `@/utils/supabase/server`     |
+| Client Component                             | `createClient` from `@/utils/supabase/client`     |
+| Superadmin（繞過 RLS，使用 service_role）    | `createAdminClient` from `@/utils/supabase/admin` |
 
 ### Server / Client Component 模式
 
 - 預設 Server Component，只在需要互動時加 `'use client'`
 - 純工具函數 → `utils.ts`（可被任何地方 import）
 - Server Action → `actions.ts`（`'use server'`，Client Component 只能呼叫，不能當一般函式 import）
+- `apps/web` 使用 **React Query**（`lib/react-query/queryClient.ts`）做客戶端資料快取，新增 Client Component 的資料擷取優先考慮 React Query。
 
 ### 測試架構
 
@@ -126,12 +138,12 @@ supabase/
 
 ### Storage Buckets
 
-| Bucket | 上限 | 用途 |
-| :----- | :--- | :--- |
-| `property-photos` | 10 MB | 物件照片（JPG/PNG/WebP） |
-| `property-documents` | 20 MB | 謄本/建物權狀/土地權狀（PDF/JPG/PNG/WebP） |
+| Bucket                 | 上限  | 存取              | 用途                                       |
+| :--------------------- | :---- | :---------------- | :----------------------------------------- |
+| `property-photos`    | 10 MB | public            | 物件照片（JPG/PNG/WebP）                   |
+| `property-documents` | 20 MB | **private** | 謄本/建物權狀/土地權狀（PDF/JPG/PNG/WebP） |
 
-Storage 公開讀取（`public: true`），寫入需 authenticated。Superadmin 操作一律使用 `createAdminClient`（service_role）。
+`property-documents` 已於 migration `20260308140000` 改為 private，取用需透過 signed URL。Superadmin 操作一律使用 `createAdminClient`（service_role）。
 
 ### UI 慣例
 

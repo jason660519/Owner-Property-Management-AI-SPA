@@ -224,7 +224,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員AI LLM API效能監控－AI語音回應可靠度監控功能",
     locatedPage: "superadmin/dashboard/llm-monitor",
-    percentage: 65,
+    percentage: 70,
     acceptanceCriteria:
       "1. 即時顯示各 LLM API 的請求數量、平均回應時間、錯誤率。\n2. 可設定 API 使用量預算上限與警示閾值。\n3. 提供每日/每週 Token 消耗統計與費用估算。\n4. 語音回應品質分數（延遲、斷句率）需以圖表呈現。\n5. API 密鑰輪換提醒功能（距離過期 30 天前通知）。",
     docPath: "",
@@ -234,11 +234,11 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/dev-logs/dev-superadmin-features-2026-02-21.md",
     category: "超級管理員 (Super Admin)",
     points: 8,
-    lastModifiedBy: "Claude Sonnet 4.6",
-    lastModifiedDate: "2026/02/21",
+    lastModifiedBy: "GPT-5.2",
+    lastModifiedDate: "2026/04/04",
     phase: "development",
     developmentProgress:
-      "連接真實 ai_performance_metrics 資料表，page.tsx + LLMMonitorClient + actions (getLLMMetrics/getLLMAggregateStats/getLLMOverallStats)；每模型效能比較表、最近請求記錄。",
+      "連接真實 ai_performance_metrics 資料表，page.tsx + LLMMonitorClient + actions (getLLMMetrics/getLLMAggregateStats/getLLMOverallStats)；每模型效能比較表、最近請求記錄。\n\n### 2026-04-04 監控可追到 Prompt / 模組 / 成功失敗\n- 新增 ai_usage_logs 監控欄位（prompt source/version/hash、request_path、response_status 等）。\n- 物件介紹文案 AI（/api/property-description/stream）每次嘗試會寫入 ai_usage_logs（含成功/失敗、tokens、延遲、provider/model）。\n- llm-monitor 頁面新增「AI 使用紀錄（含 Prompt / 模組 / 狀態）」表格（最新 100 筆）。",
   },
   {
     name: "超級管理員-網路安全－隱私審計管理功能",
@@ -714,18 +714,18 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "物件介紹 AI 協作撰稿流程",
     locatedPage: "superadmin/properties/[id]/edit?tab=edit",
-    percentage: 99,
+    percentage: 100,
     acceptanceCriteria:
       "1. AI 生成結果不得直接覆蓋既有物件介紹，需先提供草稿預覽。\n2. 使用者可選擇套用、附加或重新生成 AI 草稿。\n3. 需顯示本次生成會使用的物件資料與缺漏提醒。\n4. 支援風格、長度、用途等生成設定。\n5. 使用者可還原上次套用前的文案內容。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 3,
-    lastModifiedBy: "GPT-5.4",
-    lastModifiedDate: "2026/03/19",
+    lastModifiedBy: "GPT-5.2",
+    lastModifiedDate: "2026/04/04",
     phase: "development",
     developmentProgress:
-      "superadmin 物件編輯表單改為 AI 協作撰稿流程：抽出 PropertyDescriptionAIAssistant，新增文案風格/長度/用途控制、資料完整度提示、草稿預覽、套用/附加/還原操作；新增 /api/property-description/stream 串流 trace，前端可即時顯示資料蒐集、Prompt 載入、module key、模型來源、LLM/provider、金鑰來源、最終 Prompt 預覽與完成耗時；trace 支援複製與下載；後端已接入 ai_modules_assigned_function、ai_system_prompts 與多 provider fallback，並將物件介紹文案獨立為 property_description module，可在 AI 設定頁單獨配置。",
+      "superadmin 物件編輯表單改為 AI 協作撰稿流程：抽出 PropertyDescriptionAIAssistant，新增文案風格/長度/用途控制、資料完整度提示、草稿預覽、套用/附加/還原操作；新增 /api/property-description/stream 串流 trace，前端可即時顯示資料蒐集、Prompt 載入、module key、模型來源、LLM/provider、金鑰來源、最終 Prompt 預覽與完成耗時；trace 支援複製與下載；後端已接入 ai_modules_assigned_function、ai_system_prompts 與多 provider fallback，並將物件介紹文案獨立為 property_description module，可在 AI 設定頁單獨配置。\n\n### 2026-04-04 UX 與可觀測性補強\n- 生成中顯示 spinner + 秒數（小數 1 位）。\n- 生成完成/失敗後在頁面上保留摘要：總耗時、tokens（in/out/total）、provider/model、HTTP status。\n- 後端寫入 ai_usage_logs，llm-monitor 可追蹤每次生成成功/失敗與使用的 Prompt/模型資訊；補齊相關 migration 與單元測試。",
   },
   {
     name: "房東的部落格 AI 寫手",

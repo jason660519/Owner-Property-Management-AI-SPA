@@ -32,6 +32,27 @@ export interface LLMOverallStats {
   models_count: number;
 }
 
+export interface AIUsageLog {
+  id: string;
+  provider: string;
+  model_id: string;
+  module_key: string | null;
+  prompt_name: string | null;
+  prompt_source: string | null;
+  prompt_module_key: string | null;
+  prompt_version: number | null;
+  final_prompt_hash: string | null;
+  request_path: string | null;
+  response_status: number | null;
+  tokens_input: number | null;
+  tokens_output: number | null;
+  cost_usd: number | null;
+  duration_ms: number | null;
+  status: 'success' | 'error' | 'timeout' | null;
+  error_message: string | null;
+  created_at: string;
+}
+
 /** Fetch recent LLM metrics (last 200 rows) */
 export async function getLLMMetrics(limit = 100): Promise<LLMMetric[]> {
   const supabase = createAdminClient();
@@ -48,6 +69,23 @@ export async function getLLMMetrics(limit = 100): Promise<LLMMetric[]> {
   }
 
   return (data as LLMMetric[]) ?? [];
+}
+
+export async function getAIUsageLogs(limit = 100): Promise<AIUsageLog[]> {
+  const supabase = createAdminClient();
+
+  const { data, error } = await supabase
+    .from('ai_usage_logs')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('Error fetching AI usage logs:', error);
+    return [];
+  }
+
+  return (data as AIUsageLog[]) ?? [];
 }
 
 /** Aggregate stats per model */

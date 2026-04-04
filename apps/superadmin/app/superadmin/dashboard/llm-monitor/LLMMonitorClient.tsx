@@ -3,12 +3,13 @@
 import { Brain, Clock, DollarSign, Star, Layers, RefreshCw, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import type { LLMOverallStats, LLMAggregateStat, LLMMetric } from './actions';
+import type { AIUsageLog, LLMOverallStats, LLMAggregateStat, LLMMetric } from './actions';
 
-interface LLMMonitorClientProps {
+interface LLMMonitorClientPropsV2 {
   overallStats: LLMOverallStats;
   aggregateStats: LLMAggregateStat[];
   recentMetrics: LLMMetric[];
+  usageLogs: AIUsageLog[];
 }
 
 interface StatCardProps {
@@ -51,7 +52,8 @@ export default function LLMMonitorClient({
   overallStats,
   aggregateStats,
   recentMetrics,
-}: LLMMonitorClientProps) {
+  usageLogs,
+}: LLMMonitorClientPropsV2) {
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6 bg-[#1A1A1A] min-h-screen text-white">
       {/* Header */}
@@ -254,6 +256,90 @@ export default function LLMMonitorClient({
                         ) : (
                           <span className="text-gray-600 text-xs">-</span>
                         )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-[#2A2A2A] border-[#333333]">
+        <CardHeader className="border-b border-[#333333] pb-4">
+          <CardTitle className="text-white text-base">
+            AI 使用紀錄（含 Prompt / 模組 / 狀態）
+            <span className="text-gray-400 text-sm font-normal ml-2">最新 100 筆</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="border-b border-[#333333] text-gray-400 text-xs">
+                <tr>
+                  <th className="px-4 py-3">時間</th>
+                  <th className="px-4 py-3">模組</th>
+                  <th className="px-4 py-3">Provider / Model</th>
+                  <th className="px-4 py-3">Prompt</th>
+                  <th className="px-4 py-3 text-center">狀態</th>
+                  <th className="px-4 py-3 text-right">延遲</th>
+                  <th className="px-4 py-3 text-right">Input</th>
+                  <th className="px-4 py-3 text-right">Output</th>
+                  <th className="px-4 py-3">錯誤</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#333333]">
+                {usageLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
+                      暫無資料
+                    </td>
+                  </tr>
+                ) : (
+                  usageLogs.map((log) => (
+                    <tr key={log.id} className="hover:bg-[#333333]/50 transition-colors">
+                      <td className="px-4 py-2.5 text-gray-400 text-xs whitespace-nowrap">
+                        {new Date(log.created_at).toLocaleString('zh-TW')}
+                      </td>
+                      <td className="px-4 py-2.5 text-gray-200 text-xs whitespace-nowrap">
+                        {log.module_key ?? '-'}
+                      </td>
+                      <td className="px-4 py-2.5 font-mono text-xs text-white whitespace-nowrap">
+                        {log.provider}/{log.model_id}
+                      </td>
+                      <td className="px-4 py-2.5 text-gray-300 text-xs">
+                        <div className="whitespace-nowrap">
+                          {log.prompt_name ?? '-'}
+                          {log.prompt_source ? <span className="text-gray-500"> ({log.prompt_source})</span> : null}
+                          {log.prompt_version != null ? <span className="text-gray-500"> v{log.prompt_version}</span> : null}
+                        </div>
+                        {log.final_prompt_hash ? (
+                          <div className="text-gray-500 font-mono text-[10px]">hash:{log.final_prompt_hash.slice(0, 12)}</div>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-2.5 text-center">
+                        {log.status === 'success' ? (
+                          <Badge variant="success">success</Badge>
+                        ) : log.status === 'timeout' ? (
+                          <Badge variant="warning">timeout</Badge>
+                        ) : log.status === 'error' ? (
+                          <Badge variant="error">error</Badge>
+                        ) : (
+                          <span className="text-gray-600 text-xs">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-gray-300 text-xs whitespace-nowrap">
+                        {log.duration_ms != null ? `${log.duration_ms}ms` : '-'}
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-gray-300 text-xs whitespace-nowrap">
+                        {log.tokens_input?.toLocaleString() ?? '-'}
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-gray-300 text-xs whitespace-nowrap">
+                        {log.tokens_output?.toLocaleString() ?? '-'}
+                      </td>
+                      <td className="px-4 py-2.5 text-gray-400 text-xs">
+                        {log.error_message ?? '-'}
                       </td>
                     </tr>
                   ))

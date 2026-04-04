@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { createHash } from 'crypto';
 import { decryptApiKey } from '@/lib/crypto';
 import { resolveUserId } from '@/lib/resolve-ai-settings-user';
 import { createAdminClient } from '@/utils/supabase/admin';
@@ -24,7 +25,7 @@ type PromptSource = 'ai_system_prompt' | 'saved_prompt' | 'default';
 type ModelSelectionSource = 'ai_module' | 'default';
 type ApiKeySource = 'ai_settings' | 'env' | 'missing';
 type AssignedModelRow = { provider: AIProvider; model: string; priority?: number };
-type PromptResolution = { template: string; source: PromptSource; moduleKey: string | null };
+type PromptResolution = { template: string; source: PromptSource; moduleKey: string | null; version: number | null };
 type ModelResolution = {
   provider: AIProvider;
   model: string;
@@ -44,17 +45,20 @@ type TracePhase =
   | 'completed';
 
 const PROPERTY_DESCRIPTION_MODULE_KEYS = ['property_description', 'blog_generator'] as const;
-const ENV_API_KEY_MAP: Partial<Record<AIProvider, string | undefined>> = {
-  anthropic: process.env.ANTHROPIC_API_KEY,
-  openai: process.env.OPENAI_API_KEY,
-  gemini: process.env.GEMINI_API_KEY,
-  deepseek: process.env.DEEPSEEK_API_KEY,
-  grok: process.env.GROK_API_KEY,
-  together: process.env.TOGETHER_AI_API_KEY,
-  kimi: process.env.KIMI_API_KEY,
-  openrouter: process.env.OPENROUTER_API_KEY,
-  zhipu: process.env.ZHIPU_API_KEY,
-};
+function getEnvApiKey(provider: AIProvider): string | null {
+  const envKeyMap: Record<AIProvider, string | undefined> = {
+    anthropic: process.env.ANTHROPIC_API_KEY,
+    openai: process.env.OPENAI_API_KEY,
+    gemini: process.env.GEMINI_API_KEY,
+    deepseek: process.env.DEEPSEEK_API_KEY,
+    grok: process.env.GROK_API_KEY,
+    together: process.env.TOGETHER_AI_API_KEY,
+    kimi: process.env.KIMI_API_KEY,
+    openrouter: process.env.OPENROUTER_API_KEY,
+    zhipu: process.env.ZHIPU_API_KEY,
+  };
+  return envKeyMap[provider]?.trim() || null;
+}
 
 async function getCustomPromptTemplate(): Promise<string | null> {
   try {
@@ -128,22 +132,22 @@ async function fetchModulePrompt(
   adminClient: ReturnType<typeof createAdminClient>,
   userId: string,
   moduleKeys: readonly string[],
-): Promise<{ template: string | null; moduleKey: string | null }> {
+): Promise<{ template: string | null; moduleKey: string | null; version: number | null }> {
   for (const key of moduleKeys) {
     const { data } = await adminClient
       .from('ai_system_prompts')
-      .select('prompt_content')
+      .select('prompt_content, version')
       .eq('user_id', userId)
       .eq('module_key', key)
       .order('version', { ascending: false })
       .limit(1)
       .single();
     if (typeof data?.prompt_content === 'string' && data.prompt_content.trim()) {
-      return { template: data.prompt_content, moduleKey: key };
+      return { template: data.prompt_content, moduleKey: key, version: typeof data.version === 'number' ? data.version : null };
     }
   }
 
-  return { template: null, moduleKey: null };
+  return { template: null, moduleKey: null, version: null };
 }
 
 async function getProviderApiKey(
@@ -176,7 +180,7 @@ async function getProviderApiKey(
     }
   }
 
-  const envKey = ENV_API_KEY_MAP[provider]?.trim() || null;
+  const envKey = getEnvApiKey(provider);
   if (envKey) {
     return { apiKey: envKey, source: 'env' };
   }
@@ -328,16 +332,21 @@ async function resolvePromptTemplate(
   if (userId) {
     const modulePrompt = await fetchModulePrompt(adminClient, userId, PROPERTY_DESCRIPTION_MODULE_KEYS);
     if (modulePrompt.template) {
-      return { template: modulePrompt.template, source: 'ai_system_prompt', moduleKey: modulePrompt.moduleKey };
+      return {
+        template: modulePrompt.template,
+        source: 'ai_system_prompt',
+        moduleKey: modulePrompt.moduleKey,
+        version: modulePrompt.version,
+      };
     }
   }
 
   const customPrompt = await getCustomPromptTemplate();
   if (customPrompt) {
-    return { template: customPrompt, source: 'saved_prompt', moduleKey: null };
+    return { template: customPrompt, source: 'saved_prompt', moduleKey: null, version: null };
   }
 
-  return { template: DEFAULT_PROMPT, source: 'default', moduleKey: null };
+  return { template: DEFAULT_PROMPT, source: 'default', moduleKey: null, version: null };
 }
 
 async function resolveModelCandidates(
@@ -415,6 +424,7 @@ export async function POST(request: NextRequest) {
 
         send({ type: 'phase', phase: 'building_prompt' satisfies TracePhase, message: '整理生成指令中…' });
         const finalPrompt = `${prompt}\n\n生成設定：\n${generationSettings}${currentDescriptionSection}`;
+        const finalPromptHash = createHash('sha256').update(finalPrompt).digest('hex');
         send({
           type: 'prompt_loaded',
           promptName: PROMPT_NAME,
@@ -442,6 +452,27 @@ export async function POST(request: NextRequest) {
 
           if (!candidate.apiKey) {
             missingKeyCount += 1;
+            if (userId) {
+              await adminClient.from('ai_usage_logs').insert({
+                user_id: userId,
+                provider: candidate.provider,
+                model_id: candidate.model,
+                module_key: 'property_description',
+                tokens_input: 0,
+                tokens_output: 0,
+                cost_usd: 0,
+                duration_ms: 0,
+                status: 'error',
+                error_message: 'missing_api_key',
+                prompt_name: PROMPT_NAME,
+                prompt_source: promptResolution.source,
+                prompt_module_key: promptResolution.moduleKey,
+                prompt_version: promptResolution.version,
+                final_prompt_hash: finalPromptHash,
+                request_path: '/api/property-description/stream',
+                response_status: null,
+              });
+            }
             continue;
           }
 
@@ -458,6 +489,28 @@ export async function POST(request: NextRequest) {
 
           const elapsed = Date.now() - startedAt;
           send({ type: 'response_meta', status: response.status, durationMs: elapsed });
+
+          if (userId) {
+            await adminClient.from('ai_usage_logs').insert({
+              user_id: userId,
+              provider: candidate.provider,
+              model_id: candidate.model,
+              module_key: 'property_description',
+              tokens_input: response.usage?.inputTokens ?? 0,
+              tokens_output: response.usage?.outputTokens ?? 0,
+              cost_usd: 0,
+              duration_ms: elapsed,
+              status: response.ok && response.description ? 'success' : 'error',
+              error_message: response.ok && response.description ? null : `http_${response.status}`,
+              prompt_name: PROMPT_NAME,
+              prompt_source: promptResolution.source,
+              prompt_module_key: promptResolution.moduleKey,
+              prompt_version: promptResolution.version,
+              final_prompt_hash: finalPromptHash,
+              request_path: '/api/property-description/stream',
+              response_status: response.status,
+            });
+          }
 
           if (response.ok && response.description) {
             send({ type: 'phase', phase: 'completed' satisfies TracePhase, message: 'AI 草稿已完成' });

@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom'
 import { TextEncoder, TextDecoder } from 'util'
+import { ReadableStream } from 'stream/web'
 
 // Polyfill for Next.js server components
 global.TextEncoder = TextEncoder
@@ -18,6 +19,9 @@ if (process.env.SUPABASE_INTEGRATION_TEST !== '1') {
 }
 
 // Mock Request and Response for Next.js
+if (typeof ReadableStream !== 'undefined' && typeof global.ReadableStream === 'undefined') {
+  global.ReadableStream = ReadableStream
+}
 if (typeof Request === 'undefined') {
   global.Request = class Request {}
 }

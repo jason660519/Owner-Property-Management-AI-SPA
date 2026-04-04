@@ -1,15 +1,16 @@
 import { Suspense } from 'react';
-import { getLLMOverallStats, getLLMAggregateStats, getLLMMetrics } from './actions';
+import { getAIUsageLogs, getLLMOverallStats, getLLMAggregateStats, getLLMMetrics } from './actions';
 import LLMMonitorClient from './LLMMonitorClient';
 import { Brain } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 export default async function LLMMonitorPage() {
-  const [overallStats, aggregateStats, recentMetrics] = await Promise.all([
+  const [overallStats, aggregateStats, recentMetrics, usageLogs] = await Promise.all([
     getLLMOverallStats(),
     getLLMAggregateStats(),
     getLLMMetrics(50),
+    getAIUsageLogs(100),
   ]);
 
   return (
@@ -27,6 +28,7 @@ export default async function LLMMonitorPage() {
         overallStats={overallStats}
         aggregateStats={aggregateStats}
         recentMetrics={recentMetrics}
+        usageLogs={usageLogs}
       />
     </Suspense>
   );
