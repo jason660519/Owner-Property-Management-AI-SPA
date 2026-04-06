@@ -202,7 +202,7 @@ const PROPERTIES_TABLE_DEFAULTS: PropertiesTableSettings = {
   pageSize: 20,
 };
 /** Pixel widths: 物件編號, 狀態, 物件名稱, 主照片小圖示, 縣市, 區, 路/街, 門牌, 樓層, 單位, 物件類型, 價格, 總面積(坪), 格局, 車位數, 創建人, 操作, 建立日期, 下架日期, 內容狀態（表頭最右為：內容狀態、建立日期、下架日期） */
-const COLUMN_WIDTHS_PX = [72, 90, 200, 72, 88, 88, 130, 72, 52, 52, 92, 100, 72, 110, 64, 100, 92, 92, 92, 168];
+const COLUMN_WIDTHS_PX = [72, 90, 200, 72, 88, 88, 130, 72, 52, 52, 92, 100, 72, 110, 64, 100, 92, 92, 132, 92, 168];
 const PROPERTIES_COLUMN_COUNT = COLUMN_WIDTHS_PX.length;
 
 // One-time migration: merge old v1 localStorage keys into the new unified v2 key
@@ -228,7 +228,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
   const router = useRouter();
   const { properties, totalSales, totalRentals } = result;
   const [globalFilter, setGlobalFilter] = useState('');
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'updatedAt', desc: true }]);
 
   // Persisted table preferences (localStorage cache + DB sync)
   const { settings: tablePrefs, patch: patchTablePrefs } = useTablePreferences<PropertiesTableSettings>({
@@ -724,7 +724,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
     },
     {
       id: 'contentStatus',
-      size: COLUMN_WIDTHS_PX[19],
+      size: COLUMN_WIDTHS_PX[20],
       header: '內容狀態',
       enableSorting: false,
       cell: (info) => {
@@ -796,8 +796,35 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
       ),
     },
     {
-      accessorKey: 'delistedAt',
+      accessorKey: 'updatedAt',
       size: COLUMN_WIDTHS_PX[18],
+      header: '最後編輯',
+      sortingFn: (a, b, id) => {
+        const av = a.getValue(id) as string;
+        const bv = b.getValue(id) as string;
+        return new Date(av).getTime() - new Date(bv).getTime();
+      },
+      cell: (info) => {
+        const raw = info.getValue() as string;
+        const dt = new Date(raw);
+        const formatted = new Intl.DateTimeFormat('zh-TW', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        }).format(dt);
+        return (
+          <span className="text-xs text-text-muted">
+            {formatted}
+          </span>
+        );
+      },
+    },
+    {
+      accessorKey: 'delistedAt',
+      size: COLUMN_WIDTHS_PX[19],
       header: '下架日期',
       cell: (info) => {
         const val = info.getValue() as string | null | undefined;

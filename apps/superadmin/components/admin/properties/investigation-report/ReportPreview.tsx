@@ -20,6 +20,16 @@ interface Props {
 const fullAddress = (r: InvestigationReport) =>
   [r.region, r.addressStreet, r.addressNumber].filter(Boolean).join(' ');
 
+/** 屋況說明書抬頭地址：優先物件基本資料，否則沿用舊存 govAddress */
+function conditionStatementAddress(
+  r: InvestigationReport,
+  emptyFallback: string = '—',
+): string {
+  const fromProperty = fullAddress(r).trim();
+  const legacy = r.conditionStatement.govAddress.trim();
+  return fromProperty || legacy || emptyFallback;
+}
+
 const tLabel = (r: InvestigationReport) => (r.transactionType === 'sale' ? '售' : '租');
 
 function escapeHtml(s: string): string {
@@ -303,7 +313,7 @@ function buildHtml(report: InvestigationReport, property?: PropertyItem): string
     : `
 <div class="page-break"></div>
 <h2 style="font-size:16px;text-align:center;letter-spacing:3px;margin-bottom:4px;">標的物現況說明書（成屋）</h2>
-<p style="font-size:8.5px;color:#666;text-align:center;margin:0 0 10px;">地址：${escapeHtml(cs.govAddress || addr || '—')}</p>
+<p style="font-size:8.5px;color:#666;text-align:center;margin:0 0 10px;">地址：${escapeHtml(conditionStatementAddress(report))}</p>
 <table>
   <thead>
     <tr>
@@ -322,7 +332,7 @@ function buildHtml(report: InvestigationReport, property?: PropertyItem): string
 <p style="font-size:8px;color:#666;margin-top:4px;line-height:1.5;">※ 本表為委託人依現況填載，若有填載不實或後續變更，權利義務仍依契約與法令為準。</p>
 <div class="page-break"></div>
 <h2 style="font-size:16px;text-align:center;letter-spacing:3px;margin-bottom:4px;">標的物現況說明書（成屋）</h2>
-<p style="font-size:8.5px;color:#666;text-align:center;margin:0 0 10px;">地址：${escapeHtml(cs.govAddress || addr || '—')}</p>
+<p style="font-size:8.5px;color:#666;text-align:center;margin:0 0 10px;">地址：${escapeHtml(conditionStatementAddress(report))}</p>
 <table>
   <thead>
     <tr>
@@ -749,7 +759,7 @@ export function ReportPreview({ report, property }: Props) {
       }
       if (currentRows.length > 0) pages.push(currentRows);
       const totalPages = pages.length;
-      const addr = report.conditionStatement.govAddress || fullAddress(report) || '—';
+      const addr = conditionStatementAddress(report);
       const textFont = font;
       const headerFont = hasCjkFont ? textFont : boldFallbackFont;
       const markFont = boldFallbackFont;
@@ -911,7 +921,7 @@ export function ReportPreview({ report, property }: Props) {
       const datePart = new Date().toISOString().slice(0, 10);
       const casePart = sanitizeFileNameSegment(report.caseName || '未命名案件');
       const addrPart = sanitizeFileNameSegment(
-        report.conditionStatement.govAddress || fullAddress(report) || '地址未填',
+        conditionStatementAddress(report, '地址未填'),
       );
       a.href = url;
       a.download = `標的物現況說明書_${casePart}_${addrPart}_${datePart}.pdf`;
@@ -1137,7 +1147,7 @@ export function ReportPreview({ report, property }: Props) {
           <div className="p-4 border-t border-border-default">
             <p className="text-[10px] font-bold text-text-secondary mb-1">標的物現況說明書（成屋）</p>
             <p className="text-[10px] text-text-muted mb-3">
-              地址：{report.conditionStatement.govAddress || addr || '—'}
+              地址：{conditionStatementAddress(report)}
             </p>
             <div className="space-y-3">
               {govPreviewPages.map((pageRows, pageIdx) => (

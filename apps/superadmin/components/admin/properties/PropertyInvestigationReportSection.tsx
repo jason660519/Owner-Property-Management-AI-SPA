@@ -2,21 +2,19 @@
 // 物件調查報告書 — 主容器：DB 儲存 + 謄本自動填入 + 版本歷史 + 完整度指示
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Save,
   Loader2,
   FileSearch,
   RotateCcw,
   Download,
-  History,
-  ChevronDown,
   Wand2,
   CheckCircle,
   X,
 } from 'lucide-react';
 import type { PropertyDocumentItem, PropertyItem, PropertyPhotoItem } from '@/lib/types/properties';
-import type { InvestigationReport, LandParcel } from './investigation-report/types';
+import type { InvestigationReport, LandParcel, TransactionType } from './investigation-report/types';
 import {
   createEmptyReport,
   EMPTY_LAND_PARCEL,
@@ -28,11 +26,7 @@ import { AttachmentPicker } from './investigation-report/AttachmentPicker';
 import { ConditionStatementForm } from './investigation-report/ConditionStatementForm';
 import { ReportPreview } from './investigation-report/ReportPreview';
 import {
-  loadInvestigationReport,
   saveInvestigationReport,
-  listInvestigationVersions,
-  loadInvestigationVersion,
-  type InvestigationReportVersion,
 } from '@/lib/actions/investigationReport';
 import { getPropertyDocuments, getPropertyPhotos } from '@/lib/actions/properties';
 import type {
@@ -56,6 +50,9 @@ function normalizeReportPayload(r: InvestigationReport): InvestigationReport {
 interface Props {
   propertyId: string;
   property?: PropertyItem;
+  initialReport?: InvestigationReport | null;
+  initialPhotos?: PropertyPhotoItem[];
+  initialDocuments?: PropertyDocumentItem[];
 }
 
 // ── Transcript helpers ──────────────────────────────────────────────────────
@@ -272,6 +269,22 @@ function prefillFromProperty(property: PropertyItem): Partial<InvestigationRepor
   return prefillFromTranscript(base, property.buildingTranscript, property.landTranscript);
 }
 
+function lockedBasicFieldsFromProperty(
+  property: PropertyItem,
+): Pick<
+  InvestigationReport,
+  'caseName' | 'transactionType' | 'totalPrice' | 'region' | 'addressStreet' | 'addressNumber'
+> {
+  return {
+    caseName: property.title || '',
+    transactionType: property.type === 'sale' ? 'sale' : 'rental',
+    totalPrice: (property.type === 'sale' ? property.price : property.monthlyRent) ?? 0,
+    region: [property.addressCity, property.addressDistrict].filter(Boolean).join(''),
+    addressStreet: property.addressStreet ?? '',
+    addressNumber: [property.addressNumber, property.addressFloor, property.addressUnit].filter(Boolean).join(' '),
+  };
+}
+
 // ── Completeness ────────────────────────────────────────────────────────────
 
 const REQUIRED_FIELDS: (keyof InvestigationReport)[] = [
@@ -308,74 +321,99 @@ function getCompletionStats(report: InvestigationReport): { filled: number; tota
 
 // ── Main Component ──────────────────────────────────────────────────────────
 
-export function PropertyInvestigationReportSection({ propertyId, property }: Props) {
+export function PropertyInvestigationReportSection({
+  propertyId,
+  property,
+  initialReport,
+  initialPhotos,
+  initialDocuments,
+}: Props) {
   const [subTab, setSubTab] = useState<SubTab>('input');
-  const [report, setReport] = useState<InvestigationReport>(createEmptyReport);
+  const [report, setReport] = useState<InvestigationReport>(() => {
+    const base = initialReport ? normalizeReportPayload(initialReport) : createEmptyReport();
+    if (!property) return base;
+    const locked = lockedBasicFieldsFromProperty(property);
+    if (initialReport) return { ...base, ...locked };
+    return { ...base, ...prefillFromProperty(property), ...locked };
+  });
   const [isSaving, setIsSaving] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(() => !!initialReport);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [versions, setVersions] = useState<InvestigationReportVersion[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
-  const [isLoadingVersion, setIsLoadingVersion] = useState(false);
-  const [photos, setPhotos] = useState<PropertyPhotoItem[]>([]);
-  const [documents, setDocuments] = useState<PropertyDocumentItem[]>([]);
+  const [photos, setPhotos] = useState<PropertyPhotoItem[]>(() => initialPhotos ?? []);
+  const [documents, setDocuments] = useState<PropertyDocumentItem[]>(() => initialDocuments ?? []);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const propertyType: 'sales' | 'rentals' = property?.type === 'sale' ? 'sales' : 'rentals';
+  const propertyType: 'sales' | 'rentals' | null = property
+    ? property.type === 'sale'
+      ? 'sales'
+      : 'rentals'
+    : null;
   const storageKey = `investigation-report-v2-${propertyId}`;
+  const lockedBasicDeps = useMemo(
+    (): readonly [string, TransactionType, number, string, string, string] => {
+      if (!property) return ['', 'rental', 0, '', '', ''];
+      const f = lockedBasicFieldsFromProperty(property);
+      return [f.caseName, f.transactionType, f.totalPrice, f.region, f.addressStreet, f.addressNumber];
+    },
+    [
+      property?.title,
+      property?.type,
+      property?.price,
+      property?.monthlyRent,
+      property?.addressCity,
+      property?.addressDistrict,
+      property?.addressStreet,
+      property?.addressNumber,
+      property?.addressFloor,
+      property?.addressUnit,
+    ],
+  );
 
-  // Load report: DB first, fallback to localStorage, then property prefill
+  // Load report: server prefetch (DB) first, then localStorage fallback, then property prefill
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const { data: dbData } = await loadInvestigationReport(propertyId, propertyType);
-        if (cancelled) return;
-
-        if (dbData) {
-          setReport(normalizeReportPayload(dbData));
-        } else {
-          // Try localStorage fallback
-          try {
-            const stored = localStorage.getItem(storageKey);
-            if (stored) {
-              const parsed = JSON.parse(stored) as InvestigationReport;
-              setReport(normalizeReportPayload(parsed));
-            } else if (property) {
-              const prefill = prefillFromProperty(property);
-              setReport((prev) => ({ ...prev, ...prefill }));
-            }
-          } catch {
-            if (property) {
-              setReport((prev) => ({ ...prev, ...prefillFromProperty(property) }));
-            }
-          }
-        }
-      } catch {
-        if (property) {
-          setReport((prev) => ({ ...prev, ...prefillFromProperty(property) }));
-        }
-      } finally {
-        if (!cancelled) setIsLoaded(true);
-      }
+    const currentPropertyType = propertyType;
+    if (!currentPropertyType) return;
+    if (initialReport) {
+      setIsLoaded(true);
+      return;
     }
-    load();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [propertyId]);
+
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored) as InvestigationReport;
+        const normalized = normalizeReportPayload(parsed);
+        setReport(property ? { ...normalized, ...lockedBasicFieldsFromProperty(property) } : normalized);
+        setIsLoaded(true);
+        return;
+      }
+    } catch {}
+
+    if (property) {
+      setReport((prev) => ({ ...prev, ...prefillFromProperty(property) }));
+    }
+    setIsLoaded(true);
+  }, [propertyId, propertyType, storageKey, initialReport, property]);
+
+  useEffect(() => {
+    if (!property) return;
+    setReport((prev) => ({ ...prev, ...lockedBasicFieldsFromProperty(property) }));
+  }, lockedBasicDeps);
 
   // Load photos for floor plan picker + 附件勾選
   useEffect(() => {
+    if (initialPhotos !== undefined) return;
     getPropertyPhotos(propertyId)
       .then(setPhotos)
       .catch(() => {});
-  }, [propertyId]);
+  }, [propertyId, initialPhotos]);
 
   useEffect(() => {
+    if (initialDocuments !== undefined) return;
     getPropertyDocuments(propertyId)
       .then(setDocuments)
       .catch(() => {});
-  }, [propertyId]);
+  }, [propertyId, initialDocuments]);
 
   function showFeedback(type: 'success' | 'error', message: string) {
     setFeedback({ type, message });
@@ -383,48 +421,24 @@ export function PropertyInvestigationReportSection({ propertyId, property }: Pro
   }
 
   async function handleSave() {
+    const currentPropertyType = propertyType;
+    if (!currentPropertyType) {
+      showFeedback('error', '儲存失敗：尚未取得物件類型');
+      return;
+    }
     setIsSaving(true);
     try {
-      const { error } = await saveInvestigationReport(propertyId, propertyType, report);
+      const payload = property ? { ...report, ...lockedBasicFieldsFromProperty(property) } : report;
+      const { error } = await saveInvestigationReport(propertyId, currentPropertyType, payload);
       if (error) {
         showFeedback('error', `儲存失敗：${error}`);
       } else {
         // Also update localStorage as cache
-        try { localStorage.setItem(storageKey, JSON.stringify(report)); } catch { /* ignore */ }
+        try { localStorage.setItem(storageKey, JSON.stringify(payload)); } catch { /* ignore */ }
         showFeedback('success', '已儲存至雲端');
-        // Refresh version list
-        if (showHistory) refreshVersions();
       }
     } finally {
       setIsSaving(false);
-    }
-  }
-
-  const refreshVersions = useCallback(async () => {
-    const { data } = await listInvestigationVersions(propertyId, propertyType);
-    setVersions(data);
-  }, [propertyId, propertyType]);
-
-  async function handleToggleHistory() {
-    if (!showHistory && versions.length === 0) {
-      await refreshVersions();
-    }
-    setShowHistory((v) => !v);
-  }
-
-  async function handleLoadVersion(versionId: string) {
-    setIsLoadingVersion(true);
-    try {
-      const { data, error } = await loadInvestigationVersion(versionId);
-      if (error || !data) {
-        showFeedback('error', '載入版本失敗');
-      } else {
-        setReport(normalizeReportPayload(data));
-        showFeedback('success', '已載入指定版本');
-        setShowHistory(false);
-      }
-    } finally {
-      setIsLoadingVersion(false);
     }
   }
 
@@ -462,8 +476,10 @@ export function PropertyInvestigationReportSection({ propertyId, property }: Pro
     reader.onload = () => {
       try {
         const parsed = JSON.parse(String(reader.result ?? '')) as InvestigationReport;
-        setReport(normalizeReportPayload(parsed));
-        try { localStorage.setItem(storageKey, JSON.stringify(parsed)); } catch { /* ignore */ }
+        const normalized = normalizeReportPayload(parsed);
+        const next = property ? { ...normalized, ...lockedBasicFieldsFromProperty(property) } : normalized;
+        setReport(next);
+        try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* ignore */ }
         showFeedback('success', '已從本地報告載入內容');
       } catch {
         showFeedback('error', '載入失敗：檔案格式須為有效的 JSON 報告檔');
@@ -471,6 +487,14 @@ export function PropertyInvestigationReportSection({ propertyId, property }: Pro
     };
     reader.onerror = () => showFeedback('error', '載入失敗，請確認檔案是否可讀取');
     reader.readAsText(file);
+  }
+
+  if (!propertyType) {
+    return (
+      <div className="flex items-center gap-2 text-text-muted text-sm py-6">
+        <Loader2 size={14} className="animate-spin" /> 載入物件資料中…
+      </div>
+    );
   }
 
   if (!isLoaded) {
@@ -487,8 +511,8 @@ export function PropertyInvestigationReportSection({ propertyId, property }: Pro
     completionPct >= 80 ? 'text-green-500' : completionPct >= 50 ? 'text-amber-500' : 'text-red-500';
 
   const SUB_TABS: { key: SubTab; label: string }[] = [
-    { key: 'condition', label: '屋況說明書' },
     { key: 'input', label: '資料輸入' },
+    { key: 'condition', label: '屋況說明書' },
     { key: 'notes', label: '注意事項' },
     { key: 'attachments', label: '選取附件' },
     { key: 'preview', label: '預覽列印' },
@@ -504,7 +528,7 @@ export function PropertyInvestigationReportSection({ propertyId, property }: Pro
         className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-xs rounded-md hover:bg-accent-hover transition-colors disabled:opacity-50"
       >
         {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-        {isSaving ? '儲存中…' : '儲存到雲端'}
+        {isSaving ? '儲存中…' : '儲存編輯'}
       </button>
 
       {(property?.buildingTranscript || property?.landTranscript) && (
@@ -534,23 +558,6 @@ export function PropertyInvestigationReportSection({ propertyId, property }: Pro
       >
         <FileSearch size={12} />
         載入 JSON
-      </button>
-
-      <button
-        type="button"
-        onClick={handleToggleHistory}
-        className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md transition-colors ${
-          showHistory
-            ? 'bg-bg-tertiary text-text-primary'
-            : 'text-text-secondary hover:bg-bg-tertiary'
-        }`}
-      >
-        <History size={12} />
-        版本歷史
-        <ChevronDown
-          size={11}
-          className={`transition-transform ${showHistory ? 'rotate-180' : ''}`}
-        />
       </button>
 
       <button
@@ -636,7 +643,7 @@ export function PropertyInvestigationReportSection({ propertyId, property }: Pro
 
       {/* Tab content */}
       {subTab === 'condition' && (
-        <ConditionStatementForm report={report} onChange={setReport} />
+        <ConditionStatementForm report={report} onChange={setReport} propertyId={propertyId} />
       )}
       {subTab === 'input' && (
         <InputForm report={report} onChange={setReport} photos={photos} />
@@ -654,47 +661,6 @@ export function PropertyInvestigationReportSection({ propertyId, property }: Pro
       )}
       {subTab === 'preview' && (
         <ReportPreview report={report} property={property} />
-      )}
-
-      {/* Version History Panel */}
-      {showHistory && (
-        <div className="border border-border-default rounded-lg overflow-hidden">
-          <div className="px-4 py-2.5 bg-bg-tertiary border-b border-border-default">
-            <span className="text-xs font-medium text-text-primary">雲端儲存版本</span>
-          </div>
-          {isLoadingVersion ? (
-            <div className="flex items-center gap-2 p-4 text-xs text-text-muted">
-              <Loader2 size={12} className="animate-spin" /> 載入中…
-            </div>
-          ) : versions.length === 0 ? (
-            <p className="p-4 text-xs text-text-muted">尚無儲存版本。</p>
-          ) : (
-            <div className="divide-y divide-border-default">
-              {versions.map((v) => (
-                <div key={v.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-bg-secondary">
-                  <div>
-                    <span className="text-xs font-medium text-text-primary">
-                      版本 {v.version}
-                    </span>
-                    {v.caseName && (
-                      <span className="text-xs text-text-muted ml-2">— {v.caseName}</span>
-                    )}
-                    <p className="text-[10px] text-text-muted mt-0.5">
-                      {new Date(v.createdAt).toLocaleString('zh-TW')}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleLoadVersion(v.id)}
-                    className="text-xs text-accent hover:underline"
-                  >
-                    載入此版本
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       )}
     </div>
   );

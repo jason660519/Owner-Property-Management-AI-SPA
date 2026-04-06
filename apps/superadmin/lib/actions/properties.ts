@@ -76,8 +76,8 @@ export async function getAllProperties(): Promise<PropertiesResult> {
       { data: allDocs },
       { data: blogData },
     ] = await Promise.all([
-      fetchAllRows(adminClient, 'property_sales'),
-      fetchAllRows(adminClient, 'property_rentals'),
+      fetchAllRows(adminClient, 'property_sales', 'updated_at'),
+      fetchAllRows(adminClient, 'property_rentals', 'updated_at'),
       adminClient
         .from('property_owners')
         .select('property_id, owner_name')
@@ -263,6 +263,7 @@ export async function getAllProperties(): Promise<PropertiesResult> {
           (details.parkingSpaces as number | null) ??
           ((row.has_parking as boolean) ? 1 : 0),
         createdAt: row.created_at as string,
+        updatedAt: (row.updated_at as string) ?? (row.created_at as string),
         mainPhotoUrl: primaryPhotoMap[propertyId] ?? null,
         latitude: (row.latitude as number | null) ?? null,
         longitude: (row.longitude as number | null) ?? null,
@@ -298,7 +299,7 @@ export async function getAllProperties(): Promise<PropertiesResult> {
     );
 
     const properties = [...salesProperties, ...rentalProperties].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     );
 
     console.log('[Properties] Fetched successfully:', {
@@ -476,6 +477,7 @@ export async function getPropertyById(id: string): Promise<PropertyItem | null> 
       (details.parkingSpaces as number | null) ??
       ((row.has_parking as boolean) ? 1 : 0),
     createdAt: row.created_at as string,
+    updatedAt: (row.updated_at as string) ?? (row.created_at as string),
     mainPhotoUrl,
     photoCount: photoCount ?? 0,
     buildingTranscript: (details.buildingTranscript as BuildingTranscriptData) ?? null,

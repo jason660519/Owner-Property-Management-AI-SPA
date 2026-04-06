@@ -46,7 +46,8 @@ export const TestingTab = ({ features }: TestingTabProps) => {
 
       {/* Table */}
       <div className="bg-bg-primary border border-border-default rounded-lg shadow-sm overflow-hidden flex flex-col flex-1 min-h-0 transition-colors">
-        <div className="overflow-y-auto flex-1 min-h-0">
+        <div className="overflow-auto flex-1 min-h-0">
+          <div className="min-w-[max(100%,1100px)]">
           {/* Header */}
           <div className="sticky top-0 z-10 bg-bg-secondary border-b border-border-default flex w-full min-w-0">
             {COLUMN_HEADERS.map(h => (
@@ -95,6 +96,7 @@ export const TestingTab = ({ features }: TestingTabProps) => {
                   </div>
                 </div>
             ))}
+          </div>
           </div>
         </div>
       </div>

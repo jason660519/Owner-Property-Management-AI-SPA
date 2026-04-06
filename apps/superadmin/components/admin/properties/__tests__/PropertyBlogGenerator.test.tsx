@@ -54,6 +54,8 @@ const mockWriteLocalStorage = writeLocalStorage as jest.MockedFunction<typeof wr
 const emptyVariants = { luxury_dark: null, bright_clean: null, corporate: null, warm_japanese: null };
 
 function makeProperty(overrides: Partial<PropertyItem> = {}): PropertyItem {
+  const createdAt = overrides.createdAt ?? '2026-03-30T00:00:00.000Z';
+  const updatedAt = overrides.updatedAt ?? createdAt;
   return {
     id: 'property-1',
     type: 'sale',
@@ -71,7 +73,6 @@ function makeProperty(overrides: Partial<PropertyItem> = {}): PropertyItem {
     bathrooms: 2,
     livingRooms: 2,
     parkingSpaces: 1,
-    createdAt: '2026-03-30T00:00:00.000Z',
     photoCount: 3,
     mainPhotoUrl: 'https://example.com/photo.jpg',
     hasTranscript: true,
@@ -114,6 +115,8 @@ function makeProperty(overrides: Partial<PropertyItem> = {}): PropertyItem {
     latitude: null,
     longitude: null,
     ...overrides,
+    createdAt,
+    updatedAt,
   };
 }
 

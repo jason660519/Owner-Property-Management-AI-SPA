@@ -81,6 +81,27 @@ function deriveRowStatus(feature: RoadmapFeature): RowStatus {
 
 const INITIAL_WIDTHS = [4, 4, 6, 6, 22, 19, 10, 8, 10, 8, 8, 13, 6, 8]; // sum = 136 → normalized to 100（含 狀態 + 備註）
 
+/** 與表格外層 min-w 相同；%-欄寬以此寬度為基準，凍結欄 left 偏移必須用同一數值計算才不會錯位 */
+const TABLE_SCROLL_MIN_WIDTH_PX = 1600;
+
+/** 凍結列底線顏色（border-b-4 用） */
+const FREEZE_ROW_EDGE_CLASS = 'border-gray-300 dark:border-gray-600';
+
+/**
+ * 凍結欄右緣：用 ::after 偽元素畫 4px 粗線，z-20 高於 resize 把手（z-10）。
+ * border-r 被 resize 把手蓋住，box-shadow inset 在窄格子裡不夠顯眼，
+ * ::after absolute 定位最可靠。需要父格 relative。
+ */
+const FREEZE_COL_LINE = [
+  'relative',
+  "after:content-['']",
+  'after:absolute after:right-0 after:top-0 after:bottom-0',
+  'after:w-1',
+  'after:bg-gray-300 dark:after:bg-gray-600',
+  'after:z-20',
+  'after:pointer-events-none',
+].join(' ');
+
 const COLUMN_HEADERS = [
   { en: 'ID', zh: '編碼' },
   { en: 'Role/General', zh: '按Role或通用分類' },
@@ -387,6 +408,8 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   const hiddenRowKeysSet = useMemo(() => new Set(tablePrefs.hiddenRowKeys), [tablePrefs.hiddenRowKeys]);
 
   const tableRef = useRef<HTMLDivElement>(null);
+  /** 與 %-欄寬同一個 flex 列寬來源；用 offsetWidth 計算 sticky left，避免公式與實際版面不一致 */
+  const tableInnerRef = useRef<HTMLDivElement>(null);
   const currentWidthsRef = useRef<number[]>(colWidths);
   currentWidthsRef.current = colWidths;
 
@@ -405,6 +428,11 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   const viewDropdownRef = useRef<HTMLDivElement>(null);
 
   const [colPxWidths, setColPxWidths] = useState<number[]>(() => COLUMN_HEADERS.map(() => 80));
+  /** 表頭與資料列共用同一 grid 定義，避免 flex + sticky + % 寬度在捲動時錯位 */
+  const tableGridTemplateColumns = useMemo(
+    () => colWidths.map(w => `${w}%`).join(' '),
+    [colWidths]
+  );
   const frozenColLeftOffsets = useMemo(() => {
     const offsets: number[] = [];
     let acc = 0;
@@ -491,18 +519,26 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
 
   // NOTE: Load/persist settings is now handled by useTablePreferences hook above
 
-  // Compute column pixel widths
+  // Compute column pixel widths from the same width the %-width flex row uses (inner wrapper offsetWidth)
   useEffect(() => {
     const container = tableRef.current;
     if (!container) return;
     const update = () => {
-      const w = container.clientWidth;
-      if (w <= 0) return;
-      setColPxWidths(colWidths.map(pct => Math.max(40, (pct / 100) * w)));
+      const inner = tableInnerRef.current;
+      const scrollportW = container.clientWidth;
+      if (scrollportW <= 0) return;
+      const tableW =
+        inner != null && inner.offsetWidth > 0
+          ? inner.offsetWidth
+          : Math.max(scrollportW, TABLE_SCROLL_MIN_WIDTH_PX);
+      if (tableW <= 0) return;
+      setColPxWidths(colWidths.map(pct => Math.max(40, (pct / 100) * tableW)));
     };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(container);
+    const inner = tableInnerRef.current;
+    if (inner != null) ro.observe(inner);
     return () => ro.disconnect();
   }, [colWidths]);
 
@@ -510,7 +546,10 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
     e.preventDefault();
     const startX = e.pageX;
     const startWidths = [...currentWidthsRef.current];
-    const containerWidth = tableRef.current?.offsetWidth || 1000;
+    const containerWidth =
+      tableInnerRef.current?.offsetWidth && tableInnerRef.current.offsetWidth > 0
+        ? tableInnerRef.current.offsetWidth
+        : Math.max(tableRef.current?.offsetWidth ?? 1000, TABLE_SCROLL_MIN_WIDTH_PX);
 
     const onMouseMove = (moveEvent: MouseEvent) => {
       const deltaPx = moveEvent.pageX - startX;
@@ -540,7 +579,10 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
     e.preventDefault();
     const startX = e.pageX;
     const startWidths = [...currentWidthsRef.current];
-    const containerWidth = tableRef.current?.offsetWidth || 1000;
+    const containerWidth =
+      tableInnerRef.current?.offsetWidth && tableInnerRef.current.offsetWidth > 0
+        ? tableInnerRef.current.offsetWidth
+        : Math.max(tableRef.current?.offsetWidth ?? 1000, TABLE_SCROLL_MIN_WIDTH_PX);
 
     const onMouseMove = (moveEvent: MouseEvent) => {
       const deltaPx = moveEvent.pageX - startX;
@@ -727,8 +769,10 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
     children: React.ReactNode;
     extraClass?: string;
   }) => {
+    const isLastCol = colIdx === COLUMN_HEADERS.length - 1;
     const isFrozen = colIdx < frozenDataColCount;
     const isFreezeBoundary = frozenDataColCount > 0 && colIdx === frozenDataColCount - 1;
+    const isFirstScrollableCol = frozenDataColCount > 0 && colIdx === frozenDataColCount;
     const isCellSelected = selectionType === 'cell' && selectedRow === rowIdx && selectedCol === colIdx;
     const isColSelected = selectionType === 'column' && selectedCol === colIdx;
     const alignClasses = getAlignmentClasses(columnAlignments[colIdx] ?? DEFAULT_COLUMN_ALIGNMENT);
@@ -740,25 +784,29 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
         onClick={() => { setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(colIdx); }}
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectionType('cell'); setSelectedRow(rowIdx); setSelectedCol(colIdx); } }}
         className={clsx(
-          'flex-shrink-0 flex-grow-0 px-4 py-4 flex flex-col min-w-0 overflow-hidden cursor-cell',
-          isFreezeBoundary ? 'border-r-4 border-gray-300 dark:border-gray-600' : 'border-r border-border-light',
+          'min-w-0 px-4 py-4 flex flex-col overflow-hidden cursor-cell',
+          isFreezeBoundary
+            ? FREEZE_COL_LINE
+            : isLastCol
+              ? 'border-r border-border-light'
+              : '',
+          isFirstScrollableCol && '!border-l-0',
           (isCellSelected || isAllSelected) && 'bg-blue-500/20 ring-1 ring-inset ring-blue-500/40',
           isColSelected && 'bg-blue-500/10',
           alignClasses.flex,
           alignClasses.text,
-          isFrozen && 'sticky bg-bg-primary',
+          isFreezeBoundary ? 'sticky z-[3] bg-bg-primary' : isFrozen ? 'sticky z-[1] bg-bg-primary' : '',
           extraClass,
         )}
         style={{
-          width: `${colWidths[colIdx]}%`,
           minWidth: 0,
-          ...(isFrozen ? { left: frozenColLeftOffsets[colIdx], zIndex: 1 } : {}),
+          ...(isFrozen ? { left: frozenColLeftOffsets[colIdx] } : {}),
         }}
       >
         {children}
       </div>
     );
-  }, [colWidths, frozenDataColCount, frozenColLeftOffsets, selectionType, selectedRow, selectedCol, isAllSelected, columnAlignments]);
+  }, [frozenDataColCount, frozenColLeftOffsets, selectionType, selectedRow, selectedCol, isAllSelected, columnAlignments]);
 
   const openPromptConfig = (row: ProgressRow) => {
     const rowKey = getRowKey(row.__source, row.__rowId);
@@ -1338,23 +1386,32 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
 
       {/* Table */}
       <div className="bg-bg-primary border border-border-default rounded-lg shadow-sm overflow-hidden flex flex-col flex-1 min-h-0 transition-colors">
-        <div className="overflow-y-auto flex-1 min-h-0" ref={tableRef}>
+        <div className="overflow-auto flex-1 min-h-0" ref={tableRef}>
+          {/* min width so columns can exceed viewport → horizontal scrollbar；寬度須與 TABLE_SCROLL_MIN_WIDTH_PX / colPxWidths 一致 */}
+          <div ref={tableInnerRef} style={{ minWidth: `max(100%, ${TABLE_SCROLL_MIN_WIDTH_PX}px)` }}>
           {/* Header */}
           <div
             className={clsx(
-              'z-10 bg-bg-secondary flex flex-col w-full min-w-0 shrink-0',
-              freezeRowCount > 0 ? 'sticky top-0 border-b-4 border-gray-300 dark:border-gray-600' : 'border-b border-border-default'
+              // 表頭 sticky 改為每格獨立設定 top/left；外層再 sticky top 會與凍結欄 sticky left 互搶，橫捲／直捲時角落錯位
+              'relative z-10 bg-bg-secondary flex flex-col w-full min-w-0 shrink-0',
+              freezeRowCount > 0 ? clsx('border-b-4 border-solid', FREEZE_ROW_EDGE_CLASS) : 'border-b border-border-default'
             )}
             style={{ minHeight: headerHeight }}
           >
-            <div className="flex flex-1 min-h-0 w-full" style={{ minHeight: headerHeight }}>
-              <div className="flex flex-1 min-w-0">
+            <div
+              className="grid min-h-0 w-full divide-x divide-border-default"
+              style={{ minHeight: headerHeight, gridTemplateColumns: tableGridTemplateColumns }}
+            >
                 {COLUMN_HEADERS.map((header, idx) => {
                   const { flex: alignFlex, text: alignText } = getAlignmentClasses(columnAlignments[idx] ?? DEFAULT_COLUMN_ALIGNMENT);
                   const isColSelected = (selectionType === 'column' && selectedCol === idx) || isAllSelected;
                   const isFrozen = idx < frozenDataColCount;
                   const isFreezeBoundary = frozenDataColCount > 0 && idx === frozenDataColCount - 1;
                   const isLastCol = idx === COLUMN_HEADERS.length - 1;
+                  const isFirstScrollableCol = frozenDataColCount > 0 && idx === frozenDataColCount;
+                  const stickyTop = freezeRowCount > 0;
+                  const stickyLeft = isFrozen;
+                  const stickyHeaderCell = stickyTop || stickyLeft;
                   return (
                     <div
                       key={header.en}
@@ -1363,13 +1420,33 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                       onClick={() => { setSelectionType('column'); setSelectedCol(idx); setSelectedRow(0); }}
                       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectionType('column'); setSelectedCol(idx); setSelectedRow(0); } }}
                       className={clsx(
-                        'relative flex-shrink-0 flex-grow-0 px-4 py-3 text-xs font-semibold text-text-secondary tracking-wider flex flex-col overflow-hidden min-h-0 cursor-pointer',
-                        isFreezeBoundary ? 'border-r-4 border-gray-300 dark:border-gray-600' : 'border-r border-border-default',
+                        // 凍結與非凍結表頭須同色；sticky 每格獨立（top 凍列 + left 凍欄）才能雙軸凍結正確
+                        'min-w-0 px-4 py-3 text-xs font-semibold text-text-secondary tracking-wider flex flex-col overflow-hidden min-h-0 cursor-pointer',
+                        stickyHeaderCell && 'sticky',
+                        isColSelected ? 'bg-blue-500/15 ring-inset ring-1 ring-blue-500/40' : 'bg-bg-secondary',
+                        isFreezeBoundary
+                          ? FREEZE_COL_LINE
+                          : isLastCol
+                            ? 'border-r border-border-default'
+                            : '',
+                        isFirstScrollableCol && '!border-l-0',
                         alignFlex, alignText,
-                        isColSelected && 'bg-blue-500/15 ring-inset ring-1 ring-blue-500/40',
-                        isFrozen && 'sticky bg-bg-secondary'
+                        // 凍結邊界欄 z 最高，粗線才不被鄰格蓋住
+                        isFreezeBoundary
+                          ? 'z-[12]'
+                          : stickyTop && isFrozen
+                            ? 'z-[5]'
+                            : isFrozen
+                              ? 'z-[4]'
+                              : stickyTop
+                                ? 'z-[3]'
+                                : ''
                       )}
-                      style={{ width: `${colWidths[idx]}%`, minWidth: 0, ...(isFrozen ? { left: frozenColLeftOffsets[idx], zIndex: 2 } : {}) }}
+                      style={{
+                        minWidth: 0,
+                        ...(stickyTop ? { top: 0 } : {}),
+                        ...(stickyLeft ? { left: frozenColLeftOffsets[idx] } : {}),
+                      }}
                     >
                       <span className="uppercase break-words w-full leading-tight line-clamp-2">{header.en}</span>
                       <span className="text-[10px] text-text-muted break-words w-full leading-tight line-clamp-1">{header.zh}</span>
@@ -1387,7 +1464,6 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                     </div>
                   );
                 })}
-              </div>
             </div>
             {freezeRowCount > 0 && (
               <div role="separator" aria-label="調整標題列高度"
@@ -1405,13 +1481,15 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
               const rowKey = getRowKey(row.__source, row.__rowId);
               const isHidden = hiddenRowKeysSet.has(rowKey);
               return (
-                <div key={rowKey}
+                <div
+                  key={rowKey}
                   className={clsx(
-                    'flex items-stretch transition-colors group min-h-[80px] min-w-0 w-full',
+                    'grid min-h-[80px] min-w-0 w-full items-stretch divide-x divide-border-light transition-colors group',
                     isRowSelected ? 'bg-blue-500/10' : isAllSelected ? 'bg-blue-500/5' : 'hover:bg-bg-secondary',
                     isHidden && 'opacity-60'
-                  )}>
-                  <div className="flex flex-1 min-w-0">
+                  )}
+                  style={{ gridTemplateColumns: tableGridTemplateColumns }}
+                >
                     {/* 1. ID */}
                     <CellWrapper colIdx={0} rowIdx={rowIdx} extraClass="px-2">
                       <div className="flex items-center gap-2">
@@ -1617,10 +1695,10 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                     <CellWrapper colIdx={13} rowIdx={rowIdx}>
                       <span className="text-sm text-text-muted truncate max-w-full block">—</span>
                     </CellWrapper>
-                  </div>
                 </div>
               );
             })}
+          </div>
           </div>
         </div>
       </div>

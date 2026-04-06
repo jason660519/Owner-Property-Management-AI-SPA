@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
+import { vi } from 'vitest';
 import { PropertyEditForm } from '../PropertyEditForm';
 import type { PropertyItem } from '@/lib/types/properties';
 
@@ -8,6 +9,8 @@ vi.mock('@/lib/actions/properties', () => ({
 }));
 
 function makeProperty(overrides: Partial<PropertyItem> = {}): PropertyItem {
+  const createdAt = overrides.createdAt ?? new Date().toISOString();
+  const updatedAt = overrides.updatedAt ?? createdAt;
   return {
     id: 'prop-1',
     type: 'sale',
@@ -31,12 +34,13 @@ function makeProperty(overrides: Partial<PropertyItem> = {}): PropertyItem {
     bathrooms: null,
     livingRooms: null,
     parkingSpaces: null,
-    createdAt: new Date().toISOString(),
     delistedAt: null,
     mainPhotoUrl: null,
     buildingTranscript: null,
     landTranscript: null,
     ...overrides,
+    createdAt,
+    updatedAt,
   };
 }
 
@@ -59,4 +63,3 @@ describe('謄本地址導入到物件基本資料', () => {
     ).toBeInTheDocument();
   });
 });
-

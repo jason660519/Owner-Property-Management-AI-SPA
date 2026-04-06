@@ -153,8 +153,12 @@ export interface PropertyConditionStatement {
   otherRemarks: string;
   /** 政府版標的物現況說明書地址文字 */
   govAddress: string;
-  /** 委託人簽章 */
+  /** 賣方簽章 */
   govSigner: string;
+  /** 買方簽章 */
+  govBuyerSigner?: string;
+  /** 買方簽章日期（YYYY-MM-DD） */
+  govBuyerSignedDate?: string;
   /** 簽立日期（YYYY-MM-DD） */
   govSignedDate: string;
   /** 政府版 47 題清單 */

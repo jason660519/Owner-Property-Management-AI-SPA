@@ -15,6 +15,8 @@ import {
 import type { PropertyItem } from '@/lib/types/properties';
 
 function minimalSaleProperty(overrides: Partial<PropertyItem> = {}): PropertyItem {
+  const createdAt = overrides.createdAt ?? new Date().toISOString();
+  const updatedAt = overrides.updatedAt ?? createdAt;
   return {
     id: 'test-prop',
     type: 'sale',
@@ -35,10 +37,11 @@ function minimalSaleProperty(overrides: Partial<PropertyItem> = {}): PropertyIte
     bathrooms: 1,
     livingRooms: 1,
     parkingSpaces: 0,
-    createdAt: new Date().toISOString(),
     latitude: null,
     longitude: null,
     ...overrides,
+    createdAt,
+    updatedAt,
   };
 }
 

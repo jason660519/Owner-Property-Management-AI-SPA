@@ -24,6 +24,11 @@ jest.mock('@/lib/hooks/useAISettings', () => ({
   useAISettings: () => ({ userId: 'test-user' }),
 }));
 
+jest.mock('@/lib/actions/table-settings', () => ({
+  getTableSettings: async () => ({ data: null }),
+  setTableSettings: async () => ({}),
+}));
+
 const mockFeatures = [
   {
     name: 'Test feature',
@@ -37,20 +42,22 @@ describe('DevelopmentTab View controls (freeze panes)', () => {
   it('toggles sticky header via View dropdown (凍結第 1 row)', async () => {
     const { container } = render(<DevelopmentTab features={mockFeatures} />);
 
-    const separator = container.querySelector('[aria-label="調整標題列高度"]') as HTMLDivElement | null;
-    const headerWrapper = separator?.parentElement as HTMLElement | null;
-    expect(headerWrapper?.className || '').toContain('sticky');
+    // 表頭 sticky 改為每格獨立設定 top，不再在外層 wrapper 加 sticky
+    const getFirstHeaderCell = () =>
+      container.querySelector('.grid.min-h-0.w-full.divide-x > div') as HTMLElement | null;
+
+    expect(getFirstHeaderCell()?.className || '').toContain('sticky');
 
     const viewButton = screen.getByRole('button', { name: /View/i });
     fireEvent.click(viewButton);
     const unfreezeRowBtn = await screen.findByText('不凍結列');
     fireEvent.click(unfreezeRowBtn);
-    expect(headerWrapper?.className || '').not.toContain('sticky');
+    expect(getFirstHeaderCell()?.className || '').not.toContain('sticky');
 
     fireEvent.click(viewButton);
     const freezeRowBtn = await screen.findByText('凍結第 1 row');
     fireEvent.click(freezeRowBtn);
-    expect(headerWrapper?.className || '').toContain('sticky');
+    expect(getFirstHeaderCell()?.className || '').toContain('sticky');
   });
 
   it('toggles sticky first data column via View dropdown (凍結第 1 col)', async () => {

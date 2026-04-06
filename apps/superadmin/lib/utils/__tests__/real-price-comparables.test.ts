@@ -13,6 +13,8 @@ import {
 import type { PropertyItem } from '@/lib/types/properties';
 
 function baseProperty(overrides: Partial<PropertyItem> = {}): PropertyItem {
+  const createdAt = overrides.createdAt ?? new Date().toISOString();
+  const updatedAt = overrides.updatedAt ?? createdAt;
   return {
     id: 'p1',
     type: 'sale',
@@ -33,10 +35,11 @@ function baseProperty(overrides: Partial<PropertyItem> = {}): PropertyItem {
     bathrooms: 1,
     livingRooms: 1,
     parkingSpaces: 0,
-    createdAt: new Date().toISOString(),
     latitude: 25.041,
     longitude: 121.551,
     ...overrides,
+    createdAt,
+    updatedAt,
   };
 }
 

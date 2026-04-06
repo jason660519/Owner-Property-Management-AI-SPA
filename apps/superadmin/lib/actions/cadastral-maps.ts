@@ -37,6 +37,29 @@ const LAYER_DOC_NAMES: Record<MapLayerPreset, string> = {
   both: '地籍圖+建物套繪圖',
 };
 
+/** Set `CADASTRAL_MAP_DEBUG=1` to log Server Action timing (start/end + ms). */
+function cadastralMapDebugEnabled(): boolean {
+  return process.env.CADASTRAL_MAP_DEBUG === '1' || process.env.CADASTRAL_MAP_DEBUG === 'true';
+}
+
+function logCadastralMap(
+  phase: 'start' | 'end',
+  t0: number,
+  fields: {
+    propertyId: string;
+    layers: MapLayerPreset;
+    source: GisSource;
+    success?: boolean;
+    detail?: string;
+  },
+): void {
+  if (!cadastralMapDebugEnabled()) return;
+  console.log('[fetchCadastralMap]', phase, {
+    ms: Date.now() - t0,
+    ...fields,
+  });
+}
+
 // ── Main Action ───────────────────────────────────────────────────────────
 
 /**
@@ -56,8 +79,11 @@ export async function fetchCadastralMap(
   } | null,
   options?: { scale?: number; title?: string; source?: GisSource; markerLabel?: string },
 ): Promise<FetchResult> {
+  const t0 = Date.now();
+  const source = options?.source ?? 'historygis';
+  logCadastralMap('start', t0, { propertyId, layers, source });
+
   try {
-    const source = options?.source ?? 'historygis';
     const markerLabel = options?.markerLabel
       || (address ? `${address.street}${address.addressNumber}` : undefined);
     const exportOpts: ExportMapOptions = {
@@ -89,6 +115,13 @@ export async function fetchCadastralMap(
       };
       result = await exportMapByAddress(addrParams, exportOpts);
     } else {
+      logCadastralMap('end', t0, {
+        propertyId,
+        layers,
+        source,
+        success: false,
+        detail: 'missing_coords_or_address',
+      });
       return { success: false, message: '缺少座標或地址資訊，無法查詢地籍圖' };
     }
 
@@ -108,6 +141,13 @@ export async function fetchCadastralMap(
       });
 
     if (uploadError) {
+      logCadastralMap('end', t0, {
+        propertyId,
+        layers,
+        source,
+        success: false,
+        detail: `upload:${uploadError.message}`,
+      });
       return { success: false, message: `圖片上傳失敗：${uploadError.message}` };
     }
 
@@ -136,6 +176,13 @@ export async function fetchCadastralMap(
 
     if (insertError) {
       await adminClient.storage.from('property-documents').remove([storagePath]);
+      logCadastralMap('end', t0, {
+        propertyId,
+        layers,
+        source,
+        success: false,
+        detail: `insert:${insertError.message}`,
+      });
       return { success: false, message: `文件記錄寫入失敗：${insertError.message}` };
     }
 
@@ -146,6 +193,7 @@ export async function fetchCadastralMap(
 
     revalidatePath('/superadmin/properties');
 
+    logCadastralMap('end', t0, { propertyId, layers, source, success: true });
     return {
       success: true,
       message: `${docName}已擷取並儲存（${sourceLabel}）`,
@@ -157,8 +205,65 @@ export async function fetchCadastralMap(
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : '未知錯誤';
+    logCadastralMap('end', t0, {
+      propertyId,
+      layers,
+      source,
+      success: false,
+      detail: `exception:${msg}`,
+    });
     return { success: false, message: `擷取失敗：${msg}` };
   }
+}
+
+/** Stored GIS file info */
+export interface StoredGisFile {
+  id: string;
+  name: string;
+  filePath: string;
+  createdAt: string;
+  tags: string[];
+}
+
+/** List all stored cadastral map files for a property from the database */
+export async function listCadastralMapFiles(
+  propertyId: string,
+): Promise<{ data: StoredGisFile[]; error: string | null }> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('property_documents')
+    .select('id, document_name, file_path, created_at, tags')
+    .eq('property_id', propertyId)
+    .eq('document_type', 'cadastral_map')
+    .eq('is_active', true)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (error) return { data: [], error: error.message };
+
+  return {
+    data: (data ?? []).map((r) => ({
+      id: r.id as string,
+      name: (r.document_name as string) ?? '',
+      filePath: (r.file_path as string) ?? '',
+      createdAt: (r.created_at as string) ?? '',
+      tags: (r.tags as string[]) ?? [],
+    })),
+    error: null,
+  };
+}
+
+/** Get a signed URL for a stored GIS file */
+export async function getGisFileUrl(
+  filePath: string,
+): Promise<{ url: string | null; error: string | null }> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.storage
+    .from('property-documents')
+    .createSignedUrl(filePath, 60 * 60);
+
+  if (error) return { url: null, error: error.message };
+  return { url: data?.signedUrl ?? null, error: null };
 }
 
 /** Delete a previously fetched cadastral map document */

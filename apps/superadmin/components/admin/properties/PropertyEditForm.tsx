@@ -19,12 +19,15 @@ import { PropertyGeographicInfoTab } from './PropertyGeographicInfoTab';
 import {
   PROPERTY_STATUSES,
   PROPERTY_TYPES,
+  type PropertyDocumentItem,
   type PropertyItem,
+  type PropertyPhotoItem,
   type UpdatePropertyInput,
 } from '@/lib/types/properties';
 import { TAIWAN_CITIES, getDistrictsByCity } from '@/lib/data/taiwan-address';
 import { geocodeAddress } from '@/lib/utils/geocoding';
 import { NumberComboBox } from './NumberComboBox';
+import type { InvestigationReport } from './investigation-report/types';
 
 function composeAddress(parts: {
   city?: string;
@@ -108,9 +111,17 @@ const ALL_TABS: TabId[] = [
 
 interface PropertyEditFormProps {
   property: PropertyItem;
+  initialInvestigationReport?: InvestigationReport | null;
+  initialInvestigationPhotos?: PropertyPhotoItem[];
+  initialInvestigationDocuments?: PropertyDocumentItem[];
 }
 
-export function PropertyEditForm({ property }: PropertyEditFormProps) {
+export function PropertyEditForm({
+  property,
+  initialInvestigationReport,
+  initialInvestigationPhotos,
+  initialInvestigationDocuments,
+}: PropertyEditFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
@@ -428,7 +439,13 @@ export function PropertyEditForm({ property }: PropertyEditFormProps) {
           )}
 
           {activeTab === 'investigation' && (
-            <PropertyInvestigationReportSection propertyId={property.id} property={property} />
+            <PropertyInvestigationReportSection
+              propertyId={property.id}
+              property={property}
+              initialReport={initialInvestigationReport}
+              initialPhotos={initialInvestigationPhotos}
+              initialDocuments={initialInvestigationDocuments}
+            />
           )}
 
           {activeTab === 'contract' && (

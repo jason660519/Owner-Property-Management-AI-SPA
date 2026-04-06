@@ -1728,14 +1728,14 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "超級管理員-物件管理（新增物件含媒體上傳）",
     locatedPage: "superadmin/properties",
     category: "超級管理員 (Super Admin)",
-    percentage: 96,
+    percentage: 97,
     phase: "development",
-    lastModifiedBy: "Gemini-3-Flash-Preview",
-    lastModifiedDate: "2026/04/04",
+    lastModifiedBy: "Cursor Agent",
+    lastModifiedDate: "2026/04/07",
     devLog:
-      "### 完成項目\n- getOwnersList() / createProperty() server actions（lib/actions/properties.ts）\n- CreatePropertyInput / OwnerOption 型別（lib/types/properties.ts）\n- PropertyCreateModal.tsx：含完整 6 頁籤（物件基本資訊 / 物件照片 / 謄本 / 權狀 / 合約 / 部落格）；兩段式建立流程：第一次儲存建立物件取得 ID，後續 tabs 接入 PropertyMediaSection；物件類型與所有權人建立後鎖定\n- PropertiesList.tsx：新增物件按鈕接入 PropertyCreateModal，onCreated 觸發 router.refresh()\n- properties/page.tsx：並行 fetch getAllProperties() + getOwnersList() 後傳入 PropertiesList\n### 2026-04-02 新增\n- PropertyMediaSection：floor_plan 頁籤新增已上傳格局圖 inline 預覽卡片，圖片直接顯示、PDF 以內嵌預覽呈現，避免使用者只能看檔名與外部連結\n- floor_plan 上傳區新增待上傳預覽，選檔後即可先確認檔案內容，再決定是否送出\n- 新增 PropertyMediaSection.test.tsx，覆蓋既有格局圖預覽與上傳後刷新預覽兩個情境，並以 Jest `--runTestsByPath` 驗證通過\n### 2026-04-03 新增\n- PropertyEditForm：在「使用分區」右側新增「地理資訊」分頁（PropertyGeographicInfoTab），顯示結構化地址、WGS84 座標與 Google Maps / OpenStreetMap 外部連結；雙圖資來源（歷史圖資展示系統 / 地理資訊e點通）各支援地籍圖、建物套繪圖、合併擷取，結果 signed URL 預覽並寫入 property_documents\n### 2026-04-03 補強（TDD / 穩定性）\n- 有 WGS84 時僅傳座標至 fetchCadastralMap（不再併傳門牌，避免混淆）；擷取結果列表 key 改為 storagePath；刪除改以 documentId + storagePath 辨識；ArcGIS job 輪詢第一次立即查狀態；物件編輯頁 export maxDuration=120s；新增 buildOperationalLayers / fetchCadastralMap 來源矩陣與 PropertyGeographicInfoTab 互動測試（Jest 22 例）\n### 2026-04-03 實價成交三報表（近一年）\n- lib/utils/real-price-comparables.ts：六都方圓 1km／其他縣市 2km、同街段（路街或謄本地段）、同里；Haversine 與近一年篩選\n- LVR_COMPARABLES_JSON_PATH：伺服器讀取正規化 JSON 陣列作為成交來源（未設定則表格為空仍產出 PDF）\n- lib/actions/transaction-comparables.ts：generateTransactionComparableDocuments 產出三份 PDF 寫入 property_documents（tags comparable:auto + comparable:kind:*），重產時取代同類舊檔\n- PropertyMediaSection 成交行情表：一鍵產出三份；新增 document_type transaction_comparables_nearby / _street_section / _village\n- PropertyGeographicInfoTab：村里欄位寫入 details.addressVillage；updateProperty / getPropertyById / getAllProperties 串接\n- real-price-comparable-pdf.ts（pdf-lib + Noto Sans TC woff2）、單元測試 real-price-comparables.test.ts\n### 2026-04-04 實價行情優化 (TDD)\n- **PDF 內容空白修復**: loadComparableSalesFromDb 實作分頁抓取（最高支援 10,000 筆），解決行政區成交量大於 1,000 筆時資料池不完整導致的空白問題。\n- **字體渲染修復**: PDF 優先載入 macOS 系統 `Arial Unicode.ttf`，徹底解決 Noto Sans 子集缺少中文字元導致的報表空白問題。\n- **自動定位強化**: 整合 `geocodeAddress` 多重定位策略，成功後自動同步座標回 DB；附近成交價新增「自定義半徑選擇器」(0.5km - 5.0km)，提升查詢靈活性。\n- **驗證**: 建立 `comparables.test.ts` 驗證過濾邏輯，並透過 `diagnosis.test.ts` 完成生產資料連通性檢查。",
+      "### 完成項目\n- getOwnersList() / createProperty() server actions（lib/actions/properties.ts）\n- CreatePropertyInput / OwnerOption 型別（lib/types/properties.ts）\n- PropertyCreateModal.tsx：含完整 6 頁籤（物件基本資訊 / 物件照片 / 謄本 / 權狀 / 合約 / 部落格）；兩段式建立流程：第一次儲存建立物件取得 ID，後續 tabs 接入 PropertyMediaSection；物件類型與所有權人建立後鎖定\n- PropertiesList.tsx：新增物件按鈕接入 PropertyCreateModal，onCreated 觸發 router.refresh()\n- properties/page.tsx：並行 fetch getAllProperties() + getOwnersList() 後傳入 PropertiesList\n### 2026-04-02 新增\n- PropertyMediaSection：floor_plan 頁籤新增已上傳格局圖 inline 預覽卡片，圖片直接顯示、PDF 以內嵌預覽呈現，避免使用者只能看檔名與外部連結\n- floor_plan 上傳區新增待上傳預覽，選檔後即可先確認檔案內容，再決定是否送出\n- 新增 PropertyMediaSection.test.tsx，覆蓋既有格局圖預覽與上傳後刷新預覽兩個情境，並以 Jest `--runTestsByPath` 驗證通過\n### 2026-04-03 新增\n- PropertyEditForm：在「使用分區」右側新增「地理資訊」分頁（PropertyGeographicInfoTab），顯示結構化地址、WGS84 座標與 Google Maps / OpenStreetMap 外部連結；雙圖資來源（歷史圖資展示系統 / 地理資訊e點通）各支援地籍圖、建物套繪圖、合併擷取，結果 signed URL 預覽並寫入 property_documents\n### 2026-04-03 補強（TDD / 穩定性）\n- 有 WGS84 時僅傳座標至 fetchCadastralMap（不再併傳門牌，避免混淆）；擷取結果列表 key 改為 storagePath；刪除改以 documentId + storagePath 辨識；ArcGIS job 輪詢第一次立即查狀態；物件編輯頁 export maxDuration=120s；新增 buildOperationalLayers / fetchCadastralMap 來源矩陣與 PropertyGeographicInfoTab 互動測試（Jest 22 例）\n### 2026-04-03 實價成交三報表（近一年）\n- lib/utils/real-price-comparables.ts：六都方圓 1km／其他縣市 2km、同街段（路街或謄本地段）、同里；Haversine 與近一年篩選\n- LVR_COMPARABLES_JSON_PATH：伺服器讀取正規化 JSON 陣列作為成交來源（未設定則表格為空仍產出 PDF）\n- lib/actions/transaction-comparables.ts：generateTransactionComparableDocuments 產出三份 PDF 寫入 property_documents（tags comparable:auto + comparable:kind:*），重產時取代同類舊檔\n- PropertyMediaSection 成交行情表：一鍵產出三份；新增 document_type transaction_comparables_nearby / _street_section / _village\n- PropertyGeographicInfoTab：村里欄位寫入 details.addressVillage；updateProperty / getPropertyById / getAllProperties 串接\n- real-price-comparable-pdf.ts（pdf-lib + Noto Sans TC woff2）、單元測試 real-price-comparables.test.ts\n### 2026-04-04 實價行情優化 (TDD)\n- **PDF 內容空白修復**: loadComparableSalesFromDb 實作分頁抓取（最高支援 10,000 筆），解決行政區成交量大於 1,000 筆時資料池不完整導致的空白問題。\n- **字體渲染修復**: PDF 優先載入 macOS 系統 `Arial Unicode.ttf`，徹底解決 Noto Sans 子集缺少中文字元導致的報表空白問題。\n- **自動定位強化**: 整合 `geocodeAddress` 多重定位策略，成功後自動同步座標回 DB；附近成交價新增「自定義半徑選擇器」(0.5km - 5.0km)，提升查詢靈活性。\n- **驗證**: 建立 `comparables.test.ts` 驗證過濾邏輯，並透過 `diagnosis.test.ts` 完成生產資料連通性檢查。\n### 2026-04-07 地理資訊（GIS）擷取 UX 與後端觀測性\n- **三按鈕並行**：解除全域鎖，地籍圖 / 建物套繪圖 / 合併擷取可同時觸發；每圖層僅防重複點擊。\n- **換頁不丟狀態**：sessionStorage（gis-fetch-pending）保留進行中圖層與開始時間，回到分頁仍顯示轉圈與已等待秒數。\n- **逐圖層結果**：gis-fetch-outcomes 記錄成功／失敗與耗時秒數；固定三列對應三種擷取；「清除擷取紀錄」清空結果。\n- **UI**：移除與雲端列表重複的擷取結果大預覽卡，僅保留雲端 GIS 圖資紀錄；地址區塊可反白複製；說明改為與「物件基本資訊」頁一致。\n- **後端**：fetchCadastralMap 支援環境變數 CADASTRAL_MAP_DEBUG（起迄與 ms）、CADASTRAL_MAP_MAX_CONCURRENT（限制 ArcGIS print 併發，0=不限制）；cadastral-map-fetcher 對 exportMapInternal 包裝併發上限。\n- **測試**：PropertyGeographicInfoTab.test.tsx 更新（並行、sessionStorage 還原、清除紀錄、雲端刪除）。",
     developmentProgress:
-      "物件列表與編輯功能（含 PropertyEditModal + PropertyMediaSection）已完成；實價行情功能已達成 TDD 綠燈狀態，支援分頁大數據、自定義半徑與精確字體渲染。下一步：表單欄位前端 validation、建立後自動跳至媒體頁籤。",
+      "物件列表與編輯功能（含 PropertyEditModal + PropertyMediaSection）已完成；實價行情已 TDD 綠燈。地理資訊分頁：三圖層並行擷取、換頁保留進行中狀態、逐圖層成功／失敗與耗時、雲端列表單一來源。下一步：表單欄位前端 validation、建立後自動跳至媒體頁籤。",
   },
   {
     name: "全站表格偏好設定持久化（useTablePreferences hook — localStorage + DB 雙寫）",
@@ -1911,10 +1911,10 @@ const RAW_FEATURES: RoadmapFeature[] = [
     percentage: 95,
     workCategory: "功能強化",
     featureDescription:
-      "對標住商不動產 Excel 物件調查報告書，全面升級 web 版本。Phase1：資料改存 Supabase DB（property_investigation_reports 表）+ 謄本自動填入（建號/建材/完工日/面積/土地/他項限制）+ 列印版面還原成 Excel 兩欄表格。Phase2：完整度指示器（X/N 欄位）+ 附件清單連動已上傳謄本/權狀 + 匯出改版（JSON 下載 + 列印 PDF）+ 版本歷史面板。Phase3：格局圖從已上傳照片選取嵌入報告 + 位置圖顯示地址/座標。Phase3+：「選取附件」子分頁可勾選物件已上傳文件與照片納入報告參考，並支援附加說明文字，列印末頁「報告附加參考」。2026/04/06 再升級：屋況子分頁改為對齊政府版「標的物現況說明書（成屋）」2頁 47 題表格（項次/內容/是/否/備註），新增地址、委託人簽章、簽立日期欄位，預覽與列印版面同步改版，並新增「另存 PDF」操作（透過瀏覽器列印另存）。新增 migration: 20260321120000_add_property_investigation_reports.sql。",
+      "對標住商不動產 Excel 物件調查報告書，全面升級 web 版本。Phase1：資料改存 Supabase DB（property_investigation_reports 表）+ 謄本自動填入（建號/建材/完工日/面積/土地/他項限制）+ 列印版面還原成 Excel 兩欄表格。Phase2：完整度指示器（X/N 欄位）+ 附件清單連動已上傳謄本/權狀 + 匯出改版（JSON 下載 + 列印 PDF）+ 版本歷史面板。Phase3：格局圖從已上傳照片選取嵌入報告 + 位置圖顯示地址/座標。Phase3+：「選取附件」子分頁可勾選物件已上傳文件與照片納入報告參考，並支援附加說明文字，列印末頁「報告附加參考」。2026/04/06 再升級：屋況子分頁改為對齊政府版「標的物現況說明書（成屋）」2頁 47 題表格（項次/內容/是/否/備註），新增地址、委託人簽章、簽立日期欄位，預覽與列印版面同步改版，並新增「另存 PDF」操作（透過瀏覽器列印另存）。2026/04/07：案件基本資料（案名、租/售、總價、地址）改為由「物件基本資訊」同步，並在調查報告頁鎖定為唯讀以維持單一真實來源。新增 migration: 20260321120000_add_property_investigation_reports.sql。",
     points: 8,
-    lastModifiedBy: "GPT-5.3-Codex",
-    lastModifiedDate: "2026/04/06",
+    lastModifiedBy: "GPT-5.2",
+    lastModifiedDate: "2026/04/07",
   },
   {
     name: "超級管理員-合約套版多範本選擇器",
@@ -2070,6 +2070,6 @@ const RAW_FEATURES: RoadmapFeature[] = [
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/06",
+  lastUpdated: "2026/04/07",
   features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
 };
