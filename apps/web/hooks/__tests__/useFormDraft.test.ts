@@ -122,7 +122,12 @@ describe('useFormDraft Hook', () => {
     })
 
     it('should restore photos without File objects after reload', () => {
-      const { result } = renderHook(() => useFormDraft('test_form'))
+      type PhotoDraftData = {
+        title: string
+        photos: Array<{ id: string; url: string; file: File | null }>
+      }
+
+      const { result } = renderHook(() => useFormDraft<PhotoDraftData>('test_form'))
 
       const mockFile = new File(['content'], 'test.jpg', { type: 'image/jpeg' })
       const formData = {
@@ -167,9 +172,14 @@ describe('useFormDraft Hook', () => {
         // Debug: Check after each save
         if (i === 15) {
           const stored = localStorageMock.getItem('property_form_drafts')
-          const allDrafts = stored ? JSON.parse(stored) : []
+          const allDrafts: unknown[] = stored ? (JSON.parse(stored) as unknown[]) : []
           console.log(`After ${i} saves, drafts count:`, allDrafts.length)
-          console.log('Draft names:', allDrafts.map((d: any) => d.name))
+          console.log(
+            'Draft names:',
+            allDrafts.map((d) =>
+              typeof d === 'object' && d !== null && 'name' in d ? (d as { name: unknown }).name : undefined
+            )
+          )
         }
       }
 
@@ -208,7 +218,7 @@ describe('useFormDraft Hook', () => {
     it('should handle circular reference in data', () => {
       const { result } = renderHook(() => useFormDraft('test_form'))
 
-      const circularData: any = { title: 'Test' }
+      const circularData: Record<string, unknown> & { self?: unknown } = { title: 'Test' }
       circularData.self = circularData
 
       expect(() => {

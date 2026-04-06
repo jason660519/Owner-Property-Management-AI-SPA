@@ -123,7 +123,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/dev-logs/dev-superadmin-features-2026-02-21.md",
     category: "超級管理員 (Super Admin)",
     points: 5,
-    lastModifiedBy: "Claude Sonnet 4.6",
+    lastModifiedBy: "GPT-5.3 Codex",
     lastModifiedDate: "2026/02/21",
     phase: "development",
     developmentProgress:
@@ -341,7 +341,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "公司產品費用說明頁",
     locatedPage: "web/pricing",
-    percentage: 90,
+    percentage: 95,
     acceptanceCriteria:
       "1. 清楚列出各方案（免費版、基本版、進階版）的功能對比表格。\n2. 月付/年付切換，年付顯示折扣比例。\n3. FAQ 區塊涵蓋常見費用問題（至少5項）。\n4. 「立即購買」按鈕連結至付款流程。\n5. 費用說明需包含幣別（AUD/TWD）切換功能。",
     docPath: "/project-process/features/multi-role-business-plan-20260322.md",
@@ -509,7 +509,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東-儀表板",
     locatedPage: "web/landlord/dashboard",
-    percentage: 90,
+    percentage: 95,
     acceptanceCriteria:
       "1. 顯示名下所有物件概況（總數、出租中、空置、待售）。\n2. 顯示本月租金收入總額與趨勢圖表（與上月對比）。\n3. 即時顯示待處理事項（待審核租客申請、維修請求、合約即將到期）。\n4. 快速連結至各主要功能（新增物件、收款記錄、聯絡租客）。\n5. 儀表板載入時間 < 2 秒，數據不超過24小時快取。",
     docPath: "/project-process/features/landlord-dashboard-status-20260206.md",
@@ -1738,6 +1738,27 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "物件列表與編輯功能（含 PropertyEditModal + PropertyMediaSection）已完成；實價行情功能已達成 TDD 綠燈狀態，支援分頁大數據、自定義半徑與精確字體渲染。下一步：表單欄位前端 validation、建立後自動跳至媒體頁籤。",
   },
   {
+    name: "全站表格偏好設定持久化（useTablePreferences hook — localStorage + DB 雙寫）",
+    locatedPage: "superadmin/properties",
+    category: "超級管理員 (Super Admin)",
+    percentage: 100,
+    phase: "development",
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/06",
+    points: 5,
+    featureSpecDocPath: "/project-process/features/table-preferences-persistence-dev-spec-20260406.md",
+    tddSpecDocPath: "/project-process/features/tdd-table-preferences-persistence-20260406.md",
+    docPath: "/project-process/test-logs/test-table-preferences-persistence-2026-04-06.md",
+    testScriptPath: "apps/superadmin/unit_test/107",
+    featureDescription:
+      "全站表格的欄寬、凍結欄/列、水平/垂直對齊、每頁筆數等顯示設定，透過 useTablePreferences hook 實現 localStorage（即時快取）+ Supabase user_page_settings（跨裝置持久化）雙寫機制。已完成三個主要表格頁面遷移。",
+    devLog:
+      "### 2026-04-06 表格偏好持久化\n- lib/actions/table-settings.ts：通用 getTableSettings / setTableSettings server actions（複用 user_page_settings 表）\n- lib/hooks/useTablePreferences.ts：localStorage 即時讀寫 + DB debounced 同步 hook（mount 時 DB reconcile、unmount 時 flush pending writes）\n- **PropertiesList.tsx**：移除舊有 3 個散落 localStorage state，統一管理 columnSizing / freezeRowCount / frozenDataColCount / tableAlignH / tableAlignV / pageSize\n- **DevelopmentTab.tsx**：移除 ~200 行舊 load/persist effects + 8 個散落 localStorage keys，統一管理 colWidths / headerHeight / columnAlignments / freezeRowCount / frozenDataColCount / widthPresets / customRows / hiddenRowKeys\n- **ModelEvaluator.tsx**：移除 4 個散落 localStorage states，統一管理 columnWidths / promptColumnLabel / freezeRowCount / frozenColCount / tableAlignH / tableAlignV\n- 三個頁面皆新增 v1 → v2 一次性 localStorage 遷移邏輯，確保舊設定不遺失",
+    developmentProgress:
+      "三個主要表格頁面已全部遷移完成，TypeScript 編譯通過。通用 hook 可供其他頁面（IAM、contacts 等）複用。",
+    testProgress: "0%（尚未開始）",
+  },
+  {
     name: "超級管理員-實價登錄資料自動化同步管理",
     locatedPage: "superadmin/settings/lvr-sync",
     category: "超級管理員 (Super Admin)",
@@ -1887,13 +1908,13 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "物件調查報告書全面升級（Phase 1-3）",
     locatedPage: "superadmin/properties/[id]/edit?tab=investigation",
     category: "超級管理員 (Super Admin)",
-    percentage: 90,
+    percentage: 95,
     workCategory: "功能強化",
     featureDescription:
-      "對標住商不動產 Excel 物件調查報告書，全面升級 web 版本。Phase1：資料改存 Supabase DB（property_investigation_reports 表）+ 謄本自動填入（建號/建材/完工日/面積/土地/他項限制）+ 列印版面還原成 Excel 兩欄表格。Phase2：完整度指示器（X/N 欄位）+ 附件清單連動已上傳謄本/權狀 + 匯出改版（JSON 下載 + 列印 PDF）+ 版本歷史面板。Phase3：格局圖從已上傳照片選取嵌入報告 + 位置圖顯示地址/座標。Phase3+：「選取附件」子分頁可勾選物件已上傳文件與照片納入報告參考，並支援附加說明文字，列印末頁「報告附加參考」。「屋況說明書」子分頁（七項現況揭露欄位）列印於個案調查表後。新增 migration: 20260321120000_add_property_investigation_reports.sql。",
+      "對標住商不動產 Excel 物件調查報告書，全面升級 web 版本。Phase1：資料改存 Supabase DB（property_investigation_reports 表）+ 謄本自動填入（建號/建材/完工日/面積/土地/他項限制）+ 列印版面還原成 Excel 兩欄表格。Phase2：完整度指示器（X/N 欄位）+ 附件清單連動已上傳謄本/權狀 + 匯出改版（JSON 下載 + 列印 PDF）+ 版本歷史面板。Phase3：格局圖從已上傳照片選取嵌入報告 + 位置圖顯示地址/座標。Phase3+：「選取附件」子分頁可勾選物件已上傳文件與照片納入報告參考，並支援附加說明文字，列印末頁「報告附加參考」。2026/04/06 再升級：屋況子分頁改為對齊政府版「標的物現況說明書（成屋）」2頁 47 題表格（項次/內容/是/否/備註），新增地址、委託人簽章、簽立日期欄位，預覽與列印版面同步改版，並新增「另存 PDF」操作（透過瀏覽器列印另存）。新增 migration: 20260321120000_add_property_investigation_reports.sql。",
     points: 8,
-    lastModifiedBy: "Claude Sonnet 4.6",
-    lastModifiedDate: "2026/03/21",
+    lastModifiedBy: "GPT-5.3-Codex",
+    lastModifiedDate: "2026/04/06",
   },
   {
     name: "超級管理員-合約套版多範本選擇器",
@@ -2002,9 +2023,53 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/04/02",
     phase: "development",
   },
+  {
+    name: "資料備份管理系統 (Data Backup & Protection)",
+    locatedPage: "/superadmin/settings/backup",
+    category: "超級管理員 (Super Admin)",
+    percentage: 95,
+    phase: "development",
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/06",
+    featureSpecDocPath: "/project-process/features/backup-system-dev-spec-20260406.md",
+    tddSpecDocPath: "/project-process/features/tdd-backup-system-20260406.md",
+    docPath: "/project-process/test-logs/test-backup-system-2026-04-06.md",
+    testScriptPath: "apps/superadmin/unit_test/027",
+    developmentProgress:
+      "### 架構概覽\n" +
+      "完整的資料備份系統，涵蓋 DB 全表自動備份 + Storage 檔案下載 + 多目的地排程 + 雲端同步。\n\n" +
+      "### 已完成功能層級\n" +
+      "**Layer 1 — 腳本保護**：scripts/backup-metadata.sh、stop.sh 停機前自動備份、start.sh 偵測不一致並提示還原。\n" +
+      "**Layer 2 — Superadmin 排程總覽表格 UI**：將舊版垂直卡片式 accordion 重構為橫向排程總覽表格。每行一個目的地（專案目錄/本地設備/Google Drive/AWS S3），欄位含啟用 toggle、排程 toggle、頻率、時間、週期日、下次執行、狀態、手動備份按鈕。行內直接編輯，不需展開子面板。\n" +
+      "**Layer 2.5 — 資料夾選擇器 Modal**：本地設備目的地提供彈出式資料夾瀏覽器（/api/backup/browse-dirs），自動偵測 macOS /Volumes、Linux /mnt /media、Windows A:\\~Z:\\ 磁碟，支援子目錄瀏覽與麵包屑導覽。\n" +
+      "**Layer 3 — 雲端備份整合**：Google Drive Service Account + AWS S3 Access Key，Integrations 頁面卡片、cloud-settings API、cloudUpload.ts。\n" +
+      "**Layer 3.5 — 排程執行器**：/api/cron/backup-schedules（CRON_SECRET 驗證），依各目的地排程觸發 auto_schedule。\n" +
+      "**Layer 4 — 執行稽核**：backup_run_logs migration、手動/排程皆寫入、備份執行記錄表格。\n" +
+      "**Layer 5 — 全表自動備份（v2.0）**：透過 PostgREST schema endpoint 自動發現所有 public 表（目前 154 張），不需手動維護表清單。新增的表自動被涵蓋，SKIP_TABLES 可排除不需要的表。備份格式 v2.0，還原 API 相容 v1/v2。\n" +
+      "**Layer 6 — Storage 實際檔案備份**：從 Supabase Storage 遞迴下載 property-photos 和 property-documents bucket 的所有檔案（照片 JPG + 附件 PDF），存入 backup 子目錄 files/ 下。本地設備同步時整個資料夾（含檔案）一起複製。\n" +
+      "**Layer 7 — 備份完成 Toast 報告**：固定右上角結構化報告卡片，顯示目的地路徑、檔案結構樹狀圖（JSON/照片/附件分別在哪個 folder）、4 格統計（表數/筆數/檔案數/檔案大小）、耗時、有資料的表 tag 列表。可 resize 調整大小、手動關閉。\n\n" +
+      "### 備份結構\n" +
+      "```\nbackups/backup_YYYYMMDD_HHMMSS/\n├── backup_YYYYMMDD_HHMMSS.json  ← DB 全部表資料\n└── files/\n    ├── property-photos/          ← 照片（按 property UUID 分資料夾）\n    └── property-documents/       ← 附件文檔（PDF 等）\n```\n\n" +
+      "### API Routes\n" +
+      "/api/backup（list/create）、/api/backup/[id]（download/delete）、/api/backup/restore（冪等還原，支援 v1+v2）、/api/backup/health、/api/backup/settings、/api/backup/cloud-settings、/api/backup/run-logs、/api/backup/browse-dirs（資料夾瀏覽）、/api/cron/backup-schedules。\n\n" +
+      "### 擴充指南\n" +
+      "- **新增 DB 表**：無需任何修改，run-backup.ts 自動發現所有 public 表並備份。若要排除某表，加入 SKIP_TABLES set。\n" +
+      "- **新增 Storage bucket**：在 run-backup.ts 的 STORAGE_BUCKETS 陣列加入新 bucket 名稱即可（如 'user-avatars'）。\n" +
+      "- **新增備份目的地**：在 DestinationKey type 加入新 key、在 rows 陣列加一行、在 isDestEnabled/handleDestToggle 加對應邏輯。\n" +
+      "- **增量備份**：目前為全量備份（DB 資料 ~2.5MB + 檔案 ~45MB，2.3 秒完成），資料量成長後若需增量，可在 runBackup 中比對上次備份的 hash 或 updated_at 篩選差異資料。",
+    devLog:
+      "### 2026-04-06 排程總覽表格 UI 重構 + 全表自動備份 + 檔案備份\n" +
+      "- **UI 重構**：將 DestinationConfig 從垂直卡片 accordion 改為橫向排程總覽表格，每行一個目的地，行內直接編輯。提取 Toggle 共用元件，刪除 renderScheduleConfig 重複渲染和 getCycleProgress 進度條。\n" +
+      "- **每行備份按鈕**：表格新增「操作」欄，每個目的地可單獨手動備份。\n" +
+      "- **資料夾選擇器 Modal**：新增 /api/backup/browse-dirs API（偵測 macOS/Linux/Windows 磁碟 + 子目錄列表），新增 FolderPickerModal 元件（麵包屑導覽 + 目錄瀏覽 + 選擇確認）。\n" +
+      "- **全表自動備份 v2.0**：run-backup.ts 改為透過 PostgREST schema 自動發現所有 public 表，不再硬編碼表名。目前 154 張表、3850 筆、JSON 2.5MB。\n" +
+      "- **Storage 檔案備份**：遞迴下載 property-photos + property-documents bucket 所有檔案（14 張照片 43MB + 2 份 PDF 1.7MB），存入 backup 子目錄 files/。本地設備同步整個資料夾。\n" +
+      "- **還原 API 升級**：restore route 支援 v2 格式（動態還原所有表）+ v1 向後相容。\n" +
+      "- **Toast 報告卡片**：備份完成通知改為固定右上角結構化報告，顯示目的地路徑、檔案結構樹狀圖、統計數字、耗時、有資料的表列表。可 resize、手動關閉。",
+  },
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/04",
+  lastUpdated: "2026/04/06",
   features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
 };

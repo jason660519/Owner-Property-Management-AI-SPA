@@ -6,6 +6,7 @@
     "google-search@anthropic-agent-skills": true,
     "python@anthropic-agent-skills": true,
     "terminal@anthropic-agent-skills": true,
-    "web-browsing@anthropic-agent-skills": true
+    "web-browsing@anthropic-agent-skills": true,
+    "claude-hud@claude-hud": true
   }
 }

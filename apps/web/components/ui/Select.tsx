@@ -51,7 +51,7 @@ export function Select({
   )
 }
 
-export interface SelectTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {}
+export type SelectTriggerProps = React.ButtonHTMLAttributes<HTMLButtonElement>
 
 export function SelectTrigger({ className = '', children, ...props }: SelectTriggerProps) {
   const context = useContext(SelectContext)

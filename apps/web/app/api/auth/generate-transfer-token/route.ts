@@ -13,9 +13,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { generateTransferToken } from '@/lib/auth/transfer-token';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+}
+
 export async function POST(request: NextRequest) {
     try {
-        const { userId } = await request.json();
+        const body = (await request.json()) as unknown;
+        const userId = isRecord(body) && typeof body.userId === 'string' ? body.userId : null;
 
         if (!userId) {
             return NextResponse.json(
@@ -50,11 +55,12 @@ export async function POST(request: NextRequest) {
         const redirectUrl = `exp://localhost:8081?token=${transferToken}`;
 
         return NextResponse.json({ redirectUrl, token: transferToken }, { status: 200 });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Transfer token generation error:', error);
+        const msg = error instanceof Error ? error.message : String(error);
 
         return NextResponse.json(
-            { error: error.message || 'Failed to generate transfer token' },
+            { error: msg || 'Failed to generate transfer token' },
             { status: 500 }
         );
     }

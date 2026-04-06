@@ -1,21 +1,36 @@
 import { createAdminClient } from '@/utils/supabase/admin';
 import { NextRequest, NextResponse } from 'next/server';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const metric = await req.json();
+    const metric = (await req.json()) as unknown;
+    if (!isRecord(metric)) {
+      return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+    }
+
     const supabase = createAdminClient();
 
     // Mapping metric to table columns
     // web-vitals sends metrics with: name, value, id, delta, entries
-    const { name, value, id: sessionId, page_path } = metric;
+    const name = typeof metric.name === 'string' ? metric.name : null;
+    const value = typeof metric.value === 'number' ? metric.value : null;
+    const sessionId = typeof metric.id === 'string' ? metric.id : null;
+    const pagePath = typeof metric.page_path === 'string' ? metric.page_path : '/';
+
+    if (!name || value === null || !sessionId) {
+      return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+    }
     
-    const metricData: any = {
-      page_path: page_path || '/',
+    const metricData: Record<string, unknown> = {
+      page_path: pagePath,
       session_id: sessionId,
       device_type: getDeviceType(req.headers.get('user-agent')),
       user_agent: req.headers.get('user-agent'),
-      connection_type: (req as any).nextUrl?.searchParams?.get('conn') || null,
+      connection_type: req.nextUrl.searchParams.get('conn') || null,
     };
 
     // Store value based on metric name

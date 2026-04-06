@@ -3,6 +3,12 @@
 import { useEffect } from 'react';
 import { onCLS, onLCP, onFCP, onTTFB, onINP, Metric } from 'web-vitals';
 
+type NavigatorWithConnection = Navigator & {
+  connection?: {
+    effectiveType?: string;
+  };
+};
+
 export function PerformanceMonitor() {
   useEffect(() => {
     // Only run in production or if needed in dev
@@ -28,7 +34,8 @@ export function PerformanceMonitor() {
         page_path: window.location.pathname,
       });
 
-      const url = `/api/web-vitals?conn=${(navigator as any).connection?.effectiveType || 'unknown'}`;
+      const conn = (navigator as NavigatorWithConnection).connection?.effectiveType || 'unknown';
+      const url = `/api/web-vitals?conn=${conn}`;
 
       // Use sendBeacon if available for better performance during page exit
       if (navigator.sendBeacon) {

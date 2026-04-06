@@ -1073,6 +1073,7 @@ export async function deleteProperty(
 // ── Property Photos & Documents (for edit modal) ─────────────────────────────
 
 export async function getPropertyPhotos(propertyId: string): Promise<PropertyPhotoItem[]> {
+  noStore();
   const adminClient = createAdminClient();
   const { data: rows, error } = await adminClient
     .from('property_photos')

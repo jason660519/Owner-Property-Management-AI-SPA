@@ -10,6 +10,15 @@ interface PerformanceMetrics {
   firstInputDelay: number
 }
 
+type LayoutShiftEntry = PerformanceEntry & {
+  value: number
+  hadRecentInput: boolean
+}
+
+function isLayoutShiftEntry(entry: PerformanceEntry): entry is LayoutShiftEntry {
+  return 'value' in entry && 'hadRecentInput' in entry
+}
+
 export function PerformanceMonitor() {
   const [metrics, setMetrics] = useState<PerformanceMetrics | null>(null)
   const [isVisible, setIsVisible] = useState(false)
@@ -37,19 +46,17 @@ export function PerformanceMonitor() {
         
         try {
           lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] })
-        } catch (e) {
+        } catch {
           // LCP 不支持時的備用方案
         }
 
         // 簡化的 CLS 測量
         let clsValue = 0
-        let clsEntries: PerformanceEntry[] = []
         
         const clsObserver = new PerformanceObserver((list) => {
           for (const entry of list.getEntries()) {
-            if (!(entry as any).hadRecentInput) {
-              clsEntries.push(entry)
-              clsValue += (entry as any).value
+            if (isLayoutShiftEntry(entry) && !entry.hadRecentInput) {
+              clsValue += entry.value
             }
           }
           
@@ -61,7 +68,7 @@ export function PerformanceMonitor() {
         
         try {
           clsObserver.observe({ entryTypes: ['layout-shift'] })
-        } catch (e) {
+        } catch {
           // CLS 不支持時的備用方案
         }
 

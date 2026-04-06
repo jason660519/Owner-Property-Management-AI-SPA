@@ -233,7 +233,10 @@ export default function ApplicationsPage() {
   }
 
   useEffect(() => {
-    load()
+    const t = window.setTimeout(() => {
+      void load()
+    }, 0)
+    return () => window.clearTimeout(t)
   }, [])
 
   const handleSubmit = async (id: string) => {

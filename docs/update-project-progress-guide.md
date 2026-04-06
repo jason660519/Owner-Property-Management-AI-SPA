@@ -183,16 +183,42 @@ http://localhost:3001/superadmin/dashboard/project-progress#testing
 4. **新增或更新項目**
 
    - **更新**：找到對應的 `name` 進行修改
-   - **新增**：在 `RAW_FEATURES` 陣列末尾加入新物件；請同時更新 `ROADMAP_DATA.lastUpdated`（第467行附近）為當日日期
+   - **新增**：在 `RAW_FEATURES` 陣列末尾加入新物件；請同時更新 `ROADMAP_DATA.lastUpdated`（檔案底部）為當日日期
 5. **必填欄位**：`name`、`category`、`percentage`、`lastModifiedBy`、`lastModifiedDate`
 6. **選填但建議填寫**：`locatedPage`、`featureSpecDocPath`、`tddSpecDocPath`、`docPath`、`e2eTestCoverage`、`devLog`
+7. **建立配套文件與目錄**（每次更新進度時必須檢查）：
+
+   根據 Row ID（如 `027`），檢查並建立以下檔案與目錄：
+
+   | 項目 | 路徑 | roadmap.ts 欄位 | 說明 |
+   | :--- | :--- | :--- | :--- |
+   | Dev Spec | `project-process/features/{功能名}-dev-spec-{YYYYMMDD}.md` | `featureSpecDocPath` | 功能規格說明書，含架構、API、檔案清單、擴充指南 |
+   | TDD Spec | `project-process/features/tdd-{功能名}-{YYYYMMDD}.md` | `tddSpecDocPath` | 測試規格，含單元/整合/E2E 測試案例、Mock 策略 |
+   | TDD Progress Report | `project-process/test-logs/test-{功能名}-{YYYY-MM-DD}.md` | `docPath` | 測試進度報告，含覆蓋率、手動驗證紀錄、待辦 |
+   | Unit Test 目錄 | `apps/superadmin/unit_test/{Row-ID}/` | `testScriptPath` | 單元與整合測試腳本存放處 |
+   | E2E Test 目錄 | `apps/superadmin/e2e/{Row-ID}/` | — | E2E 驗收測試腳本存放處 |
+
+   **流程**：
+   1. 確認 Row ID（如 `027`）
+   2. 建立上述 3 個 `.md` 文件（若已存在則更新內容）
+   3. 建立 `unit_test/{Row-ID}/` 和 `e2e/{Row-ID}/` 目錄（若已存在則跳過）
+   4. 在 roadmap.ts 中填入 `featureSpecDocPath`、`tddSpecDocPath`、`docPath`、`testScriptPath`
+
+   **範例**（Row ID = 027，備份系統）：
+   ```
+   project-process/features/backup-system-dev-spec-20260406.md
+   project-process/features/tdd-backup-system-20260406.md
+   project-process/test-logs/test-backup-system-2026-04-06.md
+   apps/superadmin/unit_test/027/
+   apps/superadmin/e2e/027/
+   ```
 
 ---
 
 ## 📝 新增任務範例
 
 ```typescript
-// === 2026-03-07 新增任務 ===
+// === 2026-04-06 新增任務 ===
 {
     name: "功能名稱（中英雙語建議）",
     locatedPage: "superadmin/dashboard/xxx",   // 或 "web/landlord/xxx"，待建則寫 "xxx (待建)"
@@ -200,16 +226,19 @@ http://localhost:3001/superadmin/dashboard/project-progress#testing
     phase: "development",                       // 若省略，系統自動推導
     category: "超級管理員 (Super Admin)",       // 見常用分類
     points: 5,                                  // Story Points（工作量估算）
-    featureSpecDocPath: "/project-process/features/xxx-spec-20260307.md",
-    tddSpecDocPath: "/project-process/features/tdd-xxx-20260307.md",
-    docPath: "",                                // TDD Progress Report（完成後填入）
+    featureSpecDocPath: "/project-process/features/xxx-dev-spec-20260406.md",
+    tddSpecDocPath: "/project-process/features/tdd-xxx-20260406.md",
+    docPath: "/project-process/test-logs/test-xxx-2026-04-06.md",
+    testScriptPath: "apps/superadmin/unit_test/028",
     devLog: "### 今日完成項目\n- ...",
     testProgress: "0%（尚未開始）",
     testLog: "",
-    lastModifiedBy: "Claude Sonnet 4.7",        // 執行此次工作的 AI 或工程師
-    lastModifiedDate: "2026/03/07"
+    lastModifiedBy: "Claude Opus 4.6",          // 執行此次工作的 AI 或工程師
+    lastModifiedDate: "2026/04/06"
 },
 ```
+
+> ⚠️ **重要**：新增任務後，務必同步建立上述 3 個 `.md` 文件和 2 個測試目錄，否則儀表板的連結會指向空白頁面。
 
 ---
 

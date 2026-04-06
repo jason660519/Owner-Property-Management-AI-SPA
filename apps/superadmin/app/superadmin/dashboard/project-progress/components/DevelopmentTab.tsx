@@ -24,9 +24,9 @@ import {
   X,
 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { getProjectProgressSettings, setProjectProgressSettings } from '../actions';
 import { useAISettings } from '@/lib/hooks/useAISettings';
-import type { CustomProjectProgressRowPayload, ProjectProgressSettingsPayload } from '../types';
+import { useTablePreferences } from '@/lib/hooks/useTablePreferences';
+import type { CustomProjectProgressRowPayload } from '../types';
 
 // --- Types ---
 
@@ -268,17 +268,62 @@ function buildPromptContext(
 
 const COLUMN_LETTERS = COLUMN_HEADERS.map((_, i) => String.fromCharCode(65 + i));
 
-const FREEZE_ROW_STORAGE_KEY = 'project_progress_freeze_row_v1';
-const FROZEN_DATA_COL_COUNT_KEY = 'project_progress_frozen_data_col_count_v2';
-const WIDTH_PRESETS_KEY = 'project_progress_col_widths_presets_v10';
-const HEADER_HEIGHT_KEY = 'project_progress_header_height_v1';
 const DEFAULT_HEADER_HEIGHT = 56;
 const MIN_HEADER_HEIGHT = 40;
 const MAX_HEADER_HEIGHT = 120;
-const ALIGNMENT_STORAGE_KEY = 'project_progress_col_alignments_v1';
-const CUSTOM_ROWS_STORAGE_KEY = 'project_progress_custom_rows_v1';
-const HIDDEN_ROW_KEYS_STORAGE_KEY = 'project_progress_hidden_row_keys_v1';
 const DEFAULT_COLUMN_ALIGNMENT: ColumnAlignment = { h: 'left', v: 'middle' };
+
+const DEV_TAB_PAGE_KEY = 'project_progress';
+const DEV_TAB_STORAGE_KEY = 'project_progress_settings_v2';
+const FREEZE_ROW_STORAGE_KEY = 'project_progress_freeze_row_v1';
+
+interface DevTabSettings extends Record<string, unknown> {
+  colWidths: number[];
+  headerHeight: number;
+  columnAlignments: ColumnAlignment[];
+  freezeRowCount: 0 | 1;
+  frozenDataColCount: number;
+  widthPresets: WidthPreset[];
+  customRows: CustomProjectProgressRowPayload[];
+  hiddenRowKeys: string[];
+}
+
+const DEV_TAB_DEFAULTS: DevTabSettings = {
+  colWidths: INITIAL_WIDTHS,
+  headerHeight: DEFAULT_HEADER_HEIGHT,
+  columnAlignments: COLUMN_HEADERS.map(() => ({ ...DEFAULT_COLUMN_ALIGNMENT })),
+  freezeRowCount: 1,
+  frozenDataColCount: 0,
+  widthPresets: [],
+  customRows: [],
+  hiddenRowKeys: [],
+};
+
+// One-time migration: merge old v1 localStorage keys into the new unified v2 key
+if (typeof window !== 'undefined' && !localStorage.getItem(DEV_TAB_STORAGE_KEY)) {
+  try {
+    const partial: Partial<DevTabSettings> = {};
+    const oldWidths = localStorage.getItem('project_progress_col_widths_v13');
+    if (oldWidths) { try { partial.colWidths = JSON.parse(oldWidths); } catch { /* ignore */ } }
+    const oldHeight = localStorage.getItem('project_progress_header_height_v1');
+    if (oldHeight) { const h = parseInt(oldHeight, 10); if (!Number.isNaN(h)) partial.headerHeight = h; }
+    const oldAlign = localStorage.getItem('project_progress_col_alignments_v1');
+    if (oldAlign) { try { partial.columnAlignments = JSON.parse(oldAlign); } catch { /* ignore */ } }
+    const oldFreezeRow = localStorage.getItem(FREEZE_ROW_STORAGE_KEY);
+    if (oldFreezeRow === '0') partial.freezeRowCount = 0;
+    const oldFrozenCol = localStorage.getItem('project_progress_frozen_data_col_count_v2');
+    if (oldFrozenCol) { const n = parseInt(oldFrozenCol, 10); if (!Number.isNaN(n)) partial.frozenDataColCount = n; }
+    const oldPresets = localStorage.getItem('project_progress_col_widths_presets_v10');
+    if (oldPresets) { try { partial.widthPresets = JSON.parse(oldPresets); } catch { /* ignore */ } }
+    const oldCustom = localStorage.getItem('project_progress_custom_rows_v1');
+    if (oldCustom) { try { partial.customRows = JSON.parse(oldCustom); } catch { /* ignore */ } }
+    const oldHidden = localStorage.getItem('project_progress_hidden_row_keys_v1');
+    if (oldHidden) { try { partial.hiddenRowKeys = JSON.parse(oldHidden); } catch { /* ignore */ } }
+    if (Object.keys(partial).length > 0) {
+      localStorage.setItem(DEV_TAB_STORAGE_KEY, JSON.stringify({ ...DEV_TAB_DEFAULTS, ...partial }));
+    }
+  } catch { /* ignore */ }
+}
 
 // --- Utilities ---
 
@@ -324,33 +369,40 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
 
-  const [colWidths, setColWidths] = useState<number[]>(INITIAL_WIDTHS);
-  const tableRef = useRef<HTMLDivElement>(null);
-  const currentWidthsRef = useRef<number[]>(INITIAL_WIDTHS);
+  // Persisted table preferences (localStorage cache + DB sync)
+  const { settings: tablePrefs, patch: patchTablePrefs } = useTablePreferences<DevTabSettings>({
+    pageKey: DEV_TAB_PAGE_KEY,
+    storageKey: DEV_TAB_STORAGE_KEY,
+    defaults: DEV_TAB_DEFAULTS,
+  });
 
-  const [headerHeight, setHeaderHeight] = useState(DEFAULT_HEADER_HEIGHT);
-  const headerHeightRef = useRef(DEFAULT_HEADER_HEIGHT);
+  // Derived values from persisted preferences
+  const colWidths = tablePrefs.colWidths;
+  const headerHeight = tablePrefs.headerHeight;
+  const widthPresets = tablePrefs.widthPresets;
+  const columnAlignments = tablePrefs.columnAlignments;
+  const freezeRowCount = tablePrefs.freezeRowCount;
+  const frozenDataColCount = tablePrefs.frozenDataColCount;
+  const customRows = tablePrefs.customRows;
+  const hiddenRowKeysSet = useMemo(() => new Set(tablePrefs.hiddenRowKeys), [tablePrefs.hiddenRowKeys]);
+
+  const tableRef = useRef<HTMLDivElement>(null);
+  const currentWidthsRef = useRef<number[]>(colWidths);
+  currentWidthsRef.current = colWidths;
+
+  const headerHeightRef = useRef(headerHeight);
   headerHeightRef.current = headerHeight;
 
-  const [widthPresets, setWidthPresets] = useState<WidthPreset[]>([]);
   const [saveWidthsOpen, setSaveWidthsOpen] = useState(false);
   const [savePresetName, setSavePresetName] = useState('');
   const saveWidthsRef = useRef<HTMLDivElement>(null);
 
-  const [columnAlignments, setColumnAlignments] = useState<ColumnAlignment[]>(
-    () => COLUMN_HEADERS.map(() => ({ ...DEFAULT_COLUMN_ALIGNMENT }))
-  );
   const [alignmentDropdownOpen, setAlignmentDropdownOpen] = useState(false);
   const [alignmentTargetCol, setAlignmentTargetCol] = useState(0);
   const alignmentDropdownRef = useRef<HTMLDivElement>(null);
 
   const [viewDropdownOpen, setViewDropdownOpen] = useState(false);
   const viewDropdownRef = useRef<HTMLDivElement>(null);
-
-  const [freezeRowCount, setFreezeRowCount] = useState<0 | 1>(1);
-  const [frozenDataColCount, setFrozenDataColCount] = useState(0);
-
-  const initialLoadDoneRef = useRef(false);
 
   const [colPxWidths, setColPxWidths] = useState<number[]>(() => COLUMN_HEADERS.map(() => 80));
   const frozenColLeftOffsets = useMemo(() => {
@@ -371,10 +423,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   const [ideSelections, setIdeSelections] = useState<Record<string, IDEOption>>({});
   const [statusSelections, setStatusSelections] = useState<Record<string, RowStatus>>({});
 
-  const [hiddenRowKeys, setHiddenRowKeys] = useState<Set<string>>(new Set());
   const [showHiddenRows, setShowHiddenRows] = useState(false);
-
-  const [customRows, setCustomRows] = useState<CustomProjectProgressRowPayload[]>([]);
   const [addRowOpen, setAddRowOpen] = useState(false);
   const [draftRowId, setDraftRowId] = useState('');
   const [draftCategory, setDraftCategory] = useState('自訂 (Custom)');
@@ -440,222 +489,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
     });
   }, [rows]);
 
-  // Load settings
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      let data: ProjectProgressSettingsPayload | null = null;
-      try {
-        const result = await getProjectProgressSettings();
-        if (cancelled) return;
-        data = result.data;
-      } catch {
-        if (cancelled) return;
-      }
-      if (data && Array.isArray(data.colWidths) && data.colWidths.length === COLUMN_HEADERS.length) {
-        const normalized = normalizeWidths(data.colWidths.map((n: number) => Number(n) || 0));
-        setColWidths(normalized);
-        currentWidthsRef.current = normalized;
-        localStorage.setItem('project_progress_col_widths_v13', JSON.stringify(normalized));
-      }
-      if (data?.headerHeight != null) {
-        const h = Number(data.headerHeight);
-        if (!Number.isNaN(h) && h >= MIN_HEADER_HEIGHT && h <= MAX_HEADER_HEIGHT) {
-          setHeaderHeight(h);
-          localStorage.setItem(HEADER_HEIGHT_KEY, String(h));
-        }
-      }
-      if (data?.columnAlignments && Array.isArray(data.columnAlignments) && data.columnAlignments.length === COLUMN_HEADERS.length) {
-        const valid = data.columnAlignments.every(
-          (p: { h: string; v: string }) =>
-            ['left', 'center', 'right'].includes(p.h) && ['top', 'middle', 'bottom'].includes(p.v)
-        );
-        if (valid) {
-          setColumnAlignments(data.columnAlignments as ColumnAlignment[]);
-          localStorage.setItem(ALIGNMENT_STORAGE_KEY, JSON.stringify(data.columnAlignments));
-        }
-      }
-      if (data?.freezeRowCount === 0 || data?.freezeRowCount === 1) {
-        setFreezeRowCount(data.freezeRowCount);
-        localStorage.setItem(FREEZE_ROW_STORAGE_KEY, String(data.freezeRowCount));
-      }
-      if (data?.frozenDataColCount != null) {
-        const c = Number(data.frozenDataColCount);
-        if (!Number.isNaN(c) && c >= 0 && c <= COLUMN_HEADERS.length) {
-          setFrozenDataColCount(c);
-          localStorage.setItem(FROZEN_DATA_COL_COUNT_KEY, String(c));
-        }
-      }
-      if (data?.widthPresets && Array.isArray(data.widthPresets)) {
-        const valid = data.widthPresets.filter(
-          (p: { id: string; name: string; widths: number[] }) =>
-            p && typeof p.id === 'string' && typeof p.name === 'string' && Array.isArray(p.widths) && p.widths.length === COLUMN_HEADERS.length
-        );
-        setWidthPresets(valid as WidthPreset[]);
-        localStorage.setItem(WIDTH_PRESETS_KEY, JSON.stringify(valid));
-      }
-      if (data?.customRows && Array.isArray(data.customRows)) {
-        const valid = data.customRows
-          .map((r: CustomProjectProgressRowPayload) => ({
-            ...r,
-            rowId: normalizeRowIdInput(r.rowId),
-            name: r.name?.trim?.() ?? '',
-            category: r.category?.trim?.() ?? '',
-            locatedPage: r.locatedPage?.trim?.() || undefined,
-          }))
-          .filter(r => Boolean(r.rowId) && Boolean(r.name) && Boolean(r.category));
-        setCustomRows(valid);
-        localStorage.setItem(CUSTOM_ROWS_STORAGE_KEY, JSON.stringify(valid));
-      }
-      if (data?.hiddenRowKeys && Array.isArray(data.hiddenRowKeys)) {
-        const valid = data.hiddenRowKeys.filter((k: unknown): k is string => typeof k === 'string' && k.trim().length > 0);
-        setHiddenRowKeys(new Set(valid));
-        localStorage.setItem(HIDDEN_ROW_KEYS_STORAGE_KEY, JSON.stringify(valid));
-      }
-      if (data) {
-        initialLoadDoneRef.current = true;
-        return;
-      }
-      // Fallback: localStorage
-      const saved = localStorage.getItem('project_progress_col_widths_v13');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length === COLUMN_HEADERS.length) {
-            const normalized = normalizeWidths(parsed.map((n: unknown) => Number(n) || 0));
-            setColWidths(normalized);
-            currentWidthsRef.current = normalized;
-          }
-        } catch (e) {
-          console.error('Failed to parse saved widths', e);
-        }
-      }
-      const savedHeight = localStorage.getItem(HEADER_HEIGHT_KEY);
-      if (savedHeight) {
-        const h = parseInt(savedHeight, 10);
-        if (!Number.isNaN(h) && h >= MIN_HEADER_HEIGHT && h <= MAX_HEADER_HEIGHT) {
-          setHeaderHeight(h);
-        }
-      }
-      const savedAlign = localStorage.getItem(ALIGNMENT_STORAGE_KEY);
-      if (savedAlign) {
-        try {
-          const parsed = JSON.parse(savedAlign) as unknown;
-          if (Array.isArray(parsed) && parsed.length === COLUMN_HEADERS.length) {
-            const valid = parsed.every(
-              (p: unknown) =>
-                typeof p === 'object' &&
-                p !== null &&
-                'h' in p &&
-                'v' in p &&
-                ['left', 'center', 'right'].includes((p as ColumnAlignment).h) &&
-                ['top', 'middle', 'bottom'].includes((p as ColumnAlignment).v)
-            );
-            if (valid) setColumnAlignments(parsed as ColumnAlignment[]);
-          }
-        } catch (e) {
-          console.error('Failed to parse saved alignments', e);
-        }
-      }
-      const savedFreezeRow = localStorage.getItem(FREEZE_ROW_STORAGE_KEY);
-      if (savedFreezeRow) {
-        const r = parseInt(savedFreezeRow, 10);
-        if (r === 0 || r === 1) setFreezeRowCount(r);
-        else if (r === 2) setFreezeRowCount(1);
-      }
-      const savedFrozenCol = localStorage.getItem(FROZEN_DATA_COL_COUNT_KEY);
-      if (savedFrozenCol) {
-        const c = parseInt(savedFrozenCol, 10);
-        if (!Number.isNaN(c) && c >= 0 && c <= COLUMN_HEADERS.length) setFrozenDataColCount(c);
-      }
-      const presetsRaw = localStorage.getItem(WIDTH_PRESETS_KEY);
-      if (presetsRaw) {
-        try {
-          const parsed = JSON.parse(presetsRaw);
-          if (Array.isArray(parsed)) {
-            const valid = parsed.filter(
-              (p: unknown): p is WidthPreset =>
-                typeof p === 'object' &&
-                p !== null &&
-                'id' in p &&
-                'name' in p &&
-                'widths' in p &&
-                Array.isArray((p as WidthPreset).widths) &&
-                (p as WidthPreset).widths.length === COLUMN_HEADERS.length
-            );
-            setWidthPresets(valid);
-          }
-        } catch (e) {
-          console.error('Failed to parse width presets', e);
-        }
-      }
-      const customRaw = localStorage.getItem(CUSTOM_ROWS_STORAGE_KEY);
-      if (customRaw) {
-        try {
-          const parsed = JSON.parse(customRaw) as unknown;
-          if (Array.isArray(parsed)) {
-            const valid = parsed
-              .filter((r: unknown): r is CustomProjectProgressRowPayload =>
-                typeof r === 'object' &&
-                r !== null &&
-                'rowId' in r &&
-                'name' in r &&
-                'category' in r &&
-                typeof (r as CustomProjectProgressRowPayload).rowId === 'string' &&
-                typeof (r as CustomProjectProgressRowPayload).name === 'string' &&
-                typeof (r as CustomProjectProgressRowPayload).category === 'string'
-              )
-              .map(r => ({
-                ...r,
-                rowId: normalizeRowIdInput(r.rowId),
-                name: r.name.trim(),
-                category: r.category.trim(),
-                locatedPage: r.locatedPage?.trim() || undefined,
-              }))
-              .filter(r => Boolean(r.rowId) && Boolean(r.name) && Boolean(r.category));
-            setCustomRows(valid);
-          }
-        } catch (e) {
-          console.error('Failed to parse custom rows', e);
-        }
-      }
-      const hiddenRaw = localStorage.getItem(HIDDEN_ROW_KEYS_STORAGE_KEY);
-      if (hiddenRaw) {
-        try {
-          const parsed = JSON.parse(hiddenRaw) as unknown;
-          if (Array.isArray(parsed)) {
-            const valid = parsed.filter((k: unknown): k is string => typeof k === 'string' && k.trim().length > 0);
-            setHiddenRowKeys(new Set(valid));
-          }
-        } catch (e) {
-          console.error('Failed to parse hidden rows', e);
-        }
-      }
-      initialLoadDoneRef.current = true;
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  // Persist settings to server
-  useEffect(() => {
-    if (!initialLoadDoneRef.current) return;
-    const payload: ProjectProgressSettingsPayload = {
-      colWidths,
-      headerHeight,
-      columnAlignments,
-      freezeRowCount,
-      frozenDataColCount,
-      widthPresets,
-      customRows,
-      hiddenRowKeys: Array.from(hiddenRowKeys),
-    };
-    const t = setTimeout(() => {
-      localStorage.setItem(CUSTOM_ROWS_STORAGE_KEY, JSON.stringify(customRows));
-      localStorage.setItem(HIDDEN_ROW_KEYS_STORAGE_KEY, JSON.stringify(Array.from(hiddenRowKeys)));
-      void setProjectProgressSettings(payload);
-    }, 500);
-    return () => clearTimeout(t);
-  }, [colWidths, headerHeight, columnAlignments, freezeRowCount, frozenDataColCount, widthPresets, customRows, hiddenRowKeys]);
+  // NOTE: Load/persist settings is now handled by useTablePreferences hook above
 
   // Compute column pixel widths
   useEffect(() => {
@@ -688,7 +522,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
       if (left >= minPct && right >= minPct) {
         newWidths[index] = left;
         newWidths[index + 1] = right;
-        setColWidths(newWidths);
+        patchTablePrefs({ colWidths: newWidths });
         currentWidthsRef.current = newWidths;
       }
     };
@@ -696,7 +530,6 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
     const onMouseUp = () => {
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
-      localStorage.setItem('project_progress_col_widths_v13', JSON.stringify(currentWidthsRef.current));
     };
 
     document.addEventListener('mousemove', onMouseMove);
@@ -719,7 +552,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
       if (left >= minPct && right >= minPct) {
         newWidths[leftIndex] = left;
         newWidths[rightIndex] = right;
-        setColWidths(newWidths);
+        patchTablePrefs({ colWidths: newWidths });
         currentWidthsRef.current = newWidths;
       }
     };
@@ -727,7 +560,6 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
     const onMouseUp = () => {
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
-      localStorage.setItem('project_progress_col_widths_v13', JSON.stringify(currentWidthsRef.current));
     };
 
     document.addEventListener('mousemove', onMouseMove);
@@ -744,7 +576,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
     const onMouseMove = (moveEvent: MouseEvent) => {
       const deltaY = moveEvent.pageY - startY;
       const next = Math.min(MAX_HEADER_HEIGHT, Math.max(MIN_HEADER_HEIGHT, startHeight + deltaY));
-      setHeaderHeight(next);
+      patchTablePrefs({ headerHeight: next });
       headerHeightRef.current = next;
     };
 
@@ -752,7 +584,6 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
       document.body.style.userSelect = prevUserSelect;
-      localStorage.setItem(HEADER_HEIGHT_KEY, String(headerHeightRef.current));
     };
 
     document.addEventListener('mousemove', onMouseMove);
@@ -760,42 +591,26 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   };
 
   const resetWidths = () => {
-    setColWidths(INITIAL_WIDTHS);
+    patchTablePrefs({ colWidths: INITIAL_WIDTHS, headerHeight: DEFAULT_HEADER_HEIGHT });
     currentWidthsRef.current = INITIAL_WIDTHS;
-    setHeaderHeight(DEFAULT_HEADER_HEIGHT);
-    localStorage.removeItem('project_progress_col_widths_v13');
-    localStorage.removeItem(HEADER_HEIGHT_KEY);
-  };
-
-  const persistPresets = (presets: WidthPreset[]) => {
-    localStorage.setItem(WIDTH_PRESETS_KEY, JSON.stringify(presets));
   };
 
   const saveCurrentAsPreset = () => {
     const name = savePresetName.trim();
     if (!name) return;
     const preset: WidthPreset = { id: crypto.randomUUID(), name, widths: [...currentWidthsRef.current] };
-    setWidthPresets(prev => {
-      const next = [...prev, preset];
-      persistPresets(next);
-      return next;
-    });
+    patchTablePrefs({ widthPresets: [...widthPresets, preset] });
     setSavePresetName('');
   };
 
   const loadPreset = (preset: WidthPreset) => {
-    setColWidths(preset.widths);
+    patchTablePrefs({ colWidths: preset.widths });
     currentWidthsRef.current = preset.widths;
-    localStorage.setItem('project_progress_col_widths_v13', JSON.stringify(preset.widths));
     setSaveWidthsOpen(false);
   };
 
   const deletePreset = (id: string) => {
-    setWidthPresets(prev => {
-      const next = prev.filter(p => p.id !== id);
-      persistPresets(next);
-      return next;
-    });
+    patchTablePrefs({ widthPresets: widthPresets.filter(p => p.id !== id) });
   };
 
   // Close save-widths dropdown
@@ -815,7 +630,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
     const q = searchQuery.toLowerCase();
     return rows.filter(r => {
       const rowKey = getRowKey(r.__source, r.__rowId);
-      const isHidden = hiddenRowKeys.has(rowKey);
+      const isHidden = hiddenRowKeysSet.has(rowKey);
       if (isHidden && !showHiddenRows) return false;
       const matchesSearch = r.name.toLowerCase().includes(q) ||
         r.category.toLowerCase().includes(q) ||
@@ -824,13 +639,13 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
       const matchesCategory = selectedCategories.size === 0 || selectedCategories.has(r.category);
       return matchesSearch && matchesCategoryDropdown && matchesCategory;
     });
-  }, [rows, searchQuery, categoryFilterSingle, selectedCategories, hiddenRowKeys, showHiddenRows]);
+  }, [rows, searchQuery, categoryFilterSingle, selectedCategories, hiddenRowKeysSet, showHiddenRows]);
 
   const hiddenRowsList = useMemo(() => {
     const map = new Map<string, ProgressRow>();
     rows.forEach(r => map.set(getRowKey(r.__source, r.__rowId), r));
-    return Array.from(hiddenRowKeys).map(key => ({ key, row: map.get(key) }));
-  }, [rows, hiddenRowKeys]);
+    return tablePrefs.hiddenRowKeys.map(key => ({ key, row: map.get(key) }));
+  }, [rows, tablePrefs.hiddenRowKeys]);
 
   const categoryList = useMemo(
     () => Array.from(new Set(rows.map(r => r.category))).sort(),
@@ -871,12 +686,9 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   }, [categoryDropdownOpen]);
 
   const setColumnAlignment = (colIndex: number, alignment: ColumnAlignment) => {
-    setColumnAlignments(prev => {
-      const next = [...prev];
-      next[colIndex] = alignment;
-      localStorage.setItem(ALIGNMENT_STORAGE_KEY, JSON.stringify(next));
-      return next;
-    });
+    const next = [...columnAlignments];
+    next[colIndex] = alignment;
+    patchTablePrefs({ columnAlignments: next });
   };
 
   // Close alignment dropdown
@@ -1234,7 +1046,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                     <div className="px-3 py-1 text-[10px] text-text-muted">列</div>
                     {([0, 1] as const).map((n) => (
                       <button key={n} type="button" role="menuitem"
-                        onClick={() => { setFreezeRowCount(n); localStorage.setItem(FREEZE_ROW_STORAGE_KEY, String(n)); setViewDropdownOpen(false); }}
+                        onClick={() => { patchTablePrefs({ freezeRowCount: n }); setViewDropdownOpen(false); }}
                         className={clsx('w-full text-left px-3 py-2 text-sm transition-colors',
                           freezeRowCount === n ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 font-medium' : 'text-text-primary hover:bg-bg-secondary'
                         )}>
@@ -1253,7 +1065,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                         })),
                       ].map(({ n, label }) => (
                         <button key={n} type="button" role="menuitem"
-                          onClick={() => { setFrozenDataColCount(n); localStorage.setItem(FROZEN_DATA_COL_COUNT_KEY, String(n)); setViewDropdownOpen(false); }}
+                          onClick={() => { patchTablePrefs({ frozenDataColCount: n }); setViewDropdownOpen(false); }}
                           className={clsx('w-full text-left px-3 py-2 text-sm transition-colors',
                             frozenDataColCount === n ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 font-medium' : 'text-text-primary hover:bg-bg-secondary'
                           )}>
@@ -1271,14 +1083,14 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                         onChange={(e) => setShowHiddenRows(e.target.checked)}
                         className="rounded border-border-default text-emerald-600 focus:ring-emerald-500/20"
                       />
-                      <span className="truncate">顯示隱藏列 {hiddenRowKeys.size > 0 ? `(${hiddenRowKeys.size})` : ''}</span>
+                      <span className="truncate">顯示隱藏列 {hiddenRowKeysSet.size > 0 ? `(${hiddenRowKeysSet.size})` : ''}</span>
                     </label>
-                    {hiddenRowKeys.size > 0 && (
+                    {hiddenRowKeysSet.size > 0 && (
                       <>
                         <div className="px-3 pb-1">
                           <button
                             type="button"
-                            onClick={() => setHiddenRowKeys(new Set())}
+                            onClick={() => patchTablePrefs({ hiddenRowKeys: [] })}
                             className="text-xs text-text-secondary hover:text-text-primary"
                           >
                             取消所有隱藏
@@ -1287,14 +1099,10 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                         <div className="max-h-[240px] overflow-y-auto border-t border-border-light mt-1 pt-1">
                           {hiddenRowsList.map(({ key, row }) => (
                             <button
-                              key={key}
+                              key={key as string}
                               type="button"
                               onClick={() => {
-                                setHiddenRowKeys(prev => {
-                                  const next = new Set(prev);
-                                  next.delete(key);
-                                  return next;
-                                });
+                                patchTablePrefs({ hiddenRowKeys: tablePrefs.hiddenRowKeys.filter(k => k !== key) });
                               }}
                               className="w-full text-left px-3 py-2 text-sm transition-colors text-text-primary hover:bg-bg-secondary"
                               title="取消隱藏"
@@ -1506,8 +1314,8 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                     setDraftError('請輸入 Category');
                     return;
                   }
-                  setCustomRows(prev => [
-                    ...prev,
+                  patchTablePrefs({ customRows: [
+                    ...customRows,
                     {
                       rowId: id,
                       name,
@@ -1515,7 +1323,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                       locatedPage: draftLocatedPage.trim() || undefined,
                       percentage: 0,
                     },
-                  ]);
+                  ] });
                   setAddRowOpen(false);
                 }}
                 className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700"
@@ -1595,7 +1403,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
             {filteredFeatures.map((row, rowIdx) => {
               const isRowSelected = selectionType === 'row' && selectedRow === rowIdx;
               const rowKey = getRowKey(row.__source, row.__rowId);
-              const isHidden = hiddenRowKeys.has(rowKey);
+              const isHidden = hiddenRowKeysSet.has(rowKey);
               return (
                 <div key={rowKey}
                   className={clsx(
@@ -1614,12 +1422,10 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setHiddenRowKeys(prev => {
-                              const next = new Set(prev);
-                              if (next.has(rowKey)) next.delete(rowKey);
-                              else next.add(rowKey);
-                              return next;
-                            });
+                            const current = new Set(tablePrefs.hiddenRowKeys);
+                            if (current.has(rowKey)) current.delete(rowKey);
+                            else current.add(rowKey);
+                            patchTablePrefs({ hiddenRowKeys: Array.from(current) });
                           }}
                           className="inline-flex items-center justify-center rounded border border-border-default bg-bg-secondary/60 p-1 text-text-muted hover:text-text-primary hover:bg-bg-secondary"
                           title={isHidden ? '顯示 Row' : '隱藏 Row'}
@@ -1632,7 +1438,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setCustomRows(prev => prev.filter(r => normalizeRowIdInput(r.rowId) !== row.__rowId));
+                              patchTablePrefs({ customRows: customRows.filter(r => normalizeRowIdInput(r.rowId) !== row.__rowId) });
                             }}
                             className="inline-flex items-center justify-center rounded border border-border-default bg-bg-secondary/60 p-1 text-text-muted hover:text-text-primary hover:bg-bg-secondary"
                             title="刪除自訂 Row"
@@ -1672,7 +1478,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                           const href = `/superadmin/docs?scope=${scope}&path=${encodeURIComponent(pathParam)}`;
                           const label = `${row.__rowId}-Dev-Spec.md`;
                           return (
-                            <a href={href} className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full" title={sp}>
+                            <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full" title={sp}>
                               <ExternalLink className="w-3 h-3 flex-shrink-0" />
                               <span className="truncate">{label}</span>
                             </a>
@@ -1692,7 +1498,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                         const href = `/superadmin/docs?scope=${scope}&path=${encodeURIComponent(pathParam)}`;
                         const label = `${row.__rowId}-TDD-Spec.md`;
                         return (
-                          <a href={href} className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full" title={tp}>
+                          <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full" title={tp}>
                             <ExternalLink className="w-3 h-3 flex-shrink-0" />
                             <span className="truncate">{label}</span>
                           </a>
@@ -1709,7 +1515,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                         const docsHref = `/superadmin/docs?scope=${scope}&path=${encodeURIComponent(pathParam)}`;
                         const label = `${row.__rowId}-TDD-Report.md`;
                         return (
-                          <a href={docsHref} className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full" title={docPath}>
+                          <a href={docsHref} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full" title={docPath}>
                             <ExternalLink className="w-3 h-3 flex-shrink-0" />
                             <span className="truncate">{label}</span>
                           </a>
@@ -1722,7 +1528,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                         const path = `apps/superadmin/unit_and_integration_test/${row.__rowId}`;
                         const href = `/superadmin/docs?scope=project&path=${encodeURIComponent(path)}`;
                         return (
-                          <a href={href} className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full" title={path}>
+                          <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full" title={path}>
                             <ExternalLink className="w-3 h-3 flex-shrink-0" />
                             <span className="truncate">{path}</span>
                           </a>
@@ -1735,7 +1541,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
                         const path = `apps/superadmin/e2e/${row.__rowId}`;
                         const href = `/superadmin/docs?scope=project&path=${encodeURIComponent(path)}`;
                         return (
-                          <a href={href} className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full" title={path}>
+                          <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full" title={path}>
                             <ExternalLink className="w-3 h-3 flex-shrink-0" />
                             <span className="truncate">{path}</span>
                           </a>

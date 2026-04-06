@@ -2,12 +2,14 @@
 // 物件調查報告書 — 預覽 + 列印 (忠實還原住商 Excel 格式)
 'use client';
 
-import { useCallback } from 'react';
-import { Printer, MapPin } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { Printer, MapPin, Loader2 } from 'lucide-react';
+import fontkit from '@pdf-lib/fontkit';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import type { InvestigationReport } from './types';
 import { sqmToPing, calcShareArea, calcBuildingTotal, hasConditionStatementContent } from './types';
 import { PREDEFINED_NOTES, STANDARD_CLAUSES } from './constants';
-import { CONDITION_STATEMENT_META } from './condition-statement-meta';
+import { GOV_CONDITION_ITEMS, renderNoteWithChecks } from './condition-statement-meta';
 import type { PropertyItem } from '@/lib/types/properties';
 
 interface Props {
@@ -26,6 +28,40 @@ function escapeHtml(s: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function pdfSafeText(value: string | number | null | undefined): string {
+  if (value == null) return '';
+  return String(value).replace(/[\u0000-\u001F\u007F]/g, '');
+}
+
+function pdfLatinSafeText(value: string | number | null | undefined): string {
+  if (value == null) return '';
+  return String(value).replace(/[^\x20-\x7E]/g, '');
+}
+
+function wrapByCharLimit(text: string, maxCharsPerLine: number, maxLines: number): string[] {
+  const cleaned = text.trim();
+  if (!cleaned) return [''];
+  const lines: string[] = [];
+  let cursor = 0;
+  while (cursor < cleaned.length && lines.length < maxLines) {
+    lines.push(cleaned.slice(cursor, cursor + maxCharsPerLine));
+    cursor += maxCharsPerLine;
+  }
+  if (cursor < cleaned.length && lines.length > 0) {
+    const last = lines.length - 1;
+    lines[last] = `${lines[last].slice(0, Math.max(0, maxCharsPerLine - 1))}…`;
+  }
+  return lines;
+}
+
+function sanitizeFileNameSegment(input: string): string {
+  return input
+    .replace(/[\\/:*?"<>|]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 60);
 }
 
 // ── Print CSS ──────────────────────────────────────────────────────────────
@@ -236,27 +272,72 @@ function buildHtml(report: InvestigationReport, property?: PropertyItem): string
   // ── 屋況說明書（至少填一欄才輸出此頁） ──
   const cs = report.conditionStatement;
   const hasCond = hasConditionStatementContent(cs);
-  const conditionPrintRows: [string, string][] = CONDITION_STATEMENT_META.map((row) => [
-    row.title,
-    cs[row.key],
-  ]);
+  const conditionPrintRows = GOV_CONDITION_ITEMS.map((item, idx) => {
+    const row = cs.govItems.find((r) => r.itemNo === idx + 1);
+    const templateRendered = renderNoteWithChecks(item.noteHint, row?.checkedBoxes ?? []);
+    const customNote = row?.note?.trim() ?? '';
+    return {
+      itemNo: idx + 1,
+      title: item.title,
+      answer: row?.answer ?? '',
+      note: [templateRendered, customNote].filter(Boolean).join('\n'),
+    };
+  });
+  const firstPageRows = conditionPrintRows.slice(0, 18);
+  const secondPageRows = conditionPrintRows.slice(18);
+  const renderGovRows = (rows: typeof conditionPrintRows) =>
+    rows
+      .map(
+        (row) => `
+    <tr>
+      <td class="vw" style="text-align:center;width:34px;">${row.itemNo}</td>
+      <td class="vw">${escapeHtml(row.title)}</td>
+      <td class="vw" style="text-align:center;width:30px;">${row.answer === 'yes' ? '■' : '□'}</td>
+      <td class="vw" style="text-align:center;width:30px;">${row.answer === 'no' ? '■' : '□'}</td>
+      <td class="vw" style="white-space:pre-wrap;">${row.note.trim() ? escapeHtml(row.note.trim()) : '—'}</td>
+    </tr>`,
+      )
+      .join('');
   const conditionPage = !hasCond
     ? ''
     : `
 <div class="page-break"></div>
-<h2 style="font-size:16px;text-align:center;letter-spacing:3px;margin-bottom:4px;">屋況說明書</h2>
-<p style="font-size:8.5px;color:#666;text-align:center;margin:0 0 14px;">${escapeHtml(addr)}　·　案名：${escapeHtml(report.caseName || '—')}</p>
+<h2 style="font-size:16px;text-align:center;letter-spacing:3px;margin-bottom:4px;">標的物現況說明書（成屋）</h2>
+<p style="font-size:8.5px;color:#666;text-align:center;margin:0 0 10px;">地址：${escapeHtml(cs.govAddress || addr || '—')}</p>
 <table>
-${conditionPrintRows
-  .map(
-    ([title, val]) =>
-      `<tr><td class="lbl" style="width:30%;vertical-align:top;">${escapeHtml(title)}</td><td class="vw" style="white-space:pre-wrap;">${
-        val.trim() ? escapeHtml(val.trim()) : '—'
-      }</td></tr>`,
-  )
-  .join('')}
+  <thead>
+    <tr>
+      <th style="width:34px;">項次</th>
+      <th>內容</th>
+      <th style="width:30px;">是</th>
+      <th style="width:30px;">否</th>
+      <th style="width:36%;">備註說明</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${renderGovRows(firstPageRows)}
+  </tbody>
 </table>
-<p style="font-size:8px;color:#666;margin-top:12px;line-height:1.5;">※ 本說明係依賣方／屋主揭露及現場看屋情形填寫，買方仍應自行詳查；欄位為「—」不代表無該等情事。</p>
+<p style="font-size:8px;color:#666;margin-top:10px;line-height:1.5;">委託人簽章：${escapeHtml(cs.govSigner || '—')}　簽立日期：${escapeHtml(cs.govSignedDate || '—')}</p>
+<p style="font-size:8px;color:#666;margin-top:4px;line-height:1.5;">※ 本表為委託人依現況填載，若有填載不實或後續變更，權利義務仍依契約與法令為準。</p>
+<div class="page-break"></div>
+<h2 style="font-size:16px;text-align:center;letter-spacing:3px;margin-bottom:4px;">標的物現況說明書（成屋）</h2>
+<p style="font-size:8.5px;color:#666;text-align:center;margin:0 0 10px;">地址：${escapeHtml(cs.govAddress || addr || '—')}</p>
+<table>
+  <thead>
+    <tr>
+      <th style="width:34px;">項次</th>
+      <th>內容</th>
+      <th style="width:30px;">是</th>
+      <th style="width:30px;">否</th>
+      <th style="width:36%;">備註說明</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${renderGovRows(secondPageRows)}
+  </tbody>
+</table>
+<p style="font-size:8px;color:#666;margin-top:10px;line-height:1.5;">委託人簽章：${escapeHtml(cs.govSigner || '—')}　簽立日期：${escapeHtml(cs.govSignedDate || '—')}</p>
 `;
 
   // ── Page 3: 不動產說明書（簽名頁 + 附件清單） ──
@@ -559,6 +640,8 @@ ${page9}
 // ── React Component ─────────────────────────────────────────────────────────
 
 export function ReportPreview({ report, property }: Props) {
+  const [isSavingPdf, setIsSavingPdf] = useState(false);
+  const [pdfNotice, setPdfNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const b = report.buildingAreas;
   const bldgTotal = calcBuildingTotal(b);
   const pingTotal = sqmToPing(bldgTotal);
@@ -573,6 +656,20 @@ export function ReportPreview({ report, property }: Props) {
   const selectedClauseTexts = STANDARD_CLAUSES.filter((clause) =>
     report.selectedNotes.includes(clause.id),
   ).map((clause) => `${clause.number}、${clause.text}`);
+  const govRows = GOV_CONDITION_ITEMS.map((item, index) => {
+    const itemNo = index + 1;
+    const row = report.conditionStatement.govItems.find((it) => it.itemNo === itemNo);
+    const templateRendered = renderNoteWithChecks(item.noteHint, row?.checkedBoxes ?? []);
+    const customNote = row?.note?.trim() || '';
+    return {
+      itemNo,
+      title: item.title,
+      yes: row?.answer === 'yes',
+      no: row?.answer === 'no',
+      note: [templateRendered, customNote].filter(Boolean).join('\n'),
+    };
+  });
+  const govPreviewPages = [govRows.slice(0, 24), govRows.slice(24)];
 
   const handlePrint = useCallback(() => {
     const htmlDoc = buildHtml(report, property);
@@ -587,6 +684,247 @@ export function ReportPreview({ report, property }: Props) {
     }
   }, [report, property]);
 
+  const handleSavePdf = useCallback(async () => {
+    if (isSavingPdf) return;
+    setPdfNotice(null);
+    setIsSavingPdf(true);
+    try {
+      const doc = await PDFDocument.create();
+      doc.registerFontkit(fontkit);
+      const fallbackFont = await doc.embedFont(StandardFonts.Helvetica);
+      const boldFallbackFont = await doc.embedFont(StandardFonts.HelveticaBold);
+
+      let font = fallbackFont;
+      let hasCjkFont = false;
+      try {
+        const resp = await fetch('/fonts/noto-sans-tc-chinese-traditional-400-normal.woff');
+        if (resp.ok) {
+          const bytes = new Uint8Array(await resp.arrayBuffer());
+          font = await doc.embedFont(bytes, { subset: true });
+          hasCjkFont = true;
+        }
+      } catch {
+        // fallback to Helvetica
+      }
+      const rows = GOV_CONDITION_ITEMS.map((govItem, i) => {
+      const item = report.conditionStatement.govItems.find((v) => v.itemNo === i + 1);
+      const ans = item?.answer === 'yes' ? 'Yes' : item?.answer === 'no' ? 'No' : '-';
+      const tplRendered = renderNoteWithChecks(govItem.noteHint, item?.checkedBoxes ?? []);
+      const customNote = item?.note?.trim() ?? '';
+      return {
+        no: String(i + 1),
+        content: govItem.title,
+        yes: ans === 'Yes' ? 'X' : '',
+        noVal: ans === 'No' ? 'X' : '',
+        note: [tplRendered, customNote].filter(Boolean).join('\n'),
+      };
+    });
+      const estimateRowHeight = (row: (typeof rows)[number]): number => {
+      const contentLines = wrapByCharLimit(
+        hasCjkFont ? pdfSafeText(row.content) : pdfLatinSafeText(row.content),
+        hasCjkFont ? 32 : 40,
+        2,
+      );
+      const noteLines = wrapByCharLimit(
+        hasCjkFont ? pdfSafeText(row.note) : pdfLatinSafeText(row.note),
+        hasCjkFont ? 22 : 28,
+        2,
+      );
+      const usedLines = Math.max(contentLines.length, noteLines.length);
+      return Math.max(24, 12 + usedLines * 10);
+    };
+      const pages: typeof rows[] = [];
+      let currentRows: typeof rows = [];
+      let currentHeight = 0;
+      const maxTableHeight = 24 * 24;
+      for (const row of rows) {
+        const h = estimateRowHeight(row);
+        if (currentRows.length > 0 && currentHeight + h > maxTableHeight) {
+          pages.push(currentRows);
+          currentRows = [];
+          currentHeight = 0;
+        }
+        currentRows.push(row);
+        currentHeight += h;
+      }
+      if (currentRows.length > 0) pages.push(currentRows);
+      const totalPages = pages.length;
+      const addr = report.conditionStatement.govAddress || fullAddress(report) || '—';
+      const textFont = font;
+      const headerFont = hasCjkFont ? textFont : boldFallbackFont;
+      const markFont = boldFallbackFont;
+
+      pages.forEach((pageRows, pageIndex) => {
+      const page = doc.addPage([595.28, 841.89]); // A4
+      const xNo = 28;
+      const xContent = 58;
+      const xYes = 382;
+      const xNoCol = 418;
+      const xNote = 454;
+      const tableRight = 567;
+      const baseRowH = 24;
+
+      const text = (v: string) => (hasCjkFont ? pdfSafeText(v) : pdfLatinSafeText(v));
+      let y = 810;
+
+      page.drawText(text('標 的 物 現 況 說 明 書（成屋）'), {
+        x: 162,
+        y,
+        size: 14,
+        font: headerFont,
+        color: rgb(0, 0, 0),
+      });
+      y -= 22;
+
+      page.drawText(text(`地址：${addr}`), {
+        x: 28,
+        y,
+        size: 10,
+        font: textFont,
+        color: rgb(0, 0, 0),
+      });
+      y -= 16;
+      page.drawText(
+        text('※本表為委託人依現況填載；若有填載不實或日後變更，其權利義務仍依契約及法令為準。'),
+        { x: 28, y, size: 7.5, font: textFont, color: rgb(0.2, 0.2, 0.2) },
+      );
+      y -= 12;
+      page.drawText(text('※注意：委託人依法應負瑕疵擔保責任；現況如有變更，應如實告知買方。'), {
+        x: 28,
+        y,
+        size: 7.5,
+        font: textFont,
+        color: rgb(0.2, 0.2, 0.2),
+      });
+      y -= 14;
+
+      const headerTop = y;
+      const headerBottom = y - baseRowH;
+      page.drawRectangle({
+        x: xNo,
+        y: headerBottom,
+        width: tableRight - xNo,
+        height: baseRowH,
+        borderWidth: 1,
+        borderColor: rgb(0.4, 0.4, 0.4),
+        color: rgb(0.94, 0.94, 0.94),
+      });
+      for (const x of [xContent, xYes, xNoCol, xNote]) {
+        page.drawLine({
+          start: { x, y: headerTop },
+          end: { x, y: headerBottom },
+          thickness: 1,
+          color: rgb(0.4, 0.4, 0.4),
+        });
+      }
+      page.drawText(text('項次'), { x: xNo + 6, y: y - 15, size: 9, font: headerFont });
+      page.drawText(text('內容'), { x: xContent + 6, y: y - 15, size: 9, font: headerFont });
+      page.drawText(text('是'), { x: xYes + 12, y: y - 15, size: 9, font: headerFont });
+      page.drawText(text('否'), { x: xNoCol + 12, y: y - 15, size: 9, font: headerFont });
+      page.drawText(text('備註說明'), { x: xNote + 6, y: y - 15, size: 9, font: headerFont });
+      y = headerBottom;
+
+      for (const row of pageRows) {
+        const contentLines = wrapByCharLimit(text(row.content), hasCjkFont ? 32 : 40, 2);
+        const noteLines = wrapByCharLimit(text(row.note), hasCjkFont ? 22 : 28, 2);
+        const usedLines = Math.max(contentLines.length, noteLines.length);
+        const rowH = Math.max(baseRowH, 12 + usedLines * 10);
+        const top = y;
+        const bottom = y - rowH;
+        page.drawRectangle({
+          x: xNo,
+          y: bottom,
+          width: tableRight - xNo,
+          height: rowH,
+          borderWidth: 1,
+          borderColor: rgb(0.7, 0.7, 0.7),
+        });
+        for (const x of [xContent, xYes, xNoCol, xNote]) {
+          page.drawLine({
+            start: { x, y: top },
+            end: { x, y: bottom },
+            thickness: 1,
+            color: rgb(0.7, 0.7, 0.7),
+          });
+        }
+
+        const firstLineY = y - 15;
+        page.drawText(text(row.no), { x: xNo + 9, y: firstLineY, size: 8.5, font: textFont });
+        contentLines.forEach((line, idx) => {
+          page.drawText(line, {
+            x: xContent + 6,
+            y: firstLineY - idx * 10,
+            size: 8,
+            font: textFont,
+          });
+        });
+        if (row.yes) page.drawText('■', { x: xYes + 11, y: firstLineY, size: 10, font: markFont });
+        if (row.noVal) page.drawText('■', { x: xNoCol + 11, y: firstLineY, size: 10, font: markFont });
+        noteLines.forEach((line, idx) => {
+          page.drawText(line, {
+            x: xNote + 6,
+            y: firstLineY - idx * 10,
+            size: 7.5,
+            font: textFont,
+          });
+        });
+        y = bottom;
+      }
+
+      y -= 12;
+      page.drawLine({
+        start: { x: 86, y },
+        end: { x: 220, y },
+        thickness: 0.8,
+        color: rgb(0.5, 0.5, 0.5),
+      });
+      page.drawText(text(`委託人簽章：${report.conditionStatement.govSigner || '—'}`), {
+        x: 28,
+        y: y + 2,
+        size: 9,
+        font: textFont,
+      });
+      page.drawLine({
+        start: { x: 386, y },
+        end: { x: 520, y },
+        thickness: 0.8,
+        color: rgb(0.5, 0.5, 0.5),
+      });
+      page.drawText(text(`簽立日期：${report.conditionStatement.govSignedDate || '—'}`), {
+        x: 330,
+        y: y + 2,
+        size: 9,
+        font: textFont,
+      });
+      page.drawText(text(`第 ${pageIndex + 1} 頁  共 ${totalPages} 頁`), {
+        x: 252,
+        y: 20,
+        size: 9,
+        font: textFont,
+      });
+      });
+
+      const bytes = await doc.save();
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const datePart = new Date().toISOString().slice(0, 10);
+      const casePart = sanitizeFileNameSegment(report.caseName || '未命名案件');
+      const addrPart = sanitizeFileNameSegment(
+        report.conditionStatement.govAddress || fullAddress(report) || '地址未填',
+      );
+      a.href = url;
+      a.download = `標的物現況說明書_${casePart}_${addrPart}_${datePart}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setPdfNotice({ type: 'success', message: 'PDF 已開始下載，請查看瀏覽器下載清單。' });
+    } catch {
+      setPdfNotice({ type: 'error', message: 'PDF 產生失敗，請稍後重試。' });
+    } finally {
+      setIsSavingPdf(false);
+    }
+  }, [isSavingPdf, report]);
+
   const addr = fullAddress(report);
 
   // ── Inline preview (screen) ─────────────────────────────────────────────
@@ -595,15 +933,37 @@ export function ReportPreview({ report, property }: Props) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-bold text-text-primary">報告書預覽</h4>
-        <button
-          type="button"
-          onClick={handlePrint}
-          className="flex items-center gap-1.5 px-4 py-2 bg-accent text-white text-sm rounded-md hover:bg-accent-hover transition-colors"
-        >
-          <Printer size={14} />
-          列印報告書（A4）
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="flex items-center gap-1.5 px-4 py-2 bg-accent text-white text-sm rounded-md hover:bg-accent-hover transition-colors"
+          >
+            <Printer size={14} />
+            列印報告書（A4）
+          </button>
+          <button
+            type="button"
+            onClick={handleSavePdf}
+            disabled={isSavingPdf}
+            className="flex items-center gap-1.5 px-4 py-2 border border-border-default text-text-primary text-sm rounded-md hover:bg-bg-tertiary transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {isSavingPdf ? <Loader2 size={14} className="animate-spin" /> : null}
+            {isSavingPdf ? 'PDF 產生中…' : '另存 PDF'}
+          </button>
+        </div>
       </div>
+      {pdfNotice && (
+        <div
+          className={`px-3 py-2 rounded-md text-xs border ${
+            pdfNotice.type === 'success'
+              ? 'bg-green-500/10 text-green-500 border-green-500/25'
+              : 'bg-red-500/10 text-red-500 border-red-500/25'
+          }`}
+        >
+          {pdfNotice.message}
+        </div>
+      )}
 
       {/* Screen preview */}
       <div className="bg-bg-primary border border-border-default rounded-lg overflow-hidden text-text-primary text-xs">
@@ -775,27 +1135,51 @@ export function ReportPreview({ report, property }: Props) {
         {/* ── 屋況說明書 ── */}
         {hasConditionStatementContent(report.conditionStatement) && (
           <div className="p-4 border-t border-border-default">
-            <p className="text-[10px] font-bold text-text-secondary mb-1">屋況說明書</p>
+            <p className="text-[10px] font-bold text-text-secondary mb-1">標的物現況說明書（成屋）</p>
             <p className="text-[10px] text-text-muted mb-3">
-              {addr || '—'}　·　案名：{report.caseName || '—'}
+              地址：{report.conditionStatement.govAddress || addr || '—'}
             </p>
-            <div className="space-y-0 border border-border-default rounded-md divide-y divide-border-default overflow-hidden">
-              {CONDITION_STATEMENT_META.map((row) => {
-                const val = report.conditionStatement[row.key]?.trim();
-                return (
-                  <div
-                    key={row.key}
-                    className="px-2 py-1.5 grid grid-cols-1 sm:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] gap-1.5 text-[10px]"
-                  >
-                    <span className="text-text-muted font-medium">{row.title}</span>
-                    <span className="text-text-primary whitespace-pre-wrap">{val || '—'}</span>
+            <div className="space-y-3">
+              {govPreviewPages.map((pageRows, pageIdx) => (
+                <div key={pageIdx} className="border border-border-default rounded-md overflow-hidden">
+                  <div className="px-3 py-2 border-b border-border-default bg-bg-secondary">
+                    <p className="text-[11px] font-semibold text-text-primary">標 的 物 現 況 說 明 書（成屋）</p>
+                    <p className="text-[10px] text-text-muted mt-1">
+                      ※本表為委託人依現況填載；若有填載不實或日後變更，權利義務仍依契約及法令為準。
+                    </p>
                   </div>
-                );
-              })}
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[900px]">
+                      <thead>
+                        <tr className="bg-bg-tertiary">
+                          <th className="w-14">項次</th>
+                          <th>內容</th>
+                          <th className="w-12">是</th>
+                          <th className="w-12">否</th>
+                          <th className="w-80">備註說明</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pageRows.map((row) => (
+                          <tr key={row.itemNo}>
+                            <td className="text-center align-top py-1.5">{row.itemNo}</td>
+                            <td className="align-top py-1.5 leading-5">{row.title}</td>
+                            <td className="text-center align-top py-1.5">{row.yes ? '■' : '□'}</td>
+                            <td className="text-center align-top py-1.5">{row.no ? '■' : '□'}</td>
+                            <td className="whitespace-pre-wrap align-top py-1.5">{row.note || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="px-3 py-2 border-t border-border-default text-[10px] text-text-muted flex items-center justify-between">
+                    <span>委託人簽章：{report.conditionStatement.govSigner || '—'}</span>
+                    <span>簽立日期：{report.conditionStatement.govSignedDate || '—'}</span>
+                    <span>第 {pageIdx + 1} 頁 / 共 {govPreviewPages.length} 頁</span>
+                  </div>
+                </div>
+              ))}
             </div>
-            <p className="text-[9px] text-text-muted mt-2 leading-relaxed">
-              ※ 依賣方揭露及看屋情形填寫；「—」不代表無該等情事。
-            </p>
           </div>
         )}
 

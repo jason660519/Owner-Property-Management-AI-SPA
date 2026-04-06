@@ -13,14 +13,20 @@ import { ROLE_METADATA } from '@/config/roles';
 import type { RoleMetadata } from '@/config/roles';
 import { canonicalizeRole } from '@/lib/roles';
 
+type RoleCardData = Omit<RoleMetadata, 'role'> & { role: string };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 // Helper to get role metadata (fallback if not in ROLE_METADATA)
-const getRoleData = (role: string): RoleMetadata => {
+const getRoleData = (role: string): RoleCardData => {
   const found = ROLE_METADATA.find((r) => r.role === role);
   if (found) return found;
 
   // Fallback
   return {
-    role: role as any,
+    role,
     displayName: role.charAt(0).toUpperCase() + role.slice(1),
     description: `${role} 管理後台`,
     icon: ShieldCheck,
@@ -68,11 +74,11 @@ export default function PortalPage() {
       };
 
       if (Array.isArray(rawRoles)) {
-        rawRoles.forEach((item: any) => {
+        rawRoles.forEach((item: unknown) => {
           if (typeof item === 'string') {
             pushRole(item, false);
-          } else if (typeof item === 'object' && item.role) {
-            pushRole(item.role, !!item.disabled);
+          } else if (isRecord(item) && typeof item.role === 'string') {
+            pushRole(item.role, Boolean(item.disabled));
           }
         });
       }
@@ -88,7 +94,7 @@ export default function PortalPage() {
       });
 
       setRoles(sortedRoles);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching portal data:', err);
       // "若 API 回傳 403/404" - server action catches and returns success: false
       // Display specific alert message

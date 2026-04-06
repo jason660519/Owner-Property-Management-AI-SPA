@@ -92,7 +92,7 @@ describe('Auth Validators', () => {
     test('應該拒絕無效的角色', () => {
       const result = signUpSchema.safeParse({
         ...validData,
-        role: 'invalid_role' as any,
+        role: 'invalid_role' as unknown as string,
       });
       expect(result.success).toBe(false);
     });

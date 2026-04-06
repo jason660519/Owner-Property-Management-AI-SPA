@@ -2,6 +2,16 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
+type PropertySummary = {
+  id: string
+  title: string | null
+  address: string | null
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
   const { searchParams } = new URL(req.url)
@@ -53,7 +63,7 @@ export async function GET(req: NextRequest) {
   // We collect all property_ids
   const propertyIds = Array.from(new Set(appointments.map(a => a.property_id)))
   
-  let propertiesMap: Record<string, any> = {}
+  const propertiesMap: Record<string, PropertySummary> = {}
   
   if (propertyIds.length > 0) {
     // Try property_rentals first
@@ -63,7 +73,15 @@ export async function GET(req: NextRequest) {
       .in('id', propertyIds)
     
     if (rentals) {
-      rentals.forEach(p => propertiesMap[p.id] = p)
+      rentals.forEach((p) => {
+        if (isRecord(p) && typeof p.id === 'string') {
+          propertiesMap[p.id] = {
+            id: p.id,
+            title: typeof p.title === 'string' ? p.title : null,
+            address: typeof p.address === 'string' ? p.address : null,
+          }
+        }
+      })
     }
 
     // Also try property_sales just in case
@@ -73,7 +91,15 @@ export async function GET(req: NextRequest) {
         .in('id', propertyIds)
 
     if (sales) {
-        sales.forEach(p => propertiesMap[p.id] = p)
+        sales.forEach((p) => {
+          if (isRecord(p) && typeof p.id === 'string') {
+            propertiesMap[p.id] = {
+              id: p.id,
+              title: typeof p.title === 'string' ? p.title : null,
+              address: typeof p.address === 'string' ? p.address : null,
+            }
+          }
+        })
     }
   }
 

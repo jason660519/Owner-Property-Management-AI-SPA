@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -21,7 +21,7 @@ import {
   sanitizeSourcePath,
 } from '@/app/contact/utils';
 
-export default function ContactPage() {
+function ContactPageContent() {
   const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionResult, setSubmissionResult] =
@@ -386,5 +386,13 @@ export default function ContactPage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function ContactPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#141414]" />}>
+      <ContactPageContent />
+    </Suspense>
   );
 }

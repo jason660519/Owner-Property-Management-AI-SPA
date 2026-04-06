@@ -1,4 +1,4 @@
-import { Search, Filter } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { clsx } from 'clsx'
 import { MessageFilter } from '../../types/message'
 
@@ -8,7 +8,7 @@ interface MessageFiltersProps {
 }
 
 export function MessageFilters({ filter, onFilterChange }: MessageFiltersProps) {
-  const categories = [
+  const categories: { id: NonNullable<MessageFilter['type']>; label: string }[] = [
     { id: 'all', label: '全部訊息' },
     { id: 'unread', label: '未讀' },
     { id: 'starred', label: '星標' }, // Future feature
@@ -31,7 +31,7 @@ export function MessageFilters({ filter, onFilterChange }: MessageFiltersProps) 
         {categories.map((cat) => (
           <button
             key={cat.id}
-            onClick={() => onFilterChange({ ...filter, type: cat.id as any })}
+            onClick={() => onFilterChange({ ...filter, type: cat.id })}
             className={clsx(
               'px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors',
               (filter.type || 'all') === cat.id

@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useEffect, useState } from 'react'
+import { use, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -34,47 +34,31 @@ interface PropertyDetail {
 export default function PropertyDetailPage({ params }: PropertyDetailsProps) {
   const resolvedParams = use(params)
   const router = useRouter()
-  const [property, setProperty] = useState<PropertyDetail | null>(null)
+  const [property] = useState<PropertyDetail>(() => ({
+    id: resolvedParams.id,
+    title: '台北市大安區精緻公寓',
+    address: '台北市大安區和平東路三段 123 號',
+    type: 'rental',
+    status: 'available',
+    price: 25000,
+    area: 25,
+    bedrooms: 2,
+    bathrooms: 1,
+    floor: 5,
+    totalFloors: 12,
+    description:
+      '位於大安區精華地段的優質公寓，鄰近捷運站僅需步行 5 分鐘，周邊生活機能完善，有全聯、家樂福等購物商場。\n\n房屋採光良好，南北通風，格局方正實用。社區管理完善，24小時保全服務，讓您住得安心。\n\n適合小家庭或上班族居住。',
+    images: [
+      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200',
+      'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1200',
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200',
+    ],
+    ownerName: '張先生',
+    buildingNumber: 'A12345678',
+    landNumber: 'L98765432',
+    createdAt: '2026-01-15',
+  }))
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
-
-  useEffect(() => {
-    // TODO: 從 Supabase 查詢實際數據
-    // 目前使用模擬數據
-    setProperty({
-      id: resolvedParams.id,
-      title: '台北市大安區精緻公寓',
-      address: '台北市大安區和平東路三段 123 號',
-      type: 'rental',
-      status: 'available',
-      price: 25000,
-      area: 25,
-      bedrooms: 2,
-      bathrooms: 1,
-      floor: 5,
-      totalFloors: 12,
-      description: '位於大安區精華地段的優質公寓，鄰近捷運站僅需步行 5 分鐘，周邊生活機能完善，有全聯、家樂福等購物商場。\n\n房屋採光良好，南北通風，格局方正實用。社區管理完善，24小時保全服務，讓您住得安心。\n\n適合小家庭或上班族居住。',
-      images: [
-        'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200',
-        'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1200',
-        'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200',
-      ],
-      ownerName: '張先生',
-      buildingNumber: 'A12345678',
-      landNumber: 'L98765432',
-      createdAt: '2026-01-15',
-    })
-  }, [resolvedParams.id])
-
-  if (!property) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-[#7C3AED] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-[#999999]">載入中...</p>
-        </div>
-      </div>
-    )
-  }
 
   const formatPrice = (price: number, type: string) => {
     if (type === 'sale') {

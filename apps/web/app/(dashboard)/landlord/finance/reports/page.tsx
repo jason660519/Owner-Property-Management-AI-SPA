@@ -9,10 +9,44 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Select } from '@/components/ui/Select' // Or native select if component issue
 import { useToast } from '@/components/ui/Toast'
 
+type ReportType = 'income_statement' | 'tax'
+
+type IncomeStatementRow = {
+  month: number
+  rent_income: number
+  maintenance: number
+  utility: number
+  other: number
+  total_income: number
+  total_expense: number
+  net_income: number
+}
+
+type TaxReport = {
+  year: string | number
+  totalIncome: number
+  deductibleExpenses: number
+  taxableIncome: number
+  expenseBreakdown?: Record<string, number>
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function toNumber(value: unknown): number {
+  if (typeof value === 'number') return value
+  if (typeof value === 'string' && value.trim() !== '') {
+    const n = Number(value)
+    return Number.isFinite(n) ? n : 0
+  }
+  return 0
+}
+
 export default function ReportsPage() {
-  const [reportType, setReportType] = useState('income_statement')
+  const [reportType, setReportType] = useState<ReportType>('income_statement')
   const [year, setYear] = useState(new Date().getFullYear().toString())
-  const [reportData, setReportData] = useState<any>(null)
+  const [reportData, setReportData] = useState<IncomeStatementRow[] | TaxReport | null>(null)
   const [loading, setLoading] = useState(false)
   const { showToast } = useToast()
 
@@ -21,8 +55,47 @@ export default function ReportsPage() {
     try {
       const res = await fetch(`/api/landlord/finance/reports?type=${reportType}&year=${year}`)
       if (!res.ok) throw new Error('Failed')
-      const data = await res.json()
-      setReportData(data)
+      const data = (await res.json()) as unknown
+      if (reportType === 'income_statement') {
+        const rows = Array.isArray(data)
+          ? data
+              .filter(isRecord)
+              .map((row) => ({
+                month: toNumber(row.month),
+                rent_income: toNumber(row.rent_income),
+                maintenance: toNumber(row.maintenance),
+                utility: toNumber(row.utility),
+                other: toNumber(row.other),
+                total_income: toNumber(row.total_income),
+                total_expense: toNumber(row.total_expense),
+                net_income: toNumber(row.net_income),
+              }))
+          : []
+        setReportData(rows)
+      } else {
+        if (isRecord(data)) {
+          const breakdown: Record<string, number> | undefined = isRecord(data.expenseBreakdown)
+            ? Object.fromEntries(
+                Object.entries(data.expenseBreakdown).map(([k, v]) => [k, toNumber(v)])
+              )
+            : undefined
+          setReportData({
+            year: typeof data.year === 'string' || typeof data.year === 'number' ? data.year : year,
+            totalIncome: toNumber(data.totalIncome),
+            deductibleExpenses: toNumber(data.deductibleExpenses),
+            taxableIncome: toNumber(data.taxableIncome),
+            expenseBreakdown: breakdown,
+          })
+        } else {
+          setReportData({
+            year,
+            totalIncome: 0,
+            deductibleExpenses: 0,
+            taxableIncome: 0,
+            expenseBreakdown: {},
+          })
+        }
+      }
     } catch (error) {
       showToast({ type: 'error', message: '產生報表失敗' })
     } finally {
@@ -35,19 +108,21 @@ export default function ReportsPage() {
     
     let csvContent = "data:text/csv;charset=utf-8,"
     
-    if (reportType === 'income_statement') {
+    if (reportType === 'income_statement' && Array.isArray(reportData)) {
       csvContent += "月份,租金收入,維修費,水電費,其他支出,總收入,總支出,淨收入\n"
-      reportData.forEach((row: any) => {
+      reportData.forEach((row) => {
         csvContent += `${row.month}月,${row.rent_income},${row.maintenance},${row.utility},${row.other},${row.total_income},${row.total_expense},${row.net_income}\n`
       })
     } else {
       // Tax Report
-      csvContent += "年度,總收入,可扣抵費用,應稅所得\n"
-      csvContent += `${reportData.year},${reportData.totalIncome},${reportData.deductibleExpenses},${reportData.taxableIncome}\n`
-      csvContent += "\n費用明細\n類別,金額\n"
-      Object.entries(reportData.expenseBreakdown || {}).forEach(([cat, amount]) => {
+      if (reportData && !Array.isArray(reportData)) {
+        csvContent += "年度,總收入,可扣抵費用,應稅所得\n"
+        csvContent += `${reportData.year},${reportData.totalIncome},${reportData.deductibleExpenses},${reportData.taxableIncome}\n`
+        csvContent += "\n費用明細\n類別,金額\n"
+        Object.entries(reportData.expenseBreakdown || {}).forEach(([cat, amount]) => {
           csvContent += `${cat},${amount}\n`
-      })
+        })
+      }
     }
 
     const encodedUri = encodeURI(csvContent)
@@ -81,7 +156,12 @@ export default function ReportsPage() {
               <label className="text-sm text-[#999999]">報表類型</label>
               <select
                 value={reportType}
-                onChange={(e) => setReportType(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value
+                  if (value === 'income_statement' || value === 'tax') {
+                    setReportType(value)
+                  }
+                }}
                 className="flex h-10 w-full rounded-md border border-[#333333] bg-[#1A1A1A] px-3 py-2 text-sm text-white ring-offset-[#1A1A1A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C3AED]"
               >
                 <option value="income_statement">年度損益表 (Income Statement)</option>
@@ -141,7 +221,7 @@ export default function ReportsPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#333333]">
-                      {reportData.map((row: any) => (
+                      {Array.isArray(reportData) && reportData.map((row) => (
                         <tr key={row.month} className="hover:bg-[#262626]/50">
                           <td className="px-4 py-3 text-white">{row.month}月</td>
                           <td className="px-4 py-3 text-right">{row.rent_income.toLocaleString()}</td>
@@ -160,15 +240,15 @@ export default function ReportsPage() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="p-4 bg-[#262626] rounded-lg">
                         <p className="text-[#999999] text-sm">年度總收入</p>
-                        <p className="text-2xl font-bold text-white">{reportData.totalIncome?.toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-white">{!Array.isArray(reportData) ? reportData?.totalIncome?.toLocaleString() : ''}</p>
                       </div>
                       <div className="p-4 bg-[#262626] rounded-lg">
                         <p className="text-[#999999] text-sm">可扣抵費用</p>
-                        <p className="text-2xl font-bold text-white">{reportData.deductibleExpenses?.toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-white">{!Array.isArray(reportData) ? reportData?.deductibleExpenses?.toLocaleString() : ''}</p>
                       </div>
                       <div className="p-4 bg-[#262626] rounded-lg border border-purple-500/30">
                         <p className="text-purple-400 text-sm">預估應稅所得</p>
-                        <p className="text-2xl font-bold text-white">{reportData.taxableIncome?.toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-white">{!Array.isArray(reportData) ? reportData?.taxableIncome?.toLocaleString() : ''}</p>
                       </div>
                     </div>
 
@@ -182,10 +262,11 @@ export default function ReportsPage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#333333]">
-                          {Object.entries(reportData.expenseBreakdown || {}).map(([cat, amount]: [string, any]) => (
+                          {!Array.isArray(reportData) &&
+                            Object.entries(reportData?.expenseBreakdown || {}).map(([cat, amount]) => (
                             <tr key={cat}>
                               <td className="px-4 py-3 text-white capitalize">{cat}</td>
-                              <td className="px-4 py-3 text-right">{amount.toLocaleString()}</td>
+                              <td className="px-4 py-3 text-right">{toNumber(amount).toLocaleString()}</td>
                             </tr>
                           ))}
                         </tbody>

@@ -25,8 +25,14 @@ jest.mock('next/server', () => ({
 
 describe('OAuth Callback Route Handler', () => {
   const mockOrigin = 'http://localhost:3000';
-  let mockSupabase: any;
-  let mockAdminClient: any;
+  let mockSupabase: {
+    auth: {
+      exchangeCodeForSession: jest.Mock;
+      getUser: jest.Mock;
+    };
+    from: jest.Mock;
+  };
+  let mockAdminClient: Record<string, unknown>;
 
   beforeEach(() => {
     jest.clearAllMocks();

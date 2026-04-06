@@ -1,4 +1,10 @@
 # ============================================
+# Backup files (auto-generated, do not commit)
+# ============================================
+apps/superadmin/backups/*.json
+!apps/superadmin/backups/.gitkeep
+
+# ============================================
 # Dependencies
 # ============================================
 node_modules/

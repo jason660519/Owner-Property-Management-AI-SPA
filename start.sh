@@ -65,6 +65,8 @@ ensure_supabase_running() {
     export SUPABASE_URL=$(supabase status 2>/dev/null | grep "API URL" | awk '{print $3}')
     # 自動寫入/更新 apps/web 與 apps/superadmin 的 .env.local 中的 Supabase 變數
     ensure_web_env_supabase
+    # 資料完整性檢查：storage volume 有檔案但 DB metadata 不一致時提示還原
+    check_storage_integrity
 }
 
 # 從 supabase status -o env 取得 API_URL / ANON_KEY / SERVICE_ROLE_KEY，寫入或合併到 apps/web 與 apps/superadmin 的 .env.local
@@ -96,6 +98,34 @@ ensure_web_env_supabase() {
         } >> "$env_file"
         echo -e "${GREEN}✅ 已更新 apps/$app/.env.local 的 Supabase 變數${NC}"
     done
+}
+
+check_storage_integrity() {
+    local DB_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+    local BACKUP_DIR="$PROJECT_ROOT/apps/superadmin/backups"
+
+    if ! command -v psql &>/dev/null; then return 0; fi
+
+    local STORAGE_COUNT PHOTOS_COUNT BACKUP_COUNT
+    STORAGE_COUNT=$(psql "$DB_URL" -t -A -c \
+      "SELECT COUNT(*) FROM storage.objects WHERE bucket_id='property-photos';" 2>/dev/null || echo "-1")
+    PHOTOS_COUNT=$(psql "$DB_URL" -t -A -c \
+      "SELECT COUNT(*) FROM property_photos WHERE storage_path NOT LIKE 'properties/%';" 2>/dev/null || echo "-1")
+    BACKUP_COUNT=$(ls -1 "$BACKUP_DIR"/backup_*.json 2>/dev/null | wc -l | tr -d ' ')
+
+    # Warn if storage.objects is empty but backups exist (db reset happened)
+    if [ "$STORAGE_COUNT" = "0" ] && [ "$BACKUP_COUNT" -gt 0 ]; then
+        echo ""
+        echo -e "${YELLOW}⚠️  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${YELLOW}   偵測到 Storage metadata 遺失（storage.objects 是空的）${NC}"
+        echo -e "${YELLOW}   這通常是執行過 supabase db reset 導致的${NC}"
+        echo -e "${YELLOW}   找到 ${BACKUP_COUNT} 個備份檔案可供還原${NC}"
+        echo -e "${YELLOW}   → 請至 http://localhost:3001/superadmin/settings/backup 進行還原${NC}"
+        echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo ""
+    elif [ "$STORAGE_COUNT" != "-1" ] && [ "$PHOTOS_COUNT" != "-1" ] && [ "$STORAGE_COUNT" != "$PHOTOS_COUNT" ]; then
+        echo -e "${YELLOW}⚠️  storage.objects (${STORAGE_COUNT}) 與 property_photos (${PHOTOS_COUNT}) 數量不一致，建議至備份頁面執行健康檢查${NC}"
+    fi
 }
 
 check_python_venv() {

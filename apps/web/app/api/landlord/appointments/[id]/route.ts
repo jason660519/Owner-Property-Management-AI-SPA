@@ -53,7 +53,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { status, preferred_date, preferred_time, feedback } = body
 
-  const updateData: any = {
+  const updateData: Record<string, unknown> = {
     updated_at: new Date().toISOString()
   }
 

@@ -24,15 +24,31 @@ export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
 
   useEffect(() => {
     // 取得初始 Session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data: { session }, error }) => {
+        if (error) {
+          const msg = String(error.message || '');
+          if (msg.includes('Refresh Token Not Found') || msg.includes('Invalid Refresh Token')) {
+            void supabase.auth.signOut();
+          }
+        }
+        if (session && !session.refresh_token) {
+          void supabase.auth.signOut();
+        }
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+      })
+      .catch(() => {
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+      });
 
     // 監聽認證狀態變化
     const {

@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/backup-schedules",
+      "schedule": "*/10 * * * *"
+    },
+    {
       "path": "/api/cron/transcript-parse-jobs",
       "schedule": "*/2 * * * *"
     }

@@ -63,6 +63,18 @@ if command -v supabase &> /dev/null; then
         read -p "是否也要停止 Supabase (Docker)? (y/N): " -n 1 -r
         echo ""
         if [[ $REPLY =~ ^[Yy]$ ]]; then
+            # Auto-backup metadata before stopping to protect user data
+            echo -e "${BLUE}📦 自動備份資料 metadata（保護照片/文件記錄）...${NC}"
+            LOCAL_DEVICE_PATH=""
+            if command -v psql &>/dev/null; then
+                LOCAL_DEVICE_PATH=$(psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -t -A \
+                  -c "SELECT value::text FROM system_settings WHERE key='backup_local_device_path';" 2>/dev/null | tr -d '"' || echo "")
+            fi
+            if bash "$PROJECT_ROOT/scripts/backup-metadata.sh" "auto_stop" "$LOCAL_DEVICE_PATH" 2>/dev/null; then
+                echo -e "${GREEN}✅ 備份完成${NC}"
+            else
+                echo -e "${YELLOW}⚠️  備份失敗（DB 可能未運行），繼續停止服務${NC}"
+            fi
             echo -e "${YELLOW}Stopping Supabase...${NC}"
             supabase stop
             echo -e "${GREEN}✅ Supabase stopped${NC}"

@@ -1,23 +1,48 @@
-# AI Agents & Roles
+# AGENTS.md
 
-本專案定義了多個 AI Agent 角色，用於輔助開發流程的不同階段。這些 Agent 的詳細 Prompt 定義位於 `docs/Prompt/` 目錄下。
+This file provides repository instructions for OpenAI-compatible coding agents working in this project.
 
-## Available Agents
+Keep this file minimal. Only include repo-specific rules, non-obvious constraints, and known failure modes.
+Do not duplicate route maps, folder walkthroughs, file inventories, or package scripts here.
 
-| Agent 角色 | 檔案位置 | 主要職責 |
-| :--- | :--- | :--- |
-| **Pre-Commit Code Reviewer** | [`docs/Prompt/PRE_COMMIT_CODE_REVIEW_PROMPT.md`](docs/Prompt/PRE_COMMIT_CODE_REVIEW_PROMPT.md) | 在提交代碼前進行邏輯、質量與安全檢查。專注於 "Is this the right way to build it?" 而非僅僅 "Does it work?"。 |
-| **Reliability Engineer & TDD Specialist** | [`docs/Prompt/RELIABILITY_ENGINEER_TDD_PROMPT.md`](docs/Prompt/RELIABILITY_ENGINEER_TDD_PROMPT.md) | 負責修復測試錯誤並達成 "Green Build"。執行測試、分析堆疊追蹤 (Stack Traces)、並實施修復方案。 |
-| **Structural Code Reviewer** | [`docs/Prompt/STRUCTURAL_CODE_REVIEW_PROMPT.md`](docs/Prompt/STRUCTURAL_CODE_REVIEW_PROMPT.md) | 關注架構健康度、目錄結構、模組邊界與設計模式。檢查循環依賴與抽象洩漏。 |
-| **Technical Implementation Strategist** | [`docs/Prompt/TECHNICAL_IMPLEMENTATION_STRATEGIST_PROMPT.md`](docs/Prompt/TECHNICAL_IMPLEMENTATION_STRATEGIST_PROMPT.md) | 將高層次需求轉化為具體的執行計畫與 Actionable Tasks。定義 "What NOT to do" (Guardrails)。 |
-| **Technical PM Sync** | [`docs/Prompt/TECHNICAL_PM_SYNC_PROMPT.md`](docs/Prompt/TECHNICAL_PM_SYNC_PROMPT.md) | 自動化專案管理同步。分析 Commit 與 Diff，並將進度更新同步到專案管理系統 (如 Plane)。 |
-| **Testing Blueprint** | [`docs/Prompt/TESTING_BLUEPRINT_PROMPT.md`](docs/Prompt/TESTING_BLUEPRINT_PROMPT.md) | 設計測試藍圖，審核現有測試覆蓋率，並定義達到 100% 信心所需的測試案例與邊界條件。 |
+詳細規則在 `.claude/rules/`，有疑問先讀那裡，不要猜。
 
-## 如何使用
+## Core Rules
 
-這些 Agent Prompt 設計用於在特定開發情境下切換 AI 的「角色」。當你需要特定領域的深度協助時，可以：
+- TypeScript strict，禁 `any`
+- SQL 只能放 `supabase/migrations/`，格式 `YYYYMMDDHHMMSS_描述.sql`
+- 文檔與臨時檔不要放根目錄，單檔不超過 500 行
 
-1.  **複製 Prompt 內容**：將對應 `.md` 檔案的內容複製給 AI。
-2.  **指定任務**：附上相關的代碼或上下文，讓 AI 依照該角色的規範執行任務。
+## Startup
 
-例如，在準備 Git Commit 前，可以使用 **Pre-Commit Code Reviewer** 的 Prompt 來檢查當前的變更。
+```bash
+# 先開 Docker Desktop，再執行：
+./start.sh
+```
+
+## ⚠️ Supabase 客戶端
+
+| 情境 | Import |
+| :--- | :--- |
+| Server Component / Server Action（遵守 RLS） | `createClient` from `@/utils/supabase/server` |
+| Client Component | `createClient` from `@/utils/supabase/client` |
+| Superadmin（繞過 RLS，使用 service_role） | `createAdminClient` from `@/utils/supabase/admin` |
+
+## ⚠️ 已知陷阱
+
+- `supabase migration up` 若報「inserted before last migration」→ 加 `--include-all`。若舊 migration 有 policy 衝突，改用 `psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres"` 直接執行 SQL，再手動 INSERT 進 `supabase_migrations.schema_migrations`。
+- Storage bucket `property-documents` 是 private，取用需透過 signed URL；Superadmin 操作一律用 `createAdminClient`。
+- Badge variants 有效值：`'default' | 'success' | 'warning' | 'error' | 'info'`。不要使用 `'danger'`。
+- 色彩用 CSS token，例如 `text-text-primary`、`bg-bg-secondary`、`border-border-default`、`text-accent`；不要直接使用 Tailwind 色名。
+
+## 進度更新
+
+完成工作後，更新 `apps/superadmin/app/data/roadmap.ts` 的 `RAW_FEATURES` 陣列。完整規則見 `docs/update-project-progress-guide.md`。
+
+## 角色目錄
+
+原本給人類查閱的角色目錄已移到 `docs/Prompt/agent_roles_index.md`，避免與本檔用途混淆。
+
+## 維護規則
+
+若 `CLAUDE.md` 與本檔規則不一致，以「較精簡且較不易誤導模型」的版本為準，並盡快對齊兩份文件。

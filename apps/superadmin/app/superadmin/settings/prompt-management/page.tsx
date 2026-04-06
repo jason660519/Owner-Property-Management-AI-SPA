@@ -53,6 +53,7 @@ export default function PromptManagementPage() {
     >
       {/* When opened from another tab (opener), 載入 sends prompt to that tab. Otherwise show hint. */}
       <PromptManagerModal
+        variant="page"
         onClose={() => router.push('/superadmin/settings')}
         onLoad={hasOpener ? handleLoadToOpener : undefined}
         noOpenerHint={
@@ -65,4 +66,3 @@ export default function PromptManagementPage() {
     </DashboardLayout>
   );
 }
-

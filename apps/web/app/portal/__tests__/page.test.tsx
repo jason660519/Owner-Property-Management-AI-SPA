@@ -19,9 +19,12 @@ jest.mock('@/app/actions/auth', () => ({
 
 // Mock Link
 jest.mock('next/link', () => {
-  return ({ children, href }: { children: React.ReactNode; href: string }) => {
+  function LinkMock({ children, href }: { children: React.ReactNode; href: string }) {
     return <a href={href}>{children}</a>;
-  };
+  }
+
+  LinkMock.displayName = 'LinkMock';
+  return LinkMock;
 });
 
 // Mock Lucide icons

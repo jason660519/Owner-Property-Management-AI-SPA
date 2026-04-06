@@ -268,7 +268,10 @@ export default function LandlordMaintenancePage() {
   }, [])
 
   useEffect(() => {
-    load()
+    const t = window.setTimeout(() => {
+      void load()
+    }, 0)
+    return () => window.clearTimeout(t)
   }, [load])
 
   const handleStatusChange = async (

@@ -40,16 +40,65 @@ const formatMoney = (amount: number) => {
   }).format(amount)
 }
 
+type FinanceSummary = {
+  totalIncome: number
+  totalExpense: number
+  netProfit: number
+  monthlyData: Array<{ month: string; income: number; expense: number }>
+  categoryStats: Record<string, number>
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function toNumber(value: unknown): number {
+  if (typeof value === 'number') return value
+  if (typeof value === 'string' && value.trim() !== '') {
+    const n = Number(value)
+    return Number.isFinite(n) ? n : 0
+  }
+  return 0
+}
+
 export default function FinancePage() {
   const [loading, setLoading] = useState(true)
-  const [summary, setSummary] = useState<any>(null)
+  const [summary, setSummary] = useState<FinanceSummary | null>(null)
 
   useEffect(() => {
     const fetchSummary = async () => {
       try {
         const res = await fetch('/api/landlord/finance/summary')
-        const data = await res.json()
-        setSummary(data)
+        const data = (await res.json()) as unknown
+        if (isRecord(data)) {
+          setSummary({
+            totalIncome: toNumber(data.totalIncome),
+            totalExpense: toNumber(data.totalExpense),
+            netProfit: toNumber(data.netProfit),
+            monthlyData: Array.isArray(data.monthlyData)
+              ? data.monthlyData
+                  .filter(isRecord)
+                  .map((row) => ({
+                    month: typeof row.month === 'string' ? row.month : '',
+                    income: toNumber(row.income),
+                    expense: toNumber(row.expense),
+                  }))
+              : [],
+            categoryStats: isRecord(data.categoryStats)
+              ? Object.fromEntries(
+                  Object.entries(data.categoryStats).map(([k, v]) => [k, toNumber(v)])
+                )
+              : {},
+          })
+        } else {
+          setSummary({
+            totalIncome: 0,
+            totalExpense: 0,
+            netProfit: 0,
+            monthlyData: [],
+            categoryStats: {},
+          })
+        }
       } catch (error) {
         console.error('Failed to fetch finance summary:', error)
       } finally {
@@ -197,15 +246,18 @@ export default function FinancePage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {Object.entries(summary?.categoryStats || {}).map(([category, amount]: [string, any]) => (
-                <div key={category} className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-2 h-2 rounded-full bg-[#7C3AED] mr-2" />
-                    <span className="text-[#cccccc] capitalize">{category}</span>
+              {Object.entries(summary?.categoryStats || {}).map(([category, amount]) => {
+                const value = toNumber(amount)
+                return (
+                  <div key={category} className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className="w-2 h-2 rounded-full bg-[#7C3AED] mr-2" />
+                      <span className="text-[#cccccc] capitalize">{category}</span>
+                    </div>
+                    <span className="text-white font-medium">{formatMoney(value)}</span>
                   </div>
-                  <span className="text-white font-medium">{formatMoney(amount)}</span>
-                </div>
-              ))}
+                )
+              })}
               {Object.keys(summary?.categoryStats || {}).length === 0 && (
                 <div className="text-center text-[#666666] py-8">
                   尚無支出資料
