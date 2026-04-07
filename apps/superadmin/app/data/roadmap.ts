@@ -1920,17 +1920,28 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "超級管理員-合約套版多範本選擇器",
     locatedPage: "superadmin/properties/[id]/edit?tab=contract",
     category: "超級管理員 (Super Admin)",
-    percentage: 85,
-    phase: "development",
+    percentage: 95,
+    phase: "testing",
     featureDescription:
       "將「預覽合約」Tab 大改為「預覽合約套版」，以多選卡片 Grid 呈現 6 種官方範本，每個面板支援雙模式：「AI 套版生成」（填表+AI 產生草稿）或「自行上傳合約」（上傳律師/代書提供的 PDF/DOCX/DOC）。同一物件可同時持有多種合約類型，各自獨立管理。",
     acceptanceCriteria:
       "1. Tab 標籤改為「預覽合約套版」。\n2. 頂部顯示 6 種合約範本卡片，支援複選。\n3. 每個面板頂部有「AI 套版生成」/「自行上傳合約」切換 Tab。\n4. AI 模式：填表、產生草稿預覽、下載 HTML/DOCX、列印、雲端版本管理。\n5. 上傳模式：拖曳/點擊上傳 PDF/DOCX/DOC/JPG/PNG（≤20MB）、PDF 行內預覽、刪除。\n6. 各面板 cloud sync key 含 templateId，上傳檔案路徑含 templateId 隔離。",
     developmentProgress:
-      "Phase 1：6 種範本多選卡片 + 獨立面板架構（ContractTemplateConfig.ts、ContractDraftPanel.tsx、ContractDraftLeaseFields.tsx、ContractDraftSaleFields.tsx 等 6 檔，共從 1369 行拆分為各不超過 393 行）。Phase 2：每個面板加入雙模式切換（panelMode: ai-generate | upload），ContractDraftUploadPanel.tsx 實作拖曳上傳、PDF 預覽、刪除，後端新增 uploadContractFile / getPropertyContractFiles Server Actions，PropertyContractFileItem 型別，合約存於 property-documents/{propertyId}/contracts/{templateId}/ 路徑。",
+      "Phase 1：6 種範本多選卡片 + 獨立面板架構（ContractTemplateConfig.ts、ContractDraftPanel.tsx、ContractDraftLeaseFields.tsx、ContractDraftSaleFields.tsx 等 6 檔，共從 1369 行拆分為各不超過 393 行）。Phase 2：每個面板加入雙模式切換（panelMode: ai-generate | upload），ContractDraftUploadPanel.tsx 實作拖曳上傳、PDF 預覽、刪除，後端新增 uploadContractFile / getPropertyContractFiles Server Actions，PropertyContractFileItem 型別，合約存於 property-documents/{propertyId}/contracts/{templateId}/ 路徑。Phase 3（2026/04/07）：新增委託合約欄位元件 ContractDraftCommissionFields.tsx（~160 行），支援租賃/銷售雙委託模式切換，包含委託人、仲介公司、委託方式（專任/一般）、委託期限、委託售價/租金+底價、佣金比例或固定金額、授權行銷方式、委託特約事項等 11 個欄位。ContractTemplateConfig.ts 新增委託欄位介面定義，commission-lease 與 commission-sale 改為 available: true。ContractDraftPanel.tsx 根據 templateId 條件式渲染 CommissionFields。預售範本（presale/presale-parking）不再顯示 coming soon 佔位，改為直接進入上傳模式並禁用 AI Tab。單元測試 16 通過（Template Cards 4 + Panel Mode 3 + CommissionFields 5 + Config 4）。",
+    docPath:
+      "/project-process/test-logs/test-contract-template-selector-2026-04-07.md",
+    featureSpecDocPath:
+      "/project-process/features/contract-template-selector-dev-spec-20260407.md",
+    tddSpecDocPath:
+      "/project-process/features/tdd-contract-template-selector-20260407.md",
+    testScriptPath: "apps/superadmin/unit_test/120/ContractTemplateSelector.test.tsx",
+    testStatus: "passed",
+    testCoverage: 80,
+    unitTestCoverage: 100,
+    e2eTestCoverage: 0,
     points: 8,
-    lastModifiedBy: "Claude Sonnet 4.6",
-    lastModifiedDate: "2026/03/22",
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/07",
   },
   {
     name: "多角色平台商業計畫與定價策略",

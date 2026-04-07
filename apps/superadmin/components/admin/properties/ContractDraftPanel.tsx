@@ -10,6 +10,7 @@ import { readLocalStorage, writeLocalStorage } from '@/lib/utils/storage-state';
 import { deleteCloudDraft, deleteCloudDraftById, listCloudDrafts, saveCloudDraft } from '@/lib/utils/form-draft-cloud';
 import { buildContractDocumentFileName, getContractOfficialDocxTemplatePath, renderContractDocumentDocx, renderContractDocumentHtml } from '@/lib/utils/contract-document-renderer';
 import type { ContractTemplateId, ContractDraftFormState, DraftVersionOption, PersistedContractDraftState } from './ContractTemplateConfig';
+import { ContractDraftCommissionFields } from './ContractDraftCommissionFields';
 import { ContractDraftLeaseFields } from './ContractDraftLeaseFields';
 import { ContractDraftSaleFields } from './ContractDraftSaleFields';
 import { ContractDraftUploadPanel } from './ContractDraftUploadPanel';
@@ -21,6 +22,8 @@ interface ContractDraftPanelProps {
   templateId: ContractTemplateId;
   templateLabel: string;
   contractType: 'lease' | 'sale';
+  /** Whether AI draft generation is implemented for this template (default: true) */
+  aiGenerateAvailable?: boolean;
 }
 
 const STORAGE_PREFIX = 'contract-draft-preview:';
@@ -61,10 +64,16 @@ function buildInitialForm(property: PropertyItem, contractType: 'lease' | 'sale'
     salePriceTotal: property.price ?? 0, landPrice: 0, buildingPrice: 0,
     parkingLandPrice: 0, parkingBuildingPrice: 0, handoverDate: '', ownershipTransferDate: '',
     paymentSchedule: buildDefaultPaymentSchedule(property.price ?? 0),
+    // Commission fields
+    commissionPrincipalName: '', commissionBrokerageName: '',
+    commissionType: '', commissionRatePercent: 0, commissionFixedFee: 0,
+    commissionStartDate: '', commissionEndDate: '',
+    commissionListingPrice: property.price ?? 0, commissionFloorPrice: 0,
+    commissionMarketingMethods: '', commissionSpecialTerms: '',
   };
 }
 
-export function ContractDraftPanel({ property, templateId, templateLabel, contractType }: ContractDraftPanelProps) {
+export function ContractDraftPanel({ property, templateId, templateLabel, contractType, aiGenerateAvailable = true }: ContractDraftPanelProps) {
   const storageKey = `${STORAGE_PREFIX}${property.id}:${templateId}`;
   const cloudFormKey = storageKey;
   const initialForm = useMemo(() => buildInitialForm(property, contractType), [property, contractType]);
@@ -76,7 +85,7 @@ export function ContractDraftPanel({ property, templateId, templateLabel, contra
   const lastPropertyIdRef = useRef(property.id);
 
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [panelMode, setPanelMode] = useState<PanelMode>('ai-generate');
+  const [panelMode, setPanelMode] = useState<PanelMode>(aiGenerateAvailable ? 'ai-generate' : 'upload');
   const [form, setForm] = useState<ContractDraftFormState>(initialForm);
   const [draft, setDraft] = useState<ContractDraft | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -285,16 +294,20 @@ export function ContractDraftPanel({ property, templateId, templateLabel, contra
           <div className="flex gap-2 rounded-xl bg-bg-secondary/50 p-1.5">
             <button
               type="button"
-              onClick={() => setPanelMode('ai-generate')}
+              onClick={() => aiGenerateAvailable && setPanelMode('ai-generate')}
+              disabled={!aiGenerateAvailable}
               className={[
                 'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors',
-                panelMode === 'ai-generate'
-                  ? 'bg-bg-primary text-accent shadow-sm'
-                  : 'text-text-secondary hover:text-text-primary',
+                !aiGenerateAvailable
+                  ? 'opacity-50 cursor-not-allowed text-text-muted'
+                  : panelMode === 'ai-generate'
+                    ? 'bg-bg-primary text-accent shadow-sm'
+                    : 'text-text-secondary hover:text-text-primary',
               ].join(' ')}
             >
               <Bot className="h-4 w-4" />
               AI 套版生成
+              {!aiGenerateAvailable && <span className="text-xs">（開發中）</span>}
             </button>
             <button
               type="button"
@@ -330,10 +343,17 @@ export function ContractDraftPanel({ property, templateId, templateLabel, contra
             <input id={`contractDate-${templateId}`} type="date" value={form.contractDate} onChange={(e) => setField('contractDate', e.target.value)} className="w-full rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary" />
           </div>
 
-          {contractType === 'lease'
-            ? <ContractDraftLeaseFields form={form} setField={setField} />
-            : <ContractDraftSaleFields form={form} setField={setField} onSalePriceTotalChange={handleSalePriceTotalChange} onUpdatePaymentSchedule={updatePaymentSchedule} />
-          }
+          {/* Commission fields for commission templates */}
+          {(templateId === 'commission-lease' || templateId === 'commission-sale') && (
+            <ContractDraftCommissionFields form={form} setField={setField} commissionFor={contractType} />
+          )}
+
+          {/* Standard lease/sale fields */}
+          {templateId !== 'commission-lease' && templateId !== 'commission-sale' && (
+            contractType === 'lease'
+              ? <ContractDraftLeaseFields form={form} setField={setField} />
+              : <ContractDraftSaleFields form={form} setField={setField} onSalePriceTotalChange={handleSalePriceTotalChange} onUpdatePaymentSchedule={updatePaymentSchedule} />
+          )}
 
           {contractType === 'sale' && !property.buildingTranscript && !property.landTranscript && (
             <div className="rounded-xl border border-amber-300/40 bg-amber-500/10 p-3 text-sm text-amber-700">⚠ 此物件尚未上傳謄本，買賣契約草稿無法產生。請先至「謄本資料」標籤上傳。</div>
