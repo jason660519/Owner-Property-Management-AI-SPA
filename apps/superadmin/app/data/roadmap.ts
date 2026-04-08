@@ -2178,6 +2178,152 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedBy: "Claude Opus 4.6",
     lastModifiedDate: "2026/04/08",
   },
+
+  // === 2026-04-08 TanStack Table 統一遷移與 Excel Sheet Tabs ===
+  {
+    name: "專案進度儀表板 — DevelopmentTab TanStack Table 遷移與 Excel Sheet 分頁重構",
+    locatedPage: "superadmin/dashboard/project-progress",
+    category: "超級管理員 (Super Admin)",
+    percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
+    workCategory: "重構/優化",
+    points: 13,
+    featureDescription:
+      "將 DevelopmentTab 從 1,893 行手刻 CSS Grid 試算表遷移至 TanStack Table v8，拆分為 8 個子模組（每個 <500 行）。" +
+      "新增底部 Excel 風格 Sheet Tabs（開發/測試/部署/運維四分頁），每個 sheet 均支援搜尋、分類篩選、排版對齊、View 凍結、欄寬儲存/重設、新增列。" +
+      "Testing/Deployment/Operations sheet 改用共用 EnhancedTable 元件。",
+    developmentProgress:
+      "Phase 1: 拆出 types.ts, PromptEngineerModal.tsx, AddRowModal.tsx。" +
+      "Phase 2: 拆出 TableToolbar.tsx, useDevTableData.ts。" +
+      "Phase 3: 建立 columns.tsx (14 欄 ColumnDef), TableCore.tsx (TanStack + sticky frozen cols/rows + resize + sort)。" +
+      "Phase 4: DevelopmentTab.tsx 從 1,893→254 行。新增 phase-columns.tsx 供 Testing/Deployment/Operations sheet。" +
+      "新增 SheetTabs.tsx 底部分頁元件，page.tsx 重構為 Sheet 架構，per-sheet 自訂列持久化。",
+    devLog:
+      "### 2026-04-08 DevelopmentTab TanStack Table 遷移\n" +
+      "- **拆分巨型元件**：DevelopmentTab.tsx 1,893 行 → 8 個子模組，主元件 254 行\n" +
+      "- **TanStack Table 核心**：columns.tsx 14 欄 ColumnDef + meta (headerEn/headerZh)，TableCore.tsx 含 CSS Grid + sticky frozen cols/rows + column resize + sort indicators\n" +
+      "- **Excel Sheet Tabs**：底部四分頁（開發/測試/部署/運維），hash 導航同步，每個 sheet 均有完整 toolbar 功能\n" +
+      "- **phase-columns.tsx**：Testing 8 欄、Deployment 9 欄、Operations 8 欄的 ColumnDef\n" +
+      "- **per-sheet 自訂列**：Testing/Deployment/Operations 各自的 customRows 透過 useTablePreferences 持久化\n" +
+      "- **部署資料填充**：20 個已完成功能標記 phase: 'deployment', deployStatus: 'staging'\n" +
+      "- **修復 frozen row**：header container div 加入 sticky top-0（個別 cell sticky 在 grid 中無效）",
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/08",
+  },
+  {
+    name: "EnhancedTable 共用 TanStack Table 元件",
+    locatedPage: "superadmin/components/ui/EnhancedTable",
+    category: "通用/系統 (General/System)",
+    percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
+    workCategory: "功能新增",
+    points: 8,
+    featureDescription:
+      "建立可複用的 TanStack Table 包裝元件，提供標準化的表格工具列（搜尋、分類篩選、排版對齊、View 凍結設定、Save/Load/Reset Widths、新增列按鈕）、" +
+      "欄寬拖曳調整、排序、分頁、行選取與批次操作等功能。所有 superadmin 表格均可透過此元件快速建表。",
+    developmentProgress:
+      "EnhancedTable.tsx ~580 行，泛型 Props 支援任意 row type。" +
+      "功能：useReactTable + getCoreRowModel/getSortedRowModel/getFilteredRowModel/getPaginationRowModel。" +
+      "Toolbar：搜尋框、All/分類按鈕、排版下拉、View 下拉（凍結行列數）、Save/Reset Widths、新增列。" +
+      "已修復：空資料時 category filter 仍顯示、ColumnMeta 型別衝突。",
+    devLog:
+      "### 2026-04-08 EnhancedTable 共用元件\n" +
+      "- 建立 `components/ui/EnhancedTable.tsx`（~580 行）\n" +
+      "- TanStack Table v8 完整整合：sorting, filtering, pagination, column resize, column pinning\n" +
+      "- 標準化 toolbar：搜尋、分類篩選、排版對齊、View 凍結、Save/Load/Reset 欄寬預設、新增列\n" +
+      "- 支援 enableRowSelection + renderBatchActions 回調\n" +
+      "- 支援 extraToolbar 自訂工具列區塊\n" +
+      "- 修復 getCategoryValue prop 判斷（空資料仍顯示 category buttons）",
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/08",
+  },
+  {
+    name: "BottomSheetTabs 底部分頁元件與全站表格 Sheet 化",
+    locatedPage: "superadmin/components/ui/BottomSheetTabs",
+    category: "通用/系統 (General/System)",
+    percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
+    workCategory: "功能新增",
+    points: 3,
+    featureDescription:
+      "建立可複用的 Excel 風格底部 Sheet Tabs 元件，支援圖示、中英雙語標籤、badge 計數、active 指示條。" +
+      "已套用至 Project Progress（4 tabs）、IAM Management（4 tabs）、LLM Monitor（3 tabs）。",
+    developmentProgress:
+      "BottomSheetTabs.tsx ~70 行，Props: tabs (SheetTabDef[]), activeTab, onTabChange。" +
+      "SheetTabDef: id, label, zhLabel, icon, color, activeColor, badge。" +
+      "hash 導航支援（window.location.hash 同步）。" +
+      "已套用：Project Progress 用獨立 SheetTabs.tsx（phase-specific），IAM Management + LLM Monitor 用通用 BottomSheetTabs。",
+    devLog:
+      "### 2026-04-08 BottomSheetTabs 元件\n" +
+      "- 建立 `components/ui/BottomSheetTabs.tsx`（~70 行）— 通用 Excel 風格底部分頁\n" +
+      "- 建立 `project-progress/components/SheetTabs.tsx`（~100 行）— 專案進度專用（含 phase icons/colors）\n" +
+      "- IAM Management page.tsx：移除頂部 IAMTabBar，改用底部 BottomSheetTabs（Overview/Users/Roles/Groups）\n" +
+      "- LLM Monitor LLMMonitorClient.tsx：移除 sticky nav + IntersectionObserver，改用底部 BottomSheetTabs（3 tabs）",
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/08",
+  },
+  {
+    name: "超級管理員表格統一 TanStack Table 遷移 (Contacts/LLM Monitor/IAM/Prompt)",
+    locatedPage: "superadmin/*",
+    category: "超級管理員 (Super Admin)",
+    percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
+    workCategory: "重構/優化",
+    points: 8,
+    featureDescription:
+      "將 superadmin 中所有手刻表格統一遷移至 EnhancedTable（TanStack Table），確保所有表格具備一致的搜尋、分類篩選、排版、" +
+      "凍結、欄寬儲存/重設、新增列、欄寬拖曳調整等功能。",
+    developmentProgress:
+      "ContactLeadsTable.tsx：149→189 行，支援 row selection + batch actions + pagination。" +
+      "LLMMonitorClient.tsx：兩個表格（AI Usage Logs, Token Cost）改用 EnhancedTable。" +
+      "OverviewTab.tsx (IAM)：Audit Log 表格改用 EnhancedTable + CSV export in extraToolbar。" +
+      "RolesTab.tsx (IAM)：RBAC matrix 605→499 行，動態 role columns 改用 EnhancedTable。" +
+      "PromptTable.tsx：353→193 行，支援 category filter + pagination。" +
+      "所有表格欄寬均可拖曳調整（Contacts 8欄、Prompt 5欄、IAM Overview 6欄、IAM Roles 17欄、LLM Usage 8欄）。",
+    devLog:
+      "### 2026-04-08 全站表格 TanStack Table 遷移\n" +
+      "- **ContactLeadsTable**：EnhancedTable + row selection + batch actions（批次刪除/匯出/指派）\n" +
+      "- **LLMMonitorClient**：2 個 EnhancedTable（AI 使用日誌 + Token 成本），移除 IntersectionObserver 改用 Sheet Tabs\n" +
+      "- **OverviewTab (IAM)**：Audit Log → EnhancedTable + extraToolbar CSV export\n" +
+      "- **RolesTab (IAM)**：RBAC 權限矩陣 → EnhancedTable with dynamic role columns (605→499 行)\n" +
+      "- **PromptTable**：353→193 行，category filter + pagination\n" +
+      "- **修復 ContactLeadsTable.test.tsx**：新增 assigneeId/assigneeName mock 欄位\n" +
+      "- 驗證所有表格 column resize handles 正常運作",
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/08",
+  },
+  {
+    name: "EnhancedTable 建表指南與 /create-table Claude Skill",
+    locatedPage: "docs/enhanced-table-guide.md",
+    category: "專案管理與工具 (Project Management)",
+    percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
+    workCategory: "文件撰寫",
+    points: 3,
+    featureDescription:
+      "建立 EnhancedTable & BottomSheetTabs 完整建表指南（docs/enhanced-table-guide.md），以及 Claude Code Skill（.claude/commands/create-table.md），" +
+      "讓工程師可透過 /create-table 指令自動產出 TanStack Table 程式碼，或參照指南手動建表。",
+    developmentProgress:
+      "Guide 涵蓋：架構總覽、5 分鐘快速開始、Props 文件、ColumnDef 技巧、BottomSheetTabs 用法、持久化機制、設計決策記錄、疑難排解。" +
+      "Skill 涵蓋：需求詢問、columns 定義、EnhancedTable 整合、Sheet Tabs 配置、行選取、踩坑紀錄、現有實作參考、完成後檢查清單。",
+    devLog:
+      "### 2026-04-08 建表知識封裝\n" +
+      "- 建立 `docs/enhanced-table-guide.md` — 人類工程師參考指南\n" +
+      "- 建立 `.claude/commands/create-table.md` — Claude Code Skill，執行 `/create-table` 自動建表\n" +
+      "- 涵蓋設計決策（為何用 CSS Grid、為何不用 TanStack columnPinning、為何暫不用 virtual scroll）",
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/08",
+  },
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
