@@ -19,20 +19,17 @@ import { getAvailableModelsList } from '@/lib/utils/total-available-models';
 import { readLocalStorage, writeLocalStorage, readSessionStorage, writeSessionStorage } from '@/lib/utils/storage-state';
 import { useTablePreferences } from '@/lib/hooks/useTablePreferences';
 
-const SS_FILTER_STATUSES  = 'ai-eval-filter:statuses';
-const SS_FILTER_PROVIDERS = 'ai-eval-filter:providerIds';
-const LS_FILTER_CATEGORIES = 'ai-eval-filter:categories';
-const LS_RECENT_BATCH_REPORT = 'ai-eval:last-batch-report';
+// Canonical copies of types/utils extracted to ./model-evaluator/types.ts and
+// ./model-evaluator/utils.ts for future modularization. ModelEvaluator still
+// uses its own local definitions to avoid a massive single-file rewrite.
 
-const MODULE_ICON_MAP: Record<string, React.ElementType> = {
-  cloud: Cloud, 'hard-drive': Settings2, 'message-circle': MessageCircle,
-  'file-text': FileText, 'pen-tool': PenTool, layout: Layout,
-};
-const MODULE_CATEGORY_COLORS: Record<string, { text: string; bg: string }> = {
-  ocr:       { text: 'text-blue-400',   bg: 'bg-blue-500/10'   },
-  assistant: { text: 'text-green-400',  bg: 'bg-green-500/10'  },
-  generator: { text: 'text-purple-400', bg: 'bg-purple-500/10' },
-};
+// These types/constants are used in the migration block above (before their
+// local const declaration), so import them from the extracted module.
+import {
+  MODEL_EVAL_STORAGE_KEY as _ME_SK,
+  MODEL_EVAL_DEFAULTS as _ME_DEFAULTS,
+  FREEZE_ROW_STORAGE_KEY as _FR_SK,
+} from './model-evaluator/types';
 
 export interface KeyWithId {
   id: string;
@@ -55,14 +52,6 @@ export interface BatchResultEntry {
   success: boolean;
   output: string;
   imageUrl?: string;
-}
-
-function inferStatusOverrideFromBatchEntry(entry: BatchResultEntry): DisplayStatusOverride {
-  if (!entry.success) return 'not_working';
-  const category = detectCategoryFromOutput(entry.output);
-  if (category === 'VLM') return 'vlm_ok';
-  if (category === 'LLM') return 'llm_ok';
-  return hasVisionCapability(entry.key) ? 'vlm_ok' : 'llm_ok';
 }
 
 type RecentBatchReport = {
@@ -100,6 +89,43 @@ function writeRecentBatchReport(report: RecentBatchReport): boolean {
   } catch {
     return false;
   }
+}
+
+function inferStatusOverrideFromBatchEntry(entry: BatchResultEntry): DisplayStatusOverride {
+  if (!entry.success) return 'not_working';
+  const category = detectCategoryFromOutput(entry.output);
+  if (category === 'VLM') return 'vlm_ok';
+  if (category === 'LLM') return 'llm_ok';
+  return hasVisionCapability(entry.key) ? 'vlm_ok' : 'llm_ok';
+}
+
+const SS_FILTER_STATUSES  = 'ai-eval-filter:statuses';
+const SS_FILTER_PROVIDERS = 'ai-eval-filter:providerIds';
+const LS_FILTER_CATEGORIES = 'ai-eval-filter:categories';
+const LS_RECENT_BATCH_REPORT = 'ai-eval:last-batch-report';
+
+const MODULE_ICON_MAP: Record<string, React.ElementType> = {
+  cloud: Cloud, 'hard-drive': Settings2, 'message-circle': MessageCircle,
+  'file-text': FileText, 'pen-tool': PenTool, layout: Layout,
+};
+
+// One-time migration: merge old v1 localStorage keys into the new unified v2 key
+// Uses imported aliases (_ME_SK, _FR_SK, _ME_DEFAULTS) because local consts are declared later.
+if (typeof window !== 'undefined' && !localStorage.getItem(_ME_SK)) {
+  try {
+    const partial: Partial<ModelEvalSettings> = {};
+    const oldWidths = localStorage.getItem('superadmin-model-evaluator-column-widths');
+    if (oldWidths) { try { partial.columnWidths = JSON.parse(oldWidths); } catch { /* ignore */ } }
+    const oldLabel = localStorage.getItem('superadmin-model-evaluator-prompt-column-label');
+    if (oldLabel) partial.promptColumnLabel = oldLabel;
+    const oldFreezeRow = localStorage.getItem(_FR_SK);
+    if (oldFreezeRow === '0') partial.freezeRowCount = 0;
+    const oldFrozenCol = localStorage.getItem('superadmin-model-evaluator-frozen-col-v1');
+    if (oldFrozenCol) { const n = parseInt(oldFrozenCol, 10); if (!Number.isNaN(n)) partial.frozenColCount = n; }
+    if (Object.keys(partial).length > 0) {
+      localStorage.setItem(_ME_SK, JSON.stringify({ ..._ME_DEFAULTS, ...partial }));
+    }
+  } catch { /* ignore */ }
 }
 
 export interface ModelEvaluatorProps {
@@ -209,6 +235,12 @@ const MODULE_SORT_LABEL: Record<string, string> = {
   ad_generator: 'AD',
   software_dev_engineer: 'SDE',
   ttd_engineer: 'TTD',
+};
+
+const MODULE_CATEGORY_COLORS: Record<string, { text: string; bg: string }> = {
+  ocr:       { text: 'text-blue-400',   bg: 'bg-blue-500/10'   },
+  assistant: { text: 'text-green-400',  bg: 'bg-green-500/10'  },
+  generator: { text: 'text-purple-400', bg: 'bg-purple-500/10' },
 };
 
 /**
@@ -458,24 +490,6 @@ const MODEL_EVAL_DEFAULTS: ModelEvalSettings = {
   tableAlignH: 'left',
   tableAlignV: 'top',
 };
-
-// One-time migration: merge old v1 localStorage keys into the new unified v2 key
-if (typeof window !== 'undefined' && !localStorage.getItem(MODEL_EVAL_STORAGE_KEY)) {
-  try {
-    const partial: Partial<ModelEvalSettings> = {};
-    const oldWidths = localStorage.getItem('superadmin-model-evaluator-column-widths');
-    if (oldWidths) { try { partial.columnWidths = JSON.parse(oldWidths); } catch { /* ignore */ } }
-    const oldLabel = localStorage.getItem('superadmin-model-evaluator-prompt-column-label');
-    if (oldLabel) partial.promptColumnLabel = oldLabel;
-    const oldFreezeRow = localStorage.getItem(FREEZE_ROW_STORAGE_KEY);
-    if (oldFreezeRow === '0') partial.freezeRowCount = 0;
-    const oldFrozenCol = localStorage.getItem('superadmin-model-evaluator-frozen-col-v1');
-    if (oldFrozenCol) { const n = parseInt(oldFrozenCol, 10); if (!Number.isNaN(n)) partial.frozenColCount = n; }
-    if (Object.keys(partial).length > 0) {
-      localStorage.setItem(MODEL_EVAL_STORAGE_KEY, JSON.stringify({ ...MODEL_EVAL_DEFAULTS, ...partial }));
-    }
-  } catch { /* ignore */ }
-}
 
 export function ModelEvaluator({
   savedKeys,
