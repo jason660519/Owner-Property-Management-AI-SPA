@@ -91,6 +91,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "超級管理員-儀表板",
     locatedPage: "superadmin/dashboard",
     percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
     acceptanceCriteria:
       "1. 登入後首頁需顯示系統關鍵指標(KPI)，包含總用戶數、總物件數、成交金額。\n2. 需提供圖表視覺化呈現最近30天的平台流量趨勢。\n3. 儀表板需顯示待處理的審核事項通知。\n4. 需支援數據篩選功能，可依日期區間查看統計數據。\n5. 頁面載入速度需在2秒內完成，確保良好的使用者體驗。",
     docPath: "/project-process/features/admin-dashboard-20260206.md",
@@ -175,6 +178,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "超級管理員針對 各種Roles的 Access Matrix管理平台",
     locatedPage: "superadmin/dashboard/role_access_matrix",
     percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
     acceptanceCriteria:
       "1. 以矩陣表格呈現所有角色與資源的權限設定（讀/寫/刪）。\n2. 可在矩陣中直接點擊修改單一權限格。\n3. 變更後即時保存，無需整頁刷新。\n4. 提供「重置為預設值」功能。\n5. 支援匯出 PDF/CSV 格式的權限矩陣報表。",
     docPath: "/project-process/features/iam-system.md",
@@ -510,6 +516,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "房東-儀表板",
     locatedPage: "web/landlord/dashboard",
     percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
     acceptanceCriteria:
       "1. 顯示名下所有物件概況（總數、出租中、空置、待售）。\n2. 顯示本月租金收入總額與趨勢圖表（與上月對比）。\n3. 即時顯示待處理事項（待審核租客申請、維修請求、合約即將到期）。\n4. 快速連結至各主要功能（新增物件、收款記錄、聯絡租客）。\n5. 儀表板載入時間 < 2 秒，數據不超過24小時快取。",
     docPath: "/project-process/features/landlord-dashboard-status-20260206.md",
@@ -525,6 +534,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "房東的Access Matrix管理平台",
     locatedPage: "superadmin/dashboard/iam-management",
     percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
     acceptanceCriteria:
       "1. 房東可查看並設定名下成員（助理、會計）的功能存取權限。\n2. 支援角色指派（助理角色可查看但不可刪除物件）。\n3. 權限矩陣以表格呈現，直觀易讀。\n4. 權限變更需記錄稽核日誌。\n5. 自訂角色功能：可創建「只可查看財務」等客製角色。",
     docPath: "/project-process/features/iam-system.md",
@@ -539,6 +551,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "房東新增物件方式1－手動輸入",
     locatedPage: "web/landlord/properties/add",
     percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
     acceptanceCriteria:
       "1. 表單欄位涵蓋：物件名稱、地址、坪數、樓層、房型、月租金/售價、設備清單。\n2. 必填欄位驗證，地址需連結 Google Maps 確認。\n3. 支援一次上傳最多20張物件照片。\n4. 草稿自動儲存，可返回繼續填寫。\n5. 發布後物件立即顯示於可見清單中。",
     docPath: "/project-process/features/landlord-features.md",
@@ -553,6 +568,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "房東新增物件方式2－自動填入 (VLM/OCR)",
     locatedPage: "web/landlord/properties/add",
     percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
     acceptanceCriteria:
       "1. 上傳物件照片/謄本後，AI 自動擷取物件基本資訊（地址、坪數、格局）。\n2. OCR 準確率需達 85% 以上（在標準文件格式下）。\n3. 自動填入結果可人工校正，顯示原始擷取值與修改後值的對比。\n4. 支援 JPG、PNG、PDF 格式，單檔最大 10MB。\n5. 處理時間 < 30 秒（一般文件）。",
     docPath: "/project-process/features/vlm-ocr-system.md",
@@ -700,6 +718,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "一鍵生成物件銷售部落格",
     locatedPage: "superadmin/properties/[id]/edit?tab=blog",
     percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
     acceptanceCriteria:
       "1. 輸入物件 ID，AI 自動生成包含物件亮點的銷售文案（500-800字）。\n2. 生成文案可人工編輯後發布。\n3. 自動插入物件照片（最多5張）至文章內容。\n4. 生成時間 < 15 秒。\n5. 支援多語版本生成（繁體中文、英文）。",
     docPath: "",
@@ -1045,6 +1066,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "租客(已簽約)-儀表板",
     locatedPage: "web/tenant/contracted/dashboard",
     percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
     acceptanceCriteria:
       "1. 顯示租約基本資訊（物件地址、月租金、合約期限、剩餘天數）。\n2. 顯示下次繳費截止日與金額。\n3. 快速入口：維修申請、溝通中心、合約下載。\n4. 顯示最新通知（房東公告、維修進度更新）。\n5. 頁面載入時間 < 2 秒。",
     docPath: "/project-process/features/tenant-dashboards-20260206.md",
@@ -1060,6 +1084,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "租客(潛在)-儀表板",
     locatedPage: "web/tenant/potential/dashboard",
     percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
     acceptanceCriteria:
       "1. 顯示正在洽詢的物件列表（物件基本資訊、看房預約狀態）。\n2. 可在此發起看房預約或取消預約。\n3. 顯示已查詢物件歷史（最近10筆）。\n4. 推薦相似物件功能（依瀏覽偏好）。\n5. 提供申請入住按鈕（需上傳基本資料）。",
     docPath: "/project-process/features/tenant-dashboards-20260206.md",
@@ -1207,6 +1234,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "RWD網頁響應式設計",
     locatedPage: "全站",
     percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
     acceptanceCriteria:
       "1. 手機（320px+）、平板（768px+）、桌機（1024px+）三種斷點下版面正確顯示。\n2. 導航選單在手機版切換為漢堡選單（Hamburger Menu）。\n3. 所有表單元素在手機版觸控操作友善（最小觸控區域44x44px）。\n4. 圖片採用響應式圖片（srcset），依裝置解析度載入適當尺寸。\n5. 手機版首屏渲染 < 3 秒（4G網路環境）。",
     docPath: "/project-process/features/company-homepage.md",
@@ -1221,6 +1251,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "使用者身份驗證系統",
     locatedPage: "web/login, web/register",
     percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
     acceptanceCriteria:
       "1. 支援 Email/密碼登入與 Google OAuth 登入。\n2. JWT Token 有效期24小時，Refresh Token 有效期7天。\n3. 連續5次登入失敗後帳號暫時鎖定（15分鐘）。\n4. 新裝置登入時發送 Email 安全通知。\n5. 密碼需符合強度要求（最少8字元、含大小寫與數字）。",
     docPath: "/project-process/features/auth-system.md",
@@ -1266,6 +1299,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "使用者登入頁面",
     locatedPage: "web/login",
     percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
     acceptanceCriteria:
       "1. 頁面提供 Email/密碼表單與 Google OAuth 按鈕。\n2. 密碼欄位有顯示/隱藏切換功能。\n3. 登入成功後依角色導向對應儀表板（房東→房東儀表板）。\n4. 表單提交後有 loading 狀態，防止重複提交。\n5. 提供「忘記密碼」連結，導向密碼重設流程。",
     docPath: "/project-process/features/auth-system.md",
@@ -1281,6 +1317,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "使用者登入頁面-記住我功能",
     locatedPage: "web/login",
     percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
     acceptanceCriteria:
       "1. 勾選「記住我」後，登出後再次登入毋需重新輸入 Email/密碼（30天有效）。\n2. 「記住我」以安全的 HttpOnly Cookie 實作，不暴露於 localStorage。\n3. 於新裝置/瀏覽器「記住我」不自動生效。\n4. 使用者可在帳號設定中撤銷所有「記住我」的設備。\n5. 30天後 Cookie 自動到期，需重新登入。",
     docPath: "/project-process/features/remember-me-tdd-report-20260205.md",
@@ -1297,6 +1336,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "使用者密碼重設頁面",
     locatedPage: "web/forgot-password, web/update-password",
     percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
     acceptanceCriteria:
       "1. 輸入 Email 後發送密碼重設連結，連結有效期1小時。\n2. 點擊連結後進入重設頁面，輸入新密碼（需輸入兩次確認）。\n3. 重設成功後前一個 Session 自動登出。\n4. 重設連結只能使用一次，使用後失效。\n5. 24小時內申請重設次數上限5次（防止暴力攻擊）。",
     docPath: "/project-process/features/auth-system.md",
@@ -1337,6 +1379,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "謄本權狀掃描功能",
     locatedPage: "web/landlord/properties/add",
     percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
     acceptanceCriteria:
       "1. 上傳謄本/權狀文件（JPG、PNG、PDF），系統自動辨識並擷取關鍵資訊。\n2. 擷取資訊包含：地段、地號、面積、所有權人、抵押設定。\n3. OCR 準確率在清晰文件下達 90% 以上。\n4. 擷取結果可人工校正，並儲存至物件資料。\n5. 文件儲存至雲端，可隨時下載原始掃描檔。",
     docPath: "/project-process/features/vlm-ocr-system.md",
@@ -1354,6 +1399,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "上傳物件照片功能",
     locatedPage: "web/landlord/properties/add",
     percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
     acceptanceCriteria:
       "1. 支援一次選擇並上傳最多20張照片。\n2. 上傳格式支援 JPG、PNG、WebP，單檔最大 10MB。\n3. 上傳時顯示進度條，支援斷點續傳。\n4. 上傳後可拖曳排序，設定封面照。\n5. 系統自動生成壓縮縮圖（Thumbnail），用於列表預覽。",
     docPath: "/project-process/features/photo-upload.md",
@@ -1575,6 +1623,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "登入／Portal／IAM 角色流程與 Superadmin 全角色選單",
     locatedPage: "web/portal, superadmin/users",
     percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
     workCategory: "認證與權限",
     featureDescription:
       "登入後一律進 Portal；多角色與 middleware 同步；Portal 顯示使用者 IAM 角色卡；Superadmin 邀請使用者可選全部 iam_roles；測試帳號加入所有 IAM 群組並以 Playwright 驗證。",
@@ -1600,6 +1651,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "OAuth 用戶新增角色功能修復（Add Role Feature Fix）",
     locatedPage: "web/portal, web/onboarding/add-role",
     percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
     workCategory: "認證與權限",
     featureDescription:
       "修復 OAuth 登入用戶在 Portal 新增角色時出現的失敗問題，涉及 RLS 權限、IAM 群組映射、前端路由跳轉三個層面的問題診斷與修復。",
@@ -1624,6 +1678,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "超級管理員-AI 服務設定（API 金鑰與模型費用）",
     locatedPage: "superadmin/settings/api_key_and_model_setting",
     percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
     acceptanceCriteria:
       "1. API 金鑰管理：從 .env 導入、單筆/全部刪除、金鑰驗證。\n2. 未登入時以 resolveUserId fallback 寫入/讀取 Supabase（keys/models/modules/prompts）。\n3. 側欄組態概況：已選總 models 數量即時反映各 provider 勾選加總。\n4. 儲存設定按鈕：將畫面上已選模型寫入 ai_model_selections。\n5. 分頁命名：模型費用說明；說明文案導向「模型費用說明」分頁。",
     docPath: "/docs/update-project-progress-guide.md",
@@ -1927,6 +1984,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     locatedPage: "superadmin/properties/[id]/edit?tab=investigation",
     category: "超級管理員 (Super Admin)",
     percentage: 100,
+    phase: "deployment",
+    deployStatus: "staging",
+    deployEnv: "Vercel Preview",
     workCategory: "功能強化",
     featureDescription:
       "對標住商不動產 Excel 物件調查報告書，全面升級 web 版本。Phase1：資料改存 Supabase DB（property_investigation_reports 表）+ 謄本自動填入（建號/建材/完工日/面積/土地/他項限制）+ 列印版面還原成 Excel 兩欄表格。Phase2：完整度指示器（X/N 欄位）+ 附件清單連動已上傳謄本/權狀 + 匯出改版（JSON 下載 + 列印 PDF）+ 版本歷史面板。Phase3：格局圖從已上傳照片選取嵌入報告 + 位置圖顯示地址/座標。Phase3+：「選取附件」子分頁可勾選物件已上傳文件與照片納入報告參考，並支援附加說明文字，列印末頁「報告附加參考」。2026/04/06 再升級：屋況子分頁改為對齊政府版「標的物現況說明書（成屋）」2頁 47 題表格（項次/內容/是/否/備註），新增地址、委託人簽章、簽立日期欄位，預覽與列印版面同步改版，並新增「另存 PDF」操作（透過瀏覽器列印另存）。2026/04/07：案件基本資料（案名、租/售、總價、地址）改為由「物件基本資訊」同步，並在調查報告頁鎖定為唯讀以維持單一真實來源。新增 migration: 20260321120000_add_property_investigation_reports.sql。",

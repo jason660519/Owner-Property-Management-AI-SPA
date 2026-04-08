@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Brain, Clock, DollarSign, Star, Layers, RefreshCw, Zap, ChevronUp } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import EnhancedTable from '@/components/ui/EnhancedTable';
 import type { MouseEvent } from 'react';
+import type { ColumnDef } from '@tanstack/react-table';
 import type { AIUsageLog, LLMOverallStats, LLMAggregateStat } from './actions';
 
 interface LLMMonitorClientPropsV2 {
@@ -57,6 +59,209 @@ function getLatencyBadge(latency: number) {
   return <Badge variant="error">{latency}ms</Badge>;
 }
 
+// ---------------------------------------------------------------------------
+// Column definitions
+// ---------------------------------------------------------------------------
+
+const usageLogColumns: ColumnDef<AIUsageLog, unknown>[] = [
+  {
+    id: 'timestamp',
+    header: '時間',
+    meta: { headerEn: 'Timestamp', headerZh: '時間' },
+    accessorFn: (row) => row.created_at,
+    cell: ({ row }) => (
+      <span className="text-gray-400 text-xs whitespace-nowrap">
+        {new Date(row.original.created_at).toLocaleString('zh-TW')}
+      </span>
+    ),
+  },
+  {
+    id: 'module_key',
+    header: '模組',
+    meta: { headerEn: 'Module', headerZh: '模組' },
+    accessorFn: (row) => row.module_key,
+    cell: ({ row }) => (
+      <span className="text-gray-200 text-xs whitespace-nowrap">
+        {row.original.module_key ?? '-'}
+      </span>
+    ),
+  },
+  {
+    id: 'provider_model',
+    header: 'Provider / Model',
+    meta: { headerEn: 'Provider / Model' },
+    accessorFn: (row) => `${row.provider}/${row.model_id}`,
+    cell: ({ row }) => (
+      <span className="font-mono text-xs text-white whitespace-nowrap">
+        {row.original.provider}/{row.original.model_id}
+      </span>
+    ),
+  },
+  {
+    id: 'prompt_info',
+    header: 'Prompt',
+    meta: { headerEn: 'Prompt' },
+    enableSorting: false,
+    cell: ({ row }) => {
+      const log = row.original;
+      return (
+        <div>
+          <div className="whitespace-nowrap text-gray-300 text-xs">
+            {log.prompt_name ?? '-'}
+            {log.prompt_source ? <span className="text-gray-500"> ({log.prompt_source})</span> : null}
+            {log.prompt_version != null ? <span className="text-gray-500"> v{log.prompt_version}</span> : null}
+          </div>
+          {log.final_prompt_hash ? (
+            <div className="text-gray-500 font-mono text-[10px]">hash:{log.final_prompt_hash.slice(0, 12)}</div>
+          ) : null}
+        </div>
+      );
+    },
+  },
+  {
+    id: 'status',
+    header: '狀態',
+    meta: { headerEn: 'Status', headerZh: '狀態' },
+    accessorFn: (row) => row.status,
+    cell: ({ row }) => {
+      const status = row.original.status;
+      if (status === 'success') return <Badge variant="success">success</Badge>;
+      if (status === 'timeout') return <Badge variant="warning">timeout</Badge>;
+      if (status === 'error') return <Badge variant="error">error</Badge>;
+      return <span className="text-gray-600 text-xs">-</span>;
+    },
+  },
+  {
+    id: 'latency',
+    header: '延遲',
+    meta: { headerEn: 'Latency', headerZh: '延遲' },
+    accessorFn: (row) => row.duration_ms ?? 0,
+    cell: ({ row }) => (
+      <span className="text-gray-300 text-xs whitespace-nowrap">
+        {row.original.duration_ms != null ? `${row.original.duration_ms}ms` : '-'}
+      </span>
+    ),
+  },
+  {
+    id: 'input_tokens',
+    header: 'Input',
+    meta: { headerEn: 'Input Tokens', headerZh: 'Input' },
+    accessorFn: (row) => row.tokens_input ?? 0,
+    cell: ({ row }) => (
+      <span className="text-gray-300 text-xs whitespace-nowrap">
+        {row.original.tokens_input?.toLocaleString() ?? '-'}
+      </span>
+    ),
+  },
+  {
+    id: 'output_tokens',
+    header: 'Output',
+    meta: { headerEn: 'Output Tokens', headerZh: 'Output' },
+    accessorFn: (row) => row.tokens_output ?? 0,
+    cell: ({ row }) => (
+      <span className="text-gray-300 text-xs whitespace-nowrap">
+        {row.original.tokens_output?.toLocaleString() ?? '-'}
+      </span>
+    ),
+  },
+  {
+    id: 'error_message',
+    header: '錯誤',
+    meta: { headerEn: 'Error', headerZh: '錯誤' },
+    enableSorting: false,
+    cell: ({ row }) => (
+      <span className="text-gray-400 text-xs">
+        {row.original.error_message ?? '-'}
+      </span>
+    ),
+  },
+];
+
+const modelComparisonColumns: ColumnDef<LLMAggregateStat, unknown>[] = [
+  {
+    id: 'model_id',
+    header: '模型 ID',
+    meta: { headerEn: 'Model ID', headerZh: '模型 ID' },
+    accessorKey: 'model_id',
+    cell: ({ row }) => (
+      <span className="font-medium text-white font-mono text-xs">
+        {row.original.model_id}
+      </span>
+    ),
+  },
+  {
+    id: 'total_requests',
+    header: '請求數',
+    meta: { headerEn: 'Requests', headerZh: '請求數' },
+    accessorKey: 'total_requests',
+    cell: ({ row }) => (
+      <span className="text-gray-300">
+        {row.original.total_requests.toLocaleString()}
+      </span>
+    ),
+  },
+  {
+    id: 'avg_latency',
+    header: '平均延遲',
+    meta: { headerEn: 'Avg Latency', headerZh: '平均延遲' },
+    accessorKey: 'avg_latency_ms',
+    cell: ({ row }) => getLatencyBadge(row.original.avg_latency_ms),
+  },
+  {
+    id: 'avg_prompt_tokens',
+    header: 'Prompt Tokens',
+    meta: { headerEn: 'Prompt Tokens' },
+    accessorKey: 'avg_prompt_tokens',
+    cell: ({ row }) => (
+      <span className="text-gray-300">
+        {row.original.avg_prompt_tokens.toLocaleString()}
+      </span>
+    ),
+  },
+  {
+    id: 'avg_completion_tokens',
+    header: 'Completion Tokens',
+    meta: { headerEn: 'Completion Tokens' },
+    accessorKey: 'avg_completion_tokens',
+    cell: ({ row }) => (
+      <span className="text-gray-300">
+        {row.original.avg_completion_tokens.toLocaleString()}
+      </span>
+    ),
+  },
+  {
+    id: 'total_cost',
+    header: '總花費',
+    meta: { headerEn: 'Total Cost', headerZh: '總花費' },
+    accessorKey: 'total_cost',
+    cell: ({ row }) => (
+      <span className="text-yellow-400">${row.original.total_cost}</span>
+    ),
+  },
+  {
+    id: 'avg_feedback',
+    header: '平均評分',
+    meta: { headerEn: 'Avg Feedback', headerZh: '平均評分' },
+    accessorKey: 'avg_feedback',
+    cell: ({ row }) => {
+      const fb = row.original.avg_feedback;
+      if (fb > 0) {
+        return (
+          <span className="flex items-center justify-end gap-1 text-orange-400">
+            <Star className="w-3 h-3" />
+            {fb}
+          </span>
+        );
+      }
+      return <span className="text-gray-600">-</span>;
+    },
+  },
+];
+
+// Column width percentages (must roughly sum to 100)
+const USAGE_LOG_WIDTHS = [13, 9, 14, 16, 8, 8, 8, 8, 16];
+const MODEL_COMPARISON_WIDTHS = [22, 12, 14, 14, 14, 12, 12];
+
 export default function LLMMonitorClient({
   overallStats,
   aggregateStats,
@@ -68,6 +273,12 @@ export default function LLMMonitorClient({
     return isSectionId(hashSection) ? hashSection : 'ai-usage-logs';
   });
   const [showBackToTop, setShowBackToTop] = useState(false);
+
+  // Pre-sort model comparison data by total_requests desc
+  const sortedAggregateStats = useMemo(
+    () => [...aggregateStats].sort((a, b) => b.total_requests - a.total_requests),
+    [aggregateStats],
+  );
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('IntersectionObserver' in window)) {
@@ -203,95 +414,33 @@ export default function LLMMonitorClient({
         </div>
       </div>
 
+      {/* AI Usage Logs */}
       <section id="ai-usage-logs" className="space-y-2 scroll-mt-32">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-200">AI 使用紀錄</h2>
           <span className="text-xs text-gray-500">{usageLogs.length} 筆</span>
         </div>
 
-        <Card className="bg-[#2A2A2A] border-[#333333]">
-        <CardHeader className="border-b border-[#333333] pb-4">
-          <CardTitle className="text-white text-base">
-            AI 使用紀錄（含 Prompt / 模組 / 狀態）
-            <span className="text-gray-400 text-sm font-normal ml-2">最新 100 筆</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="border-b border-[#333333] text-gray-400 text-xs">
-                <tr>
-                  <th className="px-4 py-3">時間</th>
-                  <th className="px-4 py-3">模組</th>
-                  <th className="px-4 py-3">Provider / Model</th>
-                  <th className="px-4 py-3">Prompt</th>
-                  <th className="px-4 py-3 text-center">狀態</th>
-                  <th className="px-4 py-3 text-right">延遲</th>
-                  <th className="px-4 py-3 text-right">Input</th>
-                  <th className="px-4 py-3 text-right">Output</th>
-                  <th className="px-4 py-3">錯誤</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#333333]">
-                {usageLogs.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
-                      暫無資料
-                    </td>
-                  </tr>
-                ) : (
-                  usageLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-[#333333]/50 transition-colors">
-                      <td className="px-4 py-2.5 text-gray-400 text-xs whitespace-nowrap">
-                        {new Date(log.created_at).toLocaleString('zh-TW')}
-                      </td>
-                      <td className="px-4 py-2.5 text-gray-200 text-xs whitespace-nowrap">
-                        {log.module_key ?? '-'}
-                      </td>
-                      <td className="px-4 py-2.5 font-mono text-xs text-white whitespace-nowrap">
-                        {log.provider}/{log.model_id}
-                      </td>
-                      <td className="px-4 py-2.5 text-gray-300 text-xs">
-                        <div className="whitespace-nowrap">
-                          {log.prompt_name ?? '-'}
-                          {log.prompt_source ? <span className="text-gray-500"> ({log.prompt_source})</span> : null}
-                          {log.prompt_version != null ? <span className="text-gray-500"> v{log.prompt_version}</span> : null}
-                        </div>
-                        {log.final_prompt_hash ? (
-                          <div className="text-gray-500 font-mono text-[10px]">hash:{log.final_prompt_hash.slice(0, 12)}</div>
-                        ) : null}
-                      </td>
-                      <td className="px-4 py-2.5 text-center">
-                        {log.status === 'success' ? (
-                          <Badge variant="success">success</Badge>
-                        ) : log.status === 'timeout' ? (
-                          <Badge variant="warning">timeout</Badge>
-                        ) : log.status === 'error' ? (
-                          <Badge variant="error">error</Badge>
-                        ) : (
-                          <span className="text-gray-600 text-xs">-</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2.5 text-right text-gray-300 text-xs whitespace-nowrap">
-                        {log.duration_ms != null ? `${log.duration_ms}ms` : '-'}
-                      </td>
-                      <td className="px-4 py-2.5 text-right text-gray-300 text-xs whitespace-nowrap">
-                        {log.tokens_input?.toLocaleString() ?? '-'}
-                      </td>
-                      <td className="px-4 py-2.5 text-right text-gray-300 text-xs whitespace-nowrap">
-                        {log.tokens_output?.toLocaleString() ?? '-'}
-                      </td>
-                      <td className="px-4 py-2.5 text-gray-400 text-xs">
-                        {log.error_message ?? '-'}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-        </Card>
+        <EnhancedTable<AIUsageLog>
+          tableId="llm_usage_logs"
+          columns={usageLogColumns}
+          data={usageLogs}
+          initialWidths={USAGE_LOG_WIDTHS}
+          pageSizes={[20, 50, 100]}
+          minWidth={1100}
+          getCategoryValue={(row) => row.module_key ?? '(none)'}
+          getSearchValue={(row) =>
+            [
+              row.module_key,
+              row.provider,
+              row.model_id,
+              row.prompt_name,
+              row.error_message,
+            ]
+              .filter(Boolean)
+              .join(' ')
+          }
+        />
       </section>
 
       {/* Overall Stats */}
@@ -342,79 +491,21 @@ export default function LLMMonitorClient({
         </div>
       </section>
 
-      {/* Per-Model Stats */}
+      {/* Model Comparison */}
       <section id="model-comparison" className="space-y-2 scroll-mt-32">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-200">模型比較</h2>
           <span className="text-xs text-gray-500">{aggregateStats.length} 個模型</span>
         </div>
 
-        <Card className="bg-[#2A2A2A] border-[#333333]">
-        <CardHeader className="border-b border-[#333333] pb-4">
-          <CardTitle className="text-white text-base">各模型效能比較</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="border-b border-[#333333] text-gray-400 text-xs">
-                <tr>
-                  <th className="px-4 py-3">模型 ID</th>
-                  <th className="px-4 py-3 text-right">請求數</th>
-                  <th className="px-4 py-3 text-right">平均延遲</th>
-                  <th className="px-4 py-3 text-right">Prompt Tokens</th>
-                  <th className="px-4 py-3 text-right">Completion Tokens</th>
-                  <th className="px-4 py-3 text-right">總花費</th>
-                  <th className="px-4 py-3 text-right">平均評分</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#333333]">
-                {aggregateStats.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                      暫無資料
-                    </td>
-                  </tr>
-                ) : (
-                  aggregateStats
-                    .sort((a, b) => b.total_requests - a.total_requests)
-                    .map(stat => (
-                      <tr key={stat.model_id} className="hover:bg-[#333333]/50 transition-colors">
-                        <td className="px-4 py-3 font-medium text-white font-mono text-xs">
-                          {stat.model_id}
-                        </td>
-                        <td className="px-4 py-3 text-right text-gray-300">
-                          {stat.total_requests.toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {getLatencyBadge(stat.avg_latency_ms)}
-                        </td>
-                        <td className="px-4 py-3 text-right text-gray-300">
-                          {stat.avg_prompt_tokens.toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3 text-right text-gray-300">
-                          {stat.avg_completion_tokens.toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3 text-right text-yellow-400">
-                          ${stat.total_cost}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {stat.avg_feedback > 0 ? (
-                            <span className="flex items-center justify-end gap-1 text-orange-400">
-                              <Star className="w-3 h-3" />
-                              {stat.avg_feedback}
-                            </span>
-                          ) : (
-                            <span className="text-gray-600">-</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-        </Card>
+        <EnhancedTable<LLMAggregateStat>
+          tableId="llm_model_comparison"
+          columns={modelComparisonColumns}
+          data={sortedAggregateStats}
+          initialWidths={MODEL_COMPARISON_WIDTHS}
+          minWidth={900}
+          getSearchValue={(row) => row.model_id}
+        />
       </section>
 
       {showBackToTop ? (
