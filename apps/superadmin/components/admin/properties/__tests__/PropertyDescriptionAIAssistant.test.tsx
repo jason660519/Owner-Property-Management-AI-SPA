@@ -28,10 +28,30 @@ function createSSEBody(events: unknown[]) {
 }
 
 function mockStreamResponse(events: unknown[], status = 200) {
-  (global.fetch as jest.Mock).mockResolvedValue({
-    ok: status >= 200 && status < 300,
-    status,
-    body: createSSEBody(events),
+  (global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+    const url = typeof input === 'string' ? input : input.toString();
+    if (url.includes('/api/property-description/prompt-config')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          promptName: '物件描述文案',
+          source: 'ai_system_prompt',
+          moduleKey: 'property_description',
+          version: 3,
+          templatePreview: 'prompt preview',
+        }),
+      });
+    }
+
+    if (url.includes('/api/property-description/stream')) {
+      return Promise.resolve({
+        ok: status >= 200 && status < 300,
+        status,
+        body: createSSEBody(events),
+      });
+    }
+
+    return Promise.reject(new Error(`Unexpected fetch URL: ${url}`));
   });
 }
 
@@ -93,6 +113,46 @@ describe('PropertyDescriptionAIAssistant', () => {
       expect(
         screen.getAllByText('Anthropic API 金鑰無效或已過期，請至「AI 服務 / API KEY」更新後再試').length
       ).toBeGreaterThan(0);
+    });
+  });
+
+  it('loads and displays active prompt config before generating', async () => {
+    mockStreamResponse([]);
+    render(<TestHarness />);
+
+    await waitFor(() => {
+      expect(screen.getByText('目前預設 Prompt')).toBeInTheDocument();
+      expect(screen.getByText('來源: ai_system_prompts（模組專用）')).toBeInTheDocument();
+      expect(screen.getByText('Module Key: property_description')).toBeInTheDocument();
+    });
+  });
+
+  it('keeps generation available when prompt config fetch fails', async () => {
+    (global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/api/property-description/prompt-config')) {
+        return Promise.resolve({ ok: false });
+      }
+      if (url.includes('/api/property-description/stream')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          body: createSSEBody([
+            { type: 'phase', phase: 'collecting_context', message: '蒐集物件資料中…' },
+            { type: 'phase', phase: 'completed', message: 'AI 草稿已完成' },
+            { type: 'complete', description: 'AI 草稿內容', durationMs: 600 },
+          ]),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected fetch URL: ${url}`));
+    });
+
+    const user = userEvent.setup();
+    render(<TestHarness />);
+    await user.click(screen.getByRole('button', { name: '產生 AI 草稿' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('AI 草稿預覽')).toBeInTheDocument();
     });
   });
 

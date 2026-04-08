@@ -721,11 +721,11 @@ const RAW_FEATURES: RoadmapFeature[] = [
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 3,
-    lastModifiedBy: "GPT-5.2",
-    lastModifiedDate: "2026/04/04",
+    lastModifiedBy: "GPT-5.3-Codex",
+    lastModifiedDate: "2026/04/07",
     phase: "development",
     developmentProgress:
-      "superadmin 物件編輯表單改為 AI 協作撰稿流程：抽出 PropertyDescriptionAIAssistant，新增文案風格/長度/用途控制、資料完整度提示、草稿預覽、套用/附加/還原操作；新增 /api/property-description/stream 串流 trace，前端可即時顯示資料蒐集、Prompt 載入、module key、模型來源、LLM/provider、金鑰來源、最終 Prompt 預覽與完成耗時；trace 支援複製與下載；後端已接入 ai_modules_assigned_function、ai_system_prompts 與多 provider fallback，並將物件介紹文案獨立為 property_description module，可在 AI 設定頁單獨配置。\n\n### 2026-04-04 UX 與可觀測性補強\n- 生成中顯示 spinner + 秒數（小數 1 位）。\n- 生成完成/失敗後在頁面上保留摘要：總耗時、tokens（in/out/total）、provider/model、HTTP status。\n- 後端寫入 ai_usage_logs，llm-monitor 可追蹤每次生成成功/失敗與使用的 Prompt/模型資訊；補齊相關 migration 與單元測試。",
+      "superadmin 物件編輯表單改為 AI 協作撰稿流程：抽出 PropertyDescriptionAIAssistant，新增文案風格/長度/用途控制、資料完整度提示、草稿預覽、套用/附加/還原操作；新增 /api/property-description/stream 串流 trace，前端可即時顯示資料蒐集、Prompt 載入、module key、模型來源、LLM/provider、金鑰來源、最終 Prompt 預覽與完成耗時；trace 支援複製與下載；後端已接入 ai_modules_assigned_function、ai_system_prompts 與多 provider fallback，並將物件介紹文案獨立為 property_description module，可在 AI 設定頁單獨配置。\n\n### 2026-04-04 UX 與可觀測性補強\n- 生成中顯示 spinner + 秒數（小數 1 位）。\n- 生成完成/失敗後在頁面上保留摘要：總耗時、tokens（in/out/total）、provider/model、HTTP status。\n- 後端寫入 ai_usage_logs，llm-monitor 可追蹤每次生成成功/失敗與使用的 Prompt/模型資訊；補齊相關 migration 與單元測試。\n\n### 2026-04-07 Prompt 透明化補強\n- 新增 `/api/property-description/prompt-config`，可在生成前解析目前有效 Prompt（ai_system_prompts -> saved_prompts -> default）並回傳 source/module/version/摘要。\n- PropertyDescriptionAIAssistant 新增「目前預設 Prompt」卡片，使用者不需先生成即可看到當前 Prompt 來源，並可直接前往 Prompt 管理頁調整。\n- 補齊前端測試：驗證頁面初始化會顯示目前使用中的 Prompt 來源與 module key。",
   },
   {
     name: "房東的部落格 AI 寫手",
@@ -1230,6 +1230,24 @@ const RAW_FEATURES: RoadmapFeature[] = [
     points: 8,
     lastModifiedBy: "Claude Sonnet 4.5",
     lastModifiedDate: "2026/02/05",
+  },
+  {
+    name: "通用專業檔案與多表面欄位規則（個人／公司／代書／律師等）",
+    locatedPage: "web/settings (規劃中), Sidebar 身分切換",
+    percentage: 5,
+    acceptanceCriteria:
+      "1. 完成 Feature Spec：professional profile 資料模型、欄位目錄 (field registry)、表面 (surface) 目錄、平台預設與使用者覆寫合併優先序。\n2. 使用者設定採「依表面分頁」之欄位表（顯示／必填／鎖定），避免單一超大勾選矩陣。\n3. 一登入可管理多筆專業檔案並可切換目前使用檔案（側欄摘要）。\n4. 公開／PDF／合約等消費端僅能讀取 effective visible 欄位（後端強制，非僅 UI）。\n5. 與既有 users_profile 社群／聯絡欄位對應策略文件化（漸進遷移）。",
+    docPath:
+      "/project-process/features/professional-profiles-and-field-surfaces-spec-20260408.md",
+    featureSpecDocPath:
+      "/project-process/features/professional-profiles-and-field-surfaces-spec-20260408.md",
+    tddSpecDocPath: "/project-process/features/tdd-system-common-20260221.md",
+    category: "通用/系統 (General/System)",
+    points: 5,
+    featureDescription:
+      "跨角色專業身分、欄位目錄、多輸出表面 (public / listing / email / PDF / contract) 之顯示與必填規則；平台預設矩陣 + 使用者可調覆寫 + 法遵鎖定。",
+    lastModifiedBy: "Cursor Agent",
+    lastModifiedDate: "2026/04/08",
   },
   {
     name: "註冊的使用者都有自己的行事曆管理頁面",
@@ -1927,21 +1945,21 @@ const RAW_FEATURES: RoadmapFeature[] = [
     acceptanceCriteria:
       "1. Tab 標籤改為「預覽合約套版」。\n2. 頂部顯示 6 種合約範本卡片，支援複選。\n3. 每個面板頂部有「AI 套版生成」/「自行上傳合約」切換 Tab。\n4. AI 模式：填表、產生草稿預覽、下載 HTML/DOCX、列印、雲端版本管理。\n5. 上傳模式：拖曳/點擊上傳 PDF/DOCX/DOC/JPG/PNG（≤20MB）、PDF 行內預覽、刪除。\n6. 各面板 cloud sync key 含 templateId，上傳檔案路徑含 templateId 隔離。",
     developmentProgress:
-      "Phase 1：6 種範本多選卡片 + 獨立面板架構（ContractTemplateConfig.ts、ContractDraftPanel.tsx、ContractDraftLeaseFields.tsx、ContractDraftSaleFields.tsx 等 6 檔，共從 1369 行拆分為各不超過 393 行）。Phase 2：每個面板加入雙模式切換（panelMode: ai-generate | upload），ContractDraftUploadPanel.tsx 實作拖曳上傳、PDF 預覽、刪除，後端新增 uploadContractFile / getPropertyContractFiles Server Actions，PropertyContractFileItem 型別，合約存於 property-documents/{propertyId}/contracts/{templateId}/ 路徑。Phase 3（2026/04/07）：新增委託合約欄位元件 ContractDraftCommissionFields.tsx（~160 行），支援租賃/銷售雙委託模式切換，包含委託人、仲介公司、委託方式（專任/一般）、委託期限、委託售價/租金+底價、佣金比例或固定金額、授權行銷方式、委託特約事項等 11 個欄位。ContractTemplateConfig.ts 新增委託欄位介面定義，commission-lease 與 commission-sale 改為 available: true。ContractDraftPanel.tsx 根據 templateId 條件式渲染 CommissionFields。預售範本（presale/presale-parking）不再顯示 coming soon 佔位，改為直接進入上傳模式並禁用 AI Tab。單元測試 16 通過（Template Cards 4 + Panel Mode 3 + CommissionFields 5 + Config 4）。",
+      "Phase 1：6 種範本多選卡片 + 獨立面板架構（ContractTemplateConfig.ts、ContractDraftPanel.tsx、ContractDraftLeaseFields.tsx、ContractDraftSaleFields.tsx 等 6 檔，共從 1369 行拆分為各不超過 393 行）。Phase 2：每個面板加入雙模式切換（panelMode: ai-generate | upload），ContractDraftUploadPanel.tsx 實作拖曳上傳、PDF 預覽、刪除，後端新增 uploadContractFile / getPropertyContractFiles Server Actions，PropertyContractFileItem 型別，合約存於 property-documents/{propertyId}/contracts/{templateId}/ 路徑。Phase 3（2026/04/07）：新增委託合約欄位元件 ContractDraftCommissionFields.tsx（~160 行），支援租賃/銷售雙委託模式切換，包含委託人、仲介公司、委託方式（專任/一般）、委託期限、委託售價/租金+底價、佣金比例或固定金額、授權行銷方式、委託特約事項等 11 個欄位。Phase 4（2026/04/08）TDD 全面重構測試：修復 ContractDraftPreviewSection 全部 12 個失敗測試（根本原因：測試未先選取範本卡片即操作表單欄位），新增範本選擇步驟；新增 NumericInput 獨立測試 9 題（整數/小數/範圍/空值/覆寫/前導零）；新增委託租賃與委託銷售欄位輸入測試（文字+數字各 2 組）；修復 ContractDraftCommissionFields 缺少 id/htmlFor 導致 label 與 input 無法關聯的無障礙問題；修復 ContractDraftPanel hydrate() 當本地有草稿但雲端無草稿時漏呼叫 setForm(localForm) 導致表單欄位不回填的 Bug；修正按鈕名稱不一致（刪除目前版本→刪除版本、列印/另存 PDF→列印/PDF）；為版本選擇器 select 加入 id+htmlFor。測試總計 36+16=52 通過，0 失敗。",
     docPath:
       "/project-process/test-logs/test-contract-template-selector-2026-04-07.md",
     featureSpecDocPath:
       "/project-process/features/contract-template-selector-dev-spec-20260407.md",
     tddSpecDocPath:
       "/project-process/features/tdd-contract-template-selector-20260407.md",
-    testScriptPath: "apps/superadmin/unit_test/120/ContractTemplateSelector.test.tsx",
+    testScriptPath: "apps/superadmin/components/admin/properties/__tests__/ContractDraftPreviewSection.test.tsx",
     testStatus: "passed",
-    testCoverage: 80,
+    testCoverage: 90,
     unitTestCoverage: 100,
     e2eTestCoverage: 0,
     points: 8,
     lastModifiedBy: "Claude Opus 4.6",
-    lastModifiedDate: "2026/04/07",
+    lastModifiedDate: "2026/04/08",
   },
   {
     name: "多角色平台商業計畫與定價策略",
@@ -2078,9 +2096,31 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "- **還原 API 升級**：restore route 支援 v2 格式（動態還原所有表）+ v1 向後相容。\n" +
       "- **Toast 報告卡片**：備份完成通知改為固定右上角結構化報告，顯示目的地路徑、檔案結構樹狀圖、統計數字、耗時、有資料的表列表。可 resize、手動關閉。",
   },
+  {
+    name: "超級管理員-合約草稿 TipTap 富文本編輯器",
+    locatedPage: "superadmin/properties/[id]/edit?tab=contract",
+    category: "超級管理員 (Super Admin)",
+    percentage: 90,
+    phase: "testing",
+    workCategory: "功能新增",
+    featureDescription:
+      "在合約草稿預覽區加入 TipTap 行內富文本編輯器，使用者產生草稿後可直接在 App 內修改合約條文，修改後可匯出 HTML / DOCX / 列印 PDF。",
+    acceptanceCriteria:
+      "1. 產生草稿後顯示「編輯模式」按鈕，點擊後 iframe 切換為 TipTap 編輯器。\n2. 工具列支援：粗體、斜體、底線、H1-H3、有序/無序列表、左/中/右對齊、Undo/Redo。\n3. 編輯器內呈現合約官方版面樣式（注入 CONTRACT_PRINT_CSS）。\n4. 編輯後顯示「已編輯」badge 和「還原原始內容」按鈕。\n5. HTML/DOCX/列印匯出使用修改後的內容。\n6. editedHtml 持久化至 localStorage + 雲端草稿，重整後可還原。\n7. 重新產生草稿或清除時自動重設 editedHtml。",
+    developmentProgress:
+      "安裝 @tiptap/react @tiptap/starter-kit @tiptap/extension-underline @tiptap/extension-text-align @tiptap/pm。匯出 contract-document-renderer.ts 的 CONTRACT_PRINT_CSS、renderHtmlDocument、renderContractDocumentBody，新增 renderContractDocumentDocxFromHtml 函式。擴充 PersistedContractDraftState 加入 editedHtml 欄位。新增 ContractRichTextEditor.tsx（TipTap 編輯器+工具列，~160 行）、ContractPreviewToggle.tsx（iframe/editor toggle+匯出邏輯，~170 行）。重構 ContractDraftPanel.tsx 移除內嵌下載/列印 handler，改用 ContractPreviewToggle 元件，加入 editedHtml state 與 persist/hydrate 支援。ContractPreviewToggle 測試 9 題全通過。",
+    testScriptPath: "apps/superadmin/components/admin/properties/__tests__/ContractPreviewToggle.test.tsx",
+    testStatus: "passed",
+    testCoverage: 85,
+    unitTestCoverage: 100,
+    e2eTestCoverage: 0,
+    points: 5,
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/08",
+  },
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/07",
+  lastUpdated: "2026/04/08",
   features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
 };

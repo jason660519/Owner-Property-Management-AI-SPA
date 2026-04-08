@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   CheckCheck,
@@ -82,6 +82,14 @@ interface TraceDetails {
   responseStatus: number | null;
   durationMs: number | null;
   usage?: { inputTokens?: number; outputTokens?: number };
+}
+
+interface PromptConfigSummary {
+  promptName: string;
+  source: 'ai_system_prompt' | 'saved_prompt' | 'default';
+  moduleKey: string | null;
+  version: number | null;
+  templatePreview: string;
 }
 
 interface TraceReportInput {
@@ -286,6 +294,8 @@ export function PropertyDescriptionAIAssistant({
   const [traceDetails, setTraceDetails] = useState<TraceDetails>(getInitialTraceDetails);
   const [showTraceDetails, setShowTraceDetails] = useState(false);
   const [traceActionMessage, setTraceActionMessage] = useState<string | null>(null);
+  const [activePromptConfig, setActivePromptConfig] = useState<PromptConfigSummary | null>(null);
+  const [isPromptConfigLoading, setIsPromptConfigLoading] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
   const { elapsedSeconds: generationElapsedSeconds } = useOperationTimer(isGenerating, { precisionDecimals: 1, tickMs: 100 });
 
@@ -377,6 +387,48 @@ export function PropertyDescriptionAIAssistant({
       })
     : '';
 
+  const promptSourceLabel =
+    activePromptConfig?.source === 'ai_system_prompt'
+      ? 'ai_system_prompts（模組專用）'
+      : activePromptConfig?.source === 'saved_prompt'
+        ? 'saved_prompts（通用）'
+        : activePromptConfig?.source === 'default'
+          ? '系統預設 Prompt'
+          : '尚未取得';
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchPromptConfig = async () => {
+      setIsPromptConfigLoading(true);
+      try {
+        const response = await fetch('/api/property-description/prompt-config');
+        if (!response.ok) {
+          throw new Error('failed_to_load_prompt_config');
+        }
+
+        const data = (await response.json()) as PromptConfigSummary;
+        if (isMounted) {
+          setActivePromptConfig(data);
+        }
+      } catch {
+        if (isMounted) {
+          setActivePromptConfig(null);
+        }
+      } finally {
+        if (isMounted) {
+          setIsPromptConfigLoading(false);
+        }
+      }
+    };
+
+    void fetchPromptConfig();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const updateTracePhase = (phase: TracePhase, status: 'running' | 'completed' | 'error') => {
     const currentIndex = TRACE_PHASES.findIndex((item) => item.phase === phase);
     setTraceSteps((prev) =>
@@ -413,6 +465,13 @@ export function PropertyDescriptionAIAssistant({
           templatePreview: event.templatePreview,
           finalPromptPreview: event.finalPromptPreview,
         }));
+        setActivePromptConfig({
+          promptName: event.promptName,
+          source: event.promptSource,
+          moduleKey: event.moduleKey ?? null,
+          version: null,
+          templatePreview: event.templatePreview,
+        });
         break;
       case 'model_selected':
         setTraceDetails((prev) => ({
@@ -627,6 +686,30 @@ export function PropertyDescriptionAIAssistant({
             <ExternalLink className="h-3.5 w-3.5" />
             <span>管理 Prompt</span>
           </a>
+        </div>
+
+        <div className="rounded-md border border-border-default bg-bg-primary px-3 py-2.5 text-xs">
+          <p className="font-medium text-text-secondary">目前預設 Prompt</p>
+          {isPromptConfigLoading ? (
+            <p className="mt-1 text-text-muted">載入中…</p>
+          ) : (
+            <div className="mt-1 space-y-1 text-text-muted">
+              <p>
+                名稱: <span className="text-text-primary">{activePromptConfig?.promptName ?? '物件描述文案'}</span>
+              </p>
+              <p>來源: {promptSourceLabel}</p>
+              <p>Module Key: {activePromptConfig?.moduleKey ?? '—'}</p>
+              {activePromptConfig?.version != null && <p>版本: v{activePromptConfig.version}</p>}
+              {activePromptConfig?.templatePreview && (
+                <p className="line-clamp-2">
+                  模板摘要: {activePromptConfig.templatePreview}
+                </p>
+              )}
+            </div>
+          )}
+          <p className="mt-1.5 text-text-muted">
+            可到「Prompt 管理」建立/編輯內容，再於 AI 設定頁把指定 Prompt 設為系統 Prompt。
+          </p>
         </div>
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">

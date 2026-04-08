@@ -85,6 +85,8 @@ export interface ContractDraftFormState {
 export interface PersistedContractDraftState {
   form: ContractDraftFormState;
   generatedDraft: unknown | null;
+  /** Rich-text edited HTML body (null = no manual edits, use generated preview) */
+  editedHtml?: string | null;
 }
 
 export interface DraftVersionOption {

@@ -107,10 +107,15 @@ function createProperty(type: 'sale' | 'rental' = 'rental'): PropertyItem {
     livingRooms: 1,
     parkingSpaces: 1,
     createdAt: '2026-03-20T00:00:00.000Z',
-    // Sale contracts require transcripts; rental can have null
     buildingTranscript: type === 'sale' ? MOCK_BUILDING_TRANSCRIPT : null,
     landTranscript: type === 'sale' ? MOCK_LAND_TRANSCRIPT : null,
   };
+}
+
+/** Helper: select a template card by its label text */
+async function selectTemplate(user: ReturnType<typeof userEvent.setup>, templateLabel: string) {
+  const card = screen.getByRole('button', { name: new RegExp(templateLabel) });
+  await user.click(card);
 }
 
 describe('ContractDraftPreviewSection', () => {
@@ -149,6 +154,85 @@ describe('ContractDraftPreviewSection', () => {
     });
   });
 
+  // ─── Template selection ───────────────────────────────────────
+
+  it('renders all 6 template cards in the selector', () => {
+    render(<ContractDraftPreviewSection property={createProperty('rental')} />);
+
+    expect(screen.getByText('房屋租賃契約書')).toBeInTheDocument();
+    expect(screen.getByText('成屋買賣契約書')).toBeInTheDocument();
+    expect(screen.getByText('房屋委託租賃契約書')).toBeInTheDocument();
+    expect(screen.getByText('不動產委託銷售契約書')).toBeInTheDocument();
+    expect(screen.getByText('預售屋買賣契約書')).toBeInTheDocument();
+    expect(screen.getByText('預售停車位買賣契約書')).toBeInTheDocument();
+  });
+
+  it('does not render form fields until a template is selected', () => {
+    render(<ContractDraftPreviewSection property={createProperty('rental')} />);
+    expect(screen.queryByLabelText('承租人姓名')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('買方姓名')).not.toBeInTheDocument();
+  });
+
+  // ─── Lease template fields ────────────────────────────────────
+
+  it('renders lease form fields after selecting lease template', async () => {
+    const user = userEvent.setup();
+    render(<ContractDraftPreviewSection property={createProperty('rental')} />);
+
+    await selectTemplate(user, '房屋租賃契約書');
+
+    expect(screen.getByLabelText('承租人姓名')).toBeInTheDocument();
+    expect(screen.getByLabelText('每月付款日')).toBeInTheDocument();
+    expect(screen.getByLabelText('使用用途')).toBeInTheDocument();
+    expect(screen.getByLabelText('契約分存份數')).toBeInTheDocument();
+    expect(screen.getByLabelText('返還遲延違約金倍數')).toBeInTheDocument();
+    expect(screen.getByLabelText('租期起日')).toBeInTheDocument();
+    expect(screen.getByLabelText('租期迄日')).toBeInTheDocument();
+    expect(screen.getByLabelText('月租金')).toBeInTheDocument();
+    expect(screen.getByLabelText('押金')).toBeInTheDocument();
+    expect(screen.getByLabelText('附屬設備')).toBeInTheDocument();
+    expect(screen.getByLabelText('其他特約')).toBeInTheDocument();
+  });
+
+  it('allows typing text into lease text fields', async () => {
+    const user = userEvent.setup();
+    render(<ContractDraftPreviewSection property={createProperty('rental')} />);
+    await selectTemplate(user, '房屋租賃契約書');
+
+    const tenantInput = screen.getByLabelText('承租人姓名');
+    await user.type(tenantInput, '林小美');
+    expect(tenantInput).toHaveValue('林小美');
+
+    const itemsInput = screen.getByLabelText('附屬設備');
+    await user.type(itemsInput, '冷氣, 冰箱');
+    expect(itemsInput).toHaveValue('冷氣, 冰箱');
+
+    const termsInput = screen.getByLabelText('其他特約');
+    await user.type(termsInput, '不得飼養寵物');
+    expect(termsInput).toHaveValue('不得飼養寵物');
+  });
+
+  it('allows typing numbers into lease numeric fields', async () => {
+    const user = userEvent.setup();
+    render(<ContractDraftPreviewSection property={createProperty('rental')} />);
+    await selectTemplate(user, '房屋租賃契約書');
+
+    const rentInput = screen.getByLabelText('月租金');
+    await user.clear(rentInput);
+    await user.type(rentInput, '45000');
+    expect(rentInput).toHaveDisplayValue('45000');
+
+    const depositInput = screen.getByLabelText('押金');
+    await user.clear(depositInput);
+    await user.type(depositInput, '90000');
+    expect(depositInput).toHaveDisplayValue('90000');
+
+    const dueDayInput = screen.getByLabelText('每月付款日');
+    await user.clear(dueDayInput);
+    await user.type(dueDayInput, '10');
+    expect(dueDayInput).toHaveDisplayValue('10');
+  });
+
   it('generates and renders a lease draft preview', async () => {
     const user = userEvent.setup();
     (global.fetch as jest.Mock).mockResolvedValue({
@@ -175,13 +259,14 @@ describe('ContractDraftPreviewSection', () => {
     });
 
     render(<ContractDraftPreviewSection property={createProperty('rental')} />);
+    await selectTemplate(user, '房屋租賃契約書');
 
     await user.type(screen.getByLabelText('承租人姓名'), '林小美');
     await user.type(screen.getByLabelText('契約日期'), '2026-03-20');
     await user.selectOptions(screen.getByLabelText('使用用途'), 'office');
     await user.type(screen.getByLabelText('附屬設備'), '冷氣, 冰箱');
     await user.type(screen.getByLabelText('其他特約'), '承租人不得飼養寵物。');
-    await user.clear(screen.getByLabelText('押金')); 
+    await user.clear(screen.getByLabelText('押金'));
     await user.type(screen.getByLabelText('押金'), '64000');
     await user.click(screen.getByRole('button', { name: '產生草稿預覽' }));
 
@@ -189,8 +274,6 @@ describe('ContractDraftPreviewSection', () => {
       expect(screen.getByText('契約草稿預覽')).toBeInTheDocument();
     });
 
-    // Contract content is rendered inside the iframe's srcDoc — not queryable via screen.
-    // Verify the iframe preview container is present instead.
     expect(screen.getByTitle('契約草稿預覽')).toBeInTheDocument();
 
     const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
@@ -200,6 +283,68 @@ describe('ContractDraftPreviewSection', () => {
       includedItems: ['冷氣', '冰箱'],
       specialTerms: '承租人不得飼養寵物。',
     }));
+  });
+
+  // ─── Sale template fields ─────────────────────────────────────
+
+  it('renders sale form fields after selecting sale template', async () => {
+    const user = userEvent.setup();
+    render(<ContractDraftPreviewSection property={createProperty('sale')} />);
+    await selectTemplate(user, '成屋買賣契約書');
+
+    expect(screen.getByLabelText('買方姓名')).toBeInTheDocument();
+    expect(screen.getByLabelText('仲介經紀人')).toBeInTheDocument();
+    expect(screen.getByLabelText('仲介公司')).toBeInTheDocument();
+    expect(screen.getByLabelText('代書／地政士')).toBeInTheDocument();
+    expect(screen.getByLabelText('買賣總價')).toBeInTheDocument();
+    expect(screen.getByLabelText('過戶日')).toBeInTheDocument();
+    expect(screen.getByLabelText('交屋日')).toBeInTheDocument();
+    expect(screen.getByLabelText('土地價款')).toBeInTheDocument();
+    expect(screen.getByLabelText('建物價款')).toBeInTheDocument();
+    expect(screen.getByLabelText('車位土地價款')).toBeInTheDocument();
+    expect(screen.getByLabelText('車位建物價款')).toBeInTheDocument();
+    expect(screen.getByLabelText('交屋現況')).toBeInTheDocument();
+    expect(screen.getByLabelText('稅費負擔')).toBeInTheDocument();
+    expect(screen.getByLabelText('副本留存人')).toBeInTheDocument();
+  });
+
+  it('allows typing text into sale text fields', async () => {
+    const user = userEvent.setup();
+    render(<ContractDraftPreviewSection property={createProperty('sale')} />);
+    await selectTemplate(user, '成屋買賣契約書');
+
+    const buyerInput = screen.getByLabelText('買方姓名');
+    await user.type(buyerInput, '黃買方');
+    expect(buyerInput).toHaveValue('黃買方');
+
+    const brokerInput = screen.getByLabelText('仲介公司');
+    await user.type(brokerInput, '安心房屋');
+    expect(brokerInput).toHaveValue('安心房屋');
+
+    const deliveryInput = screen.getByLabelText('交屋現況');
+    await user.type(deliveryInput, '依現況點交');
+    expect(deliveryInput).toHaveValue('依現況點交');
+  });
+
+  it('allows typing numbers into sale numeric fields', async () => {
+    const user = userEvent.setup();
+    render(<ContractDraftPreviewSection property={createProperty('sale')} />);
+    await selectTemplate(user, '成屋買賣契約書');
+
+    const salePriceInput = screen.getByLabelText('買賣總價');
+    await user.clear(salePriceInput);
+    await user.type(salePriceInput, '30000000');
+    expect(salePriceInput).toHaveDisplayValue('30000000');
+
+    const landPriceInput = screen.getByLabelText('土地價款');
+    await user.clear(landPriceInput);
+    await user.type(landPriceInput, '18000000');
+    expect(landPriceInput).toHaveDisplayValue('18000000');
+
+    const buildingPriceInput = screen.getByLabelText('建物價款');
+    await user.clear(buildingPriceInput);
+    await user.type(buildingPriceInput, '9000000');
+    expect(buildingPriceInput).toHaveDisplayValue('9000000');
   });
 
   it('supports html/docx export and print actions after draft generation', async () => {
@@ -261,6 +406,7 @@ describe('ContractDraftPreviewSection', () => {
     });
 
     render(<ContractDraftPreviewSection property={createProperty('rental')} />);
+    await selectTemplate(user, '房屋租賃契約書');
 
     await user.type(screen.getByLabelText('承租人姓名'), '林小美');
     await user.type(screen.getByLabelText('租期起日'), '2026-04-01');
@@ -273,7 +419,7 @@ describe('ContractDraftPreviewSection', () => {
 
     await user.click(screen.getByRole('button', { name: '下載 HTML' }));
     await user.click(screen.getByRole('button', { name: '下載 DOCX' }));
-    await user.click(screen.getByRole('button', { name: '列印 / 另存 PDF' }));
+    await user.click(screen.getByRole('button', { name: '列印 / PDF' }));
 
     expect(global.URL.createObjectURL).toHaveBeenCalled();
     expect(anchorClick).toHaveBeenCalled();
@@ -328,6 +474,7 @@ describe('ContractDraftPreviewSection', () => {
     });
 
     render(<ContractDraftPreviewSection property={createProperty('sale')} />);
+    await selectTemplate(user, '成屋買賣契約書');
 
     await user.type(screen.getByLabelText('買方姓名'), '黃買方');
     await user.type(screen.getByLabelText('契約日期'), '2026-03-20');
@@ -350,8 +497,6 @@ describe('ContractDraftPreviewSection', () => {
       expect(screen.getByText('契約草稿預覽')).toBeInTheDocument();
     });
 
-    // Contract content is rendered inside the iframe's srcDoc — not queryable via screen.
-    // Verify the iframe preview container is present instead.
     expect(screen.getByTitle('契約草稿預覽')).toBeInTheDocument();
 
     const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
@@ -378,8 +523,8 @@ describe('ContractDraftPreviewSection', () => {
 
   it('keeps payment milestone inputs mounted while editing labels', async () => {
     const user = userEvent.setup();
-
     render(<ContractDraftPreviewSection property={createProperty('sale')} />);
+    await selectTemplate(user, '成屋買賣契約書');
 
     const milestoneLabelInput = screen.getByLabelText('付款節點名稱-1');
 
@@ -394,8 +539,8 @@ describe('ContractDraftPreviewSection', () => {
 
   it('allows overwriting existing sale numeric inputs manually', async () => {
     const user = userEvent.setup();
-
     render(<ContractDraftPreviewSection property={createProperty('sale')} />);
+    await selectTemplate(user, '成屋買賣契約書');
 
     const salePriceInput = screen.getByLabelText('買賣總價');
     const landPriceInput = screen.getByLabelText('土地價款');
@@ -423,8 +568,8 @@ describe('ContractDraftPreviewSection', () => {
 
   it('keeps numeric inputs empty while the user is retyping values', async () => {
     const user = userEvent.setup();
-
     render(<ContractDraftPreviewSection property={createProperty('sale')} />);
+    await selectTemplate(user, '成屋買賣契約書');
 
     const salePriceInput = screen.getByLabelText('買賣總價');
 
@@ -439,8 +584,8 @@ describe('ContractDraftPreviewSection', () => {
 
   it('allows overwriting existing sale text inputs manually', async () => {
     const user = userEvent.setup();
-
     render(<ContractDraftPreviewSection property={createProperty('sale')} />);
+    await selectTemplate(user, '成屋買賣契約書');
 
     const brokerNameInput = screen.getByLabelText('仲介公司');
     const defaultClauseInput = screen.getByLabelText('特約條款摘要');
@@ -457,9 +602,139 @@ describe('ContractDraftPreviewSection', () => {
     expect(defaultClauseInput).toHaveValue('新的特約條款摘要');
   });
 
+  // ─── Commission lease template fields ─────────────────────────
+
+  it('renders commission lease fields after selecting commission-lease template', async () => {
+    const user = userEvent.setup();
+    render(<ContractDraftPreviewSection property={createProperty('rental')} />);
+    await selectTemplate(user, '房屋委託租賃契約書');
+
+    expect(screen.getByText('委託租賃合約資訊')).toBeInTheDocument();
+    expect(screen.getByLabelText('委託人（屋主）')).toBeInTheDocument();
+    expect(screen.getByLabelText('受託仲介公司')).toBeInTheDocument();
+    expect(screen.getByLabelText('委託方式')).toBeInTheDocument();
+    expect(screen.getByLabelText('委託起始日')).toBeInTheDocument();
+    expect(screen.getByLabelText('委託到期日')).toBeInTheDocument();
+    expect(screen.getByLabelText('委託租金（月）')).toBeInTheDocument();
+    expect(screen.getByLabelText('最低可接受租金（月）')).toBeInTheDocument();
+    expect(screen.getByLabelText('授權行銷方式')).toBeInTheDocument();
+    expect(screen.getByLabelText('委託特約事項')).toBeInTheDocument();
+  });
+
+  it('allows typing text into commission lease fields', async () => {
+    const user = userEvent.setup();
+    render(<ContractDraftPreviewSection property={createProperty('rental')} />);
+    await selectTemplate(user, '房屋委託租賃契約書');
+
+    const principalInput = screen.getByLabelText('委託人（屋主）');
+    await user.type(principalInput, '王大明');
+    expect(principalInput).toHaveValue('王大明');
+
+    const brokerageInput = screen.getByLabelText('受託仲介公司');
+    await user.type(brokerageInput, '安心房屋');
+    expect(brokerageInput).toHaveValue('安心房屋');
+
+    const marketingInput = screen.getByLabelText('授權行銷方式');
+    await user.type(marketingInput, '591刊登');
+    expect(marketingInput).toHaveValue('591刊登');
+
+    const specialInput = screen.getByLabelText('委託特約事項');
+    await user.type(specialInput, '限定帶看時段');
+    expect(specialInput).toHaveValue('限定帶看時段');
+  });
+
+  it('allows typing numbers into commission lease numeric fields', async () => {
+    const user = userEvent.setup();
+    render(<ContractDraftPreviewSection property={createProperty('rental')} />);
+    await selectTemplate(user, '房屋委託租賃契約書');
+
+    const listingPriceInput = screen.getByLabelText('委託租金（月）');
+    await user.clear(listingPriceInput);
+    await user.type(listingPriceInput, '35000');
+    expect(listingPriceInput).toHaveDisplayValue('35000');
+
+    const floorPriceInput = screen.getByLabelText('最低可接受租金（月）');
+    await user.clear(floorPriceInput);
+    await user.type(floorPriceInput, '30000');
+    expect(floorPriceInput).toHaveDisplayValue('30000');
+
+    const rateInput = screen.getByPlaceholderText('佣金比例 %');
+    await user.clear(rateInput);
+    await user.type(rateInput, '4.5');
+    expect(rateInput).toHaveDisplayValue('4.5');
+
+    const fixedFeeInput = screen.getByPlaceholderText('固定金額');
+    await user.clear(fixedFeeInput);
+    await user.type(fixedFeeInput, '20000');
+    expect(fixedFeeInput).toHaveDisplayValue('20000');
+  });
+
+  // ─── Commission sale template fields ──────────────────────────
+
+  it('renders commission sale fields after selecting commission-sale template', async () => {
+    const user = userEvent.setup();
+    render(<ContractDraftPreviewSection property={createProperty('sale')} />);
+    await selectTemplate(user, '不動產委託銷售契約書');
+
+    expect(screen.getByText('委託銷售合約資訊')).toBeInTheDocument();
+    expect(screen.getByLabelText('委託人（屋主）')).toBeInTheDocument();
+    expect(screen.getByLabelText('受託仲介公司')).toBeInTheDocument();
+    expect(screen.getByLabelText('委託售價')).toBeInTheDocument();
+    expect(screen.getByLabelText('底價（最低可接受價格）')).toBeInTheDocument();
+  });
+
+  it('allows typing text into commission sale fields', async () => {
+    const user = userEvent.setup();
+    render(<ContractDraftPreviewSection property={createProperty('sale')} />);
+    await selectTemplate(user, '不動產委託銷售契約書');
+
+    const principalInput = screen.getByLabelText('委託人（屋主）');
+    await user.type(principalInput, '李屋主');
+    expect(principalInput).toHaveValue('李屋主');
+
+    const marketingInput = screen.getByLabelText('授權行銷方式');
+    await user.type(marketingInput, '591刊登');
+    expect(marketingInput).toHaveValue('591刊登');
+
+    const specialInput = screen.getByLabelText('委託特約事項');
+    await user.type(specialInput, '週末不帶看');
+    expect(specialInput).toHaveValue('週末不帶看');
+  });
+
+  it('allows typing numbers into commission sale numeric fields', async () => {
+    const user = userEvent.setup();
+    render(<ContractDraftPreviewSection property={createProperty('sale')} />);
+    await selectTemplate(user, '不動產委託銷售契約書');
+
+    const listingPriceInput = screen.getByLabelText('委託售價');
+    await user.clear(listingPriceInput);
+    await user.type(listingPriceInput, '28000000');
+    expect(listingPriceInput).toHaveDisplayValue('28000000');
+
+    const floorPriceInput = screen.getByLabelText('底價（最低可接受價格）');
+    await user.clear(floorPriceInput);
+    await user.type(floorPriceInput, '25000000');
+    expect(floorPriceInput).toHaveDisplayValue('25000000');
+  });
+
+  // ─── Presale templates (upload only) ──────────────────────────
+
+  it('shows upload-only panel for presale templates', async () => {
+    const user = userEvent.setup();
+    render(<ContractDraftPreviewSection property={createProperty('sale')} />);
+    await selectTemplate(user, '預售屋買賣契約書');
+
+    // AI generate button should be disabled for presale
+    const aiButton = screen.getByRole('button', { name: /AI 套版生成/ });
+    expect(aiButton).toBeDisabled();
+  });
+
+  // ─── Draft persistence & version control ──────────────────────
+
   it('restores saved lease draft inputs from cloud draft after remount', async () => {
     const user = userEvent.setup();
     const { unmount } = render(<ContractDraftPreviewSection property={createProperty('rental')} />);
+    await selectTemplate(user, '房屋租賃契約書');
 
     await user.type(screen.getByLabelText('承租人姓名'), '林小美');
     await user.type(screen.getByLabelText('契約日期'), '2026-03-20');
@@ -476,6 +751,7 @@ describe('ContractDraftPreviewSection', () => {
     unmount();
 
     render(<ContractDraftPreviewSection property={createProperty('rental')} />);
+    await selectTemplate(user, '房屋租賃契約書');
 
     await waitFor(() => {
       expect(screen.getByLabelText('承租人姓名')).toHaveValue('林小美');
@@ -488,7 +764,8 @@ describe('ContractDraftPreviewSection', () => {
   });
 
   it('migrates existing browser draft to cloud when account draft is missing', async () => {
-    window.localStorage.setItem('contract-draft-preview:property-1', JSON.stringify({
+    const user = userEvent.setup();
+    window.localStorage.setItem('contract-draft-preview:property-1:lease', JSON.stringify({
       form: {
         contractType: 'lease',
         tenantName: '本地草稿承租人',
@@ -501,6 +778,7 @@ describe('ContractDraftPreviewSection', () => {
     }));
 
     render(<ContractDraftPreviewSection property={createProperty('rental')} />);
+    await selectTemplate(user, '房屋租賃契約書');
 
     await waitFor(() => {
       expect(screen.getByLabelText('承租人姓名')).toHaveValue('本地草稿承租人');
@@ -508,7 +786,7 @@ describe('ContractDraftPreviewSection', () => {
 
     await waitFor(() => {
       expect(mockSaveCloudDraft).toHaveBeenCalledWith(expect.objectContaining({
-        formKey: 'contract-draft-preview:property-1',
+        formKey: 'contract-draft-preview:property-1:lease',
       }));
     });
 
@@ -540,6 +818,7 @@ describe('ContractDraftPreviewSection', () => {
     });
 
     render(<ContractDraftPreviewSection property={createProperty('rental')} />);
+    await selectTemplate(user, '房屋租賃契約書');
 
     await user.type(screen.getByLabelText('承租人姓名'), '版本一');
     await user.type(screen.getByLabelText('版本名稱'), '版本一-自訂名稱');
@@ -605,12 +884,13 @@ describe('ContractDraftPreviewSection', () => {
     });
 
     render(<ContractDraftPreviewSection property={createProperty('rental')} />);
+    await selectTemplate(user, '房屋租賃契約書');
 
     await waitFor(() => {
       expect(screen.getByLabelText('承租人姓名')).toHaveValue('版本二');
     });
 
-    await user.click(screen.getByRole('button', { name: '刪除目前版本' }));
+    await user.click(screen.getByRole('button', { name: '刪除版本' }));
 
     await waitFor(() => {
       expect(mockDeleteCloudDraftById).toHaveBeenCalledWith('draft-2');
@@ -624,6 +904,7 @@ describe('ContractDraftPreviewSection', () => {
   it('clears saved draft inputs, local cache, and cloud draft when requested', async () => {
     const user = userEvent.setup();
     render(<ContractDraftPreviewSection property={createProperty('sale')} />);
+    await selectTemplate(user, '成屋買賣契約書');
 
     await user.type(screen.getByLabelText('買方姓名'), '黃買方');
     await user.type(screen.getByLabelText('契約日期'), '2026-03-20');
@@ -637,7 +918,7 @@ describe('ContractDraftPreviewSection', () => {
 
     await waitFor(() => {
       expect(mockDeleteCloudDraft).toHaveBeenCalledWith(expect.objectContaining({
-        formKey: 'contract-draft-preview:property-1',
+        formKey: 'contract-draft-preview:property-1:sale',
       }));
     });
 

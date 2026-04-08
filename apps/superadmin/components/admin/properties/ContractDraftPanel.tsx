@@ -1,19 +1,20 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bot, ChevronDown, ChevronUp, Download, FileText, FileUp, Loader2, Printer } from 'lucide-react';
+import { Bot, ChevronDown, ChevronUp, FileText, FileUp, Loader2 } from 'lucide-react';
 import { AIOperationStatusPill } from '@/components/ui/AIOperationStatusPill';
 import { useOperationTimer } from '@/lib/hooks/useOperationTimer';
 import type { ContractDraft, SalePaymentMilestone } from '@/lib/types/contracts';
 import type { PropertyItem } from '@/lib/types/properties';
 import { readLocalStorage, writeLocalStorage } from '@/lib/utils/storage-state';
 import { deleteCloudDraft, deleteCloudDraftById, listCloudDrafts, saveCloudDraft } from '@/lib/utils/form-draft-cloud';
-import { buildContractDocumentFileName, getContractOfficialDocxTemplatePath, renderContractDocumentDocx, renderContractDocumentHtml } from '@/lib/utils/contract-document-renderer';
+import { renderContractDocumentHtml } from '@/lib/utils/contract-document-renderer';
 import type { ContractTemplateId, ContractDraftFormState, DraftVersionOption, PersistedContractDraftState } from './ContractTemplateConfig';
 import { ContractDraftCommissionFields } from './ContractDraftCommissionFields';
 import { ContractDraftLeaseFields } from './ContractDraftLeaseFields';
 import { ContractDraftSaleFields } from './ContractDraftSaleFields';
 import { ContractDraftUploadPanel } from './ContractDraftUploadPanel';
+import { ContractPreviewToggle } from './ContractPreviewToggle';
 
 type PanelMode = 'ai-generate' | 'upload';
 
@@ -34,14 +35,6 @@ function formatSavedAt(value: string | null) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return null;
   return new Intl.DateTimeFormat('zh-TW', { dateStyle: 'short', timeStyle: 'short' }).format(d);
-}
-
-function downloadBlob(blob: Blob, fileName: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = fileName;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function buildDefaultPaymentSchedule(amount: number): SalePaymentMilestone[] {
@@ -96,6 +89,7 @@ export function ContractDraftPanel({ property, templateId, templateLabel, contra
   const [draftVersions, setDraftVersions] = useState<DraftVersionOption[]>([]);
   const [selectedVersionId, setSelectedVersionId] = useState('');
   const [newVersionName, setNewVersionName] = useState('');
+  const [editedHtml, setEditedHtml] = useState<string | null>(null);
 
   const {
     elapsedSeconds: generateElapsedSeconds,
@@ -140,10 +134,16 @@ export function ContractDraftPanel({ property, templateId, templateLabel, contra
           skipPersistRef.current = true;
           cloudDraftIdRef.current = latest.id;
           setForm(cloudForm); setDraft(latest.data.generatedDraft as ContractDraft ?? null);
+          setEditedHtml((latest.data.editedHtml as string) ?? null);
           setStatus(latest.data.generatedDraft ? 'success' : 'idle');
           setLastSavedAt(latest.updatedAt); setSelectedVersionId(latest.id); setCloudSyncState('saved');
         } else if (local?.form) {
-          const saved = await saveCloudDraft({ formKey: cloudFormKey, name: `${property.title}-${templateLabel}草稿`, data: { form: localForm, generatedDraft: local.generatedDraft ?? null } });
+          skipPersistRef.current = true;
+          setForm(localForm);
+          setDraft(local.generatedDraft as ContractDraft ?? null);
+          setEditedHtml((local as PersistedContractDraftState).editedHtml ?? null);
+          setStatus(local.generatedDraft ? 'success' : 'idle');
+          const saved = await saveCloudDraft({ formKey: cloudFormKey, name: `${property.title}-${templateLabel}草稿`, data: { form: localForm, generatedDraft: local.generatedDraft ?? null, editedHtml: (local as PersistedContractDraftState).editedHtml ?? null } });
           if (cancelled) return;
           cloudDraftIdRef.current = saved.id; setLastSavedAt(saved.updatedAt); setSelectedVersionId(saved.id);
           setDraftVersions([{ id: saved.id, name: saved.name, updatedAt: saved.updatedAt }]);
@@ -160,13 +160,13 @@ export function ContractDraftPanel({ property, templateId, templateLabel, contra
   useEffect(() => {
     if (!hasHydratedRef.current) return;
     if (skipPersistRef.current) { skipPersistRef.current = false; return; }
-    writeLocalStorage(storageKey, { form, generatedDraft: draft });
+    writeLocalStorage(storageKey, { form, generatedDraft: draft, editedHtml });
     if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     setCloudSyncState('loading'); setCloudSyncMessage(null);
     syncTimeoutRef.current = setTimeout(() => {
       void (async () => {
         try {
-          const saved = await saveCloudDraft({ formKey: cloudFormKey, name: `${property.title}-${templateLabel}草稿`, data: { form, generatedDraft: draft }, draftId: cloudDraftIdRef.current });
+          const saved = await saveCloudDraft({ formKey: cloudFormKey, name: `${property.title}-${templateLabel}草稿`, data: { form, generatedDraft: draft, editedHtml }, draftId: cloudDraftIdRef.current });
           cloudDraftIdRef.current = saved.id; setLastSavedAt(saved.updatedAt); setSelectedVersionId(saved.id);
           setDraftVersions(prev => [{ id: saved.id, name: saved.name, updatedAt: saved.updatedAt }, ...prev.filter(v => v.id !== saved.id)]);
           setCloudSyncState('saved');
@@ -174,14 +174,14 @@ export function ContractDraftPanel({ property, templateId, templateLabel, contra
       })();
     }, SYNC_DEBOUNCE_MS);
     return () => { if (syncTimeoutRef.current) { clearTimeout(syncTimeoutRef.current); syncTimeoutRef.current = null; } };
-  }, [cloudFormKey, draft, form, property.title, storageKey, templateLabel]);
+  }, [cloudFormKey, draft, editedHtml, form, property.title, storageKey, templateLabel]);
 
   useEffect(() => () => { if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current); }, []);
 
   async function handleClearDraft() {
     skipPersistRef.current = true;
     if (syncTimeoutRef.current) { clearTimeout(syncTimeoutRef.current); syncTimeoutRef.current = null; }
-    setForm(initialForm); setDraft(null); setStatus('idle'); setErrorMessage(null); setCloudSyncMessage(null); setLastSavedAt(null);
+    setForm(initialForm); setDraft(null); setEditedHtml(null); setStatus('idle'); setErrorMessage(null); setCloudSyncMessage(null); setLastSavedAt(null);
     if (typeof window !== 'undefined') window.localStorage.removeItem(storageKey);
     try {
       await deleteCloudDraft({ formKey: cloudFormKey, draftId: cloudDraftIdRef.current });
@@ -200,8 +200,8 @@ export function ContractDraftPanel({ property, templateId, templateLabel, contra
       const res = await fetch('/api/contracts/draft', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const body = await res.json();
       if (!res.ok || !body.success) throw new Error(body.error || '產生失敗');
-      setDraft(body.draft as ContractDraft); setStatus('success');
-      writeLocalStorage(storageKey, { form, generatedDraft: body.draft });
+      setDraft(body.draft as ContractDraft); setEditedHtml(null); setStatus('success');
+      writeLocalStorage(storageKey, { form, generatedDraft: body.draft, editedHtml: null });
     } catch (e) { setStatus('error'); setErrorMessage(e instanceof Error ? e.message : '產生契約草稿失敗'); }
   }
 
@@ -227,8 +227,9 @@ export function ContractDraftPanel({ property, templateId, templateLabel, contra
       const nextForm: ContractDraftFormState = { ...initialForm, ...(target.data.form ?? {}), paymentSchedule: Array.isArray(target.data.form?.paymentSchedule) ? target.data.form.paymentSchedule : initialForm.paymentSchedule };
       skipPersistRef.current = true; cloudDraftIdRef.current = target.id;
       setForm(nextForm); setDraft(target.data.generatedDraft as ContractDraft ?? null);
+      setEditedHtml((target.data.editedHtml as string) ?? null);
       setStatus(target.data.generatedDraft ? 'success' : 'idle'); setLastSavedAt(target.updatedAt);
-      writeLocalStorage(storageKey, { form: nextForm, generatedDraft: target.data.generatedDraft ?? null });
+      writeLocalStorage(storageKey, { form: nextForm, generatedDraft: target.data.generatedDraft ?? null, editedHtml: (target.data.editedHtml as string) ?? null });
       setCloudSyncState('saved');
     } catch (e) { setCloudSyncState('error'); setCloudSyncMessage(e instanceof Error ? e.message : '切換版本失敗'); }
   }
@@ -243,30 +244,6 @@ export function ContractDraftPanel({ property, templateId, templateLabel, contra
       if (next.length === 0) { cloudDraftIdRef.current = null; setSelectedVersionId(''); setCloudSyncState('idle'); setCloudSyncMessage('已刪除，雲端目前無可用版本。'); }
       else { await handleSwitchVersion(next[0].id); setCloudSyncMessage('已刪除，並切換至最新版本。'); }
     } catch (e) { setCloudSyncState('error'); setCloudSyncMessage(e instanceof Error ? e.message : '刪除版本失敗'); }
-  }
-
-  function handleDownloadHtml() {
-    if (!draft) return;
-    downloadBlob(new Blob([renderContractDocumentHtml(draft)], { type: 'text/html;charset=utf-8' }), buildContractDocumentFileName(draft));
-  }
-
-  async function handleDownloadDocx() {
-    if (!draft) return;
-    try {
-      setErrorMessage(null);
-      const res = await fetch(getContractOfficialDocxTemplatePath(draft.contractType), { cache: 'no-store' });
-      const templateBytes = res.ok ? new Uint8Array(await res.arrayBuffer()) : undefined;
-      const bytes = await renderContractDocumentDocx(draft, { templateDocxBytes: templateBytes });
-      downloadBlob(new Blob([bytes as unknown as BlobPart], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), buildContractDocumentFileName(draft, 'docx'));
-    } catch (e) { setErrorMessage(e instanceof Error ? e.message : '下載 DOCX 失敗'); }
-  }
-
-  function handlePrintDraft() {
-    if (!draft) return;
-    const url = URL.createObjectURL(new Blob([renderContractDocumentHtml(draft)], { type: 'text/html;charset=utf-8' }));
-    const win = window.open(url, '_blank');
-    if (!win) { setErrorMessage('無法開啟列印視窗，請確認瀏覽器未封鎖彈出視窗。'); URL.revokeObjectURL(url); return; }
-    win.onload = () => { win.print(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
   }
 
   const syncLabel = cloudSyncState === 'loading' ? '同步中...' : cloudSyncState === 'saved' ? `已儲存${formatSavedAt(lastSavedAt) ? `：${formatSavedAt(lastSavedAt)}` : ''}` : cloudSyncState === 'idle' ? '尚未建立雲端草稿' : `同步失敗${cloudSyncMessage ? `：${cloudSyncMessage}` : ''}`;
@@ -387,8 +364,8 @@ export function ContractDraftPanel({ property, templateId, templateLabel, contra
           <div className="rounded-xl border border-border-default bg-bg-secondary/30 p-4 space-y-3">
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div className="space-y-1">
-                <label className="text-sm font-medium text-text-secondary">草稿版本</label>
-                <select value={selectedVersionId} onChange={(e) => { void handleSwitchVersion(e.target.value); }} className="min-w-[260px] rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary">
+                <label htmlFor={`draftVersion-${templateId}`} className="text-sm font-medium text-text-secondary">草稿版本</label>
+                <select id={`draftVersion-${templateId}`} value={selectedVersionId} onChange={(e) => { void handleSwitchVersion(e.target.value); }} className="min-w-[260px] rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary">
                   <option value="" disabled>{draftVersions.length > 0 ? '選擇版本' : '尚無雲端版本'}</option>
                   {draftVersions.map(v => <option key={v.id} value={v.id}>{v.name} · {formatSavedAt(v.updatedAt) ?? v.updatedAt}</option>)}
                 </select>
@@ -401,31 +378,15 @@ export function ContractDraftPanel({ property, templateId, templateLabel, contra
             </div>
           </div>
 
-          {/* Preview */}
+          {/* Preview / Edit */}
           {draft && (
-            <div className="space-y-4 rounded-2xl border border-border-default bg-bg-secondary/30 p-5">
-              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <h5 className="font-semibold text-text-primary">契約草稿預覽</h5>
-                  <p className="mt-1 text-sm text-text-secondary">依官方範本填入資料後之草稿，供律師或代書參考，不具法律效力。</p>
-                  <p className="mt-1 text-xs text-text-muted">{draft.contractType === 'lease' ? '房屋租賃契約書' : '成屋買賣契約書'} · {draft.propertyAddress}</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button type="button" onClick={handleDownloadHtml} className="inline-flex items-center gap-2 rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm font-medium text-text-primary"><Download className="h-4 w-4" />下載 HTML</button>
-                  <button type="button" onClick={() => { void handleDownloadDocx(); }} className="inline-flex items-center gap-2 rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm font-medium text-text-primary"><Download className="h-4 w-4" />下載 DOCX</button>
-                  <button type="button" onClick={handlePrintDraft} className="inline-flex items-center gap-2 rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm font-medium text-text-primary"><Printer className="h-4 w-4" />列印 / PDF</button>
-                </div>
-              </div>
-              {draft.contractType === 'sale' && (draft.manualReviewRequired || draft.riskNotes) && (
-                <div className="rounded-xl border border-amber-300/40 bg-amber-500/10 p-4 text-sm space-y-1">
-                  <div className="font-medium text-amber-700">⚠ 需人工覆核</div>
-                  {draft.riskNotes && <div className="text-text-primary">{draft.riskNotes}</div>}
-                </div>
-              )}
-              <div className="rounded-xl border border-border-default overflow-hidden">
-                <iframe srcDoc={previewHtml} className="w-full bg-white" style={{ height: '900px' }} title="契約草稿預覽" />
-              </div>
-            </div>
+            <ContractPreviewToggle
+              draft={draft}
+              previewHtml={previewHtml}
+              editedHtml={editedHtml}
+              onEditedHtmlChange={setEditedHtml}
+              onError={setErrorMessage}
+            />
           )}
             </>
           )}

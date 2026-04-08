@@ -15,7 +15,7 @@ interface OfficialTemplateRenderResult {
   didApplyInlineTemplate: boolean;
 }
 
-const PRINT_CSS = `
+export const CONTRACT_PRINT_CSS = `
 @page { size: A4; margin: 20mm 25mm; }
 body {
   font-family: "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
@@ -136,14 +136,14 @@ function escapeHtml(value: string | number | undefined | null) {
     .replace(/'/g, '&#39;');
 }
 
-function renderHtmlDocument(title: string, content: string) {
+export function renderHtmlDocument(title: string, content: string) {
   return [
     '<!DOCTYPE html>',
     '<html lang="zh-Hant">',
     '<head>',
     '<meta charset="utf-8" />',
     `<title>${escapeHtml(title)}</title>`,
-    `<style>${PRINT_CSS}</style>`,
+    `<style>${CONTRACT_PRINT_CSS}</style>`,
     '</head>',
     '<body>',
     content,
@@ -152,7 +152,7 @@ function renderHtmlDocument(title: string, content: string) {
   ].join('');
 }
 
-function renderContractDocumentBody(draft: ContractDraft) {
+export function renderContractDocumentBody(draft: ContractDraft) {
   const template = getContractTokenizedTemplate(draft.contractType);
   const tokenMap = buildContractTemplateTokenMap(draft);
   const content = applyContractTemplateTokens(template, tokenMap)
@@ -1068,6 +1068,17 @@ export async function renderContractDocumentDocx(
 
   zip.folder('word')?.file('afchunk.html', html);
 
+  return zip.generateAsync({ type: 'uint8array' });
+}
+
+/**
+ * Build a DOCX from raw HTML string (for edited content that no longer maps to ContractDraft fields).
+ * Uses the altChunk/afchunk.html embedding approach.
+ */
+export async function renderContractDocumentDocxFromHtml(fullHtml: string, fileName: string) {
+  const title = fileName.replace(/\.\w+$/, '');
+  const zip = createMinimalDocxZip(title);
+  zip.folder('word')?.file('afchunk.html', fullHtml);
   return zip.generateAsync({ type: 'uint8array' });
 }
 

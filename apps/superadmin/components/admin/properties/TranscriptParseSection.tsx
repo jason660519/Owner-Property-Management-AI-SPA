@@ -44,6 +44,7 @@ import {
   normalizeLocalParsedToLandTranscriptData,
   transcriptDataForTranscribeFromParseOutput,
 } from '@/lib/utils/transcript-parsed-to-form';
+import { TRANSCRIPT_PARSE_SCENARIO_PRESETS } from '@/lib/transcript-parse-scenario-prompts';
 import Link from 'next/link';
 
 interface ModelProgressItem {
@@ -988,16 +989,6 @@ export function TranscriptParseSection({
                   <BookMarked size={11} />
                   Prompt 管理
                 </button>
-                <a
-                  href="/superadmin/settings/prompt-management?source=transcript-parse"
-                  target="_blank"
-                  rel="opener"
-                  className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-accent transition-colors"
-                  title="在新分頁開啟 Prompt 管理，載入的 Prompt 會自動填到此欄位"
-                >
-                  <ExternalLink size={11} />
-                  在新分頁開啟
-                </a>
               </div>
             </div>
             <textarea
@@ -1313,6 +1304,7 @@ export function TranscriptParseSection({
             writeLocalStorage(LS_LAST_CUSTOM_PROMPT, content);
             setShowPromptManager(false);
           }}
+          transcriptParsePresets={TRANSCRIPT_PARSE_SCENARIO_PRESETS}
         />
       )}
     </div>
