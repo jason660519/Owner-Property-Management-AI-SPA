@@ -29,6 +29,8 @@ describe('ContactLeadsTable', () => {
               propertyTitle: '台北大安整合案件',
             },
             leadReference: 'LEAD-12345678',
+            assigneeId: null,
+            assigneeName: null,
           },
           {
             id: 'lead-2',
@@ -44,6 +46,8 @@ describe('ContactLeadsTable', () => {
               entryPoint: 'pricing-cta',
             },
             leadReference: 'LEAD-22222222',
+            assigneeId: null,
+            assigneeName: null,
           },
         ]}
       />,

@@ -1,50 +1,36 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useActionState, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import { signInWithPasswordAction } from './actions';
+import { signInWithPasswordFormAction, type LoginFormState } from './actions';
 
 export default function LoginPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const returnUrl = searchParams.get('returnUrl') || '/superadmin';
+  const returnUrl = useMemo(
+    () => searchParams.get('returnUrl') || '/superadmin',
+    [searchParams],
+  );
   const reason = searchParams.get('reason');
   const urlError = searchParams.get('error');
 
+  const initialState: LoginFormState = { error: null };
+  const [state, formAction, isPending] = useActionState(signInWithPasswordFormAction, initialState);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(
-    reason === 'insufficient_role'
-      ? '您沒有超級管理員權限，無法存取此後台。'
-      : urlError
-        ? decodeURIComponent(urlError)
-        : null
+  const initialError = useMemo<string | null>(
+    () =>
+      reason === 'insufficient_role'
+        ? '您沒有超級管理員權限，無法存取此後台。'
+        : urlError
+          ? decodeURIComponent(urlError)
+          : null,
+    [reason, urlError],
   );
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    if (!email.trim() || !password) {
-      setError('請輸入電子郵件與密碼。');
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const result = await signInWithPasswordAction(email.trim(), password);
-      if (result.success) {
-        router.push(returnUrl);
-        router.refresh();
-        return;
-      }
-      setError(result.error);
-    } finally {
-      setIsLoading(false);
-    }
-  }
+  const error = state.error ?? initialError;
 
   return (
     <div className="min-h-screen bg-bg-secondary flex items-center justify-center p-4">
@@ -58,7 +44,8 @@ export default function LoginPage() {
           </p>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form action={formAction} className="space-y-4">
+            <input type="hidden" name="returnUrl" value={returnUrl} />
             {error && (
               <div
                 className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400"
@@ -71,26 +58,28 @@ export default function LoginPage() {
               label="電子郵件"
               type="email"
               autoComplete="email"
+              name="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="your@email.com"
               required
-              disabled={isLoading}
+              disabled={isPending}
             />
             <Input
               label="密碼"
               type="password"
               autoComplete="current-password"
+              name="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              disabled={isLoading}
+              disabled={isPending}
             />
             <Button
               type="submit"
               fullWidth
-              isLoading={isLoading}
-              disabled={isLoading}
+              isLoading={isPending}
+              disabled={isPending}
               className="mt-2"
             >
               登入

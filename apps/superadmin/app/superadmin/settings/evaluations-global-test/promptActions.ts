@@ -10,8 +10,16 @@ export interface SavedPrompt {
   id: string;
   name: string;
   content: string;
+  tags: string[];
+  description: string;
+  is_favorite: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface SavePromptOpts {
+  tags?: string[];
+  description?: string;
 }
 
 /** Verify the calling user is a super_admin. Returns their user id on success. */
@@ -46,7 +54,8 @@ export async function listSavedPrompts(): Promise<{
   const admin = createAdminClient();
   const { data, error } = await admin
     .from('saved_prompts')
-    .select('id, name, content, created_at, updated_at')
+    .select('id, name, content, tags, description, is_favorite, created_at, updated_at')
+    .order('is_favorite', { ascending: false })
     .order('updated_at', { ascending: false });
 
   if (error) return { error: error.message };
@@ -56,6 +65,7 @@ export async function listSavedPrompts(): Promise<{
 export async function savePrompt(
   name: string,
   content: string,
+  opts?: SavePromptOpts,
 ): Promise<{ data?: SavedPrompt; error?: string }> {
   const trimmedName = name.trim();
   const trimmedContent = content.trim();
@@ -69,8 +79,14 @@ export async function savePrompt(
   const admin = createAdminClient();
   const { data, error } = await admin
     .from('saved_prompts')
-    .insert({ name: trimmedName, content: trimmedContent, created_by: auth.userId })
-    .select('id, name, content, created_at, updated_at')
+    .insert({
+      name: trimmedName,
+      content: trimmedContent,
+      created_by: auth.userId,
+      tags: opts?.tags ?? [],
+      description: opts?.description?.trim() ?? '',
+    })
+    .select('id, name, content, tags, description, is_favorite, created_at, updated_at')
     .single();
 
   if (error) return { error: error.message };
@@ -81,6 +97,7 @@ export async function updatePrompt(
   id: string,
   name: string,
   content: string,
+  opts?: SavePromptOpts,
 ): Promise<{ data?: SavedPrompt; error?: string }> {
   const trimmedName = name.trim();
   const trimmedContent = content.trim();
@@ -92,11 +109,19 @@ export async function updatePrompt(
   if (auth.error) return { error: auth.error };
 
   const admin = createAdminClient();
+  const updatePayload: Record<string, unknown> = {
+    name: trimmedName,
+    content: trimmedContent,
+    updated_at: new Date().toISOString(),
+  };
+  if (opts?.tags !== undefined) updatePayload.tags = opts.tags;
+  if (opts?.description !== undefined) updatePayload.description = opts.description.trim();
+
   const { data, error } = await admin
     .from('saved_prompts')
-    .update({ name: trimmedName, content: trimmedContent, updated_at: new Date().toISOString() })
+    .update(updatePayload)
     .eq('id', id)
-    .select('id, name, content, created_at, updated_at')
+    .select('id, name, content, tags, description, is_favorite, created_at, updated_at')
     .single();
 
   if (error) return { error: error.message };
@@ -115,6 +140,41 @@ export async function deleteSavedPrompt(id: string): Promise<{ error?: string }>
 
   if (error) return { error: error.message };
   return {};
+}
+
+export async function toggleFavorite(
+  id: string,
+  isFavorite: boolean,
+): Promise<{ error?: string }> {
+  const auth = await requireSuperAdmin();
+  if (auth.error) return { error: auth.error };
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('saved_prompts')
+    .update({ is_favorite: isFavorite, updated_at: new Date().toISOString() })
+    .eq('id', id);
+
+  if (error) return { error: error.message };
+  return {};
+}
+
+export async function bulkExportPrompts(
+  ids: string[],
+): Promise<{ data?: SavedPrompt[]; error?: string }> {
+  if (!ids.length) return { data: [] };
+
+  const auth = await requireSuperAdmin();
+  if (auth.error) return { error: auth.error };
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('saved_prompts')
+    .select('id, name, content, tags, description, is_favorite, created_at, updated_at')
+    .in('id', ids);
+
+  if (error) return { error: error.message };
+  return { data: data as SavedPrompt[] };
 }
 
 // ---------------------------------------------------------------------------

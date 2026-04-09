@@ -31,13 +31,10 @@ export type StorageSummary = {
   byType: FileTypeStat[];
 };
 
-/**
- * Get overall storage summary across all buckets
- */
 export async function getStorageSummary(): Promise<StorageSummary> {
   const adminClient = createAdminClient();
   const buckets = ['property-photos', 'property-documents'];
-  
+
   const summary: StorageSummary = {
     totalSize: 0,
     totalFiles: 0,
@@ -63,14 +60,15 @@ export async function getStorageSummary(): Promise<StorageSummary> {
 
     for (const file of files || []) {
       if (file.id === undefined) continue; // Skip folders
-      
-      bucketSize += file.metadata.size;
+
+      const fileSize = file.metadata?.size ?? 0;
+      bucketSize += fileSize;
       bucketCount++;
 
       const ext = file.name.split('.').pop()?.toLowerCase() || 'unknown';
       if (!typeMap[ext]) typeMap[ext] = { count: 0, size: 0 };
       typeMap[ext].count++;
-      typeMap[ext].size += file.metadata.size;
+      typeMap[ext].size += fileSize;
     }
 
     summary.byBucket[bucket] = { size: bucketSize, count: bucketCount };
@@ -86,10 +84,12 @@ export async function getStorageSummary(): Promise<StorageSummary> {
   return summary;
 }
 
-/**
- * Find orphaned files (files in storage but not in DB)
- */
-export async function getOrphanedFiles(): Promise<OrphanedFile[]> {
+export async function getFileTypeDistribution(): Promise<FileTypeStat[]> {
+  const summary = await getStorageSummary();
+  return summary.byType;
+}
+
+export async function getOrphanedFiles(limit = 1000): Promise<OrphanedFile[]> {
   const adminClient = createAdminClient();
   const orphans: OrphanedFile[] = [];
 
@@ -105,17 +105,17 @@ export async function getOrphanedFiles(): Promise<OrphanedFile[]> {
   // 2. Scan buckets and compare
   const buckets = ['property-photos', 'property-documents'];
   for (const bucket of buckets) {
-    const { data: files } = await adminClient.storage.from(bucket).list('', { limit: 1000 });
-    
+    const { data: files } = await adminClient.storage.from(bucket).list('', { limit });
+
     for (const file of files || []) {
-      if (file.id === undefined) continue; // Skip folders
-      
+      if (file.id === undefined) continue;
+
       if (!dbPaths.has(file.name)) {
         const { data: urlData } = await adminClient.storage.from(bucket).createSignedUrl(file.name, 3600);
         orphans.push({
           name: file.name,
           bucket_id: bucket,
-          size: file.metadata.size,
+          size: file.metadata?.size ?? 0,
           created_at: file.created_at,
           url: urlData?.signedUrl || '',
         });
@@ -126,24 +126,20 @@ export async function getOrphanedFiles(): Promise<OrphanedFile[]> {
   return orphans;
 }
 
-/**
- * Get storage quotas for all users
- */
 export async function getStorageQuotas(): Promise<StorageQuota[]> {
   const adminClient = createAdminClient();
-  
-  // Get all quotas
+
   const { data: quotas } = await adminClient.from('storage_quotas').select('*');
-  
-  // Get usage per user (based on owner_id in properties)
+
   const { data: usage } = await adminClient.rpc('get_storage_usage_per_user');
 
   return (quotas || []).map(q => {
-    const userUsage = (usage || []).find((u: any) => u.user_id === q.user_id);
+    const usageRows = (usage ?? []) as { user_id: string; total_bytes: number | null }[];
+    const userUsage = usageRows.find((u) => u.user_id === q.user_id);
     return {
       user_id: q.user_id,
       quota_mb: q.quota_mb,
-      used_bytes: userUsage?.total_bytes || 0,
+      used_bytes: userUsage?.total_bytes ?? 0,
       updated_at: q.updated_at,
     };
   });
@@ -165,9 +161,6 @@ export async function setUserQuota(userId: string, quotaMb: number) {
   return { success: true };
 }
 
-/**
- * Batch delete files from a bucket
- */
 export async function batchDeleteFiles(bucketId: string, paths: string[]) {
   const adminClient = createAdminClient();
   const { data, error } = await adminClient.storage.from(bucketId).remove(paths);

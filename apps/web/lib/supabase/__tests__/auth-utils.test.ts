@@ -9,7 +9,18 @@
  */
 
 // Mock Supabase client
-const mockSupabase: any = {
+const mockSupabase: {
+  auth: {
+    signInWithPassword: jest.Mock
+    signUp: jest.Mock
+    signOut: jest.Mock
+    resetPasswordForEmail: jest.Mock
+    updateUser: jest.Mock
+    getUser: jest.Mock
+    getSession: jest.Mock
+  }
+  from: jest.Mock
+} = {
   auth: {
     signInWithPassword: jest.fn(),
     signUp: jest.fn(),
@@ -375,7 +386,7 @@ describe('Authentication System', () => {
 
       const mockInsert = jest.fn().mockResolvedValue({ error: null });
 
-      mockSupabase.from.mockImplementation((table: any) => {
+      mockSupabase.from.mockImplementation((table: string) => {
         if (table === 'users_profile') {
           return {
             select: mockSelect,

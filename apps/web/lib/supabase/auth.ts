@@ -1,4 +1,5 @@
 import { supabase } from './client';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 export interface SignInCredentials {
   email: string;
@@ -192,6 +193,6 @@ export async function updatePassword(newPassword: string) {
 }
 
 // 監聽認證狀態變化
-export function onAuthStateChange(callback: (event: string, session: any) => void) {
+export function onAuthStateChange(callback: (event: AuthChangeEvent, session: Session | null) => void) {
   return supabase.auth.onAuthStateChange(callback);
 }

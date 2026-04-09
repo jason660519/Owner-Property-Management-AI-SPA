@@ -10,11 +10,16 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyTransferToken, exchangeTransferToken } from '@/lib/auth/transfer-token';
+import { exchangeTransferToken } from '@/lib/auth/transfer-token';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+}
 
 export async function POST(request: NextRequest) {
     try {
-        const { token } = await request.json();
+        const body = (await request.json()) as unknown;
+        const token = isRecord(body) && typeof body.token === 'string' ? body.token : null;
 
         if (!token) {
             return NextResponse.json(
@@ -27,11 +32,12 @@ export async function POST(request: NextRequest) {
         const session = await exchangeTransferToken(token);
 
         return NextResponse.json({ session }, { status: 200 });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Token exchange error:', error);
+        const msg = error instanceof Error ? error.message : String(error);
 
         return NextResponse.json(
-            { error: error.message || 'Failed to exchange token' },
+            { error: msg || 'Failed to exchange token' },
             { status: 401 }
         );
     }

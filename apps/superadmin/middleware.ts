@@ -17,13 +17,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/superadmin/docs', request.url));
   }
 
-  const isRBACDev = request.nextUrl.pathname.includes('/rbac_access_control');
-
-  // ⚠️ 開發中 RBAC 視覺化頁面：完全略過認證與 Supabase 呼叫，避免 Supabase 未啟動時整頁卡住
-  if (isRBACDev) {
-    return NextResponse.next({ request });
-  }
-
   const isSuperadminRoute = request.nextUrl.pathname.startsWith('/superadmin');
 
   // 黑名單檢查：superadmin 路由先檢查 IP / User-Agent，封鎖駭客與惡意爬蟲
@@ -52,6 +45,9 @@ export async function middleware(request: NextRequest) {
 
   const response = NextResponse.next({ request });
 
+  // 與 apps/web 一致：本機 http://localhost 須 lax + 非 Secure，否則 session cookie 無法寫入／帶上
+  const isProduction = process.env.NODE_ENV === 'production';
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -68,8 +64,8 @@ export async function middleware(request: NextRequest) {
       },
       cookieOptions: {
         name: 'sb-localhost-auth-token',
-        sameSite: 'none',
-        secure: true,
+        sameSite: 'lax',
+        secure: isProduction,
       },
     }
   );

@@ -4,19 +4,18 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import {
   AlertCircle,
   Check,
-  ChevronDown,
-  ChevronUp,
   Copy,
   Database,
   ExternalLink,
   FileCode,
   Globe,
-  Link2,
   Palette,
   Sparkles,
   X,
 } from 'lucide-react';
 
+import { AIOperationStatusPill } from '@/components/ui/AIOperationStatusPill';
+import { useOperationTimer } from '@/lib/hooks/useOperationTimer';
 import type { BlogPost, BlogTargetPlatform, StylePreset } from '@/lib/actions/blog';
 import { generatePropertyBlog, getPropertyBlogVariants } from '@/lib/actions/blog';
 import { getPlatformPost } from '@/lib/actions/integrations';
@@ -172,6 +171,11 @@ export function PropertyBlogGenerator({ propertyId, propertyType, ownerId, prope
   const [draftSummary, setDraftSummary] = useState<{ selectedSectionIds: AdvertisementSectionId[] } | null>(null);
   const [isBuilderHydrated, setIsBuilderHydrated] = useState(false);
   const [isGeneratingDraft, startGenerateDraftTransition] = useTransition();
+  const [draftOperationStatus, setDraftOperationStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const { elapsedSeconds: draftElapsedSeconds, lastDurationSeconds: draftDurationSeconds, reset: resetDraftTimer } = useOperationTimer(
+    isGeneratingDraft,
+    { precisionDecimals: 1, tickMs: 100 },
+  );
   const hasHydratedBuilderDraftRef = useRef(false);
   const skipBuilderDraftPersistRef = useRef(false);
   const builderDraftCloudIdRef = useRef<string | null>(null);
@@ -276,7 +280,7 @@ export function PropertyBlogGenerator({ propertyId, propertyType, ownerId, prope
         ? savedDraft?.stylePreset
         : undefined;
       let nextReferenceUrl = savedDraft?.referenceUrl?.trim() ?? '';
-      let nextSelectedSectionIds = sanitizeDraftSectionIds(savedDraft?.selectedSectionIds, readinessSections);
+      const nextSelectedSectionIds = sanitizeDraftSectionIds(savedDraft?.selectedSectionIds, readinessSections);
 
       if (isPlatform(searchPlatform)) {
         nextPlatform = searchPlatform;
@@ -531,6 +535,8 @@ export function PropertyBlogGenerator({ propertyId, propertyType, ownerId, prope
 
     setDraftFeedback(null);
     setDraftSummary(null);
+    setDraftOperationStatus('idle');
+    resetDraftTimer();
     startGenerateDraftTransition(async () => {
       const result = await generatePropertyBlog(propertyId, propertyType, ownerId, {
         referenceUrl: referenceUrl || undefined,
@@ -540,6 +546,7 @@ export function PropertyBlogGenerator({ propertyId, propertyType, ownerId, prope
       });
 
       if (!result.success) {
+        setDraftOperationStatus('error');
         setDraftFeedback({
           type: 'error',
           message: result.message || '生成廣告草稿失敗，請稍後再試。',
@@ -548,6 +555,7 @@ export function PropertyBlogGenerator({ propertyId, propertyType, ownerId, prope
       }
 
       await refreshVariants();
+      setDraftOperationStatus('success');
       setDraftSummary({
         selectedSectionIds: result.generationContext?.selectedSectionIds ?? selectedSectionIds,
       });
@@ -794,6 +802,22 @@ export function PropertyBlogGenerator({ propertyId, propertyType, ownerId, prope
                 {isGeneratingDraft ? <Sparkles size={16} className="animate-pulse" /> : <Sparkles size={16} />}
                 {isGeneratingDraft ? '生成中...' : '生成廣告草稿'}
               </button>
+              <div className="flex justify-center lg:justify-end">
+                <AIOperationStatusPill
+                  status={isGeneratingDraft ? 'running' : draftOperationStatus}
+                  elapsedSeconds={draftElapsedSeconds}
+                  summary={
+                    isGeneratingDraft || draftOperationStatus === 'idle'
+                      ? null
+                      : {
+                          durationSeconds: draftDurationSeconds,
+                        }
+                  }
+                  runningLabel="AI 正在生成草稿"
+                  successLabel="草稿已生成"
+                  errorLabel="草稿生成失敗"
+                />
+              </div>
               <p className="text-[11px] leading-5 text-text-muted">
                 {canGenerateDraft
                   ? `將使用${selectedSectionIds.length}個內容區塊與目前風格設定建立草稿。`

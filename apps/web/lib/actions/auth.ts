@@ -149,9 +149,10 @@ export async function signUpWithRole(credentials: SignUpCredentials) {
     }
 
     return { success: true, message: '註冊成功，請登入' };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('SignUp error:', error);
-    return { success: false, error: error.message };
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false, error: msg };
   }
 }
 

@@ -150,9 +150,10 @@ export default function AddPropertyPage() {
 
       // 更友善的提示訊息
       alert(`✅ 草稿已儲存！\n\n檔名: ${finalName}`)
-    } catch (err: any) {
-      setError(err.message || '儲存草稿失敗')
-      alert(`❌ ${err.message || '儲存草稿失敗'}`)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setError(msg || '儲存草稿失敗')
+      alert(`❌ ${msg || '儲存草稿失敗'}`)
     }
   }
 
@@ -306,15 +307,16 @@ export default function AddPropertyPage() {
       // Step 4: 等待 1 秒後跳轉（讓用戶看到成功訊息）
       await new Promise((resolve) => setTimeout(resolve, 1000))
       router.push('/landlord/properties')
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[Submit] 提交失敗:', err)
-      const errorMessage = err.message || '新增物件失敗，請稍後再試'
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      const finalMessage = errorMessage || '新增物件失敗，請稍後再試'
 
-      setError(errorMessage)
+      setError(finalMessage)
       showToast({
         type: 'error',
         message: '❌ 新增物件失敗',
-        description: errorMessage,
+        description: finalMessage,
       })
     } finally {
       setIsLoading(false)

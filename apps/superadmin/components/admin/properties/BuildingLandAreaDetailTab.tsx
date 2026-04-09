@@ -1,11 +1,11 @@
 // filepath: apps/superadmin/components/admin/properties/BuildingLandAreaDetailTab.tsx
 'use client';
 
-import { useState, useMemo, useTransition, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Building2, MapPin, BarChart3, AlertTriangle,
-  Pencil, Save, X, Plus, Trash2, Loader2,
+  Plus, Trash2,
 } from 'lucide-react';
 import type {
   PropertyItem,
@@ -24,7 +24,6 @@ import {
   getSharedCommonArea,
   formatPing,
 } from '@/lib/utils/area-calc';
-import { savePropertyTranscriptData } from '@/lib/actions/properties';
 
 interface Props {
   property: PropertyItem;
@@ -47,6 +46,12 @@ const addRowBtnCls =
   'flex items-center gap-1 text-xs text-accent hover:text-accent-hover mt-1.5 transition-colors';
 const deleteRowBtnCls =
   'p-0.5 text-text-muted hover:text-red-400 transition-colors';
+const valueHighlightCls =
+  'inline-flex items-center bg-bg-tertiary text-text-primary px-1.5 py-0.5 rounded';
+
+function ValueText({ children }: { children: React.ReactNode }) {
+  return <span className={valueHighlightCls}>{children}</span>;
+}
 
 function SectionCard({ children }: { children: React.ReactNode }) {
   return <div className={cardCls}>{children}</div>;
@@ -106,16 +111,6 @@ function collectLandWarnings(data: LandTranscriptData): string[] {
     return ['土地面積數值缺漏。'];
   }
   return [];
-}
-
-/** Deep clone a BuildingDescription for editing. */
-function cloneBuildingDesc(desc: BuildingDescription): BuildingDescription {
-  return {
-    ...desc,
-    mainBuildings: (desc.mainBuildings ?? []).map((e) => ({ ...e })),
-    annexedBuildings: (desc.annexedBuildings ?? []).map((e) => ({ ...e })),
-    commonAreas: (desc.commonAreas ?? []).map((e) => ({ ...e })),
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -271,10 +266,10 @@ function BuildingSection({ data, label, warnings, editing, editDesc, onDescChang
           </>
         ) : (
           <>
-            <div><span className="text-text-muted">建號：</span><span className="text-text-primary">{desc.buildingNumber}</span></div>
-            <div><span className="text-text-muted">門牌：</span><span className="text-text-primary">{desc.doorAddress}</span></div>
-            <div><span className="text-text-muted">主要用途：</span><span className="text-text-primary">{desc.mainUse}</span></div>
-            <div><span className="text-text-muted">主要建材：</span><span className="text-text-primary">{desc.mainMaterial}</span></div>
+            <div><span className="text-text-muted">建號：</span><ValueText>{desc.buildingNumber || '-'}</ValueText></div>
+            <div><span className="text-text-muted">門牌：</span><ValueText>{desc.doorAddress || '-'}</ValueText></div>
+            <div><span className="text-text-muted">主要用途：</span><ValueText>{desc.mainUse || '-'}</ValueText></div>
+            <div><span className="text-text-muted">主要建材：</span><ValueText>{desc.mainMaterial || '-'}</ValueText></div>
           </>
         )}
       </div>
@@ -314,8 +309,8 @@ function BuildingSection({ data, label, warnings, editing, editDesc, onDescChang
                       </>
                     ) : (
                       <>
-                        <td className={tdCls}>{entry.floorLevel}</td>
-                        <td className={tdCls}>{entry.floorArea}</td>
+                        <td className={tdCls}><ValueText>{entry.floorLevel || '-'}</ValueText></td>
+                        <td className={tdCls}><ValueText>{entry.floorArea || '-'}</ValueText></td>
                       </>
                     )}
                     <td className={`${tdCls} text-text-muted`}>
@@ -333,7 +328,7 @@ function BuildingSection({ data, label, warnings, editing, editDesc, onDescChang
                 {mainBuildings.length > 1 && (
                   <tr className="border-b border-border-default bg-bg-secondary/30">
                     <td className={`${tdCls} font-medium`}>小計</td>
-                    <td className={`${tdCls} font-medium`}>{formatAreaNumber(mainArea)}</td>
+                    <td className={`${tdCls} font-medium`}><ValueText>{formatAreaNumber(mainArea)}</ValueText></td>
                     <td className={`${tdCls} text-text-muted`}>{formatPing(mainArea)}</td>
                     {editing && <td />}
                   </tr>
@@ -377,8 +372,8 @@ function BuildingSection({ data, label, warnings, editing, editDesc, onDescChang
                       </>
                     ) : (
                       <>
-                        <td className={tdCls}>{entry.use}</td>
-                        <td className={tdCls}>{entry.area}</td>
+                        <td className={tdCls}><ValueText>{entry.use || '-'}</ValueText></td>
+                        <td className={tdCls}><ValueText>{entry.area || '-'}</ValueText></td>
                       </>
                     )}
                     <td className={`${tdCls} text-text-muted`}>
@@ -396,7 +391,7 @@ function BuildingSection({ data, label, warnings, editing, editDesc, onDescChang
                 {annexedBuildings.length > 1 && (
                   <tr className="border-b border-border-default bg-bg-secondary/30">
                     <td className={`${tdCls} font-medium`}>小計</td>
-                    <td className={`${tdCls} font-medium`}>{formatAreaNumber(annexedArea)}</td>
+                    <td className={`${tdCls} font-medium`}><ValueText>{formatAreaNumber(annexedArea)}</ValueText></td>
                     <td className={`${tdCls} text-text-muted`}>{formatPing(annexedArea)}</td>
                     {editing && <td />}
                   </tr>
@@ -447,12 +442,12 @@ function BuildingSection({ data, label, warnings, editing, editDesc, onDescChang
                         </>
                       ) : (
                         <>
-                          <td className={tdCls}>{entry.buildingNumber}</td>
-                          <td className={tdCls}>{entry.area}</td>
-                          <td className={tdCls}>{entry.ratio}</td>
+                          <td className={tdCls}><ValueText>{entry.buildingNumber || '-'}</ValueText></td>
+                          <td className={tdCls}><ValueText>{entry.area || '-'}</ValueText></td>
+                          <td className={tdCls}><ValueText>{entry.ratio || '-'}</ValueText></td>
                         </>
                       )}
-                      <td className={tdCls}>{formatAreaNumber(shared)}</td>
+                      <td className={tdCls}><ValueText>{formatAreaNumber(shared)}</ValueText></td>
                       <td className={`${tdCls} text-text-muted`}>{formatPing(shared)}</td>
                       {editing && (
                         <td className={tdCls}>
@@ -467,7 +462,7 @@ function BuildingSection({ data, label, warnings, editing, editDesc, onDescChang
                 {commonAreas.length > 1 && (
                   <tr className="border-b border-border-default bg-bg-secondary/30">
                     <td className={`${tdCls} font-medium`} colSpan={3}>小計</td>
-                    <td className={`${tdCls} font-medium`}>{formatAreaNumber(commonArea)}</td>
+                    <td className={`${tdCls} font-medium`}><ValueText>{formatAreaNumber(commonArea)}</ValueText></td>
                     <td className={`${tdCls} text-text-muted`}>{formatPing(commonArea)}</td>
                     {editing && <td />}
                   </tr>
@@ -486,9 +481,7 @@ function BuildingSection({ data, label, warnings, editing, editDesc, onDescChang
       {/* Building subtotal */}
       <div className="flex items-center gap-4 pt-2 border-t border-border-default text-sm">
         <span className="font-medium text-text-primary">建物合計</span>
-        <span className="text-text-primary font-semibold">
-          {formatAreaNumber(totalArea)} ㎡
-        </span>
+        <ValueText>{formatAreaNumber(totalArea)} ㎡</ValueText>
         <span className="text-text-muted text-xs">
           （{formatPing(totalArea)} 坪）
         </span>
@@ -576,13 +569,13 @@ function LandSection({
                 </>
               ) : (
                 <>
-                  <td className={tdCls}>{desc.landNumber}</td>
-                  <td className={tdCls}>{desc.useZone || '-'}</td>
-                  <td className={tdCls}>{totalArea > 0 ? desc.area : '-'}</td>
-                  <td className={tdCls}>{ownerRatio || '-'}</td>
+                  <td className={tdCls}><ValueText>{desc.landNumber || '-'}</ValueText></td>
+                  <td className={tdCls}><ValueText>{desc.useZone || '-'}</ValueText></td>
+                  <td className={tdCls}><ValueText>{totalArea > 0 ? desc.area : '-'}</ValueText></td>
+                  <td className={tdCls}><ValueText>{ownerRatio || '-'}</ValueText></td>
                 </>
               )}
-              <td className={tdCls}>{formatAreaNumber(ownedArea) || '-'}</td>
+              <td className={tdCls}><ValueText>{formatAreaNumber(ownedArea) || '-'}</ValueText></td>
               <td className={`${tdCls} text-text-muted`}>{formatPing(ownedArea) || '-'}</td>
             </tr>
           </tbody>
@@ -648,91 +641,8 @@ function AreaSummary({
             <tbody>
               {rows.map((r) => (
                 <tr key={r.label} className="border-b border-border-default/50">
-                  <td className={tdCls}>{r.label}</td>
-                  <td className={tdCls}>{formatAreaNumber(r.sqm)}</td>
-                  <td className={`${tdCls} text-text-muted`}>{formatPing(r.sqm)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </SectionCard>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Editable AreaSummary — computed from edit state in real-time
-// ---------------------------------------------------------------------------
-
-function EditableAreaSummary({
-  buildingDesc,
-  landDesc,
-  landOwnerRatio,
-  parkingDesc,
-  isPureLand,
-}: {
-  buildingDesc: BuildingDescription | null;
-  landDesc: LandDescription | null;
-  landOwnerRatio: string;
-  parkingDesc: BuildingDescription | null;
-  isPureLand: boolean;
-}) {
-  const buildingTotal = useMemo(() => {
-    if (isPureLand || !buildingDesc) return 0;
-    const entries = buildingDesc.mainBuildings ?? [];
-    const main = entries.reduce((s, e) => s + parseAreaNumber(e.floorArea), 0);
-    const annexed = (buildingDesc.annexedBuildings ?? []).reduce((s, e) => s + parseAreaNumber(e.area), 0);
-    const common = (buildingDesc.commonAreas ?? []).reduce(
-      (s, e) => s + getSharedCommonArea(e.area, e.ratio), 0
-    );
-    return main + annexed + common;
-  }, [buildingDesc, isPureLand]);
-
-  const landOwned = useMemo(() => {
-    if (!landDesc) return 0;
-    return parseAreaNumber(landDesc.area) * parseShareRatio(landOwnerRatio);
-  }, [landDesc, landOwnerRatio]);
-
-  const parkingTotal = useMemo(() => {
-    if (!parkingDesc) return 0;
-    const entries = parkingDesc.mainBuildings ?? [];
-    const main = entries.reduce((s, e) => s + parseAreaNumber(e.floorArea), 0);
-    const annexed = (parkingDesc.annexedBuildings ?? []).reduce((s, e) => s + parseAreaNumber(e.area), 0);
-    const common = (parkingDesc.commonAreas ?? []).reduce(
-      (s, e) => s + getSharedCommonArea(e.area, e.ratio), 0
-    );
-    return main + annexed + common;
-  }, [parkingDesc]);
-
-  const rows: { label: string; sqm: number }[] = [];
-  if (buildingTotal > 0) rows.push({ label: '建物面積', sqm: buildingTotal });
-  if (landOwned > 0) rows.push({ label: '土地持分面積', sqm: landOwned });
-  if (parkingTotal > 0) rows.push({ label: '車位面積', sqm: parkingTotal });
-
-  if (rows.length === 0) return null;
-
-  return (
-    <SectionCard>
-      <div data-testid="area-summary">
-        <h4 className={sectionTitleCls}>
-          <BarChart3 size={16} className="text-accent" />
-          面積匯總（即時預覽）
-        </h4>
-        <div className="overflow-x-auto">
-          <table className={tableCls}>
-            <thead>
-              <tr className="border-b border-border-default">
-                <th className={thCls}>項目</th>
-                <th className={thCls}>面積（㎡）</th>
-                <th className={thCls}>面積（坪）</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.label} className="border-b border-border-default/50">
-                  <td className={tdCls}>{r.label}</td>
-                  <td className={tdCls}>{formatAreaNumber(r.sqm)}</td>
+                  <td className={tdCls}><ValueText>{r.label}</ValueText></td>
+                  <td className={tdCls}><ValueText>{formatAreaNumber(r.sqm)}</ValueText></td>
                   <td className={`${tdCls} text-text-muted`}>{formatPing(r.sqm)}</td>
                 </tr>
               ))}
@@ -748,11 +658,8 @@ function EditableAreaSummary({
 // Main export
 // ---------------------------------------------------------------------------
 
-export function BuildingLandAreaDetailTab({ property, propertyId, propertyType }: Props) {
+export function BuildingLandAreaDetailTab({ property, propertyId, propertyType: _propertyType }: Props) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [editing, setEditing] = useState(false);
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const {
     buildingTranscript,
@@ -762,108 +669,10 @@ export function BuildingLandAreaDetailTab({ property, propertyId, propertyType }
     isPureLand,
   } = property;
 
-  // -- Editable local state (populated on entering edit mode) --
-  const [editBuildingDesc, setEditBuildingDesc] = useState<BuildingDescription | null>(null);
-  const [editLandDesc, setEditLandDesc] = useState<LandDescription | null>(null);
-  const [editLandOwnerRatio, setEditLandOwnerRatio] = useState<string>('');
-  const [editParkingBuildingDesc, setEditParkingBuildingDesc] = useState<BuildingDescription | null>(null);
-  const [editParkingLandDesc, setEditParkingLandDesc] = useState<LandDescription | null>(null);
-  const [editParkingLandOwnerRatio, setEditParkingLandOwnerRatio] = useState<string>('');
-
   const hasAnyData = !!(
     buildingTranscript || landTranscript ||
     parkingBuildingTranscript || parkingLandTranscript
   );
-
-  const enterEditMode = useCallback(() => {
-    // Deep clone current data into local state
-    if (buildingTranscript) {
-      setEditBuildingDesc(cloneBuildingDesc(buildingTranscript.description));
-    }
-    if (landTranscript) {
-      setEditLandDesc({ ...landTranscript.description });
-      setEditLandOwnerRatio(landTranscript.ownership[0]?.ownershipRatio ?? '');
-    }
-    if (parkingBuildingTranscript) {
-      setEditParkingBuildingDesc(cloneBuildingDesc(parkingBuildingTranscript.description));
-    }
-    if (parkingLandTranscript) {
-      setEditParkingLandDesc({ ...parkingLandTranscript.description });
-      setEditParkingLandOwnerRatio(parkingLandTranscript.ownership[0]?.ownershipRatio ?? '');
-    }
-    setFeedback(null);
-    setEditing(true);
-  }, [buildingTranscript, landTranscript, parkingBuildingTranscript, parkingLandTranscript]);
-
-  const cancelEdit = useCallback(() => {
-    setEditing(false);
-    setEditBuildingDesc(null);
-    setEditLandDesc(null);
-    setEditLandOwnerRatio('');
-    setEditParkingBuildingDesc(null);
-    setEditParkingLandDesc(null);
-    setEditParkingLandOwnerRatio('');
-    setFeedback(null);
-  }, []);
-
-  const handleSave = useCallback(() => {
-    setFeedback(null);
-
-    // Assemble updated transcript data, preserving header/ownership/encumbrances
-    const payload: Parameters<typeof savePropertyTranscriptData>[2] = {};
-
-    if (buildingTranscript && editBuildingDesc) {
-      payload.buildingTranscript = {
-        ...buildingTranscript,
-        description: editBuildingDesc,
-      };
-    }
-    if (landTranscript && editLandDesc) {
-      const updatedOwnership = [...landTranscript.ownership];
-      if (updatedOwnership.length > 0) {
-        updatedOwnership[0] = { ...updatedOwnership[0], ownershipRatio: editLandOwnerRatio };
-      }
-      payload.landTranscript = {
-        ...landTranscript,
-        description: editLandDesc,
-        ownership: updatedOwnership,
-      };
-    }
-    if (parkingBuildingTranscript && editParkingBuildingDesc) {
-      payload.parkingBuildingTranscript = {
-        ...parkingBuildingTranscript,
-        description: editParkingBuildingDesc,
-      };
-    }
-    if (parkingLandTranscript && editParkingLandDesc) {
-      const updatedOwnership = [...parkingLandTranscript.ownership];
-      if (updatedOwnership.length > 0) {
-        updatedOwnership[0] = { ...updatedOwnership[0], ownershipRatio: editParkingLandOwnerRatio };
-      }
-      payload.parkingLandTranscript = {
-        ...parkingLandTranscript,
-        description: editParkingLandDesc,
-        ownership: updatedOwnership,
-      };
-    }
-
-    startTransition(async () => {
-      const result = await savePropertyTranscriptData(propertyId, propertyType, payload);
-      if (result.success) {
-        setFeedback({ type: 'success', message: result.message });
-        setEditing(false);
-        router.refresh();
-      } else {
-        setFeedback({ type: 'error', message: result.message });
-      }
-    });
-  }, [
-    propertyId, propertyType, router,
-    buildingTranscript, editBuildingDesc,
-    landTranscript, editLandDesc, editLandOwnerRatio,
-    parkingBuildingTranscript, editParkingBuildingDesc,
-    parkingLandTranscript, editParkingLandDesc, editParkingLandOwnerRatio,
-  ]);
 
   if (!hasAnyData) {
     return (
@@ -881,45 +690,20 @@ export function BuildingLandAreaDetailTab({ property, propertyId, propertyType }
 
   return (
     <div className="space-y-4">
-      {/* Header bar */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-text-primary">建物土地面積明細表</h3>
-        <div className="flex items-center gap-2">
-          {feedback && (
-            <span className={`text-xs ${feedback.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
-              {feedback.message}
-            </span>
-          )}
-          {editing ? (
-            <>
-              <button
-                type="button"
-                onClick={cancelEdit}
-                disabled={isPending}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs border border-border-default rounded-md text-text-secondary hover:bg-bg-secondary transition-colors disabled:opacity-50"
-              >
-                <X size={14} /> 取消
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={isPending}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs bg-accent text-white rounded-md hover:bg-accent-hover transition-colors disabled:opacity-50"
-              >
-                {isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                儲存
-              </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              onClick={enterEditMode}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs border border-border-default rounded-md text-text-secondary hover:bg-bg-secondary transition-colors"
-            >
-              <Pencil size={14} /> 編輯
-            </button>
-          )}
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold text-text-primary">建物土地面積明細表</h3>
+          <p className="text-xs text-text-muted">
+            本頁資訊來自「謄本」頁籤解析後儲存的建物／土地資料（唯讀）。如資訊有誤，請至謄本頁籤更正。
+          </p>
         </div>
+        <button
+          type="button"
+          onClick={() => router.replace(`/superadmin/properties/${propertyId}/edit?tab=transcript`)}
+          className="shrink-0 px-3 py-1.5 text-xs border border-border-default rounded-md text-text-secondary hover:bg-bg-secondary transition-colors"
+        >
+          前往謄本頁籤編輯
+        </button>
       </div>
 
       {/* Main building */}
@@ -928,9 +712,9 @@ export function BuildingLandAreaDetailTab({ property, propertyId, propertyType }
           data={buildingTranscript}
           label="主建物面積明細"
           warnings={buildingWarnings}
-          editing={editing}
-          editDesc={editBuildingDesc}
-          onDescChange={setEditBuildingDesc}
+          editing={false}
+          editDesc={null}
+          onDescChange={() => {}}
         />
       )}
 
@@ -939,11 +723,11 @@ export function BuildingLandAreaDetailTab({ property, propertyId, propertyType }
         <LandSection
           data={landTranscript}
           warnings={landWarnings}
-          editing={editing}
-          editLandDesc={editLandDesc}
-          editOwnerRatio={editLandOwnerRatio}
-          onLandDescChange={setEditLandDesc}
-          onOwnerRatioChange={setEditLandOwnerRatio}
+          editing={false}
+          editLandDesc={null}
+          editOwnerRatio={null}
+          onLandDescChange={() => {}}
+          onOwnerRatioChange={() => {}}
         />
       )}
 
@@ -952,9 +736,9 @@ export function BuildingLandAreaDetailTab({ property, propertyId, propertyType }
         <BuildingSection
           data={parkingBuildingTranscript}
           label="獨立車位建物面積明細"
-          editing={editing}
-          editDesc={editParkingBuildingDesc}
-          onDescChange={setEditParkingBuildingDesc}
+          editing={false}
+          editDesc={null}
+          onDescChange={() => {}}
         />
       )}
 
@@ -962,30 +746,20 @@ export function BuildingLandAreaDetailTab({ property, propertyId, propertyType }
       {parkingLandTranscript && (
         <LandSection
           data={parkingLandTranscript}
-          editing={editing}
-          editLandDesc={editParkingLandDesc}
-          editOwnerRatio={editParkingLandOwnerRatio}
-          onLandDescChange={setEditParkingLandDesc}
-          onOwnerRatioChange={setEditParkingLandOwnerRatio}
+          editing={false}
+          editLandDesc={null}
+          editOwnerRatio={null}
+          onLandDescChange={() => {}}
+          onOwnerRatioChange={() => {}}
         />
       )}
 
       {/* Summary */}
-      {editing ? (
-        <EditableAreaSummary
-          buildingDesc={editBuildingDesc}
-          landDesc={editLandDesc}
-          landOwnerRatio={editLandOwnerRatio}
-          parkingDesc={editParkingBuildingDesc}
-          isPureLand={!!isPureLand}
-        />
-      ) : (
-        <AreaSummary
-          buildingTranscript={buildingTranscript}
-          landTranscript={landTranscript}
-          parkingBuildingTranscript={parkingBuildingTranscript}
-        />
-      )}
+      <AreaSummary
+        buildingTranscript={buildingTranscript}
+        landTranscript={landTranscript}
+        parkingBuildingTranscript={parkingBuildingTranscript}
+      />
     </div>
   );
 }

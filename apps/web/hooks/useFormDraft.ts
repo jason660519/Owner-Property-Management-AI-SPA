@@ -10,15 +10,36 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase/client';
 
-export interface DraftMetadata {
+export interface DraftMetadata<TData = unknown> {
   id: string;
   name: string;
   savedAt: string;
-  data: any;
+  data: TData;
 }
 
-export function useFormDraft<T extends Record<string, any>>(formKey: string) {
-  const [drafts, setDrafts] = useState<DraftMetadata[]>([]);
+type DraftRow = {
+  id: string
+  name: string
+  data: unknown
+  updated_at: string
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isDraftRow(value: unknown): value is DraftRow {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.id === 'string' &&
+    typeof value.name === 'string' &&
+    typeof value.updated_at === 'string' &&
+    'data' in value
+  )
+}
+
+export function useFormDraft<T extends Record<string, unknown>>(formKey: string) {
+  const [drafts, setDrafts] = useState<DraftMetadata<T>[]>([]);
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
@@ -28,7 +49,7 @@ export function useFormDraft<T extends Record<string, any>>(formKey: string) {
     try {
       const { data, error } = await supabase
         .from('form_drafts')
-        .select('id, name, data, updated_at, form_key')
+        .select('id, name, data, updated_at')
         .eq('form_key', formKey)
         .order('updated_at', { ascending: false })
         .limit(10);
@@ -38,13 +59,16 @@ export function useFormDraft<T extends Record<string, any>>(formKey: string) {
         return;
       }
 
-      const mapped: DraftMetadata[] =
-        data?.map((row: any) => ({
-          id: row.id,
-          name: row.name,
-          savedAt: row.updated_at,
-          data: row.data,
-        })) ?? [];
+      const mapped: DraftMetadata<T>[] =
+        data
+          ?.map((row) => (isDraftRow(row) ? row : null))
+          .filter((row): row is DraftRow => row !== null)
+          .map((row) => ({
+            id: row.id,
+            name: row.name,
+            savedAt: row.updated_at,
+            data: row.data as T,
+          })) ?? [];
 
       setDrafts(mapped);
     } catch (error) {
@@ -57,7 +81,7 @@ export function useFormDraft<T extends Record<string, any>>(formKey: string) {
   }, [loadDrafts]);
 
   // Helper function to serialize data（移除 File 物件，保留可序列化的欄位）
-  const serializeData = useCallback((data: any): any => {
+  const serializeData = useCallback((data: unknown): unknown => {
     if (data === null || data === undefined) {
       return data;
     }
@@ -73,7 +97,7 @@ export function useFormDraft<T extends Record<string, any>>(formKey: string) {
       }
 
       // Handle photo objects with file property
-      if (data.file instanceof File) {
+      if (isRecord(data) && 'file' in data && data.file instanceof File) {
         return {
           ...data,
           file: null, // 移除 File 物件（無法直接儲存在 JSON 中）
@@ -81,11 +105,9 @@ export function useFormDraft<T extends Record<string, any>>(formKey: string) {
       }
 
       // Recursively serialize nested objects
-      const serialized: any = {};
-      for (const key in data) {
-        if (Object.prototype.hasOwnProperty.call(data, key)) {
-          serialized[key] = serializeData(data[key]);
-        }
+      const serialized: Record<string, unknown> = {};
+      for (const key of Object.keys(data as Record<string, unknown>)) {
+        serialized[key] = serializeData((data as Record<string, unknown>)[key]);
       }
       return serialized;
     }
@@ -109,14 +131,11 @@ export function useFormDraft<T extends Record<string, any>>(formKey: string) {
         console.log('[Draft] Serializing data...');
 
         // Serialize data to remove File objects
-        const serializedData = serializeData({
-          ...data,
-          formKey,
-        });
+        const serializedData = serializeData(data);
 
         console.log('[Draft] Data serialized successfully');
 
-        let row: any | null = null;
+        let row: DraftRow | null = null;
 
         if (draftId) {
           // 更新既有草稿
@@ -135,7 +154,7 @@ export function useFormDraft<T extends Record<string, any>>(formKey: string) {
             throw error;
           }
 
-          row = updated;
+          row = isDraftRow(updated) ? updated : null;
           console.log('[Draft] Updated existing draft in Supabase');
         } else {
           // 新增草稿
@@ -153,7 +172,7 @@ export function useFormDraft<T extends Record<string, any>>(formKey: string) {
             throw error;
           }
 
-          row = inserted;
+          row = isDraftRow(inserted) ? inserted : null;
           console.log('[Draft] Added new draft in Supabase');
         }
 
@@ -161,11 +180,11 @@ export function useFormDraft<T extends Record<string, any>>(formKey: string) {
           throw new Error('無法取得草稿資料');
         }
 
-        const newDraft: DraftMetadata = {
+        const newDraft: DraftMetadata<T> = {
           id: row.id,
           name: row.name,
           savedAt: row.updated_at,
-          data: row.data,
+          data: row.data as T,
         };
 
         // 更新本地狀態（保持最近 10 筆）
@@ -200,7 +219,7 @@ export function useFormDraft<T extends Record<string, any>>(formKey: string) {
     (draftId: string): T | null => {
       try {
         const draft = drafts.find((d) => d.id === draftId);
-        if (draft && draft.data.formKey === formKey) {
+        if (draft) {
           setCurrentDraftId(draftId);
           return draft.data;
         }
@@ -210,7 +229,7 @@ export function useFormDraft<T extends Record<string, any>>(formKey: string) {
         return null;
       }
     },
-    [drafts, formKey]
+    [drafts]
   );
 
   const deleteDraft = useCallback(
@@ -253,12 +272,12 @@ export function useFormDraft<T extends Record<string, any>>(formKey: string) {
           throw error;
         }
 
-        if (data) {
-          const updated: DraftMetadata = {
+        if (isDraftRow(data)) {
+          const updated: DraftMetadata<T> = {
             id: data.id,
             name: data.name,
             savedAt: data.updated_at,
-            data: data.data,
+            data: data.data as T,
           };
 
           setDrafts((prev) => {
@@ -295,7 +314,7 @@ export function useFormDraft<T extends Record<string, any>>(formKey: string) {
   );
 
   return {
-    drafts: drafts.filter((d) => d.data.formKey === formKey),
+    drafts,
     currentDraftId,
     autoSaveEnabled,
     lastSavedAt,
@@ -307,4 +326,3 @@ export function useFormDraft<T extends Record<string, any>>(formKey: string) {
     clearAllDrafts,
   };
 }
-

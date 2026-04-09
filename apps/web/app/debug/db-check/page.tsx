@@ -86,7 +86,7 @@ export default async function DbCheckPage() {
 
             <div className="grid gap-4">
                 {properties && properties.length > 0 ? (
-                    properties.map((p: any) => (
+                    properties.map((p) => (
                         <div key={p.id} className="border border-gray-700 p-4 rounded">
                             <h3 className="font-bold">{p.title}</h3>
                             <p className="text-sm text-gray-400">ID: {p.id}</p>

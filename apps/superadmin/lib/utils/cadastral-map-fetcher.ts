@@ -535,6 +535,54 @@ async function submitPrintJob(webMapJson: Record<string, unknown>, layout: strin
   throw new Error('Print job timed out after 60 seconds');
 }
 
+/**
+ * Limit concurrent ArcGIS print jobs (submit + poll + image download).
+ * Set `CADASTRAL_MAP_MAX_CONCURRENT` to a positive integer (e.g. 2); unset or 0 = unlimited.
+ * Helps avoid hammering the government GIS service when users trigger multiple fetches at once.
+ */
+function parsePrintMaxConcurrent(): number {
+  const raw = process.env.CADASTRAL_MAP_MAX_CONCURRENT;
+  if (raw === undefined || raw === '') return 0;
+  const n = parseInt(raw, 10);
+  if (Number.isNaN(n) || n < 0) return 0;
+  return n;
+}
+
+const PRINT_MAX_CONCURRENT = parsePrintMaxConcurrent();
+
+let printSlotActive = 0;
+const printSlotWaiters: Array<() => void> = [];
+
+async function acquirePrintSlot(): Promise<void> {
+  if (PRINT_MAX_CONCURRENT <= 0) return;
+  if (printSlotActive < PRINT_MAX_CONCURRENT) {
+    printSlotActive += 1;
+    return;
+  }
+  await new Promise<void>((resolve) => {
+    printSlotWaiters.push(() => {
+      printSlotActive += 1;
+      resolve();
+    });
+  });
+}
+
+function releasePrintSlot(): void {
+  if (PRINT_MAX_CONCURRENT <= 0) return;
+  printSlotActive -= 1;
+  const next = printSlotWaiters.shift();
+  if (next) next();
+}
+
+async function withPrintConcurrency<T>(fn: () => Promise<T>): Promise<T> {
+  await acquirePrintSlot();
+  try {
+    return await fn();
+  } finally {
+    releasePrintSlot();
+  }
+}
+
 // ── Public API ─────────────────────────────────────────────────────────────
 
 const LAYER_LABELS: Record<MapLayerPreset, string> = {
@@ -583,38 +631,40 @@ async function exportMapInternal(
   wkid: number,
   options?: ExportMapOptions,
 ): Promise<ExportMapResult> {
-  const opts: ResolvedOpts = {
-    layers: options?.layers ?? 'both',
-    source: options?.source ?? 'historygis',
-    scale: options?.scale ?? 1000,
-    paper: options?.paper ?? 'A4',
-    orientation: options?.orientation ?? 'portrait',
-    title: options?.title ?? '',
-  };
+  return withPrintConcurrency(async () => {
+    const opts: ResolvedOpts = {
+      layers: options?.layers ?? 'both',
+      source: options?.source ?? 'historygis',
+      scale: options?.scale ?? 1000,
+      paper: options?.paper ?? 'A4',
+      orientation: options?.orientation ?? 'portrait',
+      title: options?.title ?? '',
+    };
 
-  const layoutKey = `${opts.paper}_${opts.orientation}`;
-  const layout = LAYOUT_MAP[layoutKey];
-  if (!layout) {
-    throw new Error(`Invalid paper/orientation: ${layoutKey}`);
-  }
+    const layoutKey = `${opts.paper}_${opts.orientation}`;
+    const layout = LAYOUT_MAP[layoutKey];
+    if (!layout) {
+      throw new Error(`Invalid paper/orientation: ${layoutKey}`);
+    }
 
-  const webMapJson = buildWebMapJson(x, y, wkid, opts, options?.markerLabel);
-  const imageUrl = await submitPrintJob(webMapJson, layout);
+    const webMapJson = buildWebMapJson(x, y, wkid, opts, options?.markerLabel);
+    const imageUrl = await submitPrintJob(webMapJson, layout);
 
-  // Download the image
-  const imgResp = await fetch(imageUrl);
-  if (!imgResp.ok) {
-    throw new Error(`Image download failed: ${imgResp.status}`);
-  }
+    // Download the image
+    const imgResp = await fetch(imageUrl);
+    if (!imgResp.ok) {
+      throw new Error(`Image download failed: ${imgResp.status}`);
+    }
 
-  const arrayBuf = await imgResp.arrayBuffer();
-  const imageBuffer = Buffer.from(arrayBuf);
+    const arrayBuf = await imgResp.arrayBuffer();
+    const imageBuffer = Buffer.from(arrayBuf);
 
-  return {
-    imageBuffer,
-    mimeType: 'image/jpeg',
-    label: LAYER_LABELS[opts.layers],
-  };
+    return {
+      imageBuffer,
+      mimeType: 'image/jpeg',
+      label: LAYER_LABELS[opts.layers],
+    };
+  });
 }
 
 /** For address-based queries, use Web Mercator regardless of source (address API returns TWD97 → convert) */

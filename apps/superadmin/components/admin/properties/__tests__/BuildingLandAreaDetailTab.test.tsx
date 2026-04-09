@@ -20,6 +20,8 @@ jest.mock('@/lib/actions/properties', () => ({
 }));
 
 function makeProperty(overrides: Partial<PropertyItem> = {}): PropertyItem {
+  const createdAt = overrides.createdAt ?? '2026-01-01';
+  const updatedAt = overrides.updatedAt ?? createdAt;
   return {
     id: 'test-id',
     type: 'sale',
@@ -36,8 +38,9 @@ function makeProperty(overrides: Partial<PropertyItem> = {}): PropertyItem {
     bathrooms: null,
     livingRooms: null,
     parkingSpaces: null,
-    createdAt: '2026-01-01',
     ...overrides,
+    createdAt,
+    updatedAt,
   };
 }
 

@@ -5,9 +5,9 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { BookMarked, Images, FileText, Share2, RefreshCw } from 'lucide-react';
+import { BookMarked, Images, FileText, Share2, RefreshCw, FlaskConical, HardDrive } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 
 export default function SettingsPage() {
   return (
@@ -113,10 +113,37 @@ export default function SettingsPage() {
               </CardHeader>
             </Card>
           </Link>
+
+          <Link href="/superadmin/settings/evaluations-global-test" className="block">
+            <Card variant="outlined" padding="lg" hoverable>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FlaskConical size={16} />
+                  AI 模型全域評測
+                </CardTitle>
+                <CardDescription>
+                  對所有已啟用的 AI 模型執行全域測試，比較各模型的回應品質與效能。
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+
+          <Link href="/superadmin/settings/backup" className="block">
+            <Card variant="outlined" padding="lg" hoverable>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <HardDrive size={16} />
+                  資料備份管理
+                </CardTitle>
+                <CardDescription>
+                  備份照片、文件 metadata，防止 supabase db reset 或 Docker 重置造成資料遺失。支援本地目錄、外接設備、手動下載。
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
         </div>
 
       </div>
     </DashboardLayout>
   );
 }
-

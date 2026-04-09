@@ -1,17 +1,27 @@
 // filepath: apps/superadmin/app/superadmin/dashboard/project-progress/page.tsx
-// created: 2026-02-19 | creator: Claude Opus 4.6
+// Project Progress Dashboard — Excel-style sheet tabs at bottom
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Activity } from 'lucide-react';
 import { ROADMAP_DATA, type PhaseType } from '@/app/data/roadmap';
-import { PhaseTabBar } from './components/PhaseTabBar';
+import { useTablePreferences } from '@/lib/hooks/useTablePreferences';
+import EnhancedTable from '@/components/ui/EnhancedTable';
 import { SharedStatsCards } from './components/SharedStatsCards';
+import { SheetTabs } from './components/SheetTabs';
 import { DevelopmentTab } from './components/DevelopmentTab';
-import { TestingTab } from './components/TestingTab';
-import { DeploymentTab } from './components/DeploymentTab';
-import { OperationsTab } from './components/OperationsTab';
+import AddRowModal from './components/development-table/AddRowModal';
+import {
+  type PhaseRow,
+  createTestingColumns,
+  createDeploymentColumns,
+  createOperationsColumns,
+  TESTING_WIDTHS,
+  DEPLOYMENT_WIDTHS,
+  OPERATIONS_WIDTHS,
+} from './components/development-table/phase-columns';
+import type { CustomProjectProgressRowPayload } from './types';
 
 const PHASE_IDS: PhaseType[] = ['development', 'testing', 'deployment', 'operations'];
 
@@ -21,9 +31,16 @@ function getPhaseFromHash(): PhaseType | null {
   return (PHASE_IDS as string[]).includes(hash) ? (hash as PhaseType) : null;
 }
 
+// Persisted custom rows for non-development sheets
+interface PhaseCustomRowsSettings extends Record<string, unknown> {
+  customRows: CustomProjectProgressRowPayload[];
+}
+
+const PHASE_CUSTOM_DEFAULTS: PhaseCustomRowsSettings = { customRows: [] };
+
 export default function ProjectProgressPage() {
   const [activePhase, setActivePhase] = useState<PhaseType>(
-    () => getPhaseFromHash() ?? 'development'
+    () => getPhaseFromHash() ?? 'development',
   );
 
   // Sync with URL hash
@@ -36,18 +53,111 @@ export default function ProjectProgressPage() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  // Filter features by phase
-  const phaseFeatures = useMemo(
-    () => ROADMAP_DATA.features.filter(f => (f.phase ?? 'development') === activePhase),
-    [activePhase]
-  );
+  // Custom rows for testing/deployment/operations (persisted per phase)
+  const { settings: testingPrefs, patch: patchTesting } = useTablePreferences<PhaseCustomRowsSettings>({
+    pageKey: 'project_progress_testing_rows',
+    storageKey: 'project_progress_testing_rows_v1',
+    defaults: PHASE_CUSTOM_DEFAULTS,
+  });
+  const { settings: deploymentPrefs, patch: patchDeployment } = useTablePreferences<PhaseCustomRowsSettings>({
+    pageKey: 'project_progress_deployment_rows',
+    storageKey: 'project_progress_deployment_rows_v1',
+    defaults: PHASE_CUSTOM_DEFAULTS,
+  });
+  const { settings: operationsPrefs, patch: patchOperations } = useTablePreferences<PhaseCustomRowsSettings>({
+    pageKey: 'project_progress_operations_rows',
+    storageKey: 'project_progress_operations_rows_v1',
+    defaults: PHASE_CUSTOM_DEFAULTS,
+  });
 
-  // All features (for development tab which shows everything)
+  // All features
   const allFeatures = ROADMAP_DATA.features;
 
+  // Build phase rows: roadmap features + custom rows for each phase
+  const buildPhaseRows = useCallback((phase: PhaseType, customRows: CustomProjectProgressRowPayload[]): PhaseRow[] => {
+    const roadmapRows = allFeatures
+      .filter(f => (f.phase ?? 'development') === phase)
+      .map((f, idx) => ({ ...f, __rowIdx: idx }));
+
+    const customPhaseRows: PhaseRow[] = customRows.map((r, idx) => ({
+      name: r.name,
+      category: r.category,
+      percentage: r.percentage ?? 0,
+      locatedPage: r.locatedPage,
+      phase,
+      __rowIdx: roadmapRows.length + idx,
+    }));
+
+    return [...roadmapRows, ...customPhaseRows];
+  }, [allFeatures]);
+
+  const testingRows = useMemo(() => buildPhaseRows('testing', testingPrefs.customRows), [buildPhaseRows, testingPrefs.customRows]);
+  const deploymentRows = useMemo(() => buildPhaseRows('deployment', deploymentPrefs.customRows), [buildPhaseRows, deploymentPrefs.customRows]);
+  const operationsRows = useMemo(() => buildPhaseRows('operations', operationsPrefs.customRows), [buildPhaseRows, operationsPrefs.customRows]);
+
+  // Phase counts for sheet tab badges (include custom rows)
+  const phaseCounts = useMemo(() => {
+    const counts: Record<PhaseType, number> = { development: 0, testing: 0, deployment: 0, operations: 0 };
+    allFeatures.forEach(f => {
+      const phase = (f.phase ?? 'development') as PhaseType;
+      if (phase in counts) counts[phase]++;
+    });
+    counts.testing += testingPrefs.customRows.length;
+    counts.deployment += deploymentPrefs.customRows.length;
+    counts.operations += operationsPrefs.customRows.length;
+    return counts;
+  }, [allFeatures, testingPrefs.customRows.length, deploymentPrefs.customRows.length, operationsPrefs.customRows.length]);
+
+  // Active phase rows and data for current sheet
+  const activeRows = useMemo(() => {
+    switch (activePhase) {
+      case 'testing': return testingRows;
+      case 'deployment': return deploymentRows;
+      case 'operations': return operationsRows;
+      default: return [];
+    }
+  }, [activePhase, testingRows, deploymentRows, operationsRows]);
+
+  // Existing row IDs for duplicate detection in AddRowModal
+  const existingRowIds = useMemo(() => {
+    const ids = new Set<string>();
+    activeRows.forEach((r, idx) => ids.add((idx + 1).toString().padStart(3, '0')));
+    const prefs = activePhase === 'testing' ? testingPrefs
+      : activePhase === 'deployment' ? deploymentPrefs
+        : operationsPrefs;
+    prefs.customRows.forEach(r => ids.add(r.rowId));
+    return ids;
+  }, [activeRows, activePhase, testingPrefs, deploymentPrefs, operationsPrefs]);
+
+  // Add row modal
+  const [addRowOpen, setAddRowOpen] = useState(false);
+
+  const handleAddRow = useCallback((row: CustomProjectProgressRowPayload) => {
+    switch (activePhase) {
+      case 'testing':
+        patchTesting({ customRows: [...testingPrefs.customRows, row] });
+        break;
+      case 'deployment':
+        patchDeployment({ customRows: [...deploymentPrefs.customRows, row] });
+        break;
+      case 'operations':
+        patchOperations({ customRows: [...operationsPrefs.customRows, row] });
+        break;
+    }
+    setAddRowOpen(false);
+  }, [activePhase, testingPrefs.customRows, deploymentPrefs.customRows, operationsPrefs.customRows, patchTesting, patchDeployment, patchOperations]);
+
+  // Column definitions (memoized)
+  const testingCols = useMemo(() => createTestingColumns(), []);
+  const deploymentCols = useMemo(() => createDeploymentColumns(), []);
+  const operationsCols = useMemo(() => createOperationsColumns(), []);
+
+  // Only show AddRow for non-development sheets (development has its own AddRowModal)
+  const showAddRow = activePhase !== 'development';
+
   return (
-    <div className="space-y-4 flex-1 min-h-0 flex flex-col">
-      {/* Header row: title left, stats compact top-right */}
+    <div className="flex-1 min-h-0 flex flex-col gap-4">
+      {/* Header row */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 flex-none">
         <div className="flex flex-col gap-1 min-w-0">
           <h1 className="text-2xl font-semibold text-text-primary flex items-center gap-2">
@@ -63,19 +173,73 @@ export default function ProjectProgressPage() {
         </div>
         <SharedStatsCards
           phase={activePhase}
-          features={activePhase === 'development' ? allFeatures : phaseFeatures}
+          features={activePhase === 'development' ? allFeatures : activeRows}
           compact
         />
       </div>
 
-      {/* Phase Tab Bar */}
-      <PhaseTabBar activePhase={activePhase} onPhaseChange={setActivePhase} />
+      {/* Sheet content area */}
+      <div className="flex-1 min-h-0 flex flex-col">
+        <div className="flex-1 min-h-0 flex flex-col">
+          {activePhase === 'development' && <DevelopmentTab features={allFeatures} />}
 
-      {/* Tab Content */}
-      {activePhase === 'development' && <DevelopmentTab features={allFeatures} />}
-      {activePhase === 'testing' && <TestingTab features={phaseFeatures} />}
-      {activePhase === 'deployment' && <DeploymentTab features={phaseFeatures} />}
-      {activePhase === 'operations' && <OperationsTab features={phaseFeatures} />}
+          {activePhase === 'testing' && (
+            <EnhancedTable<PhaseRow>
+              tableId="project_progress_testing"
+              columns={testingCols}
+              data={testingRows}
+              initialWidths={TESTING_WIDTHS}
+              getCategoryValue={r => r.category}
+              getSearchValue={r => `${r.name} ${r.category} ${r.locatedPage ?? ''}`}
+              minWidth={1100}
+              onAddRow={() => setAddRowOpen(true)}
+            />
+          )}
+
+          {activePhase === 'deployment' && (
+            <EnhancedTable<PhaseRow>
+              tableId="project_progress_deployment"
+              columns={deploymentCols}
+              data={deploymentRows}
+              initialWidths={DEPLOYMENT_WIDTHS}
+              getCategoryValue={r => r.category}
+              getSearchValue={r => `${r.name} ${r.category} ${r.deployStatus ?? ''} ${r.deployEnv ?? ''}`}
+              minWidth={1200}
+              onAddRow={() => setAddRowOpen(true)}
+            />
+          )}
+
+          {activePhase === 'operations' && (
+            <EnhancedTable<PhaseRow>
+              tableId="project_progress_operations"
+              columns={operationsCols}
+              data={operationsRows}
+              initialWidths={OPERATIONS_WIDTHS}
+              getCategoryValue={r => r.category}
+              getSearchValue={r => `${r.name} ${r.category} ${r.lastIncident ?? ''}`}
+              minWidth={1200}
+              onAddRow={() => setAddRowOpen(true)}
+            />
+          )}
+        </div>
+
+        {/* Bottom sheet tabs (Excel-style) */}
+        <SheetTabs
+          activePhase={activePhase}
+          onPhaseChange={setActivePhase}
+          phaseCounts={phaseCounts}
+        />
+      </div>
+
+      {/* Add Row Modal for non-development sheets */}
+      {showAddRow && (
+        <AddRowModal
+          open={addRowOpen}
+          onClose={() => setAddRowOpen(false)}
+          existingRowIds={existingRowIds}
+          onAdd={handleAddRow}
+        />
+      )}
 
       <style jsx global>{`
         @keyframes progress-bar-stripes {

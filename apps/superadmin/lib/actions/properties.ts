@@ -15,8 +15,6 @@ import type {
   CreatePropertyInput,
   OwnerOption,
   ActionResult,
-  SaleStatus,
-  RentalStatus,
   PropertyPhotoItem,
   PropertyDocumentItem,
   BuildingTranscriptData,
@@ -33,7 +31,6 @@ import {
   parseSubjectLandParcelScope,
   parseIndependentLandParcelNumberCount,
 } from '@/lib/types/properties';
-import { SALE_STATUSES, RENTAL_STATUSES } from '@/lib/types/properties';
 
 /**
  * Paginated fetch: Supabase/PostgREST caps each request at `max_rows` (default 1000).
@@ -79,8 +76,8 @@ export async function getAllProperties(): Promise<PropertiesResult> {
       { data: allDocs },
       { data: blogData },
     ] = await Promise.all([
-      fetchAllRows(adminClient, 'property_sales'),
-      fetchAllRows(adminClient, 'property_rentals'),
+      fetchAllRows(adminClient, 'property_sales', 'updated_at'),
+      fetchAllRows(adminClient, 'property_rentals', 'updated_at'),
       adminClient
         .from('property_owners')
         .select('property_id, owner_name')
@@ -266,6 +263,7 @@ export async function getAllProperties(): Promise<PropertiesResult> {
           (details.parkingSpaces as number | null) ??
           ((row.has_parking as boolean) ? 1 : 0),
         createdAt: row.created_at as string,
+        updatedAt: (row.updated_at as string) ?? (row.created_at as string),
         mainPhotoUrl: primaryPhotoMap[propertyId] ?? null,
         latitude: (row.latitude as number | null) ?? null,
         longitude: (row.longitude as number | null) ?? null,
@@ -301,7 +299,7 @@ export async function getAllProperties(): Promise<PropertiesResult> {
     );
 
     const properties = [...salesProperties, ...rentalProperties].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     );
 
     console.log('[Properties] Fetched successfully:', {
@@ -479,6 +477,7 @@ export async function getPropertyById(id: string): Promise<PropertyItem | null> 
       (details.parkingSpaces as number | null) ??
       ((row.has_parking as boolean) ? 1 : 0),
     createdAt: row.created_at as string,
+    updatedAt: (row.updated_at as string) ?? (row.created_at as string),
     mainPhotoUrl,
     photoCount: photoCount ?? 0,
     buildingTranscript: (details.buildingTranscript as BuildingTranscriptData) ?? null,
@@ -1076,6 +1075,7 @@ export async function deleteProperty(
 // ── Property Photos & Documents (for edit modal) ─────────────────────────────
 
 export async function getPropertyPhotos(propertyId: string): Promise<PropertyPhotoItem[]> {
+  noStore();
   const adminClient = createAdminClient();
   const { data: rows, error } = await adminClient
     .from('property_photos')
@@ -1108,6 +1108,7 @@ export async function getPropertyPhotos(propertyId: string): Promise<PropertyPho
 export async function getPropertyDocuments(
   propertyId: string
 ): Promise<PropertyDocumentItem[]> {
+  noStore();
   const adminClient = createAdminClient();
   const { data: rows, error } = await adminClient
     .from('property_documents')
@@ -1119,7 +1120,9 @@ export async function getPropertyDocuments(
   if (error || !rows?.length) return [];
 
   // 謄本為隱私：不暴露直接 Storage URL，改為需權限檢查的檢視 API（會 302 到短期 signed URL）
-  return rows.map((r) => ({
+  return rows
+    .filter((r): r is typeof r & { id: string } => typeof r.id === 'string' && r.id.length > 0)
+    .map((r) => ({
     id: r.id,
     documentType: r.document_type,
     documentName: r.document_name,
@@ -1136,6 +1139,7 @@ export async function getDocumentParseResult(documentId: string): Promise<{
   consensusMetadata: import('@/lib/types/transcript').ConsensusMetadata | null;
 } | null> {
   if (!documentId) return null;
+  noStore();
   const adminClient = createAdminClient();
   const { data, error } = await adminClient
     .from('property_documents')

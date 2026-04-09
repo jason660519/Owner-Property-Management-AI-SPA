@@ -189,6 +189,26 @@ export interface PropertyConditionStatement {
   equipmentFacilities: string;
   /** 其他約定或重要說明 */
   otherRemarks: string;
+  /** 政府版標的物現況說明書地址文字 */
+  govAddress: string;
+  /** 賣方簽章 */
+  govSigner: string;
+  /** 買方簽章 */
+  govBuyerSigner?: string;
+  /** 買方簽章日期（YYYY-MM-DD） */
+  govBuyerSignedDate?: string;
+  /** 簽立日期（YYYY-MM-DD） */
+  govSignedDate: string;
+  /** 政府版 47 題清單 */
+  govItems: GovConditionItem[];
+}
+
+export interface GovConditionItem {
+  itemNo: number;
+  answer: '' | 'yes' | 'no';
+  note: string;
+  /** Indices of checked □ in the noteHint template */
+  checkedBoxes?: number[];
 }
 
 // ── Helpers ──
@@ -201,6 +221,15 @@ export const EMPTY_CONDITION_STATEMENT: PropertyConditionStatement = {
   neighborsSpecial: '',
   equipmentFacilities: '',
   otherRemarks: '',
+  govAddress: '',
+  govSigner: '',
+  govSignedDate: '',
+  govItems: Array.from({ length: 47 }, (_, i) => ({
+    itemNo: i + 1,
+    answer: '',
+    note: '',
+    checkedBoxes: [],
+  })),
 };
 
 export function normalizeConditionStatement(
@@ -212,11 +241,36 @@ export function normalizeConditionStatement(
   return {
     ...EMPTY_CONDITION_STATEMENT,
     ...raw,
+    govItems:
+      Array.isArray(raw.govItems) && raw.govItems.length > 0
+        ? EMPTY_CONDITION_STATEMENT.govItems.map((defaultItem) => {
+            const hit = raw.govItems.find((it) => it?.itemNo === defaultItem.itemNo);
+            return {
+              itemNo: defaultItem.itemNo,
+              answer: hit?.answer === 'yes' || hit?.answer === 'no' ? hit.answer : '',
+              note: typeof hit?.note === 'string' ? hit.note : '',
+              checkedBoxes: Array.isArray(hit?.checkedBoxes) ? hit.checkedBoxes : [],
+            };
+          })
+        : [...EMPTY_CONDITION_STATEMENT.govItems],
   };
 }
 
 export function hasConditionStatementContent(cs: PropertyConditionStatement): boolean {
-  return Object.values(cs).some((v) => typeof v === 'string' && v.trim().length > 0);
+  const hasLegacyText = [
+    cs.structureInterior,
+    cs.waterLeakage,
+    cs.pests,
+    cs.unregisteredParts,
+    cs.neighborsSpecial,
+    cs.equipmentFacilities,
+    cs.otherRemarks,
+    cs.govAddress,
+    cs.govSigner,
+    cs.govSignedDate,
+  ].some((v) => typeof v === 'string' && v.trim().length > 0);
+  const hasGovRows = cs.govItems.some((row) => row.answer !== '' || row.note.trim() !== '');
+  return hasLegacyText || hasGovRows;
 }
 
 export const EMPTY_LAND_PARCEL: LandParcel = {

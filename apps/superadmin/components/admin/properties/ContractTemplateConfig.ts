@@ -57,11 +57,36 @@ export interface ContractDraftFormState {
   handoverDate: string;
   ownershipTransferDate: string;
   paymentSchedule: SalePaymentMilestone[];
+  // Commission contract fields
+  /** Entrusting party name (landlord/owner) */
+  commissionPrincipalName: string;
+  /** Brokerage company name */
+  commissionBrokerageName: string;
+  /** Commission type: exclusive or general */
+  commissionType: '' | 'exclusive' | 'general';
+  /** Commission rate as percentage (e.g. 4 = 4%) */
+  commissionRatePercent: number;
+  /** Fixed commission fee (alternative to percentage) */
+  commissionFixedFee: number;
+  /** Commission contract start date */
+  commissionStartDate: string;
+  /** Commission contract end date */
+  commissionEndDate: string;
+  /** Expected listing price */
+  commissionListingPrice: number;
+  /** Minimum acceptable price */
+  commissionFloorPrice: number;
+  /** Marketing methods authorized by the principal */
+  commissionMarketingMethods: string;
+  /** Commission-specific special terms */
+  commissionSpecialTerms: string;
 }
 
 export interface PersistedContractDraftState {
   form: ContractDraftFormState;
   generatedDraft: unknown | null;
+  /** Rich-text edited HTML body (null = no manual edits, use generated preview) */
+  editedHtml?: string | null;
 }
 
 export interface DraftVersionOption {
@@ -94,7 +119,7 @@ export const CONTRACT_TEMPLATE_OPTIONS: ContractTemplateOption[] = [
     label: '房屋委託租賃契約書',
     description: '房東委託仲介代為出租之委託管理合約',
     contractType: 'lease',
-    available: false,
+    available: true,
     sourceFile: '房屋委託租賃契約書範本.doc',
     category: '委託',
   },
@@ -103,7 +128,7 @@ export const CONTRACT_TEMPLATE_OPTIONS: ContractTemplateOption[] = [
     label: '不動產委託銷售契約書',
     description: '房東委託仲介代為銷售之委託合約',
     contractType: 'sale',
-    available: false,
+    available: true,
     sourceFile: '不動產委託銷售契約書範本.doc',
     category: '委託',
   },

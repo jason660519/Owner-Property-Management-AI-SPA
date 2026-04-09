@@ -102,8 +102,9 @@ export default function RegisterPage() {
       } else {
         setError(result.error || '註冊失敗，請稍後再試');
       }
-    } catch (err: any) {
-      setError(err.message || '註冊失敗，請稍後再試');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg || '註冊失敗，請稍後再試');
     } finally {
       setIsLoading(false);
     }

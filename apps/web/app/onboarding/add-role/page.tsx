@@ -19,6 +19,10 @@ import { getUserRoles } from '@/lib/actions/auth';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 type RoleOption = {
   id: string;
   title: string;
@@ -80,7 +84,11 @@ export default function AddRolePage() {
         const result = await getUserRoles(user.id);
 
         if (result.success && result.roles) {
-          const roles = result.roles.map((r: any) => (typeof r === 'string' ? r : r.role));
+          const roles = result.roles.flatMap((r: unknown) => {
+            if (typeof r === 'string') return [r];
+            if (isRecord(r) && typeof r.role === 'string') return [r.role];
+            return [];
+          });
           setCurrentRoles(roles);
 
           // Filter out roles user already has

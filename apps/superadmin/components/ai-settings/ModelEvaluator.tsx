@@ -17,21 +17,19 @@ import { hasVisionCapability } from '@/lib/utils/vision-capability';
 import type { SavedKey, SavedModel, ModelEvaluation, KeyValidationResult, SavedModule, AssignedModel, DisplayStatusOverride } from '@/lib/hooks/useAISettings';
 import { getAvailableModelsList } from '@/lib/utils/total-available-models';
 import { readLocalStorage, writeLocalStorage, readSessionStorage, writeSessionStorage } from '@/lib/utils/storage-state';
+import { useTablePreferences } from '@/lib/hooks/useTablePreferences';
 
-const SS_FILTER_STATUSES  = 'ai-eval-filter:statuses';
-const SS_FILTER_PROVIDERS = 'ai-eval-filter:providerIds';
-const LS_FILTER_CATEGORIES = 'ai-eval-filter:categories';
-const LS_RECENT_BATCH_REPORT = 'ai-eval:last-batch-report';
+// Canonical copies of types/utils extracted to ./model-evaluator/types.ts and
+// ./model-evaluator/utils.ts for future modularization. ModelEvaluator still
+// uses its own local definitions to avoid a massive single-file rewrite.
 
-const MODULE_ICON_MAP: Record<string, React.ElementType> = {
-  cloud: Cloud, 'hard-drive': Settings2, 'message-circle': MessageCircle,
-  'file-text': FileText, 'pen-tool': PenTool, layout: Layout,
-};
-const MODULE_CATEGORY_COLORS: Record<string, { text: string; bg: string }> = {
-  ocr:       { text: 'text-blue-400',   bg: 'bg-blue-500/10'   },
-  assistant: { text: 'text-green-400',  bg: 'bg-green-500/10'  },
-  generator: { text: 'text-purple-400', bg: 'bg-purple-500/10' },
-};
+// These types/constants are used in the migration block above (before their
+// local const declaration), so import them from the extracted module.
+import {
+  MODEL_EVAL_STORAGE_KEY as _ME_SK,
+  MODEL_EVAL_DEFAULTS as _ME_DEFAULTS,
+  FREEZE_ROW_STORAGE_KEY as _FR_SK,
+} from './model-evaluator/types';
 
 export interface KeyWithId {
   id: string;
@@ -54,14 +52,6 @@ export interface BatchResultEntry {
   success: boolean;
   output: string;
   imageUrl?: string;
-}
-
-function inferStatusOverrideFromBatchEntry(entry: BatchResultEntry): DisplayStatusOverride {
-  if (!entry.success) return 'not_working';
-  const category = detectCategoryFromOutput(entry.output);
-  if (category === 'VLM') return 'vlm_ok';
-  if (category === 'LLM') return 'llm_ok';
-  return hasVisionCapability(entry.key) ? 'vlm_ok' : 'llm_ok';
 }
 
 type RecentBatchReport = {
@@ -99,6 +89,43 @@ function writeRecentBatchReport(report: RecentBatchReport): boolean {
   } catch {
     return false;
   }
+}
+
+function inferStatusOverrideFromBatchEntry(entry: BatchResultEntry): DisplayStatusOverride {
+  if (!entry.success) return 'not_working';
+  const category = detectCategoryFromOutput(entry.output);
+  if (category === 'VLM') return 'vlm_ok';
+  if (category === 'LLM') return 'llm_ok';
+  return hasVisionCapability(entry.key) ? 'vlm_ok' : 'llm_ok';
+}
+
+const SS_FILTER_STATUSES  = 'ai-eval-filter:statuses';
+const SS_FILTER_PROVIDERS = 'ai-eval-filter:providerIds';
+const LS_FILTER_CATEGORIES = 'ai-eval-filter:categories';
+const LS_RECENT_BATCH_REPORT = 'ai-eval:last-batch-report';
+
+const MODULE_ICON_MAP: Record<string, React.ElementType> = {
+  cloud: Cloud, 'hard-drive': Settings2, 'message-circle': MessageCircle,
+  'file-text': FileText, 'pen-tool': PenTool, layout: Layout,
+};
+
+// One-time migration: merge old v1 localStorage keys into the new unified v2 key
+// Uses imported aliases (_ME_SK, _FR_SK, _ME_DEFAULTS) because local consts are declared later.
+if (typeof window !== 'undefined' && !localStorage.getItem(_ME_SK)) {
+  try {
+    const partial: Partial<ModelEvalSettings> = {};
+    const oldWidths = localStorage.getItem('superadmin-model-evaluator-column-widths');
+    if (oldWidths) { try { partial.columnWidths = JSON.parse(oldWidths); } catch { /* ignore */ } }
+    const oldLabel = localStorage.getItem('superadmin-model-evaluator-prompt-column-label');
+    if (oldLabel) partial.promptColumnLabel = oldLabel;
+    const oldFreezeRow = localStorage.getItem(_FR_SK);
+    if (oldFreezeRow === '0') partial.freezeRowCount = 0;
+    const oldFrozenCol = localStorage.getItem('superadmin-model-evaluator-frozen-col-v1');
+    if (oldFrozenCol) { const n = parseInt(oldFrozenCol, 10); if (!Number.isNaN(n)) partial.frozenColCount = n; }
+    if (Object.keys(partial).length > 0) {
+      localStorage.setItem(_ME_SK, JSON.stringify({ ..._ME_DEFAULTS, ...partial }));
+    }
+  } catch { /* ignore */ }
 }
 
 export interface ModelEvaluatorProps {
@@ -208,6 +235,12 @@ const MODULE_SORT_LABEL: Record<string, string> = {
   ad_generator: 'AD',
   software_dev_engineer: 'SDE',
   ttd_engineer: 'TTD',
+};
+
+const MODULE_CATEGORY_COLORS: Record<string, { text: string; bg: string }> = {
+  ocr:       { text: 'text-blue-400',   bg: 'bg-blue-500/10'   },
+  assistant: { text: 'text-green-400',  bg: 'bg-green-500/10'  },
+  generator: { text: 'text-purple-400', bg: 'bg-purple-500/10' },
 };
 
 /**
@@ -435,6 +468,29 @@ function getStatusDisplay(
   return { type: 'not_working', label: '不可用', title: '測試失敗或無有效輸出' };
 }
 
+const MODEL_EVAL_PAGE_KEY = 'model_evaluator';
+const MODEL_EVAL_STORAGE_KEY = 'model_evaluator_settings_v2';
+const FREEZE_ROW_STORAGE_KEY = 'superadmin-model-evaluator-freeze-row-v1';
+const MODEL_EVAL_DEFAULT_COLUMN_WIDTHS = [120, 80, 220, 48, 140, 72, 200, 140, 110, 88, 88, 88, 88, 88, 88, 88];
+
+interface ModelEvalSettings extends Record<string, unknown> {
+  columnWidths: number[];
+  promptColumnLabel: string;
+  freezeRowCount: 0 | 1;
+  frozenColCount: number;
+  tableAlignH: TableHAlign;
+  tableAlignV: TableVAlign;
+}
+
+const MODEL_EVAL_DEFAULTS: ModelEvalSettings = {
+  columnWidths: [...MODEL_EVAL_DEFAULT_COLUMN_WIDTHS],
+  promptColumnLabel: 'Prompt input',
+  freezeRowCount: 1,
+  frozenColCount: 0,
+  tableAlignH: 'left',
+  tableAlignV: 'top',
+};
+
 export function ModelEvaluator({
   savedKeys,
   savedModels = [],
@@ -464,38 +520,27 @@ export function ModelEvaluator({
     (promptVariableLabel && promptVariableLabel.trim().length > 0
       ? promptVariableLabel.trim()
       : DEFAULT_PROMPT_PLACEHOLDER);
-  /** 表頭「Prompt input」欄位名稱，使用者可自訂；從 localStorage 還原避免重繪後遺失 */
-  const STORAGE_KEY_PROMPT_COLUMN_LABEL = 'superadmin-model-evaluator-prompt-column-label';
-  const STORAGE_KEY_COLUMN_WIDTHS = 'superadmin-model-evaluator-column-widths';
-  const FREEZE_ROW_STORAGE_KEY = 'superadmin-model-evaluator-freeze-row-v1';
-  const FROZEN_COL_STORAGE_KEY = 'superadmin-model-evaluator-frozen-col-v1';
-  // Cols 0-8: fixed table cols (公司,模型分類與狀態,模型,已選,Prompt,prompt測試,output text,output jpg,更新日期與時間); cols 9-15: one per FEATURE_MODULE (7)
-  const DEFAULT_COLUMN_WIDTHS = [120, 80, 220, 48, 140, 72, 200, 140, 110, 88, 88, 88, 88, 88, 88, 88];
-  const TABLE_COLUMN_COUNT = DEFAULT_COLUMN_WIDTHS.length;
-  const isOcrMode = statusLabelMode === 'ocr';
-  const [columnWidths, setColumnWidthsState] = useState<number[]>(() => {
-    if (typeof window === 'undefined') return [...DEFAULT_COLUMN_WIDTHS];
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY_COLUMN_WIDTHS);
-      if (raw) {
-        const parsed = JSON.parse(raw) as number[];
-        if (Array.isArray(parsed) && parsed.every((x) => typeof x === 'number')) {
-          // Migrate from old 16-col layout (drop former 模型分類 col at index 3)
-          const normalized =
-            parsed.length === 16 ? [...parsed.slice(0, 3), ...parsed.slice(4)] : parsed;
-          if (normalized.length < DEFAULT_COLUMN_WIDTHS.length) {
-            return [...normalized, ...DEFAULT_COLUMN_WIDTHS.slice(normalized.length)];
-          }
-          return normalized.length > DEFAULT_COLUMN_WIDTHS.length ? normalized.slice(0, DEFAULT_COLUMN_WIDTHS.length) : normalized;
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return [...DEFAULT_COLUMN_WIDTHS];
+  // Persisted table preferences (localStorage cache + DB sync)
+  const { settings: tablePrefs, patch: patchTablePrefs } = useTablePreferences<ModelEvalSettings>({
+    pageKey: MODEL_EVAL_PAGE_KEY,
+    storageKey: MODEL_EVAL_STORAGE_KEY,
+    defaults: MODEL_EVAL_DEFAULTS,
   });
+
+  const TABLE_COLUMN_COUNT = MODEL_EVAL_DEFAULT_COLUMN_WIDTHS.length;
+  const isOcrMode = statusLabelMode === 'ocr';
+  const columnWidths = tablePrefs.columnWidths;
+  const promptColumnLabel = tablePrefs.promptColumnLabel;
+  const freezeRowCount = tablePrefs.freezeRowCount;
+  const frozenColCount = tablePrefs.frozenColCount;
+  const tableAlignH = tablePrefs.tableAlignH;
+  const tableAlignV = tablePrefs.tableAlignV;
+
   const startXRef = useRef(0);
   const resizingColRef = useRef<number | null>(null);
+  const columnWidthsRef = useRef(columnWidths);
+  columnWidthsRef.current = columnWidths;
+
   const handleResizeStart = useCallback((colIndex: number) => (e: React.MouseEvent) => {
     if (e.button !== 0) return;
     e.preventDefault();
@@ -507,23 +552,14 @@ export function ModelEvaluator({
       if (resizingColRef.current === null) return;
       const delta = ev.clientX - startXRef.current;
       startXRef.current = ev.clientX;
-      setColumnWidthsState((prev) => {
-        const next = [...prev];
-        const idx = resizingColRef.current!;
-        next[idx] = Math.max(32, (next[idx] ?? DEFAULT_COLUMN_WIDTHS[idx]) + delta);
-        return next;
-      });
+      const next = [...columnWidthsRef.current];
+      const idx = resizingColRef.current;
+      next[idx] = Math.max(32, (next[idx] ?? MODEL_EVAL_DEFAULT_COLUMN_WIDTHS[idx]) + delta);
+      columnWidthsRef.current = next;
+      patchTablePrefs({ columnWidths: next });
     };
     const onUp = () => {
       resizingColRef.current = null;
-      setColumnWidthsState((current) => {
-        try {
-          window.localStorage.setItem(STORAGE_KEY_COLUMN_WIDTHS, JSON.stringify(current));
-        } catch {
-          // ignore
-        }
-        return current;
-      });
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
       document.body.style.cursor = '';
@@ -531,22 +567,12 @@ export function ModelEvaluator({
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
-  }, []);
-  const [promptColumnLabel, setPromptColumnLabelState] = useState(() => {
-    if (typeof window === 'undefined') return 'Prompt input';
-    return window.localStorage.getItem(STORAGE_KEY_PROMPT_COLUMN_LABEL) ?? 'Prompt input';
-  });
+  }, [patchTablePrefs]);
+
   const setPromptColumnLabel = useCallback((value: string | ((prev: string) => string)) => {
-    setPromptColumnLabelState((prev) => {
-      const next = typeof value === 'function' ? value(prev) : value;
-      try {
-        window.localStorage.setItem(STORAGE_KEY_PROMPT_COLUMN_LABEL, next);
-      } catch {
-        // ignore
-      }
-      return next;
-    });
-  }, []);
+    const next = typeof value === 'function' ? value(promptColumnLabel) : value;
+    patchTablePrefs({ promptColumnLabel: next });
+  }, [promptColumnLabel, patchTablePrefs]);
   /** Per-row custom prompts; empty string means "use global testPrompt" */
   const [rowPrompts, setRowPrompts] = useState<Record<string, string>>({});
   const [outputByKey, setOutputByKey] = useState<Record<string, string>>({});
@@ -579,35 +605,10 @@ export function ModelEvaluator({
   /** True when the user has manually typed in the single-test prompt textarea; suppresses auto-sync. */
   const [rowTestPromptDirty, setRowTestPromptDirty] = useState(false);
   const [rowTestFile, setRowTestFile] = useState<File | null>(null);
-  const [tableAlignH, setTableAlignH] = useState<TableHAlign>('left');
-  const [tableAlignV, setTableAlignV] = useState<TableVAlign>('top');
   const [alignDropdownOpen, setAlignDropdownOpen] = useState(false);
   const alignDropdownRef = useRef<HTMLDivElement | null>(null);
   const [viewDropdownOpen, setViewDropdownOpen] = useState(false);
   const viewDropdownRef = useRef<HTMLDivElement | null>(null);
-  const [freezeRowCount, setFreezeRowCount] = useState<0 | 1>(() => {
-    if (typeof window === 'undefined') return 1;
-    try {
-      const v = window.localStorage.getItem(FREEZE_ROW_STORAGE_KEY);
-      if (v === '0' || v === '1') return Number(v) as 0 | 1;
-    } catch {
-      // ignore
-    }
-    return 1;
-  });
-  const [frozenColCount, setFrozenColCount] = useState<number>(() => {
-    if (typeof window === 'undefined') return 0;
-    try {
-      const v = window.localStorage.getItem(FROZEN_COL_STORAGE_KEY);
-      if (v !== null) {
-        const n = parseInt(v, 10);
-        if (Number.isInteger(n) && n >= 0 && n <= TABLE_COLUMN_COUNT) return n;
-      }
-    } catch {
-      // ignore
-    }
-    return 0;
-  });
   /** 哪一列的「模型分類與狀態」下拉已展開（row key = providerId::modelId） */
   const [openStatusDropdownKey, setOpenStatusDropdownKey] = useState<string | null>(null);
   const [statusDropdownPos, setStatusDropdownPos] = useState<{ top: number; left: number } | null>(null);
@@ -618,7 +619,7 @@ export function ModelEvaluator({
     let acc = 0;
     for (let i = 0; i < columnWidths.length; i++) {
       offsets.push(acc);
-      acc += columnWidths[i] ?? DEFAULT_COLUMN_WIDTHS[i] ?? 80;
+      acc += columnWidths[i] ?? MODEL_EVAL_DEFAULT_COLUMN_WIDTHS[i] ?? 80;
     }
     return offsets;
   }, [columnWidths]);
@@ -1002,7 +1003,7 @@ export function ModelEvaluator({
 
       for (const raw of report.entries) {
         const entry = normalizeBatchEntry(
-          typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {}
+          typeof raw === 'object' && raw !== null ? (raw as unknown as Record<string, unknown>) : {}
         );
         if (!entry) continue;
         appliedCount += 1;
@@ -1670,7 +1671,7 @@ export function ModelEvaluator({
                       <button
                         key={h}
                         type="button"
-                        onClick={() => setTableAlignH(h)}
+                        onClick={() => patchTablePrefs({ tableAlignH: h })}
                         className={`flex-1 px-2 py-1.5 rounded text-xs border transition-colors ${
                           tableAlignH === h
                             ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-700 dark:text-emerald-300'
@@ -1687,7 +1688,7 @@ export function ModelEvaluator({
                       <button
                         key={v}
                         type="button"
-                        onClick={() => setTableAlignV(v)}
+                        onClick={() => patchTablePrefs({ tableAlignV: v })}
                         className={`flex-1 px-2 py-1.5 rounded text-xs border transition-colors ${
                           tableAlignV === v
                             ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-700 dark:text-emerald-300'
@@ -1731,12 +1732,7 @@ export function ModelEvaluator({
                         type="button"
                         role="menuitem"
                         onClick={() => {
-                          setFreezeRowCount(n);
-                          try {
-                            window.localStorage.setItem(FREEZE_ROW_STORAGE_KEY, String(n));
-                          } catch {
-                            // ignore
-                          }
+                          patchTablePrefs({ freezeRowCount: n });
                           setViewDropdownOpen(false);
                         }}
                         className={`w-full text-left px-3 py-2 text-sm transition-colors ${
@@ -1767,15 +1763,7 @@ export function ModelEvaluator({
                           type="button"
                           role="menuitem"
                           onClick={() => {
-                            setFrozenColCount(n);
-                            try {
-                              window.localStorage.setItem(
-                                FROZEN_COL_STORAGE_KEY,
-                                String(n)
-                              );
-                            } catch {
-                              // ignore
-                            }
+                            patchTablePrefs({ frozenColCount: n });
                             setViewDropdownOpen(false);
                           }}
                           className={`w-full text-left px-3 py-2 text-sm transition-colors ${

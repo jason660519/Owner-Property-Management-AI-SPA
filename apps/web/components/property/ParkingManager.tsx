@@ -140,7 +140,12 @@ export function ParkingManager({ parkingSpaces, onChange }: ParkingManagerProps)
                   type="radio"
                   value="independent"
                   checked={formData.type === 'independent'}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      type: e.target.value === 'independent' ? 'independent' : 'shared',
+                    })
+                  }
                   className="peer sr-only"
                 />
                 <div className="p-3 border border-[#333333] rounded-lg text-center cursor-pointer transition-colors peer-checked:border-[#7C3AED] peer-checked:bg-[#7C3AED]/10">
@@ -153,7 +158,12 @@ export function ParkingManager({ parkingSpaces, onChange }: ParkingManagerProps)
                   type="radio"
                   value="shared"
                   checked={formData.type === 'shared'}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      type: e.target.value === 'independent' ? 'independent' : 'shared',
+                    })
+                  }
                   className="peer sr-only"
                 />
                 <div className="p-3 border border-[#333333] rounded-lg text-center cursor-pointer transition-colors peer-checked:border-[#7C3AED] peer-checked:bg-[#7C3AED]/10">

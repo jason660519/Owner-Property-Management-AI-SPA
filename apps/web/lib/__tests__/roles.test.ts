@@ -14,7 +14,7 @@ describe('canonicalizeRole', () => {
 
   it('returns null for unknown/empty values', () => {
     expect(canonicalizeRole('')).toBeNull();
-    expect(canonicalizeRole(null as any)).toBeNull();
+    expect(canonicalizeRole(null as unknown as string)).toBeNull();
     expect(canonicalizeRole('unknown_role')).toBeNull();
   });
 });

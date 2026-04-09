@@ -10,11 +10,18 @@ import StorageDashboardClient from '@/components/dashboard/storage/StorageDashbo
 export const dynamic = 'force-dynamic';
 
 export default async function StoragePage() {
+  const defaultSummary: Awaited<ReturnType<typeof getStorageSummary>> = {
+    totalSize: 0,
+    totalFiles: 0,
+    byBucket: {},
+    byType: [],
+  };
+
   const [summary, fileTypes, orphanedFiles, quotas] = await Promise.all([
-    getStorageSummary(),
-    getFileTypeDistribution(),
-    getOrphanedFiles(100),
-    getStorageQuotas(),
+    getStorageSummary().catch(() => defaultSummary),
+    getFileTypeDistribution().catch(() => []),
+    getOrphanedFiles(100).catch(() => []),
+    getStorageQuotas().catch(() => []),
   ]);
 
   return (

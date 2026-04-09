@@ -16,6 +16,8 @@ import {
   Sparkles,
   XCircle,
 } from 'lucide-react';
+import { AIOperationStatusPill } from '@/components/ui/AIOperationStatusPill';
+import { useOperationTimer } from '@/lib/hooks/useOperationTimer';
 import {
   type DescriptionGenerationGoal,
   type DescriptionGenerationLength,
@@ -80,6 +82,14 @@ interface TraceDetails {
   responseStatus: number | null;
   durationMs: number | null;
   usage?: { inputTokens?: number; outputTokens?: number };
+}
+
+interface PromptConfigSummary {
+  promptName: string;
+  source: 'ai_system_prompt' | 'saved_prompt' | 'default';
+  moduleKey: string | null;
+  version: number | null;
+  templatePreview: string;
 }
 
 interface TraceReportInput {
@@ -279,30 +289,15 @@ export function PropertyDescriptionAIAssistant({
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [lastAppliedDescription, setLastAppliedDescription] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generationElapsedSeconds, setGenerationElapsedSeconds] = useState<number>(0);
   const [phaseMessage, setPhaseMessage] = useState('');
   const [traceSteps, setTraceSteps] = useState<TraceStep[]>(createInitialTraceSteps);
   const [traceDetails, setTraceDetails] = useState<TraceDetails>(getInitialTraceDetails);
   const [showTraceDetails, setShowTraceDetails] = useState(false);
   const [traceActionMessage, setTraceActionMessage] = useState<string | null>(null);
+  const [activePromptConfig, setActivePromptConfig] = useState<PromptConfigSummary | null>(null);
+  const [isPromptConfigLoading, setIsPromptConfigLoading] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    if (!isGenerating) {
-      setGenerationElapsedSeconds(0);
-      return;
-    }
-
-    const startedAt = Date.now();
-    setGenerationElapsedSeconds(0);
-
-    const intervalId = window.setInterval(() => {
-      const elapsed = (Date.now() - startedAt) / 1000;
-      setGenerationElapsedSeconds(Number(elapsed.toFixed(1)));
-    }, 100);
-
-    return () => window.clearInterval(intervalId);
-  }, [isGenerating]);
+  const { elapsedSeconds: generationElapsedSeconds } = useOperationTimer(isGenerating, { precisionDecimals: 1, tickMs: 100 });
 
   const dataSignals = useMemo(
     () => [
@@ -392,6 +387,48 @@ export function PropertyDescriptionAIAssistant({
       })
     : '';
 
+  const promptSourceLabel =
+    activePromptConfig?.source === 'ai_system_prompt'
+      ? 'ai_system_prompts（模組專用）'
+      : activePromptConfig?.source === 'saved_prompt'
+        ? 'saved_prompts（通用）'
+        : activePromptConfig?.source === 'default'
+          ? '系統預設 Prompt'
+          : '尚未取得';
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchPromptConfig = async () => {
+      setIsPromptConfigLoading(true);
+      try {
+        const response = await fetch('/api/property-description/prompt-config');
+        if (!response.ok) {
+          throw new Error('failed_to_load_prompt_config');
+        }
+
+        const data = (await response.json()) as PromptConfigSummary;
+        if (isMounted) {
+          setActivePromptConfig(data);
+        }
+      } catch {
+        if (isMounted) {
+          setActivePromptConfig(null);
+        }
+      } finally {
+        if (isMounted) {
+          setIsPromptConfigLoading(false);
+        }
+      }
+    };
+
+    void fetchPromptConfig();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const updateTracePhase = (phase: TracePhase, status: 'running' | 'completed' | 'error') => {
     const currentIndex = TRACE_PHASES.findIndex((item) => item.phase === phase);
     setTraceSteps((prev) =>
@@ -428,6 +465,13 @@ export function PropertyDescriptionAIAssistant({
           templatePreview: event.templatePreview,
           finalPromptPreview: event.finalPromptPreview,
         }));
+        setActivePromptConfig({
+          promptName: event.promptName,
+          source: event.promptSource,
+          moduleKey: event.moduleKey ?? null,
+          version: null,
+          templatePreview: event.templatePreview,
+        });
         break;
       case 'model_selected':
         setTraceDetails((prev) => ({
@@ -644,6 +688,30 @@ export function PropertyDescriptionAIAssistant({
           </a>
         </div>
 
+        <div className="rounded-md border border-border-default bg-bg-primary px-3 py-2.5 text-xs">
+          <p className="font-medium text-text-secondary">目前預設 Prompt</p>
+          {isPromptConfigLoading ? (
+            <p className="mt-1 text-text-muted">載入中…</p>
+          ) : (
+            <div className="mt-1 space-y-1 text-text-muted">
+              <p>
+                名稱: <span className="text-text-primary">{activePromptConfig?.promptName ?? '物件描述文案'}</span>
+              </p>
+              <p>來源: {promptSourceLabel}</p>
+              <p>Module Key: {activePromptConfig?.moduleKey ?? '—'}</p>
+              {activePromptConfig?.version != null && <p>版本: v{activePromptConfig.version}</p>}
+              {activePromptConfig?.templatePreview && (
+                <p className="line-clamp-2">
+                  模板摘要: {activePromptConfig.templatePreview}
+                </p>
+              )}
+            </div>
+          )}
+          <p className="mt-1.5 text-text-muted">
+            可到「Prompt 管理」建立/編輯內容，再於 AI 設定頁把指定 Prompt 設為系統 Prompt。
+          </p>
+        </div>
+
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <label className="space-y-1 text-xs text-text-muted">
             <span className="block">文案風格</span>
@@ -728,60 +796,24 @@ export function PropertyDescriptionAIAssistant({
             <Sparkles className={`h-4 w-4 ${isGenerating ? 'animate-pulse' : ''}`} />
             {isGenerating ? '草稿產生中…' : '產生 AI 草稿'}
           </button>
-          {isGenerating && (
-            <span
-              role="status"
-              aria-live="polite"
-              className="inline-flex items-center gap-2 rounded-full border border-border-default bg-bg-secondary px-3 py-1 text-xs text-text-secondary"
-            >
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              <span>AI 正在生成中</span>
-              <span className="text-text-muted">
-                <Clock3 className="mr-1 inline h-3.5 w-3.5" />
-                已經過 {generationElapsedSeconds.toFixed(1)}s
-              </span>
-            </span>
-          )}
-          {!isGenerating && generationResultSummary.status !== 'idle' && (
-            <span
-              role="status"
-              aria-live="polite"
-              className="inline-flex flex-wrap items-center gap-2 rounded-full border border-border-default bg-bg-secondary px-3 py-1 text-xs text-text-secondary"
-            >
-              {generationResultSummary.status === 'success' ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                  本次生成完成
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5">
-                  <XCircle className="h-3.5 w-3.5 text-red-500" />
-                  本次生成失敗
-                </span>
-              )}
-              {generationResultSummary.durationSeconds != null && (
-                <span className="inline-flex items-center gap-1 text-text-muted">
-                  <Clock3 className="h-3.5 w-3.5" />
-                  {generationResultSummary.durationSeconds.toFixed(1)}s
-                </span>
-              )}
-              {generationResultSummary.totalTokens != null && (
-                <span className="text-text-muted">
-                  Tokens {generationResultSummary.totalTokens.toLocaleString()}（in{' '}
-                  {(generationResultSummary.inputTokens ?? 0).toLocaleString()} / out{' '}
-                  {(generationResultSummary.outputTokens ?? 0).toLocaleString()}）
-                </span>
-              )}
-              {generationResultSummary.provider && generationResultSummary.model && (
-                <span className="text-text-muted">
-                  {generationResultSummary.provider}/{generationResultSummary.model}
-                </span>
-              )}
-              {generationResultSummary.responseStatus != null && (
-                <span className="text-text-muted">HTTP {generationResultSummary.responseStatus}</span>
-              )}
-            </span>
-          )}
+          <AIOperationStatusPill
+            status={generationResultSummary.status}
+            elapsedSeconds={generationElapsedSeconds}
+            summary={
+              generationResultSummary.status === 'running'
+                ? null
+                : {
+                    durationSeconds: generationResultSummary.durationSeconds,
+                    responseStatus: generationResultSummary.responseStatus,
+                    provider: generationResultSummary.provider,
+                    model: generationResultSummary.model,
+                    usage: {
+                      inputTokens: generationResultSummary.inputTokens,
+                      outputTokens: generationResultSummary.outputTokens,
+                    },
+                  }
+            }
+          />
           <span className="text-xs text-text-muted">生成後先預覽，再決定是否套用到最終文案。</span>
         </div>
 

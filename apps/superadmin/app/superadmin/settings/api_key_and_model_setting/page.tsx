@@ -5,6 +5,7 @@ import {
   Key, FlaskConical, ScanText, Globe, FileSignature, BookOpen, Home,
   Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download, BookMarked,
 } from 'lucide-react';
+import { BottomSheetTabs, type SheetTabDef } from '@/components/ui/BottomSheetTabs';
 import { readLocalStorage, writeLocalStorage } from '@/lib/utils/storage-state';
 import { DashboardLayout } from '@/components/dashboard';
 import { Button } from '@/components/ui/Button';
@@ -197,6 +198,25 @@ const PROPERTY_DESCRIPTION_HIDDEN_MODULE_KEYS = [
   'ttd_engineer',
 ];
 
+/** Map each evaluator tab to its hidden module keys and optional statusLabelMode */
+const EVALUATOR_TAB_CONFIG: Record<string, { hiddenModuleKeys: string[]; statusLabelMode?: 'vlm' | 'ocr' }> = {
+  ocr: { hiddenModuleKeys: OCR_HIDDEN_MODULE_KEYS, statusLabelMode: 'ocr' },
+  'static-ad': { hiddenModuleKeys: STATIC_AD_HIDDEN_MODULE_KEYS },
+  contract: { hiddenModuleKeys: CONTRACT_HIDDEN_MODULE_KEYS },
+  blog: { hiddenModuleKeys: BLOG_HIDDEN_MODULE_KEYS },
+  'property-description': { hiddenModuleKeys: PROPERTY_DESCRIPTION_HIDDEN_MODULE_KEYS },
+};
+
+/** Bottom sheet tab definitions for Excel-style navigation */
+const SHEET_TABS: SheetTabDef[] = [
+  { id: 'keys', label: 'API Keys', zhLabel: 'API 金鑰管理', icon: Key, color: 'text-amber-600', activeColor: 'bg-amber-600 text-white' },
+  { id: 'ocr', label: 'OCR', zhLabel: 'OCR解析設定', icon: ScanText, color: 'text-blue-600', activeColor: 'bg-blue-600 text-white' },
+  { id: 'static-ad', label: 'Static Ad', zhLabel: '靜態網頁廣告', icon: Globe, color: 'text-emerald-600', activeColor: 'bg-emerald-600 text-white' },
+  { id: 'contract', label: 'Contract', zhLabel: '合約生成', icon: FileSignature, color: 'text-purple-600', activeColor: 'bg-purple-600 text-white' },
+  { id: 'blog', label: 'Blog', zhLabel: '部落格生成', icon: BookOpen, color: 'text-rose-600', activeColor: 'bg-rose-600 text-white' },
+  { id: 'property-description', label: 'Property', zhLabel: '物件介紹文案', icon: Home, color: 'text-orange-600', activeColor: 'bg-orange-600 text-white' },
+];
+
 
 export default function AIServiceSettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => getTabFromHash() ?? 'keys');
@@ -322,13 +342,6 @@ export default function AIServiceSettingsPage() {
       return Object.keys(next).length === Object.keys(prev).length ? prev : next;
     });
   }, [settings.keys]);
-
-  const handleTabClick = (tabId: SettingsTab) => {
-    setActiveTab(tabId);
-    if (typeof window !== 'undefined') {
-      window.history.replaceState(null, '', `#${tabId}`);
-    }
-  };
 
   const getCategoryForTab = (tabId: SettingsTab): SavedPromptCategory => {
     switch (tabId) {
@@ -596,203 +609,89 @@ export default function AIServiceSettingsPage() {
       );
     }
 
-    switch (activeTab) {
-      case 'keys':
-        return (
-          <ApiKeyManager
-            ref={apiKeyManagerRef}
-            savedKeys={settings.keys}
-            savedModels={settings.models}
-            validateAllResultsByKeyId={validateAllResultsByKeyId}
-            onSave={settings.saveKey}
-            onDelete={settings.deleteKey}
-            onValidate={async (provider, apiKey, keyId) => {
-              const r = await settings.validateKey(provider, apiKey, keyId);
-              if (keyId && r?.valid) setValidateAllResultsByKeyId((prev) => ({ ...prev, [keyId]: r }));
-              return r;
-            }}
-            headerActionsRef={apiKeyHeaderActionsRef}
-            onBatchImportComplete={async (importedCount) => {
-              await settings.refresh();
-              await new Promise((r) => setTimeout(r, 800));
-              await runValidateAllKeys(keysRef.current, importedCount);
-            }}
-          />
-        );
-      case 'ocr':
-        return (
-          <div className="space-y-6">
-            {/* System Prompt editors for parser and judge */}
-            <div>
-              <h3 className="text-sm font-semibold text-text-primary mb-1">系統 Prompt 設定</h3>
-              <p className="text-xs text-text-muted mb-3">
-                儲存後每次雲端解析均自動套用，留空則使用內建預設 Prompt。
-              </p>
-              <OcrSystemPromptPanel
-                savedPrompts={settings.prompts}
-                onSave={settings.savePrompt}
-              />
-            </div>
-            <ModelEvaluator
-            savedKeys={settings.keys}
-            savedModels={settings.models}
-            savedEvaluations={settings.evaluations}
-            validateAllResultsByKeyId={validateAllResultsByKeyId}
-            currentKeys={memoizedCurrentKeys}
-            onSave={settings.saveEvaluations}
-            onTestModel={settings.testModel}
-            onSaveModels={async (providerId, selections) => {
-              await settings.saveModels(
-                providerId as Parameters<typeof settings.saveModels>[0],
-                selections
-              );
-            }}
-            savedModules={settings.modules}
-            hiddenModuleKeys={OCR_HIDDEN_MODULE_KEYS}
-            onSaveModule={async (moduleKey, isEnabled, assignedModels, config) => {
-              await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
-            }}
-            summarySelectedCount={selectedModelCount}
-            summaryTotalCount={totalAvailableModels}
-            promptVariableLabel={currentCloudPromptName ? `{${currentCloudPromptName}}` : undefined}
-            globalTestPrompt={globalTestPrompt}
-            onChangeGlobalTestPrompt={setGlobalTestPrompt}
-            uploadedFile={uploadedFile}
-            onChangeUploadedFile={setUploadedFile}
-            headerActionsRef={setModelEvaluatorHeaderActions}
-            statusLabelMode="ocr"
-          />
-          </div>
-        );
-      case 'static-ad':
-        return (
-          <ModelEvaluator
-            savedKeys={settings.keys}
-            savedModels={settings.models}
-            savedEvaluations={settings.evaluations}
-            validateAllResultsByKeyId={validateAllResultsByKeyId}
-            currentKeys={memoizedCurrentKeys}
-            onSave={settings.saveEvaluations}
-            onTestModel={settings.testModel}
-            onSaveModels={async (providerId, selections) => {
-              await settings.saveModels(
-                providerId as Parameters<typeof settings.saveModels>[0],
-                selections
-              );
-            }}
-            savedModules={settings.modules}
-            hiddenModuleKeys={STATIC_AD_HIDDEN_MODULE_KEYS}
-            onSaveModule={async (moduleKey, isEnabled, assignedModels, config) => {
-              await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
-            }}
-            summarySelectedCount={selectedModelCount}
-            summaryTotalCount={totalAvailableModels}
-            promptVariableLabel={currentCloudPromptName ? `{${currentCloudPromptName}}` : undefined}
-            globalTestPrompt={globalTestPrompt}
-            onChangeGlobalTestPrompt={setGlobalTestPrompt}
-            uploadedFile={uploadedFile}
-            onChangeUploadedFile={setUploadedFile}
-            headerActionsRef={setModelEvaluatorHeaderActions}
-          />
-        );
-
-      case 'contract':
-        return (
-          <ModelEvaluator
-            savedKeys={settings.keys}
-            savedModels={settings.models}
-            savedEvaluations={settings.evaluations}
-            validateAllResultsByKeyId={validateAllResultsByKeyId}
-            currentKeys={memoizedCurrentKeys}
-            onSave={settings.saveEvaluations}
-            onTestModel={settings.testModel}
-            onSaveModels={async (providerId, selections) => {
-              await settings.saveModels(
-                providerId as Parameters<typeof settings.saveModels>[0],
-                selections
-              );
-            }}
-            savedModules={settings.modules}
-            hiddenModuleKeys={CONTRACT_HIDDEN_MODULE_KEYS}
-            onSaveModule={async (moduleKey, isEnabled, assignedModels, config) => {
-              await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
-            }}
-            summarySelectedCount={selectedModelCount}
-            summaryTotalCount={totalAvailableModels}
-            promptVariableLabel={currentCloudPromptName ? `{${currentCloudPromptName}}` : undefined}
-            globalTestPrompt={globalTestPrompt}
-            onChangeGlobalTestPrompt={setGlobalTestPrompt}
-            uploadedFile={uploadedFile}
-            onChangeUploadedFile={setUploadedFile}
-            headerActionsRef={setModelEvaluatorHeaderActions}
-          />
-        );
-      case 'blog':
-        return (
-          <ModelEvaluator
-            savedKeys={settings.keys}
-            savedModels={settings.models}
-            savedEvaluations={settings.evaluations}
-            validateAllResultsByKeyId={validateAllResultsByKeyId}
-            currentKeys={memoizedCurrentKeys}
-            onSave={settings.saveEvaluations}
-            onTestModel={settings.testModel}
-            onSaveModels={async (providerId, selections) => {
-              await settings.saveModels(
-                providerId as Parameters<typeof settings.saveModels>[0],
-                selections
-              );
-            }}
-            savedModules={settings.modules}
-            hiddenModuleKeys={BLOG_HIDDEN_MODULE_KEYS}
-            onSaveModule={async (moduleKey, isEnabled, assignedModels, config) => {
-              await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
-            }}
-            summarySelectedCount={selectedModelCount}
-            summaryTotalCount={totalAvailableModels}
-            promptVariableLabel={currentCloudPromptName ? `{${currentCloudPromptName}}` : undefined}
-            globalTestPrompt={globalTestPrompt}
-            onChangeGlobalTestPrompt={setGlobalTestPrompt}
-            uploadedFile={uploadedFile}
-            onChangeUploadedFile={setUploadedFile}
-            headerActionsRef={setModelEvaluatorHeaderActions}
-          />
-        );
-      case 'property-description':
-        return (
-          <ModelEvaluator
-            savedKeys={settings.keys}
-            savedModels={settings.models}
-            savedEvaluations={settings.evaluations}
-            validateAllResultsByKeyId={validateAllResultsByKeyId}
-            currentKeys={memoizedCurrentKeys}
-            onSave={settings.saveEvaluations}
-            onTestModel={settings.testModel}
-            onSaveModels={async (providerId, selections) => {
-              await settings.saveModels(
-                providerId as Parameters<typeof settings.saveModels>[0],
-                selections
-              );
-            }}
-            savedModules={settings.modules}
-            hiddenModuleKeys={PROPERTY_DESCRIPTION_HIDDEN_MODULE_KEYS}
-            onSaveModule={async (moduleKey, isEnabled, assignedModels, config) => {
-              await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
-            }}
-            summarySelectedCount={selectedModelCount}
-            summaryTotalCount={totalAvailableModels}
-            promptVariableLabel={currentCloudPromptName ? `{${currentCloudPromptName}}` : undefined}
-            globalTestPrompt={globalTestPrompt}
-            onChangeGlobalTestPrompt={setGlobalTestPrompt}
-            uploadedFile={uploadedFile}
-            onChangeUploadedFile={setUploadedFile}
-            headerActionsRef={setModelEvaluatorHeaderActions}
-          />
-        );
-
-      default:
-        return null;
+    // --- Keys tab ---
+    if (activeTab === 'keys') {
+      return (
+        <ApiKeyManager
+          ref={apiKeyManagerRef}
+          savedKeys={settings.keys}
+          savedModels={settings.models}
+          validateAllResultsByKeyId={validateAllResultsByKeyId}
+          onSave={settings.saveKey}
+          onDelete={settings.deleteKey}
+          onValidate={async (provider, apiKey, keyId) => {
+            const r = await settings.validateKey(provider, apiKey, keyId);
+            if (keyId && r?.valid) setValidateAllResultsByKeyId((prev) => ({ ...prev, [keyId]: r }));
+            return r;
+          }}
+          headerActionsRef={apiKeyHeaderActionsRef}
+          onBatchImportComplete={async (importedCount) => {
+            await settings.refresh();
+            await new Promise((r) => setTimeout(r, 800));
+            await runValidateAllKeys(keysRef.current, importedCount);
+          }}
+        />
+      );
     }
+
+    // --- Evaluator tabs (ocr / static-ad / contract / blog / property-description) ---
+    const tabConfig = EVALUATOR_TAB_CONFIG[activeTab];
+    if (!tabConfig) return null;
+
+    const handleSaveModels = async (providerId: string, selections: { modelId: string; modelName: string; isPrimary: boolean }[]) => {
+      await settings.saveModels(
+        providerId as Parameters<typeof settings.saveModels>[0],
+        selections
+      );
+    };
+    const handleSaveModule = async (moduleKey: string, isEnabled: boolean, assignedModels: import('@/lib/hooks/useAISettings').AssignedModel[], config?: Record<string, unknown>) => {
+      await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
+    };
+
+    const evaluator = (
+      <ModelEvaluator
+        savedKeys={settings.keys}
+        savedModels={settings.models}
+        savedEvaluations={settings.evaluations}
+        validateAllResultsByKeyId={validateAllResultsByKeyId}
+        currentKeys={memoizedCurrentKeys}
+        onSave={settings.saveEvaluations}
+        onTestModel={settings.testModel}
+        onSaveModels={handleSaveModels}
+        savedModules={settings.modules}
+        hiddenModuleKeys={tabConfig.hiddenModuleKeys}
+        onSaveModule={handleSaveModule}
+        summarySelectedCount={selectedModelCount}
+        summaryTotalCount={totalAvailableModels}
+        promptVariableLabel={currentCloudPromptName ? `{${currentCloudPromptName}}` : undefined}
+        globalTestPrompt={globalTestPrompt}
+        onChangeGlobalTestPrompt={setGlobalTestPrompt}
+        uploadedFile={uploadedFile}
+        onChangeUploadedFile={setUploadedFile}
+        headerActionsRef={setModelEvaluatorHeaderActions}
+        statusLabelMode={tabConfig.statusLabelMode}
+      />
+    );
+
+    if (activeTab === 'ocr') {
+      return (
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-sm font-semibold text-text-primary mb-1">系統 Prompt 設定</h3>
+            <p className="text-xs text-text-muted mb-3">
+              儲存後每次雲端解析均自動套用，留空則使用內建預設 Prompt。
+            </p>
+            <OcrSystemPromptPanel
+              savedPrompts={settings.prompts}
+              onSave={settings.savePrompt}
+            />
+          </div>
+          {evaluator}
+        </div>
+      );
+    }
+
+    return evaluator;
   };
 
   const currentTab = TABS.find(t => t.id === activeTab)!;
@@ -857,42 +756,31 @@ export default function AIServiceSettingsPage() {
     selectedInAvailable ?? selectedModelsForCurrentKeys.length;
   const selectedModelCount = Math.min(selectedModelCountRaw, totalAvailableModels);
 
+  const handleSheetTabChange = useCallback((tabId: string) => {
+    setActiveTab(tabId as SettingsTab);
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', `#${tabId}`);
+    }
+  }, []);
+
   const fixedBlock = (
     <div className="w-full px-4 lg:px-6 py-3 bg-bg-secondary border-b border-border-subtle">
       <div className="w-full">
-        <div className="mb-3 border-b border-border-subtle">
-          <div className="flex items-center justify-between gap-2 overflow-x-auto pb-2">
-            <div className="flex gap-2 overflow-x-auto shrink-0">
-              {TABS.map(tab => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => handleTabClick(tab.id)}
-                    className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
-                      isActive
-                        ? 'bg-accent text-white shadow-sm'
-                        : 'bg-bg-secondary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary border border-border-subtle'
-                    }`}
-                  >
-                    <Icon size={14} className={isActive ? 'text-white' : 'text-text-muted'} />
-                    <span>{tab.label}</span>
-                  </button>
-                );
-              })}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2 gap-y-1 min-w-0">
+            {React.createElement(currentTab.icon, { size: 18, className: 'text-accent shrink-0' })}
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-text-primary">{currentTab.label}</h2>
+              {currentTab.description && (
+                <p className="text-[11px] text-text-muted">{currentTab.description}</p>
+              )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => {
                   if (typeof window === 'undefined') return;
-                  window.open(
-                    '/superadmin/settings/prompt-management',
-                    '_blank',
-                    'noopener,noreferrer'
-                  );
+                  window.open('/superadmin/settings/prompt-management', '_blank', 'noopener,noreferrer');
                 }}
                 className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 bg-bg-secondary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary border border-border-subtle"
                 title="前往 Prompt 管理頁面"
@@ -904,11 +792,7 @@ export default function AIServiceSettingsPage() {
                 type="button"
                 onClick={() => {
                   if (typeof window === 'undefined') return;
-                  window.open(
-                    '/superadmin/settings/evaluations-global-test',
-                    '_blank',
-                    'noopener,noreferrer'
-                  );
+                  window.open('/superadmin/settings/evaluations-global-test', '_blank', 'noopener,noreferrer');
                 }}
                 className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 bg-bg-secondary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary border border-border-subtle"
                 title="另開分頁開啟獨立的統一測試設定頁面"
@@ -916,17 +800,6 @@ export default function AIServiceSettingsPage() {
                 <FlaskConical size={14} className="text-text-muted" />
                 <span>統一測試設定</span>
               </button>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2 gap-y-1 min-w-0">
-            {React.createElement(currentTab.icon, { size: 18, className: 'text-accent shrink-0' })}
-            <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-text-primary">{currentTab.label}</h2>
-              {currentTab.description && (
-                <p className="text-[11px] text-text-muted">{currentTab.description}</p>
-              )}
             </div>
             {activeTab === 'keys' && (
               <>
@@ -1037,14 +910,13 @@ export default function AIServiceSettingsPage() {
     >
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden w-full px-2 sm:px-4 lg:px-6 py-3 lg:py-4 min-w-0">
-          {/* Evaluations toolbar moved to fixedBlock header */}
         <section className="space-y-4">
           <div className="bg-bg-secondary border border-border-default rounded-base p-4 sm:p-5 shadow-sm min-w-0">
             {renderContent()}
           </div>
         </section>
 
-        {/* 安全提醒、建議流程 – 僅在 keys 頁籤顯示 */}
+        {/* Security reminder — only shown on keys tab */}
         {activeTab === 'keys' && (
           <div className="mt-8 space-y-4">
             <div className="rounded-base border border-amber-300/40 bg-amber-50/80 p-4 space-y-2">
@@ -1069,6 +941,12 @@ export default function AIServiceSettingsPage() {
           </div>
         )}
         </div>
+        {/* Bottom sheet tabs — Excel-style navigation */}
+        <BottomSheetTabs
+          tabs={SHEET_TABS}
+          activeTab={activeTab}
+          onTabChange={handleSheetTabChange}
+        />
       </div>
     </DashboardLayout>
   );

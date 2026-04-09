@@ -17,14 +17,12 @@ export function createClient() {
         sameSite: 'lax',
         secure: process.env.NODE_ENV === 'production',
       },
-      ...(useSessionStorage
-        ? {
-          auth: {
-            storage: typeof window !== 'undefined' ? window.sessionStorage : undefined,
-            persistSession: true,
-          },
-        }
-        : {}),
+      auth: {
+        autoRefreshToken: process.env.NODE_ENV === 'production',
+        detectSessionInUrl: false,
+        persistSession: true,
+        storage: useSessionStorage && typeof window !== 'undefined' ? window.sessionStorage : undefined,
+      },
     }
   );
 }

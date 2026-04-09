@@ -125,7 +125,12 @@ export default function PropertiesPage() {
 
             <select
               value={filterType}
-              onChange={(e) => setFilterType(e.target.value as any)}
+              onChange={(e) => {
+                const value = e.target.value
+                if (value === 'all' || value === 'rental' || value === 'sale') {
+                  setFilterType(value)
+                }
+              }}
               className="px-4 py-3 bg-[#2A2A2A] border border-[#333333] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
             >
               <option value="all">所有類型</option>
@@ -155,7 +160,12 @@ export default function PropertiesPage() {
             </p>
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
+              onChange={(e) => {
+                const value = e.target.value
+                if (value === 'newest' || value === 'price_high' || value === 'price_low') {
+                  setSortBy(value)
+                }
+              }}
               className="px-4 py-2 bg-[#2A2A2A] border border-[#333333] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
             >
               <option value="newest">最新發布</option>

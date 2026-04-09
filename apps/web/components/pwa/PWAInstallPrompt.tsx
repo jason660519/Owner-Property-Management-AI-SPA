@@ -13,15 +13,23 @@ export function PWAInstallPrompt() {
     const [showPrompt, setShowPrompt] = useState(false);
     const [isIOS, setIsIOS] = useState(false);
     const [isStandalone, setIsStandalone] = useState(false);
+    const [isDismissedRecently, setIsDismissedRecently] = useState(false);
 
     useEffect(() => {
         // 檢測是否為 iOS
         const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        setIsIOS(iOS);
-
-        // 檢測是否已安裝 (standalone 模式)
         const standalone = window.matchMedia('(display-mode: standalone)').matches;
-        setIsStandalone(standalone);
+        const dismissed = localStorage.getItem('pwa-install-dismissed');
+        const dismissedTime = dismissed ? Number(dismissed) : NaN;
+        const sevenDays = 7 * 24 * 60 * 60 * 1000;
+        const dismissedRecently =
+            Number.isFinite(dismissedTime) && Date.now() - dismissedTime < sevenDays;
+
+        const syncTimer = window.setTimeout(() => {
+            setIsIOS(iOS);
+            setIsStandalone(standalone);
+            setIsDismissedRecently(dismissedRecently);
+        }, 0);
 
         // 監聽安裝提示事件 (Android/Chrome)
         const handler = (e: Event) => {
@@ -37,6 +45,7 @@ export function PWAInstallPrompt() {
         window.addEventListener('beforeinstallprompt', handler);
 
         return () => {
+            window.clearTimeout(syncTimer);
             window.removeEventListener('beforeinstallprompt', handler);
         };
     }, []);
@@ -63,20 +72,14 @@ export function PWAInstallPrompt() {
         setShowPrompt(false);
         // 記住用戶選擇，7 天內不再顯示
         localStorage.setItem('pwa-install-dismissed', Date.now().toString());
+        setIsDismissedRecently(true);
     };
 
     // 如果已安裝，不顯示
     if (isStandalone) return null;
 
     // 如果用戶最近拒絕過，不顯示
-    const dismissed = localStorage.getItem('pwa-install-dismissed');
-    if (dismissed) {
-        const dismissedTime = parseInt(dismissed);
-        const sevenDays = 7 * 24 * 60 * 60 * 1000;
-        if (Date.now() - dismissedTime < sevenDays) {
-            return null;
-        }
-    }
+    if (isDismissedRecently) return null;
 
     // iOS 提示
     if (isIOS && showPrompt) {

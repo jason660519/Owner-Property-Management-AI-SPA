@@ -7,20 +7,8 @@
 
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  Home,
-  Key,
-  Search,
-  ShoppingCart,
-  Eye,
-  Users,
-  Wrench,
-  Shield,
-  ChevronDown,
-} from 'lucide-react'
-import { Button } from '@/components/ui/Button'
 import {
   Select,
   SelectContent,
@@ -55,7 +43,6 @@ export function RoleSwitcher({
   className = '',
 }: RoleSwitcherProps) {
   const router = useRouter()
-  const [isOpen, setIsOpen] = useState(false)
 
   // Filter roles if availableRoles is provided
   const roles = availableRoles
@@ -74,7 +61,7 @@ export function RoleSwitcher({
     const targetRole = roles.find((r) => r.role === newRole)
     if (targetRole) {
       if (targetRole.dashboardPath.startsWith('http')) {
-        window.location.href = targetRole.dashboardPath
+        window.location.assign(targetRole.dashboardPath)
       } else {
         router.push(targetRole.dashboardPath)
       }

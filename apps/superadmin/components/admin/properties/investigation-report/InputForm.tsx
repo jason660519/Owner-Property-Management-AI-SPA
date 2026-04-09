@@ -95,29 +95,32 @@ export function InputForm({ report, onChange, photos = [] }: Props) {
     <div className="space-y-3">
       {/* ── 1. 案件基本資料 ── */}
       <Section title="一、案件基本資料" defaultOpen>
+        <p className="text-xs text-text-muted bg-bg-tertiary border border-border-default rounded-md px-3 py-2">
+          案名、租/售、總價、地址由「物件基本資訊」同步帶入；若要更改，請回到「物件基本資訊」頁面修改。
+        </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Field label="案名" span={2}>
-            <input className={inputCls} value={report.caseName} onChange={(e) => set('caseName', e.target.value)} placeholder="如：信義住辦" />
+            <input className={readonlyCls} value={report.caseName} readOnly placeholder="如：信義住辦" />
           </Field>
           <Field label="租/售">
-            <select className={selectCls} value={report.transactionType} onChange={(e) => set('transactionType', e.target.value as 'sale' | 'rental')}>
+            <select className={`${readonlyCls} disabled:opacity-100 disabled:cursor-not-allowed`} value={report.transactionType} disabled>
               <option value="sale">售</option>
               <option value="rental">租</option>
             </select>
           </Field>
           <Field label="總價（萬）">
-            <input type="number" className={inputCls} value={report.totalPrice || ''} onChange={(e) => set('totalPrice', Number(e.target.value))} placeholder="0" />
+            <input type="number" className={readonlyCls} value={report.totalPrice || ''} readOnly placeholder="0" />
           </Field>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Field label="區域（縣市區）">
-            <input className={inputCls} value={report.region} onChange={(e) => set('region', e.target.value)} placeholder="台北市信義區" />
+            <input className={readonlyCls} value={report.region} readOnly placeholder="台北市信義區" />
           </Field>
           <Field label="路/段/巷/弄">
-            <input className={inputCls} value={report.addressStreet} onChange={(e) => set('addressStreet', e.target.value)} placeholder="基隆路二段" />
+            <input className={readonlyCls} value={report.addressStreet} readOnly placeholder="基隆路二段" />
           </Field>
           <Field label="號樓之幾">
-            <input className={inputCls} value={report.addressNumber} onChange={(e) => set('addressNumber', e.target.value)} placeholder="149之49號9樓之1" />
+            <input className={readonlyCls} value={report.addressNumber} readOnly placeholder="149之49號9樓之1" />
           </Field>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

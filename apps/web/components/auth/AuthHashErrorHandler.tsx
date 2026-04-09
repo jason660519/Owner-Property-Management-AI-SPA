@@ -29,17 +29,31 @@ export function AuthHashErrorHandler() {
 
     // Success: recovery (or magic link) with tokens in hash — set session and go to update-password
     if (type === 'recovery' && accessToken) {
+      if (!refreshToken) {
+        window.history.replaceState(null, '', window.location.pathname);
+        router.replace(
+          `/login?error=session_failed&message=${encodeURIComponent(
+            '重設密碼連結無效或已過期，請重新申請。'
+          )}`,
+          { scroll: true }
+        );
+        return;
+      }
+
       const supabase = createClient();
       supabase.auth
-        .setSession({ access_token: accessToken, refresh_token: refreshToken || '' })
+        .setSession({ access_token: accessToken, refresh_token: refreshToken })
         .then(() => {
           window.history.replaceState(null, '', window.location.pathname);
           router.replace('/update-password', { scroll: true });
         })
         .catch((err) => {
-          console.error('Auth setSession from hash failed:', err);
           window.history.replaceState(null, '', window.location.pathname);
-          router.replace(`/login?error=session_failed&message=${encodeURIComponent('無法建立登入狀態，請重新申請重設密碼。')}`);
+          router.replace(
+            `/login?error=session_failed&message=${encodeURIComponent(
+              '無法建立登入狀態，請重新申請重設密碼。'
+            )}`
+          );
         });
       return;
     }

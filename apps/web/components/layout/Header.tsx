@@ -72,11 +72,6 @@ export function Header() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Close mobile menu on route change
-  useEffect(() => {
-    setIsMobileMenuOpen(false);
-  }, [pathname]);
-
   return (
     <header className={`${styles.header} ${isScrolled ? styles.scrolled : ""}`}>
       {/* Top Banner */}
@@ -199,6 +194,7 @@ export function Header() {
               key={link.href}
               href={link.href}
               className={`${styles.mobileNavLink} ${pathname === link.href ? styles.active : ""}`}
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               {link.label}
             </Link>
@@ -206,7 +202,7 @@ export function Header() {
           <div className={styles.mobileAuthButtons}>
             {user ? (
               <>
-                <Link href={dashboardUrl}>
+                <Link href={dashboardUrl} onClick={() => setIsMobileMenuOpen(false)}>
                   <Button variant="ghost" fullWidth>
                     儀表板
                   </Button>
@@ -217,12 +213,12 @@ export function Header() {
               </>
             ) : (
               <>
-                <Link href="/login">
+                <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
                   <Button variant={loginVariant} fullWidth>
                     登入
                   </Button>
                 </Link>
-                <Link href="/register">
+                <Link href="/register" onClick={() => setIsMobileMenuOpen(false)}>
                   <Button variant={registerVariant} fullWidth>
                     註冊
                   </Button>

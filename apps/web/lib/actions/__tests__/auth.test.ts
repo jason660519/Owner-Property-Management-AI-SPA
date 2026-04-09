@@ -20,7 +20,16 @@ jest.mock('next/headers', () => ({
 import { createClient } from '@supabase/supabase-js';
 
 describe('signUpWithRole Server Action', () => {
-  let mockAdminSupabase: any;
+  let mockAdminSupabase: {
+    auth: {
+      admin: {
+        listUsers: jest.Mock
+        createUser: jest.Mock
+        updateUserById: jest.Mock
+      }
+    }
+    from: jest.Mock
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();

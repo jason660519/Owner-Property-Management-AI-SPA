@@ -1,6 +1,6 @@
 // filepath: apps/superadmin/components/admin/properties/PropertiesList.tsx
 // created: 2026-02-14 | creator: Claude Opus 4.6
-// last-modified: 2026-02-14 | modifier: Claude Opus 4.6
+// last-modified: 2026-04-06 | modifier: Claude Opus 4.6
 // Properties table with edit/delete actions synced to Supabase
 'use client';
 
@@ -28,6 +28,7 @@ import { PROPERTY_TYPES } from '@/lib/types/properties';
 import { TAIWAN_CITIES, getDistrictsByCity } from '@/lib/data/taiwan-address';
 import { PropertyCreateModal } from './PropertyCreateModal';
 import { PropertyMapView } from './PropertyMapView';
+import { useTablePreferences } from '@/lib/hooks/useTablePreferences';
 
 function normalizeTaiwanAddressText(input: string): string {
   const s = input
@@ -179,19 +180,64 @@ function formatRent(rent: number | null): string {
   return `NT$ ${rent.toLocaleString()}/月`;
 }
 
+const PROPERTIES_TABLE_PAGE_KEY = 'properties_list';
+const PROPERTIES_TABLE_STORAGE_KEY = 'properties_list_settings_v2';
 const FREEZE_ROW_STORAGE_KEY = 'properties_list_freeze_row_v1';
-const FROZEN_COL_STORAGE_KEY = 'properties_list_frozen_col_count_v1';
-const COLUMN_SIZING_STORAGE_KEY = 'properties_list_column_sizing_v1';
+
+interface PropertiesTableSettings extends Record<string, unknown> {
+  columnSizing: ColumnSizingState;
+  freezeRowCount: 0 | 1;
+  frozenDataColCount: number;
+  tableAlignH: TableHAlign;
+  tableAlignV: TableVAlign;
+  pageSize: number;
+}
+
+const PROPERTIES_TABLE_DEFAULTS: PropertiesTableSettings = {
+  columnSizing: {},
+  freezeRowCount: 0,
+  frozenDataColCount: 0,
+  tableAlignH: 'left',
+  tableAlignV: 'top',
+  pageSize: 20,
+};
 /** Pixel widths: 物件編號, 狀態, 物件名稱, 主照片小圖示, 縣市, 區, 路/街, 門牌, 樓層, 單位, 物件類型, 價格, 總面積(坪), 格局, 車位數, 創建人, 操作, 建立日期, 下架日期, 內容狀態（表頭最右為：內容狀態、建立日期、下架日期） */
-const COLUMN_WIDTHS_PX = [72, 90, 200, 72, 88, 88, 130, 72, 52, 52, 92, 100, 72, 110, 64, 100, 92, 92, 92, 168];
+const COLUMN_WIDTHS_PX = [72, 90, 200, 72, 88, 88, 130, 72, 52, 52, 92, 100, 72, 110, 64, 100, 92, 92, 132, 92, 168];
 const PROPERTIES_COLUMN_COUNT = COLUMN_WIDTHS_PX.length;
+
+// One-time migration: merge old v1 localStorage keys into the new unified v2 key
+if (typeof window !== 'undefined' && !localStorage.getItem(PROPERTIES_TABLE_STORAGE_KEY)) {
+  try {
+    const partial: Partial<PropertiesTableSettings> = {};
+    const oldSizing = localStorage.getItem('properties_list_column_sizing_v1');
+    if (oldSizing) partial.columnSizing = JSON.parse(oldSizing) as ColumnSizingState;
+    const oldFreezeRow = localStorage.getItem(FREEZE_ROW_STORAGE_KEY);
+    if (oldFreezeRow === '1') partial.freezeRowCount = 1;
+    const oldFrozenCol = localStorage.getItem('properties_list_frozen_col_count_v1');
+    if (oldFrozenCol) {
+      const n = parseInt(oldFrozenCol, 10);
+      if (!Number.isNaN(n) && n >= 0 && n <= PROPERTIES_COLUMN_COUNT) partial.frozenDataColCount = n;
+    }
+    if (Object.keys(partial).length > 0) {
+      localStorage.setItem(PROPERTIES_TABLE_STORAGE_KEY, JSON.stringify({ ...PROPERTIES_TABLE_DEFAULTS, ...partial }));
+    }
+  } catch { /* ignore */ }
+}
 
 export function PropertiesList({ data: result }: { data: PropertiesResult }) {
   const router = useRouter();
   const { properties, totalSales, totalRentals } = result;
   const [globalFilter, setGlobalFilter] = useState('');
-  const [sorting, setSorting] = useState<SortingState>([]);
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 });
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'updatedAt', desc: true }]);
+
+  // Persisted table preferences (localStorage cache + DB sync)
+  const { settings: tablePrefs, patch: patchTablePrefs } = useTablePreferences<PropertiesTableSettings>({
+    pageKey: PROPERTIES_TABLE_PAGE_KEY,
+    storageKey: PROPERTIES_TABLE_STORAGE_KEY,
+    defaults: PROPERTIES_TABLE_DEFAULTS,
+  });
+
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: tablePrefs.pageSize });
   const [typeFilter, setTypeFilter] = useState<'all' | 'sale' | 'rental'>('all');
   const [statusFilter, setStatusFilter] = useState('');
   const [cityFilter, setCityFilter] = useState('');
@@ -214,22 +260,13 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
   // View mode: table vs map
   const [viewMode, setViewMode] = useState<'table' | 'map'>('table');
 
-  // Table layout / view controls
-  const [tableAlignH, setTableAlignH] = useState<TableHAlign>('left');
-  const [tableAlignV, setTableAlignV] = useState<TableVAlign>('top');
+  // Table layout / view controls — derived from persisted preferences
+  const tableAlignH = tablePrefs.tableAlignH;
+  const tableAlignV = tablePrefs.tableAlignV;
+  const freezeRowCount = tablePrefs.freezeRowCount;
+  const frozenDataColCount = tablePrefs.frozenDataColCount;
   const [alignDropdownOpen, setAlignDropdownOpen] = useState(false);
   const [viewDropdownOpen, setViewDropdownOpen] = useState(false);
-  const [freezeRowCount, setFreezeRowCount] = useState<0 | 1>(() => {
-    if (typeof window === 'undefined') return 0;
-    const v = localStorage.getItem(FREEZE_ROW_STORAGE_KEY);
-    return v === '1' ? 1 : 0;
-  });
-  const [frozenDataColCount, setFrozenDataColCount] = useState(() => {
-    if (typeof window === 'undefined') return 0;
-    const v = localStorage.getItem(FROZEN_COL_STORAGE_KEY);
-    const n = parseInt(v ?? '0', 10);
-    return Number.isNaN(n) || n < 0 || n > PROPERTIES_COLUMN_COUNT ? 0 : n;
-  });
   const alignDropdownRef = useRef<HTMLDivElement | null>(null);
   const viewDropdownRef = useRef<HTMLDivElement | null>(null);
 
@@ -687,7 +724,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
     },
     {
       id: 'contentStatus',
-      size: COLUMN_WIDTHS_PX[19],
+      size: COLUMN_WIDTHS_PX[20],
       header: '內容狀態',
       enableSorting: false,
       cell: (info) => {
@@ -759,8 +796,35 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
       ),
     },
     {
-      accessorKey: 'delistedAt',
+      accessorKey: 'updatedAt',
       size: COLUMN_WIDTHS_PX[18],
+      header: '最後編輯',
+      sortingFn: (a, b, id) => {
+        const av = a.getValue(id) as string;
+        const bv = b.getValue(id) as string;
+        return new Date(av).getTime() - new Date(bv).getTime();
+      },
+      cell: (info) => {
+        const raw = info.getValue() as string;
+        const dt = new Date(raw);
+        const formatted = new Intl.DateTimeFormat('zh-TW', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        }).format(dt);
+        return (
+          <span className="text-xs text-text-muted">
+            {formatted}
+          </span>
+        );
+      },
+    },
+    {
+      accessorKey: 'delistedAt',
+      size: COLUMN_WIDTHS_PX[19],
       header: '下架日期',
       cell: (info) => {
         const val = info.getValue() as string | null | undefined;
@@ -776,23 +840,12 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
   ], [deletingId, handleDelete, statusFilter, cityFilter, districtFilter, streetFilter, districtOptions, streetOptions, propertyTypeFilter, propertyTypeDropdownOpen, investigationMap, recalcPropertyTypeDropdownPos]);
 
   const [columnResizeMode] = useState<ColumnResizeMode>('onChange');
-  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(() => {
-    if (typeof window === 'undefined') return {};
-    try {
-      const saved = localStorage.getItem(COLUMN_SIZING_STORAGE_KEY);
-      return saved ? (JSON.parse(saved) as ColumnSizingState) : {};
-    } catch {
-      return {};
-    }
-  });
+  const columnSizing = tablePrefs.columnSizing;
 
   const handleColumnSizingChange = useCallback((updater: ColumnSizingState | ((prev: ColumnSizingState) => ColumnSizingState)) => {
-    setColumnSizing((prev) => {
-      const next = typeof updater === 'function' ? updater(prev) : updater;
-      try { localStorage.setItem(COLUMN_SIZING_STORAGE_KEY, JSON.stringify(next)); } catch { /* ignore quota errors */ }
-      return next;
-    });
-  }, []);
+    const next = typeof updater === 'function' ? updater(columnSizing) : updater;
+    patchTablePrefs({ columnSizing: next });
+  }, [columnSizing, patchTablePrefs]);
 
   const table = useReactTable({
     data: filteredData,
@@ -933,7 +986,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
                   <button
                     key={h}
                     type="button"
-                    onClick={() => setTableAlignH(h)}
+                    onClick={() => patchTablePrefs({ tableAlignH: h })}
                     className={`flex-1 px-2 py-1.5 rounded text-xs border transition-colors ${
                       tableAlignH === h
                         ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-700 dark:text-emerald-300'
@@ -950,7 +1003,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
                   <button
                     key={v}
                     type="button"
-                    onClick={() => setTableAlignV(v)}
+                    onClick={() => patchTablePrefs({ tableAlignV: v })}
                     className={`flex-1 px-2 py-1.5 rounded text-xs border transition-colors ${
                       tableAlignV === v
                         ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-700 dark:text-emerald-300'
@@ -991,8 +1044,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
                     type="button"
                     role="menuitem"
                     onClick={() => {
-                      setFreezeRowCount(n);
-                      if (typeof window !== 'undefined') localStorage.setItem(FREEZE_ROW_STORAGE_KEY, String(n));
+                      patchTablePrefs({ freezeRowCount: n });
                       setViewDropdownOpen(false);
                     }}
                     className={`w-full text-left px-3 py-2 text-sm transition-colors ${
@@ -1020,8 +1072,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
                       type="button"
                       role="menuitem"
                       onClick={() => {
-                        setFrozenDataColCount(n);
-                        if (typeof window !== 'undefined') localStorage.setItem(FROZEN_COL_STORAGE_KEY, String(n));
+                        patchTablePrefs({ frozenDataColCount: n });
                         setViewDropdownOpen(false);
                       }}
                       className={`w-full text-left px-3 py-2 text-sm transition-colors ${

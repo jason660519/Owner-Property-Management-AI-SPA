@@ -49,6 +49,8 @@ const mockSaveBuildingCount =
   savePropertyIndependentBuildingNumberCount as jest.MockedFunction<typeof savePropertyIndependentBuildingNumberCount>;
 
 function buildProperty(overrides: Partial<PropertyItem> = {}): PropertyItem {
+  const createdAt = overrides.createdAt ?? new Date().toISOString();
+  const updatedAt = overrides.updatedAt ?? createdAt;
   return {
     id: 'property-1',
     type: 'sale',
@@ -65,10 +67,11 @@ function buildProperty(overrides: Partial<PropertyItem> = {}): PropertyItem {
     bathrooms: null,
     livingRooms: null,
     parkingSpaces: null,
-    createdAt: new Date().toISOString(),
     independentTitleSaleModes: [],
     parkingTitleRights: [],
     ...overrides,
+    createdAt,
+    updatedAt,
   };
 }
 

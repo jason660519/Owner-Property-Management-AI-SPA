@@ -35,7 +35,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
     // Auto-remove after 5 seconds
     setTimeout(() => {
-      hideToast(id)
+      setToasts((prev) => prev.filter((t) => t.id !== id))
     }, 5000)
   }, [])
 

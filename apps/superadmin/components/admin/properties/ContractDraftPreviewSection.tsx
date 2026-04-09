@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { CheckSquare, Clock, ScrollText, Square } from 'lucide-react';
+import { CheckSquare, Clock, FileUp, ScrollText, Square } from 'lucide-react';
 import type { PropertyItem } from '@/lib/types/properties';
 import { CONTRACT_TEMPLATE_OPTIONS, CATEGORY_BADGE_CLASSES, type ContractTemplateId } from './ContractTemplateConfig';
 import { ContractDraftPanel } from './ContractDraftPanel';
@@ -63,8 +63,8 @@ export function ContractDraftPreviewSection({ property }: Props) {
 
                 {!template.available && (
                   <div className="mt-2 flex items-center gap-1 text-xs text-text-muted">
-                    <Clock className="h-3 w-3" />
-                    套版功能開發中
+                    <FileUp className="h-3 w-3" />
+                    僅支援上傳合約（AI 套版開發中）
                   </div>
                 )}
               </button>
@@ -81,22 +81,6 @@ export function ContractDraftPreviewSection({ property }: Props) {
       {selectedIds.map((templateId) => {
         const template = CONTRACT_TEMPLATE_OPTIONS.find(t => t.id === templateId)!;
 
-        if (!template.available) {
-          return (
-            <div key={templateId} className="rounded-2xl border border-border-default bg-bg-primary p-5">
-              <div className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-text-muted" />
-                <h4 className="font-semibold text-text-primary">{template.label}</h4>
-                <span className="rounded-full bg-bg-secondary px-2 py-0.5 text-xs text-text-muted">開發中</span>
-              </div>
-              <p className="mt-2 text-sm text-text-secondary">
-                「{template.label}」套版功能即將推出，敬請期待。
-              </p>
-              <p className="mt-1 text-xs text-text-muted">參考範本：{template.sourceFile}</p>
-            </div>
-          );
-        }
-
         return (
           <ContractDraftPanel
             key={templateId}
@@ -104,6 +88,7 @@ export function ContractDraftPreviewSection({ property }: Props) {
             templateId={templateId}
             templateLabel={template.label}
             contractType={template.contractType}
+            aiGenerateAvailable={template.available}
           />
         );
       })}

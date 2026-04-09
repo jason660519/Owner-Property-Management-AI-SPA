@@ -1,6 +1,8 @@
 import winston from 'winston';
 import Transport from 'winston-transport';
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { createClient as createSupabaseClient, type SupabaseClient } from '@supabase/supabase-js';
+import fs from 'node:fs';
+import path from 'node:path';
 
 // Environment detection
 const isServerless = !!(
@@ -18,8 +20,8 @@ const enableFileLogging = process.env.ENABLE_FILE_LOGGING === 'true' && !isServe
  * Compatible with Serverless environments (Vercel, Netlify, Cloudflare, etc.)
  */
 class SupabaseTransport extends Transport {
-  private supabase: any;
-  private batchQueue: Array<any> = [];
+  private supabase: SupabaseClient | null = null;
+  private batchQueue: LogEntry[] = [];
   private batchTimer: NodeJS.Timeout | null = null;
   private readonly BATCH_SIZE = 10;
   private readonly BATCH_TIMEOUT = 5000; // 5 seconds
@@ -44,7 +46,7 @@ class SupabaseTransport extends Transport {
     });
   }
 
-  log(info: any, callback: () => void) {
+  log(info: winston.Logform.TransformableInfo, callback: () => void) {
     setImmediate(() => {
       this.emit('logged', info);
     });
@@ -55,12 +57,18 @@ class SupabaseTransport extends Transport {
       return;
     }
 
+    const metadataValue = isRecord(info.metadata)
+      ? info.metadata
+      : isRecord(info.meta)
+        ? info.meta
+        : {};
+
     const logEntry = {
-      user_id: info.userId || 'anonymous',
+      user_id: typeof info.userId === 'string' ? info.userId : 'anonymous',
       level: info.level,
-      message: info.message,
-      metadata: info.metadata || info.meta || {},
-      service: info.service || 'web-app',
+      message: typeof info.message === 'string' ? info.message : String(info.message),
+      metadata: metadataValue,
+      service: typeof info.service === 'string' ? info.service : 'web-app',
       created_at: new Date().toISOString(),
     };
 
@@ -80,6 +88,7 @@ class SupabaseTransport extends Transport {
 
   private async flush() {
     if (this.batchQueue.length === 0) return;
+    if (!this.supabase) return;
 
     const logsToInsert = [...this.batchQueue];
     this.batchQueue = [];
@@ -112,15 +121,28 @@ class SupabaseTransport extends Transport {
   }
 }
 
+type LogEntry = {
+  user_id: string;
+  level: string;
+  message: string;
+  metadata: Record<string, unknown>;
+  service: string;
+  created_at: string;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 /**
  * File-based Transport (only for local/container environments)
  * Disabled in Serverless environments
  */
-let FileTransport: any = null;
+type FileTransportConstructor = new (opts?: Transport.TransportStreamOptions) => Transport;
+
+let FileTransport: FileTransportConstructor | null = null;
 
 if (enableFileLogging) {
-  const fs = require('fs');
-  const path = require('path');
   const LOG_ROOT = process.env.LOG_ROOT || path.join(process.cwd(), 'logs');
 
   class UserFileTransport extends Transport {
@@ -128,20 +150,20 @@ if (enableFileLogging) {
       super(opts);
     }
 
-    log(info: any, callback: () => void) {
+    log(info: winston.Logform.TransformableInfo, callback: () => void) {
       setImmediate(() => {
         this.emit('logged', info);
       });
 
-      const userId = info.userId || 'anonymous';
-      const level = info.level;
-      const message = info.message;
+      const userId = typeof info.userId === 'string' ? info.userId : 'anonymous';
+      const level = typeof info.level === 'string' ? info.level : 'info';
+      const message = typeof info.message === 'string' ? info.message : String(info.message);
       const timestamp = new Date();
       
       const dateStr = timestamp.toISOString().split('T')[0]; // YYYY-MM-DD
       const dir = path.join(LOG_ROOT, userId, dateStr);
       
-      fs.mkdir(dir, { recursive: true }, (err: any) => {
+      fs.mkdir(dir, { recursive: true }, (err: NodeJS.ErrnoException | null) => {
         if (err) {
           console.error(`Failed to create log directory ${dir}:`, err);
           callback();
@@ -152,7 +174,7 @@ if (enableFileLogging) {
         const filePath = path.join(dir, filename);
         const logEntry = `${timestamp.toISOString()} | ${level.toUpperCase()} | ${message}\n`;
 
-        fs.appendFile(filePath, logEntry, (err: any) => {
+        fs.appendFile(filePath, logEntry, (err: NodeJS.ErrnoException | null) => {
           if (err) {
             console.error(`Failed to write to log file ${filePath}:`, err);
           }
@@ -216,7 +238,7 @@ if (typeof process !== 'undefined') {
 /**
  * Helper to log with user context
  */
-export const logWithUser = (level: string, message: string, userId: string, meta: any = {}) => {
+export const logWithUser = (level: string, message: string, userId: string, meta: Record<string, unknown> = {}) => {
   logger.log({
     level,
     message,
@@ -226,10 +248,10 @@ export const logWithUser = (level: string, message: string, userId: string, meta
 };
 
 export const userLogger = {
-    info: (message: string, userId: string, meta?: any) => logWithUser('info', message, userId, meta),
-    error: (message: string, userId: string, meta?: any) => logWithUser('error', message, userId, meta),
-    warn: (message: string, userId: string, meta?: any) => logWithUser('warn', message, userId, meta),
-    debug: (message: string, userId: string, meta?: any) => logWithUser('debug', message, userId, meta),
+    info: (message: string, userId: string, meta?: Record<string, unknown>) => logWithUser('info', message, userId, meta),
+    error: (message: string, userId: string, meta?: Record<string, unknown>) => logWithUser('error', message, userId, meta),
+    warn: (message: string, userId: string, meta?: Record<string, unknown>) => logWithUser('warn', message, userId, meta),
+    debug: (message: string, userId: string, meta?: Record<string, unknown>) => logWithUser('debug', message, userId, meta),
 };
 
 export default logger;

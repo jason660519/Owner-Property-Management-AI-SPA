@@ -162,6 +162,7 @@ function createProperty(): PropertyItem {
     livingRooms: 1,
     parkingSpaces: 1,
     createdAt: '2026-03-20T00:00:00.000Z',
+    updatedAt: '2026-03-20T00:00:00.000Z',
     buildingTranscript: createBuildingTranscript(),
     landTranscript: createLandTranscript(),
   };

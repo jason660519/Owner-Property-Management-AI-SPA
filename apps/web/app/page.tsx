@@ -370,10 +370,10 @@ export default async function HomePage() {
                       <Home className="w-8 h-8 text-border-default" />
                     </div>
                     <div className="p-4">
-                      <p className="font-semibold text-text-primary truncate">{(p as { title?: string }).title ?? p.address}</p>
+                      <p className="font-semibold text-text-primary truncate">{p.title || p.address}</p>
                       <p className="text-sm text-text-muted mt-0.5 truncate">{p.address}</p>
                       <p className="text-accent font-semibold mt-2">
-                        NT$ {((p as { price?: number }).price ?? 0).toLocaleString('zh-TW')}
+                        NT$ {p.rawPrice.toLocaleString('zh-TW')}
                       </p>
                     </div>
                   </Link>
