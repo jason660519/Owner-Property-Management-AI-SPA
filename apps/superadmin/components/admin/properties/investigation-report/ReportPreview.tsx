@@ -2,17 +2,21 @@
 // 物件調查報告書 — 預覽 + 列印 (忠實還原住商 Excel 格式)
 'use client';
 
-import { useCallback } from 'react';
-import { Printer, MapPin } from 'lucide-react';
+import { useCallback, useMemo } from 'react';
+import { Printer, MapPin, FilePlus2 } from 'lucide-react';
 import type { InvestigationReport } from './types';
 import { sqmToPing, calcShareArea, calcBuildingTotal, hasConditionStatementContent } from './types';
 import { PREDEFINED_NOTES, STANDARD_CLAUSES } from './constants';
 import { CONDITION_STATEMENT_META } from './condition-statement-meta';
-import type { PropertyItem } from '@/lib/types/properties';
+import type { PropertyItem, PropertyDocumentItem, PropertyPhotoItem } from '@/lib/types/properties';
+import { buildReportHtml } from './buildReportHtml';
+import { buildCombinedPrintHtml } from './buildCombinedPrintHtml';
 
 interface Props {
   report: InvestigationReport;
   property?: PropertyItem;
+  documents?: PropertyDocumentItem[];
+  photos?: PropertyPhotoItem[];
 }
 
 const fullAddress = (r: InvestigationReport) =>
@@ -558,7 +562,7 @@ ${page9}
 
 // ── React Component ─────────────────────────────────────────────────────────
 
-export function ReportPreview({ report, property }: Props) {
+export function ReportPreview({ report, property, documents = [], photos = [] }: Props) {
   const b = report.buildingAreas;
   const bldgTotal = calcBuildingTotal(b);
   const pingTotal = sqmToPing(bldgTotal);
@@ -575,7 +579,7 @@ export function ReportPreview({ report, property }: Props) {
   ).map((clause) => `${clause.number}、${clause.text}`);
 
   const handlePrint = useCallback(() => {
-    const htmlDoc = buildHtml(report, property);
+    const htmlDoc = buildReportHtml(report, property);
     const blob = new Blob([htmlDoc], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const win = window.open(url, '_blank');
@@ -587,22 +591,55 @@ export function ReportPreview({ report, property }: Props) {
     }
   }, [report, property]);
 
+  const attachmentCount = (report.attachmentSelections ?? []).filter((a) => a.enabled).length;
+
+  const handlePrintWithAttachments = useCallback(() => {
+    const htmlDoc = buildCombinedPrintHtml({
+      report,
+      property,
+      selectedAttachments: report.attachmentSelections ?? [],
+      documents,
+      photos,
+    });
+    const blob = new Blob([htmlDoc], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, '_blank');
+    if (win) {
+      win.onload = () => {
+        win.print();
+        URL.revokeObjectURL(url);
+      };
+    }
+  }, [report, property, documents, photos]);
+
   const addr = fullAddress(report);
 
   // ── Inline preview (screen) ─────────────────────────────────────────────
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h4 className="text-sm font-bold text-text-primary">報告書預覽</h4>
-        <button
-          type="button"
-          onClick={handlePrint}
-          className="flex items-center gap-1.5 px-4 py-2 bg-accent text-white text-sm rounded-md hover:bg-accent-hover transition-colors"
-        >
-          <Printer size={14} />
-          列印報告書（A4）
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="flex items-center gap-1.5 px-4 py-2 bg-accent text-white text-sm rounded-md hover:bg-accent-hover transition-colors"
+          >
+            <Printer size={14} />
+            列印報告書（A4）
+          </button>
+          {attachmentCount > 0 && (
+            <button
+              type="button"
+              onClick={handlePrintWithAttachments}
+              className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 transition-colors"
+            >
+              <FilePlus2 size={14} />
+              列印報告書 + 附件（{attachmentCount}）
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Screen preview */}

@@ -1884,16 +1884,16 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/03/20",
   },
   {
-    name: "物件調查報告書全面升級（Phase 1-3）",
+    name: "物件調查報告書全面升級（Phase 1-4）",
     locatedPage: "superadmin/properties/[id]/edit?tab=investigation",
     category: "超級管理員 (Super Admin)",
-    percentage: 90,
+    percentage: 95,
     workCategory: "功能強化",
     featureDescription:
-      "對標住商不動產 Excel 物件調查報告書，全面升級 web 版本。Phase1：資料改存 Supabase DB（property_investigation_reports 表）+ 謄本自動填入（建號/建材/完工日/面積/土地/他項限制）+ 列印版面還原成 Excel 兩欄表格。Phase2：完整度指示器（X/N 欄位）+ 附件清單連動已上傳謄本/權狀 + 匯出改版（JSON 下載 + 列印 PDF）+ 版本歷史面板。Phase3：格局圖從已上傳照片選取嵌入報告 + 位置圖顯示地址/座標。Phase3+：「選取附件」子分頁可勾選物件已上傳文件與照片納入報告參考，並支援附加說明文字，列印末頁「報告附加參考」。「屋況說明書」子分頁（七項現況揭露欄位）列印於個案調查表後。新增 migration: 20260321120000_add_property_investigation_reports.sql。",
+      "對標住商不動產 Excel 物件調查報告書，全面升級 web 版本。Phase1-3：DB 儲存 + 謄本自動填入 + 列印版面還原 + 完整度指示器 + 附件清單 + 版本歷史 + 格局圖 + 位置圖 + 屋況說明書。Phase4：全新附件列印系統 — 重新設計 AttachmentPickerV2（16 個附件類別分 4 群組勾選：報告本體/已上傳文件/資料衍生頁面/媒體），8 個 HTML 列印模板（基本資訊/物件介紹/面積明細/交易條件/使用分區/地圖定位/照片聯絡圖/文件參考清單），合併列印功能（報告書 + 所選附件一次列印）。提取 buildReportHtml 模組化報告 HTML 產生。",
     points: 8,
-    lastModifiedBy: "Claude Sonnet 4.6",
-    lastModifiedDate: "2026/03/21",
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/09",
   },
   {
     name: "超級管理員-合約套版多範本選擇器",
