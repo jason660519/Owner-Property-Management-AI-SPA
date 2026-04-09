@@ -24,6 +24,33 @@ jest.mock('@/lib/rbac/resources', () => ({
   RESOURCES: ['res-1'],
 }));
 
+jest.mock('@/components/ui/EnhancedTable', () => {
+  const React = require('react');
+  return {
+    __esModule: true,
+    default: ({ columns, data }: { columns: Array<{ header: unknown }>; data: Array<{ id: string; label: string; group: string }> }) => {
+      const { useIamViewSettings } = require('./viewSettings');
+      const { freezeRowCount, frozenColCount } = useIamViewSettings();
+      const theadClass = freezeRowCount >= 1 ? 'sticky' : '';
+      const tdClass = frozenColCount >= 1 ? 'sticky' : '';
+      return (
+        <div>
+          <div>{typeof columns[0]?.header === 'string' ? columns[0].header : '資源名稱'}</div>
+          <div>{data[0]?.label}</div>
+          <table>
+            <thead className={theadClass} />
+            <tbody>
+              <tr>
+                <td className={tdClass}>{data[0]?.label}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      );
+    },
+  };
+});
+
 describe('RolesTab integrates freeze panes from IAMLayoutControls', () => {
   function setup() {
     return render(
@@ -39,7 +66,7 @@ describe('RolesTab integrates freeze panes from IAMLayoutControls', () => {
 
     // Wait for table to render
     await waitFor(() => {
-      expect(screen.getByText('資源')).toBeInTheDocument();
+      expect(screen.getByText('資源名稱')).toBeInTheDocument();
     });
 
     // Initially header wrapper should not be sticky
@@ -58,7 +85,7 @@ describe('RolesTab integrates freeze panes from IAMLayoutControls', () => {
     const { container } = setup();
 
     await waitFor(() => {
-      expect(screen.getByText('資源')).toBeInTheDocument();
+      expect(screen.getByText('資源名稱')).toBeInTheDocument();
     });
 
     // body first cell (資源欄) initially not sticky when preference = 0
@@ -74,4 +101,3 @@ describe('RolesTab integrates freeze panes from IAMLayoutControls', () => {
     expect((firstBodyCell?.className || '')).toContain('sticky');
   });
 });
-

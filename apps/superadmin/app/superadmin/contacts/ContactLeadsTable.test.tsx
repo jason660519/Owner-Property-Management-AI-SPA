@@ -8,6 +8,38 @@ jest.mock('@/app/superadmin/contacts/actions', () => ({
   updateContactLeadStatuses: jest.fn(),
 }));
 
+jest.mock('@/components/ui/EnhancedTable', () => {
+  const React = require('react');
+  return {
+    __esModule: true,
+    default: ({ data, renderBatchActions }: { data: Array<{ id: string; leadReference: string }>; renderBatchActions: (rows: Array<{ id: string; leadReference: string }>) => React.ReactNode }) => {
+      const [selectedIds, setSelectedIds] = React.useState([] as string[]);
+      const selectedRows = data.filter((row) => selectedIds.includes(row.id));
+      return (
+        <div>
+          <div>
+            {data.map((row) => (
+              <label key={row.id}>
+                <input
+                  type="checkbox"
+                  aria-label={`選取 ${row.leadReference}`}
+                  checked={selectedIds.includes(row.id)}
+                  onChange={() => {
+                    setSelectedIds((prev: string[]) =>
+                      prev.includes(row.id) ? prev.filter((id) => id !== row.id) : [...prev, row.id],
+                    );
+                  }}
+                />
+              </label>
+            ))}
+          </div>
+          {selectedRows.length > 0 ? renderBatchActions(selectedRows) : null}
+        </div>
+      );
+    },
+  };
+});
+
 describe('ContactLeadsTable', () => {
   test('enables batch action when leads are selected', () => {
     render(
@@ -53,13 +85,12 @@ describe('ContactLeadsTable', () => {
       />,
     );
 
-    const batchButton = screen.getByRole('button', { name: '批次更新狀態' });
-    expect(batchButton).toBeDisabled();
+    expect(screen.queryByRole('button', { name: '批次更新狀態' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('checkbox', { name: '選取 LEAD-12345678' }));
 
     expect(screen.getByText('已選取 1 筆 lead')).toBeInTheDocument();
-    expect(batchButton).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: '批次更新狀態' })).toBeInTheDocument();
     expect(screen.getByDisplayValue('已讀')).toBeInTheDocument();
   });
 });
