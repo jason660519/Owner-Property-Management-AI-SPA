@@ -35,7 +35,7 @@ export function Alert({
   )
 }
 
-export interface AlertTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {}
+export type AlertTitleProps = React.HTMLAttributes<HTMLHeadingElement>
 
 export function AlertTitle({
   className = '',
@@ -49,7 +49,7 @@ export function AlertTitle({
   )
 }
 
-export interface AlertDescriptionProps extends React.HTMLAttributes<HTMLParagraphElement> {}
+export type AlertDescriptionProps = React.HTMLAttributes<HTMLParagraphElement>
 
 export function AlertDescription({
   className = '',
