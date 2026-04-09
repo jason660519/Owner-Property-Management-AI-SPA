@@ -7,16 +7,12 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Brain, Loader2, ChevronDown, ChevronUp, Settings2,
   AlertTriangle, CheckCircle2, XCircle, Clock, ExternalLink,
-  Copy, Download, Scale, Info, PenLine, BookMarked, FileCode,
+  Copy, Download, Scale, Info, PenLine, FileCode,
 } from 'lucide-react';
 import { AIOperationStatusPill } from '@/components/ui/AIOperationStatusPill';
 import { useOperationTimer } from '@/lib/hooks/useOperationTimer';
 import { useAISettings, type SavedModel } from '@/lib/hooks/useAISettings';
 import { TRANSCRIPT_PARSE_PROMPT } from '@/lib/transcript-prompts';
-import {
-  PromptManagerModal,
-  PROMPT_LOAD_MESSAGE_TYPE,
-} from '@/components/ai-settings/PromptManagerModal';
 import {
   DEFAULT_PARSER_CONCURRENCY,
   PARSER_CONCURRENCY_OPTIONS,
@@ -44,7 +40,6 @@ import {
   normalizeLocalParsedToLandTranscriptData,
   transcriptDataForTranscribeFromParseOutput,
 } from '@/lib/utils/transcript-parsed-to-form';
-import { TRANSCRIPT_PARSE_SCENARIO_PRESETS } from '@/lib/transcript-parse-scenario-prompts';
 import Link from 'next/link';
 
 interface ModelProgressItem {
@@ -92,7 +87,6 @@ const OCR_SETTINGS_HREF = '/superadmin/settings/api_key_and_model_setting#ocr';
 const SS_FILTER_PROVIDERS = 'ai-eval-filter:providerIds';
 const SS_FILTER_STATUSES = 'ai-eval-filter:statuses';
 const LS_FILTER_CATEGORIES = 'ai-eval-filter:categories';
-const LS_LAST_CUSTOM_PROMPT = 'transcript-parse:lastCustomPrompt';
 const LS_SHOW_SETTINGS = 'transcript-parse:showSettings';
 const LS_LOCAL_PARSE_PREFIX = 'transcript-parse:local-result:';
 const ssActiveCloudJobKey = (documentId: string) => `transcript-parse:active-cloud-job:${documentId}`;
@@ -132,7 +126,6 @@ export function TranscriptParseSection({
   const {
     userId: aiUserId,
     modules: aiModules,
-    prompts,
     refreshSilent,
     keys: savedKeys,
     models: savedModels,
@@ -151,14 +144,6 @@ export function TranscriptParseSection({
   // Pre-execution settings panel
   const [showSettings, setShowSettings] = useState<boolean>(() =>
     readLocalStorage<boolean>(LS_SHOW_SETTINGS, false)
-  );
-  const [showPromptManager, setShowPromptManager] = useState(false);
-  // 預設載入最後一次 user 輸入的 Prompt（存在 localStorage），避免每次被系統預設覆蓋
-  const [customPrompt, setCustomPrompt] = useState<string>(() =>
-    readLocalStorage<string>(LS_LAST_CUSTOM_PROMPT, '')
-  );
-  const [isPromptDirty, setIsPromptDirty] = useState<boolean>(() =>
-    readLocalStorage<string>(LS_LAST_CUSTOM_PROMPT, '').trim().length > 0
   );
   const [parserConcurrency, setParserConcurrency] = useState<number>(DEFAULT_PARSER_CONCURRENCY);
   type ParserModelSelection = { provider: string; model: string; priority?: number; enabled: boolean };
@@ -526,53 +511,24 @@ export function TranscriptParseSection({
       .catch(() => {});
   }, []);
 
-  const storedParsePrompt = useMemo(() => {
-    const lookupKey = parseScenarioKey ?? salesMode;
-    // 1. 優先從 saved_prompts 依情境鍵或銷售模式比對名稱，例如 (single_building_number)、(building_only)
-    if (lookupKey && dbPrompts.length > 0) {
-      const modeMatch = dbPrompts.find(
-        (p) =>
-          p.name?.includes(`(${lookupKey})`) &&
-          p.content?.trim(),
+  // Single source of truth: saved_prompts → hardcoded fallback
+  const activePrompt = useMemo(() => {
+    const key = parseScenarioKey ?? salesMode;
+    if (key && dbPrompts.length > 0) {
+      const match = dbPrompts.find(
+        (p) => p.name?.includes(`(${key})`) && p.content?.trim(),
       );
-      if (modeMatch) return modeMatch.content;
+      if (match) return match;
     }
-
-    // 2. Fallback: 尋找最新版本的 online_ocr_parse Prompt（即原本的「設為系統 Prompt」邏輯）
-    // 注意：這裡使用 useAISettings() 的 prompts (來自 ai_system_prompts 表)
-    const matched = prompts
-      .filter((p) => p.module_key === 'online_ocr_parse' && p.prompt_content?.trim())
-      .sort((a, b) => b.version - a.version);
-    return matched[0]?.prompt_content ?? '';
-  }, [prompts, salesMode, parseScenarioKey, dbPrompts]);
-  const effectiveParsePrompt = storedParsePrompt || TRANSCRIPT_PARSE_PROMPT;
-  const isCustomPromptOverridden =
-    isPromptDirty && customPrompt.trim().length > 0 && customPrompt.trim() !== effectiveParsePrompt.trim();
+    return null;
+  }, [salesMode, parseScenarioKey, dbPrompts]);
+  const effectiveParsePrompt = activePrompt?.content || TRANSCRIPT_PARSE_PROMPT;
+  const activePromptName = activePrompt?.name ?? '系統預設（硬編碼）';
   const enabledParserCount = parserModelSelection.filter((m) => m.enabled).length;
   const effectiveParserConcurrency = resolveParserConcurrency(
     parserConcurrency,
     enabledParserCount || parserModelSelection.length || 1,
   );
-
-  // 若使用者尚未輸入過任何 Prompt（localStorage 為空），第一次載入或切換模式時自動載入對應 Prompt
-  useEffect(() => {
-    if (!isPromptDirty) {
-      setCustomPrompt(effectiveParsePrompt);
-    }
-  }, [effectiveParsePrompt, isPromptDirty]);
-
-  // When Prompt 管理 is opened in a new tab (e.g. "在新分頁開啟"), 載入 sends postMessage; we apply it here
-  useEffect(() => {
-    const handler = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
-      if (event.data?.type !== PROMPT_LOAD_MESSAGE_TYPE || !event.data?.content) return;
-      setCustomPrompt(event.data.content);
-      setIsPromptDirty(true);
-      writeLocalStorage(LS_LAST_CUSTOM_PROMPT, event.data.content);
-    };
-    window.addEventListener('message', handler);
-    return () => window.removeEventListener('message', handler);
-  }, []);
 
   // 解析此輪要使用的裁判模型：
   // 1) 優先使用 online_ocr_judge 模組中綁定的第一個模型
@@ -647,7 +603,7 @@ export function TranscriptParseSection({
         body: JSON.stringify({
           documentId: selectedDocId,
           userId: aiUserId,
-          customPrompt: isCustomPromptOverridden ? customPrompt.trim() : undefined,
+          parseScenarioKey: parseScenarioKey ?? salesMode ?? undefined,
           parserConcurrency,
           overrideParserModels:
             enabledParserModels.length > 0
@@ -850,11 +806,11 @@ export function TranscriptParseSection({
         雲端解析為背景任務：可切換分頁或離開本頁，伺服器會繼續解析；回到謄本並選取同一文件時會自動接上進度，完成後結果寫入資料庫並顯示於此。
       </p>
 
-      {/* 統一測試 vs 雲端解析謄本 說明：避免誤解「統一測試通過」=「單一物件解析一定成功」 */}
+      {/* AI 模型全域評測 vs 雲端解析謄本 說明：避免誤解「AI 模型全域評測通過」=「單一物件解析一定成功」 */}
       <div className="rounded-md border border-amber-300/40 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-600/40 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-200 space-y-1">
-        <p className="font-medium">為什麼「統一測試」通過，但這裡雲端解析{targetLabel}沒結果或信心很低？</p>
+        <p className="font-medium">為什麼「AI 模型全域評測」通過，但這裡雲端解析{targetLabel}沒結果或信心很低？</p>
         <ul className="list-disc list-inside space-y-0.5 text-text-muted dark:text-amber-200/90">
-          <li><strong>統一測試</strong>：只測「已選被測模型」能否連線並回覆一句話，不跑謄本解析。</li>
+          <li><strong>AI 模型全域評測</strong>：只測「已選被測模型」能否連線並回覆一句話，不跑謄本解析。</li>
           <li><strong>雲端解析謄本</strong>：只用「雲端OCR謄本解析（解析組）」<strong>已指派的模型</strong>，對本謄本檔案跑多模型共識；若解析組未指派任何模型，會無法執行。</li>
           <li>若下方「解析模型」為空，請至 OCR 解析設定 為「雲端OCR謄本解析（解析組）」<strong>指派</strong>至少一個模型（在該模組欄位加入模型，不是只勾選「勾選被測模型」）。</li>
           <li>若信心度很低（例如 30%），可能是檔案模糊、PDF 某家不支援、或各模型輸出格式不一致；可改傳 JPG/PNG 或減少解析模型數量再試。</li>
@@ -975,57 +931,48 @@ export function TranscriptParseSection({
             </div>
           </div>
 
-          {/* Custom prompt override */}
+          {/* Active prompt display (read-only — edit via Prompt Management page) */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <p className="font-medium text-text-secondary">此次解析 Prompt（已預填，可修改）</p>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowPromptManager(true)}
-                  className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-accent transition-colors"
-                  title="開啟 Prompt 管理（彈窗）"
-                >
-                  <BookMarked size={11} />
-                  Prompt 管理
-                </button>
-              </div>
+              <p className="font-medium text-text-secondary">此次解析 Prompt</p>
+              <Link
+                href="/superadmin/settings/prompt-management"
+                target="_blank"
+                className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
+              >
+                <PenLine size={11} />
+                前往 Prompt 管理編輯
+                <ExternalLink size={10} />
+              </Link>
             </div>
-            <textarea
-              value={customPrompt}
-              onChange={(e) => {
-                setCustomPrompt(e.target.value);
-                setIsPromptDirty(true);
-                writeLocalStorage(LS_LAST_CUSTOM_PROMPT, e.target.value);
-              }}
-              placeholder="留空則使用 AI 設定中已儲存的 Prompt（若無則使用預設 Prompt）"
-              rows={4}
-              className="w-full border border-border-default rounded-md px-2.5 py-1.5 bg-bg-primary text-text-primary text-xs resize-y focus:outline-none focus:border-accent placeholder:text-text-muted"
-              disabled={isCloudParsing}
-            />
-            {!isPromptDirty && customPrompt.trim().length === 0 && (
-              <p className="text-text-muted">
-                目前預填的是 {storedParsePrompt ? 'AI 設定中已儲存的 Prompt' : '系統預設 Prompt'}。
+            <div className="border border-border-default rounded-md px-3 py-2 bg-bg-secondary">
+              <p className="text-xs font-medium text-text-primary">{activePromptName}</p>
+              <p className="text-[11px] text-text-muted mt-1 line-clamp-3 font-mono whitespace-pre-wrap">
+                {effectiveParsePrompt.slice(0, 200)}…
               </p>
-            )}
-            {isCustomPromptOverridden && (
-              <p className="text-amber-600 flex items-center gap-1">
-                <AlertTriangle size={10} />
-                此次解析將使用你剛修改的 Prompt，不影響 AI 設定中儲存的 Prompt
-              </p>
-            )}
+            </div>
           </div>
 
-          {/* Link to AI settings — 直連 OCR 分頁，與解析／裁判模型單一來源一致 */}
-          <a
-            href="/superadmin/settings/api_key_and_model_setting#ocr"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-accent hover:underline"
-          >
-            <ExternalLink size={11} />
-            前往 AI 服務設定 → OCR 解析設定（管理解析組／裁判組與 Prompt）
-          </a>
+          {/* Links to AI settings & Prompt management */}
+          <div className="flex flex-wrap gap-4">
+            <a
+              href="/superadmin/settings/api_key_and_model_setting#ocr"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-accent hover:underline"
+            >
+              <ExternalLink size={11} />
+              前往 AI 服務設定 → OCR 解析設定（管理解析組／裁判組）
+            </a>
+            <Link
+              href="/superadmin/settings/prompt-management"
+              target="_blank"
+              className="inline-flex items-center gap-1 text-accent hover:underline"
+            >
+              <ExternalLink size={11} />
+              前往 Prompt 管理（管理解析組／裁判組與 Prompt）
+            </Link>
+          </div>
         </div>
       )}
 
@@ -1294,19 +1241,6 @@ export function TranscriptParseSection({
         </div>
       )}
 
-      {/* Prompt Manager Modal */}
-      {showPromptManager && (
-        <PromptManagerModal
-          onClose={() => setShowPromptManager(false)}
-          onLoad={(content) => {
-            setCustomPrompt(content);
-            setIsPromptDirty(true);
-            writeLocalStorage(LS_LAST_CUSTOM_PROMPT, content);
-            setShowPromptManager(false);
-          }}
-          transcriptParsePresets={TRANSCRIPT_PARSE_SCENARIO_PRESETS}
-        />
-      )}
     </div>
   );
 }

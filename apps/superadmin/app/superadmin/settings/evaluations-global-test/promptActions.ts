@@ -184,6 +184,7 @@ export async function bulkExportPrompts(
 export type OcrModuleKey = 'online_ocr_parse' | 'online_ocr_judge';
 
 /**
+ * @deprecated Use saved_prompts as the single source of truth instead.
  * Promote a saved_prompt to be the active system prompt for a given OCR module.
  * Deactivates any existing active version, inserts a new version, and records
  * the source_saved_prompt_id so the Prompt 管理 UI can show the active badge.
@@ -244,6 +245,7 @@ export async function setAsSystemPrompt(
 }
 
 /**
+ * @deprecated Use saved_prompts as the single source of truth instead.
  * Returns the saved_prompt id that is currently the active system prompt
  * for the given module key (or null if set directly / never set).
  */

@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
     documentId?: string;
     userId?: string;
     customPrompt?: string;
+    parseScenarioKey?: string;
     parserConcurrency?: number;
     overrideParserModels?: { provider: string; model: string }[];
     overrideJudgeModel?: { provider: string; model: string } | null;
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest) {
   const userId = typeof userIdRaw === 'string' ? userIdRaw.trim() : '';
   const {
     customPrompt,
+    parseScenarioKey,
     parserConcurrency,
     overrideParserModels,
     overrideJudgeModel,
@@ -64,6 +66,7 @@ export async function POST(request: NextRequest) {
     documentId,
     userId,
     customPrompt,
+    parseScenarioKey,
     parserConcurrency,
     overrideParserModels,
     overrideJudgeModel,

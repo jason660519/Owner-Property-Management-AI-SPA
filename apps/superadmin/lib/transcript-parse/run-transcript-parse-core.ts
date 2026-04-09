@@ -33,6 +33,8 @@ export interface TranscriptParseStreamPayload {
   documentId: string;
   userId: string;
   customPrompt?: string;
+  /** Scenario key used to look up the matching prompt in saved_prompts */
+  parseScenarioKey?: string;
   parserConcurrency?: number;
   overrideParserModels?: { provider: string; model: string }[];
   overrideJudgeModel?: { provider: string; model: string } | null;
@@ -64,6 +66,7 @@ export async function runTranscriptParseCore(
     documentId,
     userId,
     customPrompt,
+    parseScenarioKey,
     parserConcurrency,
     overrideParserModels,
     overrideJudgeModel,
@@ -160,8 +163,10 @@ export async function runTranscriptParseCore(
       }
     }
 
-    const storedPrompt = await fetchSystemPrompt(adminClient, resolvedUserId, 'online_ocr_parse');
-    const basePrompt = customPrompt?.trim() || storedPrompt || TRANSCRIPT_PARSE_PROMPT;
+    const savedPrompt = parseScenarioKey
+      ? await fetchSavedPromptByScenario(adminClient, parseScenarioKey)
+      : null;
+    const basePrompt = customPrompt?.trim() || savedPrompt || TRANSCRIPT_PARSE_PROMPT;
     const { prompt: systemPrompt } = withTranscriptParseKindDirective(
       doc.document_type as string | null | undefined,
       basePrompt,
@@ -506,7 +511,7 @@ async function runJudgePhase(
   const caller = CALLERS[judge.provider as AIProvider];
   if (!caller) return null;
 
-  const judgeBasePrompt = await fetchSystemPrompt(adminClient, resolvedUserId, 'online_ocr_judge');
+  const judgeBasePrompt = await fetchSavedPromptByScenario(adminClient, 'judge');
   const conflictSummary = conflicts.map((c) => ({
     field_path: c.field_path,
     model_values: c.values.map((v) => ({ provider: v.provider, model: v.model, value: v.value })),
@@ -590,6 +595,23 @@ async function fetchAssignedModels(
   return [];
 }
 
+/** Look up a saved prompt by scenario key — matches name containing `(key)` */
+async function fetchSavedPromptByScenario(
+  adminClient: AdminClient,
+  scenarioKey: string,
+): Promise<string | null> {
+  const pattern = `%(${scenarioKey})%`;
+  const { data } = await adminClient
+    .from('saved_prompts')
+    .select('content')
+    .ilike('name', pattern)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data?.content as string | null)?.trim() || null;
+}
+
+/** @deprecated Use fetchSavedPromptByScenario instead — kept for backward compat */
 async function fetchSystemPrompt(
   adminClient: AdminClient,
   userId: string,

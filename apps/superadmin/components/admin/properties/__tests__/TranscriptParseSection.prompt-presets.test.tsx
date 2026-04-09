@@ -8,17 +8,11 @@ jest.mock('@/lib/hooks/useAISettings');
 jest.mock('@/lib/actions/properties', () => ({
   getDocumentParseResult: jest.fn().mockResolvedValue({ parsedResult: null, consensusMetadata: null }),
 }));
-jest.mock('@/components/ai-settings/PromptManagerModal', () => ({
-  PROMPT_LOAD_MESSAGE_TYPE: 'PROMPT_LOAD',
-  PromptManagerModal: ({
-    transcriptParsePresets,
-  }: {
-    transcriptParsePresets?: Array<unknown>;
-  }) => (
-    <div data-testid="prompt-manager-modal">
-      preset-count:{Array.isArray(transcriptParsePresets) ? transcriptParsePresets.length : 0}
-    </div>
-  ),
+
+// Mock listSavedPrompts — the async state update from void-promise pattern is not
+// reliably testable with act(). We test the UI structure and fallback behaviour instead.
+jest.mock('@/app/superadmin/settings/evaluations-global-test/promptActions', () => ({
+  listSavedPrompts: jest.fn().mockResolvedValue({ data: [] }),
 }));
 
 const useAISettings = jest.requireMock('@/lib/hooks/useAISettings')
@@ -49,7 +43,6 @@ const OCR_MODULE = buildOcrParseModule([
 const baseReturn = {
   userId: 'test-user-id',
   modules: [OCR_MODULE] as SavedModule[],
-  prompts: [],
   keys: [],
   models: [],
   evaluations: [],
@@ -90,18 +83,59 @@ async function renderAndFlush(ui: React.ReactElement) {
   return view;
 }
 
-describe('TranscriptParseSection — Prompt 管理情境預設', () => {
+describe('TranscriptParseSection — Prompt display (SSoT)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    localStorage.clear();
     useAISettings.mockReturnValue({ ...baseReturn });
   });
 
-  it('opens PromptManagerModal with 4 transcript scenario presets', async () => {
+  it('shows read-only prompt display with link to Prompt management', async () => {
+    await renderAndFlush(<TranscriptParseSection transcriptDocs={[TRANSCRIPT_DOC]} />);
+
+    // Expand settings panel
+    fireEvent.click(screen.getByRole('button', { name: /解析設定/i }));
+
+    // Should show prompt section title
+    expect(screen.getByText('此次解析 Prompt')).toBeInTheDocument();
+
+    // Should have link to prompt management page
+    const link = screen.getByText('前往 Prompt 管理編輯');
+    expect(link).toBeInTheDocument();
+    expect(link.closest('a')).toHaveAttribute('href', '/superadmin/settings/prompt-management');
+
+    // Should NOT have an editable textarea for prompt
+    expect(screen.queryByPlaceholderText(/留空則使用/)).not.toBeInTheDocument();
+  });
+
+  it('shows hardcoded fallback name when no saved prompts are loaded', async () => {
+    await renderAndFlush(
+      <TranscriptParseSection
+        transcriptDocs={[TRANSCRIPT_DOC]}
+        parseScenarioKey="single_building_number"
+      />,
+    );
+
+    // Expand settings panel
+    const btn = screen.getByRole('button', { name: /解析設定/i });
+    expect(btn).toBeInTheDocument();
+    await act(async () => { fireEvent.click(btn); });
+
+    // Verify the panel expanded — look for the prompt section title
+    expect(screen.getByText('此次解析 Prompt')).toBeInTheDocument();
+    // With empty saved_prompts, prompt name should fall back to hardcoded
+    expect(screen.getByText('系統預設（硬編碼）')).toBeInTheDocument();
+  });
+
+  it('has link to prompt management page in the settings panel', async () => {
     await renderAndFlush(<TranscriptParseSection transcriptDocs={[TRANSCRIPT_DOC]} />);
 
     fireEvent.click(screen.getByRole('button', { name: /解析設定/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Prompt 管理/i }));
 
-    expect(screen.getByTestId('prompt-manager-modal')).toHaveTextContent('preset-count:4');
+    const links = screen.getAllByText(/前往 Prompt 管理/);
+    expect(links.length).toBeGreaterThan(0);
+    const promptMgmtLink = links[0].closest('a');
+    expect(promptMgmtLink).toHaveAttribute('href', '/superadmin/settings/prompt-management');
+    expect(promptMgmtLink).toHaveAttribute('target', '_blank');
   });
 });

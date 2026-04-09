@@ -2,25 +2,42 @@
 
 // Prompt management table — powered by EnhancedTable for consistent toolbar UX
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
-  Star, Copy, Download, Trash2, Check, FileText,
+  Copy, Download, Trash2, Check, FileText, ShieldCheck, Pencil,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import EnhancedTable from '@/components/ui/EnhancedTable';
 import type { SavedPrompt } from './types';
+import { SYSTEM_TAG } from './types';
 import { exportPromptAsMd } from './PromptFileIO';
 
-/** Lightweight tooltip wrapper — shows label on hover */
+/** Lightweight tooltip wrapper — uses fixed positioning to escape overflow:hidden */
 function Tip({ label, children }: { label: string; children: React.ReactNode }) {
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  const show = useCallback(() => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    setPos({ x: rect.left + rect.width / 2, y: rect.top });
+  }, []);
+
+  const hide = useCallback(() => setPos(null), []);
+
   return (
-    <span className="relative group/tip inline-flex">
+    <span ref={ref} className="inline-flex" onMouseEnter={show} onMouseLeave={hide}>
       {children}
-      <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-bg-tertiary px-2 py-1 text-[11px] text-text-primary shadow-lg border border-border-subtle opacity-0 group-hover/tip:opacity-100 transition-opacity z-50">
-        {label}
-      </span>
+      {pos && (
+        <span
+          className="pointer-events-none fixed whitespace-nowrap rounded bg-bg-tertiary px-2 py-1 text-[11px] text-text-primary shadow-lg border border-border-subtle z-[9999]"
+          style={{ left: pos.x, top: pos.y - 4, transform: 'translate(-50%, -100%)' }}
+        >
+          {label}
+        </span>
+      )}
     </span>
   );
 }
@@ -31,7 +48,6 @@ interface PromptTableProps {
   onToggleSelection: (id: string) => void;
   onSelectAll: () => void;
   onClearSelection: () => void;
-  onToggleFavorite: (id: string) => void;
   onEdit: (prompt: SavedPrompt) => void;
   onDelete: (id: string) => Promise<string | null>;
   onLoad?: (content: string, name: string) => void;
@@ -51,11 +67,11 @@ function truncate(text: string, max: number): string {
   return text.slice(0, max) + '…';
 }
 
-// Column widths as percentages (7 visible columns, must sum ~100)
-const INITIAL_WIDTHS = [5, 22, 20, 22, 13, 18];
+// Column widths as percentages (must sum ~100)
+const INITIAL_WIDTHS = [25, 20, 25, 13, 17];
 
 export function PromptTable({
-  prompts, onToggleFavorite, onEdit, onDelete, onLoad, onBulkExport,
+  prompts, onEdit, onDelete, onLoad, onBulkExport,
 }: PromptTableProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -75,20 +91,19 @@ export function PromptTable({
   }, [onDelete]);
 
   const columns = useMemo<ColumnDef<SavedPrompt, unknown>[]>(() => [
-    // Star
-    { id: 'favorite', header: '★', size: 40, enableSorting: false,
-      cell: ({ row }) => (
-        <button type="button" onClick={e => { e.stopPropagation(); onToggleFavorite(row.original.id); }} className="p-0.5 transition-colors">
-          <Star className={`w-4 h-4 ${row.original.is_favorite ? 'fill-yellow-400 text-yellow-400' : 'text-text-muted hover:text-yellow-400'}`} />
-        </button>
-      ) },
     // Name
     { accessorKey: 'name', header: '名稱',
-      cell: ({ row }) => (
-        <button type="button" onClick={() => onEdit(row.original)}
-          className="text-left font-medium text-text-primary hover:text-accent transition-colors truncate max-w-[200px] block"
-          title={row.original.name}>{row.original.name}</button>
-      ) },
+      cell: ({ row }) => {
+        const isSystem = row.original.tags.includes(SYSTEM_TAG);
+        return (
+          <button type="button" onClick={() => onEdit(row.original)}
+            className="text-left font-medium text-text-primary hover:text-accent transition-colors truncate max-w-[200px] flex items-center gap-1.5"
+            title={row.original.name}>
+            {isSystem && <ShieldCheck className="w-3.5 h-3.5 text-accent shrink-0" />}
+            <span className="truncate">{row.original.name}</span>
+          </button>
+        );
+      } },
     // Tags
     { accessorKey: 'tags', header: '標籤', enableSorting: false,
       cell: ({ row }) => {
@@ -119,6 +134,7 @@ export function PromptTable({
     { id: 'actions', header: '操作', enableSorting: false,
       cell: ({ row }) => {
         const p = row.original;
+        const isSystem = p.tags.includes(SYSTEM_TAG);
         if (confirmDeleteId === p.id) {
           return (
             <div className="flex items-center gap-1">
@@ -130,6 +146,7 @@ export function PromptTable({
         const ic = 'p-1.5 text-text-muted hover:text-accent transition-colors';
         return (
           <div className="flex items-center gap-0.5">
+            <Tip label="編輯"><button type="button" onClick={e => { e.stopPropagation(); onEdit(p); }} className={ic}><Pencil className="w-3.5 h-3.5" /></button></Tip>
             {onLoad && <Tip label="載入至目前頁面"><button type="button" onClick={e => { e.stopPropagation(); onLoad(p.content, p.name); }} className={ic}><FileText className="w-3.5 h-3.5" /></button></Tip>}
             <Tip label={copiedId === p.id ? '已複製！' : '複製 Prompt 內容'}>
               <button type="button" onClick={e => { e.stopPropagation(); handleCopy(p); }} className={ic}>
@@ -137,13 +154,17 @@ export function PromptTable({
               </button>
             </Tip>
             <Tip label="匯出為 .md 檔"><button type="button" onClick={e => { e.stopPropagation(); exportPromptAsMd(p); }} className={ic}><Download className="w-3.5 h-3.5" /></button></Tip>
-            <Tip label="刪除此 Prompt"><button type="button" onClick={e => { e.stopPropagation(); setConfirmDeleteId(p.id); }} className="p-1.5 text-text-muted hover:text-red-400 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button></Tip>
+            {isSystem ? (
+              <Tip label="系統預設不可刪除"><span className="p-1.5 text-text-muted/30 cursor-not-allowed"><Trash2 className="w-3.5 h-3.5" /></span></Tip>
+            ) : (
+              <Tip label="刪除此 Prompt"><button type="button" onClick={e => { e.stopPropagation(); setConfirmDeleteId(p.id); }} className="p-1.5 text-text-muted hover:text-red-400 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button></Tip>
+            )}
           </div>
         );
       } },
   ], [
     copiedId, confirmDeleteId, deletingId,
-    onToggleFavorite, onEdit, onLoad, handleCopy, handleDelete,
+    onEdit, onLoad, handleCopy, handleDelete,
   ]);
 
   const getSearchValue = useCallback((row: SavedPrompt) =>
