@@ -800,6 +800,42 @@ export default function AIServiceSettingsPage() {
                 <FlaskConical size={14} className="text-text-muted" />
                 <span>統一測試設定</span>
               </button>
+              {activeTab !== 'keys' && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleExportSettings}
+                    disabled={exportingSettings || importingSettings}
+                    className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 bg-bg-secondary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary border border-border-subtle disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="匯出 AI 設定（JSON）"
+                  >
+                    <Download size={14} className="text-text-muted" />
+                    <span>匯出設定</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => importFileInputRef.current?.click()}
+                    disabled={exportingSettings || importingSettings}
+                    className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 bg-bg-secondary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary border border-border-subtle disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="載入 AI 設定（JSON）"
+                  >
+                    <Upload size={14} className="text-text-muted" />
+                    <span>載入設定</span>
+                  </button>
+                  <input
+                    ref={importFileInputRef}
+                    type="file"
+                    accept="application/json"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (!file) return;
+                      await handleImportSettings(file);
+                    }}
+                  />
+                </>
+              )}
             </div>
             {activeTab === 'keys' && (
               <>

@@ -66,8 +66,14 @@ const togetherProps: ModelEvaluatorProps = {
 // ── Feature 3: filter state sessionStorage persistence ────────────────────
 
 describe('Feature 3: filter sessionStorage persistence', () => {
-  beforeEach(() => sessionStorage.clear());
-  afterEach(() => sessionStorage.clear());
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+  afterEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
 
   // ── filterStatuses ─────────────────────────────────────────────────────
 
@@ -150,9 +156,13 @@ describe('Feature 3: filter sessionStorage persistence', () => {
 describe('Feature 4: batch test resets status filter so results stay visible', () => {
   beforeEach(() => {
     sessionStorage.clear();
+    localStorage.clear();
     jest.clearAllMocks();
   });
-  afterEach(() => sessionStorage.clear());
+  afterEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
 
   it('filterStatuses button shows "分類與狀態" (i.e. reset to []) after batch test completes', async () => {
     // Pre-condition: user had status filter set to "untested" before running batch test

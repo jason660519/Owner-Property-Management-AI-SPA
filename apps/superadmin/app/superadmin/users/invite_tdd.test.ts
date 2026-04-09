@@ -1,49 +1,65 @@
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { inviteUser, getInvites } from './actions';
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import nodemailer from 'nodemailer';
 
 // Mock dependencies
-vi.mock('@/utils/supabase/server', () => ({
-  createClient: vi.fn(),
+jest.mock('@/utils/supabase/server', () => ({
+  createClient: jest.fn(),
 }));
 
-vi.mock('@/utils/supabase/admin', () => ({
-  createAdminClient: vi.fn(),
+jest.mock('@/utils/supabase/admin', () => ({
+  createAdminClient: jest.fn(),
 }));
 
-vi.mock('next/cache', () => ({
-  revalidatePath: vi.fn(),
+jest.mock('next/cache', () => ({
+  revalidatePath: jest.fn(),
 }));
 
-vi.mock('nodemailer', () => ({
+jest.mock('nodemailer', () => ({
+  __esModule: true,
   default: {
-    createTransport: vi.fn().mockReturnValue({
-      sendMail: vi.fn().mockResolvedValue({ messageId: 'test-message-id' }),
+    createTransport: jest.fn().mockReturnValue({
+      sendMail: jest.fn().mockResolvedValue({ messageId: 'test-message-id' }),
     }),
   },
 }));
 
 describe('Invite User TDD - Infinite Invites', () => {
-  let mockSupabase: any;
-  let mockSupabaseAdmin: any;
-  let mockTransport: any;
+  type SupabaseClientMock = {
+    auth: {
+      getUser: jest.Mock;
+    };
+    from: jest.Mock;
+  };
+  type SupabaseAdminMock = {
+    auth: {
+      admin: {
+        generateLink: jest.Mock;
+        listUsers: jest.Mock;
+      };
+    };
+    from: jest.Mock;
+  };
+
+  let mockSupabase: SupabaseClientMock;
+  let mockSupabaseAdmin: SupabaseAdminMock;
+  let mockTransport: { sendMail: jest.Mock };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
 
     mockSupabase = {
       auth: {
-        getUser: vi.fn().mockResolvedValue({
+        getUser: jest.fn().mockResolvedValue({
             data: { user: { id: 'admin-id', app_metadata: { roles: ['super_admin'] } } },
         }),
       },
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            single: vi.fn().mockResolvedValue({ data: null }),
+      from: jest.fn(() => ({
+        select: jest.fn(() => ({
+          eq: jest.fn(() => ({
+            single: jest.fn().mockResolvedValue({ data: null }),
           })),
         })),
       })),
@@ -53,7 +69,7 @@ describe('Invite User TDD - Infinite Invites', () => {
       auth: {
         admin: {
           // generateLink is the key for custom token tracking
-          generateLink: vi.fn().mockResolvedValue({
+          generateLink: jest.fn().mockResolvedValue({
             data: { 
               properties: { 
                 action_link: 'http://localhost:3000/auth/confirm?token=test-token&type=invite',
@@ -63,16 +79,16 @@ describe('Invite User TDD - Infinite Invites', () => {
             },
             error: null
           }),
-          listUsers: vi.fn().mockResolvedValue({ data: { users: [] } }),
+          listUsers: jest.fn().mockResolvedValue({ data: { users: [] } }),
         },
       },
-      from: vi.fn((table) => {
+      from: jest.fn((table) => {
           if (table === 'user_invitations') {
               return {
-                  insert: vi.fn().mockResolvedValue({ error: null }),
-                  select: vi.fn(() => ({
-                      eq: vi.fn(() => ({
-                          order: vi.fn(() => ({
+                  insert: jest.fn().mockResolvedValue({ error: null }),
+                  select: jest.fn(() => ({
+                      eq: jest.fn(() => ({
+                          order: jest.fn(() => ({
                               data: []
                           }))
                       }))
@@ -80,24 +96,24 @@ describe('Invite User TDD - Infinite Invites', () => {
               };
           }
           return {
-              insert: vi.fn().mockResolvedValue({ error: null }),
-              select: vi.fn(() => ({
-                  eq: vi.fn(() => ({
-                      single: vi.fn().mockResolvedValue({ data: null })
+              insert: jest.fn().mockResolvedValue({ error: null }),
+              select: jest.fn(() => ({
+                  eq: jest.fn(() => ({
+                      single: jest.fn().mockResolvedValue({ data: null })
                   }))
               }))
           };
       }),
     };
 
-    (createClient as any).mockResolvedValue(mockSupabase);
-    (createAdminClient as any).mockReturnValue(mockSupabaseAdmin);
+    (createClient as unknown as jest.Mock).mockResolvedValue(mockSupabase);
+    (createAdminClient as unknown as jest.Mock).mockReturnValue(mockSupabaseAdmin);
     
     // Mock nodemailer transport
     mockTransport = {
-        sendMail: vi.fn().mockResolvedValue({ messageId: 'test-id' })
+        sendMail: jest.fn().mockResolvedValue({ messageId: 'test-id' })
     };
-    (nodemailer.createTransport as any).mockReturnValue(mockTransport);
+    (nodemailer.createTransport as unknown as jest.Mock).mockReturnValue(mockTransport);
   });
 
   it('should generate unique link and track in database for every invite call (Infinite Invites)', async () => {
@@ -138,7 +154,7 @@ describe('Invite User TDD - Infinite Invites', () => {
     expect(mockTransport.sendMail).toHaveBeenCalledWith(expect.objectContaining({
         to: email,
         subject: expect.stringContaining('You have been invited'),
-        html: expect.stringContaining('http://localhost:3000/auth/confirm?token=test-token'),
+        html: expect.stringContaining('http://localhost:3000/login?mode=invite'),
     }));
   });
 
@@ -148,9 +164,9 @@ describe('Invite User TDD - Infinite Invites', () => {
     mockSupabaseAdmin.from.mockImplementation((table: string) => {
         if (table === 'user_invitations') {
             return {
-                select: vi.fn(() => ({
-                    eq: vi.fn(() => ({
-                        order: vi.fn(() => ({
+                select: jest.fn(() => ({
+                    eq: jest.fn(() => ({
+                        order: jest.fn(() => ({
                             data: [
                                 { id: '1', email, token: 't1', status: 'pending' },
                                 { id: '2', email, token: 't2', status: 'expired' }
@@ -160,7 +176,7 @@ describe('Invite User TDD - Infinite Invites', () => {
                 }))
             };
         }
-        return { select: vi.fn() };
+        return { select: jest.fn() };
     });
 
     const invites = await getInvites(email);

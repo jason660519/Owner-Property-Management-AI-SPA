@@ -79,13 +79,15 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   // Auto-derive default row status from feature data
   useEffect(() => {
     setStatusSelections(prev => {
+      let changed = false;
       const next: Record<string, RowStatus> = { ...prev };
       for (const row of filteredRows) {
         const key = getRowKey(row.__source, row.__rowId);
         if (next[key]) continue;
         next[key] = deriveRowStatus(row);
+        changed = true;
       }
-      return next;
+      return changed ? next : prev;
     });
   }, [filteredRows]);
 

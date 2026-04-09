@@ -3,6 +3,7 @@ import LLMMonitorClient from './LLMMonitorClient';
 
 describe('LLMMonitorClient (AI usage logs)', () => {
   it('renders the AI usage logs table with prompt/model fields', () => {
+    window.location.hash = '#ai-usage-logs';
     render(
       <LLMMonitorClient
         overallStats={{
@@ -38,7 +39,7 @@ describe('LLMMonitorClient (AI usage logs)', () => {
       />,
     );
 
-    expect(screen.getByText('AI 使用紀錄（含 Prompt / 模組 / 狀態）')).toBeInTheDocument();
+    expect(screen.getByText('AI 使用紀錄')).toBeInTheDocument();
     expect(screen.getByText('property_description')).toBeInTheDocument();
     expect(screen.getByText('anthropic/claude-sonnet-4-6')).toBeInTheDocument();
     expect(screen.getByText(/物件描述文案/)).toBeInTheDocument();
@@ -46,4 +47,3 @@ describe('LLMMonitorClient (AI usage logs)', () => {
     expect(screen.getByText(/hash:aaaaaaaaaaaa/)).toBeInTheDocument();
   });
 });
-

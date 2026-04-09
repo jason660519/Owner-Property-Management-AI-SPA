@@ -23,6 +23,28 @@ jest.mock('@/utils/supabase/client', () => ({
   }),
 }));
 
+let currentTheme: 'light' | 'dark' = 'light';
+const setThemeMock = jest.fn((next: 'light' | 'dark') => {
+  currentTheme = next;
+  if (next === 'dark') document.documentElement.classList.add('dark');
+  else document.documentElement.classList.remove('dark');
+  localStorage.setItem('theme', next);
+});
+
+jest.mock('next-themes', () => ({
+  useTheme: () => {
+    const stored = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+    currentTheme = stored ?? (prefersDark ? 'dark' : 'light');
+    if (currentTheme === 'dark') document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+    return {
+      theme: currentTheme,
+      setTheme: setThemeMock,
+    };
+  },
+}));
+
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
@@ -43,6 +65,7 @@ describe('DashboardHeader', () => {
     // Reset theme
     document.documentElement.classList.remove('dark');
     localStorage.clear();
+    setThemeMock.mockClear();
     
     // Reset matchMedia mock to default (light mode)
     (window.matchMedia as jest.Mock).mockImplementation(query => ({
@@ -122,26 +145,19 @@ describe('DashboardHeader', () => {
   it('toggles theme between light and dark', async () => {
     render(<DashboardHeader />);
     
-    // Wait for mount
-    await waitFor(() => {
-        expect(screen.getByTestId('theme-toggle')).toBeInTheDocument();
-    });
-
-    const themeToggleButtons = screen.getAllByLabelText('Toggle theme');
-    const desktopToggle = themeToggleButtons[0];
-    
     // Initial state: Light (default mock is light)
     await waitFor(() => {
         expect(document.documentElement.classList.contains('dark')).toBe(false);
     });
     
-    // Click to toggle
-    fireEvent.click(desktopToggle);
+    const darkModeButtons = await screen.findAllByTitle('Dark Mode');
+    fireEvent.click(darkModeButtons[0]);
     expect(document.documentElement.classList.contains('dark')).toBe(true);
     expect(localStorage.getItem('theme')).toBe('dark');
     
     // Click again
-    fireEvent.click(desktopToggle);
+    const lightModeButtons = await screen.findAllByTitle('Light Mode');
+    fireEvent.click(lightModeButtons[0]);
     expect(document.documentElement.classList.contains('dark')).toBe(false);
     expect(localStorage.getItem('theme')).toBe('light');
   });

@@ -42,22 +42,21 @@ describe('DevelopmentTab View controls (freeze panes)', () => {
   it('toggles sticky header via View dropdown (凍結第 1 row)', async () => {
     const { container } = render(<DevelopmentTab features={mockFeatures} />);
 
-    // 表頭 sticky 改為每格獨立設定 top，不再在外層 wrapper 加 sticky
-    const getFirstHeaderCell = () =>
-      container.querySelector('.grid.min-h-0.w-full.divide-x > div') as HTMLElement | null;
+    const getHeaderWrapper = () =>
+      container.querySelector('div.relative.z-10.bg-bg-secondary') as HTMLElement | null;
 
-    expect(getFirstHeaderCell()?.className || '').toContain('sticky');
+    expect(getHeaderWrapper()?.className || '').toContain('sticky');
 
     const viewButton = screen.getByRole('button', { name: /View/i });
     fireEvent.click(viewButton);
     const unfreezeRowBtn = await screen.findByText('不凍結列');
     fireEvent.click(unfreezeRowBtn);
-    expect(getFirstHeaderCell()?.className || '').not.toContain('sticky');
+    expect(getHeaderWrapper()?.className || '').not.toContain('sticky');
 
     fireEvent.click(viewButton);
     const freezeRowBtn = await screen.findByText('凍結第 1 row');
     fireEvent.click(freezeRowBtn);
-    expect(getFirstHeaderCell()?.className || '').toContain('sticky');
+    expect(getHeaderWrapper()?.className || '').toContain('sticky');
   });
 
   it('toggles sticky first data column via View dropdown (凍結第 1 col)', async () => {
@@ -75,4 +74,3 @@ describe('DevelopmentTab View controls (freeze panes)', () => {
     expect(firstCell?.className || '').toContain('sticky');
   });
 });
-

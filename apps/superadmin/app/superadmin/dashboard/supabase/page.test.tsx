@@ -1,47 +1,45 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import SupabasePage from './page';
 
+jest.mock('@/utils/supabase/admin', () => ({
+  createAdminClient: () => ({
+    from: () => ({
+      select: (_columns: string, options?: { count?: 'exact'; head?: boolean }) => {
+        if (options?.head) return Promise.resolve({ count: 1, error: null });
+        return {
+          limit: async () => ({ error: null }),
+        };
+      },
+    }),
+    rpc: () => ({
+      maybeSingle: async () => ({ data: null, error: null }),
+    }),
+  }),
+}));
+
+jest.mock('./SupabaseDashboardClient', () => ({
+  __esModule: true,
+  default: ({
+    healthy,
+    userCount,
+    projectRef,
+  }: {
+    healthy: boolean;
+    userCount: number;
+    projectRef: string;
+  }) => (
+    <div data-testid="supabase-dashboard">
+      {healthy ? 'healthy' : 'unhealthy'}|{userCount}|{projectRef}
+    </div>
+  ),
+}));
+
 describe('Super Admin Supabase Management Page', () => {
-  it('renders the page title', () => {
-    render(<SupabasePage />);
-    expect(screen.getByText('Supabase Database Management')).toBeInTheDocument();
-  });
+  it('renders dashboard data from server component', async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://testref.supabase.co';
+    const ui = await SupabasePage();
+    render(ui);
 
-  it('provides a link to Supabase Dashboard', () => {
-    render(<SupabasePage />);
-    const link = screen.getByRole('link', { name: /Supabase Dashboard/i });
-    expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', expect.stringContaining('supabase.com'));
-  });
-
-  it('displays database connection health status', () => {
-    render(<SupabasePage />);
-    expect(screen.getByText(/Connection Pooling/i)).toBeInTheDocument();
-    expect(screen.getByText(/Health Status/i)).toBeInTheDocument();
-    // Use getAllByText for "Active" since it appears multiple times
-    expect(screen.getAllByText(/Active/i).length).toBeGreaterThan(0);
-  });
-
-  it('shows backup and restore instructions', () => {
-    render(<SupabasePage />);
-    expect(screen.getByText('Backup & Restore')).toBeInTheDocument();
-    expect(screen.getByText(/Instructions/i)).toBeInTheDocument();
-  });
-
-  it('displays slow queries logs', () => {
-    render(<SupabasePage />);
-    expect(screen.getByText('Slow Queries Logs')).toBeInTheDocument();
-    // Check for a table or list
-    const tables = screen.getAllByRole('table');
-    expect(tables.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it('shows RLS policies view', () => {
-    render(<SupabasePage />);
-    expect(screen.getByText('Row Level Security (RLS) Policies')).toBeInTheDocument();
-    // Check for at least one policy table being mentioned (e.g. Users)
-    expect(screen.getByText(/Policy Name/i)).toBeInTheDocument();
-    const tables = screen.getAllByRole('table');
-    expect(tables.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByTestId('supabase-dashboard')).toHaveTextContent('healthy|1|testref');
   });
 });

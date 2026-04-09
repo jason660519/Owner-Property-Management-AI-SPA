@@ -8,9 +8,26 @@ jest.mock('@/components/ai-settings', () => ({
   ApiKeyManager: React.forwardRef((_props: object, _ref: React.Ref<unknown>) => (
     <div data-testid="api-key-manager" />
   )),
-  ModelEvaluator: React.forwardRef((_props: object, _ref: React.Ref<unknown>) => (
-    <div data-testid="model-evaluator" />
-  )),
+  ModelEvaluator: React.forwardRef(
+    (
+      {
+        globalTestPrompt,
+        onChangeGlobalTestPrompt,
+      }: {
+        globalTestPrompt: string;
+        onChangeGlobalTestPrompt: (next: string) => void;
+      },
+      _ref: React.Ref<unknown>,
+    ) => (
+      <div data-testid="model-evaluator">
+        <textarea
+          placeholder="全域 Prompt"
+          value={globalTestPrompt}
+          onChange={(e) => onChangeGlobalTestPrompt((e.target as HTMLTextAreaElement).value)}
+        />
+      </div>
+    ),
+  ),
   FeatureModuleSelector: () => <div data-testid="feature-module-selector" />,
 }));
 
@@ -34,6 +51,7 @@ jest.mock('@/lib/hooks/useAISettings', () => ({
     models: [],
     evaluations: [],
     modules: [],
+    prompts: [],
     validationCacheByKeyId: {},
     validationSummary: { totalModels: 0 },
     saveKey: jest.fn(),
@@ -43,6 +61,8 @@ jest.mock('@/lib/hooks/useAISettings', () => ({
     testModel: jest.fn(),
     saveModels: jest.fn(),
     saveModule: jest.fn(),
+    savePrompt: jest.fn(),
+    deletePrompt: jest.fn(),
     exportSettings: mockExportSettings,
     importSettings: mockImportSettings,
     saveValidationSummary: jest.fn(),
