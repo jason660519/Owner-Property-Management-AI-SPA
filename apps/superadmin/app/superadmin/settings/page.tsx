@@ -122,7 +122,7 @@ export default function SettingsPage() {
                   AI 模型全域評測
                 </CardTitle>
                 <CardDescription>
-                  對所有已啟用的 AI 模型執行全域測試，比較各模型的回應品質與效能。
+                  進入 AI 模型全域評測頁，集中上傳測試檔案、設定全域 Prompt，並比較各模型的回應品質與效能。
                 </CardDescription>
               </CardHeader>
             </Card>

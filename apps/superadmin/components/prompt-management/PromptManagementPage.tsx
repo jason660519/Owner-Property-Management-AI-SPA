@@ -15,7 +15,7 @@ import { usePromptManager } from './usePromptManager';
 import { exportPromptsAsMd } from './PromptFileIO';
 import { bulkExportPrompts } from '@/app/superadmin/settings/evaluations-global-test/promptActions';
 import { PROMPT_LOAD_MESSAGE_TYPE } from './types';
-import type { SavePromptOpts, PromptSortField } from './types';
+import type { SavePromptOpts, PromptSortField, PromptCategory } from './types';
 import type { TranscriptParsePreset } from '@/lib/transcript-parse-scenario-prompts';
 import { seedDefaultPrompts } from './seedDefaultPrompts';
 
@@ -150,6 +150,36 @@ export function PromptManagementPage({ transcriptParsePresets }: PromptManagemen
         </Button>
       </div>
 
+      {/* Category tabs */}
+      <div className="flex items-center gap-1 border-b border-border-default pb-1">
+        {([
+          { key: 'all' as PromptCategory, label: '全部', count: mgr.categoryCounts.all },
+          { key: 'system' as PromptCategory, label: '系統預設', count: mgr.categoryCounts.system },
+          { key: 'custom' as PromptCategory, label: '自建', count: mgr.categoryCounts.custom },
+        ]).map(tab => {
+          const active = mgr.filters.category === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => mgr.setFilters({ category: tab.key })}
+              className={`px-3 py-1.5 text-sm rounded-t-md transition-colors ${
+                active
+                  ? 'text-accent border-b-2 border-accent font-medium'
+                  : 'text-text-muted hover:text-text-primary'
+              }`}
+            >
+              {tab.label}
+              <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
+                active ? 'bg-accent/15 text-accent' : 'bg-bg-tertiary text-text-muted'
+              }`}>
+                {tab.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Tag filter */}
       <PromptTagFilter
         allTags={mgr.allTags}
@@ -161,7 +191,7 @@ export function PromptManagementPage({ transcriptParsePresets }: PromptManagemen
       {/* Opener hint */}
       {!hasOpener && (
         <div className="text-xs text-text-muted bg-bg-secondary rounded-md px-3 py-2 border border-border-subtle">
-          從「謄本解析」或「統一測試」頁面點擊「在新分頁開啟」後，表格操作欄會出現「載入」按鈕，可將 Prompt 自動填回該頁。
+          從「謄本解析」或「AI 模型全域評測」頁面點擊「在新分頁開啟」後，表格操作欄會出現「載入」按鈕，可將 Prompt 自動填回該頁。
         </div>
       )}
 
@@ -206,7 +236,6 @@ export function PromptManagementPage({ transcriptParsePresets }: PromptManagemen
           onToggleSelection={mgr.toggleSelection}
           onSelectAll={mgr.selectAll}
           onClearSelection={mgr.clearSelection}
-          onToggleFavorite={mgr.toggleFavorite}
           onEdit={mgr.openEditor}
           onDelete={mgr.removePrompt}
           onLoad={hasOpener ? handleLoad : undefined}

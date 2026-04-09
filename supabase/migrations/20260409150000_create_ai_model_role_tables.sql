@@ -31,16 +31,24 @@ CREATE POLICY "ai_model_role_tags_service_all"
   USING (true)
   WITH CHECK (true);
 
--- Updated_at trigger
+-- Updated_at trigger (manual function to avoid moddatetime extension dependency)
+CREATE OR REPLACE FUNCTION update_ai_model_role_tags_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE TRIGGER set_updated_at_ai_model_role_tags
   BEFORE UPDATE ON ai_model_role_tags
   FOR EACH ROW
-  EXECUTE FUNCTION moddatetime(updated_at);
+  EXECUTE FUNCTION update_ai_model_role_tags_updated_at();
 
 -- Seed 10 predefined tags
 INSERT INTO ai_model_role_tags (tag_key, tag_label, description, sort_order, is_system) VALUES
-  ('online_classification',    '模型功能職責分類組（線上查詢）', '負責上網查詢各模型的主要功能，並作分類推薦', 1,  true),
-  ('offline_classification',   '模型功能職責分類組（線下判斷）', '根據統一測試後的結果判斷模型的表現，並給出分類推薦', 2,  true),
+  ('online_classification',    '網路查詢分類', '由 AI 根據訓練知識，查詢各模型的公開能力資訊來推薦分類', 1,  true),
+  ('offline_classification',   'API Response 分類', '根據各分頁實際測試模型後的 API 回應結果來推薦分類', 2,  true),
   ('transcript_detection',     '謄本建號地號筆數偵測組',         '負責偵測 user 上傳的謄本中，有幾筆建號、幾筆地號', 3,  true),
   ('transcript_review',        '謄本建號地號筆數審核組',         '負責審核偵測組偵測到的建號、地號筆數是否正確', 4,  true),
   ('transcript_visual_parse',  '謄本視覺解析組',                 '負責解析 user 指定的謄本內容', 5,  true),

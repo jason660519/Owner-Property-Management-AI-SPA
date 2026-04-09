@@ -250,10 +250,10 @@ export default function EvaluationsGlobalTestPage() {
           />
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-text-primary">
-              已選/可選模型評估 - 統一測試
+              AI 模型全域評測
             </h2>
             <p className="text-[11px] text-text-muted">
-              先篩選模型公司並勾選被測模型後，再執行單一測試或統一測試
+              先篩選模型公司並勾選被測模型後，再執行單一測試或全域評測
             </p>
           </div>
         </div>
@@ -303,7 +303,7 @@ export default function EvaluationsGlobalTestPage() {
           { label: '首頁', href: '/' },
           { label: '超級管理員專區', href: '/superadmin' },
           { label: '設定', href: '/superadmin/settings' },
-          { label: '模型評估統一測試' },
+          { label: 'AI 模型全域評測' },
         ]}
         fixedContent={fixedHeader}
         contentFullHeight
@@ -324,7 +324,7 @@ export default function EvaluationsGlobalTestPage() {
           { label: '首頁', href: '/' },
           { label: '超級管理員專區', href: '/superadmin' },
           { label: '設定', href: '/superadmin/settings' },
-          { label: '模型評估統一測試' },
+          { label: 'AI 模型全域評測' },
         ]}
         fixedContent={fixedHeader}
         contentFullHeight
@@ -350,7 +350,7 @@ export default function EvaluationsGlobalTestPage() {
         { label: '首頁', href: '/' },
         { label: '超級管理員專區', href: '/superadmin' },
         { label: '設定', href: '/superadmin/settings' },
-        { label: '模型評估統一測試' },
+        { label: 'AI 模型全域評測' },
       ]}
       fixedContent={fixedHeader}
       contentFullHeight
@@ -403,16 +403,16 @@ export default function EvaluationsGlobalTestPage() {
 
           {/* Global test & Prompt settings panel — right */}
           <section
-            aria-label="統一測試與Prompt設定"
+            aria-label="AI 模型全域評測與 Prompt 設定"
             className="rounded-base border border-border-default bg-bg-primary shadow-sm w-full lg:w-[420px] lg:min-w-[380px] lg:flex-shrink-0 lg:overflow-y-auto"
           >
             <div className="border-b border-border-subtle px-4 py-3">
               <h2 className="flex items-center gap-2 text-sm font-semibold text-text-primary">
                 <FlaskConical className="h-5 w-5" />
-                統一測試與Prompt設定
+                AI 模型全域評測與 Prompt 設定
               </h2>
               <p className="mt-0.5 text-xs text-text-secondary">
-                上傳測試檔案、設定全域測試 Prompt，並一鍵對已選模型執行統一測試。
+                上傳測試檔案、設定全域評測 Prompt，並一鍵對已選模型執行 AI 模型全域評測。
               </p>
             </div>
 
@@ -480,7 +480,7 @@ export default function EvaluationsGlobalTestPage() {
                   <textarea
                     value={globalTestPrompt}
                     onChange={(e) => setGlobalTestPrompt(e.target.value)}
-                    placeholder="全域 Prompt，每列可留空或填 {預設prompt} 使用此內容；可自訂每列專屬 Prompt"
+                    placeholder="全域評測 Prompt，每列可留空或填 {預設prompt} 使用此內容；可自訂每列專屬 Prompt"
                     rows={12}
                     className="w-full rounded border border-border-subtle bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent resize-y min-h-[240px]"
                     title="輸入任意 prompt，每列測試時會使用此內容"
@@ -530,14 +530,14 @@ export default function EvaluationsGlobalTestPage() {
                     ) : (
                       <FlaskConical size={14} />
                     )}
-                    <span className="ml-1.5 whitespace-nowrap">開始統一測試</span>
+                    <span className="ml-1.5 whitespace-nowrap">開始全域評測</span>
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => modelEvaluatorHeaderActions?.abortBatchTest?.()}
                     disabled={!modelEvaluatorHeaderActions?.batchTesting}
-                    title="中斷或暫停目前正在執行的統一測試（當前批次完成後停止）"
+                    title="中斷或暫停目前正在執行的 AI 模型全域評測（當前批次完成後停止）"
                     className="shrink-0"
                   >
                     <Pause size={14} />

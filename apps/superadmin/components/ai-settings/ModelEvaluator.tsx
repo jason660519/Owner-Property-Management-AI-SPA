@@ -157,7 +157,7 @@ export interface ModelEvaluatorProps {
   ) => Promise<void>;
   /** Optional: hide specific feature module columns in this page only */
   hiddenModuleKeys?: string[];
-  /** 由頁首控制的全域測試 Prompt 與檔案（提升 state 以便顯示在固定標題區） */
+  /** 由頁首控制的全域評測 Prompt 與檔案（提升 state 以便顯示在固定標題區） */
   globalTestPrompt: string;
   onChangeGlobalTestPrompt: (value: string) => void;
   uploadedFile: File | null;
@@ -587,7 +587,7 @@ export function ModelEvaluator({
   const batchAbortRequestedRef = useRef(false);
   const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
   const [batchResults, setBatchResults] = useState<BatchResultEntry[] | null>(null);
-  /** 上次統一測試完成後的摘要，供畫面顯示「測試前已選 N 筆 → 成功 X、失敗 Y」，不影響模型勾選 */
+  /** 上次全域評測完成後的摘要，供畫面顯示「測試前已選 N 筆 → 成功 X、失敗 Y」，不影響模型勾選 */
   const [lastBatchTestSummary, setLastBatchTestSummary] = useState<{
     selectedBeforeTest: number;
     total: number;
@@ -1223,7 +1223,7 @@ export function ModelEvaluator({
       ).length,
     [allRows, selectedSet, validProviders],
   );
-  /** 篩選後列表中的已選且具金鑰數量，與工具列「已選被測模型數」對齊；有篩選時統一測試用此數量 */
+  /** 篩選後列表中的已選且具金鑰數量，與工具列「已選被測模型數」對齊；有篩選時全域評測用此數量 */
   const testableCountFiltered = useMemo(
     () =>
       rowsAfterCategoryFilter.filter(
@@ -1232,7 +1232,7 @@ export function ModelEvaluator({
     [rowsAfterCategoryFilter, selectedSet, validProviders],
   );
   const hasCategoryFilter = rowsAfterCategoryFilter.length !== allRows.length;
-  /** 統一測試按鈕顯示的數量：有篩選時用篩選後可測數，無篩選時用全部可測數，與實際執行一致 */
+  /** 全域評測按鈕顯示的數量：有篩選時用篩選後可測數，無篩選時用全部可測數，與實際執行一致 */
   const batchTestableCount = hasCategoryFilter ? testableCountFiltered : testableCount;
   const allFilteredSelected = rowsAfterCategoryFilter.length > 0 && filteredSelectedCount === rowsAfterCategoryFilter.length;
   const someFilteredSelected = filteredSelectedCount > 0;
@@ -1605,7 +1605,7 @@ export function ModelEvaluator({
       totalCount: allRows.length,
       filteredTotal: rowsAfterCategoryFilter.length,
       filteredSelectedCount,
-      /** 上次統一測試完成摘要：測試前已選 N 筆、成功 X、失敗 Y，供畫面顯示；不影響模型勾選 */
+      /** 上次全域評測完成摘要：測試前已選 N 筆、成功 X、失敗 Y，供畫面顯示；不影響模型勾選 */
       lastBatchTestSummary,
       hasRecentBatchReport,
       openRecentBatchReport,
@@ -2637,7 +2637,7 @@ export function ModelEvaluator({
                   className="w-full rounded border border-border-subtle bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent resize-y min-h-[160px]"
                 />
                 <p className="text-[11px] text-text-muted">
-                  若留空，實際執行時會自動 fallback 至此列設定的 Prompt 或全域測試 Prompt。
+                  若留空，實際執行時會自動 fallback 至此列設定的 Prompt 或全域評測 Prompt。
                 </p>
               </div>
 

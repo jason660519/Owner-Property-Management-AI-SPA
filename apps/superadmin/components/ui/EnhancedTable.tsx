@@ -378,6 +378,17 @@ export default function EnhancedTable<T>({
                   </button>
                   {catDropdownOpen && (
                     <div className="absolute left-0 top-full mt-1 z-50 min-w-[220px] max-h-[280px] overflow-y-auto bg-bg-primary border border-border-default rounded-lg shadow-lg py-2">
+                      {/* Select All / Deselect All */}
+                      <label className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-bg-secondary text-sm font-medium text-text-primary border-b border-border-default mb-1">
+                        <input type="checkbox"
+                          checked={selectedCategories.size === categoryList.length && categoryList.length > 0}
+                          ref={(el) => { if (el) el.indeterminate = selectedCategories.size > 0 && selectedCategories.size < categoryList.length; }}
+                          onChange={() => setSelectedCategories(prev =>
+                            prev.size === categoryList.length ? new Set() : new Set(categoryList)
+                          )}
+                          className="rounded border-border-default text-emerald-600 focus:ring-emerald-500/20" />
+                        <span>全選</span>
+                      </label>
                       {categoryList.map(cat => (
                         <label key={cat} className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-bg-secondary text-sm text-text-primary">
                           <input type="checkbox" checked={selectedCategories.has(cat)}

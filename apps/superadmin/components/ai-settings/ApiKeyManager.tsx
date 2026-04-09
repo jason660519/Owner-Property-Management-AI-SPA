@@ -28,14 +28,14 @@ interface ApiKeyManagerProps {
 }
 
 export interface ApiKeyManagerHandle {
-  /** 保留以相容既有 ref 使用；目前無需取得模型勾選（模型選擇僅在「統一測試設定」頁） */
+  /** 保留以相容既有 ref 使用；目前無需取得模型勾選（模型選擇僅在「AI 模型全域評測」頁） */
   getModelSelections?: () => Record<string, string[]>;
 }
 
 interface ProviderKeyRowProps {
   provider: AIProviderInfo;
   savedKey?: SavedKey;
-  /** 該 provider 在 DB 的已選模型（唯讀顯示；實際選擇請至「統一測試設定」頁） */
+  /** 該 provider 在 DB 的已選模型（唯讀顯示；實際選擇請至「AI 模型全域評測」頁） */
   providerSavedModels?: SavedModel[];
   /** 全部驗證完成後傳入的該 key 結果，用於直接顯示 Available models 無需再按「驗證金鑰」 */
   validationResultFromValidateAll?: KeyValidationResult;
@@ -327,7 +327,7 @@ function ProviderKeyRow({ provider, savedKey, providerSavedModels = [], validati
         <span>Base URL: <code className="text-text-secondary">{provider.baseUrl}</code></span>
       </div>
 
-      {/* 已選模型（唯讀；選擇/變更請至「統一測試設定」頁） */}
+      {/* 已選模型（唯讀；選擇/變更請至「AI 模型全域評測」頁） */}
       {savedKey && providerSavedModels.length > 0 && (
         <div className="mt-2 space-y-0.5 text-[11px] text-text-muted">
           <div className="flex items-center gap-2">
@@ -337,14 +337,14 @@ function ProviderKeyRow({ provider, savedKey, providerSavedModels = [], validati
             </span>
           </div>
           <p className="text-[10px] text-text-muted">
-            選擇或變更模型請至「統一測試設定」頁。
+            選擇或變更模型請至「AI 模型全域評測」頁。
           </p>
         </div>
       )}
       {savedKey && providerSavedModels.length === 0 && (
         <div className="mt-2 space-y-0.5 text-[11px] text-text-muted">
           <p className="text-[10px] text-text-muted">
-            尚未選擇模型 — 前往「統一測試設定」頁選擇。
+            尚未選擇模型 — 前往「AI 模型全域評測」頁選擇。
           </p>
         </div>
       )}

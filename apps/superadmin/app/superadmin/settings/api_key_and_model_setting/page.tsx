@@ -1,10 +1,16 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import {
-  Key, FlaskConical, ScanText, Globe, FileSignature, BookOpen, Home,
-  Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download, BookMarked,
+  Key, FlaskConical, ScanText, BookMarked,
+  Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download,
 } from 'lucide-react';
+
+const ModelRoleCatalogTable = dynamic(
+  () => import('./model-role-catalog/ModelRoleCatalogTable'),
+  { loading: () => <div className="flex justify-center py-20"><Loader2 className="animate-spin" size={18} /></div> },
+);
 import { BottomSheetTabs, type SheetTabDef } from '@/components/ui/BottomSheetTabs';
 import { readLocalStorage, writeLocalStorage } from '@/lib/utils/storage-state';
 import { DashboardLayout } from '@/components/dashboard';
@@ -21,15 +27,15 @@ import { getProviderById, AI_PROVIDERS } from '@/lib/ai-providers';
 import { SUPPORTED_AI_ENV_KEY_NAMES } from '@/lib/parse-env-keys';
 
 
-type SettingsTab = 'keys' | 'ocr' | 'static-ad' | 'contract' | 'blog' | 'property-description';
+type SettingsTab = 'keys' | 'model-analysis' | 'ocr';
 
-const TAB_IDS: SettingsTab[] = ['keys', 'ocr', 'static-ad', 'contract', 'blog', 'property-description'];
+const TAB_IDS: SettingsTab[] = ['keys', 'model-analysis', 'ocr'];
 
 const LS_GLOBAL_PROMPT = 'ai-settings:globalTestPrompt';
 const LS_SAVED_PROMPTS = 'ai-settings:savedPrompts';
 const LS_LAST_PROMPT_NAME_BY_MODULE = 'ai-settings:lastPromptNameByModule';
 
-type SavedPromptCategory = 'general' | 'ocr' | 'static-ad' | 'contract' | 'blog' | 'property-description';
+type SavedPromptCategory = 'general' | 'ocr';
 
 type SavedPrompt = {
   id: string;
@@ -135,11 +141,8 @@ function getTabFromHash(): SettingsTab | null {
 
 const TABS: { id: SettingsTab; label: string; icon: React.ElementType; description: string }[] = [
   { id: 'keys', label: 'API 金鑰管理', icon: Key, description: '管理各 AI 服務提供商的 API 金鑰' },
+  { id: 'model-analysis', label: '模型職責分析', icon: FlaskConical, description: '分析所有模型的職責分類標籤' },
   { id: 'ocr', label: 'OCR解析設定', icon: ScanText, description: '設定 OCR 解析模型與參數' },
-  { id: 'static-ad', label: '靜態網頁廣告生成器 AI 助理', icon: Globe, description: '自動生成不動產靜態網頁廣告' },
-  { id: 'contract', label: '合約生成AI助理', icon: FileSignature, description: '自動生成不動產合約文件' },
-  { id: 'blog', label: '部落格生成 AI 助理設定', icon: BookOpen, description: '自動生成不動產部落格文章' },
-  { id: 'property-description', label: '物件介紹文案 AI 助理設定', icon: Home, description: '自動生成物件介紹草稿與行銷描述' },
 ];
 
 const ENV_IMPORT_TOOLTIP = `從 .env 或 JSON 導入\n支援兩種格式：\n• .env：KEY=value 或 export KEY=value\n• JSON：{"OPENAI_API_KEY":"sk-..."} 等頂層 key\n變數名大小寫不拘、拼寫需正確；僅下列金鑰會被辨識：${SUPPORTED_AI_ENV_KEY_NAMES.join('、')}`;
@@ -154,67 +157,16 @@ const OCR_HIDDEN_MODULE_KEYS = [
   'ttd_engineer',
 ];
 
-const STATIC_AD_HIDDEN_MODULE_KEYS = [
-  'online_ocr_parse',
-  'online_ocr_judge',
-  'web_assistant',
-  'contract_assistant',
-  'blog_generator',
-  'property_description',
-  'software_dev_engineer',
-  'ttd_engineer',
-];
-
-const CONTRACT_HIDDEN_MODULE_KEYS = [
-  'online_ocr_parse',
-  'online_ocr_judge',
-  'web_assistant',
-  'blog_generator',
-  'property_description',
-  'ad_generator',
-  'software_dev_engineer',
-  'ttd_engineer',
-];
-
-const BLOG_HIDDEN_MODULE_KEYS = [
-  'online_ocr_parse',
-  'online_ocr_judge',
-  'web_assistant',
-  'contract_assistant',
-  'property_description',
-  'ad_generator',
-  'software_dev_engineer',
-  'ttd_engineer',
-];
-
-const PROPERTY_DESCRIPTION_HIDDEN_MODULE_KEYS = [
-  'online_ocr_parse',
-  'online_ocr_judge',
-  'web_assistant',
-  'contract_assistant',
-  'blog_generator',
-  'ad_generator',
-  'software_dev_engineer',
-  'ttd_engineer',
-];
-
 /** Map each evaluator tab to its hidden module keys and optional statusLabelMode */
 const EVALUATOR_TAB_CONFIG: Record<string, { hiddenModuleKeys: string[]; statusLabelMode?: 'vlm' | 'ocr' }> = {
   ocr: { hiddenModuleKeys: OCR_HIDDEN_MODULE_KEYS, statusLabelMode: 'ocr' },
-  'static-ad': { hiddenModuleKeys: STATIC_AD_HIDDEN_MODULE_KEYS },
-  contract: { hiddenModuleKeys: CONTRACT_HIDDEN_MODULE_KEYS },
-  blog: { hiddenModuleKeys: BLOG_HIDDEN_MODULE_KEYS },
-  'property-description': { hiddenModuleKeys: PROPERTY_DESCRIPTION_HIDDEN_MODULE_KEYS },
 };
 
 /** Bottom sheet tab definitions for Excel-style navigation */
 const SHEET_TABS: SheetTabDef[] = [
   { id: 'keys', label: 'API Keys', zhLabel: 'API 金鑰管理', icon: Key, color: 'text-amber-600', activeColor: 'bg-amber-600 text-white' },
+  { id: 'model-analysis', label: 'Analysis', zhLabel: '模型職責分析', icon: FlaskConical, color: 'text-cyan-600', activeColor: 'bg-cyan-600 text-white' },
   { id: 'ocr', label: 'OCR', zhLabel: 'OCR解析設定', icon: ScanText, color: 'text-blue-600', activeColor: 'bg-blue-600 text-white' },
-  { id: 'static-ad', label: 'Static Ad', zhLabel: '靜態網頁廣告', icon: Globe, color: 'text-emerald-600', activeColor: 'bg-emerald-600 text-white' },
-  { id: 'contract', label: 'Contract', zhLabel: '合約生成', icon: FileSignature, color: 'text-purple-600', activeColor: 'bg-purple-600 text-white' },
-  { id: 'blog', label: 'Blog', zhLabel: '部落格生成', icon: BookOpen, color: 'text-rose-600', activeColor: 'bg-rose-600 text-white' },
-  { id: 'property-description', label: 'Property', zhLabel: '物件介紹文案', icon: Home, color: 'text-orange-600', activeColor: 'bg-orange-600 text-white' },
 ];
 
 
@@ -245,7 +197,7 @@ export default function AIServiceSettingsPage() {
     keysRef.current = settings.keys;
   }, [settings.keys]);
 
-  // Model tabs: 全域測試 Prompt 與共用檔案（供 ModelEvaluator 使用）
+  // Model tabs: 全域評測 Prompt 與共用檔案（供 ModelEvaluator 使用）
   // DEFAULT_EVALUATION_PROMPT is defined at module level (see below)
   const [globalTestPrompt, setGlobalTestPrompt] = useState<string>(
     () => readLocalStorage(LS_GLOBAL_PROMPT, DEFAULT_EVALUATION_PROMPT)
@@ -347,14 +299,6 @@ export default function AIServiceSettingsPage() {
     switch (tabId) {
       case 'ocr':
         return 'ocr';
-      case 'static-ad':
-        return 'static-ad';
-      case 'contract':
-        return 'contract';
-      case 'blog':
-        return 'blog';
-      case 'property-description':
-        return 'property-description';
       case 'keys':
       default:
         return 'general';
@@ -455,14 +399,6 @@ export default function AIServiceSettingsPage() {
     switch (tabId) {
       case 'ocr':
         return 'eval_ocr_global_prompt';
-      case 'static-ad':
-        return 'eval_static_ad_global_prompt';
-      case 'contract':
-        return 'eval_contract_global_prompt';
-      case 'blog':
-        return 'eval_blog_global_prompt';
-      case 'property-description':
-        return 'eval_property_description_global_prompt';
       case 'keys':
       default:
         return 'eval_general_global_prompt';
@@ -634,6 +570,17 @@ export default function AIServiceSettingsPage() {
       );
     }
 
+    // --- Model analysis tab ---
+    if (activeTab === 'model-analysis') {
+      return (
+        <ModelRoleCatalogTable
+          savedKeys={settings.keys}
+          validationCache={validateAllResultsByKeyId}
+          userId={settings.userId}
+        />
+      );
+    }
+
     // --- Evaluator tabs (ocr / static-ad / contract / blog / property-description) ---
     const tabConfig = EVALUATOR_TAB_CONFIG[activeTab];
     if (!tabConfig) return null;
@@ -795,10 +742,10 @@ export default function AIServiceSettingsPage() {
                   window.open('/superadmin/settings/evaluations-global-test', '_blank', 'noopener,noreferrer');
                 }}
                 className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 bg-bg-secondary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary border border-border-subtle"
-                title="另開分頁開啟獨立的統一測試設定頁面"
+                title="另開分頁開啟 AI 模型全域評測頁面"
               >
                 <FlaskConical size={14} className="text-text-muted" />
-                <span>統一測試設定</span>
+                <span>AI 模型全域評測</span>
               </button>
               {activeTab !== 'keys' && (
                 <>
@@ -971,7 +918,7 @@ export default function AIServiceSettingsPage() {
               </p>
               <ol className="list-decimal list-inside space-y-1 text-xs text-text-secondary">
                 <li>在「API 金鑰管理」新增各提供商的 API 金鑰；可用「驗證金鑰」確認可用性並取得可選模型清單。</li>
-                <li>前往「統一測試設定」頁勾選要納入候選的模型（可測試連線）。</li>
+                <li>前往「AI 模型全域評測」頁勾選要納入候選的模型（可測試連線）。</li>
               </ol>
             </div>
           </div>

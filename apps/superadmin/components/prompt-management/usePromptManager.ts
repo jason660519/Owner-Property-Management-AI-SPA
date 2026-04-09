@@ -11,7 +11,7 @@ import {
   toggleFavorite as toggleFavoriteAction,
 } from '@/app/superadmin/settings/evaluations-global-test/promptActions';
 import type { SavedPrompt, SavePromptOpts } from './types';
-import { DEFAULT_FILTERS, type PromptFilters } from './types';
+import { DEFAULT_FILTERS, SYSTEM_TAG, type PromptFilters } from './types';
 
 interface PromptManagerState {
   prompts: SavedPrompt[];
@@ -45,6 +45,12 @@ export function usePromptManager() {
     return Array.from(tagSet).sort();
   }, [state.prompts]);
 
+  // Category counts (computed from all prompts, unaffected by filters)
+  const categoryCounts = useMemo(() => {
+    const system = state.prompts.filter(p => p.tags.includes(SYSTEM_TAG)).length;
+    return { all: state.prompts.length, system, custom: state.prompts.length - system };
+  }, [state.prompts]);
+
   // Filtered and sorted prompts
   const filteredPrompts = useMemo(() => {
     let result = state.prompts;
@@ -58,6 +64,13 @@ export function usePromptManager() {
              p.description.toLowerCase().includes(q) ||
              p.tags.some(t => t.toLowerCase().includes(q))
       );
+    }
+
+    // Filter by category
+    if (state.filters.category === 'system') {
+      result = result.filter(p => p.tags.includes(SYSTEM_TAG));
+    } else if (state.filters.category === 'custom') {
+      result = result.filter(p => !p.tags.includes(SYSTEM_TAG));
     }
 
     // Filter by tags (AND logic: prompt must have all selected tags)
@@ -210,6 +223,7 @@ export function usePromptManager() {
   return {
     ...state,
     allTags,
+    categoryCounts,
     filteredPrompts,
     fetchPrompts,
     createPrompt,

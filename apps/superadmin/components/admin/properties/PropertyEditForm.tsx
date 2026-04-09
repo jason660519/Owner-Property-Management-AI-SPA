@@ -289,6 +289,11 @@ export function PropertyEditForm({
     });
   }
 
+  // Clear feedback when switching tabs
+  useEffect(() => {
+    setFeedback(null);
+  }, [activeTab]);
+
   useEffect(() => {
     return () => {
       if (successFeedbackTimeoutRef.current) {
