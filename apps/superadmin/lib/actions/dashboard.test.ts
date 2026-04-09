@@ -20,6 +20,7 @@ describe('getAdminDashboardStats', () => {
         },
       },
       from: jest.fn(),
+      rpc: jest.fn().mockResolvedValue({ data: {}, error: null }),
     };
   }
 
@@ -53,37 +54,37 @@ describe('getAdminDashboardStats', () => {
       callCounts[table] = (callCounts[table] || 0) + 1;
       const callNum = callCounts[table];
 
-      if (table === 'property_sales') {
-        if (callNum === 1) {
-          // Total sales count (no .eq filter)
-          return {
-            select: jest.fn(() => ({ count: salesCount, error: salesError })),
-          };
+      const chainable = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+        count: 0,
+        error: null,
+        data: null,
+        then: function(resolve: any) {
+          resolve({ count: this.count, error: this.error, data: this.data });
         }
-        // Active listings (with .eq('status', 'available'))
-        return {
-          select: jest.fn(() => ({
-            eq: jest.fn(() => ({ count: activeListings, error: activeListingsError })),
-          })),
-        };
+      };
+
+      if (table === 'property_sales') {
+        if (callNum === 1) chainable.count = salesCount || 0;
+        else if (callNum === 2) chainable.count = activeListings || 0;
+        else chainable.count = 0;
+        if (callNum === 1) chainable.error = salesError as any;
+        else if (callNum === 2) chainable.error = activeListingsError as any;
+        return chainable;
       }
 
       if (table === 'property_rentals') {
-        if (callNum === 1) {
-          // Total rentals count (no .eq filter)
-          return {
-            select: jest.fn(() => ({ count: rentalsCount, error: rentalsError })),
-          };
-        }
-        // Active rentals (with .eq('status', 'rented'))
-        return {
-          select: jest.fn(() => ({
-            eq: jest.fn(() => ({ count: activeRentals, error: activeRentalsError })),
-          })),
-        };
+        if (callNum === 1) chainable.count = rentalsCount || 0;
+        else if (callNum === 2) chainable.count = activeRentals || 0;
+        else chainable.count = 0;
+        if (callNum === 1) chainable.error = rentalsError as any;
+        else if (callNum === 2) chainable.error = activeRentalsError as any;
+        return chainable;
       }
 
-      return { select: jest.fn(() => ({ count: 0, error: null })) };
+      return chainable;
     });
   }
 

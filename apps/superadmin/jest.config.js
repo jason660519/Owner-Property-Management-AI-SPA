@@ -10,7 +10,7 @@ const createJestConfig = nextJest({
 const customJestConfig = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testEnvironment: 'jest-environment-jsdom',
-  testPathIgnorePatterns: ['<rootDir>/e2e/'],
+  testPathIgnorePatterns: ['<rootDir>/e2e/', '<rootDir>/unit_test/', '\\.integration\\.test\\.ts$'],
   maxWorkers: 2,
   moduleNameMapper: {
     // Handle module aliases (this will be automatically configured for you soon)

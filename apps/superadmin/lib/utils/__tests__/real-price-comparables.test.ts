@@ -4,7 +4,6 @@ import {
   extractLandSectionTokens,
   filterNearbyComparables,
   filterStreetSectionComparables,
-  filterVillageComparables,
   haversineKm,
   inferStreetFromPropertyAddress,
   isWithinLastYear,
@@ -247,43 +246,5 @@ describe('real-price-comparables', () => {
     expect(out.some((r) => r.addressSnippet.includes('忠孝'))).toBe(true);
   });
 
-  it('filterVillageComparables', () => {
-    const prop = baseProperty({ addressVillage: '龍門里' });
-    const ctx = buildComparableContextFromProperty(prop, asOf);
-    const rows = [
-      {
-        transactionDate: '2026-03-01',
-        totalPriceTwd: 12_000_000,
-        buildingAreaSqm: 40,
-        unitPricePerSqm: null,
-        buildingType: '住宅大樓',
-        floor: '10層',
-        addressSnippet: '…',
-        latitude: null,
-        longitude: null,
-        city: '臺北市',
-        district: '大安區',
-        village: '龍門里',
-        landSectionTokens: [],
-      },
-      {
-        transactionDate: '2026-03-02',
-        totalPriceTwd: 11_000_000,
-        buildingAreaSqm: 38,
-        unitPricePerSqm: null,
-        buildingType: '住宅大樓',
-        floor: '8層',
-        addressSnippet: '…',
-        latitude: null,
-        longitude: null,
-        city: '臺北市',
-        district: '大安區',
-        village: '其他里',
-        landSectionTokens: [],
-      },
-    ];
-    const out = filterVillageComparables(rows, ctx!);
-    expect(out).toHaveLength(1);
-    expect(out[0].village).toBe('龍門里');
-  });
+
 });

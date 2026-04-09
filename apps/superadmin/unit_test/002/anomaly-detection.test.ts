@@ -2,20 +2,20 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { runAnomalyDetection } from '@/app/superadmin/dashboard/behavior-monitoring/actions';
 import { createAdminClient } from '@/utils/supabase/admin';
 
-vi.mock('@/utils/supabase/admin', () => ({
-  createAdminClient: vi.fn(),
+jest.mock('@/utils/supabase/admin', () => ({
+  createAdminClient: jest.fn(),
 }));
 
-vi.mock('next/cache', () => ({
-  revalidatePath: vi.fn(),
+jest.mock('next/cache', () => ({
+  revalidatePath: jest.fn(),
 }));
 
-describe('runAnomalyDetection', () => {
-  const rpcMock = vi.fn();
+describe('Anomaly Detection Admin Actions', () => {
+  const rpcMock = jest.fn();
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    (createAdminClient as unknown as vi.Mock).mockReturnValue({
+    jest.clearAllMocks();
+    (createAdminClient as unknown as jest.Mock).mockReturnValue({
       rpc: rpcMock,
     });
   });

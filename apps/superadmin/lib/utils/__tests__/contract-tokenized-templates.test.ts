@@ -36,8 +36,8 @@ describe('contract-tokenized-templates', () => {
     expect(template).toContain('{{copyRetentionHolder}}');
     expect(template).toContain('{{paymentScheduleRows}}');
     expect(template).toContain('{{transcriptSectionCards}}');
-    expect(template).toContain('第十條 違約罰則');
-    expect(template).toContain('第十二條 契約分存');
+    expect(template).toContain('第十條　違約罰則');
+    expect(template).toContain('第十二條　契約分存');
   });
 
   it('replaces placeholders with mapped values', () => {

@@ -364,11 +364,11 @@ describe('contract-document-renderer', () => {
 
     expect(html).toContain('成屋買賣契約書草稿');
     expect(html).toContain('契約審閱權');
-    expect(html).toContain('第一條 買賣標的');
-    expect(html).toContain('第三條 付款約定');
-    expect(html).toContain('第七條 稅費負擔');
-    expect(html).toContain('第八條 點交');
-    expect(html).toContain('第十條 違約罰則');
+    expect(html).toContain('第一條　買賣標的');
+    expect(html).toContain('第三條　付款約定');
+    expect(html).toContain('第七條　稅費負擔');
+    expect(html).toContain('第八條　點交');
+    expect(html).toContain('第十條　違約罰則');
     expect(html).toContain('價金履約保證專戶辦理。');
     expect(html).toContain('若有未盡事宜，雙方同意另以書面特約補充。');
     expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
