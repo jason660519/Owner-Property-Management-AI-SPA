@@ -13,6 +13,17 @@ jest.mock('next/cache', () => ({
   revalidateTag: jest.fn(),
 }))
 
+jest.mock('next/headers', () => {
+  const cookieStore = {
+    getAll: jest.fn(() => []),
+    set: jest.fn(),
+  }
+  return {
+    cookies: jest.fn(async () => cookieStore),
+    headers: jest.fn(async () => new Headers()),
+  }
+})
+
 // Mock fetch globally（整合測試設 SUPABASE_INTEGRATION_TEST=1 以使用真實 fetch 連本機／遠端 Supabase）
 if (process.env.SUPABASE_INTEGRATION_TEST !== '1') {
   global.fetch = jest.fn()

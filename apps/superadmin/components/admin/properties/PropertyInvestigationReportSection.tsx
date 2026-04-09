@@ -22,7 +22,7 @@ import {
 } from './investigation-report/types';
 import { InputForm } from './investigation-report/InputForm';
 import { NotesSelector } from './investigation-report/NotesSelector';
-import { AttachmentPicker } from './investigation-report/AttachmentPicker';
+import { AttachmentPickerV2 } from './investigation-report/AttachmentPickerV2';
 import { ConditionStatementForm } from './investigation-report/ConditionStatementForm';
 import { ReportPreview } from './investigation-report/ReportPreview';
 import {
@@ -44,6 +44,7 @@ function normalizeReportPayload(r: InvestigationReport): InvestigationReport {
     reportAttachmentSupplement:
       typeof r.reportAttachmentSupplement === 'string' ? r.reportAttachmentSupplement : '',
     conditionStatement: normalizeConditionStatement(r.conditionStatement),
+    attachmentSelections: Array.isArray(r.attachmentSelections) ? r.attachmentSelections : [],
   };
 }
 
@@ -652,15 +653,21 @@ export function PropertyInvestigationReportSection({
         <NotesSelector report={report} onChange={setReport} property={property} />
       )}
       {subTab === 'attachments' && (
-        <AttachmentPicker
+        <AttachmentPickerV2
           report={report}
           onChange={setReport}
           documents={documents}
           photos={photos}
+          property={property}
         />
       )}
       {subTab === 'preview' && (
-        <ReportPreview report={report} property={property} />
+        <ReportPreview
+          report={report}
+          property={property}
+          documents={documents}
+          photos={photos}
+        />
       )}
     </div>
   );

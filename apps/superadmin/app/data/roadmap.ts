@@ -90,10 +90,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員-儀表板",
     locatedPage: "superadmin/dashboard",
-    percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
+    percentage: 95,
     acceptanceCriteria:
       "1. 登入後首頁需顯示系統關鍵指標(KPI)，包含總用戶數、總物件數、成交金額。\n2. 需提供圖表視覺化呈現最近30天的平台流量趨勢。\n3. 儀表板需顯示待處理的審核事項通知。\n4. 需支援數據篩選功能，可依日期區間查看統計數據。\n5. 頁面載入速度需在2秒內完成，確保良好的使用者體驗。",
     docPath: "/project-process/features/admin-dashboard-20260206.md",
@@ -114,7 +111,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員-網站行為監控與紀錄功能",
     locatedPage: "superadmin/dashboard/behavior-monitoring",
-    percentage: 100,
+    percentage: 70,
     acceptanceCriteria:
       "1. 系統需記錄所有使用者的頁面訪問紀錄，包含時間戳、IP、使用者ID、頁面路徑。\n2. 提供每日/每週/每月流量統計報表。\n3. 異常行為需自動標記並通知管理員（如短時間內大量請求）。\n4. 日誌保存期限至少90天，超過自動封存。\n5. 需支援依使用者、日期、頁面路徑篩選搜尋。",
     docPath: "",
@@ -126,7 +123,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/dev-logs/dev-superadmin-features-2026-02-21.md",
     category: "超級管理員 (Super Admin)",
     points: 5,
-    lastModifiedBy: "GPT-5.3 Codex",
+    lastModifiedBy: "Claude Sonnet 4.6",
     lastModifiedDate: "2026/02/21",
     phase: "development",
     developmentProgress:
@@ -135,7 +132,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員的RBAC CRUD平台",
     locatedPage: "superadmin/dashboard/rbac_access_control",
-    percentage: 100,
+    percentage: 95,
     acceptanceCriteria:
       "1. 可建立、編輯、刪除角色（Role），角色名稱需唯一。\n2. 可對角色設定細粒度權限（讀取、寫入、刪除各資源）。\n3. 角色變更需有稽核紀錄（修改者、修改時間、異動內容）。\n4. 支援角色繼承功能，子角色可繼承父角色權限。\n5. 刪除角色前需確認沒有使用者被指派此角色。",
     docPath: "",
@@ -156,7 +153,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員-雲端空間管理平台",
     locatedPage: "superadmin/dashboard/storage",
-    percentage: 100,
+    percentage: 70,
     acceptanceCriteria:
       "1. 顯示總儲存空間與已用空間的視覺化圖表。\n2. 可瀏覽所有使用者上傳的檔案（圖片、文件、音訊）。\n3. 可對個別使用者設定儲存配額上限。\n4. 超過配額75%時自動警示管理員。\n5. 支援批次刪除、下載或移動檔案。",
     docPath: "",
@@ -177,10 +174,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員針對 各種Roles的 Access Matrix管理平台",
     locatedPage: "superadmin/dashboard/role_access_matrix",
-    percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
+    percentage: 60,
     acceptanceCriteria:
       "1. 以矩陣表格呈現所有角色與資源的權限設定（讀/寫/刪）。\n2. 可在矩陣中直接點擊修改單一權限格。\n3. 變更後即時保存，無需整頁刷新。\n4. 提供「重置為預設值」功能。\n5. 支援匯出 PDF/CSV 格式的權限矩陣報表。",
     docPath: "/project-process/features/iam-system.md",
@@ -195,7 +189,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員-資料庫Supabase管理功能",
     locatedPage: "superadmin/dashboard/supabase",
-    percentage: 100,
+    percentage: 60,
     acceptanceCriteria:
       "1. 顯示資料庫各資料表的記錄數量與最後更新時間。\n2. 可執行基本 SQL 查詢並顯示結果（僅 SELECT）。\n3. 顯示 Migration 歷史紀錄與執行狀態。\n4. 提供資料庫連線健康度監控（延遲、連線數）。\n5. 可觸發手動備份並下載備份文件。",
     docPath:
@@ -230,7 +224,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員AI LLM API效能監控－AI語音回應可靠度監控功能",
     locatedPage: "superadmin/dashboard/llm-monitor",
-    percentage: 100,
+    percentage: 70,
     acceptanceCriteria:
       "1. 即時顯示各 LLM API 的請求數量、平均回應時間、錯誤率。\n2. 可設定 API 使用量預算上限與警示閾值。\n3. 提供每日/每週 Token 消耗統計與費用估算。\n4. 語音回應品質分數（延遲、斷句率）需以圖表呈現。\n5. API 密鑰輪換提醒功能（距離過期 30 天前通知）。",
     docPath: "",
@@ -240,11 +234,11 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/dev-logs/dev-superadmin-features-2026-02-21.md",
     category: "超級管理員 (Super Admin)",
     points: 8,
-    lastModifiedBy: "GPT-5.3-Codex",
+    lastModifiedBy: "GPT-5.2",
     lastModifiedDate: "2026/04/04",
     phase: "development",
     developmentProgress:
-      "連接真實 ai_performance_metrics 資料表，page.tsx + LLMMonitorClient + actions (getLLMAggregateStats/getLLMOverallStats)；每模型效能比較表。\n\n### 2026-04-04 監控可追到 Prompt / 模組 / 成功失敗\n- 新增 ai_usage_logs 監控欄位（prompt source/version/hash、request_path、response_status 等）。\n- 物件介紹文案 AI（/api/property-description/stream）每次嘗試會寫入 ai_usage_logs（含成功/失敗、tokens、延遲、provider/model）。\n- llm-monitor 頁面新增「AI 使用紀錄（含 Prompt / 模組 / 狀態）」表格（最新 100 筆）。\n\n### 2026-04-04 版面整理\n- 移除重複感較高的「最近請求記錄」區塊，避免與 AI 使用紀錄資訊重疊。\n- 將「AI 使用紀錄（含 Prompt / 模組 / 狀態）」調整為頁面最上方主要區塊。\n- 新增頂部快速定位（AI 使用紀錄 / 總覽 KPI / 模型比較）與區塊錨點，提升長頁面掃讀效率。\n- 快速定位按鈕支援隨捲動高亮當前區塊（IntersectionObserver），提升導覽回饋。\n- 快速定位按鈕新增平滑捲動（支援 reduced-motion fallback），導覽體驗更一致。\n- 同步高亮區塊至 URL hash（replaceState，不觸發跳動），可直接分享定位連結。\n- 導覽列改為 sticky 浮動，長頁面捲動時仍可快速切換區塊。\n- 新增「回到頂部」浮動按鈕（超過一定捲動距離顯示），降低長表格操作成本。\n- 手機版放大「回到頂部」點擊區與字級，優化觸控操作。\n- 手機版「回到頂部」改為僅顯示圖示，桌面版保留文字，兼顧簡潔與可讀性。",
+      "連接真實 ai_performance_metrics 資料表，page.tsx + LLMMonitorClient + actions (getLLMMetrics/getLLMAggregateStats/getLLMOverallStats)；每模型效能比較表、最近請求記錄。\n\n### 2026-04-04 監控可追到 Prompt / 模組 / 成功失敗\n- 新增 ai_usage_logs 監控欄位（prompt source/version/hash、request_path、response_status 等）。\n- 物件介紹文案 AI（/api/property-description/stream）每次嘗試會寫入 ai_usage_logs（含成功/失敗、tokens、延遲、provider/model）。\n- llm-monitor 頁面新增「AI 使用紀錄（含 Prompt / 模組 / 狀態）」表格（最新 100 筆）。",
   },
   {
     name: "超級管理員-網路安全－隱私審計管理功能",
@@ -286,7 +280,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "買家(已簽約)-儀表板",
     locatedPage: "web/buyer/contracted/dashboard",
-    percentage: 90,
+    percentage: 50,
     acceptanceCriteria:
       "1. 顯示已購物件的基本資訊（地址、坪數、成交金額、交屋日期）。\n2. 顯示合約進度時程表（簽約→履約→過戶→交屋）。\n3. 即時顯示待辦事項（需簽署文件、待付款項目）。\n4. 提供仲介/房東聯絡入口。\n5. 顯示近期相關通知（文件更新、預約提醒）。",
     docPath: "/project-process/features/buyer-dashboard-mock-20260206.md",
@@ -329,7 +323,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "公司首頁",
     locatedPage: "web/",
-    percentage: 100,
+    percentage: 98,
     acceptanceCriteria:
       "1. 首頁需在 3 秒內完成首屏渲染（LCP < 2.5s）。\n2. 清楚展示產品核心功能（房東管理、租客管理、AI功能）。\n3. 包含客戶見證/評價區塊（至少3則）。\n4. CTA 按鈕（立即試用、聯絡我們）可正常觸發對應頁面。\n5. RWD 支援：手機/平板/桌機版面正確顯示。",
     docPath: "/project-process/features/company-homepage.md",
@@ -347,7 +341,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "公司產品費用說明頁",
     locatedPage: "web/pricing",
-    percentage: 100,
+    percentage: 90,
     acceptanceCriteria:
       "1. 清楚列出各方案（免費版、基本版、進階版）的功能對比表格。\n2. 月付/年付切換，年付顯示折扣比例。\n3. FAQ 區塊涵蓋常見費用問題（至少5項）。\n4. 「立即購買」按鈕連結至付款流程。\n5. 費用說明需包含幣別（AUD/TWD）切換功能。",
     docPath: "/project-process/features/multi-role-business-plan-20260322.md",
@@ -366,7 +360,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "公開案件市場頁",
     locatedPage: "web/properties",
-    percentage: 100,
+    percentage: 78,
     acceptanceCriteria:
       "1. 公開列表頁需清楚區分買賣案件與租賃案件。\n2. 提供搜尋、類型與狀態篩選。\n3. 頁首需說明多角色平台定位，而非單純物件列表。\n4. 提供導流至平台能力頁與合作提案頁的 CTA。\n5. 卡片需顯示基本案件資訊與協作鏈語意標籤。",
     docPath: "/project-process/features/multi-role-business-plan-20260322.md",
@@ -385,7 +379,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "公開案件詳情頁",
     locatedPage: "web/properties/[id]",
-    percentage: 100,
+    percentage: 94,
     acceptanceCriteria:
       "1. 詳情頁需清楚呈現案件屬於買賣或租賃協作鏈。\n2. 顯示推薦接手角色與案件協作節點。\n3. 保留物件基本資訊、價格、地點與聯絡卡。\n4. 找不到案件時正確走 notFound 流程。\n5. 有對應回歸測試覆蓋主要協作內容與 notFound 行為。",
     docPath: "/project-process/features/multi-role-business-plan-20260322.md",
@@ -404,7 +398,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "公司平台介紹與支援導流頁",
     locatedPage: "web/about",
-    percentage: 100,
+    percentage: 88,
     acceptanceCriteria:
       "1. 關於頁需清楚說明產品已轉型為多角色不動產 AI 協作平台。\n2. 需呈現免費角色、付費角色與專業協作角色的分層定位。\n3. 需說明台灣 / 澳洲市場策略與按案件 / 物件收費模型。\n4. 頁面需提供導向 pricing、services、properties 與 contact 的 CTA。\n5. 需有對應回歸測試覆蓋主要平台敘事與 CTA 連結。",
     docPath: "/project-process/features/multi-role-business-plan-20260322.md",
@@ -515,10 +509,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東-儀表板",
     locatedPage: "web/landlord/dashboard",
-    percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
+    percentage: 90,
     acceptanceCriteria:
       "1. 顯示名下所有物件概況（總數、出租中、空置、待售）。\n2. 顯示本月租金收入總額與趨勢圖表（與上月對比）。\n3. 即時顯示待處理事項（待審核租客申請、維修請求、合約即將到期）。\n4. 快速連結至各主要功能（新增物件、收款記錄、聯絡租客）。\n5. 儀表板載入時間 < 2 秒，數據不超過24小時快取。",
     docPath: "/project-process/features/landlord-dashboard-status-20260206.md",
@@ -532,11 +523,8 @@ const RAW_FEATURES: RoadmapFeature[] = [
   },
   {
     name: "房東的Access Matrix管理平台",
-    locatedPage: "superadmin/dashboard/iam-management",
-    percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
+    locatedPage: "web/landlord (待建)",
+    percentage: 60,
     acceptanceCriteria:
       "1. 房東可查看並設定名下成員（助理、會計）的功能存取權限。\n2. 支援角色指派（助理角色可查看但不可刪除物件）。\n3. 權限矩陣以表格呈現，直觀易讀。\n4. 權限變更需記錄稽核日誌。\n5. 自訂角色功能：可創建「只可查看財務」等客製角色。",
     docPath: "/project-process/features/iam-system.md",
@@ -550,10 +538,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東新增物件方式1－手動輸入",
     locatedPage: "web/landlord/properties/add",
-    percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
+    percentage: 85,
     acceptanceCriteria:
       "1. 表單欄位涵蓋：物件名稱、地址、坪數、樓層、房型、月租金/售價、設備清單。\n2. 必填欄位驗證，地址需連結 Google Maps 確認。\n3. 支援一次上傳最多20張物件照片。\n4. 草稿自動儲存，可返回繼續填寫。\n5. 發布後物件立即顯示於可見清單中。",
     docPath: "/project-process/features/landlord-features.md",
@@ -567,10 +552,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東新增物件方式2－自動填入 (VLM/OCR)",
     locatedPage: "web/landlord/properties/add",
-    percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
+    percentage: 95,
     acceptanceCriteria:
       "1. 上傳物件照片/謄本後，AI 自動擷取物件基本資訊（地址、坪數、格局）。\n2. OCR 準確率需達 85% 以上（在標準文件格式下）。\n3. 自動填入結果可人工校正，顯示原始擷取值與修改後值的對比。\n4. 支援 JPG、PNG、PDF 格式，單檔最大 10MB。\n5. 處理時間 < 30 秒（一般文件）。",
     docPath: "/project-process/features/vlm-ocr-system.md",
@@ -717,10 +699,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "一鍵生成物件銷售部落格",
     locatedPage: "superadmin/properties/[id]/edit?tab=blog",
-    percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
+    percentage: 80,
     acceptanceCriteria:
       "1. 輸入物件 ID，AI 自動生成包含物件亮點的銷售文案（500-800字）。\n2. 生成文案可人工編輯後發布。\n3. 自動插入物件照片（最多5張）至文章內容。\n4. 生成時間 < 15 秒。\n5. 支援多語版本生成（繁體中文、英文）。",
     docPath: "",
@@ -742,11 +721,11 @@ const RAW_FEATURES: RoadmapFeature[] = [
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 3,
-    lastModifiedBy: "GPT-5.3-Codex",
-    lastModifiedDate: "2026/04/07",
+    lastModifiedBy: "GPT-5.2",
+    lastModifiedDate: "2026/04/04",
     phase: "development",
     developmentProgress:
-      "superadmin 物件編輯表單改為 AI 協作撰稿流程：抽出 PropertyDescriptionAIAssistant，新增文案風格/長度/用途控制、資料完整度提示、草稿預覽、套用/附加/還原操作；新增 /api/property-description/stream 串流 trace，前端可即時顯示資料蒐集、Prompt 載入、module key、模型來源、LLM/provider、金鑰來源、最終 Prompt 預覽與完成耗時；trace 支援複製與下載；後端已接入 ai_modules_assigned_function、ai_system_prompts 與多 provider fallback，並將物件介紹文案獨立為 property_description module，可在 AI 設定頁單獨配置。\n\n### 2026-04-04 UX 與可觀測性補強\n- 生成中顯示 spinner + 秒數（小數 1 位）。\n- 生成完成/失敗後在頁面上保留摘要：總耗時、tokens（in/out/total）、provider/model、HTTP status。\n- 後端寫入 ai_usage_logs，llm-monitor 可追蹤每次生成成功/失敗與使用的 Prompt/模型資訊；補齊相關 migration 與單元測試。\n\n### 2026-04-07 Prompt 透明化補強\n- 新增 `/api/property-description/prompt-config`，可在生成前解析目前有效 Prompt（ai_system_prompts -> saved_prompts -> default）並回傳 source/module/version/摘要。\n- PropertyDescriptionAIAssistant 新增「目前預設 Prompt」卡片，使用者不需先生成即可看到當前 Prompt 來源，並可直接前往 Prompt 管理頁調整。\n- 補齊前端測試：驗證頁面初始化會顯示目前使用中的 Prompt 來源與 module key。",
+      "superadmin 物件編輯表單改為 AI 協作撰稿流程：抽出 PropertyDescriptionAIAssistant，新增文案風格/長度/用途控制、資料完整度提示、草稿預覽、套用/附加/還原操作；新增 /api/property-description/stream 串流 trace，前端可即時顯示資料蒐集、Prompt 載入、module key、模型來源、LLM/provider、金鑰來源、最終 Prompt 預覽與完成耗時；trace 支援複製與下載；後端已接入 ai_modules_assigned_function、ai_system_prompts 與多 provider fallback，並將物件介紹文案獨立為 property_description module，可在 AI 設定頁單獨配置。\n\n### 2026-04-04 UX 與可觀測性補強\n- 生成中顯示 spinner + 秒數（小數 1 位）。\n- 生成完成/失敗後在頁面上保留摘要：總耗時、tokens（in/out/total）、provider/model、HTTP status。\n- 後端寫入 ai_usage_logs，llm-monitor 可追蹤每次生成成功/失敗與使用的 Prompt/模型資訊；補齊相關 migration 與單元測試。",
   },
   {
     name: "房東的部落格 AI 寫手",
@@ -1065,10 +1044,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "租客(已簽約)-儀表板",
     locatedPage: "web/tenant/contracted/dashboard",
-    percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
+    percentage: 90,
     acceptanceCriteria:
       "1. 顯示租約基本資訊（物件地址、月租金、合約期限、剩餘天數）。\n2. 顯示下次繳費截止日與金額。\n3. 快速入口：維修申請、溝通中心、合約下載。\n4. 顯示最新通知（房東公告、維修進度更新）。\n5. 頁面載入時間 < 2 秒。",
     docPath: "/project-process/features/tenant-dashboards-20260206.md",
@@ -1083,10 +1059,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "租客(潛在)-儀表板",
     locatedPage: "web/tenant/potential/dashboard",
-    percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
+    percentage: 90,
     acceptanceCriteria:
       "1. 顯示正在洽詢的物件列表（物件基本資訊、看房預約狀態）。\n2. 可在此發起看房預約或取消預約。\n3. 顯示已查詢物件歷史（最近10筆）。\n4. 推薦相似物件功能（依瀏覽偏好）。\n5. 提供申請入住按鈕（需上傳基本資料）。",
     docPath: "/project-process/features/tenant-dashboards-20260206.md",
@@ -1233,10 +1206,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "RWD網頁響應式設計",
     locatedPage: "全站",
-    percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
+    percentage: 80,
     acceptanceCriteria:
       "1. 手機（320px+）、平板（768px+）、桌機（1024px+）三種斷點下版面正確顯示。\n2. 導航選單在手機版切換為漢堡選單（Hamburger Menu）。\n3. 所有表單元素在手機版觸控操作友善（最小觸控區域44x44px）。\n4. 圖片採用響應式圖片（srcset），依裝置解析度載入適當尺寸。\n5. 手機版首屏渲染 < 3 秒（4G網路環境）。",
     docPath: "/project-process/features/company-homepage.md",
@@ -1250,10 +1220,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "使用者身份驗證系統",
     locatedPage: "web/login, web/register",
-    percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
+    percentage: 90,
     acceptanceCriteria:
       "1. 支援 Email/密碼登入與 Google OAuth 登入。\n2. JWT Token 有效期24小時，Refresh Token 有效期7天。\n3. 連續5次登入失敗後帳號暫時鎖定（15分鐘）。\n4. 新裝置登入時發送 Email 安全通知。\n5. 密碼需符合強度要求（最少8字元、含大小寫與數字）。",
     docPath: "/project-process/features/auth-system.md",
@@ -1263,24 +1230,6 @@ const RAW_FEATURES: RoadmapFeature[] = [
     points: 8,
     lastModifiedBy: "Claude Sonnet 4.5",
     lastModifiedDate: "2026/02/05",
-  },
-  {
-    name: "通用專業檔案與多表面欄位規則（個人／公司／代書／律師等）",
-    locatedPage: "web/settings (規劃中), Sidebar 身分切換",
-    percentage: 5,
-    acceptanceCriteria:
-      "1. 完成 Feature Spec：professional profile 資料模型、欄位目錄 (field registry)、表面 (surface) 目錄、平台預設與使用者覆寫合併優先序。\n2. 使用者設定採「依表面分頁」之欄位表（顯示／必填／鎖定），避免單一超大勾選矩陣。\n3. 一登入可管理多筆專業檔案並可切換目前使用檔案（側欄摘要）。\n4. 公開／PDF／合約等消費端僅能讀取 effective visible 欄位（後端強制，非僅 UI）。\n5. 與既有 users_profile 社群／聯絡欄位對應策略文件化（漸進遷移）。",
-    docPath:
-      "/project-process/features/professional-profiles-and-field-surfaces-spec-20260408.md",
-    featureSpecDocPath:
-      "/project-process/features/professional-profiles-and-field-surfaces-spec-20260408.md",
-    tddSpecDocPath: "/project-process/features/tdd-system-common-20260221.md",
-    category: "通用/系統 (General/System)",
-    points: 5,
-    featureDescription:
-      "跨角色專業身分、欄位目錄、多輸出表面 (public / listing / email / PDF / contract) 之顯示與必填規則；平台預設矩陣 + 使用者可調覆寫 + 法遵鎖定。",
-    lastModifiedBy: "Cursor Agent",
-    lastModifiedDate: "2026/04/08",
   },
   {
     name: "註冊的使用者都有自己的行事曆管理頁面",
@@ -1299,9 +1248,6 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "使用者登入頁面",
     locatedPage: "web/login",
     percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
     acceptanceCriteria:
       "1. 頁面提供 Email/密碼表單與 Google OAuth 按鈕。\n2. 密碼欄位有顯示/隱藏切換功能。\n3. 登入成功後依角色導向對應儀表板（房東→房東儀表板）。\n4. 表單提交後有 loading 狀態，防止重複提交。\n5. 提供「忘記密碼」連結，導向密碼重設流程。",
     docPath: "/project-process/features/auth-system.md",
@@ -1317,9 +1263,6 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "使用者登入頁面-記住我功能",
     locatedPage: "web/login",
     percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
     acceptanceCriteria:
       "1. 勾選「記住我」後，登出後再次登入毋需重新輸入 Email/密碼（30天有效）。\n2. 「記住我」以安全的 HttpOnly Cookie 實作，不暴露於 localStorage。\n3. 於新裝置/瀏覽器「記住我」不自動生效。\n4. 使用者可在帳號設定中撤銷所有「記住我」的設備。\n5. 30天後 Cookie 自動到期，需重新登入。",
     docPath: "/project-process/features/remember-me-tdd-report-20260205.md",
@@ -1335,10 +1278,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "使用者密碼重設頁面",
     locatedPage: "web/forgot-password, web/update-password",
-    percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
+    percentage: 95,
     acceptanceCriteria:
       "1. 輸入 Email 後發送密碼重設連結，連結有效期1小時。\n2. 點擊連結後進入重設頁面，輸入新密碼（需輸入兩次確認）。\n3. 重設成功後前一個 Session 自動登出。\n4. 重設連結只能使用一次，使用後失效。\n5. 24小時內申請重設次數上限5次（防止暴力攻擊）。",
     docPath: "/project-process/features/auth-system.md",
@@ -1378,10 +1318,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "謄本權狀掃描功能",
     locatedPage: "web/landlord/properties/add",
-    percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
+    percentage: 95,
     acceptanceCriteria:
       "1. 上傳謄本/權狀文件（JPG、PNG、PDF），系統自動辨識並擷取關鍵資訊。\n2. 擷取資訊包含：地段、地號、面積、所有權人、抵押設定。\n3. OCR 準確率在清晰文件下達 90% 以上。\n4. 擷取結果可人工校正，並儲存至物件資料。\n5. 文件儲存至雲端，可隨時下載原始掃描檔。",
     docPath: "/project-process/features/vlm-ocr-system.md",
@@ -1398,10 +1335,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "上傳物件照片功能",
     locatedPage: "web/landlord/properties/add",
-    percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
+    percentage: 95,
     acceptanceCriteria:
       "1. 支援一次選擇並上傳最多20張照片。\n2. 上傳格式支援 JPG、PNG、WebP，單檔最大 10MB。\n3. 上傳時顯示進度條，支援斷點續傳。\n4. 上傳後可拖曳排序，設定封面照。\n5. 系統自動生成壓縮縮圖（Thumbnail），用於列表預覽。",
     docPath: "/project-process/features/photo-upload.md",
@@ -1623,9 +1557,6 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "登入／Portal／IAM 角色流程與 Superadmin 全角色選單",
     locatedPage: "web/portal, superadmin/users",
     percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
     workCategory: "認證與權限",
     featureDescription:
       "登入後一律進 Portal；多角色與 middleware 同步；Portal 顯示使用者 IAM 角色卡；Superadmin 邀請使用者可選全部 iam_roles；測試帳號加入所有 IAM 群組並以 Playwright 驗證。",
@@ -1651,9 +1582,6 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "OAuth 用戶新增角色功能修復（Add Role Feature Fix）",
     locatedPage: "web/portal, web/onboarding/add-role",
     percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
     workCategory: "認證與權限",
     featureDescription:
       "修復 OAuth 登入用戶在 Portal 新增角色時出現的失敗問題，涉及 RLS 權限、IAM 群組映射、前端路由跳轉三個層面的問題診斷與修復。",
@@ -1677,10 +1605,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員-AI 服務設定（API 金鑰與模型費用）",
     locatedPage: "superadmin/settings/api_key_and_model_setting",
-    percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
+    percentage: 86,
     acceptanceCriteria:
       "1. API 金鑰管理：從 .env 導入、單筆/全部刪除、金鑰驗證。\n2. 未登入時以 resolveUserId fallback 寫入/讀取 Supabase（keys/models/modules/prompts）。\n3. 側欄組態概況：已選總 models 數量即時反映各 provider 勾選加總。\n4. 儲存設定按鈕：將畫面上已選模型寫入 ai_model_selections。\n5. 分頁命名：模型費用說明；說明文案導向「模型費用說明」分頁。",
     docPath: "/docs/update-project-progress-guide.md",
@@ -1803,35 +1728,14 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "超級管理員-物件管理（新增物件含媒體上傳）",
     locatedPage: "superadmin/properties",
     category: "超級管理員 (Super Admin)",
-    percentage: 100,
+    percentage: 96,
     phase: "development",
-    lastModifiedBy: "Cursor Agent",
-    lastModifiedDate: "2026/04/07",
+    lastModifiedBy: "Gemini-3-Flash-Preview",
+    lastModifiedDate: "2026/04/04",
     devLog:
-      "### 完成項目\n- getOwnersList() / createProperty() server actions（lib/actions/properties.ts）\n- CreatePropertyInput / OwnerOption 型別（lib/types/properties.ts）\n- PropertyCreateModal.tsx：含完整 6 頁籤（物件基本資訊 / 物件照片 / 謄本 / 權狀 / 合約 / 部落格）；兩段式建立流程：第一次儲存建立物件取得 ID，後續 tabs 接入 PropertyMediaSection；物件類型與所有權人建立後鎖定\n- PropertiesList.tsx：新增物件按鈕接入 PropertyCreateModal，onCreated 觸發 router.refresh()\n- properties/page.tsx：並行 fetch getAllProperties() + getOwnersList() 後傳入 PropertiesList\n### 2026-04-02 新增\n- PropertyMediaSection：floor_plan 頁籤新增已上傳格局圖 inline 預覽卡片，圖片直接顯示、PDF 以內嵌預覽呈現，避免使用者只能看檔名與外部連結\n- floor_plan 上傳區新增待上傳預覽，選檔後即可先確認檔案內容，再決定是否送出\n- 新增 PropertyMediaSection.test.tsx，覆蓋既有格局圖預覽與上傳後刷新預覽兩個情境，並以 Jest `--runTestsByPath` 驗證通過\n### 2026-04-03 新增\n- PropertyEditForm：在「使用分區」右側新增「地理資訊」分頁（PropertyGeographicInfoTab），顯示結構化地址、WGS84 座標與 Google Maps / OpenStreetMap 外部連結；雙圖資來源（歷史圖資展示系統 / 地理資訊e點通）各支援地籍圖、建物套繪圖、合併擷取，結果 signed URL 預覽並寫入 property_documents\n### 2026-04-03 補強（TDD / 穩定性）\n- 有 WGS84 時僅傳座標至 fetchCadastralMap（不再併傳門牌，避免混淆）；擷取結果列表 key 改為 storagePath；刪除改以 documentId + storagePath 辨識；ArcGIS job 輪詢第一次立即查狀態；物件編輯頁 export maxDuration=120s；新增 buildOperationalLayers / fetchCadastralMap 來源矩陣與 PropertyGeographicInfoTab 互動測試（Jest 22 例）\n### 2026-04-03 實價成交三報表（近一年）\n- lib/utils/real-price-comparables.ts：六都方圓 1km／其他縣市 2km、同街段（路街或謄本地段）、同里；Haversine 與近一年篩選\n- LVR_COMPARABLES_JSON_PATH：伺服器讀取正規化 JSON 陣列作為成交來源（未設定則表格為空仍產出 PDF）\n- lib/actions/transaction-comparables.ts：generateTransactionComparableDocuments 產出三份 PDF 寫入 property_documents（tags comparable:auto + comparable:kind:*），重產時取代同類舊檔\n- PropertyMediaSection 成交行情表：一鍵產出三份；新增 document_type transaction_comparables_nearby / _street_section / _village\n- PropertyGeographicInfoTab：村里欄位寫入 details.addressVillage；updateProperty / getPropertyById / getAllProperties 串接\n- real-price-comparable-pdf.ts（pdf-lib + Noto Sans TC woff2）、單元測試 real-price-comparables.test.ts\n### 2026-04-04 實價行情優化 (TDD)\n- **PDF 內容空白修復**: loadComparableSalesFromDb 實作分頁抓取（最高支援 10,000 筆），解決行政區成交量大於 1,000 筆時資料池不完整導致的空白問題。\n- **字體渲染修復**: PDF 優先載入 macOS 系統 `Arial Unicode.ttf`，徹底解決 Noto Sans 子集缺少中文字元導致的報表空白問題。\n- **自動定位強化**: 整合 `geocodeAddress` 多重定位策略，成功後自動同步座標回 DB；附近成交價新增「自定義半徑選擇器」(0.5km - 5.0km)，提升查詢靈活性。\n- **驗證**: 建立 `comparables.test.ts` 驗證過濾邏輯，並透過 `diagnosis.test.ts` 完成生產資料連通性檢查。\n### 2026-04-07 地理資訊（GIS）擷取 UX 與後端觀測性\n- **三按鈕並行**：解除全域鎖，地籍圖 / 建物套繪圖 / 合併擷取可同時觸發；每圖層僅防重複點擊。\n- **換頁不丟狀態**：sessionStorage（gis-fetch-pending）保留進行中圖層與開始時間，回到分頁仍顯示轉圈與已等待秒數。\n- **逐圖層結果**：gis-fetch-outcomes 記錄成功／失敗與耗時秒數；固定三列對應三種擷取；「清除擷取紀錄」清空結果。\n- **UI**：移除與雲端列表重複的擷取結果大預覽卡，僅保留雲端 GIS 圖資紀錄；地址區塊可反白複製；說明改為與「物件基本資訊」頁一致。\n- **後端**：fetchCadastralMap 支援環境變數 CADASTRAL_MAP_DEBUG（起迄與 ms）、CADASTRAL_MAP_MAX_CONCURRENT（限制 ArcGIS print 併發，0=不限制）；cadastral-map-fetcher 對 exportMapInternal 包裝併發上限。\n- **測試**：PropertyGeographicInfoTab.test.tsx 更新（並行、sessionStorage 還原、清除紀錄、雲端刪除）。",
+      "### 完成項目\n- getOwnersList() / createProperty() server actions（lib/actions/properties.ts）\n- CreatePropertyInput / OwnerOption 型別（lib/types/properties.ts）\n- PropertyCreateModal.tsx：含完整 6 頁籤（物件基本資訊 / 物件照片 / 謄本 / 權狀 / 合約 / 部落格）；兩段式建立流程：第一次儲存建立物件取得 ID，後續 tabs 接入 PropertyMediaSection；物件類型與所有權人建立後鎖定\n- PropertiesList.tsx：新增物件按鈕接入 PropertyCreateModal，onCreated 觸發 router.refresh()\n- properties/page.tsx：並行 fetch getAllProperties() + getOwnersList() 後傳入 PropertiesList\n### 2026-04-02 新增\n- PropertyMediaSection：floor_plan 頁籤新增已上傳格局圖 inline 預覽卡片，圖片直接顯示、PDF 以內嵌預覽呈現，避免使用者只能看檔名與外部連結\n- floor_plan 上傳區新增待上傳預覽，選檔後即可先確認檔案內容，再決定是否送出\n- 新增 PropertyMediaSection.test.tsx，覆蓋既有格局圖預覽與上傳後刷新預覽兩個情境，並以 Jest `--runTestsByPath` 驗證通過\n### 2026-04-03 新增\n- PropertyEditForm：在「使用分區」右側新增「地理資訊」分頁（PropertyGeographicInfoTab），顯示結構化地址、WGS84 座標與 Google Maps / OpenStreetMap 外部連結；雙圖資來源（歷史圖資展示系統 / 地理資訊e點通）各支援地籍圖、建物套繪圖、合併擷取，結果 signed URL 預覽並寫入 property_documents\n### 2026-04-03 補強（TDD / 穩定性）\n- 有 WGS84 時僅傳座標至 fetchCadastralMap（不再併傳門牌，避免混淆）；擷取結果列表 key 改為 storagePath；刪除改以 documentId + storagePath 辨識；ArcGIS job 輪詢第一次立即查狀態；物件編輯頁 export maxDuration=120s；新增 buildOperationalLayers / fetchCadastralMap 來源矩陣與 PropertyGeographicInfoTab 互動測試（Jest 22 例）\n### 2026-04-03 實價成交三報表（近一年）\n- lib/utils/real-price-comparables.ts：六都方圓 1km／其他縣市 2km、同街段（路街或謄本地段）、同里；Haversine 與近一年篩選\n- LVR_COMPARABLES_JSON_PATH：伺服器讀取正規化 JSON 陣列作為成交來源（未設定則表格為空仍產出 PDF）\n- lib/actions/transaction-comparables.ts：generateTransactionComparableDocuments 產出三份 PDF 寫入 property_documents（tags comparable:auto + comparable:kind:*），重產時取代同類舊檔\n- PropertyMediaSection 成交行情表：一鍵產出三份；新增 document_type transaction_comparables_nearby / _street_section / _village\n- PropertyGeographicInfoTab：村里欄位寫入 details.addressVillage；updateProperty / getPropertyById / getAllProperties 串接\n- real-price-comparable-pdf.ts（pdf-lib + Noto Sans TC woff2）、單元測試 real-price-comparables.test.ts\n### 2026-04-04 實價行情優化 (TDD)\n- **PDF 內容空白修復**: loadComparableSalesFromDb 實作分頁抓取（最高支援 10,000 筆），解決行政區成交量大於 1,000 筆時資料池不完整導致的空白問題。\n- **字體渲染修復**: PDF 優先載入 macOS 系統 `Arial Unicode.ttf`，徹底解決 Noto Sans 子集缺少中文字元導致的報表空白問題。\n- **自動定位強化**: 整合 `geocodeAddress` 多重定位策略，成功後自動同步座標回 DB；附近成交價新增「自定義半徑選擇器」(0.5km - 5.0km)，提升查詢靈活性。\n- **驗證**: 建立 `comparables.test.ts` 驗證過濾邏輯，並透過 `diagnosis.test.ts` 完成生產資料連通性檢查。",
     developmentProgress:
-      "物件列表與編輯功能（含 PropertyEditModal + PropertyMediaSection）已完成；實價行情已 TDD 綠燈。地理資訊分頁：三圖層並行擷取、換頁保留進行中狀態、逐圖層成功／失敗與耗時、雲端列表單一來源。下一步：表單欄位前端 validation、建立後自動跳至媒體頁籤。",
-  },
-  {
-    name: "全站表格偏好設定持久化（useTablePreferences hook — localStorage + DB 雙寫）",
-    locatedPage: "superadmin/properties",
-    category: "超級管理員 (Super Admin)",
-    percentage: 100,
-    phase: "development",
-    lastModifiedBy: "Claude Opus 4.6",
-    lastModifiedDate: "2026/04/06",
-    points: 5,
-    featureSpecDocPath: "/project-process/features/table-preferences-persistence-dev-spec-20260406.md",
-    tddSpecDocPath: "/project-process/features/tdd-table-preferences-persistence-20260406.md",
-    docPath: "/project-process/test-logs/test-table-preferences-persistence-2026-04-06.md",
-    testScriptPath: "apps/superadmin/unit_test/107",
-    featureDescription:
-      "全站表格的欄寬、凍結欄/列、水平/垂直對齊、每頁筆數等顯示設定，透過 useTablePreferences hook 實現 localStorage（即時快取）+ Supabase user_page_settings（跨裝置持久化）雙寫機制。已完成三個主要表格頁面遷移。",
-    devLog:
-      "### 2026-04-06 表格偏好持久化\n- lib/actions/table-settings.ts：通用 getTableSettings / setTableSettings server actions（複用 user_page_settings 表）\n- lib/hooks/useTablePreferences.ts：localStorage 即時讀寫 + DB debounced 同步 hook（mount 時 DB reconcile、unmount 時 flush pending writes）\n- **PropertiesList.tsx**：移除舊有 3 個散落 localStorage state，統一管理 columnSizing / freezeRowCount / frozenDataColCount / tableAlignH / tableAlignV / pageSize\n- **DevelopmentTab.tsx**：移除 ~200 行舊 load/persist effects + 8 個散落 localStorage keys，統一管理 colWidths / headerHeight / columnAlignments / freezeRowCount / frozenDataColCount / widthPresets / customRows / hiddenRowKeys\n- **ModelEvaluator.tsx**：移除 4 個散落 localStorage states，統一管理 columnWidths / promptColumnLabel / freezeRowCount / frozenColCount / tableAlignH / tableAlignV\n- 三個頁面皆新增 v1 → v2 一次性 localStorage 遷移邏輯，確保舊設定不遺失",
-    developmentProgress:
-      "三個主要表格頁面已全部遷移完成，TypeScript 編譯通過。通用 hook 可供其他頁面（IAM、contacts 等）複用。",
-    testProgress: "0%（尚未開始）",
+      "物件列表與編輯功能（含 PropertyEditModal + PropertyMediaSection）已完成；實價行情功能已達成 TDD 綠燈狀態，支援分頁大數據、自定義半徑與精確字體渲染。下一步：表單欄位前端 validation、建立後自動跳至媒體頁籤。",
   },
   {
     name: "超級管理員-實價登錄資料自動化同步管理",
@@ -1852,7 +1756,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "雲端 OCR 多模型共識謄本解析",
     locatedPage: "superadmin/properties",
     category: "超級管理員 (Super Admin)",
-    percentage: 100,
+    percentage: 99,
     phase: "testing",
     testCoverage: 60,
     lastModifiedBy: "Claude Sonnet 4.6",
@@ -1860,7 +1764,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     testStatus: "in_progress",
     docPath: "/docs/implementation-plans/consensus-transcript-parsing-plan.md",
     devLog:
-      "### 完成項目\n- DB Migration：ocr_parse_results 表 + property_documents 新增 consensus_metadata / parse_strategy 欄位\n- TypeScript 型別：ModelParseResult / ConsensusMetadata / ConflictDetail / JudgeResolution\n- Feature Module：拆分 online_ocr → online_ocr_parse（解析組）+ online_ocr_judge（裁判組）\n- 共識演算法：transcript-consensus.ts — 多模型 majority vote、台灣特規正規化、信心分數\n- AI API 共用呼叫器：ai-api-callers.ts — 支援 OpenAI/Anthropic/Gemini/DeepSeek/Grok\n- 共識引擎 Server Action：consensus-parse.ts — 平行呼叫 → 共識投票 → 裁判仲裁 三階段流程\n- 向下相容：parse-transcript.ts 改為 wrapper 委派至共識引擎\n- UI 更新：PropertyMediaSection 新增信心徽章、衝突明細面板、共識 metadata 顯示\n- FeatureModuleSelector 提示文字：解析組建議 2~3 模型、裁判組為可選配置\n### 2026-03-04 新增\n- SSE 串流 API：/api/transcript-parse/stream — POST 端點，以 ReadableStream 逐模型即時回傳解析進度事件\n- TranscriptParseSection 元件：從 PropertyMediaSection 拆出（原 610 行降至 387 行），新增：(1) 可收折「解析設定」面板（顯示已設定之解析/裁判模型、一次性 Prompt 覆寫欄位、跳轉 AI 設定連結）；(2) 解析中以逐模型進度列表取代單一轉圈，即時顯示各模型狀態（等待/解析中/完成/失敗）及耗時\n### 2026-03-07 新增/調整\n- 解析模型單一事實來源：TranscriptParseSection 僅使用 online_ocr_parse 模組綁定的 assigned_models，移除與統一測試 441 個候選模型的耦合，避免使用者在兩處重覆設定\n- 每次謄本解析最多呼叫 5 個成功解析模型：依 OCP 排序逐一呼叫模型，成功數達 5 即停止；若前幾個失敗則依序啟用後續模型，避免一次對數十/數百模型發送 API 呼叫\n- 裁判模型排序備援：後端依 online_ocr_judge 的 assigned_models 順序（含本次 overrideJudgeModel）輪流嘗試裁判模型，任一成功即套用其判決；全部失敗時回退至多模型共識結果\n- JSON 安全性強化：transcript-parse/stream 與 consensus-parse 在儲存裁判 raw_output 時採用 try/catch 保護，裁判回傳畸形 JSON 時僅記錄 error_message，不再中斷整體解析流程\n- 物件編輯頁解析設定 UX：AI 解析謄本設定面板顯示本次實際使用的解析/裁判模型，支援 per-run 勾選啟用與一次性 Prompt 覆寫，並確保畫面與後端實際呼叫模型一致\n### 2026-04-04 新增（背景任務隊列）\n- DB：`transcript_parse_jobs` 表（queued/running/succeeded/failed/cancelled + progress JSONB + payload）\n- 共用核心：`lib/transcript-parse/run-transcript-parse-core.ts`，串流 `/api/transcript-parse/stream` 與背景任務共用同一套共識流程\n- `POST /api/transcript-parse/jobs` 入隊後以 `after()` 觸發 `processTranscriptParseJobById`；`GET /api/transcript-parse/jobs/[id]` 供前端輪詢進度\n- `GET /api/cron/transcript-parse-jobs`（`Authorization: Bearer CRON_SECRET`）備援消化佇列；正式環境請設定 `CRON_SECRET` 並排程呼叫\n- TranscriptParseSection：雲端解析改走任務 API + 2s 輪詢，sessionStorage 記錄進行中 job，換頁後回同一文件可續盯進度",
+      "### 完成項目\n- DB Migration：ocr_parse_results 表 + property_documents 新增 consensus_metadata / parse_strategy 欄位\n- TypeScript 型別：ModelParseResult / ConsensusMetadata / ConflictDetail / JudgeResolution\n- Feature Module：拆分 online_ocr → online_ocr_parse（解析組）+ online_ocr_judge（裁判組）\n- 共識演算法：transcript-consensus.ts — 多模型 majority vote、台灣特規正規化、信心分數\n- AI API 共用呼叫器：ai-api-callers.ts — 支援 OpenAI/Anthropic/Gemini/DeepSeek/Grok\n- 共識引擎 Server Action：consensus-parse.ts — 平行呼叫 → 共識投票 → 裁判仲裁 三階段流程\n- 向下相容：parse-transcript.ts 改為 wrapper 委派至共識引擎\n- UI 更新：PropertyMediaSection 新增信心徽章、衝突明細面板、共識 metadata 顯示\n- FeatureModuleSelector 提示文字：解析組建議 2~3 模型、裁判組為可選配置\n### 2026-03-04 新增\n- SSE 串流 API：/api/transcript-parse/stream — POST 端點，以 ReadableStream 逐模型即時回傳解析進度事件\n- TranscriptParseSection 元件：從 PropertyMediaSection 拆出（原 610 行降至 387 行），新增：(1) 可收折「解析設定」面板（顯示已設定之解析/裁判模型、一次性 Prompt 覆寫欄位、跳轉 AI 設定連結）；(2) 解析中以逐模型進度列表取代單一轉圈，即時顯示各模型狀態（等待/解析中/完成/失敗）及耗時\n### 2026-03-07 新增/調整\n- 解析模型單一事實來源：TranscriptParseSection 僅使用 online_ocr_parse 模組綁定的 assigned_models，移除與統一測試 441 個候選模型的耦合，避免使用者在兩處重覆設定\n- 每次謄本解析最多呼叫 5 個成功解析模型：依 OCP 排序逐一呼叫模型，成功數達 5 即停止；若前幾個失敗則依序啟用後續模型，避免一次對數十/數百模型發送 API 呼叫\n- 裁判模型排序備援：後端依 online_ocr_judge 的 assigned_models 順序（含本次 overrideJudgeModel）輪流嘗試裁判模型，任一成功即套用其判決；全部失敗時回退至多模型共識結果\n- JSON 安全性強化：transcript-parse/stream 與 consensus-parse 在儲存裁判 raw_output 時採用 try/catch 保護，裁判回傳畸形 JSON 時僅記錄 error_message，不再中斷整體解析流程\n- 物件編輯頁解析設定 UX：AI 解析謄本設定面板顯示本次實際使用的解析/裁判模型，支援 per-run 勾選啟用與一次性 Prompt 覆寫，並確保畫面與後端實際呼叫模型一致",
     developmentProgress:
       "核心架構與 UI 已完成。2026-03-14 地端 Python 解析器全面升級：(P0.1) schema_converter.py 直接輸出 TranscriptParseOutput 統一格式，消除 buildFromLocalPython 橋接函式；(P1.2) 每個欄位附帶 field_confidences（regex 命中=1.0，空值=0.0）；(P2) local/route.ts 優先呼叫 HTTP 服務（port 8819），HTTP 不可用時自動降級至 CLI subprocess；(P0.2) PDF 無文字層（422）時前端自動觸發雲端解析；(P1.1) 地端解析結果可作為 local/local-regex-parser 虛擬模型注入共識 Pipeline；(P3) CJK 正規化擴充：全形小寫字母、括號變體、全形冒號/標點、日文漢字（証→證、様→樣等）。\n### 2026-03-18 新增\n- 解析 Prompt 加入「他項權利部特別說明」：全款購屋無貸款的謄本無他項權利部時，AI 必須輸出 encumbrances: []，不得填入含空字串的物件。\n- 建物/土地謄本表單：謄寫後若 encumbrances 為空陣列，顯示「（空白）－本物件目前無他項權利部」提示訊息，取代舊有的空白表單；使用者點擊「新增他項權利」即可繼續手動填寫。\n- 裁判模型更新為 3 組循序備援：Claude 3.5 Sonnet → Gemini 2.5 Flash → GPT-4o。\n- 謄本種類感知地端解析來源提取：kind = land 時優先使用 landTranscript，kind = building 時優先使用 buildingTranscript。\n- 謄寫前清除所有欄位（clear-first）：所有欄位（header / description / ownership / encumbrances）在謄寫前以 empty* 工廠函式清空，避免不同謄本的資料混入。\n- OCR 未設定模型警告：按下解析按鈕且無可用模型時，顯示 amber 警告並附設定頁連結，取代「所有模型失敗」的錯誤列表。",
   },
@@ -1980,52 +1884,38 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/03/20",
   },
   {
-    name: "物件調查報告書全面升級（Phase 1-3）",
+    name: "物件調查報告書全面升級（Phase 1-4）",
     locatedPage: "superadmin/properties/[id]/edit?tab=investigation",
     category: "超級管理員 (Super Admin)",
-    percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
+    percentage: 95,
     workCategory: "功能強化",
     featureDescription:
-      "對標住商不動產 Excel 物件調查報告書，全面升級 web 版本。Phase1：資料改存 Supabase DB（property_investigation_reports 表）+ 謄本自動填入（建號/建材/完工日/面積/土地/他項限制）+ 列印版面還原成 Excel 兩欄表格。Phase2：完整度指示器（X/N 欄位）+ 附件清單連動已上傳謄本/權狀 + 匯出改版（JSON 下載 + 列印 PDF）+ 版本歷史面板。Phase3：格局圖從已上傳照片選取嵌入報告 + 位置圖顯示地址/座標。Phase3+：「選取附件」子分頁可勾選物件已上傳文件與照片納入報告參考，並支援附加說明文字，列印末頁「報告附加參考」。2026/04/06 再升級：屋況子分頁改為對齊政府版「標的物現況說明書（成屋）」2頁 47 題表格（項次/內容/是/否/備註），新增地址、委託人簽章、簽立日期欄位，預覽與列印版面同步改版，並新增「另存 PDF」操作（透過瀏覽器列印另存）。2026/04/07：案件基本資料（案名、租/售、總價、地址）改為由「物件基本資訊」同步，並在調查報告頁鎖定為唯讀以維持單一真實來源。新增 migration: 20260321120000_add_property_investigation_reports.sql。",
+      "對標住商不動產 Excel 物件調查報告書，全面升級 web 版本。Phase1-3：DB 儲存 + 謄本自動填入 + 列印版面還原 + 完整度指示器 + 附件清單 + 版本歷史 + 格局圖 + 位置圖 + 屋況說明書。Phase4：全新附件列印系統 — 重新設計 AttachmentPickerV2（16 個附件類別分 4 群組勾選：報告本體/已上傳文件/資料衍生頁面/媒體），8 個 HTML 列印模板（基本資訊/物件介紹/面積明細/交易條件/使用分區/地圖定位/照片聯絡圖/文件參考清單），合併列印功能（報告書 + 所選附件一次列印）。提取 buildReportHtml 模組化報告 HTML 產生。",
     points: 8,
-    lastModifiedBy: "GPT-5.2",
-    lastModifiedDate: "2026/04/07",
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/09",
   },
   {
     name: "超級管理員-合約套版多範本選擇器",
     locatedPage: "superadmin/properties/[id]/edit?tab=contract",
     category: "超級管理員 (Super Admin)",
-    percentage: 95,
-    phase: "testing",
+    percentage: 85,
+    phase: "development",
     featureDescription:
       "將「預覽合約」Tab 大改為「預覽合約套版」，以多選卡片 Grid 呈現 6 種官方範本，每個面板支援雙模式：「AI 套版生成」（填表+AI 產生草稿）或「自行上傳合約」（上傳律師/代書提供的 PDF/DOCX/DOC）。同一物件可同時持有多種合約類型，各自獨立管理。",
     acceptanceCriteria:
       "1. Tab 標籤改為「預覽合約套版」。\n2. 頂部顯示 6 種合約範本卡片，支援複選。\n3. 每個面板頂部有「AI 套版生成」/「自行上傳合約」切換 Tab。\n4. AI 模式：填表、產生草稿預覽、下載 HTML/DOCX、列印、雲端版本管理。\n5. 上傳模式：拖曳/點擊上傳 PDF/DOCX/DOC/JPG/PNG（≤20MB）、PDF 行內預覽、刪除。\n6. 各面板 cloud sync key 含 templateId，上傳檔案路徑含 templateId 隔離。",
     developmentProgress:
-      "Phase 1：6 種範本多選卡片 + 獨立面板架構（ContractTemplateConfig.ts、ContractDraftPanel.tsx、ContractDraftLeaseFields.tsx、ContractDraftSaleFields.tsx 等 6 檔，共從 1369 行拆分為各不超過 393 行）。Phase 2：每個面板加入雙模式切換（panelMode: ai-generate | upload），ContractDraftUploadPanel.tsx 實作拖曳上傳、PDF 預覽、刪除，後端新增 uploadContractFile / getPropertyContractFiles Server Actions，PropertyContractFileItem 型別，合約存於 property-documents/{propertyId}/contracts/{templateId}/ 路徑。Phase 3（2026/04/07）：新增委託合約欄位元件 ContractDraftCommissionFields.tsx（~160 行），支援租賃/銷售雙委託模式切換，包含委託人、仲介公司、委託方式（專任/一般）、委託期限、委託售價/租金+底價、佣金比例或固定金額、授權行銷方式、委託特約事項等 11 個欄位。Phase 4（2026/04/08）TDD 全面重構測試：修復 ContractDraftPreviewSection 全部 12 個失敗測試（根本原因：測試未先選取範本卡片即操作表單欄位），新增範本選擇步驟；新增 NumericInput 獨立測試 9 題（整數/小數/範圍/空值/覆寫/前導零）；新增委託租賃與委託銷售欄位輸入測試（文字+數字各 2 組）；修復 ContractDraftCommissionFields 缺少 id/htmlFor 導致 label 與 input 無法關聯的無障礙問題；修復 ContractDraftPanel hydrate() 當本地有草稿但雲端無草稿時漏呼叫 setForm(localForm) 導致表單欄位不回填的 Bug；修正按鈕名稱不一致（刪除目前版本→刪除版本、列印/另存 PDF→列印/PDF）；為版本選擇器 select 加入 id+htmlFor。測試總計 36+16=52 通過，0 失敗。",
-    docPath:
-      "/project-process/test-logs/test-contract-template-selector-2026-04-07.md",
-    featureSpecDocPath:
-      "/project-process/features/contract-template-selector-dev-spec-20260407.md",
-    tddSpecDocPath:
-      "/project-process/features/tdd-contract-template-selector-20260407.md",
-    testScriptPath: "apps/superadmin/components/admin/properties/__tests__/ContractDraftPreviewSection.test.tsx",
-    testStatus: "passed",
-    testCoverage: 90,
-    unitTestCoverage: 100,
-    e2eTestCoverage: 0,
+      "Phase 1：6 種範本多選卡片 + 獨立面板架構（ContractTemplateConfig.ts、ContractDraftPanel.tsx、ContractDraftLeaseFields.tsx、ContractDraftSaleFields.tsx 等 6 檔，共從 1369 行拆分為各不超過 393 行）。Phase 2：每個面板加入雙模式切換（panelMode: ai-generate | upload），ContractDraftUploadPanel.tsx 實作拖曳上傳、PDF 預覽、刪除，後端新增 uploadContractFile / getPropertyContractFiles Server Actions，PropertyContractFileItem 型別，合約存於 property-documents/{propertyId}/contracts/{templateId}/ 路徑。",
     points: 8,
-    lastModifiedBy: "Claude Opus 4.6",
-    lastModifiedDate: "2026/04/08",
+    lastModifiedBy: "Claude Sonnet 4.6",
+    lastModifiedDate: "2026/03/22",
   },
   {
     name: "多角色平台商業計畫與定價策略",
     locatedPage: "docs + web/pricing",
     category: "專案管理與工具 (Project Management)",
-    percentage: 100,
+    percentage: 70,
     phase: "development",
     featureDescription:
       "將產品從單一房東工具正式重定位為多角色不動產 AI 協作平台，定義免費角色、付費角色、角色服務包、台灣與澳洲雙市場定價邏輯，以及 pricing page 的資訊架構基礎。",
@@ -2045,7 +1935,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "物件部落格多平台發布",
     locatedPage: "superadmin/properties/[id]/edit?tab=advertisement_creators",
     category: "超級管理員 (Super Admin)",
-    percentage: 100,
+    percentage: 99,
     phase: "development",
     docPath: "/project-process/features/property-advertisement-workflow-redesign-20260330.md",
     featureSpecDocPath:
@@ -2062,7 +1952,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "租客維修申請系統",
     category: "租客 (Tenant)",
-    percentage: 100,
+    percentage: 80,
     phase: "development",
     lastModifiedBy: "Claude Sonnet 4.6",
     lastModifiedDate: "2026/03/22",
@@ -2072,7 +1962,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "租賃申請系統（申請表/審核流程/Email通知）",
     category: "租客 (Tenant)",
-    percentage: 100,
+    percentage: 90,
     phase: "development",
     lastModifiedBy: "Claude Sonnet 4.6",
     lastModifiedDate: "2026/03/22",
@@ -2092,7 +1982,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "Contact Leads 指派負責人與備註系統",
     category: "超級管理員 (Super Admin)",
-    percentage: 100,
+    percentage: 90,
     phase: "development",
     lastModifiedBy: "Claude Sonnet 4.6",
     lastModifiedDate: "2026/03/22",
@@ -2112,221 +2002,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/04/02",
     phase: "development",
   },
-  {
-    name: "資料備份管理系統 (Data Backup & Protection)",
-    locatedPage: "/superadmin/settings/backup",
-    category: "超級管理員 (Super Admin)",
-    percentage: 100,
-    phase: "development",
-    lastModifiedBy: "Claude Opus 4.6",
-    lastModifiedDate: "2026/04/06",
-    featureSpecDocPath: "/project-process/features/backup-system-dev-spec-20260406.md",
-    tddSpecDocPath: "/project-process/features/tdd-backup-system-20260406.md",
-    docPath: "/project-process/test-logs/test-backup-system-2026-04-06.md",
-    testScriptPath: "apps/superadmin/unit_test/027",
-    developmentProgress:
-      "### 架構概覽\n" +
-      "完整的資料備份系統，涵蓋 DB 全表自動備份 + Storage 檔案下載 + 多目的地排程 + 雲端同步。\n\n" +
-      "### 已完成功能層級\n" +
-      "**Layer 1 — 腳本保護**：scripts/backup-metadata.sh、stop.sh 停機前自動備份、start.sh 偵測不一致並提示還原。\n" +
-      "**Layer 2 — Superadmin 排程總覽表格 UI**：將舊版垂直卡片式 accordion 重構為橫向排程總覽表格。每行一個目的地（專案目錄/本地設備/Google Drive/AWS S3），欄位含啟用 toggle、排程 toggle、頻率、時間、週期日、下次執行、狀態、手動備份按鈕。行內直接編輯，不需展開子面板。\n" +
-      "**Layer 2.5 — 資料夾選擇器 Modal**：本地設備目的地提供彈出式資料夾瀏覽器（/api/backup/browse-dirs），自動偵測 macOS /Volumes、Linux /mnt /media、Windows A:\\~Z:\\ 磁碟，支援子目錄瀏覽與麵包屑導覽。\n" +
-      "**Layer 3 — 雲端備份整合**：Google Drive Service Account + AWS S3 Access Key，Integrations 頁面卡片、cloud-settings API、cloudUpload.ts。\n" +
-      "**Layer 3.5 — 排程執行器**：/api/cron/backup-schedules（CRON_SECRET 驗證），依各目的地排程觸發 auto_schedule。\n" +
-      "**Layer 4 — 執行稽核**：backup_run_logs migration、手動/排程皆寫入、備份執行記錄表格。\n" +
-      "**Layer 5 — 全表自動備份（v2.0）**：透過 PostgREST schema endpoint 自動發現所有 public 表（目前 154 張），不需手動維護表清單。新增的表自動被涵蓋，SKIP_TABLES 可排除不需要的表。備份格式 v2.0，還原 API 相容 v1/v2。\n" +
-      "**Layer 6 — Storage 實際檔案備份**：從 Supabase Storage 遞迴下載 property-photos 和 property-documents bucket 的所有檔案（照片 JPG + 附件 PDF），存入 backup 子目錄 files/ 下。本地設備同步時整個資料夾（含檔案）一起複製。\n" +
-      "**Layer 7 — 備份完成 Toast 報告**：固定右上角結構化報告卡片，顯示目的地路徑、檔案結構樹狀圖（JSON/照片/附件分別在哪個 folder）、4 格統計（表數/筆數/檔案數/檔案大小）、耗時、有資料的表 tag 列表。可 resize 調整大小、手動關閉。\n\n" +
-      "### 備份結構\n" +
-      "```\nbackups/backup_YYYYMMDD_HHMMSS/\n├── backup_YYYYMMDD_HHMMSS.json  ← DB 全部表資料\n└── files/\n    ├── property-photos/          ← 照片（按 property UUID 分資料夾）\n    └── property-documents/       ← 附件文檔（PDF 等）\n```\n\n" +
-      "### API Routes\n" +
-      "/api/backup（list/create）、/api/backup/[id]（download/delete）、/api/backup/restore（冪等還原，支援 v1+v2）、/api/backup/health、/api/backup/settings、/api/backup/cloud-settings、/api/backup/run-logs、/api/backup/browse-dirs（資料夾瀏覽）、/api/cron/backup-schedules。\n\n" +
-      "### 擴充指南\n" +
-      "- **新增 DB 表**：無需任何修改，run-backup.ts 自動發現所有 public 表並備份。若要排除某表，加入 SKIP_TABLES set。\n" +
-      "- **新增 Storage bucket**：在 run-backup.ts 的 STORAGE_BUCKETS 陣列加入新 bucket 名稱即可（如 'user-avatars'）。\n" +
-      "- **新增備份目的地**：在 DestinationKey type 加入新 key、在 rows 陣列加一行、在 isDestEnabled/handleDestToggle 加對應邏輯。\n" +
-      "- **增量備份**：目前為全量備份（DB 資料 ~2.5MB + 檔案 ~45MB，2.3 秒完成），資料量成長後若需增量，可在 runBackup 中比對上次備份的 hash 或 updated_at 篩選差異資料。",
-    devLog:
-      "### 2026-04-06 排程總覽表格 UI 重構 + 全表自動備份 + 檔案備份\n" +
-      "- **UI 重構**：將 DestinationConfig 從垂直卡片 accordion 改為橫向排程總覽表格，每行一個目的地，行內直接編輯。提取 Toggle 共用元件，刪除 renderScheduleConfig 重複渲染和 getCycleProgress 進度條。\n" +
-      "- **每行備份按鈕**：表格新增「操作」欄，每個目的地可單獨手動備份。\n" +
-      "- **資料夾選擇器 Modal**：新增 /api/backup/browse-dirs API（偵測 macOS/Linux/Windows 磁碟 + 子目錄列表），新增 FolderPickerModal 元件（麵包屑導覽 + 目錄瀏覽 + 選擇確認）。\n" +
-      "- **全表自動備份 v2.0**：run-backup.ts 改為透過 PostgREST schema 自動發現所有 public 表，不再硬編碼表名。目前 154 張表、3850 筆、JSON 2.5MB。\n" +
-      "- **Storage 檔案備份**：遞迴下載 property-photos + property-documents bucket 所有檔案（14 張照片 43MB + 2 份 PDF 1.7MB），存入 backup 子目錄 files/。本地設備同步整個資料夾。\n" +
-      "- **還原 API 升級**：restore route 支援 v2 格式（動態還原所有表）+ v1 向後相容。\n" +
-      "- **Toast 報告卡片**：備份完成通知改為固定右上角結構化報告，顯示目的地路徑、檔案結構樹狀圖、統計數字、耗時、有資料的表列表。可 resize、手動關閉。",
-  },
-  {
-    name: "超級管理員-合約草稿 TipTap 富文本編輯器",
-    locatedPage: "superadmin/properties/[id]/edit?tab=contract",
-    category: "超級管理員 (Super Admin)",
-    percentage: 100,
-    phase: "testing",
-    workCategory: "功能新增",
-    featureDescription:
-      "在合約草稿預覽區加入 TipTap 行內富文本編輯器，使用者產生草稿後可直接在 App 內修改合約條文，修改後可匯出 HTML / DOCX / 列印 PDF。",
-    acceptanceCriteria:
-      "1. 產生草稿後顯示「編輯模式」按鈕，點擊後 iframe 切換為 TipTap 編輯器。\n2. 工具列支援：粗體、斜體、底線、H1-H3、有序/無序列表、左/中/右對齊、Undo/Redo。\n3. 編輯器內呈現合約官方版面樣式（注入 CONTRACT_PRINT_CSS）。\n4. 編輯後顯示「已編輯」badge 和「還原原始內容」按鈕。\n5. HTML/DOCX/列印匯出使用修改後的內容。\n6. editedHtml 持久化至 localStorage + 雲端草稿，重整後可還原。\n7. 重新產生草稿或清除時自動重設 editedHtml。",
-    developmentProgress:
-      "安裝 @tiptap/react @tiptap/starter-kit @tiptap/extension-underline @tiptap/extension-text-align @tiptap/pm。匯出 contract-document-renderer.ts 的 CONTRACT_PRINT_CSS、renderHtmlDocument、renderContractDocumentBody，新增 renderContractDocumentDocxFromHtml 函式。擴充 PersistedContractDraftState 加入 editedHtml 欄位。新增 ContractRichTextEditor.tsx（TipTap 編輯器+工具列，~160 行）、ContractPreviewToggle.tsx（iframe/editor toggle+匯出邏輯，~170 行）。重構 ContractDraftPanel.tsx 移除內嵌下載/列印 handler，改用 ContractPreviewToggle 元件，加入 editedHtml state 與 persist/hydrate 支援。ContractPreviewToggle 測試 9 題全通過。",
-    testScriptPath: "apps/superadmin/components/admin/properties/__tests__/ContractPreviewToggle.test.tsx",
-    testStatus: "passed",
-    testCoverage: 85,
-    unitTestCoverage: 100,
-    e2eTestCoverage: 0,
-    points: 5,
-    lastModifiedBy: "Claude Opus 4.6",
-    lastModifiedDate: "2026/04/08",
-  },
-
-  // === 2026-04-08 TanStack Table 統一遷移與 Excel Sheet Tabs ===
-  {
-    name: "專案進度儀表板 — DevelopmentTab TanStack Table 遷移與 Excel Sheet 分頁重構",
-    locatedPage: "superadmin/dashboard/project-progress",
-    category: "超級管理員 (Super Admin)",
-    percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
-    workCategory: "重構/優化",
-    points: 13,
-    featureDescription:
-      "將 DevelopmentTab 從 1,893 行手刻 CSS Grid 試算表遷移至 TanStack Table v8，拆分為 8 個子模組（每個 <500 行）。" +
-      "新增底部 Excel 風格 Sheet Tabs（開發/測試/部署/運維四分頁），每個 sheet 均支援搜尋、分類篩選、排版對齊、View 凍結、欄寬儲存/重設、新增列。" +
-      "Testing/Deployment/Operations sheet 改用共用 EnhancedTable 元件。",
-    developmentProgress:
-      "Phase 1: 拆出 types.ts, PromptEngineerModal.tsx, AddRowModal.tsx。" +
-      "Phase 2: 拆出 TableToolbar.tsx, useDevTableData.ts。" +
-      "Phase 3: 建立 columns.tsx (14 欄 ColumnDef), TableCore.tsx (TanStack + sticky frozen cols/rows + resize + sort)。" +
-      "Phase 4: DevelopmentTab.tsx 從 1,893→254 行。新增 phase-columns.tsx 供 Testing/Deployment/Operations sheet。" +
-      "新增 SheetTabs.tsx 底部分頁元件，page.tsx 重構為 Sheet 架構，per-sheet 自訂列持久化。",
-    devLog:
-      "### 2026-04-08 DevelopmentTab TanStack Table 遷移\n" +
-      "- **拆分巨型元件**：DevelopmentTab.tsx 1,893 行 → 8 個子模組，主元件 254 行\n" +
-      "- **TanStack Table 核心**：columns.tsx 14 欄 ColumnDef + meta (headerEn/headerZh)，TableCore.tsx 含 CSS Grid + sticky frozen cols/rows + column resize + sort indicators\n" +
-      "- **Excel Sheet Tabs**：底部四分頁（開發/測試/部署/運維），hash 導航同步，每個 sheet 均有完整 toolbar 功能\n" +
-      "- **phase-columns.tsx**：Testing 8 欄、Deployment 9 欄、Operations 8 欄的 ColumnDef\n" +
-      "- **per-sheet 自訂列**：Testing/Deployment/Operations 各自的 customRows 透過 useTablePreferences 持久化\n" +
-      "- **部署資料填充**：20 個已完成功能標記 phase: 'deployment', deployStatus: 'staging'\n" +
-      "- **修復 frozen row**：header container div 加入 sticky top-0（個別 cell sticky 在 grid 中無效）",
-    lastModifiedBy: "Claude Opus 4.6",
-    lastModifiedDate: "2026/04/08",
-  },
-  {
-    name: "EnhancedTable 共用 TanStack Table 元件",
-    locatedPage: "superadmin/components/ui/EnhancedTable",
-    category: "通用/系統 (General/System)",
-    percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
-    workCategory: "功能新增",
-    points: 8,
-    featureDescription:
-      "建立可複用的 TanStack Table 包裝元件，提供標準化的表格工具列（搜尋、分類篩選、排版對齊、View 凍結設定、Save/Load/Reset Widths、新增列按鈕）、" +
-      "欄寬拖曳調整、排序、分頁、行選取與批次操作等功能。所有 superadmin 表格均可透過此元件快速建表。",
-    developmentProgress:
-      "EnhancedTable.tsx ~580 行，泛型 Props 支援任意 row type。" +
-      "功能：useReactTable + getCoreRowModel/getSortedRowModel/getFilteredRowModel/getPaginationRowModel。" +
-      "Toolbar：搜尋框、All/分類按鈕、排版下拉、View 下拉（凍結行列數）、Save/Reset Widths、新增列。" +
-      "已修復：空資料時 category filter 仍顯示、ColumnMeta 型別衝突。",
-    devLog:
-      "### 2026-04-08 EnhancedTable 共用元件\n" +
-      "- 建立 `components/ui/EnhancedTable.tsx`（~580 行）\n" +
-      "- TanStack Table v8 完整整合：sorting, filtering, pagination, column resize, column pinning\n" +
-      "- 標準化 toolbar：搜尋、分類篩選、排版對齊、View 凍結、Save/Load/Reset 欄寬預設、新增列\n" +
-      "- 支援 enableRowSelection + renderBatchActions 回調\n" +
-      "- 支援 extraToolbar 自訂工具列區塊\n" +
-      "- 修復 getCategoryValue prop 判斷（空資料仍顯示 category buttons）",
-    lastModifiedBy: "Claude Opus 4.6",
-    lastModifiedDate: "2026/04/08",
-  },
-  {
-    name: "BottomSheetTabs 底部分頁元件與全站表格 Sheet 化",
-    locatedPage: "superadmin/components/ui/BottomSheetTabs",
-    category: "通用/系統 (General/System)",
-    percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
-    workCategory: "功能新增",
-    points: 3,
-    featureDescription:
-      "建立可複用的 Excel 風格底部 Sheet Tabs 元件，支援圖示、中英雙語標籤、badge 計數、active 指示條。" +
-      "已套用至 Project Progress（4 tabs）、IAM Management（4 tabs）、LLM Monitor（3 tabs）。",
-    developmentProgress:
-      "BottomSheetTabs.tsx ~70 行，Props: tabs (SheetTabDef[]), activeTab, onTabChange。" +
-      "SheetTabDef: id, label, zhLabel, icon, color, activeColor, badge。" +
-      "hash 導航支援（window.location.hash 同步）。" +
-      "已套用：Project Progress 用獨立 SheetTabs.tsx（phase-specific），IAM Management + LLM Monitor 用通用 BottomSheetTabs。",
-    devLog:
-      "### 2026-04-08 BottomSheetTabs 元件\n" +
-      "- 建立 `components/ui/BottomSheetTabs.tsx`（~70 行）— 通用 Excel 風格底部分頁\n" +
-      "- 建立 `project-progress/components/SheetTabs.tsx`（~100 行）— 專案進度專用（含 phase icons/colors）\n" +
-      "- IAM Management page.tsx：移除頂部 IAMTabBar，改用底部 BottomSheetTabs（Overview/Users/Roles/Groups）\n" +
-      "- LLM Monitor LLMMonitorClient.tsx：移除 sticky nav + IntersectionObserver，改用底部 BottomSheetTabs（3 tabs）",
-    lastModifiedBy: "Claude Opus 4.6",
-    lastModifiedDate: "2026/04/08",
-  },
-  {
-    name: "超級管理員表格統一 TanStack Table 遷移 (Contacts/LLM Monitor/IAM/Prompt)",
-    locatedPage: "superadmin/*",
-    category: "超級管理員 (Super Admin)",
-    percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
-    workCategory: "重構/優化",
-    points: 8,
-    featureDescription:
-      "將 superadmin 中所有手刻表格統一遷移至 EnhancedTable（TanStack Table），確保所有表格具備一致的搜尋、分類篩選、排版、" +
-      "凍結、欄寬儲存/重設、新增列、欄寬拖曳調整等功能。",
-    developmentProgress:
-      "ContactLeadsTable.tsx：149→189 行，支援 row selection + batch actions + pagination。" +
-      "LLMMonitorClient.tsx：兩個表格（AI Usage Logs, Token Cost）改用 EnhancedTable。" +
-      "OverviewTab.tsx (IAM)：Audit Log 表格改用 EnhancedTable + CSV export in extraToolbar。" +
-      "RolesTab.tsx (IAM)：RBAC matrix 605→499 行，動態 role columns 改用 EnhancedTable。" +
-      "PromptTable.tsx：353→193 行，支援 category filter + pagination。" +
-      "所有表格欄寬均可拖曳調整（Contacts 8欄、Prompt 5欄、IAM Overview 6欄、IAM Roles 17欄、LLM Usage 8欄）。",
-    devLog:
-      "### 2026-04-08 全站表格 TanStack Table 遷移\n" +
-      "- **ContactLeadsTable**：EnhancedTable + row selection + batch actions（批次刪除/匯出/指派）\n" +
-      "- **LLMMonitorClient**：2 個 EnhancedTable（AI 使用日誌 + Token 成本），移除 IntersectionObserver 改用 Sheet Tabs\n" +
-      "- **OverviewTab (IAM)**：Audit Log → EnhancedTable + extraToolbar CSV export\n" +
-      "- **RolesTab (IAM)**：RBAC 權限矩陣 → EnhancedTable with dynamic role columns (605→499 行)\n" +
-      "- **PromptTable**：353→193 行，category filter + pagination\n" +
-      "- **修復 ContactLeadsTable.test.tsx**：新增 assigneeId/assigneeName mock 欄位\n" +
-      "- 驗證所有表格 column resize handles 正常運作",
-    lastModifiedBy: "Claude Opus 4.6",
-    lastModifiedDate: "2026/04/08",
-  },
-  {
-    name: "EnhancedTable 建表指南與 /create-table Claude Skill",
-    locatedPage: "docs/enhanced-table-guide.md",
-    category: "專案管理與工具 (Project Management)",
-    percentage: 100,
-    phase: "deployment",
-    deployStatus: "staging",
-    deployEnv: "Vercel Preview",
-    workCategory: "文件撰寫",
-    points: 3,
-    featureDescription:
-      "建立 EnhancedTable & BottomSheetTabs 完整建表指南（docs/enhanced-table-guide.md），以及 Claude Code Skill（.claude/commands/create-table.md），" +
-      "讓工程師可透過 /create-table 指令自動產出 TanStack Table 程式碼，或參照指南手動建表。",
-    developmentProgress:
-      "Guide 涵蓋：架構總覽、5 分鐘快速開始、Props 文件、ColumnDef 技巧、BottomSheetTabs 用法、持久化機制、設計決策記錄、疑難排解。" +
-      "Skill 涵蓋：需求詢問、columns 定義、EnhancedTable 整合、Sheet Tabs 配置、行選取、踩坑紀錄、現有實作參考、完成後檢查清單。",
-    devLog:
-      "### 2026-04-08 建表知識封裝\n" +
-      "- 建立 `docs/enhanced-table-guide.md` — 人類工程師參考指南\n" +
-      "- 建立 `.claude/commands/create-table.md` — Claude Code Skill，執行 `/create-table` 自動建表\n" +
-      "- 涵蓋設計決策（為何用 CSS Grid、為何不用 TanStack columnPinning、為何暫不用 virtual scroll）",
-    lastModifiedBy: "Claude Opus 4.6",
-    lastModifiedDate: "2026/04/08",
-  },
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/08",
+  lastUpdated: "2026/04/04",
   features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
 };

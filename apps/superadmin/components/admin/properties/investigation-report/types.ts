@@ -114,10 +114,13 @@ export interface InvestigationReport {
   selectedNotes: string[];
   customNote: string;
 
-  /** 報告書附加參考：從物件已上傳文件／照片中勾選 */
+  /** @deprecated Use attachmentSelections instead. Kept for backward compatibility. */
   reportAttachments: ReportAttachmentSelection[];
   /** 附加說明（純文字，列印於報告末頁） */
   reportAttachmentSupplement: string;
+
+  /** V2 attachment selections: all attachment categories for combined print */
+  attachmentSelections?: AttachmentSelection[];
 
   /** 屋況說明書（各項現況揭露） */
   conditionStatement: PropertyConditionStatement;
@@ -126,13 +129,48 @@ export interface InvestigationReport {
   floorPlanPhotoUrl?: string;
 }
 
-/** 調查報告勾選的附件（存於 JSON，與物件文件／照片 id 對應） */
+/** Attachment category types for the investigation report print system */
+export type AttachmentCategory =
+  | 'report'
+  | 'document'
+  | 'photo_sheet'
+  | 'basic_info'
+  | 'property_intro'
+  | 'transaction_conditions'
+  | 'area_detail'
+  | 'zoning_usage'
+  | 'map_location';
+
+/** Unified attachment selection (v2: supports all categories) */
+export interface AttachmentSelection {
+  category: AttachmentCategory;
+  /** Unique key within category (document ID, or category slug for data-driven) */
+  id: string;
+  label: string;
+  url?: string;
+  enabled: boolean;
+}
+
+/** @deprecated Use AttachmentSelection instead. Kept for backward compatibility with saved JSON. */
 export interface ReportAttachmentSelection {
   kind: 'document' | 'photo';
   id: string;
   label: string;
   /** 照片為公開 URL；文件為後台檢視路徑（列印時僅顯示名稱） */
   url: string;
+}
+
+/** Migrate old ReportAttachmentSelection[] to AttachmentSelection[] */
+export function migrateAttachments(
+  old: ReportAttachmentSelection[],
+): AttachmentSelection[] {
+  return old.map((a) => ({
+    category: a.kind === 'photo' ? 'photo_sheet' as const : 'document' as const,
+    id: a.id,
+    label: a.label,
+    url: a.url,
+    enabled: true,
+  }));
 }
 
 /** 屋況說明書（物件現況揭露，供報告列印與存檔） */
