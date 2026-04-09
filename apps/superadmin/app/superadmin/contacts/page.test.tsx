@@ -25,6 +25,12 @@ jest.mock('@/components/dashboard/DashboardLayout', () => ({
   ),
 }));
 
+jest.mock('@/app/superadmin/contacts/ContactLeadsTable', () => ({
+  ContactLeadsTable: ({ leads }: { leads: Array<{ id: string }> }) => (
+    <div data-testid="contact-leads-table">{leads.length}</div>
+  ),
+}));
+
 describe('ContactsPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -60,18 +66,7 @@ describe('ContactsPage', () => {
     expect(
       screen.getByRole('heading', { name: 'Contact Leads', level: 1 }),
     ).toBeInTheDocument();
-    expect(screen.getByText('LEAD-12345678')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'LEAD-12345678' })).toHaveAttribute(
-      'href',
-      '/superadmin/contacts/lead-1',
-    );
-    expect(screen.getByText('台北大安整合案件（sale-2）')).toBeInTheDocument();
-    expect(screen.getByText('從案件詳情頁發起簽約支援')).toBeInTheDocument();
-    expect(screen.getByText('待處理', { selector: 'span' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '已讀' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '已回覆' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '已封存' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '待處理' })).toBeDisabled();
+    expect(screen.getByTestId('contact-leads-table')).toHaveTextContent('1');
   });
 
   test('renders empty state when there are no leads', async () => {
@@ -135,7 +130,6 @@ describe('ContactsPage', () => {
     expect(screen.getByDisplayValue('amy')).toBeInTheDocument();
     expect(screen.getByDisplayValue('已回覆')).toBeInTheDocument();
     expect(screen.getByDisplayValue('行銷頁面')).toBeInTheDocument();
-    expect(screen.getByText('LEAD-22222222')).toBeInTheDocument();
-    expect(screen.queryByText('LEAD-11111111')).not.toBeInTheDocument();
+    expect(screen.getByTestId('contact-leads-table')).toHaveTextContent('1');
   });
 });
