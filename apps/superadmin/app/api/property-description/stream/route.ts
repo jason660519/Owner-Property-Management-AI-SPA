@@ -4,7 +4,12 @@ import { decryptApiKey } from '@/lib/crypto';
 import { resolveUserId } from '@/lib/resolve-ai-settings-user';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { createClient } from '@/utils/supabase/server';
+import { PromptNotFoundError, resolveSystemPrompt } from '@/lib/ai/prompt-safety';
+import { startPromptAudit } from '@/lib/ai/audit';
+import { checkRateLimit } from '@/lib/ai/rate-limit';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 import {
+  buildCurrentDescriptionSection,
   buildFacts,
   buildGenerationSettings,
   buildResources,
@@ -14,6 +19,7 @@ import {
   getMaxTokens,
   type GenerateDescriptionInput,
   PROMPT_NAME,
+  PROMPT_SAFETY_TRAILER,
   truncate,
 } from './utils';
 
@@ -25,7 +31,14 @@ type PromptSource = 'ai_system_prompt' | 'saved_prompt' | 'default';
 type ModelSelectionSource = 'ai_module' | 'default';
 type ApiKeySource = 'ai_settings' | 'env' | 'missing';
 type AssignedModelRow = { provider: AIProvider; model: string; priority?: number };
-type PromptResolution = { template: string; source: PromptSource; moduleKey: string | null; version: number | null };
+type PromptResolution = {
+  template: string;
+  source: PromptSource;
+  moduleKey: string | null;
+  version: number | null;
+  /** saved_prompts.id when the template came from saved_prompts (else null). */
+  savedPromptId: string | null;
+};
 type ModelResolution = {
   provider: AIProvider;
   model: string;
@@ -329,6 +342,7 @@ async function resolvePromptTemplate(
   adminClient: ReturnType<typeof createAdminClient>,
   userId: string | null,
 ): Promise<PromptResolution> {
+  // 1. Per-user override via legacy ai_system_prompts (property_description / blog_generator).
   if (userId) {
     const modulePrompt = await fetchModulePrompt(adminClient, userId, PROPERTY_DESCRIPTION_MODULE_KEYS);
     if (modulePrompt.template) {
@@ -337,16 +351,58 @@ async function resolvePromptTemplate(
         source: 'ai_system_prompt',
         moduleKey: modulePrompt.moduleKey,
         version: modulePrompt.version,
+        savedPromptId: null,
       };
     }
   }
 
+  // 2. Legacy saved_prompts lookup by exact name (kept for backwards-compat).
   const customPrompt = await getCustomPromptTemplate();
   if (customPrompt) {
-    return { template: customPrompt, source: 'saved_prompt', moduleKey: null, version: null };
+    return {
+      template: customPrompt,
+      source: 'saved_prompt',
+      moduleKey: null,
+      version: null,
+      savedPromptId: null,
+    };
   }
 
-  return { template: DEFAULT_PROMPT, source: 'default', moduleKey: null, version: null };
+  // 3. Canonical SSoT lookup via saved_prompts.module_key (introduced by
+  //    20260411090000_add_module_key_to_saved_prompts.sql + seedDefaultPrompts).
+  try {
+    const resolved = await resolveSystemPrompt({
+      moduleKey: 'property.description.default',
+      client: adminClient,
+    });
+    return {
+      template: resolved.content,
+      source: 'saved_prompt',
+      moduleKey: 'property.description.default',
+      version: null,
+      savedPromptId: resolved.savedPromptId ?? null,
+    };
+  } catch (err) {
+    if (!(err instanceof PromptNotFoundError)) {
+      throw err;
+    }
+    // Fall through to hard-code fallback (warned below).
+  }
+
+  // 4. Loud fallback to the hard-coded constant — log it so we can detect
+  //    missing seeds in production. See docs/ai-prompt-safety-guide.md §10.6.
+  console.warn(
+    '[property-description] No prompt found in ai_system_prompts or saved_prompts. ' +
+      'Falling back to DEFAULT_PROMPT hard-code. ' +
+      'Run seedDefaultPrompts() from the prompt-management UI to fix.',
+  );
+  return {
+    template: DEFAULT_PROMPT,
+    source: 'default',
+    moduleKey: null,
+    version: null,
+    savedPromptId: null,
+  };
 }
 
 async function resolveModelCandidates(
@@ -387,6 +443,26 @@ async function resolveModelCandidates(
 }
 
 export async function POST(request: NextRequest) {
+  // Caller must be a super_admin. Session-first with header fallback.
+  const auth = await requireSuperadmin({
+    request,
+    routeLabel: 'api/property-description/stream',
+  });
+  if (!auth.ok) {
+    return new Response(auth.message, { status: auth.status });
+  }
+
+  const rl = await checkRateLimit({
+    userId: auth.userId,
+    endpointKey: 'api/property-description/stream',
+  });
+  if (!rl.allowed) {
+    return new Response(rl.message, {
+      status: 429,
+      headers: { 'Retry-After': String(rl.retryAfterSeconds) },
+    });
+  }
+
   let body: GenerateDescriptionInput;
   try {
     body = (await request.json()) as GenerateDescriptionInput;
@@ -413,17 +489,19 @@ export async function POST(request: NextRequest) {
         send({ type: 'phase', phase: 'loading_prompt' satisfies TracePhase, message: '載入 Prompt 模板中…' });
         const promptResolution = await resolvePromptTemplate(adminClient, userId);
         const template = promptResolution.template;
+        // buildFacts() already returns its output wrapped in a
+        // <property_data> XML block with each field XML-escaped, so the LLM
+        // sees user-controlled values as data, not instructions. See
+        // docs/ai-prompt-safety-guide.md §4.
         const facts = buildFacts(body);
         const generationSettings = buildGenerationSettings(body);
-        const currentDescriptionSection = body.currentDescription?.trim()
-          ? `\n\n現有文案（僅供參考，可重寫與整理，但不要保留錯誤資訊）：\n${body.currentDescription.trim()}`
-          : '';
+        const currentDescriptionSection = buildCurrentDescriptionSection(body.currentDescription);
         const prompt = template.includes('{物件資料}')
           ? template.replace('{物件資料}', facts)
           : `${template}\n\n物件資料：\n${facts}`;
 
         send({ type: 'phase', phase: 'building_prompt' satisfies TracePhase, message: '整理生成指令中…' });
-        const finalPrompt = `${prompt}\n\n生成設定：\n${generationSettings}${currentDescriptionSection}`;
+        const finalPrompt = `${prompt}\n\n生成設定：\n${generationSettings}${currentDescriptionSection}${PROMPT_SAFETY_TRAILER}`;
         const finalPromptHash = createHash('sha256').update(finalPrompt).digest('hex');
         send({
           type: 'prompt_loaded',
@@ -479,13 +557,64 @@ export async function POST(request: NextRequest) {
           send({ type: 'phase', phase: 'sending_request' satisfies TracePhase, message: '正在送出 AI 請求…' });
           send({ type: 'phase', phase: 'waiting_response' satisfies TracePhase, message: '等待 LLM 回應中…' });
 
-          const response = await invokeProvider(
-            candidate.provider,
-            candidate.model,
-            candidate.apiKey,
-            finalPrompt,
-            maxTokens,
-          );
+          // Hash the user-controlled portion of the request so the audit log
+          // can detect replays without persisting private data.
+          const userInputFingerprint = JSON.stringify({
+            title: body.title,
+            propertyType: body.propertyType,
+            addressCity: body.addressCity,
+            addressDistrict: body.addressDistrict,
+            addressStreet: body.addressStreet,
+            currentDescription: body.currentDescription,
+          });
+
+          const audit = startPromptAudit({
+            moduleKey: 'property.description.default',
+            provider: candidate.provider,
+            modelId: candidate.model,
+            userId,
+            savedPromptId: promptResolution.savedPromptId,
+            promptSource: promptResolution.source,
+            userInput: userInputFingerprint,
+            client: adminClient,
+          });
+
+          const callStart = Date.now();
+          let response: Awaited<ReturnType<typeof invokeProvider>>;
+          try {
+            response = await invokeProvider(
+              candidate.provider,
+              candidate.model,
+              candidate.apiKey,
+              finalPrompt,
+              maxTokens,
+            );
+          } catch (callErr) {
+            await audit.complete('api_error', {
+              errorMessage: callErr instanceof Error ? callErr.message : 'Unknown',
+              latencyMs: Date.now() - callStart,
+            });
+            throw callErr;
+          }
+          const callDuration = Date.now() - callStart;
+
+          if (response.ok && response.description) {
+            await audit.complete('success', {
+              latencyMs: callDuration,
+              inputTokens: response.usage?.inputTokens ?? null,
+              outputTokens: response.usage?.outputTokens ?? null,
+            });
+          } else {
+            await audit.complete(
+              response.ok ? 'schema_mismatch' : 'api_error',
+              {
+                latencyMs: callDuration,
+                errorMessage: `http_${response.status}`,
+                inputTokens: response.usage?.inputTokens ?? null,
+                outputTokens: response.usage?.outputTokens ?? null,
+              },
+            );
+          }
 
           const elapsed = Date.now() - startedAt;
           send({ type: 'response_meta', status: response.status, durationMs: elapsed });

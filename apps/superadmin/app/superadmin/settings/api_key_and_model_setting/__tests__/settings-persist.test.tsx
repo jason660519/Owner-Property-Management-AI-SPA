@@ -29,6 +29,7 @@ jest.mock('@/components/ai-settings', () => ({
     ),
   ),
   FeatureModuleSelector: () => <div data-testid="feature-module-selector" />,
+  ModelResearchReport: () => <div data-testid="model-research-report" />,
 }));
 
 jest.mock('@/components/dashboard', () => ({
@@ -76,6 +77,14 @@ jest.mock('@/lib/utils/total-available-models', () => ({
   getTotalAvailableModels: jest.fn(() => 0),
   getSelectedCountInAvailable: jest.fn(() => null),
   getAvailableModelsList: jest.fn(() => []),
+  getAvailableModelsListWithStaticFallback: jest.fn(() => []),
+  getTotalAvailableModelsWithStaticFallback: jest.fn(() => 0),
+}));
+
+// model-evaluator/utils evaluates FEATURE_MODULES at module load, which trips
+// when AI_PROVIDERS is mocked to []. Stub it out to keep page.tsx loadable.
+jest.mock('@/components/ai-settings/model-evaluator/utils', () => ({
+  getModelDisplayName: jest.fn((_p: string, m: string) => m),
 }));
 
 jest.mock('@/lib/ai-providers', () => ({

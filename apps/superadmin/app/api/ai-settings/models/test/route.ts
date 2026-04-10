@@ -1,13 +1,29 @@
 // filepath: apps/superadmin/app/api/ai-settings/models/test/route.ts
 // Test if a specific model can receive prompts and respond (連線測試). Supports optional file (image/PDF) for multimodal.
+// Hardened per docs/ai-prompt-safety-guide.md (CRITICAL #1):
+//   - Hard length cap on user-supplied prompt (defense-in-depth, super_admin still trusted).
+//   - Soft injection-pattern detection logged for audit.
+//   - Smoke-test default used whenever no prompt is provided.
+// TODO: Replace x-user-id header trust with a real Supabase server session check
+//       once the broader superadmin auth refactor lands. See guide §6.1.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { decryptApiKey } from '@/lib/crypto';
-import { resolveUserId } from '@/lib/resolve-ai-settings-user';
 import type { AIProvider } from '@/lib/ai-providers';
+import {
+  PROMPT_INPUT_LIMITS,
+  validateUserSuppliedPrompt,
+} from '@/lib/ai/prompt-safety';
+import { startPromptAudit } from '@/lib/ai/audit';
+import { checkRateLimit } from '@/lib/ai/rate-limit';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 const DEFAULT_TEST_PROMPT = '請用一句話回覆：你好，我是{你的模型名稱與型號}，可以正常接收並回應。';
+
+/** Hard cap for user-supplied test prompts. Generous to allow legit evaluation
+ *  scenarios but bounded so the endpoint cannot be abused as a free LLM proxy. */
+const TEST_PROMPT_MAX_LEN = PROMPT_INPUT_LIMITS.userPromptMax * 5; // 10,000 chars
 
 type TestResult = { success: boolean; message: string; output?: string; output_image_url?: string };
 
@@ -19,6 +35,7 @@ function getPromptAndMaxTokens(prompt?: string): { prompt: string; max_tokens: n
   const max_tokens = text === DEFAULT_TEST_PROMPT ? 64 : 512;
   return { prompt: text, max_tokens };
 }
+
 
 const IMAGE_MIMES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
 function isImageMime(mime: string): boolean {
@@ -403,6 +420,32 @@ async function testZhipu(
   }
 }
 
+async function testPerplexity(
+  apiKey: string,
+  modelId: string,
+  userPrompt?: string
+): Promise<TestResult> {
+  // Perplexity is OpenAI-compatible chat completions; web search is built in.
+  const { prompt, max_tokens } = getPromptAndMaxTokens(userPrompt);
+  try {
+    const res = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: modelId,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens,
+      }),
+      signal: providerSignal(),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) return { success: true, message: '連線成功', output: extractOpenAIOutput(data) || '（無輸出）' };
+    return { success: false, message: (data as { error?: { message?: string } }).error?.message ?? `HTTP ${res.status}` };
+  } catch (e) {
+    return { success: false, message: `連線失敗: ${e instanceof Error ? e.message : 'Unknown'}` };
+  }
+}
+
 type TesterFn = (key: string, modelId: string, userPrompt?: string, file?: FileAttachment) => Promise<TestResult>;
 const testers: Record<AIProvider, TesterFn> = {
   openai: testOpenAI,
@@ -414,31 +457,52 @@ const testers: Record<AIProvider, TesterFn> = {
   kimi: testKimi,
   openrouter: testOpenRouter,
   zhipu: testZhipu,
+  perplexity: testPerplexity,
 };
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = createAdminClient();
-    const requestedUserId = request.headers.get('x-user-id');
-    if (!requestedUserId) {
-      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+    // Strong auth: server-side session first, legacy x-user-id header as fallback.
+    // See docs/ai-prompt-safety-guide.md §6.1.
+    const auth = await requireSuperadmin({
+      request,
+      adminClient: supabase,
+      routeLabel: 'api/ai-settings/models/test',
+    });
+    if (!auth.ok) {
+      return NextResponse.json(
+        { success: false, message: auth.message },
+        { status: auth.status },
+      );
     }
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ success: false, message: '找不到可用的使用者' }, { status: 401 });
+    const userId = auth.userId;
+
+    // Rate limit: default 10 calls/min per (user, endpoint). See §6.2.
+    const rl = await checkRateLimit({
+      userId,
+      endpointKey: 'api/ai-settings/models/test',
+      client: supabase,
+    });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { success: false, message: rl.message },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } },
+      );
     }
     const body = await request.json();
     const {
       provider,
       modelId,
-      prompt: userPrompt,
+      prompt: rawUserPrompt,
       fileBase64,
       mimeType,
       fileName,
     } = body as {
       provider?: string;
       modelId?: string;
-      prompt?: string;
+      prompt?: unknown;
       fileBase64?: string;
       mimeType?: string;
       fileName?: string;
@@ -446,6 +510,19 @@ export async function POST(request: NextRequest) {
     if (!provider || !modelId) {
       return NextResponse.json({ success: false, message: '缺少 provider 或 modelId' }, { status: 400 });
     }
+
+    // Validate user-supplied prompt (length cap + injection-pattern logging).
+    const promptValidation = validateUserSuppliedPrompt(rawUserPrompt, {
+      maxLength: TEST_PROMPT_MAX_LEN,
+      context: 'ai-settings/models/test',
+    });
+    if (!promptValidation.ok) {
+      return NextResponse.json(
+        { success: false, message: promptValidation.message },
+        { status: 400 },
+      );
+    }
+    const userPrompt = promptValidation.prompt;
     const fileAttachment: FileAttachment | undefined =
       typeof fileBase64 === 'string' && fileBase64.length > 0 && typeof mimeType === 'string' && mimeType.length > 0
         ? { fileBase64, mimeType, fileName: typeof fileName === 'string' ? fileName : undefined }
@@ -470,7 +547,35 @@ export async function POST(request: NextRequest) {
     } catch {
       return NextResponse.json({ success: false, message: '金鑰解密失敗' }, { status: 500 });
     }
-    const result = await test(apiKey, modelId, userPrompt, fileAttachment);
+    // Audit: record this smoke-test call with the user-prompt fingerprint and
+    // any injection-pattern hits detected during validation.
+    const audit = startPromptAudit({
+      moduleKey: 'model.smoke_test',
+      provider,
+      modelId,
+      userId,
+      userInput: userPrompt ?? DEFAULT_TEST_PROMPT,
+      injectionHits: promptValidation.injectionHits,
+      promptSource: userPrompt ? 'user_supplied' : 'smoke_test_default',
+      client: supabase,
+    });
+
+    const callStart = Date.now();
+    let result: TestResult;
+    try {
+      result = await test(apiKey, modelId, userPrompt, fileAttachment);
+    } catch (callErr) {
+      await audit.complete('api_error', {
+        errorMessage: callErr instanceof Error ? callErr.message : 'Unknown',
+        latencyMs: Date.now() - callStart,
+      });
+      throw callErr;
+    }
+    await audit.complete(result.success ? 'success' : 'api_error', {
+      errorMessage: result.success ? null : result.message,
+      latencyMs: Date.now() - callStart,
+    });
+
     return NextResponse.json(result);
   } catch (err) {
     console.error('[AI Settings] Model test error:', err);

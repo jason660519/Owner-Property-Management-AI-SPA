@@ -1,5 +1,8 @@
 // filepath: apps/superadmin/app/api/transcript-parse/detect-land-count/route.ts
 // Detect how many distinct land parcel numbers (地號) appear in a land registry transcript document.
+// Hardened per docs/ai-prompt-safety-guide.md §2 — prompt resolved from
+// saved_prompts (transcript.detect_land_count) before falling back to the
+// hard-coded constant in lib/transcript-detect-prompts.ts.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
@@ -7,20 +10,17 @@ import { decryptApiKey } from '@/lib/crypto';
 import { resolveUserId } from '@/lib/resolve-ai-settings-user';
 import type { AIProvider } from '@/lib/ai-providers';
 import { CALLERS, extractJsonFromOutput, mimeFromPath } from '@/lib/utils/ai-api-callers';
+import {
+  DETECT_LAND_COUNT_PROMPT,
+  DETECT_LAND_COUNT_SAVED_PROMPT_MODULE_KEY,
+} from '@/lib/transcript-detect-prompts';
+import { PromptNotFoundError, resolveSystemPrompt } from '@/lib/ai/prompt-safety';
+import { startPromptAudit } from '@/lib/ai/audit';
+import { checkRateLimit } from '@/lib/ai/rate-limit';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-const DETECT_PROMPT = `請仔細閱讀此土地謄本，找出其中所有獨立的「地號」（土地標示之號碼）。
-
-地號通常出現於土地標示部，格式如「地號：XXXX」、「第XXXX地號」，或謄本標題與各筆標示行。
-若謄本含多個地號區塊，請逐一列出所有不重複的地號（可含地段與小段）。
-
-請只回傳以下 JSON 格式（不含任何說明文字）：
-{"count": 2, "landParcelNumbers": ["大安段一小段 0367-0000地號", "大安段一小段 0368-0000地號"]}
-
-若謄本只有一個地號，請回傳：{"count": 1, "landParcelNumbers": ["…"]}
-若無法辨識，請回傳：{"count": 0, "landParcelNumbers": []}`;
 
 interface DetectRequestBody {
   documentId?: string;
@@ -34,6 +34,29 @@ interface DetectResult {
 }
 
 export async function POST(request: NextRequest) {
+  const adminClient = createAdminClient();
+
+  const auth = await requireSuperadmin({
+    request,
+    adminClient,
+    routeLabel: 'api/transcript-parse/detect-land-count',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+
+  const rl = await checkRateLimit({
+    userId: auth.userId,
+    endpointKey: 'api/transcript-parse/detect-land-count',
+    client: adminClient,
+  });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: rl.message },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } },
+    );
+  }
+
   let body: DetectRequestBody;
   try {
     body = (await request.json()) as DetectRequestBody;
@@ -45,8 +68,6 @@ export async function POST(request: NextRequest) {
   if (!documentId || !userId) {
     return NextResponse.json({ error: 'Missing documentId or userId' }, { status: 400 });
   }
-
-  const adminClient = createAdminClient();
 
   const { data: doc, error: docError } = await adminClient
     .from('property_documents')
@@ -113,17 +134,65 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let rawText: string;
+  // Resolve system prompt from SSoT (saved_prompts.module_key) before
+  // falling back to the hard-coded constant. See ai-prompt-safety-guide §2.
+  let systemPrompt: string;
+  let promptSource: string = 'saved_prompts_module_key';
+  let savedPromptId: string | null = null;
   try {
-    const result = await caller(apiKey, model.model, fileBase64, mimeType, DETECT_PROMPT);
+    const resolved = await resolveSystemPrompt({
+      moduleKey: DETECT_LAND_COUNT_SAVED_PROMPT_MODULE_KEY,
+      client: adminClient,
+    });
+    systemPrompt = resolved.content;
+    promptSource = resolved.source;
+    savedPromptId = resolved.savedPromptId ?? null;
+  } catch (err) {
+    if (err instanceof PromptNotFoundError) {
+      console.warn(
+        '[detect-land-count] No prompt found in saved_prompts. ' +
+          'Falling back to DETECT_LAND_COUNT_PROMPT hard-code. ' +
+          'Run seedDefaultPrompts() from the prompt-management UI to fix.',
+      );
+      systemPrompt = DETECT_LAND_COUNT_PROMPT;
+      promptSource = 'hardcode_fallback';
+    } else {
+      throw err;
+    }
+  }
+
+  const audit = startPromptAudit({
+    moduleKey: DETECT_LAND_COUNT_SAVED_PROMPT_MODULE_KEY,
+    provider: model.provider,
+    modelId: model.model,
+    userId: resolvedUserId,
+    savedPromptId,
+    promptSource,
+    client: adminClient,
+  });
+
+  let rawText: string;
+  const callStart = Date.now();
+  try {
+    const result = await caller(apiKey, model.model, fileBase64, mimeType, systemPrompt);
+    const duration = Date.now() - callStart;
     if (!result.ok) {
+      await audit.complete('api_error', {
+        errorMessage: result.error ?? 'API 呼叫失敗',
+        latencyMs: duration,
+      });
       return NextResponse.json(
         { error: `AI 呼叫失敗：${result.error ?? '未知錯誤'}` },
         { status: 502 },
       );
     }
+    await audit.complete('success', { latencyMs: duration });
     rawText = result.text;
   } catch (e) {
+    await audit.complete('api_error', {
+      errorMessage: e instanceof Error ? e.message : 'Unknown',
+      latencyMs: Date.now() - callStart,
+    });
     return NextResponse.json(
       { error: `AI 呼叫例外：${e instanceof Error ? e.message : 'Unknown'}` },
       { status: 502 },

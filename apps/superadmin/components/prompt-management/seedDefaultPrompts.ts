@@ -9,6 +9,12 @@ import {
   TRANSCRIPT_PARSE_SCENARIO_PRESETS,
 } from '@/lib/transcript-parse-scenario-prompts';
 import { TRANSCRIPT_PARSE_PROMPT, TRANSCRIPT_JUDGE_PROMPT } from '@/lib/transcript-prompts';
+import {
+  DETECT_BUILDING_COUNT_PROMPT,
+  DETECT_BUILDING_COUNT_SAVED_PROMPT_MODULE_KEY,
+  DETECT_LAND_COUNT_PROMPT,
+  DETECT_LAND_COUNT_SAVED_PROMPT_MODULE_KEY,
+} from '@/lib/transcript-detect-prompts';
 import { DEFAULT_PROMPT as PROPERTY_DESCRIPTION_PROMPT } from '@/app/api/property-description/stream/utils';
 
 interface SeedEntry {
@@ -16,43 +22,71 @@ interface SeedEntry {
   content: string;
   tags: string[];
   description: string;
+  /**
+   * Stable SSoT lookup key. See docs/ai-prompt-safety-guide.md §2.3 for the
+   * naming convention. Looked up at runtime by resolveSystemPrompt().
+   */
+  moduleKey?: string;
 }
 
 function buildSeedEntries(): SeedEntry[] {
   const entries: SeedEntry[] = [];
 
-  // 1. Four transcript parse scenario presets
+  // 1. Four transcript parse scenario presets — keyed by transcript.parse.<scenario>
   for (const preset of TRANSCRIPT_PARSE_SCENARIO_PRESETS) {
     entries.push({
       name: preset.suggestedName,
       content: preset.content,
       tags: ['謄本解析', preset.label],
       description: preset.description,
+      moduleKey: `transcript.parse.${preset.scenarioKey}`,
     });
   }
 
-  // 2. Base transcript parse prompt (without scenario prefix)
+  // 2. Base transcript parse prompt (without scenario prefix) — canonical
+  //    lookup target for `transcript.parse`.
   entries.push({
     name: '謄本解析-通用基礎',
     content: TRANSCRIPT_PARSE_PROMPT,
     tags: ['謄本解析', '系統預設'],
     description: '所有謄本解析情境共用的基礎 Prompt（不含情境前綴）',
+    moduleKey: 'transcript.parse',
   });
 
-  // 3. Transcript judge prompt
+  // 3. Transcript judge prompt — used by run-transcript-parse-core Phase 3.
   entries.push({
     name: '謄本解析-裁判 (judge)',
     content: TRANSCRIPT_JUDGE_PROMPT,
     tags: ['謄本解析', 'OCR 評估', '系統預設'],
     description: '多模型歧異裁定用 Judge Prompt（Phase 3 衝突解決）',
+    moduleKey: 'transcript.judge',
   });
 
-  // 4. Property description prompt
+  // 4. Property description prompt — used by /api/property-description/stream.
   entries.push({
     name: '物件描述文案',
     content: PROPERTY_DESCRIPTION_PROMPT,
     tags: ['文案撰寫', '系統預設'],
     description: '物件介紹文案生成的預設 Prompt',
+    moduleKey: 'property.description.default',
+  });
+
+  // 5. Detect building count prompt — /api/transcript-parse/detect-building-count
+  entries.push({
+    name: '謄本-建號數量偵測',
+    content: DETECT_BUILDING_COUNT_PROMPT,
+    tags: ['謄本解析', '系統預設', '輕量偵測'],
+    description: '判斷一份建物謄本內含幾筆建號（用於前置流程）',
+    moduleKey: DETECT_BUILDING_COUNT_SAVED_PROMPT_MODULE_KEY,
+  });
+
+  // 6. Detect land parcel count prompt — /api/transcript-parse/detect-land-count
+  entries.push({
+    name: '謄本-地號數量偵測',
+    content: DETECT_LAND_COUNT_PROMPT,
+    tags: ['謄本解析', '系統預設', '輕量偵測'],
+    description: '判斷一份土地謄本內含幾筆地號（用於前置流程）',
+    moduleKey: DETECT_LAND_COUNT_SAVED_PROMPT_MODULE_KEY,
   });
 
   return entries;
@@ -79,11 +113,18 @@ export async function seedDefaultPrompts(): Promise<{
 
   const admin = createAdminClient();
 
-  // Fetch existing prompt names to avoid duplicates
+  // Fetch existing prompts to avoid duplicates. We dedupe on BOTH name and
+  // module_key so re-seeding never violates the partial unique index on
+  // module_key (added by 20260411090000_add_module_key_to_saved_prompts.sql).
   const { data: existing } = await admin
     .from('saved_prompts')
-    .select('name');
-  const existingNames = new Set((existing ?? []).map(r => r.name));
+    .select('name, module_key');
+  const existingNames = new Set((existing ?? []).map((r) => r.name as string));
+  const existingModuleKeys = new Set(
+    (existing ?? [])
+      .map((r) => r.module_key as string | null)
+      .filter((k): k is string => !!k),
+  );
 
   const entries = buildSeedEntries();
   let created = 0;
@@ -95,6 +136,12 @@ export async function seedDefaultPrompts(): Promise<{
       skipped++;
       continue;
     }
+    if (entry.moduleKey && existingModuleKeys.has(entry.moduleKey)) {
+      // A prompt with the same module_key already exists under a different
+      // name — leave it alone, the operator can rename / sync via the UI.
+      skipped++;
+      continue;
+    }
 
     const { error } = await admin
       .from('saved_prompts')
@@ -103,6 +150,7 @@ export async function seedDefaultPrompts(): Promise<{
         content: entry.content,
         tags: entry.tags,
         description: entry.description,
+        module_key: entry.moduleKey ?? null,
         created_by: user.id,
       });
 

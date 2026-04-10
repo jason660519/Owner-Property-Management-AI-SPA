@@ -19,6 +19,8 @@ import {
   mimeFromPath,
 } from '@/lib/utils/ai-api-callers';
 import { TRANSCRIPT_PARSE_PROMPT, withTranscriptParseKindDirective } from '@/lib/transcript-prompts';
+import { PromptNotFoundError, resolveSystemPrompt } from '@/lib/ai/prompt-safety';
+import { startPromptAudit } from '@/lib/ai/audit';
 import {
   buildConsensus,
   getConflictsNeedingJudge,
@@ -163,14 +165,59 @@ export async function runTranscriptParseCore(
       }
     }
 
-    const savedPrompt = parseScenarioKey
-      ? await fetchSavedPromptByScenario(adminClient, parseScenarioKey)
-      : null;
-    const basePrompt = customPrompt?.trim() || savedPrompt || TRANSCRIPT_PARSE_PROMPT;
+    // SSoT prompt resolution. Order:
+    //   1. Caller-supplied customPrompt (already validated by the route layer)
+    //   2. saved_prompts.module_key === transcript.parse[.<scenarioKey>]
+    //   3. legacy saved_prompts name pattern `%(scenarioKey)%`
+    //   4. TRANSCRIPT_PARSE_PROMPT hard-code (warned)
+    // See docs/ai-prompt-safety-guide.md §2.
+    let resolvedSource: string = 'custom_prompt';
+    let resolvedSavedPromptId: string | null = null;
+    let basePrompt: string;
+    if (customPrompt?.trim()) {
+      basePrompt = customPrompt.trim();
+    } else {
+      try {
+        const resolved = await resolveSystemPrompt({
+          moduleKey: 'transcript.parse',
+          scenarioKey: parseScenarioKey ?? undefined,
+          client: adminClient,
+        });
+        basePrompt = resolved.content;
+        resolvedSource = resolved.source;
+        resolvedSavedPromptId = resolved.savedPromptId ?? null;
+      } catch (err) {
+        if (err instanceof PromptNotFoundError) {
+          // Loud fallback — saved_prompts hasn't been seeded for this module.
+          // Run `seedDefaultPrompts` from the prompt-management UI to populate.
+          console.warn(
+            '[transcript-parse] No prompt found in saved_prompts for transcript.parse. ' +
+              'Falling back to TRANSCRIPT_PARSE_PROMPT hard-code. ' +
+              'Run seedDefaultPrompts() from the prompt-management UI to fix.',
+            { scenarioKey: parseScenarioKey, error: err.message },
+          );
+          basePrompt = TRANSCRIPT_PARSE_PROMPT;
+          resolvedSource = 'hardcode_fallback';
+        } else {
+          throw err;
+        }
+      }
+    }
     const { prompt: systemPrompt } = withTranscriptParseKindDirective(
       doc.document_type as string | null | undefined,
       basePrompt,
     );
+
+    // Audit context threaded into every parser LLM call below.
+    const parserAuditCtx: ParseAuditContext = {
+      adminClient,
+      moduleKey: parseScenarioKey
+        ? `transcript.parse.${parseScenarioKey}`
+        : 'transcript.parse',
+      userId: resolvedUserId ?? null,
+      savedPromptId: resolvedSavedPromptId,
+      promptSource: resolvedSource,
+    };
 
     send({
       type: 'models_loaded',
@@ -220,7 +267,7 @@ export async function runTranscriptParseCore(
         });
       },
       runItem: (m, _index, signal) =>
-        callSingleModel(m, keyMap, fileBase64, mimeType, systemPrompt, signal),
+        callSingleModel(m, keyMap, fileBase64, mimeType, systemPrompt, signal, parserAuditCtx),
       isSuccessful: (result) => result.result !== null,
       isCancelled: (result) => result.error === ABORTED_ERROR,
     });
@@ -427,6 +474,15 @@ function hasTranscriptContent(obj: unknown): boolean {
   return false;
 }
 
+/** Context passed through to the audit log for each per-model LLM call. */
+interface ParseAuditContext {
+  adminClient: AdminClient;
+  moduleKey: string;
+  userId: string | null;
+  savedPromptId?: string | null;
+  promptSource?: string | null;
+}
+
 async function callSingleModel(
   m: AssignedModelRow,
   keyMap: Map<string, string>,
@@ -434,6 +490,7 @@ async function callSingleModel(
   mimeType: string,
   systemPrompt: string,
   signal?: AbortSignal,
+  auditCtx?: ParseAuditContext,
 ): Promise<ModelParseResult> {
   const apiKey = keyMap.get(m.provider);
   if (!apiKey) {
@@ -455,11 +512,28 @@ async function callSingleModel(
       error: `不支援的 AI 供應商：${m.provider}`,
     };
   }
+
+  const audit = auditCtx
+    ? startPromptAudit({
+        moduleKey: auditCtx.moduleKey,
+        provider: m.provider,
+        modelId: m.model,
+        userId: auditCtx.userId,
+        savedPromptId: auditCtx.savedPromptId ?? null,
+        promptSource: auditCtx.promptSource ?? null,
+        client: auditCtx.adminClient,
+      })
+    : null;
+
   const callStart = Date.now();
   try {
     const callerResult = await caller(apiKey, m.model, fileBase64, mimeType, systemPrompt, signal);
     const duration = Date.now() - callStart;
     if (!callerResult.ok) {
+      await audit?.complete('api_error', {
+        errorMessage: callerResult.error ?? 'API 呼叫失敗',
+        latencyMs: duration,
+      });
       return {
         provider: m.provider,
         model: m.model,
@@ -470,6 +544,10 @@ async function callSingleModel(
     }
     const parsed = extractJsonFromOutput(callerResult.text) as TranscriptParseOutput;
     if (!hasTranscriptContent(parsed)) {
+      await audit?.complete('schema_mismatch', {
+        errorMessage: 'empty or invalid transcript fields',
+        latencyMs: duration,
+      });
       return {
         provider: m.provider,
         model: m.model,
@@ -478,14 +556,20 @@ async function callSingleModel(
         error: '模型回傳不含有效欄位的空結果（可能不支援此文件格式）',
       };
     }
+    await audit?.complete('success', { latencyMs: duration });
     return { provider: m.provider, model: m.model, result: parsed, duration_ms: duration };
   } catch (e) {
+    const duration = Date.now() - callStart;
     const isAborted = signal?.aborted || (e instanceof Error && e.name === 'AbortError');
+    await audit?.complete('api_error', {
+      errorMessage: isAborted ? ABORTED_ERROR : e instanceof Error ? e.message : 'Unknown error',
+      latencyMs: duration,
+    });
     return {
       provider: m.provider,
       model: m.model,
       result: null,
-      duration_ms: Date.now() - callStart,
+      duration_ms: duration,
       error: isAborted ? ABORTED_ERROR : e instanceof Error ? e.message : 'Unknown error',
     };
   }
@@ -498,7 +582,7 @@ async function runJudgePhase(
   fileBase64: string,
   mimeType: string,
   conflicts: ConflictDetail[],
-  parseResults: ModelParseResult[],
+  _parseResults: ModelParseResult[],
   merged: TranscriptParseOutput,
   metadata: ConsensusMetadata,
   judgeModel: { provider: string; model: string },
@@ -511,12 +595,45 @@ async function runJudgePhase(
   const caller = CALLERS[judge.provider as AIProvider];
   if (!caller) return null;
 
-  const judgeBasePrompt = await fetchSavedPromptByScenario(adminClient, 'judge');
+  // SSoT lookup for the judge prompt — see docs/ai-prompt-safety-guide.md §2.
+  let judgeBasePrompt: string | null = null;
+  let judgeSavedPromptId: string | null = null;
+  let judgePromptSource: string | null = null;
+  try {
+    const resolved = await resolveSystemPrompt({
+      moduleKey: 'transcript.judge',
+      scenarioKey: 'judge',
+      client: adminClient,
+    });
+    judgeBasePrompt = resolved.content;
+    judgeSavedPromptId = resolved.savedPromptId ?? null;
+    judgePromptSource = resolved.source;
+  } catch (err) {
+    if (err instanceof PromptNotFoundError) {
+      console.warn(
+        '[transcript-parse] No judge prompt in saved_prompts. Using buildJudgePrompt default.',
+        { error: err.message },
+      );
+      judgePromptSource = 'hardcode_fallback';
+    } else {
+      throw err;
+    }
+  }
   const conflictSummary = conflicts.map((c) => ({
     field_path: c.field_path,
     model_values: c.values.map((v) => ({ provider: v.provider, model: v.model, value: v.value })),
   }));
   const judgePrompt = buildJudgePrompt(judgeBasePrompt, conflictSummary);
+
+  const judgeAudit = startPromptAudit({
+    moduleKey: 'transcript.judge',
+    provider: judge.provider,
+    modelId: judge.model,
+    userId: resolvedUserId,
+    savedPromptId: judgeSavedPromptId,
+    promptSource: judgePromptSource,
+    client: adminClient,
+  });
 
   const callStart = Date.now();
   let result;
@@ -524,12 +641,22 @@ async function runJudgePhase(
     result = await caller(apiKey, judge.model, fileBase64, mimeType, judgePrompt, signal);
   } catch (e) {
     const isAborted = signal?.aborted || (e instanceof Error && e.name === 'AbortError');
+    await judgeAudit.complete('api_error', {
+      errorMessage: isAborted ? ABORTED_ERROR : e instanceof Error ? e.message : 'Unknown error',
+      latencyMs: Date.now() - callStart,
+    });
     if (isAborted) return null;
     throw e;
   }
   const duration = Date.now() - callStart;
 
-  if (signal?.aborted) return null;
+  if (signal?.aborted) {
+    await judgeAudit.complete('api_error', {
+      errorMessage: ABORTED_ERROR,
+      latencyMs: duration,
+    });
+    return null;
+  }
 
   let judgeRawOutput: Record<string, unknown> | null = null;
   let judgeErrorMessage: string | null = result.ok ? null : (result.error ?? null);
@@ -540,6 +667,14 @@ async function runJudgePhase(
       judgeErrorMessage = parseErr instanceof Error ? parseErr.message : '裁判回傳非合法 JSON';
     }
   }
+
+  await judgeAudit.complete(
+    !result.ok ? 'api_error' : judgeErrorMessage ? 'schema_mismatch' : 'success',
+    {
+      errorMessage: judgeErrorMessage,
+      latencyMs: duration,
+    },
+  );
 
   await adminClient.from('ocr_parse_results').insert({
     property_document_id: documentId,
@@ -595,38 +730,10 @@ async function fetchAssignedModels(
   return [];
 }
 
-/** Look up a saved prompt by scenario key — matches name containing `(key)` */
-async function fetchSavedPromptByScenario(
-  adminClient: AdminClient,
-  scenarioKey: string,
-): Promise<string | null> {
-  const pattern = `%(${scenarioKey})%`;
-  const { data } = await adminClient
-    .from('saved_prompts')
-    .select('content')
-    .ilike('name', pattern)
-    .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return (data?.content as string | null)?.trim() || null;
-}
-
-/** @deprecated Use fetchSavedPromptByScenario instead — kept for backward compat */
-async function fetchSystemPrompt(
-  adminClient: AdminClient,
-  userId: string,
-  moduleKey: string,
-): Promise<string | null> {
-  const { data } = await adminClient
-    .from('ai_system_prompts')
-    .select('prompt_content')
-    .eq('user_id', userId)
-    .eq('module_key', moduleKey)
-    .order('version', { ascending: false })
-    .limit(1)
-    .single();
-  return (data?.prompt_content as string | null) ?? null;
-}
+// NOTE: Legacy helpers `fetchSavedPromptByScenario` and `fetchSystemPrompt`
+// were removed in Phase 5 of the AI Prompt Safety refactor. Prompt lookups now
+// go through `resolveSystemPrompt` in @/lib/ai/prompt-safety, which handles
+// both the saved_prompts.module_key path and the legacy name pattern.
 
 async function getApiKey(adminClient: AdminClient, userId: string, provider: string): Promise<string | null> {
   const { data: keyRow } = await adminClient

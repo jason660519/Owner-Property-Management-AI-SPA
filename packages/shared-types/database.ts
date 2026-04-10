@@ -471,6 +471,170 @@ export type Database = {
           },
         ]
       }
+      ai_model_research_reports: {
+        Row: {
+          capabilities: Json
+          company_name: string | null
+          context_window: number | null
+          created_at: string
+          generated_at: string
+          generation_error: string | null
+          generation_status: string
+          generator_model: string
+          generator_provider: string
+          id: string
+          input_price_per_1m: number | null
+          knowledge_cutoff: string | null
+          model_id: string
+          model_name: string
+          output_price_per_1m: number | null
+          provider: string
+          report_markdown: string
+          source_urls: string[]
+          updated_at: string
+          user_id: string
+          version_label: string | null
+        }
+        Insert: {
+          capabilities?: Json
+          company_name?: string | null
+          context_window?: number | null
+          created_at?: string
+          generated_at?: string
+          generation_error?: string | null
+          generation_status?: string
+          generator_model: string
+          generator_provider: string
+          id?: string
+          input_price_per_1m?: number | null
+          knowledge_cutoff?: string | null
+          model_id: string
+          model_name: string
+          output_price_per_1m?: number | null
+          provider: string
+          report_markdown?: string
+          source_urls?: string[]
+          updated_at?: string
+          user_id: string
+          version_label?: string | null
+        }
+        Update: {
+          capabilities?: Json
+          company_name?: string | null
+          context_window?: number | null
+          created_at?: string
+          generated_at?: string
+          generation_error?: string | null
+          generation_status?: string
+          generator_model?: string
+          generator_provider?: string
+          id?: string
+          input_price_per_1m?: number | null
+          knowledge_cutoff?: string | null
+          model_id?: string
+          model_name?: string
+          output_price_per_1m?: number | null
+          provider?: string
+          report_markdown?: string
+          source_urls?: string[]
+          updated_at?: string
+          user_id?: string
+          version_label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_model_research_reports_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "iam_users_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_model_role_assignments: {
+        Row: {
+          classified_at: string
+          classified_by: string
+          confidence: number
+          id: string
+          model_id: string
+          provider: string
+          source: string
+          tag_key: string
+          user_id: string
+        }
+        Insert: {
+          classified_at?: string
+          classified_by?: string
+          confidence?: number
+          id?: string
+          model_id: string
+          provider: string
+          source?: string
+          tag_key: string
+          user_id: string
+        }
+        Update: {
+          classified_at?: string
+          classified_by?: string
+          confidence?: number
+          id?: string
+          model_id?: string
+          provider?: string
+          source?: string
+          tag_key?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_model_role_assignments_tag_key_fkey"
+            columns: ["tag_key"]
+            isOneToOne: false
+            referencedRelation: "ai_model_role_tags"
+            referencedColumns: ["tag_key"]
+          },
+          {
+            foreignKeyName: "ai_model_role_assignments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "iam_users_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_model_role_tags: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_system: boolean
+          sort_order: number
+          tag_key: string
+          tag_label: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_system?: boolean
+          sort_order?: number
+          tag_key: string
+          tag_label: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_system?: boolean
+          sort_order?: number
+          tag_key?: string
+          tag_label?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ai_model_selections: {
         Row: {
           created_at: string
@@ -690,10 +854,17 @@ export type Database = {
           created_at: string
           duration_ms: number | null
           error_message: string | null
+          final_prompt_hash: string | null
           id: string
           model_id: string
           module_key: string | null
+          prompt_module_key: string | null
+          prompt_name: string | null
+          prompt_source: string | null
+          prompt_version: number | null
           provider: string
+          request_path: string | null
+          response_status: number | null
           status: string | null
           tokens_input: number | null
           tokens_output: number | null
@@ -704,10 +875,17 @@ export type Database = {
           created_at?: string
           duration_ms?: number | null
           error_message?: string | null
+          final_prompt_hash?: string | null
           id?: string
           model_id: string
           module_key?: string | null
+          prompt_module_key?: string | null
+          prompt_name?: string | null
+          prompt_source?: string | null
+          prompt_version?: number | null
           provider: string
+          request_path?: string | null
+          response_status?: number | null
           status?: string | null
           tokens_input?: number | null
           tokens_output?: number | null
@@ -718,10 +896,17 @@ export type Database = {
           created_at?: string
           duration_ms?: number | null
           error_message?: string | null
+          final_prompt_hash?: string | null
           id?: string
           model_id?: string
           module_key?: string | null
+          prompt_module_key?: string | null
+          prompt_name?: string | null
+          prompt_source?: string | null
+          prompt_version?: number | null
           provider?: string
+          request_path?: string | null
+          response_status?: number | null
           status?: string | null
           tokens_input?: number | null
           tokens_output?: number | null
@@ -905,6 +1090,48 @@ export type Database = {
           file_size_bytes?: number | null
           id?: string
           status?: string
+        }
+        Relationships: []
+      }
+      backup_run_logs: {
+        Row: {
+          backup_id: string | null
+          cloud_result: Json | null
+          created_at: string
+          destinations: Json
+          duration_ms: number | null
+          error_message: string | null
+          filename: string | null
+          id: string
+          stats: Json | null
+          success: boolean
+          trigger: string
+        }
+        Insert: {
+          backup_id?: string | null
+          cloud_result?: Json | null
+          created_at?: string
+          destinations?: Json
+          duration_ms?: number | null
+          error_message?: string | null
+          filename?: string | null
+          id?: string
+          stats?: Json | null
+          success: boolean
+          trigger: string
+        }
+        Update: {
+          backup_id?: string | null
+          cloud_result?: Json | null
+          created_at?: string
+          destinations?: Json
+          duration_ms?: number | null
+          error_message?: string | null
+          filename?: string | null
+          id?: string
+          stats?: Json | null
+          success?: boolean
+          trigger?: string
         }
         Relationships: []
       }
@@ -1103,16 +1330,21 @@ export type Database = {
       blog_posts: {
         Row: {
           author_id: string
+          blog_style_preset: string | null
+          blog_target_platform: string | null
           category: string | null
           content: string
           content_html: string | null
           created_at: string
           excerpt: string | null
           featured_image_url: string | null
+          generation_context: Json
           id: string
           like_count: number | null
           property_id: string | null
           published_at: string | null
+          reference_url: string | null
+          reference_url_normalized: string | null
           seo_description: string | null
           seo_keywords: string[] | null
           seo_title: string | null
@@ -1125,16 +1357,21 @@ export type Database = {
         }
         Insert: {
           author_id: string
+          blog_style_preset?: string | null
+          blog_target_platform?: string | null
           category?: string | null
           content: string
           content_html?: string | null
           created_at?: string
           excerpt?: string | null
           featured_image_url?: string | null
+          generation_context?: Json
           id?: string
           like_count?: number | null
           property_id?: string | null
           published_at?: string | null
+          reference_url?: string | null
+          reference_url_normalized?: string | null
           seo_description?: string | null
           seo_keywords?: string[] | null
           seo_title?: string | null
@@ -1147,16 +1384,21 @@ export type Database = {
         }
         Update: {
           author_id?: string
+          blog_style_preset?: string | null
+          blog_target_platform?: string | null
           category?: string | null
           content?: string
           content_html?: string | null
           created_at?: string
           excerpt?: string | null
           featured_image_url?: string | null
+          generation_context?: Json
           id?: string
           like_count?: number | null
           property_id?: string | null
           published_at?: string | null
+          reference_url?: string | null
+          reference_url_normalized?: string | null
           seo_description?: string | null
           seo_keywords?: string[] | null
           seo_title?: string | null
@@ -3709,6 +3951,60 @@ export type Database = {
         }
         Relationships: []
       }
+      lvr_land_transactions: {
+        Row: {
+          address_snippet: string
+          building_area_sqm: number | null
+          building_type: string | null
+          city: string
+          created_at: string | null
+          district: string
+          floor: string | null
+          id: string
+          land_section_tokens: string[] | null
+          latitude: number | null
+          longitude: number | null
+          total_price_twd: number
+          transaction_date: string
+          unit_price_per_sqm: number | null
+          village: string | null
+        }
+        Insert: {
+          address_snippet: string
+          building_area_sqm?: number | null
+          building_type?: string | null
+          city: string
+          created_at?: string | null
+          district: string
+          floor?: string | null
+          id?: string
+          land_section_tokens?: string[] | null
+          latitude?: number | null
+          longitude?: number | null
+          total_price_twd: number
+          transaction_date: string
+          unit_price_per_sqm?: number | null
+          village?: string | null
+        }
+        Update: {
+          address_snippet?: string
+          building_area_sqm?: number | null
+          building_type?: string | null
+          city?: string
+          created_at?: string | null
+          district?: string
+          floor?: string | null
+          id?: string
+          land_section_tokens?: string[] | null
+          latitude?: number | null
+          longitude?: number | null
+          total_price_twd?: number
+          transaction_date?: string
+          unit_price_per_sqm?: number | null
+          village?: string | null
+        }
+        Relationships: []
+      }
       maintenance_quotes: {
         Row: {
           created_at: string
@@ -4340,6 +4636,53 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      ocr_parse_results: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          model_id: string
+          parse_duration_ms: number | null
+          property_document_id: string
+          provider: string
+          raw_output: Json | null
+          role: string
+          token_usage: Json | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          model_id: string
+          parse_duration_ms?: number | null
+          property_document_id: string
+          provider: string
+          raw_output?: Json | null
+          role?: string
+          token_usage?: Json | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          model_id?: string
+          parse_duration_ms?: number | null
+          property_document_id?: string
+          provider?: string
+          raw_output?: Json | null
+          role?: string
+          token_usage?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ocr_parse_results_property_document_id_fkey"
+            columns: ["property_document_id"]
+            isOneToOne: false
+            referencedRelation: "property_documents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ocr_parsing_logs: {
         Row: {
@@ -7158,24 +7501,36 @@ export type Database = {
           content: string
           created_at: string
           created_by: string | null
+          description: string
           id: string
+          is_favorite: boolean
+          module_key: string | null
           name: string
+          tags: string[]
           updated_at: string
         }
         Insert: {
           content: string
           created_at?: string
           created_by?: string | null
+          description?: string
           id?: string
+          is_favorite?: boolean
+          module_key?: string | null
           name: string
+          tags?: string[]
           updated_at?: string
         }
         Update: {
           content?: string
           created_at?: string
           created_by?: string | null
+          description?: string
           id?: string
+          is_favorite?: boolean
+          module_key?: string | null
           name?: string
+          tags?: string[]
           updated_at?: string
         }
         Relationships: [
@@ -7847,6 +8202,59 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users_profile_with_role"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transcript_parse_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          payload: Json
+          phase_message: string | null
+          progress: Json
+          property_document_id: string
+          requested_by_user_id: string
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          payload?: Json
+          phase_message?: string | null
+          progress?: Json
+          property_document_id: string
+          requested_by_user_id: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          payload?: Json
+          phase_message?: string | null
+          progress?: Json
+          property_document_id?: string
+          requested_by_user_id?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transcript_parse_jobs_property_document_id_fkey"
+            columns: ["property_document_id"]
+            isOneToOne: false
+            referencedRelation: "property_documents"
             referencedColumns: ["id"]
           },
         ]
@@ -9101,42 +9509,6 @@ export type Database = {
         }
         Relationships: []
       }
-      iam_user_group_memberships: {
-        Row: {
-          created_at: string | null
-          group_id: string | null
-          id: string | null
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          group_id?: string | null
-          id?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          group_id?: string | null
-          id?: string | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "iam_group_members_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "iam_groups"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "iam_group_members_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "iam_users_view"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       iam_users_view: {
         Row: {
           created_at: string | null
@@ -9339,6 +9711,10 @@ export type Database = {
           name: string
           size: number
         }[]
+      }
+      investigation_property_number_is_duplicate: {
+        Args: { p_exclude_property_id: string; p_property_number: string }
+        Returns: boolean
       }
       is_identity_verified: { Args: { p_user_id: string }; Returns: boolean }
       is_owner_or_authorized_agent: {

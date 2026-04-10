@@ -2002,9 +2002,46 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/04/02",
     phase: "development",
   },
+  {
+    name: "AI 設定 - 模型網路評測報告 Sheet",
+    locatedPage: "superadmin/settings/api_key_and_model_setting (research tab)",
+    percentage: 90,
+    acceptanceCriteria:
+      "1. 在 API Keys 與 Analysis 之間新增 Research sheet，沿用 BottomSheetTabs。\n2. 對所有「已驗證」模型可由使用者自選評審 LLM (含 web search) 自動產生研究報告。\n3. 評審 provider 候選：Anthropic / OpenAI / Google Gemini / xAI Grok / Perplexity（需先驗證對應金鑰才會出現於下拉）。\n4. 報告含結構化欄位：公司、版本、Input/Output $/1M、Context、能力、來源 URLs、Markdown 摘要。\n5. 快取策略：報告存進 ai_model_research_reports，預設顯示快取結果，使用者可單筆或批次重新生成。\n6. UI 強制顯示「定價僅供參考、以官方頁面為準」免責 banner，並標註生成時間。\n7. Source URLs 必須以 target=_blank rel=noopener noreferrer 開啟。\n8. 評審選擇透過 localStorage 持久化，reload 後保留。",
+    docPath: "",
+    category: "超級管理員 (Super Admin)",
+    points: 8,
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/10",
+    phase: "testing",
+    testStatus: "passed",
+    unitTestCoverage: 100,
+    testCoverage: 85,
+    devLog:
+      "[2026/04/10] (Claude Opus 4.6)\n## Phase 1 — 基礎 sheet（Anthropic 評審 only）\n• Migration 20260410120000_create_ai_model_research_reports.sql：新增 ai_model_research_reports 表（per-user RLS、結構化欄位 + Markdown + source_urls）。\n• 後端 API：app/api/ai-settings/model-research/route.ts (GET/POST/DELETE) 與 app/api/ai-settings/model-research/generate/route.ts（呼叫 Claude with web_search_20250305 工具，逐筆 upsert，含 mock 模式）。\n• 前端：components/ai-settings/ModelResearchReport.tsx 完成（EnhancedTable + MarkdownViewer + 免責 banner + 批次/單筆生成 + 展開報告）。\n• Page 整合：api_key_and_model_setting/page.tsx 新增 'research' tab 於 keys 與 model-analysis 之間。\n## Phase 2 — Multi-provider evaluator（使用者可選）\n• Migration 20260410130000_add_perplexity_provider.sql：將 perplexity 加入 5 個 ai_* 表的 provider CHECK constraint。\n• ai-providers.ts 新增 perplexity provider 與 sonar-pro / sonar / sonar-reasoning-pro 三個模型；validate/route.ts 與 models/test/route.ts 各加 Perplexity caller (OpenAI-compatible)。\n• generate/route.ts 重構為 multi-provider 架構：5 個 EvaluatorCaller (callAnthropic / callOpenAI / callGemini / callGrok / callPerplexity) 統一回傳 { text, urls }，dispatcher EVALUATOR_CALLERS 依 evaluatorProvider 派送。\n• ModelResearchReport.tsx 加入 EVALUATOR_CATALOG（Anthropic + OpenAI + Gemini + Grok + Perplexity，DeepSeek 排除）+ 兩段下拉（廠商→模型，自動依 savedKeys 過濾）+ localStorage 持久化（key: ai-settings:model-research:evaluator）。\n## 測試\n• 單元測試：components/ai-settings/__tests__/ModelResearchReport.test.tsx 共 10 個測試全綠（含新加 2 個：dropdown filter + 傳送選定 evaluator）。其他相關 ai-settings 測試 79 個全綠。\n• 瀏覽器驗證：localhost:3001/superadmin/settings/api_key_and_model_setting#research，下拉精準過濾出 4 家已驗證評審（Anthropic / OpenAI / Gemini / Grok），切換 OpenAI 後 model dropdown 自動換成 GPT-5 / GPT-4o，reload 後 localStorage 還原選擇。",
+  },
+  {
+    name: "AI Prompt 安全強化（SSoT + Injection 防護 + 審計 + Rate Limit + Auto-seed）",
+    locatedPage: "docs/ai-prompt-safety-guide.md",
+    percentage: 100,
+    acceptanceCriteria:
+      "1. 建立 docs/ai-prompt-safety-guide.md 工程指導手冊（6 條核心原則 + 標準流程 + Checklist）。\n2. 建立 lib/ai/prompt-safety.ts 共用模組（resolveSystemPrompt / wrapUserInput / detectInjectionAttempt / validateUserSuppliedPrompt）。\n3. 修復 3 個 Injection 漏洞：test endpoint user prompt、transcript-parse customPrompt、property-description buildFacts。\n4. 遷移 4 組 hard-code prompt 到 saved_prompts.module_key（transcript.parse / transcript.judge / transcript.detect_building_count / transcript.detect_land_count / property.description.default）。\n5. 所有 LLM 呼叫點 fallback 到 hard-code 時必須 console.warn（消除靜默 fallback）。",
+    docPath: "/docs/ai-prompt-safety-guide.md",
+    category: "超級管理員 (Super Admin)",
+    points: 8,
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/10",
+    phase: "testing",
+    testStatus: "passed",
+    unitTestCoverage: 95,
+    testCoverage: 80,
+    devLog:
+      "[2026/04/10] (Claude Opus 4.6)\n## 工程指導手冊\n• 新增 docs/ai-prompt-safety-guide.md（762 行）：6 條核心原則、SSoT 機制、Delimiter 規則、輸入驗證三道防線、授權/Rate Limit、輸出驗證、審計 schema、新增 LLM 功能 Checklist、10 個常見反例。\n## 共用模組（lib/ai/ + lib/auth/）\n• prompt-safety.ts：resolveSystemPrompt（SSoT）、PromptNotFoundError、wrapUserInput / buildSafeUserMessage（XML delimiter + escape）、detectInjectionAttempt（7 種 pattern）、validateUserSuppliedPrompt、renderPromptTemplate、sha256Hex、PROMPT_INPUT_LIMITS。\n• audit.ts：startPromptAudit / logPromptAudit — 寫入 ai_prompt_audit_logs，fingerprint 使用者輸入（只存 SHA-256 + 長度 + injection flags），記錄 latency / tokens / status / prompt_source。\n• rate-limit.ts：checkRateLimit — Postgres 滑動窗口實作，預設 10 req/min per (user, endpoint)，fail-open 策略。\n• ensure-seeded.ts：seedDefaultPromptsDirect + ensureDefaultPromptsSeededOnce — 不依賴 Server Action，process-level 記憶化避免重複 seed。\n• require-superadmin.ts：Supabase session 驗證 + iam_user_roles role check，legacy x-user-id header fallback（deprecation warn）。\n## 漏洞修復\n• CRITICAL #1 — /api/ai-settings/models/test：長度上限、injection 偵測、session 授權、rate limit、審計日誌。\n• CRITICAL #2 — /api/transcript-parse/stream + jobs：customPrompt validate、session 授權、rate limit、審計日誌。\n• HIGH #3 — /api/property-description/stream/utils.ts：buildFacts XML escape + <property_data> 標籤、buildCurrentDescriptionSection、PROMPT_SAFETY_TRAILER。\n## SSoT 遷移\n• Migration 20260411090000：saved_prompts 加 module_key 欄位 + partial unique index。\n• Migration 20260411100000：ai_prompt_audit_logs 審計表（prompt_source 溯源、user_input_sha256、injection_flags、tokens、latency、status）。\n• Migration 20260411110000：ai_call_rate_limits 滑動窗口計數表。\n• seedDefaultPrompts.ts + ensure-seeded.ts：seed 9 組 canonical prompt，dedupe 同時檢查 name + module_key。\n• run-transcript-parse-core.ts：parser + judge 都改用 resolveSystemPrompt，miss 時大聲 warn；parser loop + judge phase 都串了 startPromptAudit；清掉 Phase 5 遺留的 dead code。\n• detect-building/land-count、property-description/stream：全部改用 resolveSystemPrompt + requireSuperadmin + checkRateLimit + startPromptAudit。\n• resolveSystemPrompt miss 時 lazy dynamic import ensureDefaultPromptsSeededOnce，seed 後 retry 一次；process-level memoization 避免重複 seed。\n## 測試\n• 80 tests 全綠：lib/ai/prompt-safety (36) + lib/ai/audit (9) + lib/ai/rate-limit (8) + lib/ai/ensure-seeded (8) + lib/auth/require-superadmin (7) + app/api/property-description/stream/utils (12)。\n• TS check 對所有改動檔乾淨。\n• DB reset 後 superadmin 觸發任一 LLM 功能，系統會自動 seed canonical prompts（single-fire per process），不再需要人工按 Seed 按鈕。",
+    devLogDocPath: "/docs/ai-prompt-safety-guide.md",
+  },
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/04",
+  lastUpdated: "2026/04/10",
   features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
 };

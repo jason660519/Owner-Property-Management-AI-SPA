@@ -14,7 +14,12 @@ import {
   DETECT_BUILDING_COUNT_PROMPT_MODULE_KEY,
   DETECT_BUILDING_COUNT_PROMPT_NAME,
   DETECT_BUILDING_COUNT_PROMPT_PROVIDER,
+  DETECT_BUILDING_COUNT_SAVED_PROMPT_MODULE_KEY,
 } from '@/lib/transcript-detect-prompts';
+import { PromptNotFoundError, resolveSystemPrompt } from '@/lib/ai/prompt-safety';
+import { startPromptAudit } from '@/lib/ai/audit';
+import { checkRateLimit } from '@/lib/ai/rate-limit';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,6 +37,30 @@ interface DetectResult {
 }
 
 export async function POST(request: NextRequest) {
+  const adminClient = createAdminClient();
+
+  // Caller must be a super_admin (session-based; header fallback warned).
+  const auth = await requireSuperadmin({
+    request,
+    adminClient,
+    routeLabel: 'api/transcript-parse/detect-building-count',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+
+  const rl = await checkRateLimit({
+    userId: auth.userId,
+    endpointKey: 'api/transcript-parse/detect-building-count',
+    client: adminClient,
+  });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: rl.message },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } },
+    );
+  }
+
   let body: DetectRequestBody;
   try {
     body = (await request.json()) as DetectRequestBody;
@@ -43,8 +72,6 @@ export async function POST(request: NextRequest) {
   if (!documentId || !userId) {
     return NextResponse.json({ error: 'Missing documentId or userId' }, { status: 400 });
   }
-
-  const adminClient = createAdminClient();
 
   // ── 1. Fetch document ──────────────────────────────────────────────────────
   const { data: doc, error: docError } = await adminClient
@@ -116,21 +143,73 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // ── 5. Call AI ─────────────────────────────────────────────────────────────
+  // ── 5. Resolve prompt (SSoT) ──────────────────────────────────────────────
+  // Order: per-user override → saved_prompts (canonical seed) → hard-code.
+  // See docs/ai-prompt-safety-guide.md §2.
+  let systemPrompt = await fetchSystemPrompt(
+    adminClient,
+    resolvedUserId,
+    DETECT_BUILDING_COUNT_PROMPT_MODULE_KEY,
+  );
+  let promptSource: string = 'ai_system_prompts';
+  let savedPromptId: string | null = null;
+  if (!systemPrompt) {
+    try {
+      const resolved = await resolveSystemPrompt({
+        moduleKey: DETECT_BUILDING_COUNT_SAVED_PROMPT_MODULE_KEY,
+        client: adminClient,
+      });
+      systemPrompt = resolved.content;
+      promptSource = resolved.source;
+      savedPromptId = resolved.savedPromptId ?? null;
+    } catch (err) {
+      if (err instanceof PromptNotFoundError) {
+        console.warn(
+          '[detect-building-count] No prompt found in saved_prompts. ' +
+            'Falling back to DETECT_BUILDING_COUNT_PROMPT hard-code. ' +
+            'Run seedDefaultPrompts() from the prompt-management UI to fix.',
+        );
+        systemPrompt = DETECT_BUILDING_COUNT_PROMPT;
+        promptSource = 'hardcode_fallback';
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  // ── 6. Call AI (audited) ──────────────────────────────────────────────────
+  const audit = startPromptAudit({
+    moduleKey: DETECT_BUILDING_COUNT_SAVED_PROMPT_MODULE_KEY,
+    provider: model.provider,
+    modelId: model.model,
+    userId: resolvedUserId,
+    savedPromptId,
+    promptSource,
+    client: adminClient,
+  });
+
   let rawText: string;
+  const callStart = Date.now();
   try {
-    const systemPrompt =
-      (await fetchSystemPrompt(adminClient, resolvedUserId, DETECT_BUILDING_COUNT_PROMPT_MODULE_KEY)) ??
-      DETECT_BUILDING_COUNT_PROMPT;
     const result = await caller(apiKey, model.model, fileBase64, mimeType, systemPrompt);
+    const duration = Date.now() - callStart;
     if (!result.ok) {
+      await audit.complete('api_error', {
+        errorMessage: result.error ?? 'API 呼叫失敗',
+        latencyMs: duration,
+      });
       return NextResponse.json(
         { error: `AI 呼叫失敗：${result.error ?? '未知錯誤'}` },
         { status: 502 },
       );
     }
+    await audit.complete('success', { latencyMs: duration });
     rawText = result.text;
   } catch (e) {
+    await audit.complete('api_error', {
+      errorMessage: e instanceof Error ? e.message : 'Unknown',
+      latencyMs: Date.now() - callStart,
+    });
     return NextResponse.json(
       { error: `AI 呼叫例外：${e instanceof Error ? e.message : 'Unknown'}` },
       { status: 502 },

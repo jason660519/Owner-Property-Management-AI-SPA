@@ -374,6 +374,39 @@ async function validateZhipu(apiKey: string): Promise<ValidationResult> {
   }
 }
 
+async function validatePerplexity(apiKey: string): Promise<ValidationResult> {
+  try {
+    // Perplexity uses an OpenAI-compatible Chat Completions endpoint.
+    // There is no public /models endpoint, so we send a 1-token probe.
+    const res = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'sonar',
+        messages: [{ role: 'user', content: 'ping' }],
+        max_tokens: 1,
+      }),
+    });
+    if (res.ok) {
+      return {
+        valid: true,
+        provider: 'perplexity',
+        message: '金鑰驗證成功',
+        modelInfo: '金鑰有效',
+        availableModels: ['sonar-pro', 'sonar', 'sonar-reasoning-pro'],
+      };
+    }
+    const err = await res.json().catch(() => ({}));
+    const msg = (err as { error?: { message?: string } })?.error?.message;
+    if (res.status === 401 || res.status === 403) {
+      return { valid: false, provider: 'perplexity', message: msg ?? '金鑰無效或已過期' };
+    }
+    return { valid: false, provider: 'perplexity', message: msg ?? `HTTP ${res.status}` };
+  } catch (e) {
+    return { valid: false, provider: 'perplexity', message: `連線失敗: ${e instanceof Error ? e.message : 'Unknown'}` };
+  }
+}
+
 const validators: Record<AIProvider, (key: string) => Promise<ValidationResult>> = {
   openai: validateOpenAI,
   anthropic: validateAnthropic,
@@ -384,6 +417,7 @@ const validators: Record<AIProvider, (key: string) => Promise<ValidationResult>>
   kimi: validateKimi,
   openrouter: validateOpenRouter,
   zhipu: validateZhipu,
+  perplexity: validatePerplexity,
 };
 
 export async function POST(request: NextRequest) {

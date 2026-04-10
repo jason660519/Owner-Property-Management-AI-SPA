@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
-  Key, FlaskConical, ScanText, BookMarked,
+  Key, FlaskConical, ScanText, BookMarked, Globe,
   Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download,
 } from 'lucide-react';
 
@@ -19,17 +19,23 @@ import {
   ApiKeyManager,
   type ApiKeyManagerHandle,
   ModelEvaluator,
+  ModelResearchReport,
 } from '@/components/ai-settings';
 import { OcrSystemPromptPanel } from '@/components/ai-settings/OcrSystemPromptPanel';
 import { useAISettings, type KeyValidationResult } from '@/lib/hooks/useAISettings';
-import { getTotalAvailableModels, getSelectedCountInAvailable } from '@/lib/utils/total-available-models';
+import {
+  getTotalAvailableModels,
+  getSelectedCountInAvailable,
+  getAvailableModelsListWithStaticFallback,
+} from '@/lib/utils/total-available-models';
 import { getProviderById, AI_PROVIDERS } from '@/lib/ai-providers';
+import { getModelDisplayName } from '@/components/ai-settings/model-evaluator/utils';
 import { SUPPORTED_AI_ENV_KEY_NAMES } from '@/lib/parse-env-keys';
 
 
-type SettingsTab = 'keys' | 'model-analysis' | 'ocr';
+type SettingsTab = 'keys' | 'research' | 'model-analysis' | 'ocr';
 
-const TAB_IDS: SettingsTab[] = ['keys', 'model-analysis', 'ocr'];
+const TAB_IDS: SettingsTab[] = ['keys', 'research', 'model-analysis', 'ocr'];
 
 const LS_GLOBAL_PROMPT = 'ai-settings:globalTestPrompt';
 const LS_SAVED_PROMPTS = 'ai-settings:savedPrompts';
@@ -141,6 +147,7 @@ function getTabFromHash(): SettingsTab | null {
 
 const TABS: { id: SettingsTab; label: string; icon: React.ElementType; description: string }[] = [
   { id: 'keys', label: 'API 金鑰管理', icon: Key, description: '管理各 AI 服務提供商的 API 金鑰' },
+  { id: 'research', label: '模型網路評測報告', icon: Globe, description: '對已驗證模型進行網路調查並產生評測報告' },
   { id: 'model-analysis', label: '模型職責分析', icon: FlaskConical, description: '分析所有模型的職責分類標籤' },
   { id: 'ocr', label: 'OCR解析設定', icon: ScanText, description: '設定 OCR 解析模型與參數' },
 ];
@@ -165,6 +172,7 @@ const EVALUATOR_TAB_CONFIG: Record<string, { hiddenModuleKeys: string[]; statusL
 /** Bottom sheet tab definitions for Excel-style navigation */
 const SHEET_TABS: SheetTabDef[] = [
   { id: 'keys', label: 'API Keys', zhLabel: 'API 金鑰管理', icon: Key, color: 'text-amber-600', activeColor: 'bg-amber-600 text-white' },
+  { id: 'research', label: 'Research', zhLabel: '模型網路評測報告', icon: Globe, color: 'text-emerald-600', activeColor: 'bg-emerald-600 text-white' },
   { id: 'model-analysis', label: 'Analysis', zhLabel: '模型職責分析', icon: FlaskConical, color: 'text-cyan-600', activeColor: 'bg-cyan-600 text-white' },
   { id: 'ocr', label: 'OCR', zhLabel: 'OCR解析設定', icon: ScanText, color: 'text-blue-600', activeColor: 'bg-blue-600 text-white' },
 ];
@@ -570,6 +578,18 @@ export default function AIServiceSettingsPage() {
       );
     }
 
+    // --- Model research tab ---
+    if (activeTab === 'research') {
+      return (
+        <ModelResearchReport
+          savedKeys={settings.keys}
+          validateAllResultsByKeyId={validateAllResultsByKeyId}
+          currentKeys={memoizedCurrentKeys}
+          userId={settings.userId}
+        />
+      );
+    }
+
     // --- Model analysis tab ---
     if (activeTab === 'model-analysis') {
       return (
@@ -703,6 +723,106 @@ export default function AIServiceSettingsPage() {
     selectedInAvailable ?? selectedModelsForCurrentKeys.length;
   const selectedModelCount = Math.min(selectedModelCountRaw, totalAvailableModels);
 
+  // ---------------------------------------------------------------------------
+  // Bulk export of all available models (CSV / JSON / Markdown)
+  // ---------------------------------------------------------------------------
+  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
+  const exportDropdownRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!exportDropdownOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (!exportDropdownRef.current) return;
+      if (!exportDropdownRef.current.contains(e.target as Node)) {
+        setExportDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [exportDropdownOpen]);
+
+  const exportableModelRows = useMemo(() => {
+    const base = getAvailableModelsListWithStaticFallback(
+      validateAllResultsByKeyId,
+      memoizedCurrentKeys
+    );
+    return base
+      .map(({ providerId, modelId }) => ({
+        providerId,
+        providerName: AI_PROVIDERS.find((p) => p.id === providerId)?.name ?? providerId,
+        modelId,
+        modelName: getModelDisplayName(providerId, modelId),
+      }))
+      .sort((a, b) => {
+        const oa = AI_PROVIDERS.findIndex((p) => p.id === a.providerId);
+        const ob = AI_PROVIDERS.findIndex((p) => p.id === b.providerId);
+        if (oa !== ob) return oa - ob;
+        return (a.modelName || a.modelId).localeCompare(b.modelName || b.modelId);
+      });
+  }, [validateAllResultsByKeyId, memoizedCurrentKeys]);
+
+  const exportAllModels = useCallback(
+    (format: 'csv' | 'json' | 'markdown') => {
+      const rows = exportableModelRows;
+      const ts = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const stamp = `${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}`;
+      const baseName = `ai-models-all-${stamp}`;
+
+      let content = '';
+      let mime = '';
+      let ext = '';
+
+      if (format === 'csv') {
+        const escape = (v: string) => {
+          const needsQuote = /[",\n\r]/.test(v);
+          const escaped = v.replace(/"/g, '""');
+          return needsQuote ? `"${escaped}"` : escaped;
+        };
+        const header = ['providerId', 'providerName', 'modelId', 'modelName'];
+        const lines = [header.join(',')];
+        for (const r of rows) {
+          lines.push(
+            [escape(r.providerId), escape(r.providerName), escape(r.modelId), escape(r.modelName)].join(',')
+          );
+        }
+        // BOM so Excel reads UTF-8 correctly
+        content = '\ufeff' + lines.join('\r\n');
+        mime = 'text/csv;charset=utf-8';
+        ext = 'csv';
+      } else if (format === 'json') {
+        content = JSON.stringify(rows, null, 2);
+        mime = 'application/json;charset=utf-8';
+        ext = 'json';
+      } else {
+        const escapeMd = (v: string) => v.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+        const lines = [
+          '| providerId | providerName | modelId | modelName |',
+          '| --- | --- | --- | --- |',
+        ];
+        for (const r of rows) {
+          lines.push(
+            `| ${escapeMd(r.providerId)} | ${escapeMd(r.providerName)} | ${escapeMd(r.modelId)} | ${escapeMd(r.modelName)} |`
+          );
+        }
+        content = lines.join('\n');
+        mime = 'text/markdown;charset=utf-8';
+        ext = 'md';
+      }
+
+      const blob = new Blob([content], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${baseName}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setExportDropdownOpen(false);
+    },
+    [exportableModelRows]
+  );
+
   const handleSheetTabChange = useCallback((tabId: string) => {
     setActiveTab(tabId as SettingsTab);
     if (typeof window !== 'undefined') {
@@ -834,6 +954,59 @@ export default function AIServiceSettingsPage() {
                           : selectedModelCount}
                       </span>
                     </span>
+                  </div>
+                )}
+                {!settings.loading && exportableModelRows.length > 0 && (
+                  <div className="relative shrink-0" ref={exportDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setExportDropdownOpen((v) => !v)}
+                      aria-expanded={exportDropdownOpen}
+                      aria-haspopup="menu"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border whitespace-nowrap bg-bg-primary border-border-default text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
+                      title={`導出全部 ${exportableModelRows.length} 個可選模型`}
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      導出所有可選模型
+                    </button>
+                    {exportDropdownOpen && (
+                      <div
+                        className="absolute left-0 top-full mt-1 z-30 min-w-[220px] bg-bg-primary border border-border-default rounded-lg shadow-lg py-2"
+                        role="menu"
+                        aria-label="批量導出格式"
+                      >
+                        <div className="px-3 py-1.5 text-[10px] font-medium text-text-muted uppercase tracking-wide">
+                          導出格式（全部 {exportableModelRows.length} 個模型）
+                        </div>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => exportAllModels('csv')}
+                          className="w-full text-left px-3 py-1.5 text-xs text-text-secondary hover:bg-bg-secondary hover:text-text-primary transition-colors"
+                        >
+                          CSV（Excel / Sheets）
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => exportAllModels('json')}
+                          className="w-full text-left px-3 py-1.5 text-xs text-text-secondary hover:bg-bg-secondary hover:text-text-primary transition-colors"
+                        >
+                          JSON
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => exportAllModels('markdown')}
+                          className="w-full text-left px-3 py-1.5 text-xs text-text-secondary hover:bg-bg-secondary hover:text-text-primary transition-colors"
+                        >
+                          Markdown 表格
+                        </button>
+                        <div className="border-t border-border-default mt-1 pt-1 px-3 py-1 text-[10px] text-text-muted">
+                          欄位：providerId / providerName / modelId / modelName
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </>

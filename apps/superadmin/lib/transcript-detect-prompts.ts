@@ -1,6 +1,27 @@
+// Legacy keys retained for backwards compatibility with the per-user
+// ai_system_prompts override mechanism. New saved_prompts seed uses the
+// canonical SSoT module_key naming below.
 export const DETECT_BUILDING_COUNT_PROMPT_MODULE_KEY = 'online_ocr_detect_building_count' as const;
 export const DETECT_BUILDING_COUNT_PROMPT_PROVIDER = 'global' as const;
 export const DETECT_BUILDING_COUNT_PROMPT_NAME = 'default' as const;
+
+// Canonical SSoT module keys (used by lib/ai/prompt-safety.ts::resolveSystemPrompt
+// and apps/superadmin/components/prompt-management/seedDefaultPrompts.ts).
+export const DETECT_BUILDING_COUNT_SAVED_PROMPT_MODULE_KEY = 'transcript.detect_building_count' as const;
+export const DETECT_LAND_COUNT_SAVED_PROMPT_MODULE_KEY = 'transcript.detect_land_count' as const;
+
+// Land-parcel detection prompt — extracted from /api/transcript-parse/detect-land-count
+// route so it can be seeded into saved_prompts under transcript.detect_land_count.
+export const DETECT_LAND_COUNT_PROMPT = `請仔細閱讀此土地謄本，找出其中所有獨立的「地號」（土地標示之號碼）。
+
+地號通常出現於土地標示部，格式如「地號：XXXX」、「第XXXX地號」，或謄本標題與各筆標示行。
+若謄本含多個地號區塊，請逐一列出所有不重複的地號（可含地段與小段）。
+
+請只回傳以下 JSON 格式（不含任何說明文字）：
+{"count": 2, "landParcelNumbers": ["大安段一小段 0367-0000地號", "大安段一小段 0368-0000地號"]}
+
+若謄本只有一個地號，請回傳：{"count": 1, "landParcelNumbers": ["…"]}
+若無法辨識，請回傳：{"count": 0, "landParcelNumbers": []}`;
 
 export const DETECT_BUILDING_COUNT_PROMPT = `你是台灣不動產謄本解析專家，負責判斷「業主欲出售之建物標的」有幾筆建號。
 

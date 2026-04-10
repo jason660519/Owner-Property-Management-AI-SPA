@@ -3,7 +3,7 @@
 
 import { TRANSCRIPT_PARSE_PROMPT, TRANSCRIPT_JUDGE_PROMPT } from '@/lib/transcript-prompts';
 
-export type AIProvider = 'openai' | 'anthropic' | 'gemini' | 'deepseek' | 'grok' | 'together' | 'kimi' | 'openrouter' | 'zhipu';
+export type AIProvider = 'openai' | 'anthropic' | 'gemini' | 'deepseek' | 'grok' | 'together' | 'kimi' | 'openrouter' | 'zhipu' | 'perplexity';
 
 export interface AIProviderInfo {
   id: AIProvider;
@@ -629,6 +629,51 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
         inputPrice: 0.10,
         outputPrice: 0.10,
         capabilities: ['text', 'vision'],
+      },
+    ],
+  },
+  {
+    id: 'perplexity',
+    name: 'Perplexity',
+    envKey: 'PERPLEXITY_API_KEY',
+    sdkPackage: 'openai (compatible)',
+    docsUrl: 'https://docs.perplexity.ai/',
+    apiKeyUrl: 'https://www.perplexity.ai/settings/api',
+    sdkDocsUrl: 'https://docs.perplexity.ai/api-reference/chat-completions',
+    dashboardUrl: 'https://www.perplexity.ai/settings/api',
+    sdkDocsLabel: 'Perplexity API Doc',
+    dashboardLabel: 'Perplexity API Dashboard',
+    baseUrl: 'https://api.perplexity.ai',
+    keyPrefix: 'pplx-',
+    models: [
+      {
+        id: 'sonar-pro',
+        name: 'Sonar Pro',
+        contextWindow: 200000,
+        maxOutput: 8192,
+        inputPrice: 3.00,
+        outputPrice: 15.00,
+        // Built-in web search; every response includes citations
+        capabilities: ['text', 'web_search'],
+        recommended: true,
+      },
+      {
+        id: 'sonar',
+        name: 'Sonar',
+        contextWindow: 127000,
+        maxOutput: 8192,
+        inputPrice: 1.00,
+        outputPrice: 1.00,
+        capabilities: ['text', 'web_search'],
+      },
+      {
+        id: 'sonar-reasoning-pro',
+        name: 'Sonar Reasoning Pro',
+        contextWindow: 127000,
+        maxOutput: 8192,
+        inputPrice: 2.00,
+        outputPrice: 8.00,
+        capabilities: ['text', 'web_search', 'reasoning'],
       },
     ],
   },
