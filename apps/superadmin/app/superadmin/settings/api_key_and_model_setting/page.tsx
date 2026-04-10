@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Key, FlaskConical, ScanText, BookMarked,
+  Key, FlaskConical, ScanText, BookMarked, Trophy,
   Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download,
 } from 'lucide-react';
 
@@ -16,6 +16,7 @@ import {
   ModelEvaluator,
 } from '@/components/ai-settings';
 import { OcrSystemPromptPanel } from '@/components/ai-settings/OcrSystemPromptPanel';
+import { LlmLeaderboardPanel } from '@/components/ai-settings/LlmLeaderboardPanel';
 import { useAISettings, type KeyValidationResult } from '@/lib/hooks/useAISettings';
 import {
   getTotalAvailableModels,
@@ -27,9 +28,9 @@ import { getModelDisplayName } from '@/components/ai-settings/model-evaluator/ut
 import { SUPPORTED_AI_ENV_KEY_NAMES } from '@/lib/parse-env-keys';
 
 
-type SettingsTab = 'keys' | 'ocr';
+type SettingsTab = 'keys' | 'llm-leaderboard' | 'ocr';
 
-const TAB_IDS: SettingsTab[] = ['keys', 'ocr'];
+const TAB_IDS: SettingsTab[] = ['keys', 'llm-leaderboard', 'ocr'];
 
 const LS_GLOBAL_PROMPT = 'ai-settings:globalTestPrompt';
 const LS_SAVED_PROMPTS = 'ai-settings:savedPrompts';
@@ -141,6 +142,12 @@ function getTabFromHash(): SettingsTab | null {
 
 const TABS: { id: SettingsTab; label: string; icon: React.ElementType; description: string }[] = [
   { id: 'keys', label: 'API 金鑰管理', icon: Key, description: '管理各 AI 服務提供商的 API 金鑰' },
+  {
+    id: 'llm-leaderboard',
+    label: 'LLM Leader Board',
+    icon: Trophy,
+    description: 'Artificial Analysis LLM 排行榜（每日同步）',
+  },
   { id: 'ocr', label: 'OCR解析設定', icon: ScanText, description: '設定 OCR 解析模型與參數' },
 ];
 
@@ -164,6 +171,14 @@ const EVALUATOR_TAB_CONFIG: Record<string, { hiddenModuleKeys: string[]; statusL
 /** Bottom sheet tab definitions for Excel-style navigation */
 const SHEET_TABS: SheetTabDef[] = [
   { id: 'keys', label: 'API Keys', zhLabel: 'API 金鑰管理', icon: Key, color: 'text-amber-600', activeColor: 'bg-amber-600 text-white' },
+  {
+    id: 'llm-leaderboard',
+    label: 'Leaderboard',
+    zhLabel: 'LLM Leader Board',
+    icon: Trophy,
+    color: 'text-violet-600',
+    activeColor: 'bg-violet-600 text-white',
+  },
   { id: 'ocr', label: 'OCR', zhLabel: 'OCR解析設定', icon: ScanText, color: 'text-blue-600', activeColor: 'bg-blue-600 text-white' },
 ];
 
@@ -298,6 +313,7 @@ export default function AIServiceSettingsPage() {
       case 'ocr':
         return 'ocr';
       case 'keys':
+      case 'llm-leaderboard':
       default:
         return 'general';
     }
@@ -398,6 +414,7 @@ export default function AIServiceSettingsPage() {
       case 'ocr':
         return 'eval_ocr_global_prompt';
       case 'keys':
+      case 'llm-leaderboard':
       default:
         return 'eval_general_global_prompt';
     }
@@ -445,11 +462,14 @@ export default function AIServiceSettingsPage() {
       if (!keys.length) return;
       setValidateAllLoading(true);
       try {
+        // Pass an empty apiKey; the server route now fetches + decrypts the
+        // stored key by keyId (under server-side session auth) instead of
+        // relying on a client-held decryptedKey.
         const results = await Promise.all(
           keys.map((key) =>
             settings.validateKey(
               key.provider,
-              key.decryptedKey ?? '',
+              '',
               key.id,
               { skipRefresh: true }
             )
@@ -558,6 +578,7 @@ export default function AIServiceSettingsPage() {
             if (keyId && r?.valid) setValidateAllResultsByKeyId((prev) => ({ ...prev, [keyId]: r }));
             return r;
           }}
+          onRevealKey={settings.revealKey}
           headerActionsRef={apiKeyHeaderActionsRef}
           onBatchImportComplete={async (importedCount) => {
             await settings.refreshSilent();
@@ -566,6 +587,10 @@ export default function AIServiceSettingsPage() {
           }}
         />
       );
+    }
+
+    if (activeTab === 'llm-leaderboard') {
+      return <LlmLeaderboardPanel />;
     }
 
     // --- Evaluator tabs (ocr / static-ad / contract / blog / property-description) ---
@@ -809,6 +834,7 @@ export default function AIServiceSettingsPage() {
                 <p className="text-[11px] text-text-muted">{currentTab.description}</p>
               )}
             </div>
+            {activeTab !== 'llm-leaderboard' && (
             <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
@@ -871,6 +897,7 @@ export default function AIServiceSettingsPage() {
                 </>
               )}
             </div>
+            )}
             {activeTab === 'keys' && (
               <>
                 <div

@@ -12,11 +12,12 @@ globs: []
 
 ## 技術棧
 
-### 前端
-- **框架**: Expo / React Native
-- **語言**: TypeScript (嚴格模式)
-- **狀態管理**: React Hooks + Context API
-- **UI 庫**: React Native 原生組件 + 自定義組件
+### 前端（npm workspaces / monorepo）
+
+- **Web 主站與澳洲站**：`apps/web`、`apps/web-au` — Next.js 16（App Router）、React 19、TypeScript strict、Tailwind CSS、PWA（主站）；伺服器狀態常用 TanStack Query
+- **超級管理後台**：`apps/superadmin` — Next.js 16、React 19、Tailwind
+- **行動 App**：`apps/mobile` — Expo / React Native、NativeWind 等
+- **共用原則**：React Hooks + Context；細節與 Supabase import 分 app 規則見 `CLAUDE.md`、`.claude/rules/`
 
 ### 後端與資料庫
 - **BaaS**: Supabase (PostgreSQL 17)

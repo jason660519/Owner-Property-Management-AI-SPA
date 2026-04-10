@@ -37,6 +37,7 @@ const PROVIDER_DOCS: Record<string, { label: string; url: string }> = {
   kimi: { label: 'Kimi API', url: 'https://platform.moonshot.cn/docs' },
   openrouter: { label: 'OpenRouter API', url: 'https://openrouter.ai/docs' },
   zhipu: { label: '智谱 API', url: 'https://open.bigmodel.cn/dev/api' },
+  qwen: { label: 'Qwen API (DashScope)', url: 'https://help.aliyun.com/zh/model-studio/developer-reference/compatibility-of-openai-with-dashscope' },
 };
 
 export function ModelSettingsModal({

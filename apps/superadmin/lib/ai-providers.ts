@@ -3,7 +3,7 @@
 
 import { TRANSCRIPT_PARSE_PROMPT, TRANSCRIPT_JUDGE_PROMPT } from '@/lib/transcript-prompts';
 
-export type AIProvider = 'openai' | 'anthropic' | 'gemini' | 'deepseek' | 'grok' | 'together' | 'kimi' | 'openrouter' | 'zhipu' | 'perplexity';
+export type AIProvider = 'openai' | 'anthropic' | 'gemini' | 'deepseek' | 'grok' | 'together' | 'kimi' | 'openrouter' | 'zhipu' | 'perplexity' | 'qwen';
 
 export interface AIProviderInfo {
   id: AIProvider;
@@ -683,6 +683,78 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
         inputPrice: 2.00,
         outputPrice: 8.00,
         capabilities: ['text', 'web_search', 'reasoning'],
+      },
+    ],
+  },
+  {
+    id: 'qwen',
+    name: 'Qwen (通義千問)',
+    envKey: 'QWEN_API_KEY',
+    sdkPackage: 'openai (compatible)',
+    docsUrl: 'https://help.aliyun.com/zh/model-studio/developer-reference/',
+    apiKeyUrl: 'https://bailian.console.aliyun.com/?apiKey=1',
+    sdkDocsUrl: 'https://help.aliyun.com/zh/model-studio/developer-reference/compatibility-of-openai-with-dashscope',
+    dashboardUrl: 'https://bailian.console.aliyun.com/',
+    sdkDocsLabel: 'Qwen OpenAI-Compat Doc',
+    dashboardLabel: 'Alibaba 百煉控制台',
+    // International OpenAI-compatible endpoint (works outside mainland China).
+    baseUrl: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+    keyPrefix: 'sk-',
+    models: [
+      {
+        id: 'qwen-max',
+        name: 'Qwen Max',
+        contextWindow: 32768,
+        maxOutput: 8192,
+        inputPrice: 1.60,
+        outputPrice: 6.40,
+        capabilities: ['text', 'function_calling'],
+        recommended: true,
+      },
+      {
+        id: 'qwen-plus',
+        name: 'Qwen Plus',
+        contextWindow: 131072,
+        maxOutput: 8192,
+        inputPrice: 0.40,
+        outputPrice: 1.20,
+        capabilities: ['text', 'function_calling'],
+      },
+      {
+        id: 'qwen-turbo',
+        name: 'Qwen Turbo',
+        contextWindow: 1008192,
+        maxOutput: 8192,
+        inputPrice: 0.05,
+        outputPrice: 0.20,
+        capabilities: ['text', 'function_calling'],
+      },
+      {
+        id: 'qwen-vl-max',
+        name: 'Qwen VL Max',
+        contextWindow: 32768,
+        maxOutput: 2048,
+        inputPrice: 3.00,
+        outputPrice: 9.00,
+        capabilities: ['text', 'vision'],
+      },
+      {
+        id: 'qwen-vl-plus',
+        name: 'Qwen VL Plus',
+        contextWindow: 32768,
+        maxOutput: 2048,
+        inputPrice: 1.50,
+        outputPrice: 4.50,
+        capabilities: ['text', 'vision'],
+      },
+      {
+        id: 'qwq-32b-preview',
+        name: 'QwQ 32B Preview (Reasoning)',
+        contextWindow: 32768,
+        maxOutput: 16384,
+        inputPrice: 1.20,
+        outputPrice: 1.20,
+        capabilities: ['text', 'reasoning'],
       },
     ],
   },

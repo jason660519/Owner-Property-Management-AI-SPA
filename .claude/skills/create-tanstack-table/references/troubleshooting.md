@@ -72,11 +72,28 @@ console.assert(columns.length === WIDTHS.length, 'Column/width count mismatch');
 
 ### 7. Column Resize Handle Not Responding
 
-**Symptom**: Cannot drag to resize columns.
+**Symptom**: Cannot drag to resize columns on a newly-created table. Only the frozen columns (if any) are resizable.
 
-**Cause**: EnhancedTable renders a 4px-wide invisible drag handle between columns. If a parent element has `overflow: hidden` or `pointer-events: none`, the handle may be blocked.
+**Cause (most common — CSS positioning)**:
+Each header cell renders a 4px-wide resize handle positioned with `absolute right-0 top-0 bottom-0`. For the handle to anchor to the cell, the header cell `<div>` MUST have `position: relative` (`relative` in Tailwind). Without it, the handle escapes to the nearest positioned ancestor (the header wrapper, which has `relative z-10`), so every non-frozen column's handle collapses to the right edge of the whole header row and stacks invisibly on top of the last column. Frozen columns happen to work only because their `sticky` class creates a positioning context by accident.
 
-**Fix**: Ensure the table container doesn't have `overflow: hidden`. EnhancedTable uses `overflow-x: auto` internally.
+**Fix**: On every header cell `<div>` that contains a resize handle, include `relative` in the className. This is already fixed in `EnhancedTable.tsx` and `development-table/TableCore.tsx`. If you write a **custom** table header (not using EnhancedTable), ensure each header cell has `position: relative`:
+
+```tsx
+<div className="relative min-w-0 px-4 py-3 ... flex flex-col">
+  {/* header content */}
+  <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize ..."
+       onMouseDown={...} />
+</div>
+```
+
+**Other causes to check if the fix above doesn't help**:
+- A parent element has `overflow: hidden` (the handle sits just outside the cell edge and may be clipped). The table container uses `overflow-auto`, not `overflow-hidden` — if you wrap EnhancedTable in a layout div with `overflow-hidden`, remove it.
+- A parent has `pointer-events: none` — the mouse events never reach the handle.
+- `initialWidths.length !== columns.length` — resize patches a wrong-length array and the state becomes unusable. See issue #2.
+- `tableId` collides with another table — preferences overwrite each other. See issue #8.
+
+**How to verify**: Hover between two column headers; you should see the cursor change to `col-resize` and a blue line appear on hover. If you only see the blue line at the very right of the table, the `relative` class is missing somewhere.
 
 ### 8. Preferences Not Persisting
 

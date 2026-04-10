@@ -147,7 +147,9 @@ ensure_paperclip_env() {
     local selected_port="${PAPERCLIP_PORT:-$default_port}"
     local selected_url="${PAPERCLIP_PUBLIC_URL:-http://localhost:$selected_port}"
     local selected_image="${PAPERCLIP_IMAGE:-ghcr.io/paperclipai/paperclip:latest}"
-    local selected_data_dir="${PAPERCLIP_DATA_DIR:-/tmp/paperclip-data-owner-property-management}"
+    local selected_auto_pull="${PAPERCLIP_AUTO_PULL:-0}"
+    local selected_auto_open_browser="${PAPERCLIP_AUTO_OPEN_BROWSER:-1}"
+    local selected_data_dir="${PAPERCLIP_DATA_DIR:-$HOME/.paperclip-data-owner-property-management}"
 
     if [ ! -f "$paperclip_env_file" ]; then
         mkdir -p "$selected_data_dir"
@@ -157,6 +159,8 @@ ensure_paperclip_env() {
 PAPERCLIP_PORT=$selected_port
 PAPERCLIP_PUBLIC_URL=$selected_url
 PAPERCLIP_IMAGE=$selected_image
+PAPERCLIP_AUTO_PULL=$selected_auto_pull
+PAPERCLIP_AUTO_OPEN_BROWSER=$selected_auto_open_browser
 PAPERCLIP_DATA_DIR=$selected_data_dir
 BETTER_AUTH_SECRET=$generated_secret
 EOF
@@ -166,15 +170,43 @@ EOF
     PAPERCLIP_PORT=$(grep '^PAPERCLIP_PORT=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
     PAPERCLIP_PUBLIC_URL=$(grep '^PAPERCLIP_PUBLIC_URL=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
     PAPERCLIP_IMAGE=$(grep '^PAPERCLIP_IMAGE=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
+    PAPERCLIP_AUTO_PULL=$(grep '^PAPERCLIP_AUTO_PULL=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
+    PAPERCLIP_AUTO_OPEN_BROWSER=$(grep '^PAPERCLIP_AUTO_OPEN_BROWSER=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
     PAPERCLIP_DATA_DIR=$(grep '^PAPERCLIP_DATA_DIR=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
     BETTER_AUTH_SECRET=$(grep '^BETTER_AUTH_SECRET=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
 
     PAPERCLIP_PORT="${PAPERCLIP_PORT:-3187}"
     PAPERCLIP_PUBLIC_URL="${PAPERCLIP_PUBLIC_URL:-http://localhost:$PAPERCLIP_PORT}"
+    PAPERCLIP_DASHBOARD_URL="${PAPERCLIP_DASHBOARD_URL:-${PAPERCLIP_PUBLIC_URL}/VIS/agents/ceo/dashboard}"
     PAPERCLIP_IMAGE="${PAPERCLIP_IMAGE:-ghcr.io/paperclipai/paperclip:latest}"
-    PAPERCLIP_DATA_DIR="${PAPERCLIP_DATA_DIR:-/tmp/paperclip-data-owner-property-management}"
+    PAPERCLIP_AUTO_PULL="${PAPERCLIP_AUTO_PULL:-0}"
+    PAPERCLIP_AUTO_OPEN_BROWSER="${PAPERCLIP_AUTO_OPEN_BROWSER:-1}"
+    PAPERCLIP_DATA_DIR="${PAPERCLIP_DATA_DIR:-$HOME/.paperclip-data-owner-property-management}"
 
-    export PAPERCLIP_PORT PAPERCLIP_PUBLIC_URL PAPERCLIP_IMAGE PAPERCLIP_DATA_DIR BETTER_AUTH_SECRET
+    export PAPERCLIP_PORT PAPERCLIP_PUBLIC_URL PAPERCLIP_DASHBOARD_URL PAPERCLIP_IMAGE PAPERCLIP_AUTO_PULL PAPERCLIP_AUTO_OPEN_BROWSER PAPERCLIP_DATA_DIR BETTER_AUTH_SECRET
+}
+
+open_paperclip_dashboard() {
+    local health_url="${PAPERCLIP_PUBLIC_URL}/api/health"
+
+    if [ "$PAPERCLIP_AUTO_OPEN_BROWSER" != "1" ]; then
+        return 0
+    fi
+
+    if ! command -v open >/dev/null 2>&1; then
+        return 0
+    fi
+
+    for _ in $(seq 1 20); do
+        if curl -fsS "$health_url" >/dev/null 2>&1; then
+            echo -e "${BLUE}🌐 開啟 Paperclip Dashboard: ${PAPERCLIP_DASHBOARD_URL}${NC}"
+            open "$PAPERCLIP_DASHBOARD_URL" >/dev/null 2>&1 || true
+            return 0
+        fi
+        sleep 1
+    done
+
+    echo -e "${YELLOW}⚠️  Paperclip 尚未完成啟動，未自動開啟 Dashboard。可手動開啟：${PAPERCLIP_DASHBOARD_URL}${NC}"
 }
 
 start_paperclip() {
@@ -190,16 +222,25 @@ start_paperclip() {
 
     ensure_paperclip_env
 
-    echo -e "${BLUE}📥 取得 Paperclip 映像檔: ${PAPERCLIP_IMAGE}${NC}"
-    docker pull "${PAPERCLIP_IMAGE}" > /dev/null 2>&1 || {
-        echo -e "${YELLOW}⚠️  無法預先拉取映像檔，改由 compose 直接啟動${NC}"
-    }
-
     paperclip_container_id=$(docker compose --env-file "$env_file" -f "$compose_file" ps -q paperclip 2>/dev/null || true)
 
     if [ -n "$paperclip_container_id" ] && [ "$(docker inspect -f '{{.State.Status}}' "$paperclip_container_id" 2>/dev/null || true)" = "running" ]; then
         echo -e "${GREEN}✅ Paperclip 已在運行: ${PAPERCLIP_PUBLIC_URL:-http://localhost:${PAPERCLIP_PORT:-3187}}${NC}"
         return 0
+    fi
+
+    if [ "$PAPERCLIP_AUTO_PULL" = "1" ]; then
+        echo -e "${BLUE}📥 取得 Paperclip 映像檔: ${PAPERCLIP_IMAGE}${NC}"
+        docker pull "${PAPERCLIP_IMAGE}" > /dev/null 2>&1 || {
+            echo -e "${YELLOW}⚠️  無法預先拉取映像檔，改由 compose 直接啟動${NC}"
+        }
+    elif ! docker image inspect "$PAPERCLIP_IMAGE" > /dev/null 2>&1; then
+        echo -e "${BLUE}📥 首次啟動，下載 Paperclip 映像檔: ${PAPERCLIP_IMAGE}${NC}"
+        docker pull "$PAPERCLIP_IMAGE" > /dev/null 2>&1 || {
+            echo -e "${YELLOW}⚠️  無法預先拉取映像檔，改由 compose 直接啟動${NC}"
+        }
+    else
+        echo -e "${BLUE}⚡ 使用本機快取映像檔（可在 docker/paperclip/.env.paperclip 設 PAPERCLIP_AUTO_PULL=1 每次更新）${NC}"
     fi
 
     if lsof -i :"${PAPERCLIP_PORT:-3187}" > /dev/null 2>&1; then
@@ -208,6 +249,31 @@ start_paperclip() {
 
     docker compose --env-file "$env_file" -f "$compose_file" up -d
     echo -e "${GREEN}✅ Paperclip 啟動成功: ${PAPERCLIP_PUBLIC_URL:-http://localhost:${PAPERCLIP_PORT:-3187}}${NC}"
+    open_paperclip_dashboard
+}
+
+update_paperclip_image() {
+    echo -e "${BLUE}📦 更新 Paperclip 映像檔 (Docker)...${NC}"
+    local compose_file="$PROJECT_ROOT/docker/paperclip/docker-compose.paperclip.yml"
+    local env_file="$PROJECT_ROOT/docker/paperclip/.env.paperclip"
+
+    if [ ! -f "$compose_file" ]; then
+        echo -e "${RED}❌ 找不到 Paperclip compose 設定: $compose_file${NC}"
+        return 1
+    fi
+
+    ensure_paperclip_env
+
+    echo -e "${BLUE}📥 拉取最新映像檔: ${PAPERCLIP_IMAGE}${NC}"
+    docker pull "$PAPERCLIP_IMAGE"
+
+    if docker compose --env-file "$env_file" -f "$compose_file" ps -q paperclip | grep -q .; then
+        echo -e "${YELLOW}🔄 重新建立 Paperclip 容器以套用新映像檔...${NC}"
+        docker compose --env-file "$env_file" -f "$compose_file" up -d --force-recreate paperclip
+        echo -e "${GREEN}✅ Paperclip 已更新並重啟: ${PAPERCLIP_PUBLIC_URL:-http://localhost:${PAPERCLIP_PORT:-3187}}${NC}"
+    else
+        echo -e "${GREEN}✅ 映像檔已更新。尚未啟動容器，之後執行 start.sh paperclip 即可使用新版本。${NC}"
+    fi
 }
 
 # --- 啟動函式 ---
@@ -378,7 +444,8 @@ show_menu() {
     echo "6) 🧪 執行 Superadmin 測試 (含截圖)"
     echo "7) 🧹 清除快取 (TW + AU + Superadmin)"
     echo "8) 📎 啟動 Paperclip (Docker)"
-    echo "9) 🛑 停止所有服務"
+    echo "9) 📦 更新 Paperclip 映像檔"
+    echo "10) 🛑 停止所有服務"
     echo "0) 離開"
     echo ""
     read -p "請輸入選項: " choice
@@ -392,7 +459,8 @@ show_menu() {
         6) run_tests ;;
         7) clean_cache ;;
         8) start_paperclip ;;
-        9) ./stop.sh ;;
+        9) update_paperclip_image ;;
+        10) ./stop.sh ;;
         0) exit 0 ;;
         *) echo "無效選項"; sleep 1; show_menu ;;
     esac
@@ -406,8 +474,9 @@ case "${1:-menu}" in
     admin)  check_dependencies; ensure_supabase_running; start_admin ;;
     ocr)    check_dependencies; ensure_supabase_running; start_ocr ;;
     paperclip) check_dependencies; start_paperclip ;;
+    paperclip-update) check_dependencies; update_paperclip_image ;;
     test)   run_tests ;;
     clean)  clean_cache ;;
     menu)   show_menu ;;
-    *)      echo "用法: $0 [all|web|web-au|admin|ocr|paperclip|test|clean|menu]" ;;
+    *)      echo "用法: $0 [all|web|web-au|admin|ocr|paperclip|paperclip-update|test|clean|menu]" ;;
 esac

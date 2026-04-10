@@ -290,7 +290,8 @@ export default function TableCore({
                       }
                     }}
                     className={clsx(
-                      'min-w-0 px-4 py-3 text-xs font-semibold text-text-secondary tracking-wider flex flex-col overflow-hidden min-h-0 cursor-pointer',
+                      // `relative` anchors the absolute resize handle to this cell.
+                      'relative min-w-0 px-4 py-3 text-xs font-semibold text-text-secondary tracking-wider flex flex-col overflow-hidden min-h-0 cursor-pointer',
                       stickyLeft && 'sticky',
                       isColSelected ? 'bg-blue-500/15 ring-inset ring-1 ring-blue-500/40' : 'bg-bg-secondary',
                       isFreezeBoundary

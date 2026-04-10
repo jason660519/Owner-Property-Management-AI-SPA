@@ -1614,13 +1614,13 @@ const RAW_FEATURES: RoadmapFeature[] = [
     category: "超級管理員 (Super Admin)",
     points: 5,
     devLog:
-      "### 2026-03-04 更新\n- 修復 AI 模型全域評測 Prompt 測試功能無限重渲染 bug（Maximum update depth exceeded）。\n- 根本原因：page.tsx 每次渲染時 currentKeys 產生新陣列引用，導致 allRows→handleBatchTest→headerActionsRef useEffect 形成無限迴圈。\n- 修復方案（雙重防護）：(1) ModelEvaluator.tsx 使用 stable ref 模式（handleBatchTestRef + stableRunBatchTest），移除 handleBatchTest 作為 useEffect dep；(2) page.tsx 以 useMemo 穩定 currentKeys 引用。\n- TDD：新增 5 個批次測試執行行為測試案例，共 28 個測試全部通過。\n\n### 2026-03-06 更新\n- 在「已選/可選模型評估」分頁列右側新增「AI 模型全域評測」按鈕。\n- 按鈕重用既有 isEvalToolbarOpen 狀態，僅切換本頁全域評測面板顯示，不影響其他頁面功能。\n- 補上 aria-controls 對應面板 id（global-test-settings-panel），強化可及性。\n\n### 2026-03-06 更新（調整）\n- 移除 ModelEvaluator 表頭「AI 模型全域評測」按鈕與 onOpenGlobalTestPanel 相關程式碼。\n- 移除 settings/api_key_and_model_setting 的 `*-global-test` hash 入口，`#blog-global-test` 不再觸發對應頁面行為。\n- 同步刪除已不適用的按鈕行為測試案例，避免測試與現況不一致。\n\n### 2026-03-06 更新（獨立頁）\n- 「AI 模型全域評測」按鈕改為固定顯示在分頁列右側，不再只在 evaluations 分頁顯示。\n- 按鈕改為導向獨立頁 `/superadmin/settings/evaluations-global-test`，不再綁定 `#evaluations` 或本頁內嵌面板開關。\n- 移除 api_key_and_model_setting 內嵌的 AI 模型全域評測面板，避免與獨立頁重複。\n\n### 2026-03-06 更新（批次報告）\n- 批次測試完成後，自動將結果快照寫入 localStorage（最近一次報告）。\n- 新增「檢視最近報告」動作，透過 headerActionsRef 暴露給頁首按鈕呼叫。\n- 在「開始全域評測」旁新增「檢視最近報告」按鈕，使用者可隨時重新開啟最近一次批次結果視窗。\n\n### 2026-03-06 更新（UX 精簡）\n- 將右側設定區主流程收斂為「雲端 Prompt 選擇/載入 + 儲存雲端新版本 + 開始全域評測」。\n- 補上「載入雲端 Prompt」明確動作，避免僅選取下拉選單卻未真正載入內容的混淆。\n- 將本機 Prompt、下載、刪除雲端等操作收進「進階設定」摺疊區，降低主畫面複雜度。\n\n### 2026-03-06 更新（提示與確認流程）\n- 將 evaluations-global-test 頁面的 window.alert / window.confirm 全數移除，改為頁內 inline 提示訊息。\n- 刪除本機 Prompt 與刪除雲端 Prompt 改為「二次點擊確認」流程，避免誤刪且不中斷操作。\n- 提示訊息統一在右側設定區顯示，成功/錯誤/資訊狀態一致化。\n\n### 2026-03-06 更新（最近報告一鍵修正）\n- 新增「套用最近報告修正狀態」按鈕，將最近批次報告一次套用到模型分類與狀態。\n- 依報告內容自動推斷 `display_status_override`（VLM/LLM/不可用）並同步更新 `is_working`、`notes`、`last_tested_at`。\n- 套用後即回寫 ai_model_evaluations，避免逐筆手動調整模型狀態。\n\n### 2026-03-06 更新（移除混亂控件）\n- 依使用者回饋移除右側設定區的雲端 Prompt 管理與進階設定區塊（含載入、版本命名、儲存版本、本機 Prompt、刪除與下載）。\n- 僅保留核心流程：上傳測試檔案、編輯全域評測 Prompt、開始全域評測、檢視最近報告、套用最近報告修正狀態。\n\n### 2026-04-09 更新\n- 將 `/superadmin/settings` 首頁入口與 `api_key_and_model_setting` 頁面的跳轉按鈕命名統一為「AI 模型全域評測」。\n- 將 `/superadmin/settings/evaluations-global-test` 頁內主標題與麵包屑同步調整為「AI 模型全域評測」。\n- 將 settings 相關使用者可見文案、元件註解與規劃文件同步收斂為「AI 模型全域評測」與「全域評測 Prompt」等一致說法。\n- 保持既有路由不變，只修正跨頁入口、頁內標題與說明文案命名一致性。",
+      "### 2026-03-04 更新\n- 修復 AI 模型全域評測 Prompt 測試功能無限重渲染 bug（Maximum update depth exceeded）。\n- 根本原因：page.tsx 每次渲染時 currentKeys 產生新陣列引用，導致 allRows→handleBatchTest→headerActionsRef useEffect 形成無限迴圈。\n- 修復方案（雙重防護）：(1) ModelEvaluator.tsx 使用 stable ref 模式（handleBatchTestRef + stableRunBatchTest），移除 handleBatchTest 作為 useEffect dep；(2) page.tsx 以 useMemo 穩定 currentKeys 引用。\n- TDD：新增 5 個批次測試執行行為測試案例，共 28 個測試全部通過。\n\n### 2026-03-06 更新\n- 在「已選/可選模型評估」分頁列右側新增「AI 模型全域評測」按鈕。\n- 按鈕重用既有 isEvalToolbarOpen 狀態，僅切換本頁全域評測面板顯示，不影響其他頁面功能。\n- 補上 aria-controls 對應面板 id（global-test-settings-panel），強化可及性。\n\n### 2026-03-06 更新（調整）\n- 移除 ModelEvaluator 表頭「AI 模型全域評測」按鈕與 onOpenGlobalTestPanel 相關程式碼。\n- 移除 settings/api_key_and_model_setting 的 `*-global-test` hash 入口，`#blog-global-test` 不再觸發對應頁面行為。\n- 同步刪除已不適用的按鈕行為測試案例，避免測試與現況不一致。\n\n### 2026-03-06 更新（獨立頁）\n- 「AI 模型全域評測」按鈕改為固定顯示在分頁列右側，不再只在 evaluations 分頁顯示。\n- 按鈕改為導向獨立頁 `/superadmin/settings/evaluations-global-test`，不再綁定 `#evaluations` 或本頁內嵌面板開關。\n- 移除 api_key_and_model_setting 內嵌的 AI 模型全域評測面板，避免與獨立頁重複。\n\n### 2026-03-06 更新（批次報告）\n- 批次測試完成後，自動將結果快照寫入 localStorage（最近一次報告）。\n- 新增「檢視最近報告」動作，透過 headerActionsRef 暴露給頁首按鈕呼叫。\n- 在「開始全域評測」旁新增「檢視最近報告」按鈕，使用者可隨時重新開啟最近一次批次結果視窗。\n\n### 2026-03-06 更新（UX 精簡）\n- 將右側設定區主流程收斂為「雲端 Prompt 選擇/載入 + 儲存雲端新版本 + 開始全域評測」。\n- 補上「載入雲端 Prompt」明確動作，避免僅選取下拉選單卻未真正載入內容的混淆。\n- 將本機 Prompt、下載、刪除雲端等操作收進「進階設定」摺疊區，降低主畫面複雜度。\n\n### 2026-03-06 更新（提示與確認流程）\n- 將 evaluations-global-test 頁面的 window.alert / window.confirm 全數移除，改為頁內 inline 提示訊息。\n- 刪除本機 Prompt 與刪除雲端 Prompt 改為「二次點擊確認」流程，避免誤刪且不中斷操作。\n- 提示訊息統一在右側設定區顯示，成功/錯誤/資訊狀態一致化。\n\n### 2026-03-06 更新（最近報告一鍵修正）\n- 新增「套用最近報告修正狀態」按鈕，將最近批次報告一次套用到模型分類與狀態。\n- 依報告內容自動推斷 `display_status_override`（VLM/LLM/不可用）並同步更新 `is_working`、`notes`、`last_tested_at`。\n- 套用後即回寫 ai_model_evaluations，避免逐筆手動調整模型狀態。\n\n### 2026-03-06 更新（移除混亂控件）\n- 依使用者回饋移除右側設定區的雲端 Prompt 管理與進階設定區塊（含載入、版本命名、儲存版本、本機 Prompt、刪除與下載）。\n- 僅保留核心流程：上傳測試檔案、編輯全域評測 Prompt、開始全域評測、檢視最近報告、套用最近報告修正狀態。\n\n### 2026-04-09 更新\n- 將 `/superadmin/settings` 首頁入口與 `api_key_and_model_setting` 頁面的跳轉按鈕命名統一為「AI 模型全域評測」。\n- 將 `/superadmin/settings/evaluations-global-test` 頁內主標題與麵包屑同步調整為「AI 模型全域評測」。\n- 將 settings 相關使用者可見文案、元件註解與規劃文件同步收斂為「AI 模型全域評測」與「全域評測 Prompt」等一致說法。\n- 保持既有路由不變，只修正跨頁入口、頁內標題與說明文案命名一致性。\n\n### 2026-04-11 更新\n- BottomSheetTabs 在「OCR解析設定」左側新增「LLM Leader Board」分頁（`#llm-leaderboard`）。\n- 新增 `GET /api/artificial-analysis/llm-leaderboard`：伺服器端抓取 artificialanalysis.ai leaderboard SSR HTML 並解析表格列；前端 `LlmLeaderboardPanel` 以 EnhancedTable 呈現並每日自動同步、可手動刷新。\n\n### 2026-04-11 更新（Qwen 整合）\n- 新增 Qwen（Alibaba DashScope / 通義千問）為第 11 家 AI 供應商，API 金鑰導入、驗證、連線測試、OCR 謄本解析全流程打通。\n- `AIProvider` 型別擴充 `'qwen'`；`AI_PROVIDERS` 新增 Qwen 卡片，內含 qwen-max / qwen-plus / qwen-turbo / qwen-vl-max / qwen-vl-plus / qwq-32b-preview 六個模型與定價。\n- `/api/ai-settings/keys/validate`：新增 `validateQwen`，主打 DashScope 國際區 OpenAI-compatible `/models` 端點，404/403 時回退 `/chat/completions` 1-token 探針。\n- `/api/ai-settings/models/test`：新增 `testQwen`，支援 qwen-vl-* 模型以 image_url 內嵌圖片進行多模態測試。\n- `lib/utils/ai-api-callers.ts`：新增 `callQwen`，供 OCR 謄本解析（TRANSCRIPT_PARSE_PROMPT）與多模型共識使用，強制 JSON 輸出格式。\n- Migration `20260411120000_add_qwen_provider.sql`：將 `'qwen'` 加入 `ai_api_keys` / `ai_model_selections` / `ai_chat_logs` / `ai_model_evaluations` / `ai_key_validation_cache` 五張表的 provider CHECK constraint。\n- UI 細節：`ApiKeyManager` 自動從 `AI_PROVIDERS.map` 渲染出 Qwen 卡片，新增 Qwen 品牌紫色 `#615CED`；`ModelSettingsModal` 的 `PROVIDER_DOCS` 補上 Qwen API 參數連結。",
     testProgress:
       "TDD: 28/28 tests passing（含 統一/單一 prompt 測試功能完整測試）",
     testCoverage: 15,
     testScriptCount: 28,
     testScriptPassedCount: 28,
-    lastModifiedBy: "GPT-5.2",
+    lastModifiedBy: "Claude Opus 4.6",
     lastModifiedDate: "2026/04/11",
   },
 
@@ -2030,7 +2030,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     category: "超級管理員 (Super Admin)",
     points: 8,
     lastModifiedBy: "Claude Opus 4.6",
-    lastModifiedDate: "2026/04/10",
+    lastModifiedDate: "2026/04/11",
     phase: "testing",
     testStatus: "passed",
     unitTestCoverage: 95,
@@ -2047,13 +2047,13 @@ const RAW_FEATURES: RoadmapFeature[] = [
     points: 2,
     phase: "development",
     lastModifiedBy: "GPT-5.3-Codex",
-    lastModifiedDate: "2026/04/10",
+    lastModifiedDate: "2026/04/11",
     featureDescription:
       "以 Docker 方式整合 Paperclip，並納入專案統一啟停流程，讓開發者執行 ./start.sh all 時可一併啟動，執行 ./stop.sh 時可一併停止。",
     acceptanceCriteria:
       "1. 新增專案內 Paperclip compose 設定，採官方 quickstart 單容器模式。\n2. start.sh 具備 paperclip 啟動命令與 all 模式自動啟動。\n3. stop.sh 可透過 compose down 停止 Paperclip。\n4. 預設使用較少衝突的 host port（3187），並可透過 .env.paperclip 覆寫。\n5. 首次執行可自動建立 .env.paperclip 與 BETTER_AUTH_SECRET。",
     developmentProgress:
-      "已新增 docker/paperclip/docker-compose.paperclip.yml 與 .env.paperclip.example；start.sh 新增 ensure_paperclip_env/start_paperclip，menu 與 CLI 入口支援 paperclip；start_all 會一併啟動 Paperclip；stop.sh 新增 Paperclip compose down。",
+      "已新增 docker/paperclip/docker-compose.paperclip.yml 與 .env.paperclip.example；start.sh 新增 ensure_paperclip_env/start_paperclip，menu 與 CLI 入口支援 paperclip；start_all 會一併啟動 Paperclip；stop.sh 新增 Paperclip compose down。2026/04/11 再優化啟動效能：start_paperclip 先檢查容器是否已 running，已執行時直接返回；預設改為使用本機快取映像檔（PAPERCLIP_AUTO_PULL=0），僅首次或手動啟用 auto-pull 才拉取最新映像，避免每次 start.sh 都卡在 docker pull。新增 update_paperclip_image 與 CLI 指令 paperclip-update，並在啟動選單提供「更新 Paperclip 映像檔」，讓使用者在需要時手動更新並重啟容器套用新版本。另將預設資料目錄從 /tmp 改為 $HOME/.paperclip-data-owner-property-management，避免系統清理暫存目錄後遺失 instance 設定。新增 Paperclip 自動開瀏覽器機制：啟動後等候 health 再開啟指定 Dashboard URL，預設導向 /VIS/agents/ceo/dashboard，可用 PAPERCLIP_AUTO_OPEN_BROWSER 與 PAPERCLIP_DASHBOARD_URL 控制。",
     docPath: "/docs/scripts-directory-guide.md",
   },
 ];

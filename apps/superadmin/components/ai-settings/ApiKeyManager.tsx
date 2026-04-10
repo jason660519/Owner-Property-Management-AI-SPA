@@ -4,7 +4,7 @@
 'use client';
 
 import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
-import { Eye, EyeOff, Check, X, Loader2, Shield, Trash2, ExternalLink } from 'lucide-react';
+import { Eye, EyeOff, Check, X, Loader2, Shield, Trash2, ExternalLink, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { AI_PROVIDERS, type AIProvider, type AIProviderInfo } from '@/lib/ai-providers';
 import { maskApiKey } from '@/lib/crypto';
@@ -21,6 +21,8 @@ interface ApiKeyManagerProps {
   onSave: (provider: AIProvider, rawKey: string, options?: { skipRefresh?: boolean }) => Promise<void>;
   onDelete: (keyId: string) => Promise<void>;
   onValidate: (provider: AIProvider, apiKey: string, keyId?: string) => Promise<KeyValidationResult>;
+  /** Fetch plaintext from server for short-lived clipboard copy. Hook returns ttlSeconds. */
+  onRevealKey: (keyId: string) => Promise<{ plaintext: string; ttlSeconds: number }>;
   /** Optional ref for parent to trigger env import panel open/close (e.g. header button). */
   headerActionsRef?: React.MutableRefObject<{ setEnvImportOpen: (v: boolean) => void } | null>;
   /** 批量導入完成後呼叫一次；可傳入導入成功家數，供頁面顯示並執行驗證全部金鑰 */
@@ -42,9 +44,10 @@ interface ProviderKeyRowProps {
   onSave: (provider: AIProvider, rawKey: string) => Promise<void>;
   onDelete: (keyId: string) => Promise<void>;
   onValidate: (provider: AIProvider, apiKey: string, keyId?: string) => Promise<KeyValidationResult>;
+  onRevealKey: (keyId: string) => Promise<{ plaintext: string; ttlSeconds: number }>;
 }
 
-function ProviderKeyRow({ provider, savedKey, providerSavedModels = [], validationResultFromValidateAll, onSave, onDelete, onValidate }: ProviderKeyRowProps) {
+function ProviderKeyRow({ provider, savedKey, providerSavedModels = [], validationResultFromValidateAll, onSave, onDelete, onValidate, onRevealKey }: ProviderKeyRowProps) {
   const [inputValue, setInputValue] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -52,6 +55,32 @@ function ProviderKeyRow({ provider, savedKey, providerSavedModels = [], validati
   const [validationResult, setValidationResult] = useState<KeyValidationResult | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(!savedKey);
+  // Copy-to-clipboard UX state. Plaintext is never held in React state —
+  // the hook's revealKey() result is written straight to the clipboard
+  // and released, with only a transient toast stored here.
+  const [copyState, setCopyState] = useState<null | { status: 'copying' | 'copied' | 'error'; message: string }>(null);
+
+  const handleCopyKey = async () => {
+    if (!savedKey) return;
+    setCopyState({ status: 'copying', message: '取得金鑰中…' });
+    try {
+      const { plaintext, ttlSeconds } = await onRevealKey(savedKey.id);
+      if (!plaintext) throw new Error('伺服器未回傳金鑰');
+      await navigator.clipboard.writeText(plaintext);
+      setCopyState({ status: 'copied', message: `已複製，將於 ${ttlSeconds} 秒後自動清除` });
+      // Schedule clipboard clear — safe-guard in case the user forgets to paste.
+      window.setTimeout(() => {
+        navigator.clipboard.writeText('').catch(() => {/* ignore */});
+        setCopyState(null);
+      }, ttlSeconds * 1000);
+    } catch (err) {
+      setCopyState({
+        status: 'error',
+        message: err instanceof Error ? err.message : '複製失敗',
+      });
+      window.setTimeout(() => setCopyState(null), 4000);
+    }
+  };
 
   /** 本卡「驗證金鑰」結果優先；若無則用「全部驗證」傳入的結果 */
   const displayResult = validationResult ?? validationResultFromValidateAll;
@@ -105,6 +134,7 @@ function ProviderKeyRow({ provider, savedKey, providerSavedModels = [], validati
     deepseek: '#4D6BFE',
     grok: '#FFFFFF',
     together: '#6366F1',
+    qwen: '#615CED', // Qwen / 通義千問 brand purple
   };
 
   return (
@@ -196,20 +226,24 @@ function ProviderKeyRow({ provider, savedKey, providerSavedModels = [], validati
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <div className="flex-1 min-w-0 relative flex items-center">
-              <div className="flex-1 min-w-0 px-3 py-2 pr-10 bg-bg-tertiary rounded-base text-sm text-text-secondary font-mono truncate">
-                {showKey && savedKey.decryptedKey
-                  ? savedKey.decryptedKey
-                  : maskApiKey(`${provider.keyPrefix}${'x'.repeat(40)}`)}
+              {/* Masked placeholder — contains NO bytes of the real key.
+                  Plaintext is never held in React state or rendered to DOM.
+                  To use the key, click Copy (fetches plaintext from server,
+                  writes directly to clipboard, clears after 30s). */}
+              <div className="flex-1 min-w-0 px-3 py-2 pr-10 bg-bg-tertiary rounded-base text-sm text-text-secondary font-mono truncate select-none">
+                {maskApiKey(`${provider.keyPrefix}${'x'.repeat(40)}`)}
               </div>
-              <button
-                type="button"
-                onClick={() => setShowKey(!showKey)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-text-muted hover:text-text-primary transition-colors"
-                title={showKey ? '隱藏金鑰' : '顯示金鑰'}
-              >
-                {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
             </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleCopyKey}
+              disabled={copyState?.status === 'copying'}
+              title="複製金鑰到剪貼簿（30 秒後自動清除）"
+            >
+              <Copy size={14} />
+              {copyState?.status === 'copying' ? '取得中…' : copyState?.status === 'copied' ? '已複製' : '複製'}
+            </Button>
             <Button variant="secondary" size="sm" onClick={handleValidate} disabled={validating} isLoading={validating}>
               驗證金鑰
             </Button>
@@ -217,28 +251,43 @@ function ProviderKeyRow({ provider, savedKey, providerSavedModels = [], validati
               <Trash2 size={14} />
             </Button>
           </div>
+          {copyState && (
+            <div
+              className={`px-3 py-1.5 rounded-base text-[11px] border ${
+                copyState.status === 'error'
+                  ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                  : copyState.status === 'copied'
+                    ? 'bg-green-500/10 text-green-400 border-green-500/20'
+                    : 'bg-bg-secondary text-text-muted border-border-default'
+              }`}
+            >
+              {copyState.message}
+            </div>
+          )}
 
-          {/* Validation Result for Stored Key (已儲存金鑰按「驗證金鑰」的結果) */}
-          {validationResult && (
+          {/* Validation Result for Stored Key.
+              Uses displayResult so the "最新可用" badge survives page reload
+              from the 72h cache (previously only showed after manual click). */}
+          {displayResult && (
             <div
               className={`flex flex-wrap items-center gap-2 px-3 py-2 rounded-base text-xs ${
-                validationResult.valid
+                displayResult.valid
                   ? 'bg-green-500/10 text-green-400 border border-green-500/20'
                   : 'bg-red-500/10 text-red-400 border border-red-500/20'
               }`}
             >
-              {validationResult.valid ? <Check size={12} /> : <X size={12} />}
-              <span className="font-medium">{validationResult.message}</span>
-              {validationResult.modelInfo && (
+              {displayResult.valid ? <Check size={12} /> : <X size={12} />}
+              <span className="font-medium">{displayResult.message}</span>
+              {displayResult.modelInfo && (
                 <span className="px-1.5 py-0.5 bg-bg-primary rounded text-[10px] border border-border-default">
-                  {validationResult.modelInfo}
+                  {displayResult.modelInfo}
                 </span>
               )}
-              {validationResult.valid &&
-                Array.isArray(validationResult.availableModels) &&
-                validationResult.availableModels.length >= 0 && (
+              {displayResult.valid &&
+                Array.isArray(displayResult.availableModels) &&
+                displayResult.availableModels.length >= 0 && (
                   <span className="px-1.5 py-0.5 bg-bg-primary rounded text-[10px] border border-border-default font-medium">
-                    Available models: {validationResult.availableModels.length}
+                    Available models: {displayResult.availableModels.length}
                   </span>
                 )}
             </div>
@@ -396,6 +445,7 @@ const ApiKeyManagerInner = ({
   onSave,
   onDelete,
   onValidate,
+  onRevealKey,
   headerActionsRef,
   onBatchImportComplete,
 }: ApiKeyManagerProps,
@@ -546,6 +596,7 @@ ref: React.Ref<ApiKeyManagerHandle>) => {
               onSave={onSave}
               onDelete={onDelete}
               onValidate={onValidate}
+              onRevealKey={onRevealKey}
             />
           );
         })}

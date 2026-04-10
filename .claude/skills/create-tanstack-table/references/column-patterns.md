@@ -162,6 +162,182 @@ Use `col-` prefix to avoid conflicts with TanStack internal IDs:
 }
 ```
 
+### Numeric columns — THE primary rule
+
+> **Cells store NUMBERS. Units live in the HEADER. Never embed `$`, `k`, `M`, `%`, `tok/s` or any other symbol in the cell value.**
+
+This is the single most important rule for numeric columns. Follow it and TanStack's default numeric sort "just works" — no custom `sortingFn`, no auto-detection, no parser quirks. Break it and you will debug wrong sort order.
+
+**Why it matters** — if the cell value is a `string`, TanStack v8 falls back to `alphanumeric` (lexicographic) sort:
+
+| Raw data | TanStack default asc (wrong) | Correct asc |
+|---|---|---|
+| `"$4.50" / "$10.00" / "$5.63" / "$4.81"` | `$10.00, $4.50, $4.81, $5.63` ❌ | `$4.50, $4.81, $5.63, $10.00` |
+| `"128k" / "32k" / "1M" / "200k"` | `128k, 1M, 200k, 32k` ❌ | `32k, 128k, 200k, 1M` |
+| `"8.2" / "120.3" / "72.5" / "45"` | `120.3, 45, 72.5, 8.2` ❌ | `8.2, 45, 72.5, 120.3` |
+
+Even *plain* numeric strings fail (`'8' > '1'` as characters). The only reliable fix is to stop treating these as strings in the data layer.
+
+**The correct shape** — row type uses `number | null`, parser/API returns numbers:
+
+```ts
+// ✅ DO — numbers in the type, null for missing
+type Row = {
+  model: string;
+  contextWindowTokens: number | null;    // 128_000, 1_000_000, null
+  blendedUsdPer1m: number | null;        // 4.5, 10, 0.75, null
+  medianTokensPerSecond: number | null;  // 72.5, 120.3, null
+  latencyFirstChunkSeconds: number | null;
+};
+
+// ❌ DON'T — display strings in the type
+type RowBad = {
+  model: string;
+  contextWindow: string;         // "128k"
+  blendedUsdPer1m: string;       // "$4.50"
+  medianTokensPerSecond: string; // "72.5"
+};
+```
+
+**Column defs — units in header, formatting in cell renderer, NO `sortingFn`**:
+
+```tsx
+const PLACEHOLDER = '—';
+
+function fmtNumber(
+  n: number | null,
+  opts?: { decimals?: number; withCommas?: boolean },
+): string {
+  if (n == null) return PLACEHOLDER;
+  const { decimals, withCommas = false } = opts ?? {};
+  if (withCommas) {
+    return n.toLocaleString(undefined, {
+      minimumFractionDigits: decimals ?? 0,
+      maximumFractionDigits: decimals ?? 0,
+    });
+  }
+  if (typeof decimals === 'number') return n.toFixed(decimals);
+  return String(n);
+}
+
+// Currency — unit "(USD/1M)" in header, cell shows "4.50"
+{
+  id: 'col-price',
+  accessorKey: 'blendedUsdPer1m',
+  header: 'Price (USD/1M)',
+  meta: { headerEn: 'Price (USD/1M)', headerZh: '價格 (USD/1M)' },
+  cell: ({ row }) => (
+    <span className="font-mono text-sm text-text-primary text-center block">
+      {fmtNumber(row.original.blendedUsdPer1m, { decimals: 2 })}
+    </span>
+  ),
+}
+
+// Token counts — unit "(tokens)" in header, cell shows "128,000"
+{
+  id: 'col-context',
+  accessorKey: 'contextWindowTokens',
+  header: 'Context (tokens)',
+  meta: { headerEn: 'Context (tokens)', headerZh: 'Context Window' },
+  cell: ({ row }) => (
+    <span className="font-mono text-sm text-text-primary text-center block">
+      {fmtNumber(row.original.contextWindowTokens, { withCommas: true })}
+    </span>
+  ),
+}
+
+// Rate — unit "(tok/s)" in header, cell shows "72.5"
+{
+  id: 'col-rate',
+  accessorKey: 'medianTokensPerSecond',
+  header: 'Output (tok/s)',
+  meta: { headerEn: 'Output (tok/s)', headerZh: '輸出速度 (tok/s)' },
+  cell: ({ row }) => (
+    <span className="font-mono text-sm text-text-primary text-center block">
+      {fmtNumber(row.original.medianTokensPerSecond, { decimals: 1 })}
+    </span>
+  ),
+}
+
+// Percentage — unit "%" in header, cell shows "87"
+{
+  id: 'col-uptime',
+  accessorKey: 'uptimePercent',
+  header: 'Uptime (%)',
+  meta: { headerEn: 'Uptime (%)', headerZh: '可用率 (%)' },
+  cell: ({ row }) => (
+    <span className="font-mono text-sm text-text-primary text-center block">
+      {fmtNumber(row.original.uptimePercent, { decimals: 1 })}
+    </span>
+  ),
+}
+```
+
+**Header unit conventions** — use parentheses, place at end of the English header:
+
+| Quantity | Header format |
+|---|---|
+| Currency | `Price (USD/1M)`, `Revenue (TWD)` |
+| Tokens | `Context (tokens)`, `Throughput (tok/s)` |
+| Time | `Latency (s)`, `TTL (min)`, `Duration (h)` |
+| Size | `RAM (GB)`, `File size (MB)` |
+| Count | `Calls`, `Requests`, `Users` (no unit needed) |
+| Percentage | `Uptime (%)`, `CTR (%)` |
+| Temperature | `Max temp (°C)` |
+
+Use the SAME unit for ALL rows in the column. Do NOT mix `"128k"` and `"1M"` in one column — pick one unit (tokens) and store the raw number.
+
+**Parsing upstream data** — if your data source hands you pre-formatted strings like `"128k"` or `"$4.50"`, convert them to numbers at the parser/API boundary, NOT in the cell renderer. Use `parseNumericCell` from `@/lib/utils/table-sorting`:
+
+```ts
+// In your parser / API transform layer:
+import { parseNumericCell } from '@/lib/utils/table-sorting';
+
+function toNumberOrNull(raw: string): number | null {
+  const n = parseNumericCell(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+rows.push({
+  contextWindowTokens: toNumberOrNull(stripHtml(tds[1])),  // "128k" → 128000
+  blendedUsdPer1m: toNumberOrNull(stripHtml(tds[4])),      // "$4.50" → 4.5
+  medianTokensPerSecond: toNumberOrNull(stripHtml(tds[5])),// "72.5" → 72.5
+  // ...
+});
+```
+
+`parseNumericCell` handles:
+- Currency prefixes: `$`, `¥`, `€`, `£`, `₩`, `₹`
+- Thousands separators: `1,234.56`
+- SI suffixes: `k/K`, `M`, `B`, `T` (only if not followed by another letter/digit — so `"1.5kg"` → 1.5, not 1500)
+- Accounting negative: `($1.50)` → -1.5
+- Trailing units: `72.5 tok/s`, `0.5 s`, `15%`
+- Missing markers: `—`, `-`, `N/A`, `n/a`, empty string → `NaN`
+
+### Fallback: when you CANNOT convert the data to numbers
+
+If you're consuming a read-only API, a third-party component, or a legacy table whose row type is locked, `EnhancedTable` has a safety net: it walks every column on render, samples the first non-null value in the first 5 rows, and if the string parses as a finite number via `parseNumericCell`, it auto-injects `sortingFn: numericStringSortingFn` (from `@/lib/utils/table-sorting`). You get correct sort with ZERO column-def changes.
+
+Caveats:
+- **Don't rely on this.** It's a safety net, not the primary pattern. Refactor the data shape when you can.
+- Only works inside `EnhancedTable`. If you build a custom `useReactTable` flow, you must add `sortingFn: numericStringSortingFn` yourself.
+- Columns with an explicit `sortingFn` or `enableSorting: false` are skipped.
+
+### Sorting override recipes
+
+```tsx
+import { numericStringSortingFn } from '@/lib/utils/table-sorting';
+
+// Force numeric sort on a string column (safety net)
+{ accessorKey: 'priceDisplay', sortingFn: numericStringSortingFn }
+
+// Force text sort for version strings ("v1.10" should be AFTER "v1.9")
+{ accessorKey: 'version', sortingFn: 'alphanumeric' }
+
+// Disable sorting entirely (actions column, checkbox column)
+{ accessorKey: 'actions', enableSorting: false }
+```
+
 ### Action Buttons
 
 ```tsx

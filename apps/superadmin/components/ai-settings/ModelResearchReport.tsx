@@ -172,16 +172,19 @@ function formatDate(iso: string | null | undefined): string {
   }
 }
 
-function formatPrice(value: number | null | undefined): string {
+/**
+ * Numeric cell formatter — follows the create-tanstack-table skill rule:
+ * cells show PLAIN numbers (no $, no k/M, no unit suffix). Units live in
+ * the column header. This lets TanStack sort the raw number natively.
+ */
+function formatPriceCell(value: number | null | undefined): string {
   if (value === null || value === undefined) return '—';
-  return `$${value.toFixed(2)}`;
+  return value.toFixed(2);
 }
 
-function formatContextWindow(value: number | null | undefined): string {
-  if (!value) return '—';
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `${Math.round(value / 1_000)}K`;
-  return String(value);
+function formatContextWindowCell(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '—';
+  return value.toLocaleString();
 }
 
 // ---------------------------------------------------------------------------
@@ -453,29 +456,35 @@ export function ModelResearchReport({
         ),
       },
       {
-        id: 'input_price',
-        header: 'Input $/1M',
+        // accessorFn exposes the raw number to TanStack so sort works.
+        // Previously this column used `id:` only with no accessor — sort
+        // click did nothing at all.
+        id: 'col-input_price',
+        accessorFn: (row: ResearchRow) => row.report?.input_price_per_1m ?? null,
+        header: 'Input (USD/1M)',
         cell: ({ row }) => (
           <span className="text-xs font-mono text-text-secondary">
-            {formatPrice(row.original.report?.input_price_per_1m)}
+            {formatPriceCell(row.original.report?.input_price_per_1m)}
           </span>
         ),
       },
       {
-        id: 'output_price',
-        header: 'Output $/1M',
+        id: 'col-output_price',
+        accessorFn: (row: ResearchRow) => row.report?.output_price_per_1m ?? null,
+        header: 'Output (USD/1M)',
         cell: ({ row }) => (
           <span className="text-xs font-mono text-text-secondary">
-            {formatPrice(row.original.report?.output_price_per_1m)}
+            {formatPriceCell(row.original.report?.output_price_per_1m)}
           </span>
         ),
       },
       {
-        id: 'context_window',
-        header: 'Context',
+        id: 'col-context_window',
+        accessorFn: (row: ResearchRow) => row.report?.context_window ?? null,
+        header: 'Context (tokens)',
         cell: ({ row }) => (
           <span className="text-xs font-mono text-text-secondary">
-            {formatContextWindow(row.original.report?.context_window)}
+            {formatContextWindowCell(row.original.report?.context_window)}
           </span>
         ),
       },

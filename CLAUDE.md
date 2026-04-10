@@ -17,10 +17,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Monorepo（npm workspaces）：
 
-- `apps/web`（3000）：Next.js 15 App Router，主站（房東/租客/買家），含 PWA
-- `apps/superadmin`（3001）：Next.js 15 超級管理員後台
+- `apps/web`（3000）：Next.js 16 App Router，主站（房東/租客/買家等），含 PWA
+- `apps/web-au`（3002）：Next.js 16，澳洲區站
+- `apps/superadmin`（3001）：Next.js 16 超級管理員後台
+- `apps/mobile`：Expo / React Native
 - `backend/`：Python FastAPI OCR 服務（8819）
-- `supabase/`：本地 Supabase（PostgreSQL + Auth + Storage）
+- `supabase/`：本地 Supabase（**PostgreSQL 17** + Auth + Storage）
 - `packages/`：共用 types
 
 ## 啟動與常用指令
@@ -38,6 +40,7 @@ cd apps/superadmin && npx jest
 
 # Lint
 npm run lint --workspace web
+npm run lint --workspace web-au
 npm run lint --workspace superadmin
 
 # Supabase
@@ -48,11 +51,16 @@ supabase gen types typescript --local > packages/types/database.ts     # 型別�
 
 ## Supabase 客戶端（⚠️ 挑錯 import 會踩 RLS 雷）
 
-| 情境                                         | Import                                            |
-| :------------------------------------------- | :------------------------------------------------ |
-| Server Component / Server Action（遵守 RLS） | `createClient` from `@/utils/supabase/server`     |
-| Client Component                             | `createClient` from `@/utils/supabase/client`     |
-| Superadmin（繞過 RLS，service_role）         | `createAdminClient` from `@/utils/supabase/admin` |
+`@/` 為**各 app 自己的** path alias。完整分 app 說明：`.claude/rules/backend/supabase.md`。
+
+| App | Server（RLS） | Client（RLS） | 繞過 RLS（僅伺服器、需理由） |
+| :-- | :------------ | :------------ | :--------------------------- |
+| `apps/superadmin` | `createClient` `@/utils/supabase/server` | `createClient` `@/utils/supabase/client` | `createAdminClient` `@/utils/supabase/admin` |
+| `apps/web-au` | `createClient` `@/utils/supabase/server` | `createClient` `@/utils/supabase/client` | — |
+| `apps/web` | 多數 `@/lib/supabase/server`，部分 `@/utils/supabase/server` | 多數 `@/lib/supabase/client`，少數 `@/utils/supabase/client` | `createAdminClient` `@/utils/supabase/admin` |
+| `apps/mobile` | — | `@supabase/supabase-js`（Expo）；敏感操作用後端 API | 勿在 app 內嵌 service_role |
+
+認證輔助（web / web-au）：`@/lib/supabase/auth`。**新檔請與同目錄鄰近檔案的 import 風格一致。**
 
 ## Next.js Server vs Client
 

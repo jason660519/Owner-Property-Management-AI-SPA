@@ -1,30 +1,42 @@
 // filepath: apps/superadmin/app/api/ai-settings/keys/route.ts
-// API route for managing AI API keys (CRUD + validation)
+// API route for managing AI API keys (CRUD).
+//
+// Security (per docs/ai-prompt-safety-guide.md §6.1 / §6.3):
+//  - All routes use requireSuperadmin() — server-side session auth with a
+//    temporary x-user-id header fallback (logged as deprecation).
+//  - GET never returns the encrypted blob or iv to the client. The client
+//    can only ever see masked placeholder strings; the plaintext is fetched
+//    on-demand via POST /api/ai-settings/keys/reveal.
+//  - POST accepts a plaintext key over HTTPS and encrypts it server-side.
+//    The previous flow (client does PBKDF2 + AES-GCM, sends blob) leaked
+//    the encryption passphrase into the frontend bundle via NEXT_PUBLIC_*.
 
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { resolveUserId } from '@/lib/resolve-ai-settings-user';
+import { encryptApiKey } from '@/lib/crypto';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
-// GET: Fetch all API keys for the current user (masked). Uses same resolveUserId so 未登入時與 POST 共用同一預設使用者.
+// GET: Fetch masked summaries for the current user's AI API keys.
+// NEVER returns `api_key_encrypted` or `iv` — those must not cross the wire.
 export async function GET(request: NextRequest) {
   try {
     const supabase = createAdminClient();
-    const requestedUserId = request.headers.get('x-user-id');
 
-    if (!requestedUserId) {
-      return NextResponse.json({ error: '未授權存取' }, { status: 401 });
+    const auth = await requireSuperadmin({
+      request,
+      adminClient: supabase,
+      routeLabel: 'api/ai-settings/keys GET',
+    });
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.message }, { status: auth.status });
     }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ keys: [] });
-    }
+    const userId = auth.userId;
 
     const { data, error } = await supabase
       .from('ai_api_keys')
-      .select('id, provider, is_valid, last_validated_at, is_active, created_at, updated_at, api_key_encrypted, iv')
+      .select('id, provider, is_valid, last_validated_at, is_active, created_at, updated_at')
       .eq('user_id', userId)
       .eq('is_active', true)
       .order('provider');
@@ -40,33 +52,48 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: Save or update an API key
+// POST: Save a new API key. Accepts plaintext, encrypts server-side.
 export async function POST(request: NextRequest) {
   try {
     const supabase = createAdminClient();
-    const body = await request.json();
-    const { userId: requestedUserId, provider, encrypted, iv } = body;
 
-    if (!requestedUserId || !provider || !encrypted || !iv) {
+    const auth = await requireSuperadmin({
+      request,
+      adminClient: supabase,
+      routeLabel: 'api/ai-settings/keys POST',
+    });
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.message }, { status: auth.status });
+    }
+    const userId = auth.userId;
+
+    const body = await request.json();
+    const { provider, plaintextKey } = body as {
+      provider?: string;
+      plaintextKey?: string;
+    };
+
+    if (!provider || !plaintextKey) {
       return NextResponse.json({ error: '缺少必要欄位' }, { status: 400 });
     }
 
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json(
-        { error: '找不到可用的使用者（auth 中尚無任何帳號）。請先在 Supabase Auth 建立至少一位使用者，或設定 SUPERADMIN_DEFAULT_USER_ID' },
-        { status: 401 }
-      );
+    // Sanity cap to prevent abuse. Real keys are short; anything beyond this
+    // is certainly not a legitimate API key.
+    if (plaintextKey.length > 512) {
+      return NextResponse.json({ error: '金鑰長度超過上限' }, { status: 400 });
     }
 
-    // Deactivate existing keys for this provider
+    // Encrypt server-side using the shared AES-GCM helper. Node 20+ exposes
+    // globalThis.crypto.subtle so this module works unchanged on the server.
+    const { encrypted, iv } = await encryptApiKey(plaintextKey);
+
+    // Deactivate existing keys for this provider before inserting the new one.
     await supabase
       .from('ai_api_keys')
       .update({ is_active: false })
       .eq('user_id', userId)
       .eq('provider', provider);
 
-    // Insert new key
     const { data, error } = await supabase
       .from('ai_api_keys')
       .insert({
@@ -76,7 +103,7 @@ export async function POST(request: NextRequest) {
         iv,
         is_active: true,
       })
-      .select()
+      .select('id, provider, is_valid, last_validated_at, is_active, created_at, updated_at')
       .single();
 
     if (error) throw error;
@@ -87,7 +114,6 @@ export async function POST(request: NextRequest) {
     const pgErr = err as { code?: string; message?: string };
     console.error('[AI Settings] POST key error:', err);
 
-    // Postgres FK violation: user_id not in auth.users (e.g. mock UUID)
     if (pgErr?.code === '23503') {
       return NextResponse.json(
         { error: '使用者不存在或未登入，請先登入 Superadmin 後再導入金鑰' },
@@ -102,21 +128,26 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE: Remove an API key (use resolveUserId so 未登入時與 GET/POST 一致)
+// DELETE: Soft-delete an API key by id.
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = createAdminClient();
+
+    const auth = await requireSuperadmin({
+      request,
+      adminClient: supabase,
+      routeLabel: 'api/ai-settings/keys DELETE',
+    });
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.message }, { status: auth.status });
+    }
+    const userId = auth.userId;
+
     const { searchParams } = new URL(request.url);
     const keyId = searchParams.get('id');
-    const requestedUserId = searchParams.get('userId');
 
-    if (!keyId || !requestedUserId) {
-      return NextResponse.json({ error: '缺少 id 或 userId' }, { status: 400 });
-    }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ error: '找不到可用的使用者' }, { status: 401 });
+    if (!keyId) {
+      return NextResponse.json({ error: '缺少 id' }, { status: 400 });
     }
 
     const { error } = await supabase

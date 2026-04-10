@@ -81,10 +81,12 @@ function StatCard({ title, value, icon: Icon, color, bgColor, unit }: StatCardPr
   );
 }
 
+// Cell renders the plain number; the "(ms)" unit lives in the column header
+// so TanStack can sort on the raw number.
 function getLatencyBadge(latency: number) {
-  if (latency < 500) return <Badge variant="success">&lt;500ms</Badge>;
-  if (latency < 1500) return <Badge variant="warning">{latency}ms</Badge>;
-  return <Badge variant="error">{latency}ms</Badge>;
+  if (latency < 500) return <Badge variant="success">&lt;500</Badge>;
+  if (latency < 1500) return <Badge variant="warning">{latency}</Badge>;
+  return <Badge variant="error">{latency}</Badge>;
 }
 
 // ---------------------------------------------------------------------------
@@ -160,13 +162,13 @@ const usageLogColumns: ColumnDef<AIUsageLog, unknown>[] = [
     },
   },
   {
-    id: 'latency',
-    header: '延遲',
-    meta: { headerEn: 'Latency', headerZh: '延遲' },
-    accessorFn: (row) => row.duration_ms ?? 0,
+    id: 'col-latency',
+    header: '延遲 (ms)',
+    meta: { headerEn: 'Latency (ms)', headerZh: '延遲 (ms)' },
+    accessorFn: (row) => row.duration_ms ?? null,
     cell: ({ row }) => (
       <span className="text-gray-300 text-xs whitespace-nowrap">
-        {row.original.duration_ms != null ? `${row.original.duration_ms}ms` : '-'}
+        {row.original.duration_ms != null ? row.original.duration_ms.toLocaleString() : '-'}
       </span>
     ),
   },
@@ -229,9 +231,9 @@ const modelComparisonColumns: ColumnDef<LLMAggregateStat, unknown>[] = [
     ),
   },
   {
-    id: 'avg_latency',
-    header: '平均延遲',
-    meta: { headerEn: 'Avg Latency', headerZh: '平均延遲' },
+    id: 'col-avg_latency',
+    header: '平均延遲 (ms)',
+    meta: { headerEn: 'Avg Latency (ms)', headerZh: '平均延遲 (ms)' },
     accessorKey: 'avg_latency_ms',
     cell: ({ row }) => getLatencyBadge(row.original.avg_latency_ms),
   },
@@ -258,13 +260,18 @@ const modelComparisonColumns: ColumnDef<LLMAggregateStat, unknown>[] = [
     ),
   },
   {
-    id: 'total_cost',
-    header: '總花費',
-    meta: { headerEn: 'Total Cost', headerZh: '總花費' },
+    id: 'col-total_cost',
+    header: '總花費 (USD)',
+    meta: { headerEn: 'Total Cost (USD)', headerZh: '總花費 (USD)' },
     accessorKey: 'total_cost',
-    cell: ({ row }) => (
-      <span className="text-yellow-400">${row.original.total_cost}</span>
-    ),
+    cell: ({ row }) => {
+      const v = row.original.total_cost;
+      return (
+        <span className="text-yellow-400 font-mono">
+          {typeof v === 'number' ? v.toFixed(4) : v ?? '—'}
+        </span>
+      );
+    },
   },
   {
     id: 'avg_feedback',

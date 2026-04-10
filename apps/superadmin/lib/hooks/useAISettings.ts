@@ -3,8 +3,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { AIProvider } from '@/lib/ai-providers';
-import { encryptApiKey, decryptApiKey } from '@/lib/crypto';
 import { createClient } from '@/utils/supabase/client';
+
+// NOTE: we intentionally do NOT import from '@/lib/crypto' anymore.
+// Per docs/ai-prompt-safety-guide.md §6.3, API key encryption/decryption
+// must only happen server-side. The frontend sends plaintext over HTTPS
+// on save and fetches plaintext on-demand via POST /keys/reveal.
 
 // Temporary mock user ID — replace with real auth
 const MOCK_USER_ID = '00000000-0000-0000-0000-000000000001';
@@ -16,9 +20,9 @@ export interface SavedKey {
   last_validated_at: string | null;
   is_active: boolean;
   created_at: string;
-  api_key_encrypted?: string;
-  iv?: string;
-  decryptedKey?: string;
+  // Encrypted blob + iv are no longer sent to the client (see security note above).
+  // `decryptedKey` used to hold a PBKDF2-decrypted plaintext; removed because
+  // the plaintext must only flow through the short-lived reveal endpoint.
 }
 
 export interface SavedModel {
@@ -164,11 +168,10 @@ export function useAISettings() {
         : !promptsRes.ok ? (promptsData?.error ?? '無法載入提示詞') : null;
       if (failMsg) setError(failMsg);
 
-      const rawKeys = (keysRes.ok ? (keysData?.keys ?? []) : []) as Record<string, unknown>[];
-      // 先顯示列表並關閉 loading，避免解密 (PBKDF2) 阻塞造成一直轉圈
-      setKeys(
-        rawKeys.map((key) => ({ ...key, decryptedKey: undefined })) as SavedKey[]
-      );
+      const rawKeys = (keysRes.ok ? (keysData?.keys ?? []) : []) as unknown[];
+      // Keys now arrive as masked summaries only — no encrypted blob, no
+      // decrypted plaintext. Plaintext is fetched on-demand via revealKey().
+      setKeys(rawKeys as SavedKey[]);
       // 僅在該 API 成功時更新；若 API 回傳空陣列但目前已有勾選，不覆寫（保留使用者模型選定）
       if (modelsRes.ok) {
         const nextModels = (modelsData?.models ?? []) as SavedModel[];
@@ -218,25 +221,7 @@ export function useAISettings() {
         setValidationCacheByKeyId(cacheData.cache);
       }
 
-      // 背景解密，完成後再更新 keys（不阻塞 loading）
-      if (rawKeys.length > 0) {
-        Promise.all(
-          rawKeys.map(async (key: Record<string, unknown>) => {
-            let decryptedKey: string | undefined;
-            if (key.api_key_encrypted && key.iv) {
-              try {
-                decryptedKey = await decryptApiKey(
-                  key.api_key_encrypted as string,
-                  key.iv as string
-                );
-              } catch (err) {
-                console.warn(`[AI Settings] Failed to decrypt key for ${key.provider}`, err);
-              }
-            }
-            return { ...key, decryptedKey };
-          })
-        ).then((processedKeys) => setKeys(processedKeys as SavedKey[]));
-      }
+      // Client-side decryption removed: keys never hold plaintext in React state.
     } catch (err) {
       const msg = err instanceof Error && err.name === 'AbortError'
         ? '載入逾時（超過 15 秒），請檢查網路或稍後再試'
@@ -251,13 +236,13 @@ export function useAISettings() {
   useEffect(() => { if (authChecked) fetchAll(); }, [authChecked, fetchAll]);
 
   // ---- API Key Operations ----
-  /** skipRefresh: 批量導入時使用，避免每筆儲存都觸發 fetchAll 造成畫面閃爍 */
+  /** skipRefresh: 批量導入時使用，避免每筆儲存都觸發 fetchAll 造成畫面閃爍
+   *  Plaintext is sent over HTTPS and encrypted server-side. */
   const saveKey = useCallback(async (provider: AIProvider, rawKey: string, options?: { skipRefresh?: boolean }) => {
-    const { encrypted, iv } = await encryptApiKey(rawKey);
     const res = await fetch('/api/ai-settings/keys', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, provider, encrypted, iv }),
+      headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+      body: JSON.stringify({ provider, plaintextKey: rawKey }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
@@ -266,12 +251,27 @@ export function useAISettings() {
   }, [userId, fetchAll]);
 
   const deleteKey = useCallback(async (keyId: string) => {
-    const res = await fetch(`/api/ai-settings/keys?id=${keyId}&userId=${userId}`, {
+    const res = await fetch(`/api/ai-settings/keys?id=${keyId}`, {
       method: 'DELETE',
+      headers: { 'x-user-id': userId },
     });
     if (!res.ok) throw new Error('刪除失敗');
     await fetchAll();
   }, [userId, fetchAll]);
+
+  /** Fetch plaintext key from the server for short-lived consumption
+   *  (e.g. copy-to-clipboard). Never store the result in React state. */
+  const revealKey = useCallback(async (keyId: string): Promise<{ plaintext: string; ttlSeconds: number }> => {
+    const res = await fetch('/api/ai-settings/keys/reveal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+      body: JSON.stringify({ keyId }),
+      cache: 'no-store',
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error ?? '讀取金鑰失敗');
+    return { plaintext: String(data.plaintext ?? ''), ttlSeconds: Number(data.ttlSeconds ?? 30) };
+  }, [userId]);
 
   const validateKey = useCallback(
     async (
@@ -482,7 +482,7 @@ export function useAISettings() {
   return {
     keys, models, modules, prompts, evaluations, validationCacheByKeyId, validationSummary,
     loading, error,
-    saveKey, deleteKey, validateKey,
+    saveKey, deleteKey, validateKey, revealKey,
     saveModels, saveModule, testModel,
     savePrompt, deletePrompt, saveEvaluations,
     exportSettings, importSettings,

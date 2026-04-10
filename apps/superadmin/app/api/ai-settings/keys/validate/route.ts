@@ -5,26 +5,27 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import type { AIProvider } from '@/lib/ai-providers';
 import { decryptApiKey } from '@/lib/crypto';
-import { resolveUserId } from '@/lib/resolve-ai-settings-user';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
+import { pickRecommendedModelByProvider } from '@/lib/pick-latest-model';
 
 interface ValidationResult {
   valid: boolean;
   provider: string;
   message: string;
-  modelInfo?: string; // e.g. "最新可用: gpt-4o"
+  modelInfo?: string; // e.g. "推薦: gpt-5.4-pro"
   availableModels?: string[]; // full list of available models for provider/key
 }
 
-/** Pick the "latest available" model from the list by trying predicates in order (newest-first). */
-function pickLatestModel(
-  models: string[],
-  priorityPredicates: ((id: string) => boolean)[]
-): string {
-  for (const pred of priorityPredicates) {
-    const found = models.find(pred);
-    if (found) return found;
-  }
-  return models[0] ?? 'Unknown';
+/**
+ * Build the success-case modelInfo string by running the recommended-model
+ * heuristic on the available models list. Returns undefined when the list
+ * is empty or contained only non-chat models.
+ */
+function buildModelInfo(provider: AIProvider, models: string[]): string | undefined {
+  const recommended = pickRecommendedModelByProvider(provider, models);
+  if (recommended) return `推薦: ${recommended}`;
+  if (models.length > 0) return `可用模型 ${models.length} 個`;
+  return undefined;
 }
 
 async function validateOpenAI(apiKey: string): Promise<ValidationResult> {
@@ -39,20 +40,11 @@ async function validateOpenAI(apiKey: string): Promise<ValidationResult> {
         ? data.data.map((m: { id: string }) => m.id).filter(Boolean)
         : [];
 
-      // Newest-first: pick the latest available model this key can use (e.g. 5.2 vs market 5.3)
-      const latest = pickLatestModel(models, [
-        m => m.includes('gpt-5'),
-        m => m.includes('gpt-4o'),
-        m => m.includes('gpt-4-turbo'),
-        m => m.includes('gpt-4'),
-        m => m.includes('gpt-3.5'),
-      ]);
-
       return {
         valid: true,
         provider: 'openai',
         message: '金鑰驗證成功',
-        modelInfo: `最新可用: ${latest}`,
+        modelInfo: buildModelInfo('openai', models),
         availableModels: models,
       };
     }
@@ -77,19 +69,11 @@ async function validateAnthropic(apiKey: string): Promise<ValidationResult> {
         ? data.data.map((m: { id: string }) => m.id).filter(Boolean)
         : [];
 
-      const latest = pickLatestModel(models, [
-        m => m.includes('claude-3-5'),
-        m => m.includes('claude-3-opus'),
-        m => m.includes('claude-3-sonnet'),
-        m => m.includes('claude-3-haiku'),
-        m => m.includes('claude-3'),
-      ]);
-
       return {
         valid: true,
         provider: 'anthropic',
         message: '金鑰驗證成功',
-        modelInfo: `最新可用: ${latest}`,
+        modelInfo: buildModelInfo('anthropic', models),
         availableModels: models,
       };
     }
@@ -115,7 +99,7 @@ async function validateAnthropic(apiKey: string): Promise<ValidationResult> {
           valid: true,
           provider: 'anthropic',
           message: '金鑰驗證成功 (無法取得模型列表)',
-          modelInfo: '最新可用: (列表未取得)',
+          modelInfo: '推薦: (列表未取得)',
           availableModels: []
         };
       }
@@ -140,17 +124,11 @@ async function validateGemini(apiKey: string): Promise<ValidationResult> {
       const models: string[] = Array.isArray(data?.models)
         ? data.models.map((m: { name: string }) => m.name.replace(/^models\//, '')).filter(Boolean)
         : [];
-      const latest = pickLatestModel(models, [
-        m => m.includes('gemini-2') || m.includes('Gemini 2'),
-        m => m.includes('gemini-1.5') || m.includes('Gemini 1.5'),
-        m => m.includes('gemini-1') || m.includes('Gemini 1'),
-      ]);
-
       return {
         valid: true,
         provider: 'gemini',
         message: '金鑰驗證成功',
-        modelInfo: `最新可用: ${latest}`,
+        modelInfo: buildModelInfo('gemini', models),
         availableModels: models,
       };
     }
@@ -179,17 +157,11 @@ async function validateDeepSeek(apiKey: string): Promise<ValidationResult> {
           ? data.models.map((m) => m.id ?? '').filter(Boolean)
           : [];
 
-      const latest = pickLatestModel(models, [
-        m => m.toLowerCase().includes('deepseek-reasoner'),
-        m => m.toLowerCase().includes('deepseek-chat'),
-        m => m.toLowerCase().includes('deepseek'),
-      ]);
-
       return {
         valid: true,
         provider: 'deepseek',
         message: '金鑰驗證成功',
-        modelInfo: `最新可用: ${latest}`,
+        modelInfo: buildModelInfo('deepseek', models),
         availableModels: models,
       };
     }
@@ -217,16 +189,11 @@ async function validateGrok(apiKey: string): Promise<ValidationResult> {
           ? data.models.map((m) => m.id ?? '').filter(Boolean)
           : [];
 
-      const latest = pickLatestModel(models, [
-        m => m.toLowerCase().includes('grok-2'),
-        m => m.toLowerCase().includes('grok-1'),
-      ]);
-
       return {
         valid: true,
         provider: 'grok',
         message: '金鑰驗證成功',
-        modelInfo: `最新可用: ${latest}`,
+        modelInfo: buildModelInfo('grok', models),
         availableModels: models,
       };
     }
@@ -256,19 +223,11 @@ async function validateTogether(apiKey: string): Promise<ValidationResult> {
         .map((m) => (typeof (m as { id?: string }).id === 'string' ? (m as { id: string }).id : ''))
         .filter(Boolean);
 
-      const latest = pickLatestModel(models, [
-        m => m.toLowerCase().includes('llama-3.3'),
-        m => m.toLowerCase().includes('llama-3.2'),
-        m => m.toLowerCase().includes('llama-3.1'),
-        m => m.toLowerCase().includes('qwen2.5'),
-        m => m.toLowerCase().includes('deepseek'),
-      ]);
-
       return {
         valid: true,
         provider: 'together',
         message: '金鑰驗證成功',
-        modelInfo: `最新可用: ${latest}`,
+        modelInfo: buildModelInfo('together', models),
         availableModels: models,
       };
     }
@@ -291,16 +250,11 @@ async function validateKimi(apiKey: string): Promise<ValidationResult> {
       const models: string[] = Array.isArray((data as { data?: { id: string }[] })?.data)
         ? (data as { data: { id: string }[] }).data.map((m) => m.id).filter(Boolean)
         : [];
-      const latest = pickLatestModel(models, [
-        m => m.toLowerCase().includes('moonshot-v1-128k'),
-        m => m.toLowerCase().includes('moonshot-v1-32k'),
-        m => m.toLowerCase().includes('moonshot-v1'),
-      ]);
       return {
         valid: true,
         provider: 'kimi',
         message: '金鑰驗證成功',
-        modelInfo: latest ? `最新可用: ${latest}` : '金鑰有效',
+        modelInfo: buildModelInfo('kimi', models) ?? '金鑰有效',
         availableModels: models,
       };
     }
@@ -324,16 +278,11 @@ async function validateOpenRouter(apiKey: string): Promise<ValidationResult> {
       const models: string[] = Array.isArray(raw)
         ? raw.map((m) => m.id).filter(Boolean)
         : [];
-      const latest = pickLatestModel(models, [
-        m => m.includes('gpt-4o'),
-        m => m.includes('claude-3.5'),
-        m => m.includes('gemini'),
-      ]);
       return {
         valid: true,
         provider: 'openrouter',
         message: '金鑰驗證成功',
-        modelInfo: latest ? `最新可用: ${latest}` : `可用模型 ${models.length} 個`,
+        modelInfo: buildModelInfo('openrouter', models),
         availableModels: models,
       };
     }
@@ -410,6 +359,69 @@ async function validatePerplexity(apiKey: string): Promise<ValidationResult> {
   }
 }
 
+async function validateQwen(apiKey: string): Promise<ValidationResult> {
+  // Alibaba DashScope's OpenAI-compatible endpoint. International gateway works
+  // outside mainland China; mainland callers can substitute dashscope.aliyuncs.com.
+  try {
+    const res = await fetch('https://dashscope-intl.aliyuncs.com/compatible-mode/v1/models', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (res.ok) {
+      type OpenAICompatibleModel = { id?: string };
+      type OpenAICompatibleModelsResponse = { data?: OpenAICompatibleModel[]; models?: OpenAICompatibleModel[] };
+      const data = (await res.json().catch(() => ({}))) as OpenAICompatibleModelsResponse;
+      const models: string[] = Array.isArray(data?.data)
+        ? data.data.map((m) => m.id ?? '').filter(Boolean)
+        : Array.isArray(data?.models)
+          ? data.models.map((m) => m.id ?? '').filter(Boolean)
+          : [];
+
+      return {
+        valid: true,
+        provider: 'qwen',
+        message: '金鑰驗證成功',
+        modelInfo: buildModelInfo('qwen', models),
+        availableModels: models,
+      };
+    }
+
+    // Fallback: some DashScope keys do not expose /models; verify with a 1-token probe.
+    if (res.status === 404 || res.status === 403) {
+      const probe = await fetch('https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: 'qwen-turbo',
+          messages: [{ role: 'user', content: 'ping' }],
+          max_tokens: 1,
+        }),
+      });
+      if (probe.ok) {
+        return {
+          valid: true,
+          provider: 'qwen',
+          message: '金鑰驗證成功 (無法取得模型列表)',
+          modelInfo: '推薦: (列表未取得)',
+          availableModels: [],
+        };
+      }
+      if (probe.status === 401) {
+        return { valid: false, provider: 'qwen', message: '金鑰無效或已過期' };
+      }
+      const err = await probe.json().catch(() => ({}));
+      const msg = (err as { error?: { message?: string } })?.error?.message;
+      return { valid: false, provider: 'qwen', message: msg ?? `HTTP ${probe.status}` };
+    }
+
+    if (res.status === 401) {
+      return { valid: false, provider: 'qwen', message: '金鑰無效或已過期' };
+    }
+    return { valid: false, provider: 'qwen', message: `HTTP ${res.status}` };
+  } catch (e) {
+    return { valid: false, provider: 'qwen', message: `連線失敗: ${e instanceof Error ? e.message : 'Unknown'}` };
+  }
+}
+
 const validators: Record<AIProvider, (key: string) => Promise<ValidationResult>> = {
   openai: validateOpenAI,
   anthropic: validateAnthropic,
@@ -421,11 +433,26 @@ const validators: Record<AIProvider, (key: string) => Promise<ValidationResult>>
   openrouter: validateOpenRouter,
   zhipu: validateZhipu,
   perplexity: validatePerplexity,
+  qwen: validateQwen,
 };
 
 export async function POST(request: NextRequest) {
   try {
-    const { provider, apiKey, keyId, userId } = await request.json();
+    const supabase = createAdminClient();
+
+    // Server-side session auth (docs/ai-prompt-safety-guide.md §6.1). Header
+    // fallback is still honored during the migration window but deprecated.
+    const auth = await requireSuperadmin({
+      request,
+      adminClient: supabase,
+      routeLabel: 'api/ai-settings/keys/validate',
+    });
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.message }, { status: auth.status });
+    }
+    const effectiveUserId = auth.userId;
+
+    const { provider, apiKey, keyId } = await request.json();
 
     if (!provider) {
       return NextResponse.json({ error: 'Missing provider' }, { status: 400 });
@@ -433,13 +460,8 @@ export async function POST(request: NextRequest) {
 
     let keyToValidate = apiKey;
 
-    // If keyId is provided, fetch from DB and decrypt (use resolveUserId so 未登入時與 keys API 一致)
-    if (keyId && userId && !apiKey) {
-      const supabase = createAdminClient();
-      const effectiveUserId = await resolveUserId(supabase, userId);
-      if (!effectiveUserId) {
-        return NextResponse.json({ valid: false, message: '找不到可用的使用者，請先登入或確認 Auth 中已有使用者' });
-      }
+    // If keyId is provided, fetch from DB and decrypt server-side.
+    if (keyId && !apiKey) {
       const { data, error } = await supabase
         .from('ai_api_keys')
         .select('api_key_encrypted, iv')
@@ -470,35 +492,30 @@ export async function POST(request: NextRequest) {
 
     const result = await validate(keyToValidate);
 
-    // Update validation status in database if keyId provided (use same resolved userId)
-    if (keyId && userId) {
-      const supabase = createAdminClient();
-      const effectiveUserId = await resolveUserId(supabase, userId);
-      if (effectiveUserId) {
-        await supabase
-          .from('ai_api_keys')
-          .update({
-            is_valid: result.valid,
-            last_validated_at: new Date().toISOString(),
-          })
-          .eq('id', keyId)
-          .eq('user_id', effectiveUserId);
+    // Persist validation outcome + cache available models (6h-72h reuse).
+    if (keyId) {
+      await supabase
+        .from('ai_api_keys')
+        .update({
+          is_valid: result.valid,
+          last_validated_at: new Date().toISOString(),
+        })
+        .eq('id', keyId)
+        .eq('user_id', effectiveUserId);
 
-        // Cache available models for 6h so model list shows without re-validating (refresh / other page)
-        if (result.valid && Array.isArray(result.availableModels) && result.availableModels.length > 0) {
-          await supabase
-            .from('ai_key_validation_cache')
-            .upsert(
-              {
-                user_id: effectiveUserId,
-                key_id: keyId,
-                provider: result.provider,
-                available_models: result.availableModels,
-                validated_at: new Date().toISOString(),
-              },
-              { onConflict: 'user_id,key_id' }
-            );
-        }
+      if (result.valid && Array.isArray(result.availableModels) && result.availableModels.length > 0) {
+        await supabase
+          .from('ai_key_validation_cache')
+          .upsert(
+            {
+              user_id: effectiveUserId,
+              key_id: keyId,
+              provider: result.provider,
+              available_models: result.availableModels,
+              validated_at: new Date().toISOString(),
+            },
+            { onConflict: 'user_id,key_id' }
+          );
       }
     }
 

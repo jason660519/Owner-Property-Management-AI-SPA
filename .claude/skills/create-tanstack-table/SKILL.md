@@ -51,6 +51,14 @@ Key rules:
 - Set `meta: { headerEn: '...', headerZh: '...' }` for bilingual headers
 - Use CSS tokens for colors (`text-text-primary`, not `text-gray-700`)
 - Do NOT redeclare the `ColumnMeta` module augmentation — it's already in `columns.tsx`
+- **Numeric columns: cells store numbers, units live in the header** — this is the single most important rule for any column displaying quantities (prices, counts, rates, durations, percentages). Never embed `$`, `k`, `M`, `%`, `tok/s`, or any other unit symbol in the cell value. Instead:
+  - Row type: `foo: number | null` (NOT `foo: string`).
+  - Header: carries the unit in parentheses — `'Price (USD/1M)'`, `'Context (tokens)'`, `'Latency (s)'`, `'Uptime (%)'`.
+  - Cell renderer: formats the raw number for display (use `fmtNumber(n, { decimals, withCommas })` helper — see the leaderboard panel for an example).
+  - Parser layer: if the upstream source gives you strings like `"$4.50"` or `"128k"`, convert to `number | null` at the parser/API boundary using `parseNumericCell` from `@/lib/utils/table-sorting`.
+  - With this shape, TanStack's default numeric sort works natively — no `sortingFn` needed, no custom parser at sort time.
+  - Why it matters: if cells are strings, TanStack v8 uses lexicographic sort → `"$10.00" < "$4.50"`, `"120.3" < "8.2"`, `"128k" < "1M" < "32k"`. All wrong.
+- **Fallback for locked data shapes** — if you truly cannot change the row type to numbers (third-party API, legacy table), `EnhancedTable` has a safety net: it auto-injects `numericStringSortingFn` on any column whose first sample is a numeric-looking string. But this is NOT the primary pattern — refactor to numbers whenever possible. See `references/column-patterns.md` for details.
 
 If the table has > 10 columns, extract to a separate `columns.tsx` file. Otherwise, `useMemo` inline is fine.
 
@@ -60,9 +68,15 @@ Wire up the component following `references/enhanced-table-props.md`.
 
 Key rules:
 - `initialWidths` array length MUST equal `columns` array length, sum ≈ 100
-- `tableId` must be globally unique (used as localStorage key)
+  - Mismatch silently breaks column resize (widths reset on every render, drag is lost on remount)
+- `tableId` must be globally unique (used as localStorage + Supabase persistence key)
+  - Collisions cause saved widths from another table to overwrite the current one
 - Provide `getCategoryValue` even if data might be empty (buttons still show)
 - Set `minWidth` if the table has > 6 columns (enables horizontal scroll)
+- **Column resize is automatic** — do NOT pass any extra prop. Just make sure:
+  - You do NOT wrap `<EnhancedTable>` in a parent with `overflow: hidden` or `pointer-events: none`
+  - You do NOT ship a custom header renderer that drops the `relative` class from each header cell (see `references/troubleshooting.md` #7 for the CSS positioning requirement)
+- If you need custom default widths after real-world usage, update `initialWidths`; users can also use the toolbar `Save Widths` button to persist their own preset via `useTablePreferences`
 
 ### Step 4: Add Sheet Tabs (if needed)
 
@@ -79,11 +93,20 @@ Run through the checklist:
 
 - [ ] `npx tsc --noEmit` — no new TypeScript errors
 - [ ] All columns render correctly with test data
-- [ ] Column resize handles work (drag between headers)
+- [ ] **Column resize handles work on EVERY non-last column** (not just the rightmost one)
+  - Hover between each pair of headers — cursor becomes `col-resize` + blue line highlights
+  - Drag left/right changes both adjacent columns; sum stays stable
+  - If only the rightmost handle responds → the `relative` class is missing on header cells (see troubleshooting #7)
+- [ ] Widths persist across page reload (localStorage)
+- [ ] `Reset Widths` returns to `initialWidths`
 - [ ] Search filters rows
 - [ ] Category filter shows correct chips
 - [ ] Sort works (click header: asc → desc → none)
-- [ ] Save/Reset Widths persists to localStorage
+- [ ] **Numeric-string columns sort by numeric value, not lexicographically**
+  - e.g. `$4.50 < $5.63 < $10.00` (NOT `$10.00 < $4.50 < $5.63`)
+  - e.g. `32k < 128k < 1M` (NOT `128k < 1M < 32k`)
+  - If wrong: the column is missing `sortingFn: numericStringSortingFn`
+- [ ] Save/Load width presets work
 - [ ] View freeze row/col works
 - [ ] If Sheet Tabs: URL hash updates on tab switch
 - [ ] If row selection: batch actions appear on selection

@@ -175,9 +175,13 @@ describe('ModelResearchReport', () => {
       // Anthropic appears for every validated model row, so use getAllByText
       expect(screen.getAllByText('Anthropic').length).toBeGreaterThanOrEqual(1);
     });
-    expect(screen.getByText('$15.00')).toBeInTheDocument();
-    expect(screen.getByText('$75.00')).toBeInTheDocument();
-    expect(screen.getByText('200K')).toBeInTheDocument();
+    // Cells now show PLAIN numbers ("15.00", "75.00") — the "$" and "K"
+    // units live in the column headers ("Input (USD/1M)", "Context (tokens)")
+    // so TanStack can sort the raw number natively. Context window is
+    // rendered with toLocaleString, so 200000 → "200,000".
+    expect(screen.getByText('15.00')).toBeInTheDocument();
+    expect(screen.getByText('75.00')).toBeInTheDocument();
+    expect(screen.getByText('200,000')).toBeInTheDocument();
   });
 
   it('shows "尚未生成" for validated models without a report', async () => {

@@ -22,11 +22,12 @@ Do not duplicate route maps, folder walkthroughs, file inventories, or package s
 
 ## ⚠️ Supabase 客戶端
 
-| 情境 | Import |
-| :--- | :--- |
-| Server Component / Server Action（遵守 RLS） | `createClient` from `@/utils/supabase/server` |
-| Client Component | `createClient` from `@/utils/supabase/client` |
-| Superadmin（繞過 RLS，使用 service_role） | `createAdminClient` from `@/utils/supabase/admin` |
+`@/` 依 app 而異。完整對照：`.claude/rules/backend/supabase.md`。
+
+- **superadmin**：RLS → `createClient` from `@/utils/supabase/server` / `client`；後台繞過 RLS → `createAdminClient` from `@/utils/supabase/admin`。
+- **web-au**：`createClient` from `@/utils/supabase/server` / `client`。
+- **web**：RLS 常見 `@/lib/supabase/server` 與 `@/lib/supabase/client`，與 `@/utils/supabase/*` 並存；`createAdminClient` 用 `@/utils/supabase/admin`；新檔與鄰近檔案一致。
+- **mobile**：`@supabase/supabase-js`；勿內嵌 service_role。
 
 ## ⚠️ 已知陷阱
 

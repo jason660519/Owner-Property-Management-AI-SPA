@@ -574,6 +574,57 @@ export type CallerFn = (
   signal?: AbortSignal,
 ) => Promise<CallerResult>;
 
+// ---------------------------------------------------------------------------
+// Qwen (Alibaba DashScope) — OpenAI-compatible
+// Note: only qwen-vl-* models accept images; text models will ignore file data.
+// PDFs are not natively supported and will be rejected by the model.
+// ---------------------------------------------------------------------------
+
+export async function callQwen(
+  apiKey: string,
+  modelId: string,
+  fileBase64: string,
+  mimeType: string,
+  systemPrompt?: string,
+  signal?: AbortSignal,
+): Promise<CallerResult> {
+  const prompt = systemPrompt ?? TRANSCRIPT_PARSE_PROMPT;
+
+  type TextPart = { type: 'text'; text: string };
+  type ImagePart = { type: 'image_url'; image_url: { url: string } };
+  let content: string | (TextPart | ImagePart)[] = prompt;
+
+  if (isImageMime(mimeType)) {
+    content = [
+      { type: 'image_url' as const, image_url: { url: `data:${mimeType};base64,${fileBase64}` } },
+      { type: 'text' as const, text: prompt },
+    ];
+  }
+
+  const res = await fetch('https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions', {
+    method: 'POST',
+    signal,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: modelId,
+      messages: [
+        { role: 'system', content: '請務必以嚴格的 JSON 格式輸出結果，不要加任何說明文字。' },
+        { role: 'user', content },
+      ],
+      max_tokens: 4096,
+      response_format: { type: 'json_object' },
+    }),
+  });
+
+  const data = (await res.json().catch(() => ({}))) as {
+    choices?: { message?: { content?: string } }[];
+    error?: { message?: string };
+  };
+  const text = data?.choices?.[0]?.message?.content ?? '';
+  if (res.ok) return { ok: true, text };
+  return { ok: false, text: '', error: data?.error?.message ?? `HTTP ${res.status}` };
+}
+
 export const CALLERS: Record<AIProvider, CallerFn> = {
   openai: callOpenAI,
   anthropic: callAnthropic,
@@ -585,4 +636,5 @@ export const CALLERS: Record<AIProvider, CallerFn> = {
   openrouter: callOpenRouter,
   zhipu: callZhipu,
   perplexity: callPerplexity,
+  qwen: callQwen,
 };

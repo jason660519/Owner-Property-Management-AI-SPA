@@ -57,8 +57,8 @@ export function createTestingColumns(): ColumnDef<PhaseRow, unknown>[] {
     {
       id: 'col-unit-test',
       accessorKey: 'unitTestCoverage',
-      header: 'Unit Test',
-      meta: { headerEn: 'Unit Test', headerZh: '單元測試 %' },
+      header: 'Unit Test (%)',
+      meta: { headerEn: 'Unit Test (%)', headerZh: '單元測試 (%)' },
       cell: ({ getValue }) => {
         const v = (getValue() as number | undefined) ?? 0;
         return <div className="w-full"><ProgressBar percentage={v} /></div>;
@@ -67,8 +67,8 @@ export function createTestingColumns(): ColumnDef<PhaseRow, unknown>[] {
     {
       id: 'col-e2e-test',
       accessorKey: 'e2eTestCoverage',
-      header: 'E2E Test',
-      meta: { headerEn: 'E2E Acceptance Test', headerZh: '端到端驗收 %' },
+      header: 'E2E Test (%)',
+      meta: { headerEn: 'E2E Acceptance Test (%)', headerZh: '端到端驗收 (%)' },
       cell: ({ getValue }) => {
         const v = (getValue() as number | undefined) ?? 0;
         return <div className="w-full"><ProgressBar percentage={v} /></div>;
@@ -191,8 +191,8 @@ export function createOperationsColumns(): ColumnDef<PhaseRow, unknown>[] {
     {
       id: 'col-uptime',
       accessorKey: 'uptimePercent',
-      header: 'Uptime',
-      meta: { headerEn: 'Uptime', headerZh: '正常運行率 %' },
+      header: 'Uptime (%)',
+      meta: { headerEn: 'Uptime (%)', headerZh: '正常運行率 (%)' },
       cell: ({ getValue }) => {
         const v = getValue() as number | undefined;
         if (v == null) return <span className="text-text-muted italic text-xs">—</span>;
@@ -202,8 +202,8 @@ export function createOperationsColumns(): ColumnDef<PhaseRow, unknown>[] {
     {
       id: 'col-error-rate',
       accessorKey: 'errorRate',
-      header: 'Error Rate',
-      meta: { headerEn: 'Error Rate', headerZh: '錯誤率 %' },
+      header: 'Error Rate (%)',
+      meta: { headerEn: 'Error Rate (%)', headerZh: '錯誤率 (%)' },
       cell: ({ getValue }) => {
         const v = getValue() as number | undefined;
         if (v == null) return <span className="text-text-muted italic text-xs">—</span>;
@@ -211,13 +211,15 @@ export function createOperationsColumns(): ColumnDef<PhaseRow, unknown>[] {
       },
     },
     {
+      // Cell renders plain number, "ms" lives in the header — follows the
+      // create-tanstack-table skill rule "numbers in cell, units in header".
       id: 'col-avg-response',
       accessorKey: 'avgResponseTime',
-      header: 'Avg Response',
-      meta: { headerEn: 'Avg Response', headerZh: '平均回應 (ms)' },
+      header: 'Avg Response (ms)',
+      meta: { headerEn: 'Avg Response (ms)', headerZh: '平均回應 (ms)' },
       cell: ({ getValue }) => {
         const v = getValue() as number | undefined;
-        return <span className="text-xs font-mono text-text-secondary">{v != null ? `${v}ms` : '—'}</span>;
+        return <span className="text-xs font-mono text-text-secondary">{v != null ? v.toLocaleString() : '—'}</span>;
       },
     },
     {

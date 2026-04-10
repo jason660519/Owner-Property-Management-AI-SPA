@@ -1,6 +1,7 @@
 ---
 paths:
   - 'apps/web/**/*.{ts,tsx}'
+  - 'apps/web-au/**/*.{ts,tsx}'
   - 'apps/superadmin/**/*.{ts,tsx}'
   - 'packages/**/*.{ts,tsx}'
 ---
@@ -11,12 +12,14 @@ paths:
 
 ## 應用概覽
 
-| App               | 框架                    | 用途                           | Port | 狀態     |
-| :---------------- | :---------------------- | :----------------------------- | :--- | :------- |
-| `apps/web`        | Next.js 15 (App Router) | Web App + PWA (房東/租客/買家) | 3000 | 主要開發 |
-| `apps/superadmin` | Next.js 15              | 超級管理員後台                 | 3001 | 開發中   |
+| App               | 框架                         | 用途                           | Port | 狀態     |
+| :---------------- | :--------------------------- | :----------------------------- | :--- | :------- |
+| `apps/web`        | Next.js 16（App Router）     | Web App + PWA（房東/租客/買家等） | 3000 | 主要開發 |
+| `apps/web-au`     | Next.js 16（App Router）     | 澳洲區站                       | 3002 | 開發中   |
+| `apps/superadmin` | Next.js 16（App Router）     | 超級管理員後台                 | 3001 | 開發中   |
+| `apps/mobile`     | Expo / React Native          | 行動 App                       | —    | 開發中   |
 
-**技術棧**：React 19 + TypeScript 5.x + Tailwind CSS + Supabase JS SDK
+**技術棧**：React 19 + TypeScript 5.x + Tailwind CSS + Supabase JS SDK；主站 / web-au 另含 **TanStack Query**、**TanStack Table**（表格多處使用）。
 
 ---
 
@@ -27,43 +30,52 @@ paths:
 - **預設 Server Component**（無需標註）
 - 僅在需要互動（onClick, useState, useEffect）時加 `'use client'`
 - 將 Client Component 推向組件樹末端
-- 純工具函數（無 'use server'）必須放在**獨立檔案**，才能被 Client Component import
-- Server Action（'use server'）不能在 Client Component 中 import 做非 action 用途
+- 純工具函數（無 `'use server'`）必須放在**獨立檔案**，才能被 Client Component import
+- Server Action（`'use server'`）不能在 Client Component 中 import 做非 action 用途
 - Pattern：`actions.ts`（server only）+ `utils.ts`（pure functions，可任意 import）
 
-### 路由結構（apps/web）
+### 路由結構（`apps/web` 示例）
+
+實際目錄會隨功能增減；目前常見頂層包含：
 
 ```
 apps/web/app/
-├── layout.tsx              # Root Layout
-├── page.tsx                # 首頁
-├── (marketing)/            # 行銷頁面 (Layout Group)
-├── (auth)/                 # 認證頁面
-└── (dashboard)/            # 管理後台
+├── layout.tsx, page.tsx
+├── (auth)/                 # 登入、註冊、重設密碼等
+├── (dashboard)/            # 依角色區分的後台（landlord / tenant / buyer / agent …）
+├── portal/                 # 入口與角色導向
+├── properties/, blog/, about/, contact/, pricing/, services/
+├── onboarding/
+├── auth/                   # callback、confirm 等 route handlers
+└── api/                    # Route Handlers
 ```
 
 - Layout Groups `(name)` 不影響 URL
 - 動態路由 `[param]`，可選 `[[...slug]]`
 
-### 組件結構
+### 組件結構（`apps/web`）
 
 ```
 apps/web/components/
-├── common/                 # 通用組件
-├── ui/                     # UI 原子組件
-└── (功能分組)/              # 按功能分組
+├── common/
+├── ui/
+└── （依功能分組的目錄）
 ```
 
-### 狀態管理優先順序
+Superadmin 大型表格請優先使用專案的 `EnhancedTable` 等既有模式；建立或遷移表格時可參考 repo 內 **create-tanstack-table** skill（`.claude/skills/create-tanstack-table/`）。
+
+### 狀態與資料抓取優先順序
 
 1. `useState` — 組件內部狀態
 2. URL Search Params — 篩選、分頁
-3. React Context — 全域狀態（Auth, Theme）
-4. Zustand — 複雜跨組件狀態
+3. **TanStack Query** — 主站 / web-au 的伺服器狀態、快取、重新驗證
+4. React Context — 全域狀態（Auth、Theme 等）
+
+> 本 monorepo **未**在 workspace 層統一依賴 Zustand；若需跨組件複雜狀態，先用 Context 或 Query，避免再引新全域 store，除非有明確需求。
 
 ### 環境變數
 
-- Web / Superadmin：`NEXT_PUBLIC_` 前綴（公開）；無前綴（僅伺服器端）
+- Next（web / web-au / superadmin）：`NEXT_PUBLIC_` 前綴＝可在瀏覽器讀取；無前綴＝僅伺服器端
 
 ---
 
@@ -72,9 +84,9 @@ apps/web/components/
 - 使用 Tailwind utilities，避免 inline style
 - 響應式：`md:` / `lg:` / `xl:`
 - 暗黑模式：`dark:`
-- 複用樣式用 `@apply`
+- 專案色彩與語意：**優先使用設計 token 類名**（如 `text-text-primary`、`bg-bg-secondary`、`border-border-default`、`text-accent`），避免裸用 `gray-500` 等 palette 名
 
-> 完整設計規格（色彩變數、字型、間距、元件樣式）：
+> 完整設計規格：
 > - [DESIGN_SYSTEM.md](../../../docs/design-guidelines/DESIGN_SYSTEM.md)
 > - [UNIFIED_DESIGN_STANDARD.md](../../../docs/design-guidelines/UNIFIED_DESIGN_STANDARD.md)
 

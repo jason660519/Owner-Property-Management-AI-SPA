@@ -32,6 +32,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useTablePreferences } from '@/lib/hooks/useTablePreferences';
+import { numericStringSortingFn, parseNumericCell } from '@/lib/utils/table-sorting';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -161,6 +162,61 @@ export default function EnhancedTable<T>({
 
   const colWidths = prefs.colWidths.length === columns.length ? prefs.colWidths : initialWidths;
 
+  // --- Auto-patch sortingFn for numeric-looking string columns ---
+  // TanStack's default `alphanumeric` sorter does LEXICOGRAPHIC comparison on
+  // string values, which gives wrong results for:
+  //   • Currency:       "$10.00" < "$4.50"   (wrong: 10 > 4)
+  //   • SI suffixes:    "128k"   < "1M"      (wrong)
+  //   • Plain numbers:  "120.3"  < "8.2"     (wrong: '1' < '8')
+  // Since every column on the AA leaderboard (and most "metric" columns app-
+  // wide) is a display STRING, we opt every such column into numeric sort
+  // automatically. The detection:
+  //   1. Column has no explicit `sortingFn` (user override wins).
+  //   2. Column has not disabled sorting.
+  //   3. The first non-null sample from `data` is a string whose parsed
+  //      numeric form is a finite number (via `parseNumericCell`).
+  // Columns whose values are already real numbers, or are non-numeric strings
+  // (names, categories, dates), fall through to TanStack's default sort.
+  const columnsForTable = useMemo<ColumnDef<T, unknown>[]>(() => {
+    if (!data || data.length === 0) return columns;
+
+    const sampleLimit = Math.min(data.length, 5);
+
+    return columns.map((col) => {
+      // Rule 1: respect explicit sortingFn if caller provided one.
+      if ('sortingFn' in col && col.sortingFn) return col;
+      // Rule 2: skip columns that disabled sorting.
+      if (col.enableSorting === false) return col;
+
+      // Extract accessor — either accessorKey (string path) or accessorFn.
+      const accessorKey = (col as { accessorKey?: string }).accessorKey;
+      const accessorFn = (col as { accessorFn?: (row: T, index: number) => unknown })
+        .accessorFn;
+      if (!accessorKey && !accessorFn) return col;
+
+      // Sample first non-null value from the leading rows.
+      let sample: unknown = null;
+      for (let i = 0; i < sampleLimit; i++) {
+        const row = data[i];
+        const v = accessorKey
+          ? (row as unknown as Record<string, unknown>)[accessorKey]
+          : accessorFn!(row, i);
+        if (v != null && v !== '') {
+          sample = v;
+          break;
+        }
+      }
+
+      // Real numbers → TanStack's basic/numeric sorter already handles it.
+      if (typeof sample !== 'string') return col;
+      // Non-numeric strings (names, statuses) → keep default alphanumeric.
+      if (!Number.isFinite(parseNumericCell(sample))) return col;
+
+      // Numeric-looking string → inject numericStringSortingFn.
+      return { ...col, sortingFn: numericStringSortingFn } as ColumnDef<T, unknown>;
+    });
+  }, [columns, data]);
+
   // --- TanStack Table state ---
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -169,7 +225,7 @@ export default function EnhancedTable<T>({
 
   const table = useReactTable({
     data,
-    columns,
+    columns: columnsForTable,
     state: {
       sorting,
       columnFilters,
@@ -552,7 +608,11 @@ export default function EnhancedTable<T>({
                   return (
                     <div key={header.id} role="button" tabIndex={0}
                       onClick={() => canSort && header.column.toggleSorting()}
-                      className={clsx('min-w-0 px-4 py-3 text-xs font-semibold text-text-secondary tracking-wider flex flex-col overflow-hidden cursor-pointer',
+                      // NOTE: `relative` is REQUIRED so the absolute-positioned resize handle
+                      // anchors to this cell. Without it, the handle escapes to the nearest
+                      // positioned ancestor (the header wrapper) and all handles collapse
+                      // to the right edge of the whole header — breaking column resize.
+                      className={clsx('relative min-w-0 px-4 py-3 text-xs font-semibold text-text-secondary tracking-wider flex flex-col overflow-hidden cursor-pointer',
                         isFrozen && 'sticky bg-bg-secondary', isBoundary ? clsx(FREEZE_COL_LINE, 'z-[12]') : isFrozen ? 'z-[5]' : '',
                         align.flex, align.text)}
                       style={{ ...(isFrozen ? { left: frozenColLeftOffsets[idx] } : {}) }}>

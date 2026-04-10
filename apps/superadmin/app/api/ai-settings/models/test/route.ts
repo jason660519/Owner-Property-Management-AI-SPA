@@ -446,6 +446,42 @@ async function testPerplexity(
   }
 }
 
+async function testQwen(
+  apiKey: string,
+  modelId: string,
+  userPrompt?: string,
+  file?: FileAttachment
+): Promise<TestResult> {
+  // Qwen (Alibaba DashScope) — OpenAI-compatible endpoint. VL models accept
+  // inline image_url like any other OpenAI-style chat completions API.
+  const { prompt, max_tokens } = getPromptAndMaxTokens(userPrompt);
+  let content: string | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> = prompt;
+  if (file && isImageMime(file.mimeType)) {
+    const dataUrl = `data:${file.mimeType};base64,${file.fileBase64}`;
+    content = [
+      { type: 'image_url' as const, image_url: { url: dataUrl } },
+      { type: 'text' as const, text: prompt },
+    ];
+  }
+  try {
+    const res = await fetch('https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: modelId,
+        messages: [{ role: 'user', content }],
+        max_tokens,
+      }),
+      signal: providerSignal(),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) return { success: true, message: '連線成功', output: extractOpenAIOutput(data) || '（無輸出）' };
+    return { success: false, message: (data as { error?: { message?: string } }).error?.message ?? `HTTP ${res.status}` };
+  } catch (e) {
+    return { success: false, message: `連線失敗: ${e instanceof Error ? e.message : 'Unknown'}` };
+  }
+}
+
 type TesterFn = (key: string, modelId: string, userPrompt?: string, file?: FileAttachment) => Promise<TestResult>;
 const testers: Record<AIProvider, TesterFn> = {
   openai: testOpenAI,
@@ -458,6 +494,7 @@ const testers: Record<AIProvider, TesterFn> = {
   openrouter: testOpenRouter,
   zhipu: testZhipu,
   perplexity: testPerplexity,
+  qwen: testQwen,
 };
 
 export async function POST(request: NextRequest) {
