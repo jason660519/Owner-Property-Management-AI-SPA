@@ -6,7 +6,7 @@
 - 發現版本（Found In Version / Commit）：<tag 或 commit>
 - 測試案例連結（Related Test Case）：<TC-ID 或檔案路徑>
 - 測試結果證據（Evidence）：
-  - 報告：`docs/testing-guidelines and results/test-results/<path>`
+  - 報告：`docs/testing-guidelines-and-results/test-results/<path>`
   - 截圖 / 錄影 / Trace：<連結>
 
 ## 環境資訊（Environment）
@@ -30,4 +30,3 @@
 - 相依/阻擋項目：<相依套件、接口、第三方服務>
 - 可能根因：<可選>
 - 建議修復方向：<可選>
-

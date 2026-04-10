@@ -116,13 +116,13 @@
 - Coverage（apps/web/jest）
   - 預設輸出於 `apps/web/coverage/`。
   - 歸檔規範：將執行後產出複製至
-    `docs/testing-guidelines and results/test-results/coverage/YYYYMMDD-HHMM/`。
+    `docs/testing-guidelines-and-results/test-results/coverage/YYYYMMDD-HHMM/`。
   - 建議保留 `lcov.info` 與 `html` 報告。
 
 - E2E 報告（Playwright）
   - 預設輸出於 `apps/web/playwright-report/`，或以 `playwright show-report` 查看。
   - 歸檔規範：將整個報告目錄複製至
-    `docs/testing-guidelines and results/test-results/e2e/YYYYMMDD-HHMM/`。
+    `docs/testing-guidelines-and-results/test-results/e2e/YYYYMMDD-HHMM/`。
 
 - 測試驗收報告
   - 請於 `test-results/acceptance/YYYYMMDD/` 建立驗收報告（格式與欄位可自行擴充）。
@@ -144,4 +144,3 @@
   - 確認測試檔名與匹配規則、被測目錄是否包含於 `collectCoverageFrom`。
 - 找不到工作區命令
   - 確認在專案根目錄執行，並確保 `apps/*` 已安裝依賴（`npm ci`）。
-

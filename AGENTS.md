@@ -41,7 +41,7 @@ Do not duplicate route maps, folder walkthroughs, file inventories, or package s
 
 ## 角色目錄
 
-原本給人類查閱的角色目錄已移到 `docs/Prompt/agent_roles_index.md`，避免與本檔用途混淆。
+原本給人類查閱的角色目錄已移到 `docs/prompts/agent_roles_index.md`，避免與本檔用途混淆。
 
 ## 維護規則
 

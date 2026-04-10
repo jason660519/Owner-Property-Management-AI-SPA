@@ -1,6 +1,6 @@
 # 測試指導文件使用說明
 
-本文件說明如何使用「testing-guidelines and results」資料夾中的測試策略、模板與成果歸檔規範，協助你從環境建置、測試執行到結果分析與問題追蹤，形成閉環流程。
+本文件說明如何使用 `testing-guidelines-and-results` 資料夾中的測試策略、模板與成果歸檔規範，協助你從環境建置、測試執行到結果分析與問題追蹤，形成閉環流程。
 
 ## 目錄結構
 
@@ -55,7 +55,7 @@
 2. 亦可使用模板腳本（自動歸檔）
    
    ```bash
-   cd "docs/testing-guidelines and results/testing-templates"
+  cd "docs/testing-guidelines-and-results/testing-templates"
    chmod +x ./test-script-template.sh
    ./test-script-template.sh web coverage
    ./test-script-template.sh web e2e
@@ -91,4 +91,3 @@
 - 與 CI 對齊：命令與目錄盡量對應 CI 腳本與慣例
 
 若需擴充效能測試、靜態分析等內容，請新增對應小節與腳本，並遵循相同歸檔規範。
-

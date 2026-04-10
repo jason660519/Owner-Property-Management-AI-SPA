@@ -73,7 +73,7 @@ supabase gen types typescript --local > packages/types/database.ts     # 型別�
 
 ## 角色目錄
 
-給人類查閱的角色 Prompt 目錄在 `docs/Prompt/agent_roles_index.md`，不要與本檔混用。
+給人類查閱的角色 Prompt 目錄在 `docs/prompts/agent_roles_index.md`，不要與本檔混用。
 
 ## 維護規則
 

@@ -354,7 +354,7 @@ root/
 │   ├── technical-selection/    # 技術選型文件
 │   ├── reports/                # 分析報告
 │   ├── VLM/                    # VLM 相關文件
-│   ├── Prompt/                 # Prompt 範本
+│   ├── prompts/                # Prompt 範本
 │   ├── file-naming-guidelines.md   # 本文件
 │   └── update-project-progress-guide.md  # 進度更新指南
 ├── project-process/            # 專案流程文件（Feature Spec、TDD、開發日誌）

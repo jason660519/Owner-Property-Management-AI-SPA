@@ -14,7 +14,7 @@ set -euo pipefail
 WORKSPACE="${1:-web}"
 TYPE="${2:-unit}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-GUIDE_DIR="$ROOT_DIR/docs/testing-guidelines and results"
+GUIDE_DIR="$ROOT_DIR/docs/testing-guidelines-and-results"
 RESULT_DIR="$GUIDE_DIR/test-results"
 STAMP="$(date +%Y%m%d-%H%M)"
 
@@ -61,4 +61,3 @@ case "$TYPE" in
 esac
 
 echo ">> Done."
-
