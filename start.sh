@@ -141,6 +141,75 @@ check_python_venv() {
     fi
 }
 
+ensure_paperclip_env() {
+    local paperclip_env_file="$PROJECT_ROOT/docker/paperclip/.env.paperclip"
+    local default_port="3187"
+    local selected_port="${PAPERCLIP_PORT:-$default_port}"
+    local selected_url="${PAPERCLIP_PUBLIC_URL:-http://localhost:$selected_port}"
+    local selected_image="${PAPERCLIP_IMAGE:-ghcr.io/paperclipai/paperclip:latest}"
+    local selected_data_dir="${PAPERCLIP_DATA_DIR:-/tmp/paperclip-data-owner-property-management}"
+
+    if [ ! -f "$paperclip_env_file" ]; then
+        mkdir -p "$selected_data_dir"
+        local generated_secret
+        generated_secret=$(openssl rand -hex 32)
+        cat > "$paperclip_env_file" << EOF
+PAPERCLIP_PORT=$selected_port
+PAPERCLIP_PUBLIC_URL=$selected_url
+PAPERCLIP_IMAGE=$selected_image
+PAPERCLIP_DATA_DIR=$selected_data_dir
+BETTER_AUTH_SECRET=$generated_secret
+EOF
+        echo -e "${GREEN}✅ 已建立 docker/paperclip/.env.paperclip${NC}"
+    fi
+
+    PAPERCLIP_PORT=$(grep '^PAPERCLIP_PORT=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
+    PAPERCLIP_PUBLIC_URL=$(grep '^PAPERCLIP_PUBLIC_URL=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
+    PAPERCLIP_IMAGE=$(grep '^PAPERCLIP_IMAGE=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
+    PAPERCLIP_DATA_DIR=$(grep '^PAPERCLIP_DATA_DIR=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
+    BETTER_AUTH_SECRET=$(grep '^BETTER_AUTH_SECRET=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
+
+    PAPERCLIP_PORT="${PAPERCLIP_PORT:-3187}"
+    PAPERCLIP_PUBLIC_URL="${PAPERCLIP_PUBLIC_URL:-http://localhost:$PAPERCLIP_PORT}"
+    PAPERCLIP_IMAGE="${PAPERCLIP_IMAGE:-ghcr.io/paperclipai/paperclip:latest}"
+    PAPERCLIP_DATA_DIR="${PAPERCLIP_DATA_DIR:-/tmp/paperclip-data-owner-property-management}"
+
+    export PAPERCLIP_PORT PAPERCLIP_PUBLIC_URL PAPERCLIP_IMAGE PAPERCLIP_DATA_DIR BETTER_AUTH_SECRET
+}
+
+start_paperclip() {
+    echo -e "${BLUE}📎 啟動 Paperclip (Docker)...${NC}"
+    local compose_file="$PROJECT_ROOT/docker/paperclip/docker-compose.paperclip.yml"
+    local env_file="$PROJECT_ROOT/docker/paperclip/.env.paperclip"
+    local paperclip_container_id=""
+
+    if [ ! -f "$compose_file" ]; then
+        echo -e "${RED}❌ 找不到 Paperclip compose 設定: $compose_file${NC}"
+        return 1
+    fi
+
+    ensure_paperclip_env
+
+    echo -e "${BLUE}📥 取得 Paperclip 映像檔: ${PAPERCLIP_IMAGE}${NC}"
+    docker pull "${PAPERCLIP_IMAGE}" > /dev/null 2>&1 || {
+        echo -e "${YELLOW}⚠️  無法預先拉取映像檔，改由 compose 直接啟動${NC}"
+    }
+
+    paperclip_container_id=$(docker compose --env-file "$env_file" -f "$compose_file" ps -q paperclip 2>/dev/null || true)
+
+    if [ -n "$paperclip_container_id" ] && [ "$(docker inspect -f '{{.State.Status}}' "$paperclip_container_id" 2>/dev/null || true)" = "running" ]; then
+        echo -e "${GREEN}✅ Paperclip 已在運行: ${PAPERCLIP_PUBLIC_URL:-http://localhost:${PAPERCLIP_PORT:-3187}}${NC}"
+        return 0
+    fi
+
+    if lsof -i :"${PAPERCLIP_PORT:-3187}" > /dev/null 2>&1; then
+        echo -e "${YELLOW}⚠️  Port ${PAPERCLIP_PORT:-3187} 已被使用，若非 Paperclip 請調整 docker/paperclip/.env.paperclip 的 PAPERCLIP_PORT${NC}"
+    fi
+
+    docker compose --env-file "$env_file" -f "$compose_file" up -d
+    echo -e "${GREEN}✅ Paperclip 啟動成功: ${PAPERCLIP_PUBLIC_URL:-http://localhost:${PAPERCLIP_PORT:-3187}}${NC}"
+}
+
 # --- 啟動函式 ---
 
 start_web() {
@@ -230,6 +299,7 @@ start_all() {
     start_web_au "bg"
     start_admin "bg"
     start_ocr
+    start_paperclip
 
     echo ""
     echo -e "${GREEN}🎉 所有服務啟動程序已完成${NC}"
@@ -237,6 +307,7 @@ start_all() {
     echo -e "   • Web App (AU):     http://localhost:3002"
     echo -e "   • Superadmin:       http://localhost:3001/superadmin/dashboard"
     echo -e "   • OCR Service:      http://localhost:8819"
+    echo -e "   • Paperclip:        ${PAPERCLIP_PUBLIC_URL:-http://localhost:${PAPERCLIP_PORT:-3187}}"
     echo -e "   • Supabase Studio:  http://localhost:54323"
     echo -e "   • Mailpit (Email):  http://localhost:54324"
     echo -e "   • Logs:             $LOG_DIR/"
@@ -306,7 +377,8 @@ show_menu() {
     echo "5) 👁️  啟動 OCR/VLM 後端"
     echo "6) 🧪 執行 Superadmin 測試 (含截圖)"
     echo "7) 🧹 清除快取 (TW + AU + Superadmin)"
-    echo "8) 🛑 停止所有服務"
+    echo "8) 📎 啟動 Paperclip (Docker)"
+    echo "9) 🛑 停止所有服務"
     echo "0) 離開"
     echo ""
     read -p "請輸入選項: " choice
@@ -319,7 +391,8 @@ show_menu() {
         5) check_dependencies; ensure_supabase_running; start_ocr ;;
         6) run_tests ;;
         7) clean_cache ;;
-        8) ./stop.sh ;;
+        8) start_paperclip ;;
+        9) ./stop.sh ;;
         0) exit 0 ;;
         *) echo "無效選項"; sleep 1; show_menu ;;
     esac
@@ -332,8 +405,9 @@ case "${1:-menu}" in
     web-au) check_dependencies; ensure_supabase_running; start_web_au ;;
     admin)  check_dependencies; ensure_supabase_running; start_admin ;;
     ocr)    check_dependencies; ensure_supabase_running; start_ocr ;;
+    paperclip) check_dependencies; start_paperclip ;;
     test)   run_tests ;;
     clean)  clean_cache ;;
     menu)   show_menu ;;
-    *)      echo "用法: $0 [all|web|web-au|admin|ocr|test|clean|menu]" ;;
+    *)      echo "用法: $0 [all|web|web-au|admin|ocr|paperclip|test|clean|menu]" ;;
 esac

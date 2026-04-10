@@ -687,7 +687,7 @@ export async function generatePropertyBlog(
     const variantPreset = options?.stylePreset ?? 'luxury_dark';
     const normalizedReferenceUrl = normalizeReferenceUrl(options?.referenceUrl);
     const trimmedReferenceUrl = options?.referenceUrl?.trim() || null;
-    const selectedSectionIds = options?.selectedSectionIds?.length
+    const selectedSectionIds: AdvertisementSectionId[] = options?.selectedSectionIds?.length
       ? options.selectedSectionIds
       : ['basic-info'];
 

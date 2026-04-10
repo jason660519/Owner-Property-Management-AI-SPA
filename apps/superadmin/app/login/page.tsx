@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useMemo, useState } from 'react';
+import { Suspense, useActionState, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -8,6 +8,20 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { signInWithPasswordFormAction, type LoginFormState } from './actions';
 
 export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-bg-secondary flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-base border border-border-default bg-bg-primary p-6" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const searchParams = useSearchParams();
   const returnUrl = useMemo(
     () => searchParams.get('returnUrl') || '/superadmin',

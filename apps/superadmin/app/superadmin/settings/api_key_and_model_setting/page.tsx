@@ -1,16 +1,11 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import dynamic from 'next/dynamic';
 import {
-  Key, FlaskConical, ScanText, BookMarked, Globe,
+  Key, FlaskConical, ScanText, BookMarked,
   Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download,
 } from 'lucide-react';
 
-const ModelRoleCatalogTable = dynamic(
-  () => import('./model-role-catalog/ModelRoleCatalogTable'),
-  { loading: () => <div className="flex justify-center py-20"><Loader2 className="animate-spin" size={18} /></div> },
-);
 import { BottomSheetTabs, type SheetTabDef } from '@/components/ui/BottomSheetTabs';
 import { readLocalStorage, writeLocalStorage } from '@/lib/utils/storage-state';
 import { DashboardLayout } from '@/components/dashboard';
@@ -19,7 +14,6 @@ import {
   ApiKeyManager,
   type ApiKeyManagerHandle,
   ModelEvaluator,
-  ModelResearchReport,
 } from '@/components/ai-settings';
 import { OcrSystemPromptPanel } from '@/components/ai-settings/OcrSystemPromptPanel';
 import { useAISettings, type KeyValidationResult } from '@/lib/hooks/useAISettings';
@@ -33,9 +27,9 @@ import { getModelDisplayName } from '@/components/ai-settings/model-evaluator/ut
 import { SUPPORTED_AI_ENV_KEY_NAMES } from '@/lib/parse-env-keys';
 
 
-type SettingsTab = 'keys' | 'research' | 'model-analysis' | 'ocr';
+type SettingsTab = 'keys' | 'ocr';
 
-const TAB_IDS: SettingsTab[] = ['keys', 'research', 'model-analysis', 'ocr'];
+const TAB_IDS: SettingsTab[] = ['keys', 'ocr'];
 
 const LS_GLOBAL_PROMPT = 'ai-settings:globalTestPrompt';
 const LS_SAVED_PROMPTS = 'ai-settings:savedPrompts';
@@ -147,8 +141,6 @@ function getTabFromHash(): SettingsTab | null {
 
 const TABS: { id: SettingsTab; label: string; icon: React.ElementType; description: string }[] = [
   { id: 'keys', label: 'API 金鑰管理', icon: Key, description: '管理各 AI 服務提供商的 API 金鑰' },
-  { id: 'research', label: '模型網路評測報告', icon: Globe, description: '對已驗證模型進行網路調查並產生評測報告' },
-  { id: 'model-analysis', label: '模型職責分析', icon: FlaskConical, description: '分析所有模型的職責分類標籤' },
   { id: 'ocr', label: 'OCR解析設定', icon: ScanText, description: '設定 OCR 解析模型與參數' },
 ];
 
@@ -172,8 +164,6 @@ const EVALUATOR_TAB_CONFIG: Record<string, { hiddenModuleKeys: string[]; statusL
 /** Bottom sheet tab definitions for Excel-style navigation */
 const SHEET_TABS: SheetTabDef[] = [
   { id: 'keys', label: 'API Keys', zhLabel: 'API 金鑰管理', icon: Key, color: 'text-amber-600', activeColor: 'bg-amber-600 text-white' },
-  { id: 'research', label: 'Research', zhLabel: '模型網路評測報告', icon: Globe, color: 'text-emerald-600', activeColor: 'bg-emerald-600 text-white' },
-  { id: 'model-analysis', label: 'Analysis', zhLabel: '模型職責分析', icon: FlaskConical, color: 'text-cyan-600', activeColor: 'bg-cyan-600 text-white' },
   { id: 'ocr', label: 'OCR', zhLabel: 'OCR解析設定', icon: ScanText, color: 'text-blue-600', activeColor: 'bg-blue-600 text-white' },
 ];
 
@@ -570,33 +560,10 @@ export default function AIServiceSettingsPage() {
           }}
           headerActionsRef={apiKeyHeaderActionsRef}
           onBatchImportComplete={async (importedCount) => {
-            await settings.refresh();
-            await new Promise((r) => setTimeout(r, 800));
+            await settings.refreshSilent();
+            await new Promise((r) => setTimeout(r, 0));
             await runValidateAllKeys(keysRef.current, importedCount);
           }}
-        />
-      );
-    }
-
-    // --- Model research tab ---
-    if (activeTab === 'research') {
-      return (
-        <ModelResearchReport
-          savedKeys={settings.keys}
-          validateAllResultsByKeyId={validateAllResultsByKeyId}
-          currentKeys={memoizedCurrentKeys}
-          userId={settings.userId}
-        />
-      );
-    }
-
-    // --- Model analysis tab ---
-    if (activeTab === 'model-analysis') {
-      return (
-        <ModelRoleCatalogTable
-          savedKeys={settings.keys}
-          validationCache={validateAllResultsByKeyId}
-          userId={settings.userId}
         />
       );
     }

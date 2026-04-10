@@ -13,14 +13,32 @@ jest.mock('@/lib/resolve-ai-settings-user', () => ({
   resolveUserId: jest.fn(),
 }));
 
+jest.mock('@/lib/auth/require-superadmin', () => ({
+  requireSuperadmin: jest.fn(),
+}));
+
+jest.mock('@/lib/ai/rate-limit', () => ({
+  checkRateLimit: jest.fn(),
+}));
+
+jest.mock('@/lib/ai/audit', () => ({
+  startPromptAudit: jest.fn(() => ({
+    complete: jest.fn().mockResolvedValue(undefined),
+  })),
+}));
+
 import { POST } from './route';
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { resolveUserId } from '@/lib/resolve-ai-settings-user';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
+import { checkRateLimit } from '@/lib/ai/rate-limit';
 
 const mockCreateClient = createClient as jest.MockedFunction<typeof createClient>;
 const mockCreateAdminClient = createAdminClient as jest.MockedFunction<typeof createAdminClient>;
 const mockResolveUserId = resolveUserId as jest.MockedFunction<typeof resolveUserId>;
+const mockRequireSuperadmin = requireSuperadmin as jest.MockedFunction<typeof requireSuperadmin>;
+const mockCheckRateLimit = checkRateLimit as jest.MockedFunction<typeof checkRateLimit>;
 
 if (typeof Response === 'undefined' || typeof (Response as unknown as { prototype?: { text?: unknown } }).prototype?.text !== 'function') {
   (global as unknown as { Response: typeof Response }).Response = UndiciResponse as unknown as typeof Response;
@@ -79,6 +97,17 @@ describe('POST /api/property-description/stream (usage logs)', () => {
     jest.clearAllMocks();
     process.env = { ...originalEnv };
     global.fetch = jest.fn();
+    mockRequireSuperadmin.mockResolvedValue({
+      ok: true,
+      userId: 'superadmin-user-id',
+      source: 'session',
+      viaSession: true,
+    });
+    mockCheckRateLimit.mockResolvedValue({
+      allowed: true,
+      remaining: 10,
+      resetAt: new Date(Date.now() + 60_000),
+    });
   });
 
   afterEach(() => {

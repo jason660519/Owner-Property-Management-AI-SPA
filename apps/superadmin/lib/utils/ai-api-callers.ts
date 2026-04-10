@@ -120,6 +120,50 @@ export async function callOpenAI(
   return { ok: false, text: '', error: data?.error?.message ?? `HTTP ${res.status}` };
 }
 
+export async function callPerplexity(
+  apiKey: string,
+  modelId: string,
+  fileBase64: string,
+  mimeType: string,
+  systemPrompt?: string,
+  signal?: AbortSignal,
+): Promise<CallerResult> {
+  const prompt = systemPrompt ?? TRANSCRIPT_PARSE_PROMPT;
+
+  type TextPart = { type: 'text'; text: string };
+  type ImagePart = { type: 'image_url'; image_url: { url: string } };
+  let content: string | (TextPart | ImagePart)[] = prompt;
+
+  const isDocOrImage = isImageMime(mimeType) || mimeType.toLowerCase() === 'application/pdf';
+  if (isDocOrImage) {
+    content = [
+      { type: 'image_url' as const, image_url: { url: `data:${mimeType};base64,${fileBase64}` } },
+      { type: 'text' as const, text: prompt },
+    ];
+  }
+
+  const res = await fetch('https://api.perplexity.ai/chat/completions', {
+    method: 'POST',
+    signal,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: modelId,
+      messages: [{ role: 'user', content }],
+      max_tokens: 4096,
+      response_format: { type: 'json_object' },
+    }),
+  });
+
+  const data = (await res.json().catch(() => ({}))) as {
+    choices?: { message?: { content?: string } }[];
+    error?: { message?: string };
+  };
+
+  const text = data?.choices?.[0]?.message?.content ?? '';
+  if (res.ok) return { ok: true, text };
+  return { ok: false, text: '', error: data?.error?.message ?? `HTTP ${res.status}` };
+}
+
 // ---------------------------------------------------------------------------
 // Anthropic
 // ---------------------------------------------------------------------------
@@ -540,4 +584,5 @@ export const CALLERS: Record<AIProvider, CallerFn> = {
   kimi: callKimi,
   openrouter: callOpenRouter,
   zhipu: callZhipu,
+  perplexity: callPerplexity,
 };

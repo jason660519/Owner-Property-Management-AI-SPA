@@ -56,7 +56,6 @@ async function validateOpenAI(apiKey: string): Promise<ValidationResult> {
         availableModels: models,
       };
     }
-    const err = await res.json().catch(() => ({}));
     return { valid: false, provider: 'openai', message: '金鑰無效或已過期' };
   } catch (e) {
     return { valid: false, provider: 'openai', message: `連線失敗: ${e instanceof Error ? e.message : 'Unknown'}` };
@@ -170,12 +169,14 @@ async function validateDeepSeek(apiKey: string): Promise<ValidationResult> {
       headers: { Authorization: `Bearer ${apiKey}` },
     });
     if (res.ok) {
-      const data = await res.json().catch(() => ({}));
+      type OpenAICompatibleModel = { id?: string };
+      type OpenAICompatibleModelsResponse = { data?: OpenAICompatibleModel[]; models?: OpenAICompatibleModel[] };
+      const data = (await res.json().catch(() => ({}))) as OpenAICompatibleModelsResponse;
       // DeepSeek's API is OpenAI compatible; try typical shapes
-      const models: string[] = Array.isArray((data as any)?.data)
-        ? (data as any).data.map((m: { id: string }) => m.id).filter(Boolean)
-        : Array.isArray((data as any)?.models)
-          ? (data as any).models.map((m: { id: string }) => m.id).filter(Boolean)
+      const models: string[] = Array.isArray(data?.data)
+        ? data.data.map((m) => m.id ?? '').filter(Boolean)
+        : Array.isArray(data?.models)
+          ? data.models.map((m) => m.id ?? '').filter(Boolean)
           : [];
 
       const latest = pickLatestModel(models, [
@@ -207,11 +208,13 @@ async function validateGrok(apiKey: string): Promise<ValidationResult> {
       headers: { Authorization: `Bearer ${apiKey}` },
     });
     if (res.ok) {
-      const data = await res.json().catch(() => ({}));
-      const models: string[] = Array.isArray((data as any)?.data)
-        ? (data as any).data.map((m: { id: string }) => m.id).filter(Boolean)
-        : Array.isArray((data as any)?.models)
-          ? (data as any).models.map((m: { id: string }) => m.id).filter(Boolean)
+      type OpenAICompatibleModel = { id?: string };
+      type OpenAICompatibleModelsResponse = { data?: OpenAICompatibleModel[]; models?: OpenAICompatibleModel[] };
+      const data = (await res.json().catch(() => ({}))) as OpenAICompatibleModelsResponse;
+      const models: string[] = Array.isArray(data?.data)
+        ? data.data.map((m) => m.id ?? '').filter(Boolean)
+        : Array.isArray(data?.models)
+          ? data.models.map((m) => m.id ?? '').filter(Boolean)
           : [];
 
       const latest = pickLatestModel(models, [
@@ -393,7 +396,7 @@ async function validatePerplexity(apiKey: string): Promise<ValidationResult> {
         provider: 'perplexity',
         message: '金鑰驗證成功',
         modelInfo: '金鑰有效',
-        availableModels: ['sonar-pro', 'sonar', 'sonar-reasoning-pro'],
+        availableModels: ['sonar', 'sonar-pro', 'sonar-reasoning-pro', 'sonar-deep-research'],
       };
     }
     const err = await res.json().catch(() => ({}));

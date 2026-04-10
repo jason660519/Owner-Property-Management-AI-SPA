@@ -1620,8 +1620,8 @@ const RAW_FEATURES: RoadmapFeature[] = [
     testCoverage: 15,
     testScriptCount: 28,
     testScriptPassedCount: 28,
-    lastModifiedBy: "GPT-5.4",
-    lastModifiedDate: "2026/04/09",
+    lastModifiedBy: "GPT-5.2",
+    lastModifiedDate: "2026/04/11",
   },
 
   // === 2026-02-21 新增任務 ===
@@ -2011,14 +2011,14 @@ const RAW_FEATURES: RoadmapFeature[] = [
     docPath: "",
     category: "超級管理員 (Super Admin)",
     points: 8,
-    lastModifiedBy: "Claude Opus 4.6",
-    lastModifiedDate: "2026/04/10",
+    lastModifiedBy: "GPT-5.2",
+    lastModifiedDate: "2026/04/11",
     phase: "testing",
     testStatus: "passed",
     unitTestCoverage: 100,
     testCoverage: 85,
     devLog:
-      "[2026/04/10] (Claude Opus 4.6)\n## Phase 1 — 基礎 sheet（Anthropic 評審 only）\n• Migration 20260410120000_create_ai_model_research_reports.sql：新增 ai_model_research_reports 表（per-user RLS、結構化欄位 + Markdown + source_urls）。\n• 後端 API：app/api/ai-settings/model-research/route.ts (GET/POST/DELETE) 與 app/api/ai-settings/model-research/generate/route.ts（呼叫 Claude with web_search_20250305 工具，逐筆 upsert，含 mock 模式）。\n• 前端：components/ai-settings/ModelResearchReport.tsx 完成（EnhancedTable + MarkdownViewer + 免責 banner + 批次/單筆生成 + 展開報告）。\n• Page 整合：api_key_and_model_setting/page.tsx 新增 'research' tab 於 keys 與 model-analysis 之間。\n## Phase 2 — Multi-provider evaluator（使用者可選）\n• Migration 20260410130000_add_perplexity_provider.sql：將 perplexity 加入 5 個 ai_* 表的 provider CHECK constraint。\n• ai-providers.ts 新增 perplexity provider 與 sonar-pro / sonar / sonar-reasoning-pro 三個模型；validate/route.ts 與 models/test/route.ts 各加 Perplexity caller (OpenAI-compatible)。\n• generate/route.ts 重構為 multi-provider 架構：5 個 EvaluatorCaller (callAnthropic / callOpenAI / callGemini / callGrok / callPerplexity) 統一回傳 { text, urls }，dispatcher EVALUATOR_CALLERS 依 evaluatorProvider 派送。\n• ModelResearchReport.tsx 加入 EVALUATOR_CATALOG（Anthropic + OpenAI + Gemini + Grok + Perplexity，DeepSeek 排除）+ 兩段下拉（廠商→模型，自動依 savedKeys 過濾）+ localStorage 持久化（key: ai-settings:model-research:evaluator）。\n## 測試\n• 單元測試：components/ai-settings/__tests__/ModelResearchReport.test.tsx 共 10 個測試全綠（含新加 2 個：dropdown filter + 傳送選定 evaluator）。其他相關 ai-settings 測試 79 個全綠。\n• 瀏覽器驗證：localhost:3001/superadmin/settings/api_key_and_model_setting#research，下拉精準過濾出 4 家已驗證評審（Anthropic / OpenAI / Gemini / Grok），切換 OpenAI 後 model dropdown 自動換成 GPT-5 / GPT-4o，reload 後 localStorage 還原選擇。",
+      "[2026/04/10] (Claude Opus 4.6)\n## Phase 1 — 基礎 sheet（Anthropic 評審 only）\n• Migration 20260410120000_create_ai_model_research_reports.sql：新增 ai_model_research_reports 表（per-user RLS、結構化欄位 + Markdown + source_urls）。\n• 後端 API：app/api/ai-settings/model-research/route.ts (GET/POST/DELETE) 與 app/api/ai-settings/model-research/generate/route.ts（呼叫 Claude with web_search_20250305 工具，逐筆 upsert，含 mock 模式）。\n• 前端：components/ai-settings/ModelResearchReport.tsx 完成（EnhancedTable + MarkdownViewer + 免責 banner + 批次/單筆生成 + 展開報告）。\n• Page 整合：api_key_and_model_setting/page.tsx 新增 'research' tab 於 keys 與 model-analysis 之間。\n## Phase 2 — Multi-provider evaluator（使用者可選）\n• Migration 20260410130000_add_perplexity_provider.sql：將 perplexity 加入 5 個 ai_* 表的 provider CHECK constraint。\n• ai-providers.ts 新增 perplexity provider 與 sonar-pro / sonar / sonar-reasoning-pro 三個模型；validate/route.ts 與 models/test/route.ts 各加 Perplexity caller (OpenAI-compatible)。\n• generate/route.ts 重構為 multi-provider 架構：5 個 EvaluatorCaller (callAnthropic / callOpenAI / callGemini / callGrok / callPerplexity) 統一回傳 { text, urls }，dispatcher EVALUATOR_CALLERS 依 evaluatorProvider 派送。\n• ModelResearchReport.tsx 加入 EVALUATOR_CATALOG（Anthropic + OpenAI + Gemini + Grok + Perplexity，DeepSeek 排除）+ 兩段下拉（廠商→模型，自動依 savedKeys 過濾）+ localStorage 持久化（key: ai-settings:model-research:evaluator）。\n## 測試\n• 單元測試：components/ai-settings/__tests__/ModelResearchReport.test.tsx 共 10 個測試全綠（含新加 2 個：dropdown filter + 傳送選定 evaluator）。其他相關 ai-settings 測試 79 個全綠。\n• 瀏覽器驗證：localhost:3001/superadmin/settings/api_key_and_model_setting#research，下拉精準過濾出 4 家已驗證評審（Anthropic / OpenAI / Gemini / Grok），切換 OpenAI 後 model dropdown 自動換成 GPT-5 / GPT-4o，reload 後 localStorage 還原選擇。\n\n[2026/04/11] (GPT-5.2)\n• 依需求移除 /superadmin/settings/api_key_and_model_setting 的 #research / #model-analysis 分頁入口（不再顯示於 BottomSheetTabs）。",
   },
   {
     name: "AI Prompt 安全強化（SSoT + Injection 防護 + 審計 + Rate Limit + Auto-seed）",
@@ -2039,9 +2039,26 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "[2026/04/10] (Claude Opus 4.6)\n## 工程指導手冊\n• 新增 docs/ai-prompt-safety-guide.md（762 行）：6 條核心原則、SSoT 機制、Delimiter 規則、輸入驗證三道防線、授權/Rate Limit、輸出驗證、審計 schema、新增 LLM 功能 Checklist、10 個常見反例。\n## 共用模組（lib/ai/ + lib/auth/）\n• prompt-safety.ts：resolveSystemPrompt（SSoT）、PromptNotFoundError、wrapUserInput / buildSafeUserMessage（XML delimiter + escape）、detectInjectionAttempt（7 種 pattern）、validateUserSuppliedPrompt、renderPromptTemplate、sha256Hex、PROMPT_INPUT_LIMITS。\n• audit.ts：startPromptAudit / logPromptAudit — 寫入 ai_prompt_audit_logs，fingerprint 使用者輸入（只存 SHA-256 + 長度 + injection flags），記錄 latency / tokens / status / prompt_source。\n• rate-limit.ts：checkRateLimit — Postgres 滑動窗口實作，預設 10 req/min per (user, endpoint)，fail-open 策略。\n• ensure-seeded.ts：seedDefaultPromptsDirect + ensureDefaultPromptsSeededOnce — 不依賴 Server Action，process-level 記憶化避免重複 seed。\n• require-superadmin.ts：Supabase session 驗證 + iam_user_roles role check，legacy x-user-id header fallback（deprecation warn）。\n## 漏洞修復\n• CRITICAL #1 — /api/ai-settings/models/test：長度上限、injection 偵測、session 授權、rate limit、審計日誌。\n• CRITICAL #2 — /api/transcript-parse/stream + jobs：customPrompt validate、session 授權、rate limit、審計日誌。\n• HIGH #3 — /api/property-description/stream/utils.ts：buildFacts XML escape + <property_data> 標籤、buildCurrentDescriptionSection、PROMPT_SAFETY_TRAILER。\n## SSoT 遷移\n• Migration 20260411090000：saved_prompts 加 module_key 欄位 + partial unique index。\n• Migration 20260411100000：ai_prompt_audit_logs 審計表（prompt_source 溯源、user_input_sha256、injection_flags、tokens、latency、status）。\n• Migration 20260411110000：ai_call_rate_limits 滑動窗口計數表。\n• seedDefaultPrompts.ts + ensure-seeded.ts：seed 9 組 canonical prompt，dedupe 同時檢查 name + module_key。\n• run-transcript-parse-core.ts：parser + judge 都改用 resolveSystemPrompt，miss 時大聲 warn；parser loop + judge phase 都串了 startPromptAudit；清掉 Phase 5 遺留的 dead code。\n• detect-building/land-count、property-description/stream：全部改用 resolveSystemPrompt + requireSuperadmin + checkRateLimit + startPromptAudit。\n• resolveSystemPrompt miss 時 lazy dynamic import ensureDefaultPromptsSeededOnce，seed 後 retry 一次；process-level memoization 避免重複 seed。\n## 測試\n• 80 tests 全綠：lib/ai/prompt-safety (36) + lib/ai/audit (9) + lib/ai/rate-limit (8) + lib/ai/ensure-seeded (8) + lib/auth/require-superadmin (7) + app/api/property-description/stream/utils (12)。\n• TS check 對所有改動檔乾淨。\n• DB reset 後 superadmin 觸發任一 LLM 功能，系統會自動 seed canonical prompts（single-fire per process），不再需要人工按 Seed 按鈕。",
     devLogDocPath: "/docs/ai-prompt-safety-guide.md",
   },
+  {
+    name: "開發環境 Docker 整合 - Paperclip 自動啟停",
+    locatedPage: "start.sh / stop.sh",
+    percentage: 100,
+    category: "通用/系統 (General/System)",
+    points: 2,
+    phase: "development",
+    lastModifiedBy: "GPT-5.3-Codex",
+    lastModifiedDate: "2026/04/10",
+    featureDescription:
+      "以 Docker 方式整合 Paperclip，並納入專案統一啟停流程，讓開發者執行 ./start.sh all 時可一併啟動，執行 ./stop.sh 時可一併停止。",
+    acceptanceCriteria:
+      "1. 新增專案內 Paperclip compose 設定，採官方 quickstart 單容器模式。\n2. start.sh 具備 paperclip 啟動命令與 all 模式自動啟動。\n3. stop.sh 可透過 compose down 停止 Paperclip。\n4. 預設使用較少衝突的 host port（3187），並可透過 .env.paperclip 覆寫。\n5. 首次執行可自動建立 .env.paperclip 與 BETTER_AUTH_SECRET。",
+    developmentProgress:
+      "已新增 docker/paperclip/docker-compose.paperclip.yml 與 .env.paperclip.example；start.sh 新增 ensure_paperclip_env/start_paperclip，menu 與 CLI 入口支援 paperclip；start_all 會一併啟動 Paperclip；stop.sh 新增 Paperclip compose down。",
+    docPath: "/docs/scripts-directory-guide.md",
+  },
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/10",
+  lastUpdated: "2026/04/11",
   features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
 };

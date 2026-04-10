@@ -3,7 +3,7 @@ import {
   CONTACT_LEAD_STATUS_VALUES,
   type ContactLeadStatus,
 } from './constants';
-import { updateContactLeadStatus } from './actions';
+import { updateContactLeadStatusFormAction } from './actions';
 
 interface ContactLeadStatusActionsProps {
   leadId: string;
@@ -15,7 +15,7 @@ export function ContactLeadStatusActions({
   currentStatus,
 }: ContactLeadStatusActionsProps) {
   return (
-    <form action={updateContactLeadStatus} className="flex flex-wrap gap-2">
+    <form action={updateContactLeadStatusFormAction} className="flex flex-wrap gap-2">
       <input type="hidden" name="leadId" value={leadId} />
       {CONTACT_LEAD_STATUS_VALUES.map((statusValue) => (
         <button

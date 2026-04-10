@@ -60,17 +60,7 @@ async function downloadDocument(
 // ---------------------------------------------------------------------------
 
 function findOcrServiceDir(): string | null {
-  if (process.env.OCR_LOCAL_DIR) return process.env.OCR_LOCAL_DIR;
-  // In monorepo: Next.js cwd is the project root when running `next dev`
-  const candidates = [
-    path.join(process.cwd(), 'backend', 'ocr_service'),
-    path.join(process.cwd(), '..', '..', 'backend', 'ocr_service'),
-    path.join(process.cwd(), '..', 'backend', 'ocr_service'),
-  ];
-  for (const dir of candidates) {
-    if (fs.existsSync(path.join(dir, 'parse_local_cli.py'))) return dir;
-  }
-  return null;
+  return process.env.OCR_LOCAL_DIR || null;
 }
 
 // ---------------------------------------------------------------------------
@@ -86,9 +76,7 @@ async function callCliFileMode(
   if (!ocrDir) return { data: {}, unavailable: true };
 
   const cliScript = process.env.OCR_LOCAL_CLI_SCRIPT ?? path.join(ocrDir, 'parse_local_cli.py');
-  // Prefer venv python (has all deps); fall back to env var or system python3
-  const venvPython = path.join(ocrDir, 'venv', 'bin', 'python3');
-  const pythonBin = process.env.OCR_LOCAL_PYTHON_BIN || (fs.existsSync(venvPython) ? venvPython : 'python3');
+  const pythonBin = process.env.OCR_LOCAL_PYTHON_BIN || 'python3';
 
   // Download file in Next.js
   const downloaded = await downloadDocument(documentId);

@@ -72,6 +72,7 @@ logs/
 # Docker
 # ============================================
 .dockerignore
+docker/paperclip/.env.paperclip
 
 # Media
 # ============================================

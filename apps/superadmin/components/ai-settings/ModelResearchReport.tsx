@@ -135,6 +135,7 @@ export const EVALUATOR_CATALOG: EvaluatorProviderOption[] = [
     models: [
       { id: 'sonar-pro', label: 'Sonar Pro' },
       { id: 'sonar-reasoning-pro', label: 'Sonar Reasoning Pro' },
+      { id: 'sonar-deep-research', label: 'Sonar Deep Research' },
       { id: 'sonar', label: 'Sonar' },
     ],
   },

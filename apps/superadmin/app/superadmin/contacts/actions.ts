@@ -190,6 +190,10 @@ export async function updateContactLeadStatus(formData: FormData) {
   return { success: true };
 }
 
+export async function updateContactLeadStatusFormAction(formData: FormData): Promise<void> {
+  await updateContactLeadStatus(formData);
+}
+
 export async function updateContactLeadStatuses(formData: FormData) {
   const leadIds = formData
     .getAll('leadIds')

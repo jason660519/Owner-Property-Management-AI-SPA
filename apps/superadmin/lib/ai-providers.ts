@@ -675,6 +675,15 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
         outputPrice: 8.00,
         capabilities: ['text', 'web_search', 'reasoning'],
       },
+      {
+        id: 'sonar-deep-research',
+        name: 'Sonar Deep Research',
+        contextWindow: 127000,
+        maxOutput: 8192,
+        inputPrice: 2.00,
+        outputPrice: 8.00,
+        capabilities: ['text', 'web_search', 'reasoning'],
+      },
     ],
   },
 ];
