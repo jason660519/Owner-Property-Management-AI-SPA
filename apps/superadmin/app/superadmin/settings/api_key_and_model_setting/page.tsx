@@ -199,7 +199,12 @@ const SHEET_TABS: SheetTabDef[] = [
 
 
 export default function AIServiceSettingsPage() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>(() => getTabFromHash() ?? 'keys');
+  // Initialize with 'keys' on both SSR and first client render to avoid a
+  // hydration mismatch — the useEffect below syncs from window.location.hash
+  // after mount. Reading window.location.hash in the useState initializer
+  // worked client-side but differed from SSR (which has no window), causing
+  // React to regenerate the whole tree on hydration.
+  const [activeTab, setActiveTab] = useState<SettingsTab>('keys');
   const [envImportButtonHover, setEnvImportButtonHover] = useState(false);
   const settings = useAISettings();
   const apiKeyHeaderActionsRef = useRef<{ setEnvImportOpen: (v: boolean) => void } | null>(null);

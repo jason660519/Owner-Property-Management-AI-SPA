@@ -25,9 +25,9 @@ function DocLink({ path, label }: { path: string | undefined; label: string }) {
   }
   const sp = path.trim();
   const isDocsScope = sp.startsWith('/docs/');
-  const scope = isDocsScope ? 'docs' : 'project';
   const pathParam = isDocsScope ? sp.slice(6) : sp.replace(/^\//, '');
-  const href = `/superadmin/docs?scope=${scope}&path=${encodeURIComponent(pathParam)}`;
+  const basePath = isDocsScope ? '/superadmin/docs' : '/superadmin/project-file';
+  const href = `${basePath}?path=${encodeURIComponent(pathParam)}`;
   return (
     <a
       href={href}
@@ -44,7 +44,7 @@ function DocLink({ path, label }: { path: string | undefined; label: string }) {
 
 // -- Folder link renderer --
 function FolderLink({ path }: { path: string }) {
-  const href = `/superadmin/docs?scope=project&path=${encodeURIComponent(path)}`;
+  const href = `/superadmin/project-file?path=${encodeURIComponent(path)}`;
   return (
     <a
       href={href}

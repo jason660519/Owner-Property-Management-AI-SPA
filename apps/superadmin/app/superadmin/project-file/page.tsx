@@ -3,18 +3,18 @@ import { DocsPage } from '@/components/docs';
 
 export const dynamic = 'force-dynamic';
 
-export default function SuperadminDocsPage() {
+export default function SuperadminProjectFilePage() {
   return (
     <DashboardLayout
       currentRole="superadmin"
-      pageTitle="專案文件"
+      pageTitle="專案檔案"
       breadcrumbs={[
         { label: '首頁', href: '/' },
         { label: '超級管理員專區', href: '/superadmin' },
-        { label: '專案文件' },
+        { label: '專案檔案' },
       ]}
     >
-      <DocsPage initialScope="docs" />
+      <DocsPage initialScope="project" />
     </DashboardLayout>
   );
 }

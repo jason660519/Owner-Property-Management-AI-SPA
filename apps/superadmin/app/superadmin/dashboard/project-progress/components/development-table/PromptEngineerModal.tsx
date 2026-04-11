@@ -1,10 +1,21 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Play, Loader2 } from 'lucide-react';
+import { Play, Loader2, Send, ExternalLink, CheckCircle2, Copy, GitBranch, Trash2 } from 'lucide-react';
 import clsx from 'clsx';
 import type { PromptContext, IDEOption, ProgressRow } from './types';
 import { IDE_OPTIONS, buildPromptContext } from './types';
+import { buildIssuePayload, isValidPaperclipRole } from '@/lib/paperclip/buildIssuePayload';
+import { getPaperclipConfig } from '@/lib/paperclip/config';
+import type { PaperclipSubmission } from '@/lib/paperclip/types';
+import type {
+  CreateIssueResult,
+  PaperclipIssueResource,
+  FetchIssueStatusResult,
+  PaperclipIssueStatusSnapshot,
+} from '@/lib/paperclip/client';
+import type { WorktreePaths } from '@/lib/paperclip/worktree';
+import type { PaperclipIssueStatus } from '@/lib/paperclip/types';
 
 // -- Shared tail lines appended to every category prompt --
 function tddTail(ctx: PromptContext): string {
@@ -26,6 +37,17 @@ function header(ctx: PromptContext, desc: string): string {
     '',
   ].join('\n');
 }
+
+// Status badge style + label for Paperclip issue states used in live polling.
+const STATUS_BADGE_STYLE: Record<PaperclipIssueStatus, { label: string; className: string }> = {
+  backlog:     { label: 'Backlog',     className: 'bg-bg-secondary text-text-muted border-border-default' },
+  todo:        { label: 'Queued',      className: 'bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/40' },
+  in_progress: { label: 'In Progress', className: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/40' },
+  in_review:   { label: 'In Review',   className: 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/40' },
+  done:        { label: 'Done',        className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/40' },
+  blocked:     { label: 'Blocked',     className: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/40' },
+  cancelled:   { label: 'Cancelled',   className: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/40' },
+};
 
 const WORK_CATEGORY_OPTIONS: { id: string; label: string; getPrompt: (ctx: PromptContext) => string }[] = [
   { id: 'fullstack', label: '全棧工程師', getPrompt: (ctx) => [
@@ -100,6 +122,21 @@ export default function PromptEngineerModal({
   const [currentTaskStatus, setCurrentTaskStatus] = useState<string | null>(null);
   const [currentTaskLogs, setCurrentTaskLogs] = useState<string[]>([]);
   const [promptError, setPromptError] = useState<string | null>(null);
+  const [paperclipPreview, setPaperclipPreview] = useState<PaperclipSubmission | null>(null);
+  const [paperclipSending, setPaperclipSending] = useState(false);
+  const [paperclipResult, setPaperclipResult] = useState<
+    | { ok: true; issue: PaperclipIssueResource; issueUrl: string; worktree?: WorktreePaths }
+    | { ok: false; error: string }
+    | null
+  >(null);
+  const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
+  const [cleanupState, setCleanupState] = useState<
+    | { phase: 'idle' }
+    | { phase: 'sending' }
+    | { phase: 'done' }
+    | { phase: 'error'; message: string }
+  >({ phase: 'idle' });
+  const [liveStatus, setLiveStatus] = useState<PaperclipIssueStatusSnapshot | null>(null);
 
   // Close on Escape
   useEffect(() => {
@@ -184,6 +221,163 @@ export default function PromptEngineerModal({
     }
   }, [row, promptConfigIDE]);
 
+  // Paperclip preview — frontend-only dry run, no network
+  const handlePreviewPaperclip = useCallback(() => {
+    const config = getPaperclipConfig();
+    const roleId = isValidPaperclipRole(promptConfigWorkCategory) ? promptConfigWorkCategory : '';
+    const submission = buildIssuePayload({
+      rowId: row.__rowId,
+      featureName: row.name,
+      ideLabel: promptConfigIDE,
+      roleId,
+      promptText,
+      baseUrl: config.baseUrl,
+      mapping: config.mapping,
+    });
+    setPaperclipPreview(submission);
+    setPaperclipResult(null);
+    setCleanupState({ phase: 'idle' });
+    setLiveStatus(null);
+  }, [row, promptConfigIDE, promptConfigWorkCategory, promptText]);
+
+  // Live Paperclip issue status polling. Kicks in after successful send and
+  // runs every 5s until the issue hits a terminal state (done / cancelled),
+  // the modal closes, or 30 minutes elapse (safety cap).
+  useEffect(() => {
+    if (!paperclipResult?.ok) return;
+    const issueId = paperclipResult.issue.id;
+    if (!issueId) return;
+    let cancelled = false;
+    const startedAt = Date.now();
+    const MAX_POLL_MS = 30 * 60 * 1000;
+
+    const tick = async () => {
+      if (cancelled) return;
+      if (Date.now() - startedAt > MAX_POLL_MS) return;
+      try {
+        const res = await fetch(`/api/paperclip/issues/${encodeURIComponent(issueId)}/status`, {
+          headers: { 'x-user-id': userId },
+        });
+        if (!res.ok) return;
+        const json = (await res.json()) as FetchIssueStatusResult;
+        if (cancelled || !json.ok) return;
+        setLiveStatus(json.snapshot);
+        if (json.snapshot.terminal) return; // stop polling, let interval be cleared below
+      } catch {
+        /* transient network error — try again next tick */
+      }
+    };
+
+    void tick(); // immediate fetch
+    const interval = window.setInterval(() => {
+      if (liveStatus?.terminal) {
+        window.clearInterval(interval);
+        return;
+      }
+      void tick();
+    }, 5000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+    // We intentionally depend only on issueId; liveStatus changes would cause
+    // re-creation of the interval and double-fetches.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paperclipResult?.ok ? paperclipResult.issue.id : null, userId]);
+
+  // Real send to Paperclip — goes through server route handler
+  const handleSendPaperclip = useCallback(async () => {
+    if (!paperclipPreview) return;
+    // Explicit confirmation — this creates a real issue in Paperclip
+    const confirmed =
+      typeof window !== 'undefined' &&
+      window.confirm(
+        `確定要建立 Paperclip Issue？\n\n` +
+          `Title: ${paperclipPreview.payload.title}\n` +
+          `Assignee: ${paperclipPreview.payload.assigneeAgentId ?? '(unassigned)'}\n\n` +
+          `A git worktree + feature branch will be created automatically.`,
+      );
+    if (!confirmed) return;
+
+    setPaperclipSending(true);
+    setPaperclipResult(null);
+    try {
+      const res = await fetch('/api/paperclip/issues', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+        body: JSON.stringify(paperclipPreview.payload),
+      });
+      // Route handler's response may include a `worktree` field alongside
+      // the CreateIssueResult union when ok=true.
+      const json = (await res.json()) as CreateIssueResult & { worktree?: WorktreePaths };
+      if (json.ok) {
+        setPaperclipResult({
+          ok: true,
+          issue: json.issue,
+          issueUrl: json.issueUrl,
+          worktree: json.worktree,
+        });
+      } else {
+        setPaperclipResult({ ok: false, error: json.error || `HTTP ${res.status}` });
+      }
+    } catch (err) {
+      setPaperclipResult({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Unknown network error',
+      });
+    } finally {
+      setPaperclipSending(false);
+    }
+  }, [paperclipPreview, userId]);
+
+  // Copy a string to clipboard and show a short confirmation per-command
+  const handleCopyCommand = useCallback(async (key: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedCmd(key);
+      window.setTimeout(() => setCopiedCmd(null), 1500);
+    } catch {
+      /* clipboard may be unavailable — no-op */
+    }
+  }, []);
+
+  // Ask the server to `git worktree remove` + `git branch -D` this task's
+  // worktree. Irreversible — gate behind a confirm.
+  const handleCleanupWorktree = useCallback(async () => {
+    if (!paperclipResult?.ok || !paperclipResult.worktree) return;
+    const { slug, branchName } = paperclipResult.worktree;
+    const confirmed =
+      typeof window !== 'undefined' &&
+      window.confirm(
+        `確定要刪除這個 worktree + branch？\n\n` +
+          `slug  : ${slug}\n` +
+          `branch: ${branchName}\n\n` +
+          `⚠️ 這會執行 git worktree remove + git branch -D，branch 上任何未 merge 的 commit 都會遺失。`,
+      );
+    if (!confirmed) return;
+
+    setCleanupState({ phase: 'sending' });
+    try {
+      const res = await fetch('/api/paperclip/worktrees/cleanup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+        body: JSON.stringify({ slug, deleteBranch: true }),
+      });
+      const json = (await res.json()) as { ok: boolean; error?: string };
+      if (json.ok) {
+        setCleanupState({ phase: 'done' });
+      } else {
+        setCleanupState({ phase: 'error', message: json.error ?? `HTTP ${res.status}` });
+      }
+    } catch (err) {
+      setCleanupState({
+        phase: 'error',
+        message: err instanceof Error ? err.message : 'Unknown network error',
+      });
+    }
+  }, [paperclipResult, userId]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="dialog" aria-modal="true">
       <div className="relative w-full max-w-2xl mx-4 rounded-lg border border-border-default bg-bg-primary shadow-xl" onClick={e => e.stopPropagation()}>
@@ -224,6 +418,208 @@ export default function PromptEngineerModal({
               建議內容：針對目前這筆 Row 的工作 ID 與選定的 IDE，說明要開發與測試的 feature，要求先閱讀 Feature Spec (.md) / TDD Spec (.md)，依 TDD 流程撰寫 unit test 與 e2e test，並在完成後更新對應的 TDD Progress Report (.md)（變更摘要、測試範圍、執行結果）。
             </p>
           </div>
+          {paperclipPreview && (
+            <div className="rounded-md border border-border-default bg-bg-secondary p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-[11px] font-medium text-text-secondary">
+                  Paperclip Issue 預覽（尚未送出）
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPaperclipPreview(null)}
+                  className="text-[10px] text-text-muted hover:text-text-primary"
+                >
+                  關閉預覽
+                </button>
+              </div>
+              <p className="mb-2 text-[10px] text-text-muted">
+                <span className="font-semibold text-text-secondary">POST </span>
+                <span className="font-mono break-all">{paperclipPreview.endpoint}</span>
+              </p>
+              <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded bg-bg-primary p-2 text-[10px] font-mono text-text-primary">
+                {JSON.stringify(paperclipPreview.payload, null, 2)}
+              </pre>
+              {!paperclipPreview.companyId && (
+                <p className="mt-2 text-[10px] text-amber-600 dark:text-amber-400">
+                  ⚠️ 尚未設定 <code className="font-mono">NEXT_PUBLIC_PAPERCLIP_COMPANY_ID</code>；此 endpoint 目前無效。
+                </p>
+              )}
+              {paperclipPreview.companyId && !paperclipPreview.payload.assigneeAgentId && promptConfigWorkCategory && (
+                <p className="mt-2 text-[10px] text-amber-600 dark:text-amber-400">
+                  ⚠️ 未找到 <code className="font-mono">NEXT_PUBLIC_PAPERCLIP_AGENT_{promptConfigWorkCategory.toUpperCase()}</code>；Issue 將以無 assignee 方式建立。
+                </p>
+              )}
+              <div className="mt-3 flex items-center justify-between gap-2 border-t border-border-light pt-2">
+                <p className="text-[10px] text-text-muted">
+                  檢查無誤後可按右側按鈕建立真正的 Paperclip Issue。
+                </p>
+                <button
+                  type="button"
+                  onClick={handleSendPaperclip}
+                  disabled={paperclipSending || !paperclipPreview.companyId}
+                  className={clsx(
+                    'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[11px] font-medium text-white transition-colors',
+                    paperclipSending || !paperclipPreview.companyId
+                      ? 'bg-amber-600/50 cursor-not-allowed'
+                      : 'bg-amber-600 hover:bg-amber-700',
+                  )}
+                  title="建立真正的 Paperclip Issue（會呼叫 Paperclip API）"
+                >
+                  {paperclipSending ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span>送出中...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-3.5 w-3.5" />
+                      <span>送出到 Paperclip</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              {paperclipResult?.ok && (
+                <div className="mt-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 p-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                        Paperclip Issue 已建立
+                      </p>
+                    </div>
+                    {liveStatus && (
+                      <span
+                        className={clsx(
+                          'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-medium',
+                          STATUS_BADGE_STYLE[liveStatus.status].className,
+                        )}
+                        title={`Paperclip status · 最後更新 ${liveStatus.updatedAt ?? ''}`}
+                      >
+                        {!liveStatus.terminal && (
+                          <Loader2 className="h-2.5 w-2.5 animate-spin" aria-hidden="true" />
+                        )}
+                        {STATUS_BADGE_STYLE[liveStatus.status].label}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[10px] text-text-secondary">
+                    ID: <span className="font-mono">{paperclipResult.issue.issueKey ?? paperclipResult.issue.id}</span>
+                  </p>
+                  <a
+                    href={paperclipResult.issueUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 inline-flex items-center gap-1 text-[10px] text-emerald-700 hover:underline dark:text-emerald-400"
+                  >
+                    在 Paperclip 開啟
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                  {paperclipResult.worktree && (
+                    <div className="mt-2 rounded border border-emerald-500/30 bg-bg-primary/60 p-2">
+                      <div className="flex items-center gap-1 text-[10px] font-medium text-text-secondary">
+                        <GitBranch className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                        <span>Git Worktree 已建立</span>
+                      </div>
+                      <dl className="mt-1 space-y-0.5 text-[10px] text-text-secondary">
+                        <div className="flex gap-1">
+                          <dt className="shrink-0 text-text-muted">branch:</dt>
+                          <dd className="truncate font-mono" title={paperclipResult.worktree.branchName}>
+                            {paperclipResult.worktree.branchName}
+                          </dd>
+                        </div>
+                        <div className="flex gap-1">
+                          <dt className="shrink-0 text-text-muted">container cwd:</dt>
+                          <dd className="truncate font-mono" title={paperclipResult.worktree.containerPath}>
+                            {paperclipResult.worktree.containerPath}
+                          </dd>
+                        </div>
+                      </dl>
+                      <div className="mt-1.5 space-y-1">
+                        {[
+                          { key: 'log', label: 'git log', cmd: `git log ${paperclipResult.worktree.branchName}` },
+                          { key: 'diff', label: 'git diff vs main', cmd: `git diff main..${paperclipResult.worktree.branchName}` },
+                          { key: 'checkout', label: 'checkout to review', cmd: `git checkout ${paperclipResult.worktree.branchName}` },
+                        ].map(({ key, label, cmd }) => (
+                          <div key={key} className="flex items-center gap-1.5">
+                            <code className="flex-1 truncate rounded bg-bg-secondary px-1.5 py-0.5 text-[10px] font-mono text-text-secondary" title={cmd}>
+                              {cmd}
+                            </code>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyCommand(key, cmd)}
+                              className="inline-flex items-center gap-0.5 rounded border border-border-default px-1.5 py-0.5 text-[9px] text-text-muted hover:bg-bg-secondary hover:text-text-primary"
+                              title={`複製：${label}`}
+                              aria-label={`複製 ${label}`}
+                            >
+                              <Copy className="h-2.5 w-2.5" />
+                              {copiedCmd === key ? '已複製' : '複製'}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="mt-1.5 text-[9px] text-text-muted">
+                        Agent 會在 branch <code className="font-mono">{paperclipResult.worktree.branchName}</code> 上 commit，main 不會被碰到。審核後由你手動 merge / push。
+                      </p>
+                      <div className="mt-2 flex items-center justify-between gap-2 border-t border-emerald-500/20 pt-1.5">
+                        {cleanupState.phase === 'done' ? (
+                          <p className="text-[10px] text-text-muted">
+                            Worktree + branch 已刪除。
+                          </p>
+                        ) : cleanupState.phase === 'error' ? (
+                          <p className="truncate text-[10px] text-red-600 dark:text-red-400" title={cleanupState.message}>
+                            刪除失敗：{cleanupState.message}
+                          </p>
+                        ) : (
+                          <p className="text-[10px] text-text-muted">
+                            完成審核後可一鍵清除 worktree + branch：
+                          </p>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleCleanupWorktree}
+                          disabled={cleanupState.phase === 'sending' || cleanupState.phase === 'done'}
+                          className={clsx(
+                            'inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium transition-colors',
+                            cleanupState.phase === 'sending' || cleanupState.phase === 'done'
+                              ? 'cursor-not-allowed border-border-default text-text-muted'
+                              : 'border-red-500/50 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40',
+                          )}
+                          title="git worktree remove + git branch -D"
+                        >
+                          {cleanupState.phase === 'sending' ? (
+                            <>
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              刪除中
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 className="h-3 w-3" />
+                              刪除 worktree
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {paperclipResult && !paperclipResult.ok && (
+                <div className="mt-2 rounded-md border border-red-500/40 bg-red-500/10 p-2">
+                  <p className="text-[11px] font-medium text-red-700 dark:text-red-300">
+                    送出失敗
+                  </p>
+                  <p className="mt-1 text-[10px] text-text-secondary break-words">
+                    {paperclipResult.error}
+                  </p>
+                </div>
+              )}
+              {!paperclipResult && (
+                <p className="mt-2 text-[10px] text-text-muted">
+                  此為本地預覽。按右上「送出到 Paperclip」才會呼叫 API 建立真正的 Issue。
+                </p>
+              )}
+            </div>
+          )}
         </div>
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-border-light px-4 py-3 bg-bg-secondary/60">
@@ -250,6 +646,21 @@ export default function PromptEngineerModal({
           </div>
           <div className="flex items-center gap-2">
             <button type="button" onClick={onClose} className="rounded-md border border-border-default px-3 py-1.5 text-xs text-text-secondary hover:bg-bg-primary hover:text-text-primary">取消</button>
+            <button
+              type="button"
+              onClick={handlePreviewPaperclip}
+              disabled={!promptText.trim()}
+              className={clsx(
+                'inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors',
+                !promptText.trim()
+                  ? 'cursor-not-allowed border-border-default text-text-muted'
+                  : 'border-sky-500 text-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-950/40',
+              )}
+              title="產生 Paperclip Issue 預覽（不實際送出）"
+            >
+              <Send className="h-3.5 w-3.5" />
+              <span>預覽送到 Paperclip</span>
+            </button>
             <button type="button" onClick={handleExecutePrompt} disabled={isExecutingPrompt || !promptText.trim()} className={clsx('inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-white transition-colors', isExecutingPrompt || !promptText.trim() ? 'bg-emerald-600/50 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700')}>
               {isExecutingPrompt ? (<><Loader2 className="h-3.5 w-3.5 animate-spin" /><span>執行中...</span></>) : (<><Play className="h-3.5 w-3.5" /><span>送出 Prompt</span></>)}
             </button>

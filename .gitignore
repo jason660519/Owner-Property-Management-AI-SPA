@@ -5,6 +5,13 @@ apps/superadmin/backups/*.json
 !apps/superadmin/backups/.gitkeep
 
 # ============================================
+# Paperclip worktrees (Phase E: per-task isolated git worktrees)
+# Paperclip agents write to .paperclip-worktrees/<branch>/ inside the
+# bind-mounted /workspace. Never committed to the main tree.
+# ============================================
+.paperclip-worktrees/
+
+# ============================================
 # Dependencies
 # ============================================
 node_modules/

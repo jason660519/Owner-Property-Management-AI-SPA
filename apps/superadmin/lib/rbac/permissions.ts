@@ -25,7 +25,7 @@ export async function checkUserHasPermission(
   return (data as PermissionScope | null) ?? null;
 }
 
-// Route → required resource + action mapping (21 routes)
+// Route → required resource + action mapping (22 routes)
 export interface RoutePermission {
   resource: ResourceId | string;
   action: string;
@@ -43,6 +43,7 @@ export const ROUTE_PERMISSIONS: Record<string, RoutePermission> = {
   '/superadmin/dashboard/llm-monitor':                 { resource: 'ai_services',       action: 'read' },
   '/superadmin/dashboard/project-progress':            { resource: 'system_logs',       action: 'read' },
   '/superadmin/docs':                                  { resource: 'system_config',     action: 'read' },
+  '/superadmin/project-file':                          { resource: 'system_config',     action: 'read' },
   '/superadmin/settings/api_key_and_model_setting':    { resource: 'ai_services',       action: 'manage' },
   '/superadmin/settings':                              { resource: 'system_config',     action: 'manage' },
   '/superadmin/logs':                                  { resource: 'audit_trails',      action: 'read' },

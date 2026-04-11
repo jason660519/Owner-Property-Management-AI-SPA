@@ -44,7 +44,17 @@ if (typeof Response === 'undefined' || typeof (Response as unknown as { prototyp
   (global as unknown as { Response: typeof Response }).Response = UndiciResponse as unknown as typeof Response;
 }
 
-function createSupabaseAdminMock(options: { promptVersion?: number | null; promptContent?: string | null }) {
+function createSupabaseAdminMock(options: {
+  promptVersion?: number | null;
+  promptContent?: string | null;
+  /** Seed rows for `ai_prompt_audit_logs`; cost-guard sums these. Default empty. */
+  auditLogs?: Array<{
+    provider: string;
+    model_id: string;
+    input_tokens: number | null;
+    output_tokens: number | null;
+  }>;
+}) {
   const insertMock = jest.fn().mockResolvedValue({ error: null });
 
   const aiSystemPromptsQuery = {
@@ -71,10 +81,35 @@ function createSupabaseAdminMock(options: { promptVersion?: number | null; promp
     maybeSingle: jest.fn().mockResolvedValue({ data: null }),
   };
 
+  // Phase 2 resolver reads the global agent config table. Returning { data: null }
+  // forces resolveAgentModel() to fall through to its in-memory factory default
+  // (`AGENT_DEFAULTS.property_description` → anthropic/claude-sonnet-4-20250514).
+  const agentAssignmentsQuery = {
+    select: jest.fn().mockReturnThis(),
+    eq: jest.fn().mockReturnThis(),
+    maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+  };
+
+  // Phase 2.5 cost guard reads ai_prompt_audit_logs to compute monthly spend.
+  // Migration 20260412120000 switched the query from .from().select().in()
+  // to .from().select().or() so it matches BOTH the new agent_key column AND
+  // legacy module_key rows in one round-trip. Mock both chain shapes so any
+  // future refactor doesn't need to touch this file.
+  const auditRows = options.auditLogs ?? [];
+  const auditLogsQuery = {
+    select: jest.fn().mockReturnThis(),
+    in: jest.fn().mockReturnThis(),
+    or: jest.fn().mockReturnThis(),
+    gte: jest.fn().mockReturnThis(),
+    eq: jest.fn().mockResolvedValue({ data: auditRows, error: null }),
+  };
+
   const adminClient = {
     from: jest.fn((table: string) => {
       if (table === 'ai_system_prompts') return aiSystemPromptsQuery;
       if (table === 'ai_modules_assigned_function') return emptySingleQuery;
+      if (table === 'ai_agent_model_assignments') return agentAssignmentsQuery;
+      if (table === 'ai_prompt_audit_logs') return auditLogsQuery;
       if (table === 'ai_api_keys') return emptySingleQuery;
       if (table === 'saved_prompts') return savedPromptsQuery;
       if (table === 'ai_usage_logs') {
@@ -154,10 +189,13 @@ describe('POST /api/property-description/stream (usage logs)', () => {
     expect(insertMock).toHaveBeenCalled();
 
     const lastCall = insertMock.mock.calls[insertMock.mock.calls.length - 1]?.[0] as Record<string, unknown>;
+    // After Phase 2: resolveAgentModel('property_description') → factory
+    // default since the mock returns { data: null } for the new table →
+    // primary is anthropic/claude-sonnet-4-20250514 per AGENT_DEFAULTS.
     expect(lastCall).toMatchObject({
       user_id: 'effective-user-id',
       provider: 'anthropic',
-      model_id: 'claude-sonnet-4-6',
+      model_id: 'claude-sonnet-4-20250514',
       module_key: 'property_description',
       status: 'success',
       prompt_name: '物件描述文案',
@@ -172,7 +210,21 @@ describe('POST /api/property-description/stream (usage logs)', () => {
   });
 
   it('writes ai_usage_logs with missing_api_key when no provider API key is available', async () => {
-    delete process.env.ANTHROPIC_API_KEY;
+    const envKeys = [
+      'ANTHROPIC_API_KEY',
+      'OPENAI_API_KEY',
+      'GEMINI_API_KEY',
+      'DEEPSEEK_API_KEY',
+      'GROK_API_KEY',
+      'TOGETHER_AI_API_KEY',
+      'KIMI_API_KEY',
+      'OPENROUTER_API_KEY',
+      'ZHIPU_API_KEY',
+    ];
+    const previousEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
+    for (const key of envKeys) {
+      delete process.env[key];
+    }
 
     const { adminClient, insertMock } = createSupabaseAdminMock({
       promptContent: 'PROMPT {物件資料}',
@@ -205,5 +257,62 @@ describe('POST /api/property-description/stream (usage logs)', () => {
         prompt_name: '物件描述文案',
       }),
     );
+
+    for (const key of envKeys) {
+      const value = previousEnv[key];
+      if (typeof value === 'string') {
+        process.env[key] = value;
+      } else {
+        delete process.env[key];
+      }
+    }
+  });
+
+  it('blocks the call with monthly_cap_exceeded when audit logs already total ≥ max_monthly_usd', async () => {
+    process.env.ANTHROPIC_API_KEY = 'anthropic-key';
+
+    // Factory default for property_description sets max_monthly_usd=5.
+    // Seed one audit row worth exactly $5.00 → cost-guard blocks the call
+    // before any LLM fetch happens.
+    // gpt-4o: $2.50 / 1M input. 2M input tokens × $2.50/1M = $5.00
+    const { adminClient } = createSupabaseAdminMock({
+      promptContent: 'PROMPT {物件資料}',
+      promptVersion: 3,
+      auditLogs: [
+        {
+          provider: 'openai',
+          model_id: 'gpt-4o',
+          input_tokens: 2_000_000,
+          output_tokens: 0,
+        },
+      ],
+    });
+
+    mockCreateAdminClient.mockReturnValue(adminClient as unknown as ReturnType<typeof createAdminClient>);
+    mockResolveUserId.mockResolvedValue('effective-user-id');
+    mockCreateClient.mockResolvedValue({
+      auth: {
+        getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'auth-user' } } }),
+      },
+    } as unknown as Awaited<ReturnType<typeof createClient>>);
+
+    const fetchSpy = jest.fn();
+    global.fetch = fetchSpy as unknown as typeof global.fetch;
+
+    const request = {
+      json: async () => ({ listingType: 'sale', title: '測試物件', generationLength: 'short' }),
+      signal: new AbortController().signal,
+    } as unknown as NextRequest;
+
+    const response = await POST(request);
+    const sseText = await response.text();
+
+    // Should emit a budget_check event with allowed=false and an error event.
+    expect(sseText).toContain('"type":"budget_check"');
+    expect(sseText).toContain('"allowed":false');
+    expect(sseText).toContain('monthly_cap_exceeded');
+    expect(sseText).toContain('本月累計花費');
+    // Crucially — no LLM fetch was attempted.
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

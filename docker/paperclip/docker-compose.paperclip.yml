@@ -7,10 +7,25 @@ services:
       HOST: '0.0.0.0'
       PAPERCLIP_HOME: '/paperclip'
       OPENAI_API_KEY: '${OPENAI_API_KEY:-}'
-      ANTHROPIC_API_KEY: '${ANTHROPIC_API_KEY:-}'
+      # Force empty ANTHROPIC_API_KEY so claude CLI falls back to subscription
+      # auth via CLAUDE_CODE_OAUTH_TOKEN (avoids per-request API billing).
+      ANTHROPIC_API_KEY: ''
+      CLAUDE_CODE_OAUTH_TOKEN: '${CLAUDE_CODE_OAUTH_TOKEN:-}'
       PAPERCLIP_DEPLOYMENT_MODE: 'authenticated'
       PAPERCLIP_DEPLOYMENT_EXPOSURE: 'private'
       PAPERCLIP_PUBLIC_URL: '${PAPERCLIP_PUBLIC_URL:-http://localhost:3187}'
       BETTER_AUTH_SECRET: '${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}'
     volumes:
       - '${PAPERCLIP_DATA_DIR:-./data/docker-paperclip}:/paperclip'
+      # Phase D+E: bind mount of the monorepo root so Paperclip agents can see
+      # the real codebase. Default is `../..` (relative to this compose file:
+      # docker/paperclip/ → project root). Override with PROJECT_WORKSPACE_DIR
+      # in .env.paperclip for non-standard layouts.
+      #
+      # Phase E: read-write (no `:ro`). Agents are constrained to per-task git
+      # worktrees under /workspace/.paperclip-worktrees/<branch>/, created by
+      # the superadmin Route Handler before each task dispatch. Branch
+      # isolation is the hard guardrail; main is never touched.
+      #
+      # `cached` = macOS perf hint (container reads win over perfect host-sync).
+      - '${PROJECT_WORKSPACE_DIR:-../..}:/workspace:cached'

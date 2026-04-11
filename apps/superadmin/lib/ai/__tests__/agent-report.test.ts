@@ -207,13 +207,99 @@ describe('generateAgentReportMarkdown', () => {
     const section = sliceAgentSection(md, '### 照片生成');
     expect(section).toContain('無符合條件的模型');
   });
+
+  describe('top-N cap', () => {
+    // Build 25 synthetic available rows, each tagged with `legal_contract`
+    // so they match contract_assistant's filter after the tag was added
+    // in migration 20260412110000.
+    const manyRows: ModelRoleCatalogRow[] = Array.from({ length: 25 }, (_, i) => ({
+      provider: 'openai',
+      providerName: 'OpenAI',
+      modelId: `fake-model-${i.toString().padStart(2, '0')}`,
+      modelName: `Fake Model ${i}`,
+      version: `v${i}`,
+      status: 'available' as const,
+      assignments: [
+        {
+          id: `fa-${i}`,
+          provider: 'openai',
+          model_id: `fake-model-${i.toString().padStart(2, '0')}`,
+          tag_key: 'legal_contract',
+          source: 'manual' as const,
+          confidence: 1,
+          classified_at: '',
+          classified_by: '',
+        },
+      ],
+    }));
+
+    it('caps contract_assistant to 10 rows by default', () => {
+      const output = generateAgentReportMarkdown({
+        assignmentsByKey: {},
+        catalogRows: manyRows,
+        evaluations: [],
+        now: FROZEN_NOW,
+      });
+      const section = output.slice(output.indexOf('### 合約助理'));
+      const nextMarker = section.indexOf('\n---\n');
+      const agentSection = nextMarker < 0 ? section : section.slice(0, nextMarker);
+
+      // Count Markdown table body rows (|-rows not header or separator).
+      const bodyRows = (agentSection.match(/^\| OpenAI \|/gm) ?? []).length;
+      expect(bodyRows).toBe(10);
+      expect(agentSection).toContain('還有 15 個符合條件的模型未列出');
+      expect(agentSection).toContain('依標籤 `legal_contract` 篩選，共 25 筆，僅列前 10');
+    });
+
+    it('respects a custom maxRecommendationsPerAgent of 3', () => {
+      const output = generateAgentReportMarkdown({
+        assignmentsByKey: {},
+        catalogRows: manyRows,
+        evaluations: [],
+        now: FROZEN_NOW,
+        maxRecommendationsPerAgent: 3,
+      });
+      const section = output.slice(output.indexOf('### 合約助理'));
+      const nextMarker = section.indexOf('\n---\n');
+      const agentSection = nextMarker < 0 ? section : section.slice(0, nextMarker);
+      const bodyRows = (agentSection.match(/^\| OpenAI \|/gm) ?? []).length;
+      expect(bodyRows).toBe(3);
+      expect(agentSection).toContain('還有 22 個符合條件的模型未列出');
+    });
+
+    it('emits no truncation notice when maxRecommendationsPerAgent=0 (uncapped)', () => {
+      const output = generateAgentReportMarkdown({
+        assignmentsByKey: {},
+        catalogRows: manyRows,
+        evaluations: [],
+        now: FROZEN_NOW,
+        maxRecommendationsPerAgent: 0,
+      });
+      const section = output.slice(output.indexOf('### 合約助理'));
+      const nextMarker = section.indexOf('\n---\n');
+      const agentSection = nextMarker < 0 ? section : section.slice(0, nextMarker);
+      const bodyRows = (agentSection.match(/^\| OpenAI \|/gm) ?? []).length;
+      expect(bodyRows).toBe(25);
+      expect(agentSection).not.toContain('還有');
+    });
+  });
 });
 
 describe('filterCatalogForAgent', () => {
   it('returns all available models when suggestedTagKeys is empty', () => {
-    const contract = getAgentByKey('contract_assistant');
-    if (!contract) throw new Error('expected contract_assistant to exist');
-    const out = filterCatalogForAgent(contract, catalogRows);
+    // After migration 20260412110000 every registry agent has a tag, so we
+    // synthesize an empty-tag agent here to exercise the fallback branch.
+    const emptyAgent: Parameters<typeof filterCatalogForAgent>[0] = {
+      key: '__empty__',
+      label: 'Empty',
+      description: '',
+      // icon type comes from lucide-react; the helper never renders it so any
+      // truthy value works for the unit test.
+      icon: (() => null) as unknown as Parameters<typeof filterCatalogForAgent>[0]['icon'],
+      group: 'support',
+      suggestedTagKeys: [],
+    };
+    const out = filterCatalogForAgent(emptyAgent, catalogRows);
     // available: anthropic/claude-opus + openai/gpt-4o. Not grok (invalid) or kimi (no_key).
     expect(out.map((r) => r.modelId).sort()).toEqual([
       'claude-opus-4-20250514',

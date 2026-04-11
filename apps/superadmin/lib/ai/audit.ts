@@ -32,6 +32,12 @@ export type PromptAuditStatus =
 export interface StartPromptAuditOptions {
   /** Canonical module_key (e.g. 'transcript.parse'). */
   moduleKey: string;
+  /**
+   * Canonical agent_key from `AI_AGENT_REGISTRY` (e.g. 'transcript_visual_parse').
+   * Set alongside `moduleKey` for Phase 2+ callers so the audit row is queryable
+   * without legacy alias expansion. Optional so pre-Phase-2 callers still work.
+   */
+  agentKey?: string | null;
   /** LLM provider name (openai / anthropic / gemini / ...). */
   provider: string;
   /** Model identifier as sent to the provider. */
@@ -113,6 +119,7 @@ export function startPromptAudit(
       const row = {
         user_id: opts.userId ?? null,
         module_key: opts.moduleKey,
+        agent_key: opts.agentKey ?? null,
         provider: opts.provider,
         model_id: opts.modelId,
         saved_prompt_id: opts.savedPromptId ?? null,

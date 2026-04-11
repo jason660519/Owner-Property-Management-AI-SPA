@@ -292,6 +292,35 @@ describe('AgentModelAssignmentPanel', () => {
     }
   });
 
+  it('shows a "bypass tag filter" button when strict filter returns zero rows', async () => {
+    installFetchMock([jsonResponse({ assignments: initialAssignments })]);
+
+    render(
+      <AgentModelAssignmentPanel
+        savedKeys={savedKeys}
+        validateAllResultsByKeyId={validateAllResultsByKeyId}
+        evaluations={evaluations}
+        userId={MOCK_USER_ID}
+      />,
+    );
+
+    // contract_assistant now has suggestedTagKeys=['legal_contract']; the mocked
+    // catalog has no rows carrying that tag, so the strict filter returns 0
+    // and the bypass button should appear.
+    await waitFor(() => screen.getByTestId('agent-item-contract_assistant'));
+    fireEvent.click(screen.getByTestId('agent-item-contract_assistant'));
+
+    await waitFor(() => screen.getByTestId('bypass-tag-filter-button'));
+    fireEvent.click(screen.getByTestId('bypass-tag-filter-button'));
+
+    // After bypass, the Claude Opus row (status=available) should appear.
+    await waitFor(() =>
+      screen.getByTestId('rec-row-anthropic-claude-opus-4-6'),
+    );
+    // The amber "已暫時顯示全部" notice shows up.
+    expect(screen.getByText(/已暫時顯示全部/)).toBeInTheDocument();
+  });
+
   it('recommendation panel filters rows by the agent suggestedTagKeys', async () => {
     installFetchMock([jsonResponse({ assignments: initialAssignments })]);
 

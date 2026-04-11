@@ -10,6 +10,7 @@ import {
   Globe,
   Server,
   Tag as TagIcon,
+  Eye,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -79,6 +80,19 @@ export function AgentRecommendationPanel({
   const [classifyOpen, setClassifyOpen] = useState(false);
   const [classifyMode, setClassifyMode] = useState<ClassifyMode>('online');
   const [editingRow, setEditingRow] = useState<ModelRoleCatalogRow | null>(null);
+  // Per-agent override: when true, ignore suggestedTagKeys and show all
+  // available models for that agent. Useful when a new role_tag has been
+  // added to agent-registry.ts but the classifier hasn't populated
+  // assignments yet. Keyed by agent.key so switching agents naturally
+  // resets the bypass without a setState-in-effect dance.
+  const [bypassByAgent, setBypassByAgent] = useState<Record<string, boolean>>({});
+  const bypassTagFilter = bypassByAgent[agent.key] ?? false;
+  const setBypassTagFilter = useCallback(
+    (value: boolean) => {
+      setBypassByAgent((prev) => ({ ...prev, [agent.key]: value }));
+    },
+    [agent.key],
+  );
 
   const openClassify = useCallback((mode: ClassifyMode) => {
     setClassifyMode(mode);
@@ -101,10 +115,17 @@ export function AgentRecommendationPanel({
   }, [evaluations]);
 
   // Reuse the same filter logic as the Markdown exporter so they can't drift.
-  const filteredRows = useMemo(
+  const strictRows = useMemo(
     () => filterCatalogForAgent(agent, catalog.rows),
     [agent, catalog.rows],
   );
+  // When bypassing the tag filter, show all rows that would be available if
+  // the agent had an empty suggestedTagKeys (status === 'available').
+  const displayRows = useMemo(() => {
+    if (!bypassTagFilter) return strictRows;
+    return catalog.rows.filter((r) => r.status === 'available');
+  }, [bypassTagFilter, catalog.rows, strictRows]);
+  const filteredRows = displayRows;
 
   return (
     <div
@@ -117,7 +138,8 @@ export function AgentRecommendationPanel({
         <span className="text-xs font-semibold text-text-primary">推薦模型</span>
         {agent.suggestedTagKeys.length > 0 ? (
           <span className="text-[10px] text-text-muted">
-            （依標籤 {agent.suggestedTagKeys.join('、')} 篩選）
+            （依標籤 {agent.suggestedTagKeys.join('、')} 篩選
+            {bypassTagFilter && <span className="text-amber-500">，已暫時顯示全部</span>}）
           </span>
         ) : (
           <span className="text-[10px] text-text-muted">
@@ -169,9 +191,38 @@ export function AgentRecommendationPanel({
       {catalog.loading && <p className="text-xs text-text-muted">載入模型目錄中…</p>}
 
       {!catalog.loading && filteredRows.length === 0 && (
-        <p className="text-xs text-text-muted italic">
-          找不到符合條件的模型。請先按「網路分類」或「API 回應分類」讓 AI 幫模型打上標籤，或到「API 金鑰管理」新增並驗證金鑰。
-        </p>
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-text-muted italic">
+            找不到符合條件的模型。請先按「網路分類」或「API 回應分類」讓 AI 幫模型打上標籤，或到「API 金鑰管理」新增並驗證金鑰。
+          </p>
+          {agent.suggestedTagKeys.length > 0 && !bypassTagFilter && (
+            <Button
+              size="xs"
+              variant="secondary"
+              onClick={() => setBypassTagFilter(true)}
+              leftIcon={<Eye size={11} />}
+              title="暫時忽略 suggestedTagKeys，顯示所有 status=available 的模型（不影響匯出報告）"
+              data-testid="bypass-tag-filter-button"
+            >
+              暫時顯示全部可用模型
+            </Button>
+          )}
+        </div>
+      )}
+      {!catalog.loading && filteredRows.length > 0 && bypassTagFilter && (
+        <div className="flex items-center gap-2 p-2 border border-amber-500/40 bg-amber-500/5 rounded text-[11px] text-amber-600">
+          <AlertCircle size={12} />
+          <span>
+            目前顯示全部可用模型（已繞過 tag 篩選）。匯出的報告仍依實際 tag 篩選結果。
+          </span>
+          <button
+            type="button"
+            onClick={() => setBypassTagFilter(false)}
+            className="ml-auto underline hover:no-underline"
+          >
+            恢復 tag 篩選
+          </button>
+        </div>
       )}
 
       {!catalog.loading && filteredRows.length > 0 && (

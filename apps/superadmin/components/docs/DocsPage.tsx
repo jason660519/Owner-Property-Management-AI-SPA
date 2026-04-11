@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { BookOpen, PanelLeftClose, PanelLeftOpen, RefreshCw, Loader2, Pencil, Save, X } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
 import { FileTree, type TreeNode } from './FileTree';
@@ -16,7 +16,12 @@ interface FileContent {
   size: number;
 }
 
-export function DocsPage() {
+interface DocsPageProps {
+  initialScope?: DocsScope;
+}
+
+export function DocsPage({ initialScope = 'docs' }: DocsPageProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [totalFiles, setTotalFiles] = useState(0);
@@ -30,10 +35,14 @@ export function DocsPage() {
   const [editMode, setEditMode] = useState(false);
   const [editedContent, setEditedContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [scope, setScope] = useState<DocsScope>('docs');
+  const [scope, setScope] = useState<DocsScope>(initialScope);
+  useEffect(() => {
+    setScope(initialScope);
+  }, [initialScope]);
+
   const [saveWarning, setSaveWarning] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
-  const openFromUrlHandled = useRef(false);
+  const lastOpenedFromUrlKey = useRef<string | null>(null);
 
   // Fetch file tree
   const fetchTree = useCallback(async () => {
@@ -91,22 +100,34 @@ export function DocsPage() {
 
   // Open file from URL (e.g. from Project Progress "Docs" link)
   useEffect(() => {
-    if (openFromUrlHandled.current) return;
     const urlScope = searchParams.get('scope') as DocsScope | null;
     const urlPath = searchParams.get('path');
-    if (!urlPath || (urlScope !== 'docs' && urlScope !== 'project')) return;
-    openFromUrlHandled.current = true;
-    setScope(urlScope);
+    if (!urlPath) return;
+    const selectedScope =
+      urlScope === 'docs' || urlScope === 'project' ? urlScope : initialScope;
+    const openKey = `${selectedScope}:${urlPath}`;
+    if (lastOpenedFromUrlKey.current === openKey) return;
+    lastOpenedFromUrlKey.current = openKey;
+    setScope(selectedScope);
     setSelectedPath(urlPath);
     setEditMode(false);
     setSaveWarning(null);
     setError(null);
     setIsLoadingContent(true);
     fetch(
-      `/api/docs/content?path=${encodeURIComponent(urlPath)}&scope=${urlScope}`
+      `/api/docs/content?path=${encodeURIComponent(urlPath)}&scope=${selectedScope}`
     )
-      .then((res) => res.json().catch(() => ({})))
-      .then((data) => {
+      .then(async (res) => ({
+        ok: res.ok,
+        data: await res.json().catch(() => ({})),
+      }))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          const msg = data?.error ?? '無法載入文件內容';
+          setError(typeof msg === 'string' ? msg : '無法載入文件內容');
+          setFileContent(null);
+          return;
+        }
         if (data.content !== undefined) {
           setFileContent(data);
         } else {
@@ -119,7 +140,7 @@ export function DocsPage() {
         setFileContent(null);
       })
       .finally(() => setIsLoadingContent(false));
-  }, [searchParams]);
+  }, [searchParams, initialScope]);
 
   const canEdit =
     fileContent &&
@@ -220,16 +241,11 @@ export function DocsPage() {
     };
   }, [scope, fetchTree, fetchContent, selectedPath]);
 
-  // When scope changes: clear selection and refetch tree
   const handleScopeChange = useCallback((newScope: DocsScope) => {
-    setScope(newScope);
-    setSelectedPath(null);
-    setFileContent(null);
-    setEditMode(false);
-    setEditedContent('');
-    setError(null);
-    setSaveWarning(null);
-  }, []);
+    if (newScope === scope) return;
+    const targetPath = newScope === 'docs' ? '/superadmin/docs' : '/superadmin/project-file';
+    router.push(targetPath);
+  }, [router, scope]);
 
   // Initial tree load and when scope changes
   useEffect(() => {

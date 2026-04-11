@@ -30,7 +30,15 @@ export interface AgentReportInput {
   evaluations: ModelEvaluation[];
   /** Override for tests — defaults to new Date() at call time. */
   now?: Date;
+  /**
+   * Maximum recommended models to include per agent. Default 10.
+   * When truncated, a "... and N more" note is appended so the reader knows
+   * the table is capped. Set to 0 (or Infinity) for no cap.
+   */
+  maxRecommendationsPerAgent?: number;
 }
+
+export const DEFAULT_MAX_RECOMMENDATIONS_PER_AGENT = 10;
 
 // ---------------------------------------------------------------------------
 // Label helpers (kept here so the test doesn't need a DOM)
@@ -143,17 +151,21 @@ function renderAgentRecommendations(
   agent: AgentDef,
   catalogRows: ModelRoleCatalogRow[],
   evalByKey: Map<string, ModelEvaluation>,
+  maxPerAgent: number,
 ): string[] {
   const lines: string[] = [];
-  const filtered = filterCatalogForAgent(agent, catalogRows);
+  const allFiltered = filterCatalogForAgent(agent, catalogRows);
+  const capped = maxPerAgent > 0 && allFiltered.length > maxPerAgent;
+  const filtered = capped ? allFiltered.slice(0, maxPerAgent) : allFiltered;
+  const truncatedCount = capped ? allFiltered.length - filtered.length : 0;
 
   if (agent.suggestedTagKeys.length === 0) {
     lines.push(
-      `**推薦模型** — ⚠️ 未指定 \`suggestedTagKeys\`，顯示全部 available 模型（${filtered.length} 筆）。`,
+      `**推薦模型** — ⚠️ 未指定 \`suggestedTagKeys\`，顯示全部 available 模型（${allFiltered.length} 筆${capped ? `，僅列前 ${filtered.length}` : ''}）。`,
     );
   } else {
     lines.push(
-      `**推薦模型** — 依標籤 \`${agent.suggestedTagKeys.join('`, `')}\` 篩選，共 ${filtered.length} 筆。`,
+      `**推薦模型** — 依標籤 \`${agent.suggestedTagKeys.join('`, `')}\` 篩選，共 ${allFiltered.length} 筆${capped ? `，僅列前 ${filtered.length}` : ''}。`,
     );
   }
   lines.push('');
@@ -182,6 +194,10 @@ function renderAgentRecommendations(
       `| ${escapePipe(row.providerName)} | \`${row.modelId}\` | ${statusLabel(row.status)} | ${working} | ${tagCell} |`,
     );
   }
+  if (truncatedCount > 0) {
+    lines.push('');
+    lines.push(`_… 還有 ${truncatedCount} 個符合條件的模型未列出（超過上限 ${maxPerAgent}）。_`);
+  }
   lines.push('');
   return lines;
 }
@@ -197,6 +213,8 @@ function renderAgentRecommendations(
 export function generateAgentReportMarkdown(input: AgentReportInput): string {
   const { assignmentsByKey, catalogRows, evaluations } = input;
   const now = input.now ?? new Date();
+  const maxPerAgent =
+    input.maxRecommendationsPerAgent ?? DEFAULT_MAX_RECOMMENDATIONS_PER_AGENT;
 
   // Build eval lookup once.
   const evalByKey = new Map<string, ModelEvaluation>();
@@ -241,7 +259,7 @@ export function generateAgentReportMarkdown(input: AgentReportInput): string {
       lines.push(`<a id="${agent.key}"></a>`);
       lines.push('');
       lines.push(...renderAgentStrategy(agent, assignmentsByKey[agent.key]));
-      lines.push(...renderAgentRecommendations(agent, catalogRows, evalByKey));
+      lines.push(...renderAgentRecommendations(agent, catalogRows, evalByKey, maxPerAgent));
       lines.push('---');
       lines.push('');
     }

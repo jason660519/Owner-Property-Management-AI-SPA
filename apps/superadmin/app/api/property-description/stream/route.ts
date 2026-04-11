@@ -9,6 +9,18 @@ import { startPromptAudit } from '@/lib/ai/audit';
 import { checkRateLimit } from '@/lib/ai/rate-limit';
 import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 import {
+  resolveAgentModel,
+  AgentDisabledError,
+  InvalidAgentKeyError,
+  type AgentAssignmentReader,
+} from '@/lib/ai/resolve-agent-model';
+import {
+  checkAgentBudget,
+  type AuditLogReader,
+} from '@/lib/ai/agent-cost-guard';
+import { applyForbidProviders } from '@/lib/ai/agent-guardrail-filters';
+import type { AgentGuardrails } from '@/lib/types/agent-assignment';
+import {
   buildCurrentDescriptionSection,
   buildFacts,
   buildGenerationSettings,
@@ -28,7 +40,7 @@ export const dynamic = 'force-dynamic';
 
 type AIProvider = 'openai' | 'anthropic' | 'gemini' | 'deepseek' | 'grok' | 'together' | 'kimi' | 'openrouter' | 'zhipu';
 type PromptSource = 'ai_system_prompt' | 'saved_prompt' | 'default';
-type ModelSelectionSource = 'ai_module' | 'default';
+type ModelSelectionSource = 'agent_config_db' | 'agent_config_factory_default' | 'ai_module' | 'default';
 type ApiKeySource = 'ai_settings' | 'env' | 'missing';
 type AssignedModelRow = { provider: AIProvider; model: string; priority?: number };
 type PromptResolution = {
@@ -405,10 +417,76 @@ async function resolvePromptTemplate(
   };
 }
 
+interface CandidateResolution {
+  candidates: ModelResolution[];
+  /** Non-null only when candidates came from the Phase 2 resolver path. */
+  guardrails: AgentGuardrails | null;
+}
+
 async function resolveModelCandidates(
   adminClient: ReturnType<typeof createAdminClient>,
   userId: string | null,
-): Promise<ModelResolution[]> {
+): Promise<CandidateResolution> {
+  // Phase 2 primary path: read the global ai_agent_model_assignments table
+  // via the shared resolver. `property_description` is the canonical agent_key;
+  // falls back to factory defaults if no row exists.
+  //
+  // The Supabase admin client satisfies the AgentAssignmentReader shape at
+  // runtime, but Supabase's generated types drag in such a deep union that
+  // TS2589 triggers without an explicit cast here.
+  try {
+    const resolved = await resolveAgentModel('property_description', {
+      supabase: adminClient as unknown as AgentAssignmentReader,
+    });
+    const selectionSource =
+      resolved.source === 'db' ? 'agent_config_db' : 'agent_config_factory_default';
+
+    // Phase 2.5 static guardrail: strip providers that match
+    // `guardrails.forbid_providers` BEFORE we build the candidate chain.
+    // (`require_tags` is not enforced here — server-side role-catalog
+    // lookup is a separate future task.)
+    const sanitized = applyForbidProviders(resolved.chain, resolved.guardrails.forbid_providers);
+    if (sanitized.dropped.length > 0) {
+      console.info(
+        `[property-description/stream] forbid_providers dropped ${sanitized.dropped.length} link(s):`,
+        sanitized.dropped.map((d) => `${d.link.provider}/${d.link.model_id}`),
+      );
+    }
+
+    const resolutions = await Promise.all(
+      sanitized.allowed.map(async (link) => {
+        const provider = link.provider as AIProvider;
+        const keyResolution = await getProviderApiKey(adminClient, userId, provider);
+        return {
+          provider,
+          model: link.model_id,
+          moduleKey: resolved.agent_key,
+          selectionSource: selectionSource as ModelSelectionSource,
+          apiKey: keyResolution.apiKey,
+          apiKeySource: keyResolution.source,
+        };
+      }),
+    );
+    if (resolutions.length > 0) {
+      return { candidates: resolutions, guardrails: resolved.guardrails };
+    }
+  } catch (err) {
+    // InvalidAgentKeyError / AgentDisabledError bubble up to the legacy path.
+    if (!(err instanceof InvalidAgentKeyError || err instanceof AgentDisabledError)) {
+      console.warn(
+        '[property-description/stream] resolveAgentModel failed, falling back to ai_modules_assigned_function',
+        err,
+      );
+    } else {
+      console.info(
+        `[property-description/stream] resolveAgentModel declined (${err.name}), falling back to legacy per-user assignments`,
+      );
+    }
+  }
+
+  // Legacy path: per-user ai_modules_assigned_function. Kept so existing rows
+  // keep working during the Phase 2 rollout — remove once all superadmins
+  // are migrated to the global config.
   if (userId) {
     const assignment = await fetchAssignedModels(adminClient, userId, PROPERTY_DESCRIPTION_MODULE_KEYS);
     if (assignment.models.length > 0) {
@@ -425,21 +503,24 @@ async function resolveModelCandidates(
           };
         })
       );
-      return resolutions;
+      return { candidates: resolutions, guardrails: null };
     }
   }
 
   const fallbackKey = await getProviderApiKey(adminClient, userId, DEFAULT_PROVIDER);
-  return [
-    {
-      provider: DEFAULT_PROVIDER,
-      model: DEFAULT_MODEL,
-      moduleKey: null,
-      selectionSource: 'default',
-      apiKey: fallbackKey.apiKey,
-      apiKeySource: fallbackKey.source,
-    },
-  ];
+  return {
+    candidates: [
+      {
+        provider: DEFAULT_PROVIDER,
+        model: DEFAULT_MODEL,
+        moduleKey: null,
+        selectionSource: 'default',
+        apiKey: fallbackKey.apiKey,
+        apiKeySource: fallbackKey.source,
+      },
+    ],
+    guardrails: null,
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -513,7 +594,37 @@ export async function POST(request: NextRequest) {
         });
 
         send({ type: 'phase', phase: 'selecting_model' satisfies TracePhase, message: '選擇 LLM 與金鑰來源中…' });
-        const modelCandidates = await resolveModelCandidates(adminClient, userId);
+        const { candidates: modelCandidates, guardrails } = await resolveModelCandidates(adminClient, userId);
+
+        // Phase 2.5 guardrail: if this agent has a monthly USD cap and the
+        // current month's audit log total is already at or above it, refuse
+        // the call before touching any LLM. The resolver's own `cost_over`
+        // fallback chain is intended for runtime cost surprises — once the
+        // monthly cap is hit, no model (fallback or not) is allowed.
+        if (guardrails && guardrails.max_monthly_usd && guardrails.max_monthly_usd > 0) {
+          const verdict = await checkAgentBudget(
+            adminClient as unknown as AuditLogReader,
+            'property_description',
+            guardrails,
+          );
+          send({
+            type: 'budget_check',
+            allowed: verdict.allowed,
+            spentUsd: Number(verdict.spentUsd.toFixed(4)),
+            capUsd: verdict.capUsd,
+          });
+          if (!verdict.allowed) {
+            send({
+              type: 'error',
+              phase: 'selecting_model' satisfies TracePhase,
+              message: `本月累計花費 $${verdict.spentUsd.toFixed(2)} 已達上限 $${verdict.capUsd}，請至「模型選擇與設定」調整 guardrails 或等待下個月。`,
+              code: 'monthly_cap_exceeded',
+            });
+            // Outer finally will close the controller — just bail out.
+            return;
+          }
+        }
+
         const maxTokens = getMaxTokens(body.generationLength);
         let missingKeyCount = 0;
         let lastErrorMessage: string | null = null;
@@ -570,6 +681,7 @@ export async function POST(request: NextRequest) {
 
           const audit = startPromptAudit({
             moduleKey: 'property.description.default',
+            agentKey: 'property_description',
             provider: candidate.provider,
             modelId: candidate.model,
             userId,

@@ -22,6 +22,15 @@ import { TRANSCRIPT_PARSE_PROMPT, withTranscriptParseKindDirective } from '@/lib
 import { PromptNotFoundError, resolveSystemPrompt } from '@/lib/ai/prompt-safety';
 import { startPromptAudit } from '@/lib/ai/audit';
 import {
+  resolveAgentModel,
+  InvalidAgentKeyError,
+  AgentDisabledError,
+  type AgentAssignmentReader,
+} from '@/lib/ai/resolve-agent-model';
+import { checkAgentBudget, type AuditLogReader } from '@/lib/ai/agent-cost-guard';
+import { applyForbidProviders } from '@/lib/ai/agent-guardrail-filters';
+import type { AgentGuardrails } from '@/lib/types/agent-assignment';
+import {
   buildConsensus,
   getConflictsNeedingJudge,
   applyJudgeResolutions,
@@ -119,10 +128,15 @@ export async function runTranscriptParseCore(
       return fail('無法解析使用者，請先登入或設定 AI 服務');
     }
 
-    const assignedParserModels = await fetchAssignedModels(adminClient, resolvedUserId, [
-      'online_ocr_parse',
-      'online_ocr',
-    ]);
+    // Phase 2: read global ai_agent_model_assignments via the resolver.
+    // Legacy per-user table remains a safety-net fallback inside the helper.
+    const parserResolution = await resolveAssignedModels(
+      adminClient,
+      resolvedUserId,
+      'transcript_visual_parse',
+      ['online_ocr_parse', 'online_ocr'],
+    );
+    const assignedParserModels = parserResolution.models;
     let parserModels: AssignedModelRow[] = assignedParserModels;
 
     if (overrideParserModels && overrideParserModels.length > 0) {
@@ -152,7 +166,29 @@ export async function runTranscriptParseCore(
       );
     }
 
-    const judgeModels = await fetchAssignedModels(adminClient, resolvedUserId, ['online_ocr_judge']);
+    // Phase 2.5 parser budget gate. Only enforced when the Phase 2 resolver
+    // supplied guardrails (legacy per-user fallback sets guardrails=null).
+    if (parserResolution.guardrails?.max_monthly_usd && parserResolution.guardrails.max_monthly_usd > 0) {
+      const verdict = await checkAgentBudget(
+        adminClient as unknown as AuditLogReader,
+        'transcript_visual_parse',
+        parserResolution.guardrails,
+      );
+      if (!verdict.allowed) {
+        return fail(
+          `謄本解析組本月累計花費 $${verdict.spentUsd.toFixed(2)} 已達上限 $${verdict.capUsd}，` +
+            '請至「模型選擇與設定」調整 guardrails 或等待下個月。',
+        );
+      }
+    }
+
+    const judgeResolution = await resolveAssignedModels(
+      adminClient,
+      resolvedUserId,
+      'transcript_audit',
+      ['online_ocr_judge'],
+    );
+    const judgeModels = judgeResolution.models;
     const judgeCandidates: { provider: string; model: string }[] = [];
     if (overrideJudgeModel) {
       judgeCandidates.push(overrideJudgeModel);
@@ -162,6 +198,27 @@ export async function runTranscriptParseCore(
         if (!judgeCandidates.some((c) => c.provider === j.provider && c.model === j.model)) {
           judgeCandidates.push({ provider: j.provider, model: j.model });
         }
+      }
+    }
+
+    // Phase 2.5 judge budget gate. If hit, we don't bail the whole job —
+    // parsing can still succeed without a judge, and the consensus layer
+    // will simply keep whatever the parser produced.
+    if (
+      judgeCandidates.length > 0 &&
+      judgeResolution.guardrails?.max_monthly_usd &&
+      judgeResolution.guardrails.max_monthly_usd > 0
+    ) {
+      const verdict = await checkAgentBudget(
+        adminClient as unknown as AuditLogReader,
+        'transcript_audit',
+        judgeResolution.guardrails,
+      );
+      if (!verdict.allowed) {
+        console.warn(
+          `[transcript-parse] judge monthly cap hit ($${verdict.spentUsd.toFixed(2)} / $${verdict.capUsd}); disabling judge for this run`,
+        );
+        judgeCandidates.length = 0;
       }
     }
 
@@ -214,6 +271,7 @@ export async function runTranscriptParseCore(
       moduleKey: parseScenarioKey
         ? `transcript.parse.${parseScenarioKey}`
         : 'transcript.parse',
+      agentKey: 'transcript_visual_parse',
       userId: resolvedUserId ?? null,
       savedPromptId: resolvedSavedPromptId,
       promptSource: resolvedSource,
@@ -478,6 +536,8 @@ function hasTranscriptContent(obj: unknown): boolean {
 interface ParseAuditContext {
   adminClient: AdminClient;
   moduleKey: string;
+  /** Canonical agent_key (e.g. 'transcript_visual_parse'). */
+  agentKey?: string | null;
   userId: string | null;
   savedPromptId?: string | null;
   promptSource?: string | null;
@@ -516,6 +576,7 @@ async function callSingleModel(
   const audit = auditCtx
     ? startPromptAudit({
         moduleKey: auditCtx.moduleKey,
+        agentKey: auditCtx.agentKey ?? null,
         provider: m.provider,
         modelId: m.model,
         userId: auditCtx.userId,
@@ -627,6 +688,7 @@ async function runJudgePhase(
 
   const judgeAudit = startPromptAudit({
     moduleKey: 'transcript.judge',
+    agentKey: 'transcript_audit',
     provider: judge.provider,
     modelId: judge.model,
     userId: resolvedUserId,
@@ -707,6 +769,12 @@ function buildJudgePrompt(
   return `你是台灣不動產謄本解析的品質審核專家。\n你收到一份謄本原始文件，以及多個 AI 模型對同一文件的解析結果中有爭議的欄位。\n\n以下是有爭議的欄位：\n${conflictJson}\n\n回傳格式（僅輸出有爭議的欄位，格式為嚴格 JSON）：\n{\n  "resolutions": [\n    {\n      "field_path": "欄位路徑",\n      "correct_value": "正確值",\n      "chosen_from": "model_provider",\n      "reason": "判定理由"\n    }\n  ]\n}\n\n請直接輸出 JSON，不要用 \`\`\`json 包覆`;
 }
 
+/**
+ * Legacy per-user path. Only reached if the Phase 2 resolver fails (which
+ * shouldn't happen because factory defaults always provide a valid chain).
+ * Kept as a safety net so old `ai_modules_assigned_function` rows aren't
+ * silently ignored during the migration window.
+ */
 async function fetchAssignedModels(
   adminClient: AdminClient,
   userId: string,
@@ -728,6 +796,76 @@ async function fetchAssignedModels(
     }
   }
   return [];
+}
+
+interface TranscriptAgentResolution {
+  models: AssignedModelRow[];
+  /** Non-null only when models came from the Phase 2 resolver path. */
+  guardrails: AgentGuardrails | null;
+}
+
+/**
+ * Phase 2 primary path: look the agent up in the global
+ * `ai_agent_model_assignments` table via `resolveAgentModel()`. Falls
+ * through to the legacy per-user table ONLY if the resolver throws
+ * (InvalidAgentKeyError / AgentDisabledError) — normal empty-row lookups
+ * still return the factory default chain from `lib/ai/agent-defaults.ts`.
+ *
+ * `agentKey` can be a canonical agent_key (e.g. `transcript_visual_parse`)
+ * or a legacy flat module_key (e.g. `online_ocr_parse`) — the resolver's
+ * `canonicalizeAgentKey()` handles both.
+ *
+ * Also returns `guardrails` so the caller can run the Phase 2.5 monthly
+ * budget check before invoking any LLM.
+ */
+async function resolveAssignedModels(
+  adminClient: AdminClient,
+  userId: string,
+  agentKey: string,
+  legacyFallbackKeys: string[],
+): Promise<TranscriptAgentResolution> {
+  try {
+    const resolved = await resolveAgentModel(agentKey, {
+      supabase: adminClient as unknown as AgentAssignmentReader,
+    });
+    // Phase 2.5 static guardrail: strip forbidden providers. Dropped links
+    // never reach the parser/judge loop.
+    const sanitized = applyForbidProviders(resolved.chain, resolved.guardrails.forbid_providers);
+    if (sanitized.dropped.length > 0) {
+      console.info(
+        `[transcript-parse] forbid_providers dropped ${sanitized.dropped.length} link(s) for ${agentKey}:`,
+        sanitized.dropped.map((d) => `${d.link.provider}/${d.link.model_id}`),
+      );
+    }
+    return {
+      models: sanitized.allowed.map((link, idx) => ({
+        provider: link.provider,
+        model: link.model_id,
+        priority: idx + 1,
+      })),
+      guardrails: resolved.guardrails,
+    };
+  } catch (err) {
+    if (err instanceof AgentDisabledError) {
+      console.info(
+        `[transcript-parse] agent "${agentKey}" disabled; falling back to per-user assignments`,
+      );
+    } else if (err instanceof InvalidAgentKeyError) {
+      console.warn(
+        `[transcript-parse] invalid agent_key "${agentKey}"; falling back to per-user assignments`,
+        err,
+      );
+    } else {
+      console.warn(
+        `[transcript-parse] resolveAgentModel failed for "${agentKey}"; falling back to per-user assignments`,
+        err,
+      );
+    }
+  }
+  return {
+    models: await fetchAssignedModels(adminClient, userId, legacyFallbackKeys),
+    guardrails: null,
+  };
 }
 
 // NOTE: Legacy helpers `fetchSavedPromptByScenario` and `fetchSystemPrompt`

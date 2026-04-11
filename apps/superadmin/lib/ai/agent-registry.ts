@@ -71,7 +71,7 @@ export const AI_AGENT_REGISTRY: readonly AgentDef[] = [
     description: '解析 / 生成租賃與買賣合約條款',
     icon: FileSignature,
     group: 'content',
-    suggestedTagKeys: [],
+    suggestedTagKeys: ['legal_contract'],
   },
   {
     key: 'property_description',
@@ -162,7 +162,7 @@ export const AI_AGENT_REGISTRY: readonly AgentDef[] = [
     description: 'Code review、補測試、重構建議',
     icon: Code,
     group: 'dev',
-    suggestedTagKeys: [],
+    suggestedTagKeys: ['code_generation'],
   },
   {
     key: 'ttd_engineer',
@@ -170,7 +170,7 @@ export const AI_AGENT_REGISTRY: readonly AgentDef[] = [
     description: '依需求產生測試骨架與用例',
     icon: Wrench,
     group: 'dev',
-    suggestedTagKeys: [],
+    suggestedTagKeys: ['code_generation'],
   },
   // ── support ──
   {
@@ -179,7 +179,7 @@ export const AI_AGENT_REGISTRY: readonly AgentDef[] = [
     description: '站內客服聊天與常見問題回應',
     icon: MessageCircle,
     group: 'support',
-    suggestedTagKeys: [],
+    suggestedTagKeys: ['general_assistant'],
   },
 ] as const;
 
