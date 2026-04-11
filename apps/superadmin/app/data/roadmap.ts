@@ -2040,6 +2040,24 @@ const RAW_FEATURES: RoadmapFeature[] = [
     devLogDocPath: "/docs/ai-prompt-safety-guide.md",
   },
   {
+    name: "AI 設定 - 模型選擇與設定 Sheet（Agent 指派）",
+    locatedPage: "superadmin/settings/api_key_and_model_setting#agent-config",
+    percentage: 90,
+    acceptanceCriteria:
+      "1. 在 LLM Leader Board 與 OCR 之間新增「模型選擇與設定」sheet tab，沿用 BottomSheetTabs（Bot icon、emerald 主色）。\n2. 左側為 Agent 清單（分 5 群：內容生成 / 謄本解析 / 媒體生成 / 開發與工具 / 客服 通用），寫死於 lib/ai/agent-registry.ts 共 14 個 agent。\n3. 右側 Strategy Form：Primary (provider + model) / temperature / max_tokens / top_p / Fallbacks（依序嘗試，trigger: rate_limit / error / cost_over）/ guardrails (max_monthly_usd) / notes。\n4. 右下 Recommendations：依 agent.suggestedTagKeys 篩選 ai_model_role_tags catalog，顯示 provider / model / 狀態 / 最近測試 / 角色標籤；每列可點 pencil icon 開 TagEditorSheet 手動編輯標籤；toolbar 有「網路分類」「API 回應分類」「重新整理」按鈕連接既有的 ClassifyConfigSheet（解決 model-role-catalog 孤兒問題）。\n5. 全平台共用：寫入新建表 ai_agent_model_assignments（無 user_id、authenticated 可讀、service_role 寫）。\n6. 每個 agent 都有 factory default（lib/ai/agent-defaults.ts）：Primary + 3 Fallbacks（rate_limit / error / cost_over 各一）+ $5 USD 月上限。初始 DB 由 PUT 14 筆 seed，「還原為預設」按鈕呼叫 hook.reset() 會 upsert 該 agent 的 defaults（不再用 DELETE）。\n7. 匯出報告：AgentModelAssignmentPanel header 的「匯出報告」按鈕會生成全 14 個 agent 的 Markdown 快照（含 Primary / Fallbacks / Guardrails / 推薦模型表 / 最近測試欄 / 統計），可直接下載為 `agent-config-YYYY-MM-DD.md` 供 dev-logs 存檔。\n8. Phase 2（未做）：實作 resolveAgentModel() helper 並把 property-description/stream、models/test、transcript-parse 等 callsite 改讀這張表。",
+    docPath: "",
+    category: "超級管理員 (Super Admin)",
+    points: 8,
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/12",
+    phase: "testing",
+    testStatus: "passed",
+    unitTestCoverage: 92,
+    testCoverage: 88,
+    developmentProgress:
+      "Phase 1 完成：\n• Data layer: migration 20260412100000, ai_agent_model_assignments 表 (global)\n• Agent registry: lib/ai/agent-registry.ts (14 agents × 5 groups) + lib/ai/agent-defaults.ts (Primary + 3 Fallbacks + $5 cap)\n• API: app/api/ai-settings/agent-assignments/route.ts (GET/PUT/DELETE)\n• Hook: lib/hooks/useAgentAssignments.ts (reset → upsert defaults)\n• UI 主面板: components/ai-settings/AgentModelAssignmentPanel.tsx (hoisted useModelRoleCatalog + 匯出報告 button) + agent-model/{AgentList, AgentStrategyForm, AgentRecommendationPanel}.tsx\n• ClassifyConfigSheet + TagEditorSheet 從 model-role-catalog 孤兒狀態收編進 AgentRecommendationPanel\n• 匯出器: lib/ai/agent-report.ts 生成全 14 agent Markdown 快照 (TOC + per-agent strategy + recommendation table + 統計)\n• Page 整合: page.tsx 新增 'agent-config' 頁籤\n• Tests: agent-defaults 46 + agent-report 14 + useAgentAssignments 6 + AgentModelAssignmentPanel 6 = 72 個\n• DB 已 seed 14 筆初始預設\n• Phase 2 dispatcher 尚未接入後端 callsite。",
+  },
+  {
     name: "開發環境 Docker 整合 - Paperclip 自動啟停",
     locatedPage: "start.sh / stop.sh",
     percentage: 100,
@@ -2059,6 +2077,6 @@ const RAW_FEATURES: RoadmapFeature[] = [
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/11",
+  lastUpdated: "2026/04/12",
   features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
 };

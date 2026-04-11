@@ -232,33 +232,31 @@ export function LlmLeaderboardPanel() {
   return (
     <div className="space-y-4 min-w-0">
       <div className="rounded-base border border-border-default bg-bg-primary/60 px-4 py-3 space-y-2">
-        <div className="flex flex-wrap items-start gap-x-2 gap-y-1.5">
-          <p className="text-xs text-text-secondary leading-relaxed flex-1 min-w-[12rem]">
-            資料來源為{' '}
-            <a
-              href="https://artificialanalysis.ai/leaderboards/models"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-accent hover:underline"
-            >
-              Artificial Analysis — LLM Leaderboard
-            </a>
-            。欄位定義與排序以該站為準；本頁僅供內部參考，定價與指標請以官方為準。
-          </p>
+        <p className="text-xs text-text-secondary leading-relaxed min-w-0">
+          資料來源為{' '}
+          <a
+            href="https://artificialanalysis.ai/leaderboards/models"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent hover:underline"
+          >
+            Artificial Analysis — LLM Leaderboard
+          </a>
+          。欄位定義與排序以該站為準；本頁僅供內部參考，定價與指標請以官方為準。
+        </p>
+        <p className="text-[11px] text-text-muted min-w-0 leading-relaxed">
+          上次更新：{formatTime(fetchedAt)} · 每日自動重新抓取 · 共 {rows.length} 筆{' '}
           <Button
             type="button"
             size="xs"
             variant="secondary"
-            className="shrink-0 self-center sm:self-start"
+            className="ms-1.5 align-middle"
             isLoading={refreshing}
             onClick={() => void load(true)}
           >
             <RefreshCw className="w-3 h-3" />
-            立即同步
+            立即更新排行榜
           </Button>
-        </div>
-        <p className="text-[11px] text-text-muted">
-          上次更新：{formatTime(fetchedAt)} · 每日自動重新抓取 · 共 {rows.length} 筆
         </p>
       </div>
 

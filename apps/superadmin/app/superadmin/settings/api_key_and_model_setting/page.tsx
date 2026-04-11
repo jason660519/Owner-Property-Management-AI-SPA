@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Key, FlaskConical, ScanText, BookMarked, Trophy,
+  Key, FlaskConical, ScanText, BookMarked, Trophy, Bot,
   Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download,
 } from 'lucide-react';
 
@@ -17,6 +17,7 @@ import {
 } from '@/components/ai-settings';
 import { OcrSystemPromptPanel } from '@/components/ai-settings/OcrSystemPromptPanel';
 import { LlmLeaderboardPanel } from '@/components/ai-settings/LlmLeaderboardPanel';
+import { AgentModelAssignmentPanel } from '@/components/ai-settings/AgentModelAssignmentPanel';
 import { useAISettings, type KeyValidationResult } from '@/lib/hooks/useAISettings';
 import {
   getTotalAvailableModels,
@@ -28,9 +29,9 @@ import { getModelDisplayName } from '@/components/ai-settings/model-evaluator/ut
 import { SUPPORTED_AI_ENV_KEY_NAMES } from '@/lib/parse-env-keys';
 
 
-type SettingsTab = 'keys' | 'llm-leaderboard' | 'ocr';
+type SettingsTab = 'keys' | 'llm-leaderboard' | 'agent-config' | 'ocr';
 
-const TAB_IDS: SettingsTab[] = ['keys', 'llm-leaderboard', 'ocr'];
+const TAB_IDS: SettingsTab[] = ['keys', 'llm-leaderboard', 'agent-config', 'ocr'];
 
 const LS_GLOBAL_PROMPT = 'ai-settings:globalTestPrompt';
 const LS_SAVED_PROMPTS = 'ai-settings:savedPrompts';
@@ -148,6 +149,12 @@ const TABS: { id: SettingsTab; label: string; icon: React.ElementType; descripti
     icon: Trophy,
     description: 'Artificial Analysis LLM 排行榜（每日同步）',
   },
+  {
+    id: 'agent-config',
+    label: '模型選擇與設定',
+    icon: Bot,
+    description: '為每個 AI Agent 指派 Primary 模型與 Fallback 策略（全平台共用）',
+  },
   { id: 'ocr', label: 'OCR解析設定', icon: ScanText, description: '設定 OCR 解析模型與參數' },
 ];
 
@@ -178,6 +185,14 @@ const SHEET_TABS: SheetTabDef[] = [
     icon: Trophy,
     color: 'text-violet-600',
     activeColor: 'bg-violet-600 text-white',
+  },
+  {
+    id: 'agent-config',
+    label: 'Agent Config',
+    zhLabel: '模型選擇與設定',
+    icon: Bot,
+    color: 'text-emerald-600',
+    activeColor: 'bg-emerald-600 text-white',
   },
   { id: 'ocr', label: 'OCR', zhLabel: 'OCR解析設定', icon: ScanText, color: 'text-blue-600', activeColor: 'bg-blue-600 text-white' },
 ];
@@ -593,6 +608,17 @@ export default function AIServiceSettingsPage() {
       return <LlmLeaderboardPanel />;
     }
 
+    if (activeTab === 'agent-config') {
+      return (
+        <AgentModelAssignmentPanel
+          savedKeys={settings.keys}
+          validateAllResultsByKeyId={validateAllResultsByKeyId}
+          evaluations={settings.evaluations}
+          userId={settings.userId}
+        />
+      );
+    }
+
     // --- Evaluator tabs (ocr / static-ad / contract / blog / property-description) ---
     const tabConfig = EVALUATOR_TAB_CONFIG[activeTab];
     if (!tabConfig) return null;
@@ -834,7 +860,7 @@ export default function AIServiceSettingsPage() {
                 <p className="text-[11px] text-text-muted">{currentTab.description}</p>
               )}
             </div>
-            {activeTab !== 'llm-leaderboard' && (
+            {activeTab !== 'llm-leaderboard' && activeTab !== 'agent-config' && (
             <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
