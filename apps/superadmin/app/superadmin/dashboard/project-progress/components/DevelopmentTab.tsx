@@ -21,6 +21,7 @@ import {
   DEFAULT_HEADER_HEIGHT,
   deriveRowStatus,
   getRowKey,
+  summarizeRowStatuses,
 } from './development-table/types';
 import { useDevTableData } from './development-table/useDevTableData';
 import { createDevColumns } from './development-table/columns';
@@ -133,6 +134,11 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
     onDeleteCustomRow: handleDeleteCustomRow,
   }), [openPromptConfig, statusSelections, handleStatusChange, ideSelections, hiddenRowKeysSet, handleToggleHideRow, handleDeleteCustomRow]);
 
+  const statusSummary = useMemo(
+    () => summarizeRowStatuses(filteredRows, statusSelections),
+    [filteredRows, statusSelections],
+  );
+
   // --- Category filter helpers ---
   const toggleCategory = useCallback((cat: string) => {
     setCategoryFilterSingle('');
@@ -169,6 +175,25 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   // --- Render ---
   return (
     <>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="rounded-md border border-border-default bg-bg-secondary px-2 py-1">
+          <p className="text-[10px] text-text-muted">Completed</p>
+          <p className="text-sm font-semibold text-text-primary">{statusSummary.completed}</p>
+        </div>
+        <div className="rounded-md border border-border-default bg-bg-secondary px-2 py-1">
+          <p className="text-[10px] text-text-muted">In Progress</p>
+          <p className="text-sm font-semibold text-text-primary">{statusSummary.in_progress}</p>
+        </div>
+        <div className="rounded-md border border-border-default bg-bg-secondary px-2 py-1">
+          <p className="text-[10px] text-text-muted">Not Started</p>
+          <p className="text-sm font-semibold text-text-secondary">{statusSummary.not_started}</p>
+        </div>
+        <div className="rounded-md border border-border-default bg-bg-secondary px-2 py-1">
+          <p className="text-[10px] text-text-muted">On Hold</p>
+          <p className="text-sm font-semibold text-text-primary">{statusSummary.on_hold}</p>
+        </div>
+      </div>
+
       <TableToolbar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -233,6 +258,9 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
           currentIDE={ideSelections[promptTarget.rowKey] ?? ''}
           onIdeChange={(rowKey: string, ide: IDEOption) => {
             setIdeSelections(prev => ({ ...prev, [rowKey]: ide }));
+          }}
+          onStatusHint={(rowKey: string, status: RowStatus) => {
+            setStatusSelections(prev => ({ ...prev, [rowKey]: status }));
           }}
           onClose={() => setPromptTarget(null)}
         />

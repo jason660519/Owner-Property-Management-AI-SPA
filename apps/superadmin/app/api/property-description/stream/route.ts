@@ -14,6 +14,7 @@ import {
   InvalidAgentKeyError,
   type AgentAssignmentReader,
 } from '@/lib/ai/resolve-agent-model';
+import { sortByProviderPriority } from '@/lib/ai/provider-priority';
 import {
   checkAgentBudget,
   type AuditLogReader,
@@ -453,8 +454,9 @@ async function resolveModelCandidates(
       );
     }
 
+    const orderedLinks = sortByProviderPriority(sanitized.allowed);
     const resolutions = await Promise.all(
-      sanitized.allowed.map(async (link) => {
+      orderedLinks.map(async (link) => {
         const provider = link.provider as AIProvider;
         const keyResolution = await getProviderApiKey(adminClient, userId, provider);
         return {

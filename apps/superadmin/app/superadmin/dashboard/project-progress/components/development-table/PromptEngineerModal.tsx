@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Play, Loader2, Send, ExternalLink, CheckCircle2, Copy, GitBranch, Trash2, Terminal, ChevronDown, ChevronUp } from 'lucide-react';
 import clsx from 'clsx';
-import type { PromptContext, IDEOption, ProgressRow } from './types';
+import type { PromptContext, IDEOption, ProgressRow, RowStatus } from './types';
 import { IDE_OPTIONS, buildPromptContext } from './types';
 import { buildIssuePayload, isValidPaperclipRole } from '@/lib/paperclip/buildIssuePayload';
 import type { BuildIssuePayloadResult } from '@/lib/paperclip/buildIssuePayload';
@@ -22,6 +22,21 @@ import type {
 } from '@/lib/paperclip/client';
 import type { WorktreePaths } from '@/lib/paperclip/worktree';
 import type { PaperclipIssueStatus } from '@/lib/paperclip/types';
+import type { ExecutionMode, AutoRunPolicy, AutoRunState, AutoRunStatus } from './prompt-auto-loop';
+import {
+  DEFAULT_AUTO_POLICY,
+  buildInitialAutoRunState,
+  isTerminalRunStatus,
+  nextAutoStateAfterFailure,
+  nextAutoStateAfterSuccess,
+  deriveRowStatusHintFromAutoState,
+  readStoredAutoPolicy,
+  readStoredExecutionMode,
+  resetAutoRunStateForManualMode,
+  shouldRetryAutoRun,
+  writeStoredAutoPolicy,
+  writeStoredExecutionMode,
+} from './prompt-auto-loop';
 
 // -- Shared tail lines appended to every category prompt --
 function tddTail(ctx: PromptContext): string {
@@ -66,9 +81,9 @@ const WORK_CATEGORY_OPTIONS: { id: string; label: string; getPrompt: (ctx: Promp
     '角色重點：Migration 設計（supabase/migrations/，檔名 YYYYMMDDHHMMSS_描述.sql）、RLS 政策、索引與觸發器、storage_quotas / behavior_logs 等表結構。請遵循 .claude/rules/backend/supabase.md，並撰寫對應單元與整合測試。',
     tddTail(ctx),
   ].join('\n') },
-  { id: 'qa', label: 'TDD 測試工程師 / QA 工程師', getPrompt: (ctx) => [
+  { id: 'sdet', label: 'SDET / Quality Platform Engineer', getPrompt: (ctx) => [
     header(ctx, '以測試為先進行開發與驗證'),
-    '角色重點：先撰寫單元與整合測試（Vitest）與 E2E（Playwright），覆蓋 Happy Path、邊界條件與錯誤路徑，再撰寫實作以通過測試。目標覆蓋率 80%+，並確保 TDD 報告中列出所有測試案例與執行結果。',
+    '角色重點：以品質平台觀點先建立或更新測試治理資產（manifest、runner、coverage gate、flaky 隔離策略），再補齊單元/整合（Vitest）與 E2E（Playwright）覆蓋。請覆蓋 Happy Path、邊界條件與錯誤路徑，目標覆蓋率 80%+，並在 TDD 報告中列出測試案例、執行結果與風險。',
     tddTail(ctx),
   ].join('\n') },
   { id: 'devops', label: 'DevOps / 站台可靠性工程師', getPrompt: (ctx) => [
@@ -113,12 +128,13 @@ interface PromptEngineerModalProps {
   userId: string;
   currentIDE: IDEOption;
   onIdeChange: (rowKey: string, ide: IDEOption) => void;
+  onStatusHint?: (rowKey: string, status: RowStatus) => void;
   onClose: () => void;
 }
 
 // -- Component --
 export default function PromptEngineerModal({
-  row, rowKey, userId, currentIDE, onIdeChange, onClose,
+  row, rowKey, userId, currentIDE, onIdeChange, onStatusHint, onClose,
 }: PromptEngineerModalProps) {
   const [promptConfigIDE, setPromptConfigIDE] = useState<IDEOption>(currentIDE);
   const [promptConfigWorkCategory, setPromptConfigWorkCategory] = useState('');
@@ -146,6 +162,14 @@ export default function PromptEngineerModal({
   const [cost, setCost] = useState<PaperclipIssueCostSnapshot | null>(null);
   const [runLog, setRunLog] = useState<PaperclipIssueRunLogSnapshot | null>(null);
   const [showRunLog, setShowRunLog] = useState(true);
+  const [executionMode, setExecutionMode] = useState<ExecutionMode>('manual');
+  const [autoPolicy, setAutoPolicy] = useState<AutoRunPolicy>(DEFAULT_AUTO_POLICY);
+  const [autoRunState, setAutoRunState] = useState<AutoRunState>(buildInitialAutoRunState);
+  const [autoRetryPayload, setAutoRetryPayload] = useState<BuildIssuePayloadResult['payload'] | null>(null);
+  const [autoTargetAgentId, setAutoTargetAgentId] = useState<string | null>(null);
+  const [autoPauseState, setAutoPauseState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle');
+  const processedTerminalRunIdRef = useRef<string | null>(null);
+  const autoRetryTimerRef = useRef<number | null>(null);
 
   // Close on Escape
   useEffect(() => {
@@ -183,6 +207,7 @@ export default function PromptEngineerModal({
     try {
       const rowId = row.__rowId;
       onIdeChange(rowKey, promptConfigIDE);
+      const promptContext = buildPromptContext(row, rowId, promptConfigIDE);
       const res = await fetch('/api/dev-tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
@@ -191,8 +216,8 @@ export default function PromptEngineerModal({
           metadata: {
             featureSpecDocPath: row.featureSpecDocPath?.trim() || null,
             tddSpecDocPath: row.tddSpecDocPath?.trim() || null,
-            unitTestFolder: `apps/superadmin/unit_and_integration_test/${rowId}`,
-            e2eFolder: `apps/superadmin/e2e/${rowId}`,
+            unitTestFolder: promptContext.unitFolder,
+            e2eFolder: promptContext.e2eFolder,
           },
         }),
       });
@@ -249,7 +274,58 @@ export default function PromptEngineerModal({
     setLiveStatus(null);
     setCost(null);
     setRunLog(null);
+    setAutoRetryPayload(null);
+    setAutoRunState(buildInitialAutoRunState());
+    processedTerminalRunIdRef.current = null;
   }, [row, promptConfigIDE, promptConfigWorkCategory, promptText]);
+
+  // Keep auto retry timers cleaned up when the modal unmounts.
+  useEffect(() => {
+    return () => {
+      if (autoRetryTimerRef.current !== null) {
+        window.clearTimeout(autoRetryTimerRef.current);
+        autoRetryTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  // Restore persisted auto/manual mode + auto policy.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const storedMode = readStoredExecutionMode(window.localStorage);
+    if (storedMode) {
+      setExecutionMode(storedMode);
+    }
+    const storedPolicy = readStoredAutoPolicy(window.localStorage);
+    if (storedPolicy) {
+      setAutoPolicy(storedPolicy);
+    }
+  }, []);
+
+  // Persist mode and policy to localStorage.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    writeStoredExecutionMode(window.localStorage, executionMode);
+  }, [executionMode]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    writeStoredAutoPolicy(window.localStorage, autoPolicy);
+  }, [autoPolicy]);
+
+  // Switching back to manual mode should hard-reset auto execution state.
+  useEffect(() => {
+    if (executionMode !== 'manual') return;
+    setAutoRunState((prev) => resetAutoRunStateForManualMode(prev));
+    setAutoRetryPayload(null);
+    setAutoTargetAgentId(null);
+    setAutoPauseState('idle');
+    processedTerminalRunIdRef.current = null;
+    if (autoRetryTimerRef.current !== null) {
+      window.clearTimeout(autoRetryTimerRef.current);
+      autoRetryTimerRef.current = null;
+    }
+  }, [executionMode]);
 
   // Live Paperclip issue status polling. Kicks in after successful send and
   // runs every 5s until the issue hits a terminal state (done / cancelled),
@@ -306,9 +382,20 @@ export default function PromptEngineerModal({
       }
     };
 
+    let intervalId: number | null = null;
+    const stopPolling = () => {
+      if (intervalId !== null) {
+        window.clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
     const tick = async () => {
       if (cancelled) return;
-      if (Date.now() - startedAt > MAX_POLL_MS) return;
+      if (Date.now() - startedAt > MAX_POLL_MS) {
+        stopPolling();
+        return;
+      }
       try {
         const res = await fetch(`/api/paperclip/issues/${encodeURIComponent(issueId)}/status`, {
           headers: { 'x-user-id': userId },
@@ -323,6 +410,7 @@ export default function PromptEngineerModal({
         if (json.snapshot.terminal) {
           // Final cost once the run is done. Fire-and-forget.
           void fetchCostOnce();
+          stopPolling();
           return;
         }
       } catch {
@@ -331,22 +419,100 @@ export default function PromptEngineerModal({
     };
 
     void tick(); // immediate fetch
-    const interval = window.setInterval(() => {
-      if (liveStatus?.terminal) {
-        window.clearInterval(interval);
-        return;
-      }
+    intervalId = window.setInterval(() => {
       void tick();
     }, 5000);
 
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      stopPolling();
     };
     // We intentionally depend only on issueId; liveStatus changes would cause
     // re-creation of the interval and double-fetches.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paperclipResult?.ok ? paperclipResult.issue.id : null, userId]);
+
+  // Auto mode: react to terminal run status and decide retry/trip behavior.
+  useEffect(() => {
+    if (executionMode !== 'auto') return;
+    if (!runLog?.runId || !runLog.runStatus) return;
+    if (!isTerminalRunStatus(runLog.runStatus)) return;
+    if (processedTerminalRunIdRef.current === runLog.runId) return;
+    processedTerminalRunIdRef.current = runLog.runId;
+
+    const runStatus = runLog.runStatus as AutoRunStatus;
+    if (runStatus === 'succeeded') {
+      setAutoRunState((prev) => nextAutoStateAfterSuccess(prev, { runId: runLog.runId ?? null }));
+      return;
+    }
+
+    const reason = runLog.stderrExcerpt?.trim() || runLog.stdoutExcerpt?.trim() || 'Paperclip run failed';
+    setAutoRunState((prev) => {
+      const failed = nextAutoStateAfterFailure(prev, {
+        runId: runLog.runId ?? null,
+        runStatus,
+        reason,
+        policy: autoPolicy,
+      });
+      if (!shouldRetryAutoRun(failed, autoPolicy) && failed.phase !== 'tripped') {
+        return { ...failed, phase: 'idle' };
+      }
+      return failed;
+    });
+  }, [executionMode, runLog?.runId, runLog?.runStatus, runLog?.stderrExcerpt, runLog?.stdoutExcerpt, autoPolicy]);
+
+  const submitPaperclipIssue = useCallback(async (payload: BuildIssuePayloadResult['payload']) => {
+    setPaperclipSending(true);
+    setPaperclipResult(null);
+    try {
+      const res = await fetch('/api/paperclip/issues', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+        body: JSON.stringify(payload),
+      });
+      // Route handler's response may include a `worktree` field alongside
+      // the CreateIssueResult union when ok=true.
+      const json = (await res.json()) as CreateIssueResult & { worktree?: WorktreePaths };
+      if (json.ok) {
+        setPaperclipResult({
+          ok: true,
+          issue: json.issue,
+          issueUrl: json.issueUrl,
+          worktree: json.worktree,
+        });
+        return true;
+      } else {
+        setPaperclipResult({ ok: false, error: json.error || `HTTP ${res.status}` });
+        return false;
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown network error';
+      setPaperclipResult({
+        ok: false,
+        error: message,
+      });
+      return false;
+    } finally {
+      setPaperclipSending(false);
+    }
+  }, [userId]);
+
+  const requestAutoPause = useCallback(async (agentId: string) => {
+    setAutoPauseState('sending');
+    try {
+      const res = await fetch(`/api/paperclip/agents/${encodeURIComponent(agentId)}/pause`, {
+        method: 'POST',
+        headers: { 'x-user-id': userId },
+      });
+      if (!res.ok) {
+        setAutoPauseState('error');
+        return;
+      }
+      setAutoPauseState('done');
+    } catch {
+      setAutoPauseState('error');
+    }
+  }, [userId]);
 
   // Real send to Paperclip — goes through server route handler
   const handleSendPaperclip = useCallback(async () => {
@@ -362,36 +528,90 @@ export default function PromptEngineerModal({
       );
     if (!confirmed) return;
 
-    setPaperclipSending(true);
-    setPaperclipResult(null);
-    try {
-      const res = await fetch('/api/paperclip/issues', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
-        body: JSON.stringify(paperclipPreview.payload),
-      });
-      // Route handler's response may include a `worktree` field alongside
-      // the CreateIssueResult union when ok=true.
-      const json = (await res.json()) as CreateIssueResult & { worktree?: WorktreePaths };
-      if (json.ok) {
-        setPaperclipResult({
-          ok: true,
-          issue: json.issue,
-          issueUrl: json.issueUrl,
-          worktree: json.worktree,
+    const ok = await submitPaperclipIssue(paperclipPreview.payload);
+    if (!ok) {
+      if (executionMode === 'auto') {
+        const next = nextAutoStateAfterFailure(buildInitialAutoRunState(), {
+          runId: null,
+          runStatus: 'failed',
+          reason: '建立 issue 失敗',
+          policy: autoPolicy,
+        });
+        setAutoRunState(next);
+      }
+      return;
+    }
+
+    if (executionMode === 'auto') {
+      processedTerminalRunIdRef.current = null;
+      setAutoRetryPayload(paperclipPreview.payload);
+      setAutoTargetAgentId(paperclipPreview.payload.assigneeAgentId ?? null);
+      setAutoPauseState('idle');
+      setAutoRunState((prev) => ({
+        ...prev,
+        phase: 'running',
+        lastRunStatus: 'queued',
+        lastFailureReason: null,
+      }));
+    }
+  }, [paperclipPreview, submitPaperclipIssue, executionMode, autoPolicy]);
+
+  useEffect(() => {
+    if (executionMode !== 'auto') return;
+    if (autoRunState.phase !== 'tripped') return;
+    if (!autoTargetAgentId) return;
+    if (autoPauseState !== 'idle') return;
+    void requestAutoPause(autoTargetAgentId);
+  }, [executionMode, autoRunState.phase, autoTargetAgentId, autoPauseState, requestAutoPause]);
+
+  // Bubble auto-loop execution status back to parent table status chip.
+  useEffect(() => {
+    if (executionMode !== 'auto' || !onStatusHint) return;
+    const hint = deriveRowStatusHintFromAutoState(autoRunState);
+    if (hint) onStatusHint(rowKey, hint);
+  }, [executionMode, autoRunState, onStatusHint, rowKey]);
+
+  // Auto mode: cooldown -> retry with same payload.
+  useEffect(() => {
+    if (executionMode !== 'auto') return;
+    if (autoRunState.phase !== 'cooling_down') return;
+    if (!autoRetryPayload) return;
+    if (!shouldRetryAutoRun(autoRunState, autoPolicy)) return;
+
+    if (autoRetryTimerRef.current !== null) {
+      window.clearTimeout(autoRetryTimerRef.current);
+    }
+    autoRetryTimerRef.current = window.setTimeout(async () => {
+      setAutoRunState((prev) => ({ ...prev, phase: 'running' }));
+      const ok = await submitPaperclipIssue(autoRetryPayload);
+      if (!ok) {
+        setAutoRunState((prev) => {
+          const failed = nextAutoStateAfterFailure(prev, {
+            runId: null,
+            runStatus: 'failed',
+            reason: '重試送單失敗',
+            policy: autoPolicy,
+          });
+          if (!shouldRetryAutoRun(failed, autoPolicy) && failed.phase !== 'tripped') {
+            return { ...failed, phase: 'idle' };
+          }
+          return failed;
         });
       } else {
-        setPaperclipResult({ ok: false, error: json.error || `HTTP ${res.status}` });
+        setAutoRunState((prev) => ({
+          ...prev,
+          lastRunStatus: 'queued',
+        }));
       }
-    } catch (err) {
-      setPaperclipResult({
-        ok: false,
-        error: err instanceof Error ? err.message : 'Unknown network error',
-      });
-    } finally {
-      setPaperclipSending(false);
-    }
-  }, [paperclipPreview, userId]);
+    }, autoPolicy.cooldownSeconds * 1000);
+
+    return () => {
+      if (autoRetryTimerRef.current !== null) {
+        window.clearTimeout(autoRetryTimerRef.current);
+        autoRetryTimerRef.current = null;
+      }
+    };
+  }, [executionMode, autoRunState, autoPolicy, autoRetryPayload, submitPaperclipIssue]);
 
   // Copy a string to clipboard and show a short confirmation per-command
   const handleCopyCommand = useCallback(async (key: string, text: string) => {
@@ -453,7 +673,7 @@ export default function PromptEngineerModal({
         </div>
         {/* Body */}
         <div className="space-y-4 px-4 py-4 max-h-[70vh] overflow-y-auto">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
             <div className="space-y-1">
               <p className="text-[11px] font-medium text-text-secondary">Row ID</p>
               <p className="rounded-md border border-border-default bg-bg-secondary px-2 py-1 text-xs font-mono text-text-primary">{row.__rowId}</p>
@@ -472,7 +692,83 @@ export default function PromptEngineerModal({
                 {WORK_CATEGORY_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
               </select>
             </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-medium text-text-secondary" htmlFor="prompt-execution-mode">執行模式</label>
+              <select
+                id="prompt-execution-mode"
+                className="w-full rounded-md border border-border-default bg-bg-secondary px-2 py-1 text-xs text-text-primary focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                value={executionMode}
+                onChange={(e) => setExecutionMode(e.target.value as ExecutionMode)}
+              >
+                <option value="manual">Manual（手動送單）</option>
+                <option value="auto">Auto（自動重試）</option>
+              </select>
+            </div>
           </div>
+          {executionMode === 'auto' && (
+            <div className="grid grid-cols-1 gap-3 rounded-md border border-border-default bg-bg-secondary p-3 sm:grid-cols-3">
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-text-secondary" htmlFor="auto-max-attempts">
+                  最大重試次數
+                </label>
+                <input
+                  id="auto-max-attempts"
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={autoPolicy.maxAttempts}
+                  onChange={(e) =>
+                    setAutoPolicy((prev) => ({
+                      ...prev,
+                      maxAttempts: Math.max(1, Number(e.target.value) || 1),
+                    }))
+                  }
+                  className="w-full rounded-md border border-border-default bg-bg-primary px-2 py-1 text-xs text-text-primary"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-text-secondary" htmlFor="auto-cooldown">
+                  冷卻秒數
+                </label>
+                <input
+                  id="auto-cooldown"
+                  type="number"
+                  min={5}
+                  max={600}
+                  value={autoPolicy.cooldownSeconds}
+                  onChange={(e) =>
+                    setAutoPolicy((prev) => ({
+                      ...prev,
+                      cooldownSeconds: Math.max(5, Number(e.target.value) || 5),
+                    }))
+                  }
+                  className="w-full rounded-md border border-border-default bg-bg-primary px-2 py-1 text-xs text-text-primary"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-text-secondary" htmlFor="auto-breaker">
+                  熔斷門檻（連續失敗）
+                </label>
+                <input
+                  id="auto-breaker"
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={autoPolicy.circuitBreakerThreshold}
+                  onChange={(e) =>
+                    setAutoPolicy((prev) => ({
+                      ...prev,
+                      circuitBreakerThreshold: Math.max(1, Number(e.target.value) || 1),
+                    }))
+                  }
+                  className="w-full rounded-md border border-border-default bg-bg-primary px-2 py-1 text-xs text-text-primary"
+                />
+              </div>
+              <div className="sm:col-span-3 text-[10px] text-text-muted">
+                Auto 模式會在 run 失敗後依策略自動重試；達熔斷門檻時停止重試並顯示提示。
+              </div>
+            </div>
+          )}
           <div className="space-y-1">
             <label className="text-[11px] font-medium text-text-secondary" htmlFor="prompt-config-text">要送往 IDE / Agent 的 Prompt</label>
             <textarea id="prompt-config-text" className="min-h-[160px] w-full resize-y rounded-md border border-border-default bg-bg-secondary px-2 py-2 text-xs text-text-primary placeholder-text-muted focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none" value={promptText} onChange={e => setPromptText(e.target.value)} placeholder="請輸入要送給 IDE / Agent 的完整指令 Prompt..." />
@@ -530,10 +826,14 @@ export default function PromptEngineerModal({
                 <button
                   type="button"
                   onClick={handleSendPaperclip}
-                  disabled={paperclipSending || !paperclipPreview.companyId}
+                  disabled={
+                    paperclipSending ||
+                    !paperclipPreview.companyId ||
+                    (executionMode === 'auto' && autoRunState.phase === 'tripped')
+                  }
                   className={clsx(
                     'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[11px] font-medium text-white transition-colors',
-                    paperclipSending || !paperclipPreview.companyId
+                    paperclipSending || !paperclipPreview.companyId || (executionMode === 'auto' && autoRunState.phase === 'tripped')
                       ? 'bg-amber-600/50 cursor-not-allowed'
                       : 'bg-amber-600 hover:bg-amber-700',
                   )}
@@ -552,6 +852,36 @@ export default function PromptEngineerModal({
                   )}
                 </button>
               </div>
+              {executionMode === 'auto' && (
+                <div className="mt-2 rounded border border-indigo-500/30 bg-indigo-500/5 p-2 text-[10px] text-text-secondary">
+                  <p>
+                    <span className="font-medium">Auto 狀態：</span>
+                    <span className="font-mono ml-1">{autoRunState.phase}</span>
+                    <span className="ml-2">attempt {autoRunState.attemptCount}/{autoPolicy.maxAttempts}</span>
+                  </p>
+                  {autoRunState.lastRunId && (
+                    <p className="mt-0.5">
+                      last run: <span className="font-mono">{autoRunState.lastRunId.slice(0, 8)}</span>
+                      {autoRunState.lastRunStatus ? (
+                        <span className="ml-1 font-mono">({autoRunState.lastRunStatus})</span>
+                      ) : null}
+                    </p>
+                  )}
+                  {autoRunState.lastFailureReason && (
+                    <p className="mt-0.5 text-amber-700 dark:text-amber-400">
+                      last failure: {autoRunState.lastFailureReason}
+                    </p>
+                  )}
+                  {autoRunState.phase === 'tripped' && (
+                    <p className="mt-0.5 text-red-700 dark:text-red-400">
+                      已達熔斷門檻，請檢查 adapter/金鑰後再手動重啟。
+                      {autoPauseState === 'sending' && '（正在自動 pause agent...）'}
+                      {autoPauseState === 'done' && '（agent 已自動 pause）'}
+                      {autoPauseState === 'error' && '（自動 pause 失敗，請手動 pause）'}
+                    </p>
+                  )}
+                </div>
+              )}
               {paperclipResult?.ok && (
                 <div className="mt-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 p-2">
                   <div className="flex items-center justify-between gap-2">
@@ -801,6 +1131,10 @@ export default function PromptEngineerModal({
             ) : (
               <>
                 <p>按下「送出 Prompt」後會建立任務、<strong>自動複製 Prompt 到剪貼簿</strong>，並嘗試喚醒本地 Agent。</p>
+                <p>
+                  Paperclip 送單模式：<span className="font-mono">{executionMode}</span>
+                  {executionMode === 'auto' ? `（attempt ${autoRunState.attemptCount}/${autoPolicy.maxAttempts}）` : ''}
+                </p>
                 <p className="mt-1 text-text-muted">若已執行 <code className="text-[10px] bg-bg-secondary px-1 rounded">cd tools/local-agent &amp;&amp; npm run cursor</code>，Agent 會自動開啟 Cursor 並注入 Composer（Cmd+I → Cmd+V）；否則請手動切換到 Cursor 貼上 (Cmd+V) 開始執行。</p>
               </>
             )}

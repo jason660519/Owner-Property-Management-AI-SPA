@@ -22,6 +22,8 @@ from supabase import create_client
 from src.ocr_engine.vlm import VLMEngine
 from src.preprocessor.pdf_preprocessor import PDFPreprocessor
 from src.parser import extract_transcript, to_unified_output
+from src.api.routes import people_db
+from src.core.supabase_client import initialize_supabase_client
 
 load_dotenv()
 
@@ -35,6 +37,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include people database routes used by superadmin import/search pages.
+app.include_router(people_db.router, tags=["people-database"])
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize clients required by people-db routes."""
+    try:
+        await initialize_supabase_client()
+    except Exception as e:
+        # Keep minimal app bootable even if optional services are unavailable.
+        print(f"[minimal_app] Supabase init warning: {e}")
 
 # In-memory SSE queues: batch_id -> asyncio.Queue
 sse_queues: dict[str, asyncio.Queue] = {}

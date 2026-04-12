@@ -16,6 +16,7 @@ import {
   Mail,
   Search,
   GitBranch,
+  Wrench,
 } from 'lucide-react';
 import type { ElementType } from 'react';
 
@@ -42,5 +43,6 @@ export const navItems: NavItem[] = [
   { name: 'Project Files', href: '/superadmin/project-file', icon: BookOpen },
   { name: 'AI 服務 / API KEY', href: '/superadmin/settings/api_key_and_model_setting', icon: Key },
   { name: 'Prompt 管理', href: '/superadmin/settings/prompt-management', icon: BookMarked },
+  { name: 'Tools', href: '/superadmin/tools', icon: Wrench },
   { name: 'Settings', href: '/superadmin/settings', icon: Settings },
 ];

@@ -48,11 +48,22 @@ if (typeof global.ResizeObserver === 'undefined') {
   }
 }
 if (typeof global.IntersectionObserver === 'undefined') {
-  global.IntersectionObserver = class IntersectionObserver {
-    observe() {}
-    unobserve() {}
+  class MockIntersectionObserver implements IntersectionObserver {
+    readonly root: Element | Document | null = null
+    readonly rootMargin = '0px'
+    readonly thresholds: ReadonlyArray<number> = [0]
+
+    constructor(_callback: IntersectionObserverCallback, _options?: IntersectionObserverInit) {}
+
+    observe(_target: Element) {}
+    unobserve(_target: Element) {}
     disconnect() {}
+    takeRecords(): IntersectionObserverEntry[] {
+      return []
+    }
   }
+
+  global.IntersectionObserver = MockIntersectionObserver as unknown as typeof IntersectionObserver
 }
 
 // Mock fetch

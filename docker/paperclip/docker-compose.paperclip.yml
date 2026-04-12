@@ -7,9 +7,8 @@ services:
       HOST: '0.0.0.0'
       PAPERCLIP_HOME: '/paperclip'
       OPENAI_API_KEY: '${OPENAI_API_KEY:-}'
-      # Force empty ANTHROPIC_API_KEY so claude CLI falls back to subscription
-      # auth via CLAUDE_CODE_OAUTH_TOKEN (avoids per-request API billing).
-      ANTHROPIC_API_KEY: ''
+      # Allow API-key auth fallback when CLAUDE_CODE_OAUTH_TOKEN is unavailable.
+      ANTHROPIC_API_KEY: '${ANTHROPIC_API_KEY:-}'
       CLAUDE_CODE_OAUTH_TOKEN: '${CLAUDE_CODE_OAUTH_TOKEN:-}'
       PAPERCLIP_DEPLOYMENT_MODE: 'authenticated'
       PAPERCLIP_DEPLOYMENT_EXPOSURE: 'private'

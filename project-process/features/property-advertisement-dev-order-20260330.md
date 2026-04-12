@@ -96,7 +96,7 @@
 3. apps/superadmin/components/admin/properties/AdvertisementReferenceUrlInput.tsx
 4. apps/superadmin/components/admin/properties/PropertyBlogGenerator.tsx
 5. apps/superadmin/components/admin/properties/__tests__/PropertyBlogGenerator.test.tsx
-6. apps/superadmin/e2e/property-blog-query-sync.spec.ts
+6. apps/superadmin/e2e/common/regression/property-blog-query-sync.spec.ts
 
 內容：
 
@@ -147,7 +147,7 @@
 1. apps/superadmin/components/admin/properties/PropertyBlogGenerator.tsx
 2. apps/superadmin/components/admin/properties/PropertyBlogStyleRowActionCells.tsx
 3. apps/superadmin/components/admin/properties/__tests__/PropertyBlogGenerator.test.tsx
-4. apps/superadmin/e2e/property-blog-query-sync.spec.ts
+4. apps/superadmin/e2e/common/regression/property-blog-query-sync.spec.ts
 5. apps/superadmin/app/data/roadmap.ts
 
 ## 第一張工單的安全邊界

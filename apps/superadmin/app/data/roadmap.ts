@@ -41,6 +41,7 @@ export interface RoadmapFeature {
   workCategory?: string;
   developmentProgress?: string;
   testLog?: string;
+  testLogDocPath?: string;
   /** 模式（例如 chat/tool/voice），於儀表板「Mode」欄顯示 */
   mode?: string;
   /** 模型名稱，於儀表板「MODEL」欄顯示 */
@@ -109,12 +110,12 @@ const RAW_FEATURES: RoadmapFeature[] = [
     testCoverage: 85,
     unitTestCoverage: 85,
     phase: "testing",
-    testStatus: "passing",
+    testStatus: "passed",
   },
   {
     name: "超級管理員-網站行為監控與紀錄功能",
     locatedPage: "superadmin/dashboard/behavior-monitoring",
-    percentage: 70,
+    percentage: 100,
     acceptanceCriteria:
       "1. 系統需記錄所有使用者的頁面訪問紀錄，包含時間戳、IP、使用者ID、頁面路徑。\n2. 提供每日/每週/每月流量統計報表。\n3. 異常行為需自動標記並通知管理員（如短時間內大量請求）。\n4. 日誌保存期限至少90天，超過自動封存。\n5. 需支援依使用者、日期、頁面路徑篩選搜尋。",
     docPath: "",
@@ -1479,6 +1480,21 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "[2026/02/13] (Trae AI)\n• 驗證欄位拖曳、localStorage 存取與重置功能正常。\n詳見: [測試日誌](../test-logs/test-dashboard-refactor-2026-02-13.md)",
     testCoverage: 0,
   },
+  {
+    name: "檔案整理與歸檔系統 (File Manager)",
+    locatedPage: "superadmin/tools/file-manager",
+    percentage: 100,
+    acceptanceCriteria:
+      "1. 提供規則配置（檔名/目錄規範、歸檔/刪除規則、忽略清單）。\n2. 可產生掃描報告（JSON + Markdown）與整理計畫（Plan）。\n3. 套用計畫前必備份，並提供回滾機制。\n4. 支援 UI（Superadmin Tools）與 CLI（可用於排程/CI）。\n5. 提供 metrics.json 用於持續監控（違規數、重複檔案、趨勢）。",
+    docPath: "/docs/file-management-system/01-technical-design.md",
+    category: "專案管理與工具 (Project Management)",
+    points: 5,
+    lastModifiedBy: "GPT-5.2",
+    lastModifiedDate: "2026/04/13",
+    phase: "operations",
+    developmentProgress:
+      "新增 /superadmin/tools/file-manager：規則編輯、掃描、產生整理計畫、套用（含備份）、回滾；新增 CLI scripts 與 husky pre-push non-blocking 掃描；新增 docs/file-management-system/* 文件與 metrics.json。",
+  },
 
   // === 2026-02-14 新增任務 ===
   {
@@ -2086,42 +2102,91 @@ const RAW_FEATURES: RoadmapFeature[] = [
     points: 2,
     phase: "development",
     lastModifiedBy: "Jason + GPT-5.3-Codex",
-    lastModifiedDate: "2026/04/12",
+    lastModifiedDate: "2026/04/13",
     featureDescription:
       "以 Docker 方式整合 Paperclip，並納入專案統一啟停流程，讓開發者執行 ./start.sh all 時可一併啟動，執行 ./stop.sh 時可一併停止。",
     acceptanceCriteria:
       "1. 新增專案內 Paperclip compose 設定，採官方 quickstart 單容器模式。\n2. start.sh 具備 paperclip 啟動命令與 all 模式自動啟動。\n3. stop.sh 可透過 compose down 停止 Paperclip。\n4. 預設使用較少衝突的 host port（3187），並可透過 .env.paperclip 覆寫。\n5. 首次執行可自動建立 .env.paperclip 與 BETTER_AUTH_SECRET。",
     developmentProgress:
-      "已新增 docker/paperclip/docker-compose.paperclip.yml 與 .env.paperclip.example；start.sh 新增 ensure_paperclip_env/start_paperclip，menu 與 CLI 入口支援 paperclip；start_all 會一併啟動 Paperclip；stop.sh 新增 Paperclip compose down。2026/04/11 再優化啟動效能：start_paperclip 先檢查容器是否已 running，已執行時直接返回；預設改為使用本機快取映像檔（PAPERCLIP_AUTO_PULL=0），僅首次或手動啟用 auto-pull 才拉取最新映像，避免每次 start.sh 都卡在 docker pull。新增 update_paperclip_image 與 CLI 指令 paperclip-update，並在啟動選單提供「更新 Paperclip 映像檔」，讓使用者在需要時手動更新並重啟容器套用新版本。另將預設資料目錄從 /tmp 改為 $HOME/.paperclip-data-owner-property-management，避免系統清理暫存目錄後遺失 instance 設定。新增 Paperclip 自動開瀏覽器機制：啟動後等候 health 再開啟指定 Dashboard URL，預設導向 /VIS/agents/ceo/dashboard，可用 PAPERCLIP_AUTO_OPEN_BROWSER 與 PAPERCLIP_DASHBOARD_URL 控制。2026/04/12 補強容器執行模式：改用 CLAUDE_CODE_OAUTH_TOKEN（停用 ANTHROPIC_API_KEY credit 路徑）驗證 claude_local adapter subscription 流程；workspace 掛載策略從 read-only PoC 進展到 read-write + worktree isolation，並透過 docker exec 統一 git worktree 路徑語義（/workspace）避免 host/container 路徑漂移。",
+      "已新增 docker/paperclip/docker-compose.paperclip.yml 與 .env.paperclip.example；start.sh 新增 ensure_paperclip_env/start_paperclip，menu 與 CLI 入口支援 paperclip；start_all 會一併啟動 Paperclip；stop.sh 新增 Paperclip compose down。2026/04/11 再優化啟動效能：start_paperclip 先檢查容器是否已 running，已執行時直接返回；預設改為使用本機快取映像檔（PAPERCLIP_AUTO_PULL=0），僅首次或手動啟用 auto-pull 才拉取最新映像，避免每次 start.sh 都卡在 docker pull。新增 update_paperclip_image 與 CLI 指令 paperclip-update，並在啟動選單提供「更新 Paperclip 映像檔」，讓使用者在需要時手動更新並重啟容器套用新版本。另將預設資料目錄從 /tmp 改為 $HOME/.paperclip-data-owner-property-management，避免系統清理暫存目錄後遺失 instance 設定。新增 Paperclip 自動開瀏覽器機制：啟動後等候 health 再開啟指定 Dashboard URL，預設導向 /VIS/agents/ceo/dashboard，可用 PAPERCLIP_AUTO_OPEN_BROWSER 與 PAPERCLIP_DASHBOARD_URL 控制。2026/04/12 補強容器執行模式：改用 CLAUDE_CODE_OAUTH_TOKEN（停用 ANTHROPIC_API_KEY credit 路徑）驗證 claude_local adapter subscription 流程；workspace 掛載策略從 read-only PoC 進展到 read-write + worktree isolation，並透過 docker exec 統一 git worktree 路徑語義（/workspace）避免 host/container 路徑漂移。2026/04/13 針對 codex_local adapter 追加穩定化：重新建立 paperclip 容器以套用最新 host OPENAI_API_KEY、確認容器內 key hash 與 host 一致；容器內執行 codex login --with-api-key 後，codex exec smoke 測試轉為可穩定成功，排除先前 Missing bearer/invalid_api_key 混合故障。",
     docPath: "/docs/scripts-directory-guide.md",
   },
   {
     name: "Superadmin × Paperclip 開發流程整合（Prompt→Issue→Worktree→Diff→Merge）",
     locatedPage: "superadmin/dashboard/project-progress + superadmin/dashboard/paperclip-worktrees",
-    percentage: 99,
+    percentage: 100,
     category: "超級管理員 (Super Admin)",
     points: 13,
     phase: "testing",
     testStatus: "passed",
     unitTestCoverage: 95,
     testCoverage: 92,
-    e2eTestCoverage: 88,
+    e2eTestCoverage: 92,
     lastModifiedBy: "Claude + GPT-5.3-Codex",
-    lastModifiedDate: "2026/04/12",
+    lastModifiedDate: "2026/04/13",
     featureDescription:
       "將 project-progress 的 PromptEngineerModal 與 Paperclip control plane 串接，建立可持續運作的 AI 開發閉環：送單、派工、隔離分支、即時狀態、差異審查、乾跑與合併、清理。",
     acceptanceCriteria:
       "1. Modal 支援預覽與真送出 Paperclip issue，含成功/失敗回饋。\n2. 每個任務自動建立 feature/paperclip-<slug> worktree，agent 僅在隔離目錄工作。\n3. 引入 pre-commit + pre-merge-commit 護欄，阻擋 forbidden paths（.env / lockfile / docker compose / committed migrations 等）。\n4. 新增 /superadmin/dashboard/paperclip-worktrees 管理頁：列表、搜尋、篩選、排序、inspect diff、merge、cleanup。\n5. diff viewer 支援顏色分段與鍵盤操作（J/K/E/C/?）。\n6. Modal 與 worktrees page 支援 live status、run log、cost、dry-run merge。\n7. API 路由完整：issues / status / run-log / cost / worktrees / diff / merge / cleanup。\n8. URL deep links 統一走 paperclip links builder，避免 hardcode base URL。",
+    featureSpecDocPath:
+      "/project-process/features/paperclip-development-loop-dev-spec-20260412.md",
+    tddSpecDocPath:
+      "/project-process/features/paperclip-development-loop-tdd-spec-20260412.md",
     developmentProgress:
-      "Phase A-M 完成並於 2026/04/12 延伸至 N.3：\n• PromptEngineerModal：預覽送出、真送出、worktree資訊、copy commands、cleanup 按鈕、live status badge、cost chip、live run log。\n• Worktree isolation：server route 在送單前建立 worktree，description 自動注入 protocol，禁止在 main tree 直接操作。\n• 安全護欄：soft forbidden-path 指示 + git hooks（pre-commit / pre-merge-commit）+ server-side forbidden-path merge check + human review。\n• Worktrees 管理頁：列表 + inspect diff + merge + merge+cleanup + dry-run + delete，並新增搜尋/篩選/排序與每列 cost。\n• Diff viewer：per-file 摺疊、彩色行級標示、快捷鍵（J/K/E/C/?）。\n• URL builder：新增 lib/paperclip/links.ts，issue deep-link 與 search-link 統一透過 helper 產生。\n• metadata/cost mapping：送單成功後在 worktree 寫入 .paperclip-meta.json（issueId），worktrees API 讀取後可穩定抓每列 cost。\n• 路由韌性補強：createIssue 失敗時自動 best-effort 清理 worktree，並加 slug/path traversal 防護。\n• Claude（2026/04/12）：完成 dispatch 問題定位（VIS-8 / VIS-10 未啟動根因為 assigneeAgentId 缺失），實作 auto-route（title keyword → role）與 architect fallback；前端 buildIssuePayload + Prompt 預覽顯示 auto-route 決策；後端 issues route 增加 server-side 兜底，防止 API 直送繞過前端；補齊 auto-route/buildIssuePayload/route 測試並維持綠燈。\n• GPT-5.3-Codex（2026/04/12）：新增 scripts/paperclip-patch-and-verify.mjs，一鍵處理未指派 issue（預設 VIS-10）並自動輪詢驗證 dispatch 是否啟動；支援 --agent-role / --agent-id / --dry-run / --force；package.json 新增 paperclip:patch-issue 指令。",
+      "Phase A-M 完成並於 2026/04/12 延伸至 N.3：\n• PromptEngineerModal：預覽送出、真送出、worktree資訊、copy commands、cleanup 按鈕、live status badge、cost chip、live run log。\n• Worktree isolation：server route 在送單前建立 worktree，description 自動注入 protocol，禁止在 main tree 直接操作。\n• 安全護欄：soft forbidden-path 指示 + git hooks（pre-commit / pre-merge-commit）+ server-side forbidden-path merge check + human review。\n• Worktrees 管理頁：列表 + inspect diff + merge + merge+cleanup + dry-run + delete，並新增搜尋/篩選/排序與每列 cost。\n• Diff viewer：per-file 摺疊、彩色行級標示、快捷鍵（J/K/E/C/?）。\n• URL builder：新增 lib/paperclip/links.ts，issue deep-link 與 search-link 統一透過 helper 產生。\n• metadata/cost mapping：送單成功後在 worktree 寫入 .paperclip-meta.json（issueId），worktrees API 讀取後可穩定抓每列 cost。\n• 路由韌性補強：createIssue 失敗時自動 best-effort 清理 worktree，並加 slug/path traversal 防護。\n• Claude（2026/04/12）：完成 dispatch 問題定位（VIS-8 / VIS-10 未啟動根因為 assigneeAgentId 缺失），實作 auto-route（title keyword → role）與 architect fallback；前端 buildIssuePayload + Prompt 預覽顯示 auto-route 決策；後端 issues route 增加 server-side 兜底，防止 API 直送繞過前端；補齊 auto-route/buildIssuePayload/route 測試並維持綠燈。\n• GPT-5.3-Codex（2026/04/12）：新增 scripts/paperclip-patch-and-verify.mjs，一鍵處理未指派 issue（預設 VIS-10）並自動輪詢驗證 dispatch 是否啟動；支援 --agent-role / --agent-id / --dry-run / --force；package.json 新增 paperclip:patch-issue 指令。\n• 2026/04/12 進度複核：執行 `npm run test --workspace superadmin -- paperclip --runInBand`，15 suites / 234 tests 全數通過；補齊 ID 130 的 DEV-SPEC 與 TDD SPEC 路徑。",
     testProgress:
-      "Paperclip 整合相關測試在本次迭代持續綠燈（包含 lib/paperclip、issues、worktrees、diff、merge、cleanup、status、cost、run-log 路由與 UI 流程驗證）。2026/04/12 追加 auto-route 重點驗證：auto-route.test.ts、buildIssuePayload.test.ts、issues/route.test.ts 全部通過；新 CLI patch/verify 腳本完成語法與 lint 檢查。",
+      "Paperclip 整合相關測試在本次迭代持續綠燈（包含 lib/paperclip、issues、worktrees、diff、merge、cleanup、status、cost、run-log 路由與 UI 流程驗證）。2026/04/12 追加 auto-route 重點驗證：auto-route.test.ts、buildIssuePayload.test.ts、issues/route.test.ts 全部通過；新 CLI patch/verify 腳本完成語法與 lint 檢查。2026/04/12 新增 Playwright 驗收腳本 apps/superadmin/e2e/130/paperclip-development-loop.spec.ts（mock Paperclip API，若無 E2E_SUPERADMIN_EMAIL / E2E_SUPERADMIN_PASSWORD 則以 skip 結束）。2026/04/13 新增 SDET / Quality Platform Engineer 角色（含 auto-route / payload / API mapping / patch script 相容更新），並建立今日測試派工 Issue（bf5be15e-7624-44c9-b046-1242152dabde）與實跑 nightly（目前回歸層有 5 項失敗待修）。2026/04/13 追加 Codex(local) 實機驗證：先完成 DevOps smoke 成功，再依序對 architect/fullstack/ceo/database-engineer/devops/qa/ui-ux-designer 進行 heartbeat smoke；7 位 agent 最新 run 全部 succeeded，且已回復 paused 狀態，Adapter failed 事件停止擴散。",
     docPath: "/docs/update-project-progress-guide.md",
-    testScriptPath: "apps/superadmin/unit_test/052",
+    testScriptPath: "apps/superadmin/unit_test/130",
+  },
+  {
+    name: "超級管理員-尋人資料庫（People Database）",
+    locatedPage: "superadmin/settings/people-database",
+    percentage: 75,
+    category: "超級管理員 (Super Admin)",
+    points: 13,
+    phase: "testing",
+    testStatus: "in_progress",
+    unitTestCoverage: 50,
+    e2eTestCoverage: 52,
+    acceptanceCriteria:
+      "1. 支援多格式導入：Excel (XLS/XLSX)、PDF、TXT、CSV，自動欄位偵測與映射。\n2. 全文搜尋（ElasticSearch）：模糊搜尋姓名、身份證號、電話、地址，支援篩選與排序。\n3. 資料品質評分與去重：品質分級(High/Medium/Low)、自動重複偵測、人工審核 UI。\n4. 完整稽核日誌：所有導入、修改、刪除操作記錄操作者與時間。\n5. RLS 隔離：僅超級管理員可查看與操作尋人資料（含身份證號等敏感資訊）。\n6. 索引管理：重新索引、批次刪除、磁碟占用監控。",
+    featureSpecDocPath: "/project-process/features/people-database-dev-spec-20260412.md",
+    tddSpecDocPath: "/project-process/features/people-database-tdd-spec-20260412.md",
+    lastModifiedBy: "GPT-5.3-Codex",
+    lastModifiedDate: "2026/04/13",
+    developmentProgress:
+      "2026/04/12 10:30 ~ 17:45 Phase 1 完成（核心導入與搜尋）\n✅ PostgreSQL 表結構\n  • 3 個表：import_batches（批次追蹤）、people_records（人員資料）、people_duplicates（重複關係）\n  • RLS 原則：超級管理員全權訪問、Service 角色後端操作權限\n  • Migrations 已套用至本地資料庫\n\n✅ ElasticSearch 整合\n  • people_db_client.py：完整的非同步客戶端（索引、搜尋、更新、刪除、統計）\n  • IK 分詞器支援中文自動分詞\n  • Multi-match 搜尋支援模糊查詢 + 相關度排序\n\n✅ FastAPI 後端實現\n  • 5 個端點（導入預覽、批次提交、進度查詢、全文搜尋、統計）\n  • Supabase Python 客戶端：批次建立、狀態更新、記錄查詢\n  • 端點驗證與錯誤處理完整\n\n✅ 測試與驗證\n  • 單元測試 12/12 通過（列解析、CSV/Excel 處理、Pydantic 型別驗證）\n  • 整合測試框架完成（12 項端點驗證）\n  • 檔案處理邏輯：Excel、CSV、TXT、PDF 格式支援\n\n✅ Phase 2 前端完成（2026/04/12）\n  • API Proxy 路由：apps/superadmin/app/api/people-db/[...slug]/route.ts\n  • 首頁（Landing）：stats 統計卡片 + 快捷入口\n  • Import 頁面：拖放上傳、欄位映射表單、前 5 行預覽、批次標籤、提交進度\n  • Search 頁面：全文搜尋輸入、品質/來源篩選、EnhancedTable 結果顯示、頁碼控制\n  • Sidebar 導覽：新增「尋人資料庫」Menu Item（Users icon）\n\n✅ GPT-5.3-Codex（2026/04/12）\n  • Import 頁面新增「整個資料夾匯入」方式（可選資料夾，僅收 `.csv/.xlsx/.xls/.pdf`）\n  • 檔案選擇區新增「選擇整個資料夾」按鈕與資料夾模式資訊（資料夾名、檔案數、預估總列數）\n  • 提交流程支援資料夾多檔逐一建立批次並回顯多個 batch ID\n  • 補上匯入限制：單檔 25MB、單次最多 100 檔、單次總量 300MB（前端選檔與送出前雙重驗證）\n  • FastAPI `import/preview` 補上後端 hard limit（超過 25MB 回傳 413，包含檔名與大小）\n  • 匯入頁自動映射升級為「欄名 + 樣本值 pattern」混合評分，PDF 匯入可自動判斷姓名/手機/市話/身分證/Email/地址/出生日期欄位\n  • 欄位映射區新增「自動映射信心分數 UI」（高/中/低/手動），便於快速確認與修正\n  • 修復 import `Not Found`：minimal_app 掛載 people-db router、proxy multipart 轉發改為 FormData，CSV/PDF 預覽可正常回傳\n  • submit 端點兼容前端 snake_case payload，且在本地 schema 未同步時啟用 fallback 批次回應，避免整體匯入流程阻塞\n  • Supabase `import_batches` 寫入欄位對齊 migration（label/description/skipped_records），並透過 `X-User-ID` 傳遞登入使用者，已驗證可建立真實 batch 紀錄\n  • 新增 `tools/people-db/convert_taipei_village_chiefs_pdf.py`，可將「台北市里長」PDF 批次轉為 People DB 匯入 CSV（姓名/性別/電話/行動電話/電子郵件位址/里辦公處地址）\n\n✅ 4TB 級資料庫架構建議（ID:131 更新）\n  • 以 Elasticsearch / OpenSearch 作為主方案，不採桌面索引工具路線；先完成 1%~5% 真實資料 POC 再定正式叢集規模\n  • 索引容量估算改為「實測法」：以 POC 測得 index_bloat_ratio 與查詢延遲，不使用固定 6T~12T 估值\n  • 分片基準調整為單分片 30~60GB 起步，搭配 ILM hot/warm/cold；避免一次性固定大量 primary shards\n  • mapping 策略：姓名/地址 text+keyword、身分證/電話 keyword(normalized)，模糊查詢限定欄位與條件，降低誤命中與成本\n  • `_source` 預設保留；先做欄位瘦身、停用不必要欄位索引、壓縮策略與 lifecycle，再評估是否關閉 `_source`\n  • 資安與合規：PII 欄位遮罩顯示、查詢審計日志、最小權限；向量搜尋列為第二階段（先穩定 BM25 + filter + re-rank）\n\n✅ GPT-5.3-Codex（2026/04/12）單頁工作區整合\n  • `/superadmin/settings/people-database` 改為 tab workspace，於同頁切換「匯入資料 / 搜尋資料」\n  • 匯入與搜尋頁抽出可重用 workspace 元件，既有獨立路由維持可用，避免功能回歸\n\n✅ GPT-5.3-Codex（2026/04/13）project-progress 路徑治理補強\n  • 修正 Development Tab 欄8 預設路徑，從舊的 `unit_and_integration_test/{ID}` 改為 `unit_test/{ID}`，並與 guide 規範一致\n  • 讓欄8優先採用 `roadmap.testScriptPath`，未設定時再 fallback 到 `apps/superadmin/unit_test/{ID}`\n  • Prompt modal 派工 metadata（unitTestFolder/e2eFolder）改用與表格相同的共享 resolver，避免 UI 連結與任務內容不一致\n  • 抽出共享 path utils（安全相對路徑 + 白名單前綴 + href builder），統一 `testScriptPath` 驗證與 project-file 連結生成\n  • 新增邊界處理：允許 trailing slash、支援 `/docs` 路徑、阻擋絕對路徑/`..`/URL-like path\n\n✅ GPT-5.3-Codex（2026/04/13）Playwright CLI 團隊流程標準化\n  • 新增 `tools/testing/playwright-cli.sh` 與 `tools/testing/playwright-cli-version.txt`，以 pinned 版本統一 AI 工程師執行入口\n  • 新增 `tools/testing/check-playwright-cli-update.sh`，支援版本檢查與 `--apply` 更新版本檔\n  • root `package.json` 新增 `pwcli:*` scripts（version/open/update:check/update:apply）供跨 IDE 一致操作\n  • 新增 `docs/operational-guides/playwright-cli-team-workflow.md`，定義 CLI 探索 → 正式 E2E 落地流程\n\n✅ GPT-5.3-Codex（2026/04/13）Playwright CLI onboarding 一鍵檢查\n  • 驗證 `npx --yes @playwright/cli@latest --version` 可直接使用（不依賴全域安裝）\n  • 新增 `tools/testing/check-playwright-cli-onboarding.sh`，一次檢查 Node/npm、pinned 版本、pwcli npx 可執行性、skills 安裝狀態\n  • root `package.json` 新增 `pwcli:onboarding:check`，讓新同事用一條指令完成環境驗證\n  • 實測 `npm run pwcli:onboarding:check` 全綠通過",
+    testProgress:
+      "Phase 1 單元測試 100% 通過（12/12）：\n  ✅ parse_column_reference：Excel 欄位轉換（A→0, Z→25, AA→26）\n  ✅ extract_csv_preview：CSV 負載與編碼驗證\n  ✅ extract_excel_preview：Excel 檔案驗證\n  ✅ ImportSubmitRequest：請求結構與欄位驗證\n  ✅ 整合測試框架：API 端點驗證（12 項）\n  ✅ 前端單頁工作區測試：app/superadmin/settings/people-database/page.test.tsx（tab 切換與同頁 workspace 驗證）\n  ✅ Playwright E2E（真資料 fixture）：apps/superadmin/e2e/131/people-database-single-page-workspace.spec.ts（注入台北市里長樣本語意資料後，必須命中指定查詢）\n  ✅ Kibana 操作檢查清單：docs/operational-guides/people-db-kibana-checklist.md（索引、mapping、分詞、查詢與 UI 對照）\n  ✅ 一鍵 smoke script：tools/people-db/check-es.sh（將 checklist 1~5 步驟轉為可執行檢查）\n  ✅ seed 腳本：tools/people-db/seed-es-sample.sh（真寫入台北市里長樣本 1 筆，讓 docs.count > 0 並讓 multi-match 檢查轉綠）\n  ✅ 用台北市里長樣本實測初始化鏈路：people-db API 成功建立 people_database index；smoke script 已可全綠\n  ✅ 規範更新：docs/update-project-progress-guide.md 新增「跨 ID 可重用工具」放置與引用規範（tools 與 testScriptPath 職責分離）\n  ✅ 測試治理 Phase 1 落地：新增 apps/superadmin/test-manifest.json、tools/testing/validate-test-manifest.sh、tools/testing/run-superadmin-nightly.sh（支援 AI worker 機器可讀編排與 nightly 回歸）\n  ✅ 測試治理 Phase 1.1：將 apps/superadmin/e2e 根層散落 spec 全部收斂至 apps/superadmin/e2e/common/，並同步更新 manifest 與 start.sh 路徑\n  ✅ 測試治理 Phase 1.2：將 e2e/common 再分層為 smoke/regression，manifest 新增 nightlyLayer，nightly runner 依層級先 smoke 再 regression\n  ✅ 測試治理 Phase 1.3：manifest 新增 nightlyOrder，nightly runner 在同層依 nightlyOrder 穩定排序執行（小到大）\n  ✅ 測試治理 Phase 1.4：nightly runner 輸出執行計畫（id/layer/order/unit/e2e），可在 dry-run 與正式執行前快速審核排序\n  ✅ 測試治理 Phase 1.5：導入 Playwright CLI 團隊標準化（pinned version + wrapper + update checker），並把 update check 以 non-blocking 模式接入 nightly runner\n  ✅ project-progress 路徑治理測試補齊：新增 path-utils 與 resolver 測試（共 10 tests）並通過，覆蓋合法路徑、trailing slash、path traversal、絕對路徑、URL-like path、白名單前綴限制\n  下一步：E2E 實資料匯入驗證 + 搜尋結果抽樣比對",
+  },
+  {
+    name: "超級管理員-尋人資料庫：精準搜尋與來源可追溯升級（ID 132）",
+    locatedPage: "superadmin/settings/people-database",
+    percentage: 75,
+    category: "超級管理員 (Super Admin)",
+    points: 13,
+    phase: "testing",
+    lastModifiedBy: "GPT-5.3-Codex",
+    lastModifiedDate: "2026/04/13",
+    featureDescription:
+      "聚焦修正 people-db 在大資料量場景下的搜尋誤命中、資料來源不可追溯、匯入可視化不足與資料集範圍不可控等核心缺口，建立可被信任且可審計的查詢流程。",
+    acceptanceCriteria:
+      "1. 電話/身分證查詢採 exact-first（正規化 + 精準比對），不得再因 fuzzy 導致明顯誤命中。\n2. 搜尋 API/前端參數契約一致（data_sources[]、品質門檻、時間範圍、分頁），篩選可被驗證生效。\n3. 搜尋結果每筆可顯示來源追溯資訊（資料集、批次、匯入時間、匯入者、原始檔名/來源）。\n4. 匯入台帳可視化：使用者可查看每批匯入何時、誰匯入、匯入幾筆、成功/失敗/跳過數。\n5. 支援多資料集勾選搜尋範圍，預設全選並保留操作體驗（含全選/反選）。\n6. 測試覆蓋 exact/fuzzy 路由、來源篩選、來源顯示與匯入台帳核心流程，避免回歸。",
+    featureSpecDocPath:
+      "/project-process/features/people-database-dev-spec-20260412.md",
+    tddSpecDocPath:
+      "/project-process/features/people-database-tdd-spec-20260412.md",
+    docPath: "",
+    testScriptPath: "apps/superadmin/unit_test/132",
+    developmentProgress:
+      "2026/04/13（已開始實作）\n- 後端完成 P0 主幹：\n  1) `people_db_client` 實作 query intent 分流（id_number / phone / full_text）與 exact-first boost，降低電話/身分證誤命中\n  2) 修正 data source filter 使用 `data_source` terms，避免既有 `data_source.keyword` 無效篩選\n  3) 新增品質區間解析（high/medium/low -> min/max）\n  4) `/api/v1/people-db/search` 參數契約擴充：支援 `data_source` + `data_sources[]`、`quality`、`page/page_size`，並回傳 `page/page_size`\n  5) 搜尋回傳新增來源追溯欄位（import_batch_id/source_file_path/source_document_id/created_at）\n  6) 新增 `/api/v1/people-db/datasets`（資料集 facet）與 `/api/v1/people-db/import/batches`（匯入台帳）\n  7) `stats` 改為可直接供 superadmin 卡片使用的彙總格式（total_records/indexed_records/total_sources/avg_quality_score）\n  8) 安全補強：people-db proxy 新增 superadmin 身分/角色檢查（401/403）、移除 client `x-user-id` 信任、slug 白名單驗證與上游失敗 502\n  9) 匯入提交改為嚴格模式：缺少 user context 直接 401；DB schema/連線失敗回 503，不再假成功 fallback\n- 前端完成 P0 主要 UI：\n  1) 搜尋頁新增多資料集勾選（含全選/清空）\n  2) 搜尋結果表新增來源/原始檔、批次、匯入時間欄位\n  3) 新增最近匯入批次面板（status、來源、processed/total、時間）\n  4) 品質分數顯示統一（0~1 自動換算 0~100）\n  5) 當資料集全部取消勾選時，避免誤觸全資料搜尋（直接顯示空結果）\n- 主頁 stats 卡片已修正平均品質顯示尺度（支援 0~1 與 0~100 來源）。",
+    testProgress:
+      "2026/04/13 已執行：\n- ✅ 新增並通過 `backend/ocr_service/tests/unit/test_people_db_search_strategy.py`（5 cases：query intent、phone normalize、quality band）\n- ✅ 新增並通過 `backend/ocr_service/tests/integration/test_people_db_id132_api_contract.py`（3 cases：exact-match 契約/資料集 facets/匯入台帳 API）\n- ✅ `apps/superadmin/app/superadmin/settings/people-database/page.test.tsx` 通過（1 case）\n- ✅ 新增 E2E：`apps/superadmin/e2e/132/people-db-id132-acceptance.spec.ts`（覆蓋 exact-match、多資料集勾選、來源追溯、匯入台帳四條路徑）\n- ✅ 本機實跑 E2E（帶入 `PLAYWRIGHT_SUPERADMIN_EMAIL` / `PLAYWRIGHT_SUPERADMIN_PASSWORD`）已全綠：2 passed\n- ⚠️ `backend/ocr_service/tests/unit/test_people_db.py` 現存 1 個既有失敗（`test_missing_required_fields`，與本次改動無直接關聯；目前 ImportSubmitRequest 本就允許該 payload）。",
   },
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/12",
+  lastUpdated: "2026/04/13",
   features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
 };

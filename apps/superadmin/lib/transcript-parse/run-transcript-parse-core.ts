@@ -30,6 +30,7 @@ import {
 import { checkAgentBudget, type AuditLogReader } from '@/lib/ai/agent-cost-guard';
 import { applyForbidProviders } from '@/lib/ai/agent-guardrail-filters';
 import type { AgentGuardrails } from '@/lib/types/agent-assignment';
+import { sortByProviderPriority } from '@/lib/ai/provider-priority';
 import {
   buildConsensus,
   getConflictsNeedingJudge,
@@ -837,10 +838,15 @@ async function resolveAssignedModels(
         sanitized.dropped.map((d) => `${d.link.provider}/${d.link.model_id}`),
       );
     }
-    return {
-      models: sanitized.allowed.map((link, idx) => ({
+    const ordered = sortByProviderPriority(
+      sanitized.allowed.map((link) => ({
         provider: link.provider,
         model: link.model_id,
+      })),
+    );
+    return {
+      models: ordered.map((entry, idx) => ({
+        ...entry,
         priority: idx + 1,
       })),
       guardrails: resolved.guardrails,

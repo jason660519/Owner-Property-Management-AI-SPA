@@ -40,6 +40,19 @@ Do not duplicate route maps, folder walkthroughs, file inventories, or package s
 
 完成工作後，更新 `apps/superadmin/app/data/roadmap.ts` 的 `RAW_FEATURES` 陣列。完整規則見 `docs/update-project-progress-guide.md`。
 
+## 測試腳本與工具放置
+
+- `testScriptPath` 只能填 ID 專屬測試目錄：`apps/superadmin/unit_test/{ID}`。
+- ID 專屬 E2E 測試放在：`apps/superadmin/e2e/{ID}/`。
+- 跨功能共用 E2E（不綁定單一 ID）放在：`apps/superadmin/e2e/common/`，不要散落在 `e2e` 根層。
+- `e2e/common` 需再分層為：`e2e/common/smoke`（快速）與 `e2e/common/regression`（完整）。
+- 跨 ID 可重用腳本放在：`tools/<domain>/`；不要把 `tools/...` 當成 `testScriptPath`。
+- 當某 ID 依賴 `tools/...`，需在 `apps/superadmin/unit_test/{ID}/README.md` 記錄呼叫方式。
+- 機器可讀測試編排來源：`apps/superadmin/test-manifest.json`。
+- `test-manifest.json` 中 `tier=nightly` 的條目必填 `nightlyLayer`（`smoke` / `regression`）。
+- `test-manifest.json` 中 `tier=nightly` 的條目必填 `nightlyOrder`（非負整數，數字越小越先跑）。
+- 合併前至少執行一次：`tools/testing/validate-test-manifest.sh`。
+
 ## 角色目錄
 
 原本給人類查閱的角色目錄已移到 `docs/prompts/agent_roles_index.md`，避免與本檔用途混淆。

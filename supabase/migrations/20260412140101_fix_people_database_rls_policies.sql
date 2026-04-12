@@ -1,0 +1,194 @@
+-- Migration: Fix People Database RLS Policies (Remove auth.has_role dependency)
+-- Date: 2026-04-12
+-- Description: Fixed version of RLS policies using simplified auth checks
+
+-- === DROP EXISTING BROKEN POLICIES ===
+
+-- Drop all existing policies for people_records
+DROP POLICY IF EXISTS "Deny all" ON public.people_records;
+DROP POLICY IF EXISTS "Superadmin select" ON public.people_records;
+DROP POLICY IF EXISTS "Superadmin insert" ON public.people_records;
+DROP POLICY IF EXISTS "Superadmin update" ON public.people_records;
+DROP POLICY IF EXISTS "Superadmin delete" ON public.people_records;
+DROP POLICY IF EXISTS "Service role all" ON public.people_records;
+
+-- Drop all existing policies for import_batches
+DROP POLICY IF EXISTS "Deny all" ON public.import_batches;
+DROP POLICY IF EXISTS "Superadmin select" ON public.import_batches;
+DROP POLICY IF EXISTS "Superadmin insert" ON public.import_batches;
+DROP POLICY IF EXISTS "Superadmin update" ON public.import_batches;
+DROP POLICY IF EXISTS "Superadmin delete" ON public.import_batches;
+DROP POLICY IF EXISTS "Service role all" ON public.import_batches;
+
+-- Drop all existing policies for people_duplicates
+DROP POLICY IF EXISTS "Deny all" ON public.people_duplicates;
+DROP POLICY IF EXISTS "Superadmin select" ON public.people_duplicates;
+DROP POLICY IF EXISTS "Superadmin insert" ON public.people_duplicates;
+DROP POLICY IF EXISTS "Superadmin update" ON public.people_duplicates;
+DROP POLICY IF EXISTS "Superadmin delete" ON public.people_duplicates;
+DROP POLICY IF EXISTS "Service role all" ON public.people_duplicates;
+
+-- === PEOPLE_RECORDS RLS POLICIES (SIMPLIFIED) ===
+
+-- Deny all by default
+CREATE POLICY "people_records_deny_all" ON public.people_records
+    AS RESTRICTIVE FOR ALL
+    USING (false);
+
+-- Allow superadmin and service role
+CREATE POLICY "people_records_allow_superadmin_select" ON public.people_records
+    FOR SELECT
+    USING (
+        auth.role() = 'service_role'
+        OR EXISTS (
+            SELECT 1 FROM public.iam_user_roles
+            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+        )
+    );
+
+CREATE POLICY "people_records_allow_superadmin_insert" ON public.people_records
+    FOR INSERT
+    WITH CHECK (
+        auth.role() = 'service_role'
+        OR EXISTS (
+            SELECT 1 FROM public.iam_user_roles
+            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+        )
+    );
+
+CREATE POLICY "people_records_allow_superadmin_update" ON public.people_records
+    FOR UPDATE
+    USING (
+        auth.role() = 'service_role'
+        OR EXISTS (
+            SELECT 1 FROM public.iam_user_roles
+            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+        )
+    )
+    WITH CHECK (
+        auth.role() = 'service_role'
+        OR EXISTS (
+            SELECT 1 FROM public.iam_user_roles
+            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+        )
+    );
+
+CREATE POLICY "people_records_allow_superadmin_delete" ON public.people_records
+    FOR DELETE
+    USING (
+        auth.role() = 'service_role'
+        OR EXISTS (
+            SELECT 1 FROM public.iam_user_roles
+            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+        )
+    );
+
+-- === IMPORT_BATCHES RLS POLICIES (SIMPLIFIED) ===
+
+-- Deny all by default
+CREATE POLICY "import_batches_deny_all" ON public.import_batches
+    AS RESTRICTIVE FOR ALL
+    USING (false);
+
+-- Allow superadmin and service role
+CREATE POLICY "import_batches_allow_superadmin_select" ON public.import_batches
+    FOR SELECT
+    USING (
+        auth.role() = 'service_role'
+        OR EXISTS (
+            SELECT 1 FROM public.iam_user_roles
+            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+        )
+    );
+
+CREATE POLICY "import_batches_allow_superadmin_insert" ON public.import_batches
+    FOR INSERT
+    WITH CHECK (
+        auth.role() = 'service_role'
+        OR EXISTS (
+            SELECT 1 FROM public.iam_user_roles
+            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+        )
+    );
+
+CREATE POLICY "import_batches_allow_superadmin_update" ON public.import_batches
+    FOR UPDATE
+    USING (
+        auth.role() = 'service_role'
+        OR EXISTS (
+            SELECT 1 FROM public.iam_user_roles
+            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+        )
+    )
+    WITH CHECK (
+        auth.role() = 'service_role'
+        OR EXISTS (
+            SELECT 1 FROM public.iam_user_roles
+            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+        )
+    );
+
+CREATE POLICY "import_batches_allow_superadmin_delete" ON public.import_batches
+    FOR DELETE
+    USING (
+        auth.role() = 'service_role'
+        OR EXISTS (
+            SELECT 1 FROM public.iam_user_roles
+            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+        )
+    );
+
+-- === PEOPLE_DUPLICATES RLS POLICIES (SIMPLIFIED) ===
+
+-- Deny all by default
+CREATE POLICY "people_duplicates_deny_all" ON public.people_duplicates
+    AS RESTRICTIVE FOR ALL
+    USING (false);
+
+-- Allow superadmin and service role
+CREATE POLICY "people_duplicates_allow_superadmin_select" ON public.people_duplicates
+    FOR SELECT
+    USING (
+        auth.role() = 'service_role'
+        OR EXISTS (
+            SELECT 1 FROM public.iam_user_roles
+            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+        )
+    );
+
+CREATE POLICY "people_duplicates_allow_superadmin_insert" ON public.people_duplicates
+    FOR INSERT
+    WITH CHECK (
+        auth.role() = 'service_role'
+        OR EXISTS (
+            SELECT 1 FROM public.iam_user_roles
+            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+        )
+    );
+
+CREATE POLICY "people_duplicates_allow_superadmin_update" ON public.people_duplicates
+    FOR UPDATE
+    USING (
+        auth.role() = 'service_role'
+        OR EXISTS (
+            SELECT 1 FROM public.iam_user_roles
+            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+        )
+    )
+    WITH CHECK (
+        auth.role() = 'service_role'
+        OR EXISTS (
+            SELECT 1 FROM public.iam_user_roles
+            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+        )
+    );
+
+CREATE POLICY "people_duplicates_allow_superadmin_delete" ON public.people_duplicates
+    FOR DELETE
+    USING (
+        auth.role() = 'service_role'
+        OR EXISTS (
+            SELECT 1 FROM public.iam_user_roles
+            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+        )
+    );

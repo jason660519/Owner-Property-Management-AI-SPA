@@ -3,6 +3,7 @@
 
 import type { RoadmapFeature } from '@/app/data/roadmap';
 import type { CustomProjectProgressRowPayload } from '../../types';
+import { canUseProjectFilePath } from './path-utils';
 
 // --- Column alignment ---
 export type HAlign = 'left' | 'center' | 'right';
@@ -124,6 +125,41 @@ export function deriveRowStatus(feature: RoadmapFeature): RowStatus {
   return 'not_started';
 }
 
+export function getEffectiveRowStatus(
+  row: ProgressRow,
+  statusSelections: Record<string, RowStatus>,
+): RowStatus {
+  const key = getRowKey(row.__source, row.__rowId);
+  const selected = statusSelections[key];
+  return selected || deriveRowStatus(row);
+}
+
+export interface RowStatusSummary {
+  completed: number;
+  in_progress: number;
+  not_started: number;
+  on_hold: number;
+}
+
+export function summarizeRowStatuses(
+  rows: ProgressRow[],
+  statusSelections: Record<string, RowStatus>,
+): RowStatusSummary {
+  const summary: RowStatusSummary = {
+    completed: 0,
+    in_progress: 0,
+    not_started: 0,
+    on_hold: 0,
+  };
+  rows.forEach((row) => {
+    const status = getEffectiveRowStatus(row, statusSelections);
+    if (status && status in summary) {
+      summary[status as keyof RowStatusSummary] += 1;
+    }
+  });
+  return summary;
+}
+
 export function normalizeRowIdInput(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return '';
@@ -161,6 +197,21 @@ export interface PromptContext {
   e2eFolder: string;
 }
 
+const UNIT_TEST_FALLBACK_ROOT = 'apps/superadmin/unit_test';
+const ALLOWED_TEST_SCRIPT_PREFIX = 'apps/superadmin/';
+
+export function resolveUnitTestFolder(feature: RoadmapFeature, rowId: string): string {
+  const fallback = `${UNIT_TEST_FALLBACK_ROOT}/${rowId}`;
+  const configured = feature.testScriptPath?.trim();
+  if (!configured) return fallback;
+  if (!canUseProjectFilePath(configured, [ALLOWED_TEST_SCRIPT_PREFIX])) return fallback;
+  return configured;
+}
+
+export function resolveE2EFolder(rowId: string): string {
+  return `apps/superadmin/e2e/${rowId}`;
+}
+
 export function buildPromptContext(
   feature: RoadmapFeature,
   rowId: string,
@@ -171,8 +222,8 @@ export function buildPromptContext(
     ideLabel: ideLabel || '（尚未選擇 IDE）',
     featureSpec: feature.featureSpecDocPath?.trim() || '（尚未設定 Feature Spec (.md)）',
     tddSpec: feature.tddSpecDocPath?.trim() || '（尚未設定 TDD Spec (.md)）',
-    unitFolder: `apps/superadmin/unit_and_integration_test/${rowId}`,
-    e2eFolder: `apps/superadmin/e2e/${rowId}`,
+    unitFolder: resolveUnitTestFolder(feature, rowId),
+    e2eFolder: resolveE2EFolder(rowId),
   };
 }
 

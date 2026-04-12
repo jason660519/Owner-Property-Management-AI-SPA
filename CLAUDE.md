@@ -79,6 +79,20 @@ supabase gen types typescript --local > packages/types/database.ts     # 型別�
 
 每次完成工作後，更新 `apps/superadmin/app/data/roadmap.ts` 的 `RAW_FEATURES` 陣列。完整說明見 `docs/update-project-progress-guide.md`。
 
+## 測試腳本與工具放置規範
+
+- `testScriptPath` 僅指向 ID 專屬測試目錄：`apps/superadmin/unit_test/{ID}`。
+- ID 專屬 E2E 放在：`apps/superadmin/e2e/{ID}/`。
+- 跨功能共用 E2E（不綁定單一 ID）放在：`apps/superadmin/e2e/common/`，不要散落在 `e2e` 根層。
+- `e2e/common` 需再分層為：`e2e/common/smoke`（快速）與 `e2e/common/regression`（完整）。
+- 跨 ID 可重用腳本一律放在：`tools/<domain>/`（例如 `tools/people-db/`）。
+- 若某 ID 會使用 `tools/...`，請在對應 `apps/superadmin/unit_test/{ID}/README.md` 註明呼叫方式。
+- 不要把 `tools/...` 路徑填到 `testScriptPath`。
+- 測試編排採機器可讀清單：`apps/superadmin/test-manifest.json`。
+- `test-manifest.json` 中 `tier=nightly` 的條目必填 `nightlyLayer`（`smoke` / `regression`）。
+- `test-manifest.json` 中 `tier=nightly` 的條目必填 `nightlyOrder`（非負整數，數字越小越先跑）。
+- 合併前先跑：`tools/testing/validate-test-manifest.sh`。
+
 ## 角色目錄
 
 給人類查閱的角色 Prompt 目錄在 `docs/prompts/agent_roles_index.md`，不要與本檔混用。

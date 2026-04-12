@@ -6,6 +6,7 @@
 export type PaperclipRoleId =
   | 'fullstack'
   | 'database'
+  | 'sdet'
   | 'qa'
   | 'devops'
   | 'architect'

@@ -16,6 +16,7 @@ dashscope>=1.14.0  # For Alibaba Qwen
 pandas>=2.2.0
 pydantic>=2.6.0
 python-dateutil>=2.8.2
+openpyxl>=3.1.0  # For Excel file processing
 
 # API Framework
 fastapi>=0.109.0

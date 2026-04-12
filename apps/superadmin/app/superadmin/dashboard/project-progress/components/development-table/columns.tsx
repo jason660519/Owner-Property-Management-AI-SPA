@@ -5,7 +5,10 @@ import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { ExternalLink, Settings, EyeOff, Eye, X } from 'lucide-react';
 
 import type { ProgressRow, IDEOption, RowStatus } from './types';
-import { getRowKey, deriveRowStatus, IDE_OPTIONS, COLUMN_HEADERS } from './types';
+import { getRowKey, deriveRowStatus, IDE_OPTIONS, COLUMN_HEADERS, resolveUnitTestFolder, resolveE2EFolder } from './types';
+import { buildProjectFileHref } from './path-utils';
+
+const PROJECT_FILE_ALLOWED_PREFIXES = ['apps/superadmin/', 'project-process/'] as const;
 
 // -- Column meta for bilingual headers --
 declare module '@tanstack/react-table' {
@@ -24,10 +27,16 @@ function DocLink({ path, label }: { path: string | undefined; label: string }) {
     return <span className="text-text-muted italic text-xs">&mdash;</span>;
   }
   const sp = path.trim();
-  const isDocsScope = sp.startsWith('/docs/');
-  const pathParam = isDocsScope ? sp.slice(6) : sp.replace(/^\//, '');
-  const basePath = isDocsScope ? '/superadmin/docs' : '/superadmin/project-file';
-  const href = `${basePath}?path=${encodeURIComponent(pathParam)}`;
+  const isDocsScope = sp === '/docs' || sp.startsWith('/docs/');
+  const projectPath = sp.replace(/^\//, '');
+  const href = isDocsScope
+    ? `/superadmin/docs?path=${encodeURIComponent(sp.slice(6))}`
+    : buildProjectFileHref(projectPath, PROJECT_FILE_ALLOWED_PREFIXES);
+
+  if (!href) {
+    return <span className="text-text-muted italic text-xs">&mdash;</span>;
+  }
+
   return (
     <a
       href={href}
@@ -44,7 +53,10 @@ function DocLink({ path, label }: { path: string | undefined; label: string }) {
 
 // -- Folder link renderer --
 function FolderLink({ path }: { path: string }) {
-  const href = `/superadmin/project-file?path=${encodeURIComponent(path)}`;
+  const href = buildProjectFileHref(path, PROJECT_FILE_ALLOWED_PREFIXES);
+  if (!href) {
+    return <span className="text-text-muted italic text-xs">&mdash;</span>;
+  }
   return (
     <a
       href={href}
@@ -222,7 +234,7 @@ export function createDevColumns(deps: CreateDevColumnsDeps): ColumnDef<Progress
 
     // 8. Unit & Integration Test Folder
     col.accessor(
-      (r) => `apps/superadmin/unit_and_integration_test/${r.__rowId}`,
+      (r) => resolveUnitTestFolder(r, r.__rowId),
       {
         id: 'col-unit-test-folder',
         meta: meta(7),
@@ -232,7 +244,7 @@ export function createDevColumns(deps: CreateDevColumnsDeps): ColumnDef<Progress
 
     // 9. E2E Acceptance Test Folder
     col.accessor(
-      (r) => `apps/superadmin/e2e/${r.__rowId}`,
+      (r) => resolveE2EFolder(r.__rowId),
       {
         id: 'col-e2e-folder',
         meta: meta(8),

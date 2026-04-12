@@ -4,7 +4,7 @@
 # Owner Property Management - 統一啟動腳本
 # ==========================================
 # 功能：整合開發環境啟動、服務管理、依賴檢查
-# 用法：./start.sh [all|web|web-au|admin|ocr|test|menu]
+# 用法：./start.sh [all|web|web-au|admin|ocr|es|test|menu]
 
 set -e
 
@@ -150,6 +150,7 @@ ensure_paperclip_env() {
     local selected_auto_pull="${PAPERCLIP_AUTO_PULL:-0}"
     local selected_auto_open_browser="${PAPERCLIP_AUTO_OPEN_BROWSER:-1}"
     local selected_data_dir="${PAPERCLIP_DATA_DIR:-$HOME/.paperclip-data-owner-property-management}"
+    local selected_claude_oauth_token="${CLAUDE_CODE_OAUTH_TOKEN:-}"
 
     if [ ! -f "$paperclip_env_file" ]; then
         mkdir -p "$selected_data_dir"
@@ -163,8 +164,13 @@ PAPERCLIP_AUTO_PULL=$selected_auto_pull
 PAPERCLIP_AUTO_OPEN_BROWSER=$selected_auto_open_browser
 PAPERCLIP_DATA_DIR=$selected_data_dir
 BETTER_AUTH_SECRET=$generated_secret
+CLAUDE_CODE_OAUTH_TOKEN=$selected_claude_oauth_token
 EOF
         echo -e "${GREEN}✅ 已建立 docker/paperclip/.env.paperclip${NC}"
+    fi
+
+    if ! grep -q '^CLAUDE_CODE_OAUTH_TOKEN=' "$paperclip_env_file" 2>/dev/null; then
+        echo "CLAUDE_CODE_OAUTH_TOKEN=$selected_claude_oauth_token" >> "$paperclip_env_file"
     fi
 
     PAPERCLIP_PORT=$(grep '^PAPERCLIP_PORT=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
@@ -174,6 +180,7 @@ EOF
     PAPERCLIP_AUTO_OPEN_BROWSER=$(grep '^PAPERCLIP_AUTO_OPEN_BROWSER=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
     PAPERCLIP_DATA_DIR=$(grep '^PAPERCLIP_DATA_DIR=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
     BETTER_AUTH_SECRET=$(grep '^BETTER_AUTH_SECRET=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
+    CLAUDE_CODE_OAUTH_TOKEN=$(grep '^CLAUDE_CODE_OAUTH_TOKEN=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
 
     PAPERCLIP_PORT="${PAPERCLIP_PORT:-3187}"
     PAPERCLIP_PUBLIC_URL="${PAPERCLIP_PUBLIC_URL:-http://localhost:$PAPERCLIP_PORT}"
@@ -182,8 +189,9 @@ EOF
     PAPERCLIP_AUTO_PULL="${PAPERCLIP_AUTO_PULL:-0}"
     PAPERCLIP_AUTO_OPEN_BROWSER="${PAPERCLIP_AUTO_OPEN_BROWSER:-1}"
     PAPERCLIP_DATA_DIR="${PAPERCLIP_DATA_DIR:-$HOME/.paperclip-data-owner-property-management}"
+    CLAUDE_CODE_OAUTH_TOKEN="${CLAUDE_CODE_OAUTH_TOKEN:-}"
 
-    export PAPERCLIP_PORT PAPERCLIP_PUBLIC_URL PAPERCLIP_DASHBOARD_URL PAPERCLIP_IMAGE PAPERCLIP_AUTO_PULL PAPERCLIP_AUTO_OPEN_BROWSER PAPERCLIP_DATA_DIR BETTER_AUTH_SECRET
+    export PAPERCLIP_PORT PAPERCLIP_PUBLIC_URL PAPERCLIP_DASHBOARD_URL PAPERCLIP_IMAGE PAPERCLIP_AUTO_PULL PAPERCLIP_AUTO_OPEN_BROWSER PAPERCLIP_DATA_DIR BETTER_AUTH_SECRET CLAUDE_CODE_OAUTH_TOKEN
 }
 
 open_paperclip_dashboard() {
@@ -356,6 +364,54 @@ start_ocr() {
     fi
 }
 
+start_elasticsearch() {
+    echo -e "${BLUE}🔎 啟動 Elasticsearch (Port 9200)...${NC}"
+    local compose_file="$PROJECT_ROOT/backend/elasticsearch/docker-compose.yml"
+    local fallback_image="elasticsearch:8.12.0"
+    local es_url="http://127.0.0.1:9200"
+
+    if lsof -i :9200 > /dev/null 2>&1; then
+        echo -e "${GREEN}✅ Elasticsearch 已在運行: ${es_url}${NC}"
+        return 0
+    fi
+
+    # Primary path: project compose stack (includes kibana + custom plugins)
+    if [ -f "$compose_file" ]; then
+        if docker compose -f "$compose_file" up -d > /dev/null 2>&1; then
+            echo -e "${GREEN}✅ Elasticsearch compose 啟動指令已送出${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Elasticsearch compose 啟動失敗（常見原因：IK/STConvert plugin release URL 失效），改用 fallback 容器${NC}"
+        fi
+    fi
+
+    # Fallback path: vanilla Elasticsearch to keep local API reachable.
+    if ! lsof -i :9200 > /dev/null 2>&1; then
+        if docker ps -a --format '{{.Names}}' | grep -q '^elasticsearch$'; then
+            docker start elasticsearch > /dev/null 2>&1 || true
+        else
+            docker run -d \
+                --name elasticsearch \
+                -p 9200:9200 \
+                -e discovery.type=single-node \
+                -e xpack.security.enabled=false \
+                -e ES_JAVA_OPTS="-Xms512m -Xmx512m" \
+                "$fallback_image" > /dev/null
+        fi
+    fi
+
+    # Health check
+    for _ in $(seq 1 20); do
+        if curl -fsS "$es_url" > /dev/null 2>&1; then
+            echo -e "${GREEN}✅ Elasticsearch 啟動成功: ${es_url}${NC}"
+            return 0
+        fi
+        sleep 2
+    done
+
+    echo -e "${RED}❌ Elasticsearch 啟動後仍無法連線: ${es_url}${NC}"
+    return 1
+}
+
 start_all() {
     echo -e "${BLUE}🚀 正在啟動所有服務 (背景模式)...${NC}"
     check_dependencies
@@ -364,6 +420,7 @@ start_all() {
     start_web "bg"
     start_web_au "bg"
     start_admin "bg"
+    start_elasticsearch
     start_ocr
     start_paperclip
 
@@ -372,6 +429,7 @@ start_all() {
     echo -e "   • Web App (TW):     http://localhost:3000"
     echo -e "   • Web App (AU):     http://localhost:3002"
     echo -e "   • Superadmin:       http://localhost:3001/superadmin/dashboard"
+    echo -e "   • Elasticsearch:    http://127.0.0.1:9200"
     echo -e "   • OCR Service:      http://localhost:8819"
     echo -e "   • Paperclip:        ${PAPERCLIP_PUBLIC_URL:-http://localhost:${PAPERCLIP_PORT:-3187}}"
     echo -e "   • Supabase Studio:  http://localhost:54323"
@@ -412,7 +470,7 @@ run_tests() {
     cd "$PROJECT_ROOT"
     
     echo -e "${BLUE}▶️  執行登入跳轉邏輯測試...${NC}"
-    if npx playwright test apps/superadmin/e2e/login-redirect.spec.ts; then
+    if npx playwright test apps/superadmin/e2e/common/smoke/login-redirect.spec.ts; then
         echo -e "${GREEN}✅ 登入邏輯測試通過${NC}"
     else
         echo -e "${RED}❌ 登入邏輯測試失敗${NC}"
@@ -420,7 +478,7 @@ run_tests() {
     fi
     
     echo -e "${BLUE}▶️  執行截圖生成測試...${NC}"
-    if npx playwright test apps/superadmin/e2e/generate-screenshots.spec.ts; then
+    if npx playwright test apps/superadmin/e2e/common/regression/generate-screenshots.spec.ts; then
         echo -e "${GREEN}✅ 截圖生成成功${NC}"
     else
         echo -e "${RED}❌ 截圖生成失敗${NC}"
@@ -443,9 +501,10 @@ show_menu() {
     echo "5) 👁️  啟動 OCR/VLM 後端"
     echo "6) 🧪 執行 Superadmin 測試 (含截圖)"
     echo "7) 🧹 清除快取 (TW + AU + Superadmin)"
-    echo "8) 📎 啟動 Paperclip (Docker)"
-    echo "9) 📦 更新 Paperclip 映像檔"
-    echo "10) 🛑 停止所有服務"
+    echo "8) 🔎 啟動 Elasticsearch (Port 9200)"
+    echo "9) 📎 啟動 Paperclip (Docker)"
+    echo "10) 📦 更新 Paperclip 映像檔"
+    echo "11) 🛑 停止所有服務"
     echo "0) 離開"
     echo ""
     read -p "請輸入選項: " choice
@@ -458,9 +517,10 @@ show_menu() {
         5) check_dependencies; ensure_supabase_running; start_ocr ;;
         6) run_tests ;;
         7) clean_cache ;;
-        8) start_paperclip ;;
-        9) update_paperclip_image ;;
-        10) ./stop.sh ;;
+        8) start_elasticsearch ;;
+        9) start_paperclip ;;
+        10) update_paperclip_image ;;
+        11) ./stop.sh ;;
         0) exit 0 ;;
         *) echo "無效選項"; sleep 1; show_menu ;;
     esac
@@ -473,10 +533,11 @@ case "${1:-menu}" in
     web-au) check_dependencies; ensure_supabase_running; start_web_au ;;
     admin)  check_dependencies; ensure_supabase_running; start_admin ;;
     ocr)    check_dependencies; ensure_supabase_running; start_ocr ;;
+    es)     check_dependencies; start_elasticsearch ;;
     paperclip) check_dependencies; start_paperclip ;;
     paperclip-update) check_dependencies; update_paperclip_image ;;
     test)   run_tests ;;
     clean)  clean_cache ;;
     menu)   show_menu ;;
-    *)      echo "用法: $0 [all|web|web-au|admin|ocr|paperclip|paperclip-update|test|clean|menu]" ;;
+    *)      echo "用法: $0 [all|web|web-au|admin|ocr|es|paperclip|paperclip-update|test|clean|menu]" ;;
 esac

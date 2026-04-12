@@ -70,7 +70,7 @@ export function AgentModelAssignmentPanel({
       const dedupKey = `${providerId}::${modelId}`;
       if (seen.has(dedupKey)) continue;
       seen.add(dedupKey);
-      const providerInfo = getProviderById(providerId);
+      const providerInfo = getProviderById(providerId as Parameters<typeof getProviderById>[0]);
       out.push({
         providerId,
         providerName: providerInfo?.name ?? providerId,

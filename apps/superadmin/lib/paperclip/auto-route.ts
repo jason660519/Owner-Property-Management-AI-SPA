@@ -59,13 +59,14 @@ const ROUTING_RULES: readonly RoutingRule[] = [
       'deploy',
     ],
   },
-  // QA: testing / coverage. Next most specific.
+  // SDET/QA: testing / coverage. Next most specific.
   {
-    role: 'qa',
+    role: 'sdet',
     keywords: [
       'E2E',
       'Playwright',
       'Vitest',
+      'SDET',
       '單元測試',
       '驗收測試',
       'coverage',

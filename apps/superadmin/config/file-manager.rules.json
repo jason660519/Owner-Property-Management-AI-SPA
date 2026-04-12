@@ -1,0 +1,184 @@
+{
+  "version": 1,
+  "scan": {
+    "skipDirs": [
+      ".git",
+      "node_modules",
+      ".next",
+      ".turbo",
+      "dist",
+      "build",
+      "__pycache__",
+      ".venv",
+      ".venv_temp",
+      ".ruff_cache",
+      ".vscode",
+      ".paperclip-worktrees",
+      ".playwright-mcp",
+      "logs",
+      "test-results",
+      "supabase/storage-data",
+      "backups"
+    ],
+    "maxFileBytesToHash": 5242880,
+    "hashExtensions": [
+      ".md",
+      ".txt",
+      ".json",
+      ".yml",
+      ".yaml",
+      ".ts",
+      ".tsx",
+      ".js",
+      ".jsx",
+      ".mjs",
+      ".cjs",
+      ".css",
+      ".scss",
+      ".sh",
+      ".sql"
+    ]
+  },
+  "standards": {
+    "allowedRoot": {
+      "files": [
+        ".env",
+        ".env.example",
+        ".gdrive-server-credentials.json",
+        ".gitignore",
+        ".mcp.json",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "CLAUDE.local.md",
+        "HERMES.md",
+        "README.md",
+        "adapter-dropdown.yml",
+        "export-env.sh",
+        "gcp-oauth.keys.json",
+        "instance-settings.yml",
+        "package-lock.json",
+        "package.json",
+        "start.sh",
+        "stop.sh"
+      ],
+      "dirs": [
+        ".claude",
+        ".cursor",
+        ".husky",
+        ".obsidian",
+        ".trae",
+        ".vercel",
+        "apps",
+        "backend",
+        "docker",
+        "docs",
+        "logs",
+        "packages",
+        "project-process",
+        "resources",
+        "scripts",
+        "supabase",
+        "test-results",
+        "tools"
+      ]
+    },
+    "namingRules": [
+      {
+        "id": "components-pascalcase",
+        "description": "React component 檔名使用 PascalCase",
+        "match": { "glob": "apps/**/components/**/*.tsx" },
+        "fileNameRegex": "^[A-Z][A-Za-z0-9]*\\.tsx$",
+        "severity": "warning"
+      },
+      {
+        "id": "routes-kebabcase",
+        "description": "Next.js route segment 使用 kebab-case（排除動態路由與分組）",
+        "match": { "glob": "apps/**/app/**" },
+        "pathSegmentRegex": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+        "severity": "warning",
+        "excludeSegmentRegex": "^(\\(.*\\)|\\[.*\\])$"
+      }
+    ]
+  },
+  "actions": {
+    "archiveRootUnknown": true,
+    "archiveRoot": "backups/file-manager/archive",
+    "archiveRules": [
+      {
+        "id": "root-tmp-yml",
+        "description": "根目錄暫存 yml 歸檔",
+        "match": { "glob": "tmp-*.yml" },
+        "destinationSubdir": "root-tmp"
+      },
+      {
+        "id": "root-tmp-txt",
+        "description": "根目錄暫存 txt 歸檔",
+        "match": { "glob": "*.txt" },
+        "destinationSubdir": "root-tmp"
+      },
+      {
+        "id": "root-tmp-png",
+        "description": "根目錄暫存 png 歸檔",
+        "match": { "glob": "project-progress-id-*.png" },
+        "destinationSubdir": "root-tmp"
+      },
+      {
+        "id": "root-test-output-png",
+        "description": "根目錄測試輸出 png 歸檔",
+        "match": { "glob": "test-output-*.png" },
+        "destinationSubdir": "root-tmp"
+      },
+      {
+        "id": "root-renaming-report",
+        "description": "根目錄 renaming_report.csv 歸檔",
+        "match": { "glob": "renaming_report.csv" },
+        "destinationSubdir": "root-tmp"
+      },
+      {
+        "id": "root-docs-backup-tar",
+        "description": "根目錄 docs_backup_*.tar.gz 歸檔",
+        "match": { "glob": "docs_backup_*.tar.gz" },
+        "destinationSubdir": "root-tmp"
+      }
+    ],
+    "deleteRules": [
+      {
+        "id": "ds-store",
+        "description": "刪除 .DS_Store",
+        "match": { "glob": "**/.DS_Store" }
+      },
+      {
+        "id": "appledouble-files",
+        "description": "刪除 AppleDouble 檔（._*）",
+        "match": { "glob": "**/._*" }
+      },
+      {
+        "id": "appledouble-dirs",
+        "description": "刪除 AppleDouble 目錄（.AppleDouble）",
+        "match": { "glob": "**/.AppleDouble" }
+      },
+      {
+        "id": "tmp-files",
+        "description": "刪除 *.tmp",
+        "match": { "glob": "**/*.tmp" }
+      },
+      {
+        "id": "swap-files-swp",
+        "description": "刪除編輯器 swap 檔（.swp）",
+        "match": { "glob": "**/*.swp" }
+      },
+      {
+        "id": "swap-files-swo",
+        "description": "刪除編輯器 swap 檔（.swo）",
+        "match": { "glob": "**/*.swo" }
+      }
+    ],
+    "backupRetentionDays": 30
+  },
+  "redundancy": {
+    "enabled": true,
+    "scanDirs": ["docs", "project-process", "apps/superadmin/docs"],
+    "minBytes": 256,
+    "action": "archive_duplicates"
+  }
+}

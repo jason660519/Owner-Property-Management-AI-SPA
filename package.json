@@ -12,7 +12,19 @@
     "dev:clean": "./start.sh clean",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "file-manager:scan": "npm run file-manager:scan --workspace superadmin",
+    "file-manager:plan": "npm run file-manager:plan --workspace superadmin",
+    "file-manager:apply": "npm run file-manager:apply --workspace superadmin",
+    "file-manager:rollback": "npm run file-manager:rollback --workspace superadmin",
+    "file-manager:cleanup": "npm run file-manager:cleanup --workspace superadmin",
+    "test:manifest:superadmin": "bash tools/testing/validate-test-manifest.sh",
+    "test:nightly:superadmin": "bash tools/testing/run-superadmin-nightly.sh",
+    "pwcli:version": "bash tools/testing/playwright-cli.sh --version",
+    "pwcli:open:superadmin": "bash tools/testing/playwright-cli.sh open http://localhost:3001 --headed",
+    "pwcli:update:check": "bash tools/testing/check-playwright-cli-update.sh",
+    "pwcli:update:apply": "bash tools/testing/check-playwright-cli-update.sh --apply",
+    "pwcli:onboarding:check": "bash tools/testing/check-playwright-cli-onboarding.sh"
   },
   "devDependencies": {
     "lint-staged": "^16.2.7",

@@ -15,6 +15,7 @@
 const ROLE_ENV_MAP = {
   fullstack: 'NEXT_PUBLIC_PAPERCLIP_AGENT_FULLSTACK',
   database: 'NEXT_PUBLIC_PAPERCLIP_AGENT_DATABASE',
+  sdet: 'NEXT_PUBLIC_PAPERCLIP_AGENT_SDET',
   qa: 'NEXT_PUBLIC_PAPERCLIP_AGENT_QA',
   devops: 'NEXT_PUBLIC_PAPERCLIP_AGENT_DEVOPS',
   architect: 'NEXT_PUBLIC_PAPERCLIP_AGENT_ARCHITECT',
@@ -132,7 +133,10 @@ function resolveAgentId(args, issue) {
 
   if (args.agentRole) {
     const envName = ROLE_ENV_MAP[args.agentRole];
-    const agentId = process.env[envName];
+    const agentId =
+      args.agentRole === 'sdet'
+        ? process.env.NEXT_PUBLIC_PAPERCLIP_AGENT_SDET || process.env.NEXT_PUBLIC_PAPERCLIP_AGENT_QA
+        : process.env[envName];
     if (!agentId) {
       throw new Error(`Missing env ${envName}; cannot resolve --agent-role ${args.agentRole}.`);
     }

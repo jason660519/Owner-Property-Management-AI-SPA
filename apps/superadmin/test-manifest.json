@@ -1,0 +1,165 @@
+{
+  "version": 1,
+  "updatedAt": "2026-04-13-phase-1.4",
+  "entries": [
+    {
+      "id": "common-smoke",
+      "name": "Superadmin common smoke layer",
+      "tier": "nightly",
+      "nightlyLayer": "smoke",
+      "nightlyOrder": 10,
+      "status": "active",
+      "unitPaths": [],
+      "e2ePaths": [
+        "apps/superadmin/e2e/common/smoke/home.spec.ts",
+        "apps/superadmin/e2e/common/smoke/login-redirect.spec.ts",
+        "apps/superadmin/e2e/common/smoke/theme-toggle.spec.ts",
+        "apps/superadmin/e2e/common/smoke/user-menu.spec.ts"
+      ],
+      "linkedToolScripts": []
+    },
+    {
+      "id": "common-regression",
+      "name": "Superadmin common regression layer",
+      "tier": "nightly",
+      "nightlyLayer": "regression",
+      "nightlyOrder": 10,
+      "status": "active",
+      "unitPaths": [],
+      "e2ePaths": [
+        "apps/superadmin/e2e/common/regression/ai-settings-env-import.spec.ts",
+        "apps/superadmin/e2e/common/regression/ai-settings-sticky-header.spec.ts",
+        "apps/superadmin/e2e/common/regression/iam-audit.spec.ts",
+        "apps/superadmin/e2e/common/regression/profile-page.spec.ts",
+        "apps/superadmin/e2e/common/regression/property-blog-query-sync.spec.ts",
+        "apps/superadmin/e2e/common/regression/view-freeze-iam.spec.ts",
+        "apps/superadmin/e2e/common/regression/view-freeze-project-progress.spec.ts",
+        "apps/superadmin/e2e/common/regression/generate-screenshots.spec.ts"
+      ],
+      "linkedToolScripts": []
+    },
+    {
+      "id": "001",
+      "name": "Superadmin dashboard baseline",
+      "tier": "pr",
+      "status": "active",
+      "unitPaths": [],
+      "e2ePaths": [
+        "apps/superadmin/e2e/001/superadmin-dashboard.spec.ts"
+      ],
+      "linkedToolScripts": []
+    },
+    {
+      "id": "002",
+      "name": "Behavior monitoring",
+      "tier": "pr",
+      "status": "active",
+      "unitPaths": [
+        "apps/superadmin/unit_test/002/anomaly-detection.test.ts",
+        "apps/superadmin/unit_test/002/behavior-log-api.test.ts"
+      ],
+      "e2ePaths": [],
+      "linkedToolScripts": []
+    },
+    {
+      "id": "004",
+      "name": "Storage dashboard and quota",
+      "tier": "pr",
+      "status": "active",
+      "unitPaths": [
+        "apps/superadmin/unit_test/004/storage-batch-delete.test.ts",
+        "apps/superadmin/unit_test/004/storage-quota-alerts.test.ts"
+      ],
+      "e2ePaths": [
+        "apps/superadmin/e2e/004/storage-dashboard-quota-tab.spec.ts"
+      ],
+      "linkedToolScripts": []
+    },
+    {
+      "id": "007",
+      "name": "Elasticsearch dashboard",
+      "tier": "nightly",
+      "nightlyLayer": "regression",
+      "nightlyOrder": 20,
+      "status": "active",
+      "unitPaths": [],
+      "e2ePaths": [
+        "apps/superadmin/e2e/007/elasticsearch-dashboard.spec.ts"
+      ],
+      "linkedToolScripts": [
+        "tools/people-db/check-es.sh",
+        "tools/people-db/seed-es-sample.sh"
+      ]
+    },
+    {
+      "id": "019",
+      "name": "Company tutorial flow",
+      "tier": "nightly",
+      "nightlyLayer": "regression",
+      "nightlyOrder": 30,
+      "status": "active",
+      "unitPaths": [],
+      "e2ePaths": [
+        "apps/superadmin/e2e/019/company-tutorial.spec.ts"
+      ],
+      "linkedToolScripts": []
+    },
+    {
+      "id": "120",
+      "name": "Contract template selector",
+      "tier": "nightly",
+      "nightlyLayer": "regression",
+      "nightlyOrder": 40,
+      "status": "active",
+      "unitPaths": [
+        "apps/superadmin/unit_test/120/ContractTemplateSelector.test.tsx"
+      ],
+      "e2ePaths": [],
+      "linkedToolScripts": []
+    },
+    {
+      "id": "130",
+      "name": "Paperclip development loop",
+      "tier": "pr",
+      "status": "active",
+      "unitPaths": [],
+      "e2ePaths": [
+        "apps/superadmin/e2e/130/paperclip-development-loop.spec.ts"
+      ],
+      "linkedToolScripts": [
+        "tools/hermes-runtime/start-hermes.sh"
+      ]
+    },
+    {
+      "id": "131",
+      "name": "People database single-page workspace",
+      "tier": "pr",
+      "status": "active",
+      "unitPaths": [
+        "apps/superadmin/app/superadmin/settings/people-database/page.test.tsx"
+      ],
+      "e2ePaths": [
+        "apps/superadmin/e2e/131/people-database-single-page-workspace.spec.ts"
+      ],
+      "linkedToolScripts": [
+        "tools/people-db/check-es.sh",
+        "tools/people-db/seed-es-sample.sh",
+        "tools/people-db/convert_taipei_village_chiefs_pdf.py"
+      ]
+    },
+    {
+      "id": "132",
+      "name": "Prompt and IDE auto loop",
+      "tier": "pr",
+      "status": "active",
+      "unitPaths": [
+        "apps/superadmin/app/superadmin/dashboard/project-progress/components/development-table/prompt-auto-loop.test.ts",
+        "apps/superadmin/app/superadmin/dashboard/project-progress/components/development-table/PromptEngineerModal.auto-mode.test.tsx"
+      ],
+      "e2ePaths": [
+        "apps/superadmin/e2e/132/prompt-ide-auto-loop.spec.ts"
+      ],
+      "linkedToolScripts": []
+    }
+  ]
+}

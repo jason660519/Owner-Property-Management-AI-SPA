@@ -1,6 +1,7 @@
 import React from 'react';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { notFound } from 'next/navigation';
 
 // Mock Next.js navigation
 jest.mock('next/navigation', () => ({
@@ -169,7 +170,6 @@ describe('TutorialRolePage — 租客版', () => {
 
 describe('TutorialRolePage — 無效角色', () => {
   test('無效 role 應呼叫 notFound', () => {
-    const { notFound } = require('next/navigation');
     render(<TutorialRolePage params={makeParams('invalid-role')} />);
     expect(notFound).toHaveBeenCalled();
   });

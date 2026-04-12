@@ -52,6 +52,8 @@ function readRoleAgentMapping(): Partial<Record<PaperclipRoleId, string>> {
   const env: Record<PaperclipRoleId, string | undefined> = {
     fullstack: process.env.NEXT_PUBLIC_PAPERCLIP_AGENT_FULLSTACK,
     database: process.env.NEXT_PUBLIC_PAPERCLIP_AGENT_DATABASE,
+    sdet:
+      process.env.NEXT_PUBLIC_PAPERCLIP_AGENT_SDET ?? process.env.NEXT_PUBLIC_PAPERCLIP_AGENT_QA,
     qa: process.env.NEXT_PUBLIC_PAPERCLIP_AGENT_QA,
     devops: process.env.NEXT_PUBLIC_PAPERCLIP_AGENT_DEVOPS,
     architect: process.env.NEXT_PUBLIC_PAPERCLIP_AGENT_ARCHITECT,

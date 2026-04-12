@@ -5,7 +5,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { BookMarked, Images, FileText, Share2, RefreshCw, FlaskConical, HardDrive } from 'lucide-react';
+import { BookMarked, Images, Share2, RefreshCw, FlaskConical, HardDrive } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 
@@ -73,19 +73,6 @@ export default function SettingsPage() {
             </Card>
           </Link>
 
-          <Link href="/superadmin/settings/fp-converter" className="block">
-            <Card variant="outlined" padding="lg" hoverable>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText size={16} />
-                  FP 轉 PDF 功能
-                </CardTitle>
-                <CardDescription>
-                  上傳 Windows FinePrint (.fp) 格式謄本，系統自動提取文字並輸出為 PDF 檔案，無需 Windows 環境。
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          </Link>
           <Link href="/superadmin/settings/integrations" className="block">
             <Card variant="outlined" padding="lg" hoverable>
               <CardHeader>

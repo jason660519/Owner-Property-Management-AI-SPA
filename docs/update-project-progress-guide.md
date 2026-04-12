@@ -166,7 +166,30 @@ http://localhost:3001/superadmin/dashboard/project-progress#testing
 
 > Row ID 對應 `RAW_FEATURES` 陣列順序（1-based），儀表板**欄8/欄9** 自動產生對應連結。
 >
-> ⚠️ **注意**：實際測試目錄為 `apps/superadmin/unit_test/`（非 `unit_and_integration_test`）。E2E 目錄除編號子目錄外，也有命名目錄（如 `apps/superadmin/e2e/ai-settings/`），可依功能分類存放。
+> ⚠️ **注意**：實際測試目錄為 `apps/superadmin/unit_test/`（非 `unit_and_integration_test`）。E2E 請採「ID 專屬 + common」雙軌：`apps/superadmin/e2e/{ID}/` 與 `apps/superadmin/e2e/common/`，避免根層散落 `.spec.ts`。
+
+### 跨 ID 可重用工具（必讀）
+
+為避免把通用工具誤放到單一 ID 的測試資料夾，請遵循以下規範：
+
+| 類型 | 放置路徑 | 範例 |
+| :--- | :--- | :--- |
+| **單一 ID 驗收腳本**（只服務某個 Row） | `apps/superadmin/unit_test/{ID}/` 或 `apps/superadmin/e2e/{ID}/` | `apps/superadmin/e2e/131/people-database-single-page-workspace.spec.ts` |
+| **跨功能共用 E2E（非特定 ID）** | `apps/superadmin/e2e/common/` | `apps/superadmin/e2e/common/smoke/login-redirect.spec.ts` |
+| **跨 ID 可重用工具**（多個功能會用） | `tools/<domain>/` | `tools/people-db/check-es.sh`, `tools/people-db/seed-es-sample.sh` |
+
+**硬性規則**：
+
+1. `testScriptPath` 只填 ID 專屬測試目錄（`apps/superadmin/unit_test/{ID}`），**不要**填 `tools/...`。
+2. `tools/...` 腳本若被某個 ID 使用，需在該 ID 的 `unit_test/{ID}/README.md` 註明「如何呼叫工具」。
+3. `tools/...` 腳本命名需表意清楚，建議採 `check-*` / `seed-*` / `convert-*`。
+4. `tools/...` 若有參數，需提供 `--help`，並在對應 `docs/operational-guides/*.md` 補上使用範例。
+
+**判斷口訣**：
+
+- 只為某一個 Row 驗收而寫 → 放 `unit_test/{ID}` 或 `e2e/{ID}`
+- 不是單一 ID，且屬於通用 UI/流程驗收 → 放 `e2e/common`
+- 以後其他 Row 也可能拿來用 → 放 `tools/...`
 
 ---
 
@@ -306,8 +329,11 @@ apps/superadmin/
 │   └── 004/                    # 雲端空間管理相關測試
 └── e2e/                        # E2E / 驗收測試
     ├── 004/                    # 編號 subdir（storage dashboard）
-    ├── ai-settings/            # 命名 subdir（AI 設定相關 E2E）
-    └── *.spec.ts               # 其他 E2E 測試
+    ├── 131/                    # 編號 subdir（people database）
+    ├── common/                 # 跨功能共用 E2E（不綁定單一 ID）
+    │   ├── smoke/              # nightly 快速健康檢查層
+    │   └── regression/         # nightly 完整回歸層
+    └── utils/                  # E2E 共用 helper
 ```
 
 ---
@@ -344,3 +370,29 @@ apps/superadmin/
 | 其他                                                                  | `not_started` |
 
 工程師可在儀表板 Status 欄的下拉選單手動覆寫（僅本次瀏覽會話有效，頁面重整後恢復自動推導）。
+
+---
+
+## 🧭 測試治理 Phase 1（AI-native 最小落地）
+
+為支援「1 人 + 多 AI worker（Paperclip/Hermes/Cursor Agent）」並行開發，採用下列最小治理組件：
+
+1. **機器可讀測試清單**
+   - 檔案：`apps/superadmin/test-manifest.json`
+   - 目的：定義每個 ID / common 的 unit 與 e2e 測試路徑、執行層級（`pr` / `nightly`）、狀態（`active` / `quarantine`）。
+   - `tier=nightly` 時需標示 `nightlyLayer`：`smoke` 或 `regression`。
+   - `tier=nightly` 時需標示 `nightlyOrder`（非負整數），供同層執行排序（數字越小越先執行）。
+
+2. **一致性驗證腳本**
+   - 檔案：`tools/testing/validate-test-manifest.sh`
+   - 目的：在本地或 CI 驗證 manifest 結構、路徑存在性、tier/status 合法值。
+
+3. **Nightly 回歸腳本**
+   - 檔案：`tools/testing/run-superadmin-nightly.sh`
+   - 目的：每日/排程執行 active 測試並輸出 log；先跑 manifest 驗證，再依 `nightlyLayer` 順序執行（先 smoke，後 regression）。
+
+### 規則補充
+
+- `roadmap.ts` 仍是「人讀進度儀表板」來源；`test-manifest.json` 是「機器執行測試編排」來源，兩者職責不同。
+- `quarantine` 僅做短期隔離，需在對應 ID 的 README 註記原因與修復計畫。
+- 新增測試腳本時，除了更新 `roadmap.ts`，也要同步更新 `test-manifest.json`。

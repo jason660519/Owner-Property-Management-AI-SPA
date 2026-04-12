@@ -12,3 +12,6 @@ if [ -f "package.json" ] && grep -q '"build"' package.json 2>/dev/null; then
 fi
 
 echo "✅ Pre-push 檢查完成！"
+
+echo "📁 執行 File Manager 掃描（不阻擋 push）..."
+npm run file-manager:scan 2>/dev/null || echo "⚠️ File Manager 掃描失敗或已停用（可忽略，或至 /superadmin/tools/file-manager 檢查）"

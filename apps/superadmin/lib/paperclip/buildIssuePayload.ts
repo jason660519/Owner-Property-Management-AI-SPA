@@ -17,6 +17,7 @@ import type { AutoRouteResult } from './auto-route';
 const ALL_ROLES: readonly PaperclipRoleId[] = [
   'fullstack',
   'database',
+  'sdet',
   'qa',
   'devops',
   'architect',

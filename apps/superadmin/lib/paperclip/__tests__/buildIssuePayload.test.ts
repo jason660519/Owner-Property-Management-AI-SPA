@@ -5,6 +5,7 @@ const mapping: PaperclipRoleMapping = {
   companyId: 'company-abc',
   roleToAgentId: {
     fullstack: 'agent-fs-1',
+    sdet: 'agent-sdet-1',
     qa: 'agent-qa-1',
     architect: 'agent-arch-1',
     database: 'agent-db-1',
@@ -161,9 +162,10 @@ describe('buildIssuePayload', () => {
 });
 
 describe('isValidPaperclipRole', () => {
-  it('accepts all six known roles', () => {
+  it('accepts all known roles including sdet', () => {
     expect(isValidPaperclipRole('fullstack')).toBe(true);
     expect(isValidPaperclipRole('database')).toBe(true);
+    expect(isValidPaperclipRole('sdet')).toBe(true);
     expect(isValidPaperclipRole('qa')).toBe(true);
     expect(isValidPaperclipRole('devops')).toBe(true);
     expect(isValidPaperclipRole('architect')).toBe(true);

@@ -11,11 +11,12 @@ from loguru import logger
 
 from ..core.ocr_processor import OCRProcessor
 from ..core.search_client import get_search_client
+from ..core.supabase_client import get_supabase_client
 from ..utils.cache_manager import CacheManager
 from ..utils.log_archiver import LogArchiver
 from ..utils.logger import LOG_ROOT, SystemLogger
 from ..utils.metrics_collector import MetricsCollector
-from .routes import documents, es_admin, health, integrations, logs, ocr, search
+from .routes import documents, es_admin, health, integrations, logs, ocr, people_db, search
 
 app = FastAPI(
     title="OCR VLM Service",
@@ -58,6 +59,7 @@ app.include_router(integrations.router, tags=["integrations"])
 app.include_router(documents.router, tags=["documents"])
 app.include_router(search.router, tags=["search"])
 app.include_router(es_admin.router, tags=["admin-es"])
+app.include_router(people_db.router, prefix="/api/v1", tags=["people-database"])
 
 # Global instances
 ocr_processor = OCRProcessor()
@@ -91,6 +93,13 @@ async def startup_event():
         await search_client.initialize()
     except Exception as e:
         logger.error(f"Failed to initialize Elasticsearch client: {e}")
+
+    # Initialize Supabase Client
+    supabase_client = get_supabase_client()
+    try:
+        await supabase_client.initialize()
+    except Exception as e:
+        logger.error(f"Failed to initialize Supabase client: {e}")
 
     logger.info("OCR VLM Service started successfully")
 

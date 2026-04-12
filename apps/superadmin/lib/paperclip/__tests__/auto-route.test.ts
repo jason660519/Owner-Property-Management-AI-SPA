@@ -22,9 +22,9 @@ describe('autoRouteRole', () => {
     expect(autoRouteRole('[Row 031] Vercel 部署 runbook').role).toBe('devops');
   });
 
-  it('routes testing titles to qa', () => {
-    expect(autoRouteRole('[Row 040] 新增 Playwright E2E 測試').role).toBe('qa');
-    expect(autoRouteRole('[Row 041] 提升 QA coverage 到 80%').role).toBe('qa');
+  it('routes testing titles to sdet', () => {
+    expect(autoRouteRole('[Row 040] 新增 Playwright E2E 測試').role).toBe('sdet');
+    expect(autoRouteRole('[Row 041] 提升 QA coverage 到 80%').role).toBe('sdet');
   });
 
   it('routes architecture titles to architect (via keyword)', () => {
@@ -33,11 +33,11 @@ describe('autoRouteRole', () => {
   });
 
   // ── rule ordering: specific before broad ───────────────────────────────
-  it('prefers qa over database when both keywords appear', () => {
-    // Title mentions both "測試" (qa) and "資料庫" (database).
-    // qa rule is checked first, so it wins.
+  it('prefers sdet over database when both keywords appear', () => {
+    // Title mentions both "測試" (sdet) and "資料庫" (database).
+    // sdet rule is checked first, so it wins.
     const result = autoRouteRole('[Row 060] 為資料庫 migration 加 E2E 測試');
-    expect(result.role).toBe('qa');
+    expect(result.role).toBe('sdet');
     expect(result.matchedKeyword).toBe('E2E');
   });
 
@@ -58,7 +58,7 @@ describe('autoRouteRole', () => {
   });
 
   it('matches ASCII keywords case-insensitively', () => {
-    expect(autoRouteRole('[Row 072] PLAYWRIGHT runner 升級').role).toBe('qa');
+    expect(autoRouteRole('[Row 072] PLAYWRIGHT runner 升級').role).toBe('sdet');
     expect(autoRouteRole('[Row 073] Docker Compose 重構').role).toBe('devops');
   });
 
