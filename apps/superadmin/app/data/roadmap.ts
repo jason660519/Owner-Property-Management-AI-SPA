@@ -209,17 +209,27 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員-資料庫Elastic Search管理功能",
     locatedPage: "superadmin/dashboard/elasticsearch",
-    percentage: 0,
+    percentage: 80,
+    phase: "testing",
     acceptanceCriteria:
       "1. 顯示 Elasticsearch 叢集狀態（健康度、索引數量、文件總數）。\n2. 可執行搜尋查詢並預覽結果（最多100筆）。\n3. 支援手動重建索引（Reindex）操作。\n4. 顯示各索引的磁碟使用量。\n5. 異常狀態（Yellow/Red）需自動警報管理員。",
     docPath: "",
     featureSpecDocPath: "/project-process/features/elasticsearch-management.md",
     tddSpecDocPath:
       "/project-process/features/tdd-superadmin-platform-20260221.md",
+    testLogDocPath:
+      "/project-process/test-logs/test-elasticsearch-management-2026-04-12.md",
     category: "超級管理員 (Super Admin)",
     points: 5,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    testStatus: "in_progress",
+    testCoverage: 75,
+    unitTestCoverage: 80,
+    e2eTestCoverage: 70,
+    defectCount: 0,
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/04/12",
+    developmentProgress:
+      "2026-04-12: 建立 /api/elasticsearch Next.js API 代理路由（health / stats / search / reindex）；修正 dashboard page 的 TypeScript 型別問題（移除 any）及 XSS 安全問題（stripHtml 防護）；改用內部 API proxy；新增 Elasticsearch 側邊欄導覽；完成單元測試 20 個案例 + E2E 測試 8 個案例。",
   },
   {
     name: "超級管理員AI LLM API效能監控－AI語音回應可靠度監控功能",

@@ -14,6 +14,7 @@ import {
   Settings,
   BookMarked,
   Mail,
+  Search,
 } from 'lucide-react';
 import type { ElementType } from 'react';
 
@@ -29,6 +30,7 @@ export const navItems: NavItem[] = [
   { name: 'Properties Management', href: '/superadmin/properties', icon: Building },
   { name: 'Contact Leads', href: '/superadmin/contacts', icon: Mail },
   { name: 'Database', href: '/superadmin/dashboard/supabase', icon: Database },
+  { name: 'Elasticsearch', href: '/superadmin/dashboard/elasticsearch', icon: Search },
   { name: 'Storage', href: '/superadmin/dashboard/storage', icon: HardDrive },
   { name: 'Behavior Monitor', href: '/superadmin/dashboard/behavior-monitoring', icon: Activity },
   { name: 'Performance Monitor', href: '/superadmin/dashboard/performance', icon: Gauge },

@@ -17,7 +17,35 @@ interface ESStats {
   index_name: string;
 }
 
-const OCR_SERVICE_URL = process.env.NEXT_PUBLIC_OCR_SERVICE_URL || "http://localhost:8819";
+interface SearchHighlight {
+  owner_name?: string[];
+  property_address?: string[];
+  ocr_text?: string[];
+}
+
+interface SearchResult {
+  document_id: string;
+  owner_name: string;
+  property_address: string;
+  score: number;
+  highlight?: SearchHighlight;
+}
+
+/** Strip all HTML tags, returning plain text. Prevents XSS from ES highlight fragments. */
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, "");
+}
+
+/** Extract the first highlight fragment as plain text, falling back to raw field. */
+function getHighlightText(
+  highlights: string[] | undefined,
+  fallback: string
+): string {
+  if (highlights && highlights.length > 0) {
+    return stripHtml(highlights[0]);
+  }
+  return fallback || "";
+}
 
 export default function ElasticsearchDashboard() {
   const [health, setHealth] = useState<ESHealth | null>(null);
@@ -25,16 +53,16 @@ export default function ElasticsearchDashboard() {
   const [loading, setLoading] = useState(true);
   const [reindexing, setReindexing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [reindexMessage, setReindexMessage] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
       setLoading(true);
       const [healthRes, statsRes] = await Promise.all([
-        fetch(`${OCR_SERVICE_URL}/api/v1/admin/es/health`),
-        fetch(`${OCR_SERVICE_URL}/api/v1/admin/es/stats`),
+        fetch("/api/elasticsearch?action=health"),
+        fetch("/api/elasticsearch?action=stats"),
       ]);
 
       if (healthRes.ok) setHealth(await healthRes.json());
@@ -56,16 +84,17 @@ export default function ElasticsearchDashboard() {
     if (!confirm("確定要重建索引嗎？這可能需要一段時間。")) return;
     try {
       setReindexing(true);
-      const res = await fetch(`${OCR_SERVICE_URL}/api/v1/admin/es/reindex`, {
+      setReindexMessage(null);
+      const res = await fetch("/api/elasticsearch?action=reindex", {
         method: "POST",
       });
       if (res.ok) {
-        alert("已觸發重建索引排程");
+        setReindexMessage("已觸發重建索引排程");
       } else {
-        alert("觸發失敗");
+        setReindexMessage("觸發失敗，請稍後再試");
       }
     } catch (error) {
-      alert("請求失敗");
+      setReindexMessage("請求失敗");
     } finally {
       setReindexing(false);
     }
@@ -75,10 +104,12 @@ export default function ElasticsearchDashboard() {
     if (!searchQuery.trim()) return;
     try {
       setSearchLoading(true);
-      const res = await fetch(`${OCR_SERVICE_URL}/api/v1/search/documents?q=${encodeURIComponent(searchQuery)}`);
+      const res = await fetch(
+        `/api/elasticsearch?action=search&q=${encodeURIComponent(searchQuery)}`
+      );
       if (res.ok) {
         const data = await res.json();
-        setSearchResults(data.results);
+        setSearchResults(data.results ?? []);
       }
     } catch (error) {
       console.error("Search failed:", error);
@@ -87,7 +118,7 @@ export default function ElasticsearchDashboard() {
     }
   };
 
-  const formatBytes = (bytes: number) => {
+  const formatBytes = (bytes: number): string => {
     if (bytes === 0) return "0 B";
     const k = 1024;
     const sizes = ["B", "KB", "MB", "GB", "TB"];
@@ -143,7 +174,9 @@ export default function ElasticsearchDashboard() {
         {/* Index Stats Card */}
         <Card className="p-6 bg-[#1a1a1a] border-gray-800">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold text-gray-200">索引統計 ({stats?.index_name || "N/A"})</h2>
+            <h2 className="text-lg font-semibold text-gray-200">
+              索引統計 ({stats?.index_name || "N/A"})
+            </h2>
             <Button
               onClick={handleReindex}
               disabled={reindexing}
@@ -153,17 +186,24 @@ export default function ElasticsearchDashboard() {
               {reindexing ? "重建中..." : "重建索引"}
             </Button>
           </div>
+          {reindexMessage && (
+            <div className="mb-4 text-sm text-yellow-300">{reindexMessage}</div>
+          )}
           {loading ? (
             <div className="text-gray-400">載入中...</div>
           ) : stats ? (
             <div className="space-y-4">
               <div className="flex justify-between">
                 <span className="text-gray-400">文件總數</span>
-                <span className="text-white font-mono text-xl">{stats.doc_count.toLocaleString()}</span>
+                <span className="text-white font-mono text-xl">
+                  {stats.doc_count.toLocaleString()}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">索引大小</span>
-                <span className="text-white font-mono text-xl">{formatBytes(stats.store_size_in_bytes)}</span>
+                <span className="text-white font-mono text-xl">
+                  {formatBytes(stats.store_size_in_bytes)}
+                </span>
               </div>
             </div>
           ) : (
@@ -191,28 +231,29 @@ export default function ElasticsearchDashboard() {
 
         <div className="space-y-4">
           {searchResults.map((result) => (
-            <div key={result.document_id} className="p-4 bg-gray-900 rounded-md border border-gray-800">
+            <div
+              key={result.document_id}
+              className="p-4 bg-gray-900 rounded-md border border-gray-800"
+            >
               <div className="flex justify-between mb-2">
-                <span 
-                  className="font-bold text-blue-400"
-                  dangerouslySetInnerHTML={{ 
-                    __html: result.highlight?.owner_name?.[0] || result.owner_name || "未知屋主" 
-                  }}
-                />
-                <span className="text-xs text-gray-500 font-mono">Score: {result.score.toFixed(2)}</span>
+                <span className="font-bold text-blue-400">
+                  {getHighlightText(result.highlight?.owner_name, result.owner_name || "未知屋主")}
+                </span>
+                <span className="text-xs text-gray-500 font-mono">
+                  Score: {result.score.toFixed(2)}
+                </span>
               </div>
               <div className="text-sm text-gray-300 mb-1">
                 <span className="text-gray-500">地址: </span>
-                <span 
-                  dangerouslySetInnerHTML={{ 
-                    __html: result.highlight?.property_address?.[0] || result.property_address || "無地址" 
-                  }}
-                />
+                {getHighlightText(
+                  result.highlight?.property_address,
+                  result.property_address || "無地址"
+                )}
               </div>
-              {result.highlight?.ocr_text && (
+              {result.highlight?.ocr_text && result.highlight.ocr_text.length > 0 && (
                 <div className="text-xs text-gray-500 mt-2 p-2 bg-black rounded">
                   <span className="block mb-1 text-gray-600">匹配內容:</span>
-                  <div dangerouslySetInnerHTML={{ __html: "..." + result.highlight.ocr_text[0] + "..." }} />
+                  <span>...{stripHtml(result.highlight.ocr_text[0])}...</span>
                 </div>
               )}
             </div>
