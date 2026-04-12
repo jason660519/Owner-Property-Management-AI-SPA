@@ -1,6 +1,41 @@
 
 import { createClient } from '@/lib/supabase/server'
+import { sendViewingAppointmentStatusEmail } from '@/lib/landlord/appointment-notifications'
 import { NextRequest, NextResponse } from 'next/server'
+
+type AppointmentStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled'
+
+const VALID_STATUSES: AppointmentStatus[] = ['pending', 'confirmed', 'completed', 'cancelled']
+
+function isValidStatus(value: unknown): value is AppointmentStatus {
+  return typeof value === 'string' && VALID_STATUSES.includes(value as AppointmentStatus)
+}
+
+async function resolvePropertySummary(supabase: Awaited<ReturnType<typeof createClient>>, propertyId: string) {
+  const { data: rental } = await supabase
+    .from('property_rentals')
+    .select('id, title, address')
+    .eq('id', propertyId)
+    .single()
+
+  if (rental) {
+    return {
+      title: rental.title ?? '房源',
+      address: rental.address ?? '',
+    }
+  }
+
+  const { data: sale } = await supabase
+    .from('property_sales')
+    .select('id, title, address')
+    .eq('id', propertyId)
+    .single()
+
+  return {
+    title: sale?.title ?? '房源',
+    address: sale?.address ?? '',
+  }
+}
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient()
@@ -53,6 +88,21 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { status, preferred_date, preferred_time, feedback } = body
 
+  if (status && !isValidStatus(status)) {
+    return NextResponse.json({ error: 'Invalid status value' }, { status: 400 })
+  }
+
+  const { data: existingAppointment, error: existingError } = await supabase
+    .from('viewing_appointments_tenant')
+    .select('id, property_id, visitor_name, visitor_email, preferred_date, preferred_time, status')
+    .eq('id', id)
+    .eq('landlord_id', user.id)
+    .single()
+
+  if (existingError || !existingAppointment) {
+    return NextResponse.json({ error: existingError?.message ?? 'Appointment not found' }, { status: 404 })
+  }
+
   const updateData: Record<string, unknown> = {
     updated_at: new Date().toISOString()
   }
@@ -67,15 +117,37 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (preferred_time) updateData.preferred_time = preferred_time
   if (feedback) updateData.feedback = feedback
 
-  const { error } = await supabase
+  const { data: updatedAppointment, error } = await supabase
     .from('viewing_appointments_tenant')
     .update(updateData)
+    .select('id, property_id, visitor_name, visitor_email, preferred_date, preferred_time, status, feedback')
     .eq('id', id)
     .eq('landlord_id', user.id)
+    .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  
-  return NextResponse.json({ success: true })
+
+  let emailSent: boolean | null = null
+  if (
+    status &&
+    existingAppointment.status !== status &&
+    updatedAppointment?.visitor_email &&
+    (status === 'confirmed' || status === 'cancelled' || status === 'completed')
+  ) {
+    const property = await resolvePropertySummary(supabase, updatedAppointment.property_id)
+    emailSent = await sendViewingAppointmentStatusEmail({
+      tenantEmail: updatedAppointment.visitor_email,
+      tenantName: updatedAppointment.visitor_name ?? '租客',
+      propertyTitle: property.title,
+      propertyAddress: property.address,
+      preferredDate: updatedAppointment.preferred_date,
+      preferredTime: updatedAppointment.preferred_time,
+      status,
+      feedback: typeof feedback === 'string' ? feedback : null,
+    })
+  }
+
+  return NextResponse.json({ success: true, emailSent })
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
