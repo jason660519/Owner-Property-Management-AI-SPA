@@ -1,0 +1,65 @@
+# Phase N Metadata
+# Phase N represents the "next" phase beyond the four standard lifecycle phases
+# (development, testing, deployment, operations). It is used for post-launch
+# continuous improvement, experimental features, and long-horizon research tracks.
+
+phase: "N"
+phase_label: "Next / Continuous Improvement"
+created_at: "2026-04-12"
+created_by: "agent/cto"
+issue_ref: "VIS-17"
+
+description: |
+  Phase N is the open-ended phase that follows the standard four-phase lifecycle:
+    1. development   – feature built
+    2. testing       – QA & automated tests
+    3. deployment    – shipped to production
+    4. operations    – monitored in production
+    N. next          – ongoing iteration, research, and experimentation
+
+purpose:
+  - Capture work that does not map cleanly to a single delivery phase
+  - Track long-running experiments and architectural probes
+  - Document infrastructure spikes before they are promoted to a formal row
+
+governance:
+  owner_role: CTO
+  review_cadence: per-sprint
+  promotion_criteria: |
+    A Phase N item is promoted to a numbered row (e.g. row-XXX) once scope is
+    defined, an owner is assigned, and acceptance criteria are agreed upon.
+
+fields:
+  - name: phase
+    type: string
+    description: Always "N" for items in this phase
+  - name: phase_label
+    type: string
+    description: Human-readable label for the phase
+  - name: created_at
+    type: date (YYYY-MM-DD)
+    description: Date the metadata record was created
+  - name: created_by
+    type: string
+    description: Agent or human who created the record
+  - name: issue_ref
+    type: string
+    description: Paperclip issue that introduced this record
+  - name: description
+    type: string
+    description: Narrative description of the phase
+  - name: purpose
+    type: list[string]
+    description: Bullet-point list of what Phase N is for
+  - name: governance
+    type: object
+    description: Ownership and review rules for Phase N items
+  - name: fields
+    type: list[object]
+    description: Self-documenting schema for this file
+
+examples:
+  - row_id: "N-001"
+    title: "Phase N metadata probe"
+    status: "done"
+    note: "Initial scaffolding of phase-n directory and this metadata file"
