@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-13-phase-1.4",
+  "updatedAt": "2026-04-12-row-030",
   "entries": [
     {
       "id": "common-smoke",
@@ -102,6 +102,17 @@
       "e2ePaths": [
         "apps/superadmin/e2e/019/company-tutorial.spec.ts"
       ],
+      "linkedToolScripts": []
+    },
+    {
+      "id": "030",
+      "name": "Landlord customers details mode",
+      "tier": "pr",
+      "status": "active",
+      "unitPaths": [
+        "apps/web/app/(dashboard)/landlord/customers/__tests__/customer-details.test.ts"
+      ],
+      "e2ePaths": [],
       "linkedToolScripts": []
     },
     {
