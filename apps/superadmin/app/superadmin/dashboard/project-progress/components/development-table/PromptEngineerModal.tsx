@@ -1,18 +1,24 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Play, Loader2, Send, ExternalLink, CheckCircle2, Copy, GitBranch, Trash2 } from 'lucide-react';
+import { Play, Loader2, Send, ExternalLink, CheckCircle2, Copy, GitBranch, Trash2, Terminal, ChevronDown, ChevronUp } from 'lucide-react';
 import clsx from 'clsx';
 import type { PromptContext, IDEOption, ProgressRow } from './types';
 import { IDE_OPTIONS, buildPromptContext } from './types';
 import { buildIssuePayload, isValidPaperclipRole } from '@/lib/paperclip/buildIssuePayload';
+import type { BuildIssuePayloadResult } from '@/lib/paperclip/buildIssuePayload';
 import { getPaperclipConfig } from '@/lib/paperclip/config';
-import type { PaperclipSubmission } from '@/lib/paperclip/types';
+// PaperclipSubmission no longer used directly — BuildIssuePayloadResult
+// extends it with optional autoRoute info.
 import type {
   CreateIssueResult,
   PaperclipIssueResource,
   FetchIssueStatusResult,
   PaperclipIssueStatusSnapshot,
+  FetchIssueCostResult,
+  PaperclipIssueCostSnapshot,
+  FetchIssueRunLogResult,
+  PaperclipIssueRunLogSnapshot,
 } from '@/lib/paperclip/client';
 import type { WorktreePaths } from '@/lib/paperclip/worktree';
 import type { PaperclipIssueStatus } from '@/lib/paperclip/types';
@@ -122,7 +128,7 @@ export default function PromptEngineerModal({
   const [currentTaskStatus, setCurrentTaskStatus] = useState<string | null>(null);
   const [currentTaskLogs, setCurrentTaskLogs] = useState<string[]>([]);
   const [promptError, setPromptError] = useState<string | null>(null);
-  const [paperclipPreview, setPaperclipPreview] = useState<PaperclipSubmission | null>(null);
+  const [paperclipPreview, setPaperclipPreview] = useState<BuildIssuePayloadResult | null>(null);
   const [paperclipSending, setPaperclipSending] = useState(false);
   const [paperclipResult, setPaperclipResult] = useState<
     | { ok: true; issue: PaperclipIssueResource; issueUrl: string; worktree?: WorktreePaths }
@@ -137,6 +143,9 @@ export default function PromptEngineerModal({
     | { phase: 'error'; message: string }
   >({ phase: 'idle' });
   const [liveStatus, setLiveStatus] = useState<PaperclipIssueStatusSnapshot | null>(null);
+  const [cost, setCost] = useState<PaperclipIssueCostSnapshot | null>(null);
+  const [runLog, setRunLog] = useState<PaperclipIssueRunLogSnapshot | null>(null);
+  const [showRunLog, setShowRunLog] = useState(true);
 
   // Close on Escape
   useEffect(() => {
@@ -238,6 +247,8 @@ export default function PromptEngineerModal({
     setPaperclipResult(null);
     setCleanupState({ phase: 'idle' });
     setLiveStatus(null);
+    setCost(null);
+    setRunLog(null);
   }, [row, promptConfigIDE, promptConfigWorkCategory, promptText]);
 
   // Live Paperclip issue status polling. Kicks in after successful send and
@@ -251,6 +262,50 @@ export default function PromptEngineerModal({
     const startedAt = Date.now();
     const MAX_POLL_MS = 30 * 60 * 1000;
 
+    // Tracks whether we've already fetched cost for this issue's terminal
+    // state — prevents repeated hits while the interval is still clearing.
+    let costFetched = false;
+
+    const fetchCostOnce = async () => {
+      if (costFetched || cancelled) return;
+      costFetched = true;
+      try {
+        const res = await fetch(`/api/paperclip/issues/${encodeURIComponent(issueId)}/cost`, {
+          headers: { 'x-user-id': userId },
+        });
+        if (!res.ok) return;
+        const json = (await res.json()) as FetchIssueCostResult;
+        if (cancelled || !json.ok) return;
+        setCost(json.snapshot);
+      } catch {
+        /* ignore — cost display is best-effort */
+      }
+    };
+
+    // Cache the discovered runId so subsequent polls (especially after Paperclip
+    // clears executionRunId on the issue) can go straight to the run endpoint.
+    let cachedRunId: string | undefined;
+
+    const fetchRunLog = async () => {
+      if (cancelled) return;
+      const params = new URLSearchParams();
+      if (cachedRunId) params.set('runId', cachedRunId);
+      try {
+        const url = `/api/paperclip/issues/${encodeURIComponent(issueId)}/run-log?${params}`;
+        const res = await fetch(url, { headers: { 'x-user-id': userId } });
+        if (!res.ok) return;
+        const json = (await res.json()) as FetchIssueRunLogResult;
+        if (cancelled || !json.ok) return;
+        setRunLog(json.snapshot);
+        // Cache for future polls.
+        if (json.snapshot.runId && !cachedRunId) {
+          cachedRunId = json.snapshot.runId;
+        }
+      } catch {
+        /* ignore — best effort */
+      }
+    };
+
     const tick = async () => {
       if (cancelled) return;
       if (Date.now() - startedAt > MAX_POLL_MS) return;
@@ -262,7 +317,14 @@ export default function PromptEngineerModal({
         const json = (await res.json()) as FetchIssueStatusResult;
         if (cancelled || !json.ok) return;
         setLiveStatus(json.snapshot);
-        if (json.snapshot.terminal) return; // stop polling, let interval be cleared below
+        // Pull the live run-log on every tick — cheap (two Paperclip GETs)
+        // and lets us show stdout progress while the run is active.
+        void fetchRunLog();
+        if (json.snapshot.terminal) {
+          // Final cost once the run is done. Fire-and-forget.
+          void fetchCostOnce();
+          return;
+        }
       } catch {
         /* transient network error — try again next tick */
       }
@@ -444,6 +506,18 @@ export default function PromptEngineerModal({
                   ⚠️ 尚未設定 <code className="font-mono">NEXT_PUBLIC_PAPERCLIP_COMPANY_ID</code>；此 endpoint 目前無效。
                 </p>
               )}
+              {paperclipPreview.autoRoute && (
+                <p className="mt-2 text-[10px] text-sky-600 dark:text-sky-400">
+                  🤖 未選擇角色，系統自動指派：
+                  <span className="font-semibold">{paperclipPreview.autoRoute.role}</span>
+                  {paperclipPreview.autoRoute.source === 'keyword' && paperclipPreview.autoRoute.matchedKeyword && (
+                    <span>（關鍵字 match：「{paperclipPreview.autoRoute.matchedKeyword}」）</span>
+                  )}
+                  {paperclipPreview.autoRoute.source === 'fallback' && (
+                    <span>（無關鍵字 match → 交由架構師 triage）</span>
+                  )}
+                </p>
+              )}
               {paperclipPreview.companyId && !paperclipPreview.payload.assigneeAgentId && promptConfigWorkCategory && (
                 <p className="mt-2 text-[10px] text-amber-600 dark:text-amber-400">
                   ⚠️ 未找到 <code className="font-mono">NEXT_PUBLIC_PAPERCLIP_AGENT_{promptConfigWorkCategory.toUpperCase()}</code>；Issue 將以無 assignee 方式建立。
@@ -487,20 +561,43 @@ export default function PromptEngineerModal({
                         Paperclip Issue 已建立
                       </p>
                     </div>
-                    {liveStatus && (
-                      <span
-                        className={clsx(
-                          'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-medium',
-                          STATUS_BADGE_STYLE[liveStatus.status].className,
-                        )}
-                        title={`Paperclip status · 最後更新 ${liveStatus.updatedAt ?? ''}`}
-                      >
-                        {!liveStatus.terminal && (
-                          <Loader2 className="h-2.5 w-2.5 animate-spin" aria-hidden="true" />
-                        )}
-                        {STATUS_BADGE_STYLE[liveStatus.status].label}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {cost && (cost.costUsd !== undefined || cost.inputTokens !== undefined) && (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full border border-border-default bg-bg-secondary px-2 py-0.5 text-[9px] font-mono text-text-secondary"
+                          title={
+                            `model: ${cost.model ?? 'unknown'}\n` +
+                            `input tokens: ${cost.inputTokens?.toLocaleString() ?? '?'}\n` +
+                            `output tokens: ${cost.outputTokens?.toLocaleString() ?? '?'}\n` +
+                            `cached input: ${cost.cachedInputTokens?.toLocaleString() ?? '?'}\n` +
+                            `runId: ${cost.runId ?? '-'}`
+                          }
+                        >
+                          {cost.costUsd !== undefined
+                            ? `$${cost.costUsd.toFixed(4)}`
+                            : '$—'}
+                          {cost.inputTokens !== undefined && cost.outputTokens !== undefined && (
+                            <span className="text-text-muted">
+                              · {cost.inputTokens.toLocaleString()}→{cost.outputTokens.toLocaleString()}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                      {liveStatus && (
+                        <span
+                          className={clsx(
+                            'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-medium',
+                            STATUS_BADGE_STYLE[liveStatus.status].className,
+                          )}
+                          title={`Paperclip status · 最後更新 ${liveStatus.updatedAt ?? ''}`}
+                        >
+                          {!liveStatus.terminal && (
+                            <Loader2 className="h-2.5 w-2.5 animate-spin" aria-hidden="true" />
+                          )}
+                          {STATUS_BADGE_STYLE[liveStatus.status].label}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <p className="mt-1 text-[10px] text-text-secondary">
                     ID: <span className="font-mono">{paperclipResult.issue.issueKey ?? paperclipResult.issue.id}</span>
@@ -514,6 +611,70 @@ export default function PromptEngineerModal({
                     在 Paperclip 開啟
                     <ExternalLink className="h-3 w-3" />
                   </a>
+                  {/* Live run log — streams stdout while the agent is working */}
+                  {runLog && (runLog.stdoutExcerpt || runLog.runStatus) && (
+                    <div className="mt-2 rounded border border-indigo-500/30 bg-bg-primary/60 p-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowRunLog((s) => !s)}
+                        className="flex w-full items-center justify-between text-left"
+                        aria-expanded={showRunLog}
+                      >
+                        <div className="flex items-center gap-1 text-[10px] font-medium text-text-secondary">
+                          <Terminal className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+                          <span>Live run log</span>
+                          {runLog.runStatus && (
+                            <span className="font-mono text-[9px] text-text-muted">
+                              · {runLog.runStatus}
+                            </span>
+                          )}
+                          {runLog.runId && (
+                            <span className="font-mono text-[9px] text-text-muted">
+                              · {runLog.runId.slice(0, 8)}
+                            </span>
+                          )}
+                        </div>
+                        {showRunLog ? (
+                          <ChevronUp className="h-3 w-3 text-text-muted" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3 text-text-muted" />
+                        )}
+                      </button>
+                      {showRunLog && (
+                        <>
+                          {runLog.stdoutExcerpt ? (
+                            <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-bg-secondary p-1.5 text-[9px] font-mono leading-snug text-text-secondary">
+                              {runLog.stdoutExcerpt}
+                            </pre>
+                          ) : (
+                            <p className="mt-1 text-[10px] italic text-text-muted">
+                              (等待 agent 產生輸出…)
+                            </p>
+                          )}
+                          {runLog.stderrExcerpt && (
+                            <pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap rounded bg-red-500/10 p-1.5 text-[9px] font-mono leading-snug text-red-700 dark:text-red-400">
+                              {runLog.stderrExcerpt}
+                            </pre>
+                          )}
+                          {runLog.exitCode !== undefined && (
+                            <p className="mt-1 text-[9px] text-text-muted">
+                              exit code: <span className="font-mono">{runLog.exitCode}</span>
+                              {runLog.startedAt && runLog.finishedAt && (
+                                <span>
+                                  {' · '}
+                                  duration:{' '}
+                                  {Math.round(
+                                    (Date.parse(runLog.finishedAt) - Date.parse(runLog.startedAt)) / 1000,
+                                  )}
+                                  s
+                                </span>
+                              )}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
                   {paperclipResult.worktree && (
                     <div className="mt-2 rounded border border-emerald-500/30 bg-bg-primary/60 p-2">
                       <div className="flex items-center gap-1 text-[10px] font-medium text-text-secondary">

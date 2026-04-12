@@ -14,6 +14,7 @@ import {
   Settings,
   BookMarked,
   Mail,
+  GitBranch,
 } from 'lucide-react';
 import type { ElementType } from 'react';
 
@@ -34,6 +35,7 @@ export const navItems: NavItem[] = [
   { name: 'Performance Monitor', href: '/superadmin/dashboard/performance', icon: Gauge },
   { name: 'AI LLM Monitor', href: '/superadmin/dashboard/llm-monitor', icon: Brain },
   { name: 'Project Progress Dashboard', href: '/superadmin/dashboard/project-progress', icon: FileText },
+  { name: 'Paperclip Worktrees', href: '/superadmin/dashboard/paperclip-worktrees', icon: GitBranch },
   { name: 'Project Docs', href: '/superadmin/docs', icon: BookOpen },
   { name: 'Project Files', href: '/superadmin/project-file', icon: BookOpen },
   { name: 'AI 服務 / API KEY', href: '/superadmin/settings/api_key_and_model_setting', icon: Key },

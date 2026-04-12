@@ -6,6 +6,8 @@ const mapping: PaperclipRoleMapping = {
   roleToAgentId: {
     fullstack: 'agent-fs-1',
     qa: 'agent-qa-1',
+    architect: 'agent-arch-1',
+    database: 'agent-db-1',
   },
 };
 
@@ -39,23 +41,24 @@ describe('buildIssuePayload', () => {
   it('omits assigneeAgentId when role has no mapped agent', () => {
     const result = buildIssuePayload({
       rowId: '010',
-      featureName: 'RLS policy 強化',
+      featureName: 'DevOps 自動化流程',
       ideLabel: 'Claude CLI',
-      roleId: 'database',
-      promptText: 'add rls policy',
+      roleId: 'devops',
+      promptText: 'add pipeline',
       baseUrl: 'http://localhost:3187',
       mapping,
     });
 
+    // 'devops' is not in the test mapping → no assignee.
     expect(result.payload.assigneeAgentId).toBeUndefined();
-    expect(result.payload.description).toContain('database');
+    expect(result.payload.description).toContain('devops');
     expect(result.payload.description).toContain('Claude CLI');
   });
 
-  it('handles empty role id as "unspecified"', () => {
+  it('auto-routes when roleId is empty — assigns via keyword match', () => {
     const result = buildIssuePayload({
       rowId: '007',
-      featureName: 'misc task',
+      featureName: '超級管理員-資料庫Elastic Search管理功能',
       ideLabel: '',
       roleId: '',
       promptText: 'hello',
@@ -63,9 +66,49 @@ describe('buildIssuePayload', () => {
       mapping,
     });
 
-    expect(result.payload.assigneeAgentId).toBeUndefined();
-    expect(result.payload.description).toContain('**Role**: (未指定)');
+    // Auto-route should have resolved to 'database' from "資料庫" keyword.
+    expect(result.autoRoute).toBeDefined();
+    expect(result.autoRoute?.role).toBe('database');
+    expect(result.autoRoute?.source).toBe('keyword');
+    expect(result.payload.assigneeAgentId).toBe('agent-db-1');
+    expect(result.payload.description).toContain('🤖 auto:');
+    expect(result.payload.description).toContain('database');
     expect(result.payload.description).toContain('**IDE**: (未指定)');
+  });
+
+  it('falls back to architect when roleId is empty and no keyword matches', () => {
+    const result = buildIssuePayload({
+      rowId: '012',
+      featureName: '買家的溝通中心',
+      ideLabel: '',
+      roleId: '',
+      promptText: 'hello',
+      baseUrl: 'http://localhost:3187',
+      mapping,
+    });
+
+    expect(result.autoRoute).toBeDefined();
+    expect(result.autoRoute?.role).toBe('architect');
+    expect(result.autoRoute?.source).toBe('fallback');
+    expect(result.payload.assigneeAgentId).toBe('agent-arch-1');
+    expect(result.payload.description).toContain('🤖 auto: fallback → architect');
+  });
+
+  it('does NOT auto-route when roleId is explicitly set', () => {
+    const result = buildIssuePayload({
+      rowId: '001',
+      featureName: '買家搜尋功能',
+      ideLabel: 'Cursor',
+      roleId: 'fullstack',
+      promptText: 'hello',
+      baseUrl: 'http://localhost:3187',
+      mapping,
+    });
+
+    expect(result.autoRoute).toBeUndefined();
+    expect(result.payload.assigneeAgentId).toBe('agent-fs-1');
+    expect(result.payload.description).toContain('**Role**: fullstack');
+    expect(result.payload.description).not.toContain('🤖 auto:');
   });
 
   it('strips trailing slashes from baseUrl', () => {

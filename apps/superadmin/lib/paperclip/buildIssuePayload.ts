@@ -1,5 +1,9 @@
 // Pure function that turns PromptEngineerModal state into a
 // Paperclip issue POST submission. Frontend-only, no network.
+//
+// When roleId is empty (user forgot to pick a role), autoRouteRole kicks in
+// and assigns a role based on keyword matching against the title. The
+// description is annotated with a tag so agents know the route was automatic.
 
 import type {
   PaperclipIssuePayload,
@@ -7,6 +11,8 @@ import type {
   PaperclipRoleMapping,
   PaperclipSubmission,
 } from './types';
+import { autoRouteRole, formatAutoRouteTag } from './auto-route';
+import type { AutoRouteResult } from './auto-route';
 
 const ALL_ROLES: readonly PaperclipRoleId[] = [
   'fullstack',
@@ -33,19 +39,45 @@ export interface BuildIssuePayloadArgs {
   mapping: PaperclipRoleMapping;
 }
 
-export function buildIssuePayload(args: BuildIssuePayloadArgs): PaperclipSubmission {
+export interface BuildIssuePayloadResult extends PaperclipSubmission {
+  /** When roleId was empty and auto-routing kicked in, this describes the
+   *  decision. Undefined when the user explicitly picked a role. */
+  autoRoute?: AutoRouteResult;
+}
+
+export function buildIssuePayload(args: BuildIssuePayloadArgs): BuildIssuePayloadResult {
   const { rowId, featureName, ideLabel, roleId, promptText, baseUrl, mapping } = args;
 
   const rawTitle = `[Row ${rowId}] ${featureName}`.trim();
   const title =
     rawTitle.length > MAX_TITLE_LENGTH ? rawTitle.slice(0, MAX_TITLE_LENGTH) : rawTitle;
 
-  const assigneeAgentId = roleId ? mapping.roleToAgentId[roleId] : undefined;
+  // ── Resolve effective role ──────────────────────────────────────────
+  // When the user explicitly picked a role, honour it. Otherwise, auto-
+  // route based on the title keywords (fallback → architect for triage).
+  let effectiveRole: PaperclipRoleId | undefined;
+  let autoRoute: AutoRouteResult | undefined;
+
+  if (roleId) {
+    effectiveRole = roleId;
+  } else {
+    autoRoute = autoRouteRole(title);
+    effectiveRole = autoRoute.role;
+  }
+
+  const assigneeAgentId = effectiveRole
+    ? mapping.roleToAgentId[effectiveRole]
+    : undefined;
+
+  // ── Build description ──────────────────────────────────────────────
+  const roleLabel = autoRoute
+    ? `${effectiveRole} (${formatAutoRouteTag(autoRoute)})`
+    : (roleId || '(未指定)');
 
   const description = [
     `**Row ID**: ${rowId}`,
     `**Feature**: ${featureName}`,
-    `**Role**: ${roleId || '(未指定)'}`,
+    `**Role**: ${roleLabel}`,
     `**IDE**: ${ideLabel || '(未指定)'}`,
     '',
     '---',
@@ -68,6 +100,7 @@ export function buildIssuePayload(args: BuildIssuePayloadArgs): PaperclipSubmiss
     companyId: mapping.companyId,
     endpoint,
     payload,
+    ...(autoRoute ? { autoRoute } : {}),
   };
 }
 

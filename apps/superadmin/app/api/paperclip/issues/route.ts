@@ -11,18 +11,21 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'node:fs';
+import path from 'node:path';
 import { createIssue } from '@/lib/paperclip/client';
-import type { PaperclipIssuePayload } from '@/lib/paperclip/types';
+import type { PaperclipIssuePayload, PaperclipRoleId } from '@/lib/paperclip/types';
 import type { WorktreePaths } from '@/lib/paperclip/worktree';
 import {
   findRepoRoot,
   resolveWorktreePaths,
   createWorktree,
+  removeWorktree,
   deriveSlugFromTitle,
   buildWorktreePrefix,
   makeDockerGitRunner,
 } from '@/lib/paperclip/worktree';
-import { installPaperclipGitHook } from '@/lib/paperclip/git-hook';
+import { installAllPaperclipGitHooks } from '@/lib/paperclip/git-hook';
+import { autoRouteRole, formatAutoRouteTag } from '@/lib/paperclip/auto-route';
 
 export interface PaperclipIssueRouteConfig {
   baseUrl: string;
@@ -42,6 +45,25 @@ export function readPaperclipConfig(): Partial<PaperclipIssueRouteConfig> {
   };
 }
 
+/** Server-side role → agent mapping from env. Same source as
+ *  `lib/paperclip/config.ts`, but duplicated here so the route handler
+ *  can stay self-contained without importing a client-side module. */
+function readRoleAgentMapping(): Partial<Record<PaperclipRoleId, string>> {
+  const env: Record<PaperclipRoleId, string | undefined> = {
+    fullstack: process.env.NEXT_PUBLIC_PAPERCLIP_AGENT_FULLSTACK,
+    database: process.env.NEXT_PUBLIC_PAPERCLIP_AGENT_DATABASE,
+    qa: process.env.NEXT_PUBLIC_PAPERCLIP_AGENT_QA,
+    devops: process.env.NEXT_PUBLIC_PAPERCLIP_AGENT_DEVOPS,
+    architect: process.env.NEXT_PUBLIC_PAPERCLIP_AGENT_ARCHITECT,
+    uiux: process.env.NEXT_PUBLIC_PAPERCLIP_AGENT_UIUX,
+  };
+  const result: Partial<Record<PaperclipRoleId, string>> = {};
+  for (const [role, id] of Object.entries(env)) {
+    if (id) result[role as PaperclipRoleId] = id;
+  }
+  return result;
+}
+
 function isValidPayload(body: unknown): body is PaperclipIssuePayload {
   if (typeof body !== 'object' || body === null) return false;
   const b = body as Record<string, unknown>;
@@ -54,6 +76,27 @@ function isValidPayload(body: unknown): body is PaperclipIssuePayload {
  *  Override via env for non-default docker-compose deployments. */
 const PAPERCLIP_CONTAINER_NAME =
   process.env.PAPERCLIP_CONTAINER_NAME ?? 'paperclip-paperclip-1';
+const WORKTREE_META_FILENAME = '.paperclip-meta.json';
+
+async function writeWorktreeIssueMeta(
+  worktree: WorktreePaths,
+  issue: { id: string; issueKey?: string; title?: string; status?: string },
+): Promise<void> {
+  if (!worktree.hostPath.includes('.paperclip-worktrees')) {
+    return;
+  }
+  const filePath = path.join(worktree.hostPath, WORKTREE_META_FILENAME);
+  const payload = {
+    issueId: issue.id,
+    issueKey: issue.issueKey,
+    title: issue.title,
+    status: issue.status,
+    slug: worktree.slug,
+    branchName: worktree.branchName,
+    updatedAt: new Date().toISOString(),
+  };
+  await fs.writeFile(filePath, JSON.stringify(payload, null, 2), 'utf8');
+}
 
 /** Prepare the per-task worktree.
  *
@@ -80,14 +123,16 @@ export async function prepareWorktreeForTask(
   // we DON'T pass it to git — git runs inside the container with `-C /workspace`.
   const repoRoot = await findRepoRoot(startDir);
 
-  // Best-effort hook install. If it fails (e.g., permission, fs error), fall
-  // back to the soft guardrail in buildWorktreePrefix.
+  // Best-effort install of BOTH Paperclip git hooks (pre-commit +
+  // pre-merge-commit). If either fails (e.g., permission, fs error), we
+  // still fall back to the soft guardrail in buildWorktreePrefix + the
+  // server-side findForbiddenPaths check in mergeWorktreeBranch.
   try {
-    await installPaperclipGitHook(repoRoot, fs);
+    await installAllPaperclipGitHooks(repoRoot, fs);
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn(
-      '[paperclip] pre-commit hook install failed:',
+      '[paperclip] git hook install failed:',
       err instanceof Error ? err.message : err,
     );
   }
@@ -168,12 +213,33 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // ── Server-side auto-route fallback ──────────────────────────────────
+  // If the client didn't supply an assigneeAgentId (e.g. user forgot to
+  // pick a role, or an API caller bypassed the frontend), resolve one
+  // from the title via keyword matching. This is the last line of defence.
+  let autoRoutedAgentId: string | undefined;
+  if (!body.assigneeAgentId) {
+    const routeResult = autoRouteRole(body.title);
+    const agentMap = readRoleAgentMapping();
+    autoRoutedAgentId = agentMap[routeResult.role];
+    // eslint-disable-next-line no-console
+    console.log(
+      `[paperclip] auto-route: ${formatAutoRouteTag(routeResult)} → agent ${autoRoutedAgentId ?? '(unmapped)'}`,
+    );
+  }
+
   // Enrich the payload with the worktree protocol prefix + projectId so the
   // agent is bound to the right project workspace.
   const enrichedPayload: PaperclipIssuePayload = {
     ...body,
     description: buildWorktreePrefix(worktreePaths) + body.description,
     ...(config.projectId ? { projectId: config.projectId } : {}),
+    // Prefer the client-supplied assignee; fall back to auto-routed.
+    ...(body.assigneeAgentId
+      ? {}
+      : autoRoutedAgentId
+        ? { assigneeAgentId: autoRoutedAgentId }
+        : {}),
   };
 
   const result = await createIssue({
@@ -182,6 +248,46 @@ export async function POST(request: NextRequest) {
     apiKey: config.apiKey,
     payload: enrichedPayload,
   });
+
+  if (!result.ok) {
+    try {
+      const dockerRunner = makeDockerGitRunner(PAPERCLIP_CONTAINER_NAME);
+      await removeWorktree({
+        paths: worktreePaths,
+        repoRoot: '/workspace',
+        pathScope: 'container',
+        force: true,
+        deleteBranch: true,
+        runner: dockerRunner,
+      });
+    } catch {
+      // cleanup is best effort; keep original API error as the primary signal.
+    }
+  }
+
+  // Best effort metadata write so the worktree browser can map each row to
+  // a Paperclip issue and show per-row cost without guessing from title.
+  if (result.ok) {
+    try {
+      await writeWorktreeIssueMeta(worktreePaths, result.issue);
+    } catch (err) {
+      if (
+        err &&
+        typeof err === 'object' &&
+        'code' in err &&
+        (err as { code?: unknown }).code === 'ENOENT'
+      ) {
+        // In test doubles or edge cases where the worktree path isn't mounted yet,
+        // skip metadata persistence without noisy warnings.
+      } else {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[paperclip] failed to persist worktree issue metadata:',
+        err instanceof Error ? err.message : err,
+      );
+      }
+    }
+  }
 
   const httpStatus = result.ok ? 200 : result.status || 502;
   const responseBody = result.ok

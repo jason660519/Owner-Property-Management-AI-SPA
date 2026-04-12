@@ -16,22 +16,25 @@ jest.mock('@/lib/paperclip/worktree', () => {
     ...actual,
     findRepoRoot: jest.fn(),
     createWorktree: jest.fn(),
+    removeWorktree: jest.fn(),
   };
 });
 
 jest.mock('@/lib/paperclip/git-hook', () => ({
   installPaperclipGitHook: jest.fn(),
+  installAllPaperclipGitHooks: jest.fn(),
 }));
 
 import { createIssue } from '@/lib/paperclip/client';
-import { findRepoRoot, createWorktree } from '@/lib/paperclip/worktree';
-import { installPaperclipGitHook } from '@/lib/paperclip/git-hook';
+import { findRepoRoot, createWorktree, removeWorktree } from '@/lib/paperclip/worktree';
+import { installAllPaperclipGitHooks } from '@/lib/paperclip/git-hook';
 import { POST } from '../route';
 
 const createIssueMock = createIssue as jest.MockedFunction<typeof createIssue>;
 const findRepoRootMock = findRepoRoot as jest.MockedFunction<typeof findRepoRoot>;
 const createWorktreeMock = createWorktree as jest.MockedFunction<typeof createWorktree>;
-const installHookMock = installPaperclipGitHook as jest.MockedFunction<typeof installPaperclipGitHook>;
+const removeWorktreeMock = removeWorktree as jest.MockedFunction<typeof removeWorktree>;
+const installHookMock = installAllPaperclipGitHooks as jest.MockedFunction<typeof installAllPaperclipGitHooks>;
 
 const validPayload = {
   title: '[Row 001] test',
@@ -58,6 +61,10 @@ beforeEach(() => {
     NEXT_PUBLIC_PAPERCLIP_COMPANY_ID: 'company-abc',
     PAPERCLIP_API_KEY: 'pc_test_key',
     PAPERCLIP_PROJECT_ID: 'project-xyz',
+    // Agent mapping for server-side auto-route fallback
+    NEXT_PUBLIC_PAPERCLIP_AGENT_FULLSTACK: 'agent-fs-env',
+    NEXT_PUBLIC_PAPERCLIP_AGENT_DATABASE: 'agent-db-env',
+    NEXT_PUBLIC_PAPERCLIP_AGENT_ARCHITECT: 'agent-arch-env',
   };
 
   // Default happy path for worktree mocks
@@ -73,10 +80,20 @@ beforeEach(() => {
     created: true,
     reused: false,
   });
+  removeWorktreeMock.mockResolvedValue();
   installHookMock.mockResolvedValue({
-    hookPath: '/fake/repo/.git/hooks/pre-commit',
-    installed: true,
-    reason: 'installed',
+    results: {
+      'pre-commit': {
+        hookPath: '/fake/repo/.git/hooks/pre-commit',
+        installed: true,
+        reason: 'installed',
+      },
+      'pre-merge-commit': {
+        hookPath: '/fake/repo/.git/hooks/pre-merge-commit',
+        installed: true,
+        reason: 'installed',
+      },
+    },
   });
 });
 
@@ -170,6 +187,15 @@ describe('POST /api/paperclip/issues', () => {
     expect(body.ok).toBe(false);
     expect(body.error).toContain('assigneeAgentId invalid');
     expect(body.worktree).toBeUndefined();
+    expect(removeWorktreeMock).toHaveBeenCalledTimes(1);
+    expect(removeWorktreeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        repoRoot: '/workspace',
+        pathScope: 'container',
+        deleteBranch: true,
+        force: true,
+      }),
+    );
   });
 
   it('converts network errors from createIssue to 502', async () => {
@@ -244,5 +270,73 @@ describe('POST /api/paperclip/issues', () => {
 
     expect(res.status).toBe(400);
     expect(body.error).toContain('title and description are required');
+  });
+
+  // ── Server-side auto-route fallback ──────────────────────────────────
+
+  it('auto-routes to database agent when payload has no assigneeAgentId and title contains "資料庫"', async () => {
+    createIssueMock.mockResolvedValue({
+      ok: true,
+      issue: { id: 'uuid-auto-db' },
+      issueUrl: 'http://localhost:3187/VIS/issues/uuid-auto-db',
+    });
+
+    const payload = {
+      title: '[Row 007] 超級管理員-資料庫Elastic Search管理功能',
+      description: 'task desc',
+      status: 'todo' as const,
+      priority: 'medium' as const,
+      // No assigneeAgentId — server should auto-route.
+    };
+
+    const res = await POST(makeReq(payload));
+    expect(res.status).toBe(200);
+
+    const dispatched = createIssueMock.mock.calls[0][0].payload;
+    expect(dispatched.assigneeAgentId).toBe('agent-db-env');
+  });
+
+  it('falls back to architect agent when no keyword matches', async () => {
+    createIssueMock.mockResolvedValue({
+      ok: true,
+      issue: { id: 'uuid-auto-arch' },
+      issueUrl: 'http://localhost:3187/VIS/issues/uuid-auto-arch',
+    });
+
+    const payload = {
+      title: '[Row 012] 買家的溝通中心',
+      description: 'no keywords',
+      status: 'todo' as const,
+      priority: 'medium' as const,
+    };
+
+    const res = await POST(makeReq(payload));
+    expect(res.status).toBe(200);
+
+    const dispatched = createIssueMock.mock.calls[0][0].payload;
+    expect(dispatched.assigneeAgentId).toBe('agent-arch-env');
+  });
+
+  it('does NOT override assigneeAgentId when client already supplied one', async () => {
+    createIssueMock.mockResolvedValue({
+      ok: true,
+      issue: { id: 'uuid-manual' },
+      issueUrl: 'http://localhost:3187/VIS/issues/uuid-manual',
+    });
+
+    const payload = {
+      title: '[Row 001] 超級管理員-儀表板',
+      description: 'manual assignment',
+      status: 'todo' as const,
+      priority: 'medium' as const,
+      assigneeAgentId: 'agent-fs-explicit',
+    };
+
+    const res = await POST(makeReq(payload));
+    expect(res.status).toBe(200);
+
+    const dispatched = createIssueMock.mock.calls[0][0].payload;
+    // Client-supplied agent takes priority — server must NOT overwrite.
+    expect(dispatched.assigneeAgentId).toBe('agent-fs-explicit');
   });
 });

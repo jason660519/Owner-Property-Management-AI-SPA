@@ -8,7 +8,8 @@
     "start": "next start -p 3001",
     "lint": "eslint .",
     "test": "jest",
-    "test:lvr-integration": "bash scripts/run-lvr-integration-test.sh"
+    "test:lvr-integration": "bash scripts/run-lvr-integration-test.sh",
+    "paperclip:patch-issue": "node scripts/paperclip-patch-and-verify.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1024.0",

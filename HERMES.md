@@ -1,6 +1,6 @@
 # HERMES.md — Hermes Agent Operating Rules
 
-> **狀態**：草稿 v0.1 / 2026-04-12
+> **狀態**：草稿 v0.2 / 2026-04-12
 > **適用對象**：Hermes Agent(由 Telegram 遠端觸發)
 > **不適用**：Claude Code 本機 session（請改讀 `CLAUDE.md`）
 
@@ -235,7 +235,170 @@ Hermes 必須**在任何長時間操作中(build、test、長 shell 指令)都�
 
 ---
 
-## 11. 本檔的修改
+## 11. PII 與租賃資料保護
+
+本專案處理**真實房東、租客、買家的個人資料**。Hermes 透過 Telegram 傳輸回覆,
+意味著資料一旦出現在訊息中就等同明文外傳。以下規則**無例外**。
+
+### 11.1 絕對不可出現在 Telegram 訊息的資料
+
+| 類別 | 包含但不限於 |
+| :--- | :--- |
+| 身份證明 | 身分證字號、護照號、統一編號、ARC |
+| 金融 | 銀行帳號、信用卡號、轉帳紀錄 |
+| 聯絡 | 電話號碼、email、通訊地址、LINE ID |
+| 認證 | 密碼、JWT、session token、API key |
+| 租約 | 完整租約文字、租金金額與承租人姓名的組合 |
+| 房產 | 地號、建號(可反查地址 + 所有權人) |
+
+### 11.2 查詢 DB 時的規則
+
+1. **SELECT 時禁止 `SELECT *`**：明確列出需要的欄位,避免意外拉到敏感欄位。
+2. **回傳給 Telegram 前必須脫敏**：
+   - 姓名：只顯示姓（「王先生」），不顯示全名
+   - 電話/email：不顯示（可用「已有聯絡資料」替代）
+   - 金額：只在使用者明確要求時才顯示,且不得同時出現對應的承租人/房東姓名
+   - 地址：可顯示到「區/鄉鎮」層級，完整門牌不行
+3. **統計/彙總可以**：「目前有 23 個租約即將到期」✅,不含個人明細。
+4. **如果使用者在 Telegram 要求看特定人的完整個資**：回覆「基於個資保護,完整資料請在 superadmin 後台查看（http://localhost:3001）」,**不貼到 Telegram**。
+
+### 11.3 Log 與 Error 中的 PII
+
+- 如果 shell 指令的 stdout/stderr 包含 PII(例如 `psql` 查詢結果),**截斷或遮蔽**後再傳 Telegram。
+- Hermes 自己的 log 檔(Docker volume `/opt/data`)可能殘留 PII → 加入 `.dockerignore`,不可 commit、不可 push。
+
+### 11.4 文件與 Migration
+
+- 新增 migration SQL **不得在 COMMENT 中包含真實個資範例**（用 `-- e.g. tenant_name TEXT` 即可）。
+- 測試資料一律使用假資料(「測試房東 A」、`test@example.com`、`0900-000-000`）。
+
+---
+
+## 12. Audit Log 整合
+
+Hermes 的每次 LLM 呼叫都必須寫入 `ai_prompt_audit_logs`，與 superadmin 既有的
+audit trail 統一，讓 agent-cost-guard、usage 報表涵蓋 Hermes 的用量。
+
+### 12.1 寫入方式
+
+Hermes 跑在 Docker 容器中,**不走 Next.js 的 `audit.ts`**,
+而是直接用 **Supabase REST API + service_role key** INSERT:
+
+```bash
+curl -X POST "${SUPABASE_URL}/rest/v1/ai_prompt_audit_logs" \
+  -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=minimal" \
+  -d '{
+    "module_key": "hermes.telegram",
+    "agent_key": "hermes_remote_agent",
+    "provider": "openrouter",
+    "model_id": "qwen/qwen-2.5-72b-instruct",
+    "user_id": null,
+    "prompt_source": "hermes_telegram_task",
+    "user_input_sha256": "<sha256 of user input>",
+    "user_input_length": 128,
+    "injection_flags": [],
+    "input_tokens": 1500,
+    "output_tokens": 800,
+    "latency_ms": 2300,
+    "status": "success",
+    "error_message": null
+  }'
+```
+
+### 12.2 欄位對映
+
+| 欄位 | Hermes 填入值 | 說明 |
+| :--- | :--- | :--- |
+| `module_key` | `hermes.telegram` | 固定值,與既有 module_key 命名空間區隔 |
+| `agent_key` | `hermes_remote_agent` | 固定值。日後若 Hermes 跑多種 task 可擴充為 `hermes_code_review`、`hermes_test_runner` 等 |
+| `provider` | 實際使用的 provider(`openrouter` / `anthropic` / ...) | 每次呼叫時動態填 |
+| `model_id` | 實際使用的模型 ID | 每次呼叫時動態填 |
+| `user_id` | `null` | Hermes 不走 Supabase Auth,無 auth.uid();可考慮未來建一個 service user |
+| `prompt_source` | `hermes_telegram_task` | 區分來源 |
+| `user_input_sha256` | SHA-256 of Telegram 指令 | **禁止存明文**（與既有 audit 規範一致） |
+| `user_input_length` | 字元長度 | |
+| `injection_flags` | `[]` | Hermes 端可選擇性執行 injection 偵測 |
+| `input_tokens` / `output_tokens` | 從 LLM 回應的 usage 物件取 | |
+| `latency_ms` | 從呼叫開始到回應完成 | |
+| `status` | `success` / `api_error` / `rate_limited` / `blocked` | 見 DB schema CHECK constraint |
+
+### 12.3 實作方式(待 Hermes 安裝後)
+
+最理想的做法是寫一個 **Hermes skill/plugin**（Python）在每次 LLM 呼叫的 after-hook 自動 POST 上述 payload。
+草稿虛擬碼:
+
+```python
+import hashlib, httpx, os, time
+
+SUPABASE_URL = os.environ["SUPABASE_URL"]
+SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+
+async def log_hermes_audit(
+    provider: str,
+    model_id: str,
+    user_input: str,
+    input_tokens: int,
+    output_tokens: int,
+    latency_ms: int,
+    status: str = "success",
+    error_message: str | None = None,
+    task_type: str = "hermes_remote_agent",
+):
+    row = {
+        "module_key": "hermes.telegram",
+        "agent_key": task_type,
+        "provider": provider,
+        "model_id": model_id,
+        "user_id": None,
+        "prompt_source": "hermes_telegram_task",
+        "user_input_sha256": hashlib.sha256(user_input.encode()).hexdigest(),
+        "user_input_length": len(user_input),
+        "injection_flags": [],
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "latency_ms": latency_ms,
+        "status": status,
+        "error_message": error_message,
+    }
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            f"{SUPABASE_URL}/rest/v1/ai_prompt_audit_logs",
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal",
+            },
+            json=row,
+        )
+        if resp.status_code >= 400:
+            print(f"[hermes-audit] INSERT failed: {resp.status_code} {resp.text}")
+```
+
+### 12.4 環境變數(Docker .env 需新增)
+
+```env
+SUPABASE_URL=http://host.docker.internal:54321
+SUPABASE_SERVICE_ROLE_KEY=<your-local-service-role-key>
+```
+
+> ⚠️ `SUPABASE_SERVICE_ROLE_KEY` 是 admin 等級密鑰。**只放在 Docker .env 中,不 commit,不放 HERMES.md**。
+
+### 12.5 驗證
+
+安裝完成後驗證步驟:
+
+1. Hermes 執行一次 Telegram task
+2. 在 Supabase Studio 查 `SELECT * FROM ai_prompt_audit_logs WHERE module_key = 'hermes.telegram' ORDER BY created_at DESC LIMIT 5`
+3. 確認 `agent_key`、`provider`、`model_id`、token 計數正確
+4. 到 superadmin 的 agent cost-guard 頁面確認 Hermes 的用量有被計入月度額度
+
+---
+
+## 13. 本檔的修改
 
 - 修改本檔需 Telegram `/approve`(見第 4 節)
 - 任何修改都要在第一行更新版本號與日期
@@ -244,10 +407,11 @@ Hermes 必須**在任何長時間操作中(build、test、長 shell 指令)都�
 
 ---
 
-## 12. 未實作 / 待確認(v0.1 草稿的坑)
+## 14. 未實作 / 待確認(v0.2 草稿的坑)
 
 以下項目等 Hermes 真的裝起來後再驗證並補上:
 
+**原有(v0.1)**
 - [ ] 確認 Hermes 原生支援的 `/approve` 指令格式(或需自訂 skill)
 - [ ] 確認 tool permission 白名單的設定檔路徑與格式
 - [ ] 確認 Hermes 是否支援「依 task 自動切模型」,或只能手動 `/model`
@@ -255,6 +419,18 @@ Hermes 必須**在任何長時間操作中(build、test、長 shell 指令)都�
 - [ ] 確認 Telegram long-polling 模式的心跳/重連行為
 - [ ] 撰寫 Hermes skill:「讀取 `.claude/rules/` 並套用到當前 task」
 
+**v0.2 新增 — PII 保護**
+- [ ] 確認 Hermes 是否有 output filter / post-processing hook,可在回 Telegram 前攔截 PII
+- [ ] 撰寫 PII 偵測 skill/plugin（正則 + 關鍵字,攔截身分證、電話、email 等）
+- [ ] 測試：故意 `SELECT *` 帶 PII 的表,確認 agent 自動脫敏或拒絕
+
+**v0.2 新增 — Audit Log 整合**
+- [ ] 在 `agent-registry.ts` 新增 `hermes_remote_agent` 定義(key、label、group)
+- [ ] 確認 Hermes 是否有 LLM after-hook（每次呼叫完觸發）,用來注入 audit 寫入
+- [ ] 實作 `log_hermes_audit` Python skill（見第 12.3 節虛擬碼）
+- [ ] 驗證 agent-cost-guard 能正確計算 `agent_key = 'hermes_remote_agent'` 的月度用量
+- [ ] 考慮是否為 Hermes 建立一個 Supabase service user（取代 `user_id: null`）
+
 ---
 
-*本檔為安全護欄的初稿,正式啟用前會與 Hermes 實際 config 對齊。*
+*本檔為安全護欄的 v0.2 草稿,正式啟用前會與 Hermes 實際 config 對齊。*

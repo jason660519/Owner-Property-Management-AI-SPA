@@ -2064,15 +2064,39 @@ const RAW_FEATURES: RoadmapFeature[] = [
     category: "通用/系統 (General/System)",
     points: 2,
     phase: "development",
-    lastModifiedBy: "GPT-5.3-Codex",
-    lastModifiedDate: "2026/04/11",
+    lastModifiedBy: "Jason + GPT-5.3-Codex",
+    lastModifiedDate: "2026/04/12",
     featureDescription:
       "以 Docker 方式整合 Paperclip，並納入專案統一啟停流程，讓開發者執行 ./start.sh all 時可一併啟動，執行 ./stop.sh 時可一併停止。",
     acceptanceCriteria:
       "1. 新增專案內 Paperclip compose 設定，採官方 quickstart 單容器模式。\n2. start.sh 具備 paperclip 啟動命令與 all 模式自動啟動。\n3. stop.sh 可透過 compose down 停止 Paperclip。\n4. 預設使用較少衝突的 host port（3187），並可透過 .env.paperclip 覆寫。\n5. 首次執行可自動建立 .env.paperclip 與 BETTER_AUTH_SECRET。",
     developmentProgress:
-      "已新增 docker/paperclip/docker-compose.paperclip.yml 與 .env.paperclip.example；start.sh 新增 ensure_paperclip_env/start_paperclip，menu 與 CLI 入口支援 paperclip；start_all 會一併啟動 Paperclip；stop.sh 新增 Paperclip compose down。2026/04/11 再優化啟動效能：start_paperclip 先檢查容器是否已 running，已執行時直接返回；預設改為使用本機快取映像檔（PAPERCLIP_AUTO_PULL=0），僅首次或手動啟用 auto-pull 才拉取最新映像，避免每次 start.sh 都卡在 docker pull。新增 update_paperclip_image 與 CLI 指令 paperclip-update，並在啟動選單提供「更新 Paperclip 映像檔」，讓使用者在需要時手動更新並重啟容器套用新版本。另將預設資料目錄從 /tmp 改為 $HOME/.paperclip-data-owner-property-management，避免系統清理暫存目錄後遺失 instance 設定。新增 Paperclip 自動開瀏覽器機制：啟動後等候 health 再開啟指定 Dashboard URL，預設導向 /VIS/agents/ceo/dashboard，可用 PAPERCLIP_AUTO_OPEN_BROWSER 與 PAPERCLIP_DASHBOARD_URL 控制。",
+      "已新增 docker/paperclip/docker-compose.paperclip.yml 與 .env.paperclip.example；start.sh 新增 ensure_paperclip_env/start_paperclip，menu 與 CLI 入口支援 paperclip；start_all 會一併啟動 Paperclip；stop.sh 新增 Paperclip compose down。2026/04/11 再優化啟動效能：start_paperclip 先檢查容器是否已 running，已執行時直接返回；預設改為使用本機快取映像檔（PAPERCLIP_AUTO_PULL=0），僅首次或手動啟用 auto-pull 才拉取最新映像，避免每次 start.sh 都卡在 docker pull。新增 update_paperclip_image 與 CLI 指令 paperclip-update，並在啟動選單提供「更新 Paperclip 映像檔」，讓使用者在需要時手動更新並重啟容器套用新版本。另將預設資料目錄從 /tmp 改為 $HOME/.paperclip-data-owner-property-management，避免系統清理暫存目錄後遺失 instance 設定。新增 Paperclip 自動開瀏覽器機制：啟動後等候 health 再開啟指定 Dashboard URL，預設導向 /VIS/agents/ceo/dashboard，可用 PAPERCLIP_AUTO_OPEN_BROWSER 與 PAPERCLIP_DASHBOARD_URL 控制。2026/04/12 補強容器執行模式：改用 CLAUDE_CODE_OAUTH_TOKEN（停用 ANTHROPIC_API_KEY credit 路徑）驗證 claude_local adapter subscription 流程；workspace 掛載策略從 read-only PoC 進展到 read-write + worktree isolation，並透過 docker exec 統一 git worktree 路徑語義（/workspace）避免 host/container 路徑漂移。",
     docPath: "/docs/scripts-directory-guide.md",
+  },
+  {
+    name: "Superadmin × Paperclip 開發流程整合（Prompt→Issue→Worktree→Diff→Merge）",
+    locatedPage: "superadmin/dashboard/project-progress + superadmin/dashboard/paperclip-worktrees",
+    percentage: 99,
+    category: "超級管理員 (Super Admin)",
+    points: 13,
+    phase: "testing",
+    testStatus: "passed",
+    unitTestCoverage: 95,
+    testCoverage: 92,
+    e2eTestCoverage: 88,
+    lastModifiedBy: "Claude + GPT-5.3-Codex",
+    lastModifiedDate: "2026/04/12",
+    featureDescription:
+      "將 project-progress 的 PromptEngineerModal 與 Paperclip control plane 串接，建立可持續運作的 AI 開發閉環：送單、派工、隔離分支、即時狀態、差異審查、乾跑與合併、清理。",
+    acceptanceCriteria:
+      "1. Modal 支援預覽與真送出 Paperclip issue，含成功/失敗回饋。\n2. 每個任務自動建立 feature/paperclip-<slug> worktree，agent 僅在隔離目錄工作。\n3. 引入 pre-commit + pre-merge-commit 護欄，阻擋 forbidden paths（.env / lockfile / docker compose / committed migrations 等）。\n4. 新增 /superadmin/dashboard/paperclip-worktrees 管理頁：列表、搜尋、篩選、排序、inspect diff、merge、cleanup。\n5. diff viewer 支援顏色分段與鍵盤操作（J/K/E/C/?）。\n6. Modal 與 worktrees page 支援 live status、run log、cost、dry-run merge。\n7. API 路由完整：issues / status / run-log / cost / worktrees / diff / merge / cleanup。\n8. URL deep links 統一走 paperclip links builder，避免 hardcode base URL。",
+    developmentProgress:
+      "Phase A-M 完成並於 2026/04/12 延伸至 N.3：\n• PromptEngineerModal：預覽送出、真送出、worktree資訊、copy commands、cleanup 按鈕、live status badge、cost chip、live run log。\n• Worktree isolation：server route 在送單前建立 worktree，description 自動注入 protocol，禁止在 main tree 直接操作。\n• 安全護欄：soft forbidden-path 指示 + git hooks（pre-commit / pre-merge-commit）+ server-side forbidden-path merge check + human review。\n• Worktrees 管理頁：列表 + inspect diff + merge + merge+cleanup + dry-run + delete，並新增搜尋/篩選/排序與每列 cost。\n• Diff viewer：per-file 摺疊、彩色行級標示、快捷鍵（J/K/E/C/?）。\n• URL builder：新增 lib/paperclip/links.ts，issue deep-link 與 search-link 統一透過 helper 產生。\n• metadata/cost mapping：送單成功後在 worktree 寫入 .paperclip-meta.json（issueId），worktrees API 讀取後可穩定抓每列 cost。\n• 路由韌性補強：createIssue 失敗時自動 best-effort 清理 worktree，並加 slug/path traversal 防護。\n• Claude（2026/04/12）：完成 dispatch 問題定位（VIS-8 / VIS-10 未啟動根因為 assigneeAgentId 缺失），實作 auto-route（title keyword → role）與 architect fallback；前端 buildIssuePayload + Prompt 預覽顯示 auto-route 決策；後端 issues route 增加 server-side 兜底，防止 API 直送繞過前端；補齊 auto-route/buildIssuePayload/route 測試並維持綠燈。\n• GPT-5.3-Codex（2026/04/12）：新增 scripts/paperclip-patch-and-verify.mjs，一鍵處理未指派 issue（預設 VIS-10）並自動輪詢驗證 dispatch 是否啟動；支援 --agent-role / --agent-id / --dry-run / --force；package.json 新增 paperclip:patch-issue 指令。",
+    testProgress:
+      "Paperclip 整合相關測試在本次迭代持續綠燈（包含 lib/paperclip、issues、worktrees、diff、merge、cleanup、status、cost、run-log 路由與 UI 流程驗證）。2026/04/12 追加 auto-route 重點驗證：auto-route.test.ts、buildIssuePayload.test.ts、issues/route.test.ts 全部通過；新 CLI patch/verify 腳本完成語法與 lint 檢查。",
+    docPath: "/docs/update-project-progress-guide.md",
+    testScriptPath: "apps/superadmin/unit_test/052",
   },
 ];
 

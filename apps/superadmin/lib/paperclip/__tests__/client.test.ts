@@ -1,6 +1,8 @@
 import {
   createIssue,
   fetchIssueStatus,
+  fetchIssueCost,
+  fetchIssueRunLog,
   isTerminalIssueStatus,
 } from '../client';
 import type { PaperclipIssuePayload } from '../types';
@@ -248,6 +250,318 @@ describe('fetchIssueStatus', () => {
     const result = await fetchIssueStatus({ ...baseArgs, apiKey: '', fetchImpl });
     if (result.ok) throw new Error('expected failure');
     expect(result.status).toBe(0);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+});
+
+describe('fetchIssueCost', () => {
+  const baseArgs = {
+    baseUrl: 'http://localhost:3187',
+    apiKey: 'pc_test_key',
+    issueId: 'abc-uuid',
+  };
+
+  /** Build a fetch mock whose two calls return (issue, run) in order. */
+  function seq(issueBody: unknown, runBody: unknown, issueStatus = 200, runStatus = 200): jest.Mock {
+    const calls: jest.Mock = jest.fn();
+    calls
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(issueBody), {
+          status: issueStatus,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(runBody), {
+          status: runStatus,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+    return calls;
+  }
+
+  it('returns a flat cost snapshot on happy path', async () => {
+    const fetchImpl = seq(
+      { id: 'abc-uuid', executionRunId: 'run-1', assigneeAgentId: 'agent-1' },
+      {
+        id: 'run-1',
+        status: 'succeeded',
+        finishedAt: '2026-04-11T19:47:34Z',
+        usageJson: {
+          costUsd: 0.15034035,
+          inputTokens: 8,
+          outputTokens: 2037,
+          cachedInputTokens: 123117,
+          model: 'claude-sonnet-4-6',
+        },
+      },
+    );
+
+    const result = await fetchIssueCost({ ...baseArgs, fetchImpl });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.snapshot.runId).toBe('run-1');
+    expect(result.snapshot.costUsd).toBeCloseTo(0.15034035);
+    expect(result.snapshot.inputTokens).toBe(8);
+    expect(result.snapshot.outputTokens).toBe(2037);
+    expect(result.snapshot.cachedInputTokens).toBe(123117);
+    expect(result.snapshot.model).toBe('claude-sonnet-4-6');
+    expect(result.snapshot.runStatus).toBe('succeeded');
+    expect(result.snapshot.finishedAt).toBe('2026-04-11T19:47:34Z');
+  });
+
+  it('returns empty snapshot (ok=true, no runId) when issue has no run yet', async () => {
+    const fetchImpl = jest.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ id: 'abc-uuid', executionRunId: null, checkoutRunId: null }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    const result = await fetchIssueCost({ ...baseArgs, fetchImpl });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.snapshot.runId).toBeUndefined();
+    expect(result.snapshot.costUsd).toBeUndefined();
+    // Only the issue endpoint was hit, no run endpoint.
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to checkoutRunId when executionRunId is missing', async () => {
+    const fetchImpl = seq(
+      { id: 'abc-uuid', executionRunId: null, checkoutRunId: 'checkout-run' },
+      { id: 'checkout-run', status: 'running', usageJson: { costUsd: 0.01 } },
+    );
+
+    const result = await fetchIssueCost({ ...baseArgs, fetchImpl });
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.snapshot.runId).toBe('checkout-run');
+    expect(result.snapshot.costUsd).toBe(0.01);
+  });
+
+  it('handles missing usageJson gracefully', async () => {
+    const fetchImpl = seq(
+      { id: 'abc-uuid', executionRunId: 'run-1' },
+      { id: 'run-1', status: 'running' }, // no usageJson yet (still running)
+    );
+
+    const result = await fetchIssueCost({ ...baseArgs, fetchImpl });
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.snapshot.runId).toBe('run-1');
+    expect(result.snapshot.costUsd).toBeUndefined();
+    expect(result.snapshot.inputTokens).toBeUndefined();
+    expect(result.snapshot.runStatus).toBe('running');
+  });
+
+  it('passes Bearer auth on both requests', async () => {
+    const fetchImpl = seq(
+      { id: 'abc-uuid', executionRunId: 'run-1' },
+      { id: 'run-1', usageJson: { costUsd: 0.02 } },
+    );
+    await fetchIssueCost({ ...baseArgs, fetchImpl });
+    const calls = (fetchImpl as jest.Mock).mock.calls;
+    expect(calls).toHaveLength(2);
+    const [issueUrl, issueInit] = calls[0] as [string, RequestInit];
+    const [runUrl, runInit] = calls[1] as [string, RequestInit];
+    expect(issueUrl).toBe('http://localhost:3187/api/issues/abc-uuid');
+    expect((issueInit.headers as Record<string, string>).Authorization).toBe('Bearer pc_test_key');
+    expect(runUrl).toBe('http://localhost:3187/api/heartbeat-runs/run-1');
+    expect((runInit.headers as Record<string, string>).Authorization).toBe('Bearer pc_test_key');
+  });
+
+  it('passes through 404 from the issue endpoint', async () => {
+    const fetchImpl = jest.fn().mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'not found' }), { status: 404 }),
+    );
+    const result = await fetchIssueCost({ ...baseArgs, fetchImpl });
+    if (result.ok) throw new Error('expected failure');
+    expect(result.status).toBe(404);
+    expect(result.error).toContain('not found');
+  });
+
+  it('passes through error from the run endpoint', async () => {
+    const fetchImpl = seq(
+      { id: 'abc-uuid', executionRunId: 'run-1' },
+      { error: 'run missing' },
+      200,
+      500,
+    );
+    const result = await fetchIssueCost({ ...baseArgs, fetchImpl });
+    if (result.ok) throw new Error('expected failure');
+    expect(result.status).toBe(500);
+    expect(result.error).toContain('run missing');
+  });
+
+  it('returns status=0 when the first fetch throws', async () => {
+    const fetchImpl = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+    const result = await fetchIssueCost({ ...baseArgs, fetchImpl });
+    if (result.ok) throw new Error('expected failure');
+    expect(result.status).toBe(0);
+    expect(result.error).toContain('ECONNREFUSED');
+  });
+
+  it('returns error when required args are missing', async () => {
+    const fetchImpl = jest.fn();
+    const result = await fetchIssueCost({ ...baseArgs, apiKey: '', fetchImpl });
+    if (result.ok) throw new Error('expected failure');
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+});
+
+describe('fetchIssueRunLog', () => {
+  const baseArgs = {
+    baseUrl: 'http://localhost:3187',
+    apiKey: 'pc_test_key',
+    issueId: 'abc-uuid',
+  };
+
+  /** Build a fetch mock whose two calls return (issue, run) in order. */
+  function seq(issueBody: unknown, runBody: unknown, issueStatus = 200, runStatus = 200): jest.Mock {
+    const calls: jest.Mock = jest.fn();
+    calls
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(issueBody), {
+          status: issueStatus,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(runBody), {
+          status: runStatus,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+    return calls;
+  }
+
+  it('returns stdout + run status + timing on happy path', async () => {
+    const fetchImpl = seq(
+      { id: 'abc-uuid', executionRunId: 'run-42' },
+      {
+        id: 'run-42',
+        status: 'running',
+        startedAt: '2026-04-12T10:00:00Z',
+        finishedAt: null,
+        exitCode: null,
+        stdoutExcerpt: '[paperclip] Starting run...\nReading CLAUDE.md',
+        stderrExcerpt: '',
+      },
+    );
+
+    const result = await fetchIssueRunLog({ ...baseArgs, fetchImpl });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.snapshot.runId).toBe('run-42');
+    expect(result.snapshot.runStatus).toBe('running');
+    expect(result.snapshot.startedAt).toBe('2026-04-12T10:00:00Z');
+    expect(result.snapshot.finishedAt).toBeUndefined();
+    expect(result.snapshot.stdoutExcerpt).toContain('Starting run');
+    expect(result.snapshot.stderrExcerpt).toBeUndefined(); // empty string → pickString returns undefined
+    expect(result.snapshot.exitCode).toBeUndefined();
+  });
+
+  it('captures exitCode on terminal runs', async () => {
+    const fetchImpl = seq(
+      { id: 'abc-uuid', executionRunId: 'run-43' },
+      {
+        id: 'run-43',
+        status: 'succeeded',
+        startedAt: '2026-04-12T10:00:00Z',
+        finishedAt: '2026-04-12T10:01:00Z',
+        exitCode: 0,
+        stdoutExcerpt: 'done',
+      },
+    );
+    const result = await fetchIssueRunLog({ ...baseArgs, fetchImpl });
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.snapshot.exitCode).toBe(0);
+    expect(result.snapshot.finishedAt).toBe('2026-04-12T10:01:00Z');
+    expect(result.snapshot.runStatus).toBe('succeeded');
+  });
+
+  it('returns empty snapshot (ok=true, no runId) when issue has no run yet', async () => {
+    const fetchImpl = jest.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ id: 'abc-uuid', executionRunId: null, checkoutRunId: null }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    const result = await fetchIssueRunLog({ ...baseArgs, fetchImpl });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.snapshot.runId).toBeUndefined();
+    expect(result.snapshot.stdoutExcerpt).toBeUndefined();
+    // Only the issue endpoint was hit.
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to checkoutRunId when executionRunId is missing', async () => {
+    const fetchImpl = seq(
+      { id: 'abc-uuid', executionRunId: null, checkoutRunId: 'checkout-run' },
+      { id: 'checkout-run', status: 'queued', stdoutExcerpt: '' },
+    );
+
+    const result = await fetchIssueRunLog({ ...baseArgs, fetchImpl });
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.snapshot.runId).toBe('checkout-run');
+    expect(result.snapshot.runStatus).toBe('queued');
+  });
+
+  it('passes Bearer auth on both requests', async () => {
+    const fetchImpl = seq(
+      { id: 'abc-uuid', executionRunId: 'run-1' },
+      { id: 'run-1', status: 'running', stdoutExcerpt: 'x' },
+    );
+    await fetchIssueRunLog({ ...baseArgs, fetchImpl });
+    const calls = (fetchImpl as jest.Mock).mock.calls;
+    expect(calls).toHaveLength(2);
+    const [issueUrl, issueInit] = calls[0] as [string, RequestInit];
+    const [runUrl, runInit] = calls[1] as [string, RequestInit];
+    expect(issueUrl).toBe('http://localhost:3187/api/issues/abc-uuid');
+    expect((issueInit.headers as Record<string, string>).Authorization).toBe('Bearer pc_test_key');
+    expect(runUrl).toBe('http://localhost:3187/api/heartbeat-runs/run-1');
+    expect((runInit.headers as Record<string, string>).Authorization).toBe('Bearer pc_test_key');
+    // GET, not POST
+    expect(issueInit.method).toBe('GET');
+    expect(runInit.method).toBe('GET');
+  });
+
+  it('passes through 404 from the issue endpoint', async () => {
+    const fetchImpl = jest.fn().mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'not found' }), { status: 404 }),
+    );
+    const result = await fetchIssueRunLog({ ...baseArgs, fetchImpl });
+    if (result.ok) throw new Error('expected failure');
+    expect(result.status).toBe(404);
+    expect(result.error).toContain('not found');
+  });
+
+  it('passes through error from the run endpoint', async () => {
+    const fetchImpl = seq(
+      { id: 'abc-uuid', executionRunId: 'run-1' },
+      { error: 'run missing' },
+      200,
+      500,
+    );
+    const result = await fetchIssueRunLog({ ...baseArgs, fetchImpl });
+    if (result.ok) throw new Error('expected failure');
+    expect(result.status).toBe(500);
+    expect(result.error).toContain('run missing');
+  });
+
+  it('returns status=0 when the first fetch throws', async () => {
+    const fetchImpl = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+    const result = await fetchIssueRunLog({ ...baseArgs, fetchImpl });
+    if (result.ok) throw new Error('expected failure');
+    expect(result.status).toBe(0);
+    expect(result.error).toContain('ECONNREFUSED');
+  });
+
+  it('returns error when required args are missing', async () => {
+    const fetchImpl = jest.fn();
+    const result = await fetchIssueRunLog({ ...baseArgs, apiKey: '', fetchImpl });
+    if (result.ok) throw new Error('expected failure');
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 });
