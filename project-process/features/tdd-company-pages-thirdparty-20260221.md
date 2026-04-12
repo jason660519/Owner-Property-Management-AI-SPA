@@ -1,7 +1,7 @@
 # TDD 規格報告：公司頁面與第三方服務功能群組 — 2026/02/21
 
 > 由 HTML 遷移為 Markdown，以利 AI 讀取與版本控制。原始檔：`tdd-company-pages-thirdparty-20260221.html`
-> **最後更新**：2026-04-12（Row 019 公司產品教學測試實作）
+> **最後更新**：2026-04-12（Row 020 聯絡我們>發送訊息功能測試實作）
 
 ---
 
@@ -67,7 +67,63 @@
 
 ---
 
-## 三、架構與技術決策摘要
+## 三、Row 020 — 聯絡我們>發送訊息功能 (TDD Progress)
+
+**更新日期**: 2026-04-12
+**實作者**: Architect Agent
+
+### 3.1 功能概述
+
+聯絡頁面（`/contact`）提供訪客填寫詢問表單，實作包含：
+- 表單欄位驗證（Zod schema）
+- 來源追蹤（`sourcePath`、`entryPoint`、`propertyId`、`propertyTitle`）
+- 資料庫寫入（`contact_messages` 表）
+- Email 通知（nodemailer，含重試機制）
+- 錯誤隔離：DB 失敗停止流程；Email 失敗不影響 Lead 建立
+
+### 3.2 測試清單
+
+| # | 測試描述 | 類型 | 檔案路徑 | 狀態 |
+| --- | --- | --- | --- | --- |
+| U-01 | `sanitizeSourcePath` 允許內部路徑、拒絕外部 URL | 單元 | `apps/superadmin/unit_and_integration_test/020/contact-action.test.ts` | ✅ 已實作 |
+| U-02 | `sanitizeEntryPoint` 白名單驗證（6 個合法入口） | 單元 | 同上 | ✅ 已實作 |
+| U-03 | `sanitizePropertyId` 英數格式驗證、長度限制 | 單元 | 同上 | ✅ 已實作 |
+| U-04 | `sanitizePropertyTitle` 修剪空白、長度限制 | 單元 | 同上 | ✅ 已實作 |
+| U-05 | `inquiryOptions` 完整性（含必要類型） | 單元 | 同上 | ✅ 已實作 |
+| U-06 | `getEntryPointLabel` 回傳正確可讀標籤 | 單元 | 同上 | ✅ 已實作 |
+| U-07 | `getSourceSummary` 案件來源摘要（含/不含 detail） | 單元 | 同上 | ✅ 已實作 |
+| U-08 | `getSourceSummary` 公開頁面摘要 | 單元 | 同上 | ✅ 已實作 |
+| U-09 | `getSourceSummary` 無來源資訊回傳 null | 單元 | 同上 | ✅ 已實作 |
+| I-01 | DB 插入成功 + Email 發送 → 回傳 leadReference | 整合 | `apps/web/lib/actions/__tests__/contact.test.ts` | ✅ 已實作 |
+| I-02 | DB 插入失敗 → 回傳 error，不呼叫 Email | 整合 | 同上 | ✅ 已實作 |
+| I-03 | DB 成功但 Email 失敗 → success: true, emailSent: false | 整合 | 同上 | ✅ 已實作 |
+| I-04 | 不合法的 sourcePath 觸發驗證失敗 | 整合 | 同上 | ✅ 已實作 |
+| P-01 | 頁面渲染案件來源摘要（含 entryPoint + propertyTitle） | 頁面 | `apps/web/app/contact/__tests__/page.test.tsx` | ✅ 已實作 |
+| P-02 | 不合法來源參數不渲染來源摘要 | 頁面 | 同上 | ✅ 已實作 |
+| E-01 | 頁面顯示「聯絡我們」H1 與表單欄位 | E2E | `apps/superadmin/e2e/020/contact-submit.spec.ts` | ✅ 已實作 |
+| E-02 | pricing-cta 入口顯示「來自公開頁面」摘要 | E2E | 同上 | ✅ 已實作 |
+| E-03 | property-detail 入口顯示案件來源摘要 | E2E | 同上 | ✅ 已實作 |
+| E-04 | 不合法 entryPoint 不顯示來源摘要 | E2E | 同上 | ✅ 已實作 |
+| E-05 | 完整填寫提交後顯示發送成功與 Lead 編號 | E2E | 同上 | ✅ 已實作 |
+| E-06 | 未勾選同意條款無法送出表單 | E2E | 同上 | ✅ 已實作 |
+| E-07 | 成功後點擊「發送另一則訊息」重置表單 | E2E | 同上 | ✅ 已實作 |
+
+### 3.3 測試結果（2026-04-12）
+
+- **單元/整合測試（Jest superadmin）**: 29/29 ✅
+- **E2E 測試（Playwright）**: 待 localhost:3000 啟動後執行
+
+### 3.4 尚未實作（待 Phase 2）
+
+| # | 測試描述 | 原因 |
+| --- | --- | --- |
+| F-01 | 管理後台聯繫訊息列表顯示 | `apps/superadmin/app/superadmin/contacts/` 功能待開發 |
+| F-02 | 真實 SMTP 整合測試（Mailpit） | 需要本地 Supabase 啟動與 config.toml smtp_port 設定 |
+| F-03 | Lighthouse LCP < 2.5 秒（contact 頁） | 需部署後測量 |
+
+---
+
+## 四、架構與技術決策摘要
 
 > 完整內容見 `/docs/technical-selection/adr-019-company-product-tutorial.md`
 
@@ -80,6 +136,6 @@
 
 ---
 
-## 四、第三方 API 整合測試策略（原規格）
+## 五、第三方 API 整合測試策略（原規格）
 
 第三方 API 整合：先以 MSW（Mock Service Worker）模擬 API 回應進行快速單元測試，再於 Staging 環境連真實沙盒 API 執行整合測試。
