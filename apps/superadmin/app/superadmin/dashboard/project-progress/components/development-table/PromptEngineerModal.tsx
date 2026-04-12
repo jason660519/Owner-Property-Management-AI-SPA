@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Play, Loader2, Send, ExternalLink, CheckCircle2, Copy, GitBranch, Trash2, Terminal, ChevronDown, ChevronUp } from 'lucide-react';
+import { Play, Loader2, Send, ExternalLink, CheckCircle2, Copy, GitBranch, Trash2, Terminal, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import clsx from 'clsx';
 import type { PromptContext, IDEOption, ProgressRow, RowStatus } from './types';
 import { IDE_OPTIONS, buildPromptContext } from './types';
@@ -22,6 +22,8 @@ import type {
 } from '@/lib/paperclip/client';
 import type { WorktreePaths } from '@/lib/paperclip/worktree';
 import type { PaperclipIssueStatus } from '@/lib/paperclip/types';
+import { getPaperclipIssuePollDelayMs, POLL_CONSECUTIVE_ERROR_LIMIT, type IssuePollDelayArgs } from '@/lib/paperclip/polling';
+import { formatPaperclipErrorWithHint } from '@/lib/paperclip/api-error-meta';
 import type { ExecutionMode, AutoRunPolicy, AutoRunState, AutoRunStatus } from './prompt-auto-loop';
 import {
   DEFAULT_AUTO_POLICY,
@@ -39,6 +41,14 @@ import {
 } from './prompt-auto-loop';
 
 // -- Shared tail lines appended to every category prompt --
+const COST_AND_API_DISCIPLINE = [
+  '',
+  '【成本與 API 節制（Paperclip／LLM）】',
+  '• 優先完成最小可驗證變更，再擴大範圍；避免一次丟過大上下文或重複全倉搜尋。',
+  '• 測試先跑與本次改動相關的子集（例如單一 jest 檔或 `--testPathPattern`），通過後再跑較大套件。',
+  '• 若任務可分段，請在說明中標註階段與完成定義，減少來回與無效 dispatch。',
+].join('\n');
+
 function tddTail(ctx: PromptContext): string {
   return [
     `單元與整合測試：${ctx.unitFolder}`,
@@ -46,6 +56,7 @@ function tddTail(ctx: PromptContext): string {
     '',
     '完成後請新增或更新 TDD Progress Report (.md)。',
     '確認完成今日的 TDD Progress Report (.md)、測試腳本全部通過後，請自行 git commit and push to github repo。',
+    COST_AND_API_DISCIPLINE,
   ].join('\n');
 }
 
@@ -118,6 +129,7 @@ function getDefaultPrompt(ctx: PromptContext): string {
     '• 主要實作變更檔案清單與變更摘要', '• 測試範圍與各測試案例說明', '• 測試執行結果（含失敗重試與修正狀況）',
     '', '【完成條件】',
     '確認 TDD Progress Report (.md) 已完成、所有測試通過後，請 git commit 並 push 至 GitHub repo。',
+    COST_AND_API_DISCIPLINE,
   ].join('\n');
 }
 
@@ -161,6 +173,8 @@ export default function PromptEngineerModal({
   const [liveStatus, setLiveStatus] = useState<PaperclipIssueStatusSnapshot | null>(null);
   const [cost, setCost] = useState<PaperclipIssueCostSnapshot | null>(null);
   const [runLog, setRunLog] = useState<PaperclipIssueRunLogSnapshot | null>(null);
+  const [pollStopped, setPollStopped] = useState(false);
+  const retriggerPollRef = useRef(0);
   const [showRunLog, setShowRunLog] = useState(true);
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('manual');
   const [autoPolicy, setAutoPolicy] = useState<AutoRunPolicy>(DEFAULT_AUTO_POLICY);
@@ -327,9 +341,8 @@ export default function PromptEngineerModal({
     }
   }, [executionMode]);
 
-  // Live Paperclip issue status polling. Kicks in after successful send and
-  // runs every 5s until the issue hits a terminal state (done / cancelled),
-  // the modal closes, or 30 minutes elapse (safety cap).
+  // Live Paperclip issue status polling: adaptive delay (see lib/paperclip/polling.ts)
+  // until terminal (done / cancelled), modal unmount, or 30 minutes (safety cap).
   useEffect(() => {
     if (!paperclipResult?.ok) return;
     const issueId = paperclipResult.issue.id;
@@ -337,10 +350,17 @@ export default function PromptEngineerModal({
     let cancelled = false;
     const startedAt = Date.now();
     const MAX_POLL_MS = 30 * 60 * 1000;
-
-    // Tracks whether we've already fetched cost for this issue's terminal
-    // state — prevents repeated hits while the interval is still clearing.
     let costFetched = false;
+    let consecutiveErrors = 0;
+    let wakeTimer: number | null = null;
+    const lastIssueStatus = { current: 'todo' as PaperclipIssueStatus };
+
+    const clearWake = () => {
+      if (wakeTimer !== null) {
+        window.clearTimeout(wakeTimer);
+        wakeTimer = null;
+      }
+    };
 
     const fetchCostOnce = async () => {
       if (costFetched || cancelled) return;
@@ -358,79 +378,98 @@ export default function PromptEngineerModal({
       }
     };
 
-    // Cache the discovered runId so subsequent polls (especially after Paperclip
-    // clears executionRunId on the issue) can go straight to the run endpoint.
     let cachedRunId: string | undefined;
 
-    const fetchRunLog = async () => {
-      if (cancelled) return;
+    const fetchRunLogSnapshot = async (): Promise<PaperclipIssueRunLogSnapshot | null> => {
+      if (cancelled) return null;
       const params = new URLSearchParams();
       if (cachedRunId) params.set('runId', cachedRunId);
       try {
         const url = `/api/paperclip/issues/${encodeURIComponent(issueId)}/run-log?${params}`;
         const res = await fetch(url, { headers: { 'x-user-id': userId } });
-        if (!res.ok) return;
+        if (!res.ok) return null;
         const json = (await res.json()) as FetchIssueRunLogResult;
-        if (cancelled || !json.ok) return;
+        if (cancelled || !json.ok) return null;
         setRunLog(json.snapshot);
-        // Cache for future polls.
         if (json.snapshot.runId && !cachedRunId) {
           cachedRunId = json.snapshot.runId;
         }
+        return json.snapshot;
       } catch {
-        /* ignore — best effort */
+        return null;
       }
     };
 
-    let intervalId: number | null = null;
-    const stopPolling = () => {
-      if (intervalId !== null) {
-        window.clearInterval(intervalId);
-        intervalId = null;
-      }
-    };
+    const sleep = (ms: number) =>
+      new Promise<void>((resolve) => {
+        clearWake();
+        wakeTimer = window.setTimeout(() => {
+          wakeTimer = null;
+          resolve();
+        }, ms);
+      });
 
-    const tick = async () => {
-      if (cancelled) return;
-      if (Date.now() - startedAt > MAX_POLL_MS) {
-        stopPolling();
-        return;
-      }
-      try {
-        const res = await fetch(`/api/paperclip/issues/${encodeURIComponent(issueId)}/status`, {
-          headers: { 'x-user-id': userId },
-        });
-        if (!res.ok) return;
-        const json = (await res.json()) as FetchIssueStatusResult;
-        if (cancelled || !json.ok) return;
-        setLiveStatus(json.snapshot);
-        // Pull the live run-log on every tick — cheap (two Paperclip GETs)
-        // and lets us show stdout progress while the run is active.
-        void fetchRunLog();
-        if (json.snapshot.terminal) {
-          // Final cost once the run is done. Fire-and-forget.
-          void fetchCostOnce();
-          stopPolling();
-          return;
+    const computeDelay = (overrides: Partial<IssuePollDelayArgs>): number | null =>
+      getPaperclipIssuePollDelayMs({
+        issueStatus: lastIssueStatus.current,
+        runStatus: undefined,
+        elapsedMs: Date.now() - startedAt,
+        consecutiveErrors,
+        ...overrides,
+      });
+
+    void (async () => {
+      let nextDelayMs: number | null = 0;
+      while (!cancelled) {
+        if (Date.now() - startedAt > MAX_POLL_MS) break;
+        if (nextDelayMs !== null && nextDelayMs > 0) {
+          await sleep(nextDelayMs);
         }
-      } catch {
-        /* transient network error — try again next tick */
+        if (cancelled) break;
+        try {
+          const res = await fetch(`/api/paperclip/issues/${encodeURIComponent(issueId)}/status`, {
+            headers: { 'x-user-id': userId },
+          });
+          if (!res.ok) {
+            consecutiveErrors += 1;
+            nextDelayMs = computeDelay({});
+            if (nextDelayMs === null) { setPollStopped(true); break; }
+            continue;
+          }
+          const json = (await res.json()) as FetchIssueStatusResult;
+          if (cancelled || !json.ok) {
+            consecutiveErrors += 1;
+            nextDelayMs = computeDelay({});
+            if (nextDelayMs === null) { setPollStopped(true); break; }
+            continue;
+          }
+          consecutiveErrors = 0;
+          lastIssueStatus.current = json.snapshot.status;
+          setLiveStatus(json.snapshot);
+          const runSnap = await fetchRunLogSnapshot();
+          if (json.snapshot.terminal) {
+            void fetchCostOnce();
+            break;
+          }
+          nextDelayMs = computeDelay({
+            issueStatus: json.snapshot.status,
+            runStatus: runSnap?.runStatus,
+            consecutiveErrors: 0,
+          });
+        } catch {
+          consecutiveErrors += 1;
+          nextDelayMs = computeDelay({});
+          if (nextDelayMs === null) { setPollStopped(true); break; }
+        }
       }
-    };
-
-    void tick(); // immediate fetch
-    intervalId = window.setInterval(() => {
-      void tick();
-    }, 5000);
+    })();
 
     return () => {
       cancelled = true;
-      stopPolling();
+      clearWake();
     };
-    // We intentionally depend only on issueId; liveStatus changes would cause
-    // re-creation of the interval and double-fetches.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paperclipResult?.ok ? paperclipResult.issue.id : null, userId]);
+  }, [paperclipResult?.ok ? paperclipResult.issue.id : null, userId, retriggerPollRef.current]);
 
   // Auto mode: react to terminal run status and decide retry/trip behavior.
   useEffect(() => {
@@ -482,14 +521,20 @@ export default function PromptEngineerModal({
         });
         return true;
       } else {
-        setPaperclipResult({ ok: false, error: json.error || `HTTP ${res.status}` });
+        setPaperclipResult({
+          ok: false,
+          error: formatPaperclipErrorWithHint({
+            httpStatus: res.status,
+            message: json.error || `HTTP ${res.status}`,
+          }),
+        });
         return false;
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown network error';
       setPaperclipResult({
         ok: false,
-        error: message,
+        error: formatPaperclipErrorWithHint({ httpStatus: 0, message }),
       });
       return false;
     } finally {
@@ -650,12 +695,21 @@ export default function PromptEngineerModal({
       if (json.ok) {
         setCleanupState({ phase: 'done' });
       } else {
-        setCleanupState({ phase: 'error', message: json.error ?? `HTTP ${res.status}` });
+        setCleanupState({
+          phase: 'error',
+          message: formatPaperclipErrorWithHint({
+            httpStatus: res.status,
+            message: json.error ?? `HTTP ${res.status}`,
+          }),
+        });
       }
     } catch (err) {
       setCleanupState({
         phase: 'error',
-        message: err instanceof Error ? err.message : 'Unknown network error',
+        message: formatPaperclipErrorWithHint({
+          httpStatus: 0,
+          message: err instanceof Error ? err.message : 'Unknown network error',
+        }),
       });
     }
   }, [paperclipResult, userId]);
@@ -927,6 +981,20 @@ export default function PromptEngineerModal({
                           {STATUS_BADGE_STYLE[liveStatus.status].label}
                         </span>
                       )}
+                      {pollStopped && (
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 rounded-full border border-amber-500/50 bg-amber-50 px-2 py-0.5 text-[9px] font-medium text-amber-800 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50"
+                          title={`連續 ${POLL_CONSECUTIVE_ERROR_LIMIT} 次輪詢失敗，已停止自動更新`}
+                          onClick={() => {
+                            setPollStopped(false);
+                            retriggerPollRef.current += 1;
+                          }}
+                        >
+                          <AlertTriangle className="h-2.5 w-2.5" aria-hidden="true" />
+                          連線中斷 · 點擊重試
+                        </button>
+                      )}
                     </div>
                   </div>
                   <p className="mt-1 text-[10px] text-text-secondary">
@@ -1057,7 +1125,7 @@ export default function PromptEngineerModal({
                             Worktree + branch 已刪除。
                           </p>
                         ) : cleanupState.phase === 'error' ? (
-                          <p className="truncate text-[10px] text-red-600 dark:text-red-400" title={cleanupState.message}>
+                          <p className="max-h-24 overflow-y-auto whitespace-pre-wrap break-words text-[10px] text-red-600 dark:text-red-400">
                             刪除失敗：{cleanupState.message}
                           </p>
                         ) : (
@@ -1099,7 +1167,7 @@ export default function PromptEngineerModal({
                   <p className="text-[11px] font-medium text-red-700 dark:text-red-300">
                     送出失敗
                   </p>
-                  <p className="mt-1 text-[10px] text-text-secondary break-words">
+                  <p className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap break-words text-[10px] text-text-secondary">
                     {paperclipResult.error}
                   </p>
                 </div>

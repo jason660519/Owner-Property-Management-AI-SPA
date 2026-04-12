@@ -223,6 +223,14 @@ export default function FileManagerPage() {
     };
   }, [plan]);
 
+  const applySummary = useMemo(() => {
+    if (!applyResult) return null;
+    const applied = applyResult.result.appliedActions.length;
+    const skipped = applyResult.result.skippedActions.length;
+    const total = applied + skipped;
+    return { applied, skipped, total };
+  }, [applyResult]);
+
   return (
     <DashboardLayout
       currentRole="superadmin"
@@ -738,6 +746,47 @@ export default function FileManagerPage() {
               </Button>
             </div>
 
+            {applyResult && applySummary && (
+              <Card variant="outlined" padding="md" className="mt-4">
+                <CardHeader>
+                  <CardTitle>執行結果（套用計畫）</CardTitle>
+                  <CardDescription>
+                    planId={applyResult.result.planId}；執行時間：{new Date(applyResult.result.appliedAt).toLocaleString()}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 text-sm text-text-primary">
+                    <div>
+                      狀態：
+                      {applySummary.skipped > 0 ? (
+                        <span className="text-accent font-medium">部分成功</span>
+                      ) : (
+                        <span className="text-text-primary font-medium">成功</span>
+                      )}
+                    </div>
+                    <div>總動作：{applySummary.total}</div>
+                    <div>成功套用：{applySummary.applied}</div>
+                    <div>略過：{applySummary.skipped}</div>
+                    <div>備份目錄：{applyResult.result.backupDir}</div>
+                    <div>備份清單：{applyResult.result.manifestPath}</div>
+                    {applyResult.warning ? <div className="text-text-muted">提示：{applyResult.warning}</div> : null}
+                  </div>
+                  {applyResult.result.skippedActions.length > 0 && (
+                    <div className="mt-3 rounded-md border border-border-default bg-bg-secondary p-3">
+                      <div className="text-xs font-semibold text-text-primary mb-2">略過原因（前 10 筆）</div>
+                      <div className="space-y-1 text-xs text-text-secondary">
+                        {applyResult.result.skippedActions.slice(0, 10).map((a) => (
+                          <div key={`${a.type}:${a.from}:${a.ruleId}`}>
+                            {a.from} - {a.skipReason}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <Card variant="outlined" padding="md">
                 <CardHeader>
@@ -849,28 +898,8 @@ export default function FileManagerPage() {
               </Button>
             </div>
 
-            {applyResult?.warning && (
-              <div className="text-sm text-text-muted mt-3">{applyResult.warning}</div>
-            )}
-
             {(applyResult || rollbackResult) && (
               <div className="mt-4 space-y-3">
-                {applyResult && (
-                  <Card variant="outlined" padding="md">
-                    <CardHeader>
-                      <CardTitle>套用結果</CardTitle>
-                      <CardDescription>
-                        planId={applyResult.result.planId} backupDir={applyResult.result.backupDir}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <pre className="text-xs bg-bg-secondary text-text-primary border border-border-default rounded-md p-3 overflow-auto">
-                        {JSON.stringify(applyResult.result, null, 2)}
-                      </pre>
-                    </CardContent>
-                  </Card>
-                )}
-
                 {rollbackResult && (
                   <Card variant="outlined" padding="md">
                     <CardHeader>

@@ -26,6 +26,10 @@ import type { WorktreeSummary, WorktreeDiffResult } from '@/lib/paperclip/worktr
 import DiffViewer from '@/components/paperclip/DiffViewer';
 import { getPaperclipConfig } from '@/lib/paperclip/config';
 import { buildPaperclipIssueSearchUrl } from '@/lib/paperclip/links';
+import {
+  getWorktreesTablePollIntervalMs,
+  type WorktreeCostPollPhase,
+} from '@/lib/paperclip/polling';
 
 type DiffViewerState =
   | { phase: 'closed' }
@@ -106,12 +110,51 @@ export default function PaperclipWorktreesClient() {
   const [searchQuery, setSearchQuery] = useState('');
   const [cleanupState, setCleanupState] = useState<CleanupState>({});
   const [costState, setCostState] = useState<CostState>({});
+  const costLoadingSinceRef = useRef<Record<string, number>>({});
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
   const [diffViewer, setDiffViewer] = useState<DiffViewerState>({ phase: 'closed' });
   const [mergeState, setMergeState] = useState<MergeState>({ phase: 'idle' });
   const abortRef = useRef<AbortController | null>(null);
   const diffAbortRef = useRef<AbortController | null>(null);
   const costAbortRef = useRef<AbortController | null>(null);
+
+  const costForPolling = useMemo(() => {
+    const out: Record<string, WorktreeCostPollPhase> = {};
+    const now = Date.now();
+    for (const [slug, row] of Object.entries(costState)) {
+      if (row.phase === 'loading') {
+        out[slug] = { phase: 'loading' };
+        // Track when each slug first entered loading
+        if (!costLoadingSinceRef.current[slug]) {
+          costLoadingSinceRef.current[slug] = now;
+        }
+      } else {
+        // Clear loading timestamp when no longer loading
+        delete costLoadingSinceRef.current[slug];
+        if (row.phase === 'error') {
+          out[slug] = { phase: 'error' };
+        } else {
+          out[slug] = { phase: 'ok', runStatus: row.runStatus };
+        }
+      }
+    }
+    return out;
+  }, [costState]);
+
+  const worktreesPollIntervalMs = useMemo(() => {
+    if (state.phase === 'loading') {
+      return getWorktreesTablePollIntervalMs('loading', [], {});
+    }
+    if (state.phase === 'error') {
+      return getWorktreesTablePollIntervalMs('error', [], {});
+    }
+    return getWorktreesTablePollIntervalMs(
+      'ok',
+      state.worktrees,
+      costForPolling,
+      costLoadingSinceRef.current,
+    );
+  }, [state, costForPolling]);
 
   const refresh = useCallback(async () => {
     abortRef.current?.abort();
@@ -140,13 +183,13 @@ export default function PaperclipWorktreesClient() {
     void refresh();
     const interval = window.setInterval(() => {
       void refresh();
-    }, 10_000);
+    }, worktreesPollIntervalMs);
     return () => {
       window.clearInterval(interval);
       abortRef.current?.abort();
       costAbortRef.current?.abort();
     };
-  }, [refresh]);
+  }, [refresh, worktreesPollIntervalMs]);
 
   const refreshCosts = useCallback(async (worktrees: WorktreeSummary[]) => {
     costAbortRef.current?.abort();

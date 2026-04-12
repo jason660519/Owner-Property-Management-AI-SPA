@@ -160,6 +160,20 @@
         "apps/superadmin/e2e/132/prompt-ide-auto-loop.spec.ts"
       ],
       "linkedToolScripts": []
+    },
+    {
+      "id": "133",
+      "name": "Paperclip automation optimization (cost / retry / 24h)",
+      "tier": "pr",
+      "status": "active",
+      "unitPaths": [
+        "apps/superadmin/lib/paperclip/__tests__/polling.test.ts",
+        "apps/superadmin/lib/paperclip/__tests__/api-error-meta.test.ts"
+      ],
+      "e2ePaths": [],
+      "linkedToolScripts": [
+        "tools/paperclip/health-check.sh"
+      ]
     }
   ]
 }

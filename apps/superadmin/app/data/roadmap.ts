@@ -2140,6 +2140,35 @@ const RAW_FEATURES: RoadmapFeature[] = [
     testScriptPath: "apps/superadmin/unit_test/130",
   },
   {
+    name: "Paperclip 全自動開發流程優化（API 成本／卡住與重試／Mac mini 24h 穩定）",
+    locatedPage:
+      "superadmin/dashboard/project-progress + superadmin/dashboard/paperclip-worktrees + docker/paperclip",
+    percentage: 100,
+    category: "超級管理員 (Super Admin)",
+    points: 5,
+    phase: "testing",
+    testStatus: "passed",
+    unitTestCoverage: 100,
+    testCoverage: 100,
+    lastModifiedBy: "Cursor Agent",
+    lastModifiedDate: "2026/04/13",
+    docPath: "/docs/operational-guides/paperclip-mac-mini-24h.md",
+    testProgress:
+      "2026/04/13：`polling.test.ts`、`api-error-meta.test.ts` 通過；`npm run test --workspace superadmin -- paperclip --runInBand` 無迴歸；`validate-test-manifest.sh` 通過。",
+    featureDescription:
+      "在 Row 130 既有閉環（Prompt→Issue→Worktree→Diff→Merge）上，系統化優化：降低無效 API／輪詢成本、改善卡住與可恢復性、補強 Mac mini 長時運行之 Docker／磁碟／映像與憑證策略文件與可選健康檢查。",
+    acceptanceCriteria:
+      "1. 定義並實作（或文件化）issue／run-log／cost 輪詢的 backoff：terminal 後停止或降頻；進行中維持合理更新率。\n2. 錯誤分類：網路、驗證 4xx、伺服器 5xx、worktree／merge 擋下等可區分，並提供可恢復／重試指引（不重複造 worktree 除非明確清理後）。\n3. 環境變數與憑證：釐清 Superadmin 與 Paperclip 容器各自需要的 key；避免未使用的高價 key 重複注入。\n4. Mac mini 24h：交付運維向文件（睡眠、Docker、磁碟清理、PAPERCLIP_AUTO_PULL／映像更新策略）；可選提供非互動健康檢查腳本。\n5. 與 Row 130 護欄相容：不破壞 forbidden-path、worktree 協定與既有 paperclip 測試基線。\n6. 實作完成後更新 test-manifest id 133 之 unit/e2e 路徑並通過 validate-test-manifest。",
+    featureSpecDocPath:
+      "/project-process/features/paperclip-automation-optimization-dev-spec-20260413.md",
+    tddSpecDocPath:
+      "/project-process/features/paperclip-automation-optimization-tdd-spec-20260413.md",
+    docPath: "",
+    developmentProgress:
+      "2026/04/13 實作完成：lib/paperclip/polling.ts（issue 自適應輪詢間隔、worktrees 列表 10–45s）、api-error-meta.ts（HTTP 分類與可恢復建議文案）；PromptEngineerModal 改用自適應輪詢與送單／cleanup 錯誤強化；預設／分類 Prompt 附加【成本與 API 節制】段落；PaperclipWorktreesClient 依成本／commits 調整列表輪詢；新增 docs/operational-guides/paperclip-mac-mini-24h.md 與 tools/paperclip/health-check.sh；單元測試 polling.test.ts、api-error-meta.test.ts；test-manifest id 133 已填路徑並通過 validate-test-manifest。",
+    testScriptPath: "apps/superadmin/unit_test/133",
+  },
+  {
     name: "超級管理員-尋人資料庫（People Database）",
     locatedPage: "superadmin/settings/people-database",
     percentage: 75,
