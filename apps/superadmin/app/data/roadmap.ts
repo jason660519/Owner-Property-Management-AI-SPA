@@ -2175,11 +2175,12 @@ const RAW_FEATURES: RoadmapFeature[] = [
     testStatus: "passed",
     unitTestCoverage: 100,
     testCoverage: 100,
-    lastModifiedBy: "Cursor Agent",
+    lastModifiedBy: "Claude Opus 4.6",
     lastModifiedDate: "2026/04/13",
     docPath: "/docs/operational-guides/paperclip-mac-mini-24h.md",
     testProgress:
-      "2026/04/13：`polling.test.ts`、`api-error-meta.test.ts` 通過；`npm run test --workspace superadmin -- paperclip --runInBand` 無迴歸；`validate-test-manifest.sh` 通過。",
+      "2026/04/13：`polling.test.ts`、`api-error-meta.test.ts` 通過；194 paperclip tests 全過；`validate-test-manifest.sh` 通過。\n" +
+      "追加改進：連錯 ≥5 次自動停止輪詢（getPaperclipIssuePollDelayMs 回傳 null）、cost loading 超時 3 分鐘降速、backoff 上限 60s→120s。",
     featureDescription:
       "在 Row 130 既有閉環（Prompt→Issue→Worktree→Diff→Merge）上，系統化優化：降低無效 API／輪詢成本、改善卡住與可恢復性、補強 Mac mini 長時運行之 Docker／磁碟／映像與憑證策略文件與可選健康檢查。",
     acceptanceCriteria:
@@ -2188,7 +2189,6 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/features/paperclip-automation-optimization-dev-spec-20260413.md",
     tddSpecDocPath:
       "/project-process/features/paperclip-automation-optimization-tdd-spec-20260413.md",
-    docPath: "",
     developmentProgress:
       "2026/04/13 實作完成：lib/paperclip/polling.ts（issue 自適應輪詢間隔、worktrees 列表 10–45s）、api-error-meta.ts（HTTP 分類與可恢復建議文案）；PromptEngineerModal 改用自適應輪詢與送單／cleanup 錯誤強化；預設／分類 Prompt 附加【成本與 API 節制】段落；PaperclipWorktreesClient 依成本／commits 調整列表輪詢；新增 docs/operational-guides/paperclip-mac-mini-24h.md 與 tools/paperclip/health-check.sh；單元測試 polling.test.ts、api-error-meta.test.ts；test-manifest id 133 已填路徑並通過 validate-test-manifest。",
     testScriptPath: "apps/superadmin/unit_test/133",
@@ -2237,6 +2237,56 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "2026/04/13（已開始實作）\n- 後端完成 P0 主幹：\n  1) `people_db_client` 實作 query intent 分流（id_number / phone / full_text）與 exact-first boost，降低電話/身分證誤命中\n  2) 修正 data source filter 使用 `data_source` terms，避免既有 `data_source.keyword` 無效篩選\n  3) 新增品質區間解析（high/medium/low -> min/max）\n  4) `/api/v1/people-db/search` 參數契約擴充：支援 `data_source` + `data_sources[]`、`quality`、`page/page_size`，並回傳 `page/page_size`\n  5) 搜尋回傳新增來源追溯欄位（import_batch_id/source_file_path/source_document_id/created_at）\n  6) 新增 `/api/v1/people-db/datasets`（資料集 facet）與 `/api/v1/people-db/import/batches`（匯入台帳）\n  7) `stats` 改為可直接供 superadmin 卡片使用的彙總格式（total_records/indexed_records/total_sources/avg_quality_score）\n  8) 安全補強：people-db proxy 新增 superadmin 身分/角色檢查（401/403）、移除 client `x-user-id` 信任、slug 白名單驗證與上游失敗 502\n  9) 匯入提交改為嚴格模式：缺少 user context 直接 401；DB schema/連線失敗回 503，不再假成功 fallback\n- 前端完成 P0 主要 UI：\n  1) 搜尋頁新增多資料集勾選（含全選/清空）\n  2) 搜尋結果表新增來源/原始檔、批次、匯入時間欄位\n  3) 新增最近匯入批次面板（status、來源、processed/total、時間）\n  4) 品質分數顯示統一（0~1 自動換算 0~100）\n  5) 當資料集全部取消勾選時，避免誤觸全資料搜尋（直接顯示空結果）\n- 主頁 stats 卡片已修正平均品質顯示尺度（支援 0~1 與 0~100 來源）。",
     testProgress:
       "2026/04/13 已執行：\n- ✅ 新增並通過 `backend/ocr_service/tests/unit/test_people_db_search_strategy.py`（5 cases：query intent、phone normalize、quality band）\n- ✅ 新增並通過 `backend/ocr_service/tests/integration/test_people_db_id132_api_contract.py`（3 cases：exact-match 契約/資料集 facets/匯入台帳 API）\n- ✅ `apps/superadmin/app/superadmin/settings/people-database/page.test.tsx` 通過（1 case）\n- ✅ 新增 E2E：`apps/superadmin/e2e/132/people-db-id132-acceptance.spec.ts`（覆蓋 exact-match、多資料集勾選、來源追溯、匯入台帳四條路徑）\n- ✅ 本機實跑 E2E（帶入 `PLAYWRIGHT_SUPERADMIN_EMAIL` / `PLAYWRIGHT_SUPERADMIN_PASSWORD`）已全綠：2 passed\n- ⚠️ `backend/ocr_service/tests/unit/test_people_db.py` 現存 1 個既有失敗（`test_missing_required_fields`，與本次改動無直接關聯；目前 ImportSubmitRequest 本就允許該 payload）。",
+  },
+  // --- Row 135: PromptEngineer 重建 — 多人協作任務派遣系統 ---
+  {
+    name: "PromptEngineer 重建 — 多人協作任務派遣系統 + Adapter 自動輪替",
+    locatedPage: "superadmin/dashboard/project-progress + docker/paperclip",
+    percentage: 100,
+    category: "超級管理員 (Super Admin)",
+    points: 13,
+    phase: "testing",
+    testStatus: "passed",
+    unitTestCoverage: 100,
+    testCoverage: 100,
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/13",
+    featureSpecDocPath: "/project-process/features/prompt-engineer-rebuild-dev-spec-20260413.md",
+    tddSpecDocPath: "/project-process/features/tdd-prompt-engineer-rebuild-20260413.md",
+    docPath: "/docs/operational-guides/paperclip-mac-mini-24h.md",
+    testScriptPath: "apps/superadmin/unit_test/135",
+    developmentProgress:
+      "2026/04/13 全日完成 P0+P1+P2+Adapter Fallback：\n" +
+      "P0（拆 Modal）：\n" +
+      "- ✅ prompt-templates.ts + status-styles.ts（純函數抽出）\n" +
+      "- ✅ usePaperclipTaskStatus.ts（共用輪詢 hook）\n" +
+      "- ✅ TaskDispatchModal.tsx（~200 行，送完即關）\n" +
+      "- ✅ TaskStatusChip.tsx + TaskDetailPanel.tsx\n" +
+      "- ✅ DevelopmentTab.tsx 接入新元件\n" +
+      "P1（Server-side Task Queue）：\n" +
+      "- ✅ paperclip_tasks 表 + partial unique index 防重複送單\n" +
+      "- ✅ /api/paperclip/task-queue CRUD + poll（server-side 重試）\n" +
+      "- ✅ usePaperclipTasks hook\n" +
+      "P2（多人協作）：\n" +
+      "- ✅ engineer_profiles 表 + claim/assign API\n" +
+      "- ✅ AssigneeColumn + PaperclipStatusColumn（表格新增 2 欄）\n" +
+      "Adapter 自動輪替：\n" +
+      "- ✅ adapter-fallback.ts：6 adapter fallback chain\n" +
+      "- ✅ task-queue/poll 整合自動切換（偵測 quota exceeded → PATCH /api/agents/:id）\n" +
+      "- ✅ 容器安裝 6 個 coding agent CLI（claude/codex/cursor/hermes/opencode/pi）\n" +
+      "- ✅ .env.paperclip 灌入 Anthropic/OpenAI/Gemini/Cursor key\n" +
+      "- ✅ 8 個 Paperclip agent 從 codex_local → claude_local\n" +
+      "- ✅ 運維文件更新（§5.1 Adapter 自動輪替、§6 成本監控）",
+    testProgress:
+      "2026/04/13：\n" +
+      "- ✅ prompt-templates.test.ts（12 tests）\n" +
+      "- ✅ status-styles.test.ts（5 tests）\n" +
+      "- ✅ adapter-fallback.test.ts（10 tests）\n" +
+      "- ✅ 全套 paperclip tests 192 passed\n" +
+      "- ✅ TS 編譯無新增錯誤\n" +
+      "- ✅ test-manifest ID 135 已登錄、validate 通過（13 entries）\n" +
+      "- ✅ Supabase migration 上線驗證（paperclip_tasks + engineer_profiles）\n" +
+      "- ✅ 6 adapter 環境測試全通過（claude/codex/cursor/hermes/opencode ✅ PASS，pi ⚠️ 需設 model）",
   },
 ];
 

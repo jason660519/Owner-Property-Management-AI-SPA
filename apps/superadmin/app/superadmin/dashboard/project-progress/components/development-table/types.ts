@@ -24,7 +24,44 @@ export interface WidthPreset {
 export type SelectionType = 'cell' | 'column' | 'row' | 'all' | null;
 
 // --- IDE & Status ---
-export type IDEOption = '' | 'Cursor' | 'VSCode' | 'Antigravity' | 'Claude CLI' | 'TRAE';
+/** Execution environment — human IDEs + AI coding agents.
+ *  Values with a matching Paperclip adapter can be auto-dispatched. */
+export type IDEOption =
+  | ''
+  // Human IDEs
+  | 'Cursor'
+  | 'VSCode'
+  | 'Antigravity'
+  | 'TRAE'
+  // AI Coding Agents
+  | 'Claude Code'
+  | 'Codex'
+  | 'Hermes Agent'
+  | 'OpenCode'
+  | 'Pi';
+
+/** Metadata for each execution environment option. */
+export interface RuntimeOptionMeta {
+  id: IDEOption;
+  label: string;
+  group: 'agent' | 'ide';
+  /** Paperclip adapter type, if this option maps to one. */
+  adapterType?: string;
+}
+
+export const RUNTIME_OPTIONS: RuntimeOptionMeta[] = [
+  // AI Coding Agents (ordered by fallback chain priority)
+  { id: 'Claude Code',   label: 'Claude Code (Agent)',   group: 'agent', adapterType: 'claude_local' },
+  { id: 'Codex',         label: 'Codex (Agent)',         group: 'agent', adapterType: 'codex_local' },
+  { id: 'Cursor',        label: 'Cursor (IDE + Agent)',  group: 'agent', adapterType: 'cursor' },
+  { id: 'Hermes Agent',  label: 'Hermes Agent',          group: 'agent', adapterType: 'hermes_local' },
+  { id: 'OpenCode',      label: 'OpenCode (Agent)',      group: 'agent', adapterType: 'opencode_local' },
+  { id: 'Pi',            label: 'Pi (Agent)',            group: 'agent', adapterType: 'pi_local' },
+  // Human IDEs (manual mode only)
+  { id: 'VSCode',        label: 'VSCode',                group: 'ide' },
+  { id: 'Antigravity',   label: 'Antigravity',           group: 'ide' },
+  { id: 'TRAE',          label: 'TRAE',                  group: 'ide' },
+];
 export type RowStatus = '' | 'completed' | 'in_progress' | 'not_started' | 'on_hold';
 export type RowSource = 'roadmap' | 'custom';
 
@@ -66,15 +103,19 @@ export const COLUMN_HEADERS: ColumnHeaderDef[] = [
   { en: 'E2E Test Progress', zh: 'E2E測試進度' },
   { en: 'Prompt and IDE Setting', zh: 'Prompt 與 IDE 設定' },
   { en: 'Status', zh: '狀態' },
+  { en: 'Assignee', zh: '負責人' },
+  { en: 'Paperclip Status', zh: 'Paperclip 狀態' },
   { en: 'Notes', zh: '備註' },
 ];
 
 export const COLUMN_LETTERS = COLUMN_HEADERS.map((_, i) => String.fromCharCode(65 + i));
 
-export const IDE_OPTIONS: IDEOption[] = ['', 'Cursor', 'VSCode', 'Antigravity', 'Claude CLI', 'TRAE'];
+/** @deprecated Use RUNTIME_OPTIONS instead. Kept for backward compatibility. */
+export const IDE_OPTIONS: IDEOption[] = ['', ...RUNTIME_OPTIONS.map(o => o.id)];
 
 // --- Layout constants ---
-export const INITIAL_WIDTHS = [4, 4, 6, 6, 22, 19, 10, 8, 10, 8, 8, 13, 6, 8];
+// 16 columns: original 14 + Assignee (5%) + Paperclip Status (7%), Notes reduced 8→6
+export const INITIAL_WIDTHS = [4, 4, 5, 5, 20, 17, 9, 7, 9, 7, 7, 12, 5, 5, 7, 6];
 export const TABLE_SCROLL_MIN_WIDTH_PX = 1600;
 export const DEFAULT_HEADER_HEIGHT = 56;
 export const MIN_HEADER_HEIGHT = 40;

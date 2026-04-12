@@ -91,11 +91,26 @@ Each header cell renders a 4px-wide resize handle positioned with `absolute righ
 - A parent element has `overflow: hidden` (the handle sits just outside the cell edge and may be clipped). The table container uses `overflow-auto`, not `overflow-hidden` — if you wrap EnhancedTable in a layout div with `overflow-hidden`, remove it.
 - A parent has `pointer-events: none` — the mouse events never reach the handle.
 - `initialWidths.length !== columns.length` — resize patches a wrong-length array and the state becomes unusable. See issue #2.
-- `tableId` collides with another table — preferences overwrite each other. See issue #8.
+- `tableId` collides with another table — preferences overwrite each other. See issue #9.
 
 **How to verify**: Hover between two column headers; you should see the cursor change to `col-resize` and a blue line appear on hover. If you only see the blue line at the very right of the table, the `relative` class is missing somewhere.
 
-### 8. Preferences Not Persisting
+### 8. Column Resize Breaks Table Layout
+
+**Symptom**: After dragging column resize handles, columns collapse to near-zero width, header text wraps chaotically, and the overall grid layout becomes misaligned.
+
+**Cause**: Using pure percentage values in `gridTemplateColumns` (e.g., `"4% 5% 20% ..."`) provides no minimum pixel constraint. When a column shrinks to a very small percentage, CSS Grid renders it at sub-usable widths. Additionally, if the resize handler's minimum threshold is too low (e.g., 8px), users can drag columns smaller than any content can fit.
+
+**Fix**: Raise the resize handler minimum from 8px to 40px so users can't drag columns below usable width:
+```tsx
+const minPct = (40 / containerWidth) * 100;
+```
+
+**Do NOT use `minmax()` in `gridTemplateColumns`**. While `minmax(40px, ${w}%)` prevents columns from collapsing, it also prevents CSS Grid from overflowing the container — breaking horizontal scroll. The table relies on `minWidth: max(100%, Xpx)` on the inner div to enable scroll, which requires pure percentage grid tracks (e.g., `${w}%`).
+
+**Why 40px?** It's wide enough to show a resize handle, a truncated header, and an ellipsis — the minimum for a usable column. If your columns need wider minimums (e.g., checkbox columns), adjust accordingly.
+
+### 9. Preferences Not Persisting
 
 **Symptom**: Column widths reset on page reload.
 
@@ -136,3 +151,14 @@ The `useTablePreferences` hook writes to both on save, reads from localStorage f
 ### Why `useTablePreferences` instead of Zustand/Context?
 
 Table preferences are per-table, not global. A hook with `tableId` as key is simpler than a global store with nested state. Each EnhancedTable instance manages its own preferences independently.
+
+### Why pure `${w}%` in gridTemplateColumns (not `minmax()`)?
+
+The table enables horizontal scroll via `minWidth: max(100%, Xpx)` on an inner wrapper div. CSS Grid columns use pure percentages (e.g., `"4% 5% 20% ..."`), which resolve as fractions of the inner div's width. When the inner div is wider than the scroll container, columns overflow and a scrollbar appears.
+
+Using `minmax(40px, ${w}%)` prevents this: CSS Grid treats the percentage as a maximum and keeps all tracks within the container, so no overflow occurs and the horizontal scrollbar disappears. This is a critical UX regression for tables with many columns.
+
+**The correct approach to minimum column widths**:
+- Enforce the minimum in the **resize handler** (`const minPct = (40 / containerW) * 100`), not in the CSS.
+- Keep `gridTemplateColumns` as pure `${w}%` — no `minmax()`, no `fr` units.
+- This way the grid overflows naturally for scroll, while the resize handler prevents columns from going below 40px during drag.

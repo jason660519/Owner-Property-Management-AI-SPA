@@ -27,7 +27,11 @@ import { useDevTableData } from './development-table/useDevTableData';
 import { createDevColumns } from './development-table/columns';
 import TableCore from './development-table/TableCore';
 import TableToolbar from './development-table/TableToolbar';
-import PromptEngineerModal from './development-table/PromptEngineerModal';
+import { TaskDispatchModal, TaskStatusChip, TaskDetailPanel } from './development-table/task-dispatch';
+import type { TaskCreatedPayload } from './development-table/task-dispatch';
+import { usePaperclipTaskStatus } from '@/lib/hooks/usePaperclipTaskStatus';
+import { usePaperclipTasks } from '@/lib/hooks/usePaperclipTasks';
+import { useEngineerProfiles } from '@/lib/hooks/useEngineerProfiles';
 import AddRowModal from './development-table/AddRowModal';
 import type { CustomProjectProgressRowPayload } from '../types';
 
@@ -39,6 +43,8 @@ interface DevelopmentTabProps {
 
 export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   const { userId } = useAISettings();
+  const { tasksByRowId, refresh: refreshTasks } = usePaperclipTasks();
+  const { profiles: engineerProfiles, profilesByUserId } = useEngineerProfiles();
 
   // --- Persisted preferences ---
   const { settings: tablePrefs, patch: patchTablePrefs } = useTablePreferences<DevTabSettings>({
@@ -92,13 +98,31 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
     });
   }, [filteredRows]);
 
-  // --- Prompt modal ---
+  // --- Task dispatch modal + active task tracking ---
   const [promptTarget, setPromptTarget] = useState<{ row: ProgressRow; rowKey: string } | null>(null);
+  const [activeTask, setActiveTask] = useState<{
+    rowKey: string;
+    issueId: string;
+    issueUrl: string;
+    worktree?: import('@/lib/paperclip/worktree').WorktreePaths;
+  } | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const openPromptConfig = useCallback((row: ProgressRow) => {
     const rowKey = getRowKey(row.__source, row.__rowId);
     setPromptTarget({ row, rowKey });
   }, []);
+
+  const handleTaskCreated = useCallback((rowKey: string, payload: TaskCreatedPayload) => {
+    setActiveTask({
+      rowKey,
+      issueId: payload.issue.id,
+      issueUrl: payload.issueUrl,
+      worktree: payload.worktree,
+    });
+    // Refresh server-side task queue to pick up the newly created task
+    refreshTasks();
+  }, [refreshTasks]);
 
   // --- Add row modal ---
   const [addRowOpen, setAddRowOpen] = useState(false);
@@ -132,7 +156,12 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
     hiddenRowKeysSet,
     onToggleHideRow: handleToggleHideRow,
     onDeleteCustomRow: handleDeleteCustomRow,
-  }), [openPromptConfig, statusSelections, handleStatusChange, ideSelections, hiddenRowKeysSet, handleToggleHideRow, handleDeleteCustomRow]);
+    userId,
+    tasksByRowId,
+    engineerProfiles,
+    profilesByUserId,
+    onRefreshTasks: refreshTasks,
+  }), [openPromptConfig, statusSelections, handleStatusChange, ideSelections, hiddenRowKeysSet, handleToggleHideRow, handleDeleteCustomRow, userId, tasksByRowId, engineerProfiles, profilesByUserId, refreshTasks]);
 
   const statusSummary = useMemo(
     () => summarizeRowStatuses(filteredRows, statusSelections),
@@ -251,7 +280,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
       />
 
       {promptTarget && (
-        <PromptEngineerModal
+        <TaskDispatchModal
           row={promptTarget.row}
           rowKey={promptTarget.rowKey}
           userId={userId}
@@ -259,9 +288,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
           onIdeChange={(rowKey: string, ide: IDEOption) => {
             setIdeSelections(prev => ({ ...prev, [rowKey]: ide }));
           }}
-          onStatusHint={(rowKey: string, status: RowStatus) => {
-            setStatusSelections(prev => ({ ...prev, [rowKey]: status }));
-          }}
+          onTaskCreated={(payload) => handleTaskCreated(promptTarget.rowKey, payload)}
           onClose={() => setPromptTarget(null)}
         />
       )}

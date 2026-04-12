@@ -159,7 +159,7 @@ export default function TableCore({
       const newWidths = [...startWidths];
       const left = newWidths[index] + deltaPercent;
       const right = newWidths[index + 1] - deltaPercent;
-      const minPct = (8 / containerWidth) * 100;
+      const minPct = (40 / containerWidth) * 100;
       if (left >= minPct && right >= minPct) {
         newWidths[index] = left;
         newWidths[index + 1] = right;
@@ -191,7 +191,7 @@ export default function TableCore({
         const newWidths = [...startWidths];
         const left = newWidths[leftIndex] + deltaPercent;
         const right = newWidths[rightIndex] - deltaPercent;
-        const minPct = (8 / containerWidth) * 100;
+        const minPct = (40 / containerWidth) * 100;
         if (left >= minPct && right >= minPct) {
           newWidths[leftIndex] = left;
           newWidths[rightIndex] = right;

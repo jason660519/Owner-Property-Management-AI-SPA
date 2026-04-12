@@ -1,5 +1,5 @@
 // filepath: project-progress/components/development-table/columns.tsx
-// TanStack Table column definitions for the project progress table (14 columns)
+// TanStack Table column definitions for the project progress table (16 columns)
 
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { ExternalLink, Settings, EyeOff, Eye, X } from 'lucide-react';
@@ -7,6 +7,9 @@ import { ExternalLink, Settings, EyeOff, Eye, X } from 'lucide-react';
 import type { ProgressRow, IDEOption, RowStatus } from './types';
 import { getRowKey, deriveRowStatus, IDE_OPTIONS, COLUMN_HEADERS, resolveUnitTestFolder, resolveE2EFolder } from './types';
 import { buildProjectFileHref } from './path-utils';
+import type { PaperclipTaskRow } from '@/app/api/paperclip/task-queue/route';
+import type { EngineerProfile } from '@/lib/hooks/useEngineerProfiles';
+import { AssigneeColumn, PaperclipStatusColumn } from './task-dispatch';
 
 const PROJECT_FILE_ALLOWED_PREFIXES = ['apps/superadmin/', 'project-process/'] as const;
 
@@ -107,6 +110,13 @@ export interface CreateDevColumnsDeps {
   hiddenRowKeysSet: Set<string>;
   onToggleHideRow: (rowKey: string) => void;
   onDeleteCustomRow: (rowId: string) => void;
+  // P2: multi-engineer collaboration
+  userId: string;
+  tasksByRowId: Record<string, PaperclipTaskRow>;
+  engineerProfiles: EngineerProfile[];
+  profilesByUserId: Record<string, EngineerProfile>;
+  onRefreshTasks: () => void;
+  onClickTaskDetail?: (rowId: string) => void;
 }
 
 export function createDevColumns(deps: CreateDevColumnsDeps): ColumnDef<ProgressRow, unknown>[] {
@@ -117,6 +127,12 @@ export function createDevColumns(deps: CreateDevColumnsDeps): ColumnDef<Progress
     hiddenRowKeysSet,
     onToggleHideRow,
     onDeleteCustomRow,
+    userId,
+    tasksByRowId,
+    engineerProfiles,
+    profilesByUserId,
+    onRefreshTasks,
+    onClickTaskDetail,
   } = deps;
 
   return [
@@ -308,10 +324,47 @@ export function createDevColumns(deps: CreateDevColumnsDeps): ColumnDef<Progress
       },
     }),
 
-    // 14. Notes (placeholder)
+    // 14. Assignee (P2)
+    col.display({
+      id: 'col-assignee',
+      meta: meta(13),
+      cell: ({ row }) => {
+        const r = row.original;
+        const task = tasksByRowId[r.__rowId];
+        return (
+          <AssigneeColumn
+            rowId={r.__rowId}
+            task={task}
+            currentUserId={userId}
+            profiles={engineerProfiles}
+            profilesByUserId={profilesByUserId}
+            onRefresh={onRefreshTasks}
+          />
+        );
+      },
+    }),
+
+    // 15. Paperclip Status (P2)
+    col.display({
+      id: 'col-paperclip-status',
+      meta: meta(14),
+      cell: ({ row }) => {
+        const r = row.original;
+        const task = tasksByRowId[r.__rowId];
+        return (
+          <PaperclipStatusColumn
+            task={task}
+            userId={userId}
+            onClickDetail={onClickTaskDetail ? () => onClickTaskDetail(r.__rowId) : undefined}
+          />
+        );
+      },
+    }),
+
+    // 16. Notes (placeholder)
     col.display({
       id: 'col-notes',
-      meta: meta(13),
+      meta: meta(15),
       cell: () => (
         <span className="text-sm text-text-muted truncate max-w-full block">&mdash;</span>
       ),

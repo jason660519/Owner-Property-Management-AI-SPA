@@ -1,0 +1,98 @@
+// POST /api/paperclip/task-queue/claim
+//
+// An engineer claims an unassigned active task for a given rowId.
+// Uses optimistic locking — if already claimed, returns 409.
+
+import { NextRequest, NextResponse } from 'next/server';
+import { createAdminClient } from '@/utils/supabase/admin';
+
+interface ClaimBody {
+  rowId: string;
+}
+
+export async function POST(request: NextRequest) {
+  const userId = request.headers.get('x-user-id');
+  if (!userId) {
+    return NextResponse.json(
+      { ok: false, error: 'Missing x-user-id header' },
+      { status: 401 },
+    );
+  }
+
+  let body: ClaimBody;
+  try {
+    body = (await request.json()) as ClaimBody;
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: 'Invalid JSON body' },
+      { status: 400 },
+    );
+  }
+
+  if (!body.rowId) {
+    return NextResponse.json(
+      { ok: false, error: 'rowId is required' },
+      { status: 400 },
+    );
+  }
+
+  const supabase = createAdminClient();
+
+  // Find the active task for this row
+  const { data: task, error: findError } = await supabase
+    .from('paperclip_tasks')
+    .select('id, claimed_by, row_id')
+    .eq('row_id', body.rowId)
+    .in('status', ['submitted', 'running'])
+    .maybeSingle();
+
+  if (findError) {
+    return NextResponse.json(
+      { ok: false, error: findError.message },
+      { status: 500 },
+    );
+  }
+
+  if (!task) {
+    return NextResponse.json(
+      { ok: false, error: `No active task found for row ${body.rowId}` },
+      { status: 404 },
+    );
+  }
+
+  if (task.claimed_by) {
+    return NextResponse.json(
+      { ok: false, error: `Task already claimed by user ${task.claimed_by}` },
+      { status: 409 },
+    );
+  }
+
+  // Optimistic lock: only update if claimed_by is still null
+  const { data: updated, error: updateError } = await supabase
+    .from('paperclip_tasks')
+    .update({
+      claimed_by: userId,
+      claimed_at: new Date().toISOString(),
+    })
+    .eq('id', task.id)
+    .is('claimed_by', null)
+    .select()
+    .maybeSingle();
+
+  if (updateError) {
+    return NextResponse.json(
+      { ok: false, error: updateError.message },
+      { status: 500 },
+    );
+  }
+
+  if (!updated) {
+    // Another request claimed it between our read and write
+    return NextResponse.json(
+      { ok: false, error: 'Task was claimed by another user' },
+      { status: 409 },
+    );
+  }
+
+  return NextResponse.json({ ok: true, task: updated });
+}

@@ -41,8 +41,9 @@ CREATE POLICY "people_records_allow_superadmin_select" ON public.people_records
     USING (
         auth.role() = 'service_role'
         OR EXISTS (
-            SELECT 1 FROM public.iam_user_roles
-            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+            SELECT 1 FROM public.iam_user_roles iur
+            JOIN public.iam_roles ir ON ir.id = iur.role_id
+            WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
         )
     );
 
@@ -51,8 +52,9 @@ CREATE POLICY "people_records_allow_superadmin_insert" ON public.people_records
     WITH CHECK (
         auth.role() = 'service_role'
         OR EXISTS (
-            SELECT 1 FROM public.iam_user_roles
-            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+            SELECT 1 FROM public.iam_user_roles iur
+            JOIN public.iam_roles ir ON ir.id = iur.role_id
+            WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
         )
     );
 
@@ -61,15 +63,17 @@ CREATE POLICY "people_records_allow_superadmin_update" ON public.people_records
     USING (
         auth.role() = 'service_role'
         OR EXISTS (
-            SELECT 1 FROM public.iam_user_roles
-            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+            SELECT 1 FROM public.iam_user_roles iur
+            JOIN public.iam_roles ir ON ir.id = iur.role_id
+            WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
         )
     )
     WITH CHECK (
         auth.role() = 'service_role'
         OR EXISTS (
-            SELECT 1 FROM public.iam_user_roles
-            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+            SELECT 1 FROM public.iam_user_roles iur
+            JOIN public.iam_roles ir ON ir.id = iur.role_id
+            WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
         )
     );
 
@@ -78,8 +82,9 @@ CREATE POLICY "people_records_allow_superadmin_delete" ON public.people_records
     USING (
         auth.role() = 'service_role'
         OR EXISTS (
-            SELECT 1 FROM public.iam_user_roles
-            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+            SELECT 1 FROM public.iam_user_roles iur
+            JOIN public.iam_roles ir ON ir.id = iur.role_id
+            WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
         )
     );
 
@@ -96,8 +101,9 @@ CREATE POLICY "import_batches_allow_superadmin_select" ON public.import_batches
     USING (
         auth.role() = 'service_role'
         OR EXISTS (
-            SELECT 1 FROM public.iam_user_roles
-            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+            SELECT 1 FROM public.iam_user_roles iur
+            JOIN public.iam_roles ir ON ir.id = iur.role_id
+            WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
         )
     );
 
@@ -106,8 +112,9 @@ CREATE POLICY "import_batches_allow_superadmin_insert" ON public.import_batches
     WITH CHECK (
         auth.role() = 'service_role'
         OR EXISTS (
-            SELECT 1 FROM public.iam_user_roles
-            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+            SELECT 1 FROM public.iam_user_roles iur
+            JOIN public.iam_roles ir ON ir.id = iur.role_id
+            WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
         )
     );
 
@@ -116,15 +123,17 @@ CREATE POLICY "import_batches_allow_superadmin_update" ON public.import_batches
     USING (
         auth.role() = 'service_role'
         OR EXISTS (
-            SELECT 1 FROM public.iam_user_roles
-            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+            SELECT 1 FROM public.iam_user_roles iur
+            JOIN public.iam_roles ir ON ir.id = iur.role_id
+            WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
         )
     )
     WITH CHECK (
         auth.role() = 'service_role'
         OR EXISTS (
-            SELECT 1 FROM public.iam_user_roles
-            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+            SELECT 1 FROM public.iam_user_roles iur
+            JOIN public.iam_roles ir ON ir.id = iur.role_id
+            WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
         )
     );
 
@@ -133,8 +142,9 @@ CREATE POLICY "import_batches_allow_superadmin_delete" ON public.import_batches
     USING (
         auth.role() = 'service_role'
         OR EXISTS (
-            SELECT 1 FROM public.iam_user_roles
-            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+            SELECT 1 FROM public.iam_user_roles iur
+            JOIN public.iam_roles ir ON ir.id = iur.role_id
+            WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
         )
     );
 
@@ -151,8 +161,9 @@ CREATE POLICY "people_duplicates_allow_superadmin_select" ON public.people_dupli
     USING (
         auth.role() = 'service_role'
         OR EXISTS (
-            SELECT 1 FROM public.iam_user_roles
-            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+            SELECT 1 FROM public.iam_user_roles iur
+            JOIN public.iam_roles ir ON ir.id = iur.role_id
+            WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
         )
     );
 
@@ -161,8 +172,9 @@ CREATE POLICY "people_duplicates_allow_superadmin_insert" ON public.people_dupli
     WITH CHECK (
         auth.role() = 'service_role'
         OR EXISTS (
-            SELECT 1 FROM public.iam_user_roles
-            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+            SELECT 1 FROM public.iam_user_roles iur
+            JOIN public.iam_roles ir ON ir.id = iur.role_id
+            WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
         )
     );
 
@@ -171,15 +183,17 @@ CREATE POLICY "people_duplicates_allow_superadmin_update" ON public.people_dupli
     USING (
         auth.role() = 'service_role'
         OR EXISTS (
-            SELECT 1 FROM public.iam_user_roles
-            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+            SELECT 1 FROM public.iam_user_roles iur
+            JOIN public.iam_roles ir ON ir.id = iur.role_id
+            WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
         )
     )
     WITH CHECK (
         auth.role() = 'service_role'
         OR EXISTS (
-            SELECT 1 FROM public.iam_user_roles
-            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+            SELECT 1 FROM public.iam_user_roles iur
+            JOIN public.iam_roles ir ON ir.id = iur.role_id
+            WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
         )
     );
 
@@ -188,7 +202,8 @@ CREATE POLICY "people_duplicates_allow_superadmin_delete" ON public.people_dupli
     USING (
         auth.role() = 'service_role'
         OR EXISTS (
-            SELECT 1 FROM public.iam_user_roles
-            WHERE user_id = auth.uid() AND role_name = 'superadmin'
+            SELECT 1 FROM public.iam_user_roles iur
+            JOIN public.iam_roles ir ON ir.id = iur.role_id
+            WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
         )
     );

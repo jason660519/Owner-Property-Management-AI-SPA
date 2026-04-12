@@ -76,6 +76,7 @@ Key rules:
 - **Column resize is automatic** — do NOT pass any extra prop. Just make sure:
   - You do NOT wrap `<EnhancedTable>` in a parent with `overflow: hidden` or `pointer-events: none`
   - You do NOT ship a custom header renderer that drops the `relative` class from each header cell (see `references/troubleshooting.md` #7 for the CSS positioning requirement)
+- **gridTemplateColumns MUST use pure percentages** (`${w}%`). Do NOT use `minmax()`, `fr` units, or any other CSS Grid track syntax. `minmax()` prevents horizontal scroll from working (see `references/troubleshooting.md` "Why pure `${w}%`" design decision). Column minimum widths are enforced in the resize handler (40px), not in CSS.
 - If you need custom default widths after real-world usage, update `initialWidths`; users can also use the toolbar `Save Widths` button to persist their own preset via `useTablePreferences`
 
 ### Step 4: Add Sheet Tabs (if needed)
@@ -97,6 +98,9 @@ Run through the checklist:
   - Hover between each pair of headers — cursor becomes `col-resize` + blue line highlights
   - Drag left/right changes both adjacent columns; sum stays stable
   - If only the rightmost handle responds → the `relative` class is missing on header cells (see troubleshooting #7)
+  - Columns cannot be dragged below ~40px; layout stays stable even after aggressive resizing (see troubleshooting #8)
+- [ ] **Horizontal scroll works** when table has many columns (`minWidth` set)
+  - If no scrollbar appears → check that `gridTemplateColumns` uses pure `${w}%`, NOT `minmax()` (see troubleshooting design decisions)
 - [ ] Widths persist across page reload (localStorage)
 - [ ] `Reset Widths` returns to `initialWidths`
 - [ ] Search filters rows

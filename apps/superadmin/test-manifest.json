@@ -197,6 +197,18 @@
       "linkedToolScripts": [
         "tools/paperclip/health-check.sh"
       ]
+    },
+    {
+      "id": "135",
+      "name": "PromptEngineer rebuild — multi-engineer task dispatch",
+      "tier": "pr",
+      "status": "active",
+      "unitPaths": [
+        "apps/superadmin/unit_test/135/prompt-templates.test.ts",
+        "apps/superadmin/unit_test/135/status-styles.test.ts"
+      ],
+      "e2ePaths": [],
+      "linkedToolScripts": []
     }
   ]
 }

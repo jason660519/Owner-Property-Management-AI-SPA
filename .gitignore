@@ -42,6 +42,13 @@ __pycache__/
 !.claude/settings.json
 !.claude/.mcp.json
 !.claude/skills/
+.pi/*
+!.pi/SYSTEM.md
+!.pi/APPEND_SYSTEM.md
+!.pi/settings.json
+!.pi/prompts/
+!.pi/skills/
+!.pi/extensions/
 *.swp
 *.swo
 *~

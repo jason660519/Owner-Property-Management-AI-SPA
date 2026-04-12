@@ -13,10 +13,11 @@ CREATE POLICY "Deny all" ON public.people_records
 CREATE POLICY "Superadmin select" ON public.people_records
     FOR SELECT
     USING (
-        (SELECT auth.has_role('authenticated') AND 
+        (SELECT auth.uid() IS NOT NULL AND 
          EXISTS (
-             SELECT 1 FROM public.iam_user_roles
-             WHERE user_id = auth.uid() AND role_name = 'superadmin'
+             SELECT 1 FROM public.iam_user_roles iur
+             JOIN public.iam_roles ir ON ir.id = iur.role_id
+             WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
          ))
     );
 
@@ -24,10 +25,11 @@ CREATE POLICY "Superadmin select" ON public.people_records
 CREATE POLICY "Superadmin insert" ON public.people_records
     FOR INSERT
     WITH CHECK (
-        (SELECT auth.has_role('authenticated') AND 
+        (SELECT auth.uid() IS NOT NULL AND 
          EXISTS (
-             SELECT 1 FROM public.iam_user_roles
-             WHERE user_id = auth.uid() AND role_name = 'superadmin'
+             SELECT 1 FROM public.iam_user_roles iur
+             JOIN public.iam_roles ir ON ir.id = iur.role_id
+             WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
          ))
     );
 
@@ -35,17 +37,19 @@ CREATE POLICY "Superadmin insert" ON public.people_records
 CREATE POLICY "Superadmin update" ON public.people_records
     FOR UPDATE
     USING (
-        (SELECT auth.has_role('authenticated') AND 
+        (SELECT auth.uid() IS NOT NULL AND 
          EXISTS (
-             SELECT 1 FROM public.iam_user_roles
-             WHERE user_id = auth.uid() AND role_name = 'superadmin'
+             SELECT 1 FROM public.iam_user_roles iur
+             JOIN public.iam_roles ir ON ir.id = iur.role_id
+             WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
          ))
     )
     WITH CHECK (
-        (SELECT auth.has_role('authenticated') AND 
+        (SELECT auth.uid() IS NOT NULL AND 
          EXISTS (
-             SELECT 1 FROM public.iam_user_roles
-             WHERE user_id = auth.uid() AND role_name = 'superadmin'
+             SELECT 1 FROM public.iam_user_roles iur
+             JOIN public.iam_roles ir ON ir.id = iur.role_id
+             WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
          ))
     );
 
@@ -53,10 +57,11 @@ CREATE POLICY "Superadmin update" ON public.people_records
 CREATE POLICY "Superadmin delete" ON public.people_records
     FOR DELETE
     USING (
-        (SELECT auth.has_role('authenticated') AND 
+        (SELECT auth.uid() IS NOT NULL AND 
          EXISTS (
-             SELECT 1 FROM public.iam_user_roles
-             WHERE user_id = auth.uid() AND role_name = 'superadmin'
+             SELECT 1 FROM public.iam_user_roles iur
+             JOIN public.iam_roles ir ON ir.id = iur.role_id
+             WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
          ))
     );
 
@@ -77,10 +82,11 @@ CREATE POLICY "Deny all" ON public.import_batches
 CREATE POLICY "Superadmin select" ON public.import_batches
     FOR SELECT
     USING (
-        (SELECT auth.has_role('authenticated') AND 
+        (SELECT auth.uid() IS NOT NULL AND 
          EXISTS (
-             SELECT 1 FROM public.iam_user_roles
-             WHERE user_id = auth.uid() AND role_name = 'superadmin'
+             SELECT 1 FROM public.iam_user_roles iur
+             JOIN public.iam_roles ir ON ir.id = iur.role_id
+             WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
          ))
     );
 
@@ -88,10 +94,11 @@ CREATE POLICY "Superadmin select" ON public.import_batches
 CREATE POLICY "Superadmin insert" ON public.import_batches
     FOR INSERT
     WITH CHECK (
-        (SELECT auth.has_role('authenticated') AND 
+        (SELECT auth.uid() IS NOT NULL AND 
          EXISTS (
-             SELECT 1 FROM public.iam_user_roles
-             WHERE user_id = auth.uid() AND role_name = 'superadmin'
+             SELECT 1 FROM public.iam_user_roles iur
+             JOIN public.iam_roles ir ON ir.id = iur.role_id
+             WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
          ))
     );
 
@@ -99,17 +106,19 @@ CREATE POLICY "Superadmin insert" ON public.import_batches
 CREATE POLICY "Superadmin update" ON public.import_batches
     FOR UPDATE
     USING (
-        (SELECT auth.has_role('authenticated') AND 
+        (SELECT auth.uid() IS NOT NULL AND 
          EXISTS (
-             SELECT 1 FROM public.iam_user_roles
-             WHERE user_id = auth.uid() AND role_name = 'superadmin'
+             SELECT 1 FROM public.iam_user_roles iur
+             JOIN public.iam_roles ir ON ir.id = iur.role_id
+             WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
          ))
     )
     WITH CHECK (
-        (SELECT auth.has_role('authenticated') AND 
+        (SELECT auth.uid() IS NOT NULL AND 
          EXISTS (
-             SELECT 1 FROM public.iam_user_roles
-             WHERE user_id = auth.uid() AND role_name = 'superadmin'
+             SELECT 1 FROM public.iam_user_roles iur
+             JOIN public.iam_roles ir ON ir.id = iur.role_id
+             WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
          ))
     );
 
@@ -117,10 +126,11 @@ CREATE POLICY "Superadmin update" ON public.import_batches
 CREATE POLICY "Superadmin delete" ON public.import_batches
     FOR DELETE
     USING (
-        (SELECT auth.has_role('authenticated') AND 
+        (SELECT auth.uid() IS NOT NULL AND 
          EXISTS (
-             SELECT 1 FROM public.iam_user_roles
-             WHERE user_id = auth.uid() AND role_name = 'superadmin'
+             SELECT 1 FROM public.iam_user_roles iur
+             JOIN public.iam_roles ir ON ir.id = iur.role_id
+             WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
          ))
     );
 
@@ -141,10 +151,11 @@ CREATE POLICY "Deny all" ON public.people_duplicates
 CREATE POLICY "Superadmin select" ON public.people_duplicates
     FOR SELECT
     USING (
-        (SELECT auth.has_role('authenticated') AND 
+        (SELECT auth.uid() IS NOT NULL AND 
          EXISTS (
-             SELECT 1 FROM public.iam_user_roles
-             WHERE user_id = auth.uid() AND role_name = 'superadmin'
+             SELECT 1 FROM public.iam_user_roles iur
+             JOIN public.iam_roles ir ON ir.id = iur.role_id
+             WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
          ))
     );
 
@@ -152,10 +163,11 @@ CREATE POLICY "Superadmin select" ON public.people_duplicates
 CREATE POLICY "Superadmin insert" ON public.people_duplicates
     FOR INSERT
     WITH CHECK (
-        (SELECT auth.has_role('authenticated') AND 
+        (SELECT auth.uid() IS NOT NULL AND 
          EXISTS (
-             SELECT 1 FROM public.iam_user_roles
-             WHERE user_id = auth.uid() AND role_name = 'superadmin'
+             SELECT 1 FROM public.iam_user_roles iur
+             JOIN public.iam_roles ir ON ir.id = iur.role_id
+             WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
          ))
     );
 
@@ -163,17 +175,19 @@ CREATE POLICY "Superadmin insert" ON public.people_duplicates
 CREATE POLICY "Superadmin update" ON public.people_duplicates
     FOR UPDATE
     USING (
-        (SELECT auth.has_role('authenticated') AND 
+        (SELECT auth.uid() IS NOT NULL AND 
          EXISTS (
-             SELECT 1 FROM public.iam_user_roles
-             WHERE user_id = auth.uid() AND role_name = 'superadmin'
+             SELECT 1 FROM public.iam_user_roles iur
+             JOIN public.iam_roles ir ON ir.id = iur.role_id
+             WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
          ))
     )
     WITH CHECK (
-        (SELECT auth.has_role('authenticated') AND 
+        (SELECT auth.uid() IS NOT NULL AND 
          EXISTS (
-             SELECT 1 FROM public.iam_user_roles
-             WHERE user_id = auth.uid() AND role_name = 'superadmin'
+             SELECT 1 FROM public.iam_user_roles iur
+             JOIN public.iam_roles ir ON ir.id = iur.role_id
+             WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
          ))
     );
 
@@ -181,10 +195,11 @@ CREATE POLICY "Superadmin update" ON public.people_duplicates
 CREATE POLICY "Superadmin delete" ON public.people_duplicates
     FOR DELETE
     USING (
-        (SELECT auth.has_role('authenticated') AND 
+        (SELECT auth.uid() IS NOT NULL AND 
          EXISTS (
-             SELECT 1 FROM public.iam_user_roles
-             WHERE user_id = auth.uid() AND role_name = 'superadmin'
+             SELECT 1 FROM public.iam_user_roles iur
+             JOIN public.iam_roles ir ON ir.id = iur.role_id
+             WHERE iur.user_id = auth.uid() AND ir.name = 'super_admin'
          ))
     );
 

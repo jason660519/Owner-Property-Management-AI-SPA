@@ -46,6 +46,34 @@
 - **Worktrees 列表**: 列表輪詢間隔依「是否有活躍 issue／未完成 run／本機 commits」在 **10s–45s** 間切換；無 worktree 時最疏。
 - **實務**: 長任務仍以 Paperclip 內 agent 設定與模型為主；本節僅限本 repo 可控制之流量。
 
+### 5.1 Adapter 自動輪替（Fallback Chain）
+
+當 agent 的 adapter 出現 quota exceeded / rate limit / adapter_failed 錯誤時，server-side poll route（`/api/paperclip/task-queue/poll`）會自動：
+
+1. 偵測錯誤類型（`isAdapterQuotaError`）
+2. 查詢 agent 當前 adapter
+3. 切換到 fallback chain 中的下一個 adapter
+
+**Fallback 順序**：
+```
+claude_local → codex_local → gemini_local → (exhausted, 標記 tripped)
+```
+
+**需要的環境變數**（`docker/paperclip/.env.paperclip`）：
+```
+ANTHROPIC_API_KEY=...   # claude_local
+OPENAI_API_KEY=...      # codex_local
+GEMINI_API_KEY=...      # gemini_local
+```
+
+**手動切換 adapter**（PATCH API）：
+```bash
+curl -X PATCH -H "Authorization: Bearer $PAPERCLIP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"adapterType": "claude_local"}' \
+  http://localhost:3187/api/agents/<agentId>
+```
+
 ---
 
 ## 6. 成本監控與驗證

@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { createIssue } from '@/lib/paperclip/client';
+import { createAdminClient } from '@/utils/supabase/admin';
 import type { PaperclipIssuePayload, PaperclipRoleId } from '@/lib/paperclip/types';
 import type { WorktreePaths } from '@/lib/paperclip/worktree';
 import {
@@ -288,6 +289,36 @@ export async function POST(request: NextRequest) {
         err instanceof Error ? err.message : err,
       );
       }
+    }
+  }
+
+  // ── Persist to paperclip_tasks for server-side tracking ──────────────
+  if (result.ok) {
+    const userId = request.headers.get('x-user-id') ?? undefined;
+    // Extract rowId from title format "[Row 042] Feature Name"
+    const rowIdMatch = body.title.match(/\[Row\s+(\S+?)\]/i);
+    const rowId = rowIdMatch?.[1] ?? body.title;
+
+    try {
+      const supabase = createAdminClient();
+      await supabase.from('paperclip_tasks').insert({
+        row_id: rowId,
+        issue_id: result.issue.id,
+        issue_url: result.issueUrl,
+        assigned_agent: enrichedPayload.assigneeAgentId ?? null,
+        assigned_by: userId ?? null,
+        assigned_role: body.assigneeAgentId ? null : (autoRoutedAgentId ? 'auto' : null),
+        worktree_slug: worktreePaths.slug,
+        worktree_branch: worktreePaths.branchName,
+        status: 'submitted',
+      });
+    } catch (err) {
+      // Best effort — task queue insert failure should not block issue creation
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[paperclip] failed to insert into paperclip_tasks:',
+        err instanceof Error ? err.message : err,
+      );
     }
   }
 

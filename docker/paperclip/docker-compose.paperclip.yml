@@ -10,6 +10,10 @@ services:
       # Allow API-key auth fallback when CLAUDE_CODE_OAUTH_TOKEN is unavailable.
       ANTHROPIC_API_KEY: '${ANTHROPIC_API_KEY:-}'
       CLAUDE_CODE_OAUTH_TOKEN: '${CLAUDE_CODE_OAUTH_TOKEN:-}'
+      # Gemini adapter support (fallback when Claude/OpenAI quota exceeded)
+      GEMINI_API_KEY: '${GEMINI_API_KEY:-}'
+      # Cursor agent adapter
+      CURSOR_API_KEY: '${CURSOR_API_KEY:-}'
       PAPERCLIP_DEPLOYMENT_MODE: 'authenticated'
       PAPERCLIP_DEPLOYMENT_EXPOSURE: 'private'
       PAPERCLIP_PUBLIC_URL: '${PAPERCLIP_PUBLIC_URL:-http://localhost:3187}'

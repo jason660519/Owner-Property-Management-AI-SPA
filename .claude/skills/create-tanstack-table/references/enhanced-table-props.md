@@ -53,7 +53,7 @@ Column resize is built into `EnhancedTable` — you do NOT need to pass any extr
 
 2. **`initialWidths` values sum to ~100** — they are percentages of the table inner width. A sum far from 100 makes dragging feel wrong (columns jump or clip).
 
-3. **Each column needs ≥ 8px equivalent in percentage** — `handleResizeStart` refuses to shrink a column below `(8 / containerW) * 100` percent. Don't start with values smaller than ~2%.
+3. **Each column needs ≥ 40px equivalent in percentage** — `handleResizeStart` refuses to shrink a column below `(40 / containerW) * 100` percent. On a 1200px container that's ~3.3%. Don't start with values smaller than ~4%.
 
 4. **Do NOT wrap `<EnhancedTable>` in a container with `overflow: hidden`** — the resize handle sits right on the cell edge and can be clipped. Use `overflow-auto` or leave overflow default. If you need a bounded layout, set `minWidth` prop and let EnhancedTable's internal `overflow-auto` scroll.
 

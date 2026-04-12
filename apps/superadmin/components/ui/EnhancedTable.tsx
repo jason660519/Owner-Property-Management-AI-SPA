@@ -378,7 +378,7 @@ export default function EnhancedTable<T>({
       const nw = [...startWidths];
       const l = nw[index] + delta;
       const r = nw[index + 1] - delta;
-      const mp = (8 / containerW) * 100;
+      const mp = (40 / containerW) * 100;
       if (l >= mp && r >= mp) { nw[index] = l; nw[index + 1] = r; patch({ colWidths: nw }); currentWidthsRef.current = nw; }
     };
     const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
