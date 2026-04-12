@@ -604,15 +604,23 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東的預約看房管理功能",
     locatedPage: "web/landlord/appointments",
-    percentage: 0,
+    percentage: 75,
     acceptanceCriteria:
       "1. 顯示所有待確認/已確認/已取消的看房預約清單。\n2. 房東可一鍵確認或拒絕（附拒絕原因）預約請求。\n3. 確認/拒絕後自動發送通知（Email 或系統通知）給租客/買家。\n4. 整合日曆視圖，顯示每日預約時段。\n5. 可設定每日可預約時段（開放時間與間隔）。",
-    docPath: "",
+    docPath: "/project-process/test-logs/test-landlord-viewing-appointments-2026-04-12.md",
+    featureSpecDocPath: "/project-process/features/landlord-features.md",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
+    testCoverage: 60,
+    unitTestCoverage: 60,
+    e2eTestCoverage: 0,
+    testStatus: "in_progress",
+    phase: "testing",
     points: 3,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip CTO",
+    lastModifiedDate: "2026/04/12",
+    devLog:
+      "[2026/04/12] (Paperclip CTO)\n• 補齊房東預約 API 狀態變更通知：confirmed/cancelled/completed 會寄送訪客 Email（含取消原因）。\n• 新增房東預約月曆視圖，顯示每日時段與筆數。\n• 新增 Row 029 對應單元測試與 TDD Progress Report。",
   },
   {
     name: "房東的客戶－Details模式",

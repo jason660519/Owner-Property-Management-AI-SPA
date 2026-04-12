@@ -105,6 +105,18 @@
       "linkedToolScripts": []
     },
     {
+      "id": "029",
+      "name": "Landlord viewing appointments management",
+      "tier": "pr",
+      "status": "active",
+      "unitPaths": [
+        "apps/web/lib/landlord/__tests__/appointment-notifications.test.ts",
+        "apps/web/lib/landlord/__tests__/appointment-calendar.test.ts"
+      ],
+      "e2ePaths": [],
+      "linkedToolScripts": []
+    },
+    {
       "id": "120",
       "name": "Contract template selector",
       "tier": "nightly",

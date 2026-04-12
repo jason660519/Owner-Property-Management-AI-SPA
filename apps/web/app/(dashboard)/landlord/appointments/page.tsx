@@ -13,23 +13,20 @@ import {
   CheckCircle, 
   XCircle, 
   AlertCircle, 
-  MoreHorizontal, 
-  Filter, 
   Loader2, 
   Eye, 
-  Edit, 
   Trash2,
   X,
-  ChevronLeft,
-  ChevronRight
+  ChevronLeft
 } from 'lucide-react'
-import { format } from 'date-fns'
+import { addMonths, format, subMonths } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import { DashboardLayout } from '@/components/dashboard'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { useToast } from '@/components/ui/Toast'
+import { AppointmentCalendar } from '@/components/landlord/AppointmentCalendar'
 
 // --- Types ---
 
@@ -238,6 +235,7 @@ export default function AppointmentsPage() {
   
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date())
   
   const { showToast } = useToast()
 
@@ -271,12 +269,12 @@ export default function AppointmentsPage() {
     fetchAppointments()
   }, [searchQuery, statusFilter, dateFilter])
 
-  const handleStatusUpdate = async (id: string, newStatus: AppointmentStatus) => {
+  const handleStatusUpdate = async (id: string, newStatus: AppointmentStatus, feedback?: string) => {
     try {
       const res = await fetch(`/api/landlord/appointments/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ status: newStatus, feedback })
       })
       
       if (!res.ok) throw new Error('Update failed')
@@ -291,7 +289,11 @@ export default function AppointmentsPage() {
         setSelectedAppointment(prev => prev ? { ...prev, status: newStatus } : null)
       }
 
-      showToast({ type: 'success', message: '狀態已更新' })
+      showToast({
+        type: 'success',
+        message: '狀態已更新',
+        description: newStatus === 'confirmed' ? '系統已發送 Email 通知給訪客' : undefined
+      })
     } catch (error) {
       console.error(error)
       showToast({ type: 'error', message: '更新失敗', description: '請稍後再試' })
@@ -479,25 +481,32 @@ export default function AppointmentsPage() {
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>下一頁</Button>
               </div>
             </div>
           )}
         </Card>
+
+        <AppointmentCalendar
+          appointments={appointments}
+          monthDate={calendarMonth}
+          onPrevMonth={() => setCalendarMonth((current) => subMonths(current, 1))}
+          onNextMonth={() => setCalendarMonth((current) => addMonths(current, 1))}
+        />
       </div>
 
       <AppointmentDetailModal 
         isOpen={isDetailOpen}
         onClose={() => setIsDetailOpen(false)}
         appointment={selectedAppointment}
-        onStatusUpdate={handleStatusUpdate}
+        onStatusUpdate={async (id, status) => {
+          let feedback: string | undefined
+          if (status === 'cancelled') {
+            const reason = prompt('請輸入取消原因（可留空）')
+            feedback = reason?.trim() || undefined
+          }
+          await handleStatusUpdate(id, status, feedback)
+        }}
       />
     </DashboardLayout>
   )
