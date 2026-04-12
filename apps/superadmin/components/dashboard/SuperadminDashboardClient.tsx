@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Users, Home, Key, Shield, FileText, Settings, Activity, Database, Server, Cpu, BarChart3, FileSignature, Image, BookOpen, CircleCheck } from 'lucide-react';
+import { Users, Home, Key, Shield, FileText, Settings, Activity, Database, Server, Cpu, BarChart3, FileSignature, Image, BookOpen, CircleCheck, Bell } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
@@ -118,6 +118,29 @@ export default function SuperadminDashboardClient({
           資料暫時無法完整載入。{loadError}
         </div>
       )}
+
+      {/* T-08: Pending verifications notification banner */}
+      {stats.pendingVerifications > 0 && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-orange-500/40 bg-orange-500/10 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Bell className="w-4 h-4 text-orange-500" />
+            <span className="text-sm text-orange-700 dark:text-orange-300">
+              待處理審核事項：共有{' '}
+              <span
+                data-testid="pending-verifications-badge"
+                className="inline-flex items-center justify-center min-w-[1.5rem] h-6 rounded-full bg-orange-500 px-1.5 text-xs font-bold text-white"
+              >
+                {stats.pendingVerifications}
+              </span>
+              {' '}筆待審核
+            </span>
+          </div>
+          <Link href={`${BASE}/users`} className="text-sm font-medium text-orange-600 hover:underline dark:text-orange-400">
+            前往審核 →
+          </Link>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card className="p-6 hover:border-accent/50 transition-all">
           <div className="mb-4 flex items-start justify-between">

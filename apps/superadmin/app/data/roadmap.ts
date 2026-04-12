@@ -90,7 +90,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員-儀表板",
     locatedPage: "superadmin/dashboard",
-    percentage: 95,
+    percentage: 98,
     acceptanceCriteria:
       "1. 登入後首頁需顯示系統關鍵指標(KPI)，包含總用戶數、總物件數、成交金額。\n2. 需提供圖表視覺化呈現最近30天的平台流量趨勢。\n3. 儀表板需顯示待處理的審核事項通知。\n4. 需支援數據篩選功能，可依日期區間查看統計數據。\n5. 頁面載入速度需在2秒內完成，確保良好的使用者體驗。",
     docPath: "/project-process/features/admin-dashboard-20260206.md",
@@ -98,15 +98,18 @@ const RAW_FEATURES: RoadmapFeature[] = [
     tddSpecDocPath: "/project-process/features/tdd-admin-dashboard-20260221.md",
     category: "超級管理員 (Super Admin)",
     points: 8,
-    lastModifiedBy: "Trae AI",
-    lastModifiedDate: "2026/02/13",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/04/11",
     devLog:
-      "[2026/02/13] (Trae AI)\n• 完成儀表板進度頁面重構，支援 9 欄位動態調整寬度\n• 實作欄位順序優化與雙語標題顯示\n• 新增 `dev-logs` 與 `test-logs` 資料夾結構\n詳見: [開發日誌](../dev-logs/dev-dashboard-refactor-2026-02-13.md)",
+      "[2026/02/13] (Trae AI)\n• 完成儀表板進度頁面重構，支援 9 欄位動態調整寬度\n• 實作欄位順序優化與雙語標題顯示\n• 新增 `dev-logs` 與 `test-logs` 資料夾結構\n詳見: [開發日誌](../dev-logs/dev-dashboard-refactor-2026-02-13.md)\n[2026/04/11] (Claude, VIS-12)\n• T-08 待處理審核通知徽章實作（pendingVerifications badge）\n• T-09 SystemGrowthChart 日期篩選（30天/90天/180天）\n• 建立自動化測試 unit_and_integration_test/001/（17 tests, 全部通過）",
     devLogDocPath:
       "/project-process/dev-logs/dev-dashboard-refactor-2026-02-13.md",
     testProgress:
-      "[2026/02/13] (Trae AI)\n• UI/UX 功能測試通過 (欄位拖曳、記憶還原、RWD)\n詳見: [測試日誌](../test-logs/test-dashboard-refactor-2026-02-13.md)",
-    testCoverage: 0,
+      "[2026/02/13] (Trae AI)\n• UI/UX 功能測試通過 (欄位拖曳、記憶還原、RWD)\n[2026/04/11] (Claude, VIS-12)\n• 17 個自動化單元/整合測試全部通過\n• 測試套件：SuperadminDashboardClient.test.tsx, SystemGrowthChart.test.tsx\n詳見: unit_and_integration_test/001/",
+    testCoverage: 85,
+    unitTestCoverage: 85,
+    phase: "testing",
+    testStatus: "passing",
   },
   {
     name: "超級管理員-網站行為監控與紀錄功能",
@@ -209,17 +212,27 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員-資料庫Elastic Search管理功能",
     locatedPage: "superadmin/dashboard/elasticsearch",
-    percentage: 0,
+    percentage: 80,
+    phase: "testing",
     acceptanceCriteria:
       "1. 顯示 Elasticsearch 叢集狀態（健康度、索引數量、文件總數）。\n2. 可執行搜尋查詢並預覽結果（最多100筆）。\n3. 支援手動重建索引（Reindex）操作。\n4. 顯示各索引的磁碟使用量。\n5. 異常狀態（Yellow/Red）需自動警報管理員。",
     docPath: "",
     featureSpecDocPath: "/project-process/features/elasticsearch-management.md",
     tddSpecDocPath:
       "/project-process/features/tdd-superadmin-platform-20260221.md",
+    testLogDocPath:
+      "/project-process/test-logs/test-elasticsearch-management-2026-04-12.md",
     category: "超級管理員 (Super Admin)",
     points: 5,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    testStatus: "in_progress",
+    testCoverage: 75,
+    unitTestCoverage: 80,
+    e2eTestCoverage: 70,
+    defectCount: 0,
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/04/12",
+    developmentProgress:
+      "2026-04-12: 建立 /api/elasticsearch Next.js API 代理路由（health / stats / search / reindex）；修正 dashboard page 的 TypeScript 型別問題（移除 any）及 XSS 安全問題（stripHtml 防護）；改用內部 API proxy；新增 Elasticsearch 側邊欄導覽；完成單元測試 20 個案例 + E2E 測試 8 個案例。",
   },
   {
     name: "超級管理員AI LLM API效能監控－AI語音回應可靠度監控功能",
@@ -416,17 +429,25 @@ const RAW_FEATURES: RoadmapFeature[] = [
   },
   {
     name: "公司產品教學",
-    locatedPage: "web (待建)",
-    percentage: 0,
+    locatedPage: "web/tutorial",
+    percentage: 60,
     acceptanceCriteria:
       "1. 提供分角色教學（房東版、租客版、買家版）。\n2. 每個教學步驟附有截圖或短影片（< 2分鐘）。\n3. 教學進度可儲存，下次從中斷點繼續。\n4. 完成所有教學步驟後顯示完成徽章。\n5. 教學內容可連結至相關功能頁面（快速體驗）。",
-    docPath: "",
+    docPath: "/docs/technical-selection/adr-019-company-product-tutorial.md",
     tddSpecDocPath:
       "/project-process/features/tdd-company-pages-thirdparty-20260221.md",
     category: "公司頁面 (Company Pages)",
     points: 3,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    phase: "testing",
+    testStatus: "in_progress",
+    testCoverage: 60,
+    unitTestCoverage: 80,
+    e2eTestCoverage: 40,
+    defectCount: 0,
+    lastModifiedBy: "Architect Agent",
+    lastModifiedDate: "2026/04/12",
+    developmentProgress:
+      "架構實作完成：tutorial 角色選擇頁（SSG Server Component）、[role] 教學步驟頁（Client Component + useTutorialProgress hook）、靜態 TypeScript 教學資料模組（lib/tutorial-data.ts）。進度以 localStorage 儲存，支援完成徽章。單元測試（web app + superadmin row tests）與 E2E 規格已建立。待完成：截圖資產製作、Supabase 進度同步（Phase 2）。ADR：/docs/technical-selection/adr-019-company-product-tutorial.md",
   },
   {
     name: "聯絡我們>發送訊息功能",
