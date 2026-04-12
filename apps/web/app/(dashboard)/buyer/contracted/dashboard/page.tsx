@@ -125,6 +125,10 @@ export default function ContractedBuyerDashboardPage() {
           label: '查看物件資訊',
           href: '/buyer/properties/current',
         },
+        {
+          label: '前往溝通中心',
+          href: '/buyer/contracted/communication',
+        },
       ],
     },
     {
