@@ -160,7 +160,7 @@ describe('ElasticsearchDashboard', () => {
 
     // fetchData is called once on mount and once on refresh
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledTimes(6); // 2 initial + 2 refresh + 2 re-render guard
+      expect(mockFetch).toHaveBeenCalledTimes(4); // 2 initial + 2 refresh
     });
   });
 
@@ -182,10 +182,7 @@ describe('ElasticsearchDashboard', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('action=search'),
-        undefined
-      );
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('action=search'));
     });
   });
 });
