@@ -3,6 +3,7 @@ import {
   createMaintenanceRequest,
   cancelMaintenanceRequest,
   getLandlordMaintenanceRequests,
+  getMaintenanceAssigneeOptions,
   updateMaintenanceRequest,
 } from '@/lib/actions/maintenance'
 
@@ -34,6 +35,8 @@ const MOCK_USER = { id: 'user-001' }
 const MOCK_REQUEST_ROW = {
   id: 'req-001',
   property_id: 'prop-001',
+  assigned_to: null,
+  assignee: null,
   category: 'plumbing',
   priority: 'medium',
   title: '廚房水龍頭漏水',
@@ -234,49 +237,115 @@ describe('cancelMaintenanceRequest', () => {
   })
 })
 
+function buildUpdateFlowSupabase(options: {
+  ownerId?: string
+  existingRow?: { id: string; property: { owner_id: string } } | null
+  updateError?: { message: string } | null
+}) {
+  const ownerId = options.ownerId ?? MOCK_USER.id
+  const existingRow =
+    options.existingRow !== undefined
+      ? options.existingRow
+      : { id: 'req-001', property: { owner_id: ownerId } }
+
+  const mockMaybeSingle = jest.fn().mockResolvedValue({
+    data: existingRow,
+    error: null,
+  })
+  const mockUpdateEq = jest.fn().mockResolvedValue({ error: options.updateError ?? null })
+  const mockUpdateFn = jest.fn().mockReturnValue({ eq: mockUpdateEq })
+
+  const from = jest.fn((table: string) => {
+    if (table === 'Property_Rentals') {
+      return {
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockResolvedValue({ data: [{ id: 'prop-001' }], error: null }),
+        }),
+      }
+    }
+    if (table === 'rental_ledger') {
+      return {
+        select: jest.fn().mockReturnValue({
+          in: jest.fn().mockReturnValue({
+            not: jest.fn().mockResolvedValue({ data: [], error: null }),
+          }),
+        }),
+      }
+    }
+    if (table === 'maintenance_requests') {
+      return {
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({ maybeSingle: mockMaybeSingle }),
+        }),
+        update: mockUpdateFn,
+      }
+    }
+    return {
+      select: jest.fn().mockReturnValue({ eq: jest.fn(), in: jest.fn(), order: jest.fn() }),
+    }
+  })
+
+  const supabase = {
+    auth: { getUser: jest.fn().mockResolvedValue({ data: { user: MOCK_USER } }) },
+    from,
+  }
+  ;(createClient as jest.Mock).mockResolvedValue(supabase)
+  return { supabase, mockMaybeSingle, mockUpdateEq, mockUpdateFn, from }
+}
+
 // ─── updateMaintenanceRequest (landlord) ──────────────────────────────────────
 
 describe('updateMaintenanceRequest', () => {
   beforeEach(() => jest.clearAllMocks())
 
   it('updates status to in_progress successfully', async () => {
-    const { mockEq } = buildMockSupabase()
-    mockEq.mockResolvedValue({ error: null })
-
+    buildUpdateFlowSupabase({})
     const result = await updateMaintenanceRequest('req-001', { status: 'in_progress' })
     expect(result.success).toBe(true)
   })
 
   it('sets completed_date when status is completed', async () => {
-    const { supabase, mockEq } = buildMockSupabase()
-    mockEq.mockResolvedValue({ error: null })
-
-    const fromSpy = supabase.from as jest.Mock
+    const { mockUpdateFn } = buildUpdateFlowSupabase({})
     await updateMaintenanceRequest('req-001', {
       status: 'completed',
       notes: '修繕完成，已更換零件',
     })
 
-    const updateArg = fromSpy.mock.results[0].value.update.mock.calls[0][0]
+    const updateArg = mockUpdateFn.mock.calls[0][0]
     expect(updateArg.completed_date).toBeDefined()
     expect(updateArg.status).toBe('completed')
     expect(updateArg.notes).toBe('修繕完成，已更換零件')
   })
 
-  it('includes estimatedCost and scheduledDate when provided', async () => {
-    const { supabase, mockEq } = buildMockSupabase()
-    mockEq.mockResolvedValue({ error: null })
-
-    const fromSpy = supabase.from as jest.Mock
+  it('includes estimatedCost, scheduledDate, assignedToId, and actualCost when provided', async () => {
+    const { mockUpdateFn } = buildUpdateFlowSupabase({})
     await updateMaintenanceRequest('req-001', {
       status: 'in_progress',
       estimatedCost: 1500,
-      scheduledDate: '2026-04-20',
+      scheduledDate: '2026-04-20T00:00:00.000Z',
+      assignedToId: MOCK_USER.id,
+      actualCost: 1200,
     })
 
-    const updateArg = fromSpy.mock.results[0].value.update.mock.calls[0][0]
+    const updateArg = mockUpdateFn.mock.calls[0][0]
     expect(updateArg.estimated_cost).toBe(1500)
-    expect(updateArg.scheduled_date).toBe('2026-04-20')
+    expect(updateArg.scheduled_date).toBe('2026-04-20T00:00:00.000Z')
+    expect(updateArg.assigned_to).toBe(MOCK_USER.id)
+    expect(updateArg.actual_cost).toBe(1200)
+  })
+
+  it('returns error when request not found', async () => {
+    buildUpdateFlowSupabase({ existingRow: null })
+    const result = await updateMaintenanceRequest('req-404', { status: 'in_progress' })
+    expect(result.success).toBe(false)
+    expect(result.error).toBe('找不到此維修申請')
+  })
+
+  it('returns error when landlord does not own the property', async () => {
+    buildUpdateFlowSupabase({ ownerId: 'other-landlord' })
+    const result = await updateMaintenanceRequest('req-001', { status: 'in_progress' })
+    expect(result.success).toBe(false)
+    expect(result.error).toBe('無權限更新此申請')
   })
 
   it('returns error when not authenticated', async () => {
@@ -291,12 +360,63 @@ describe('updateMaintenanceRequest', () => {
   })
 
   it('returns error on db failure', async () => {
-    const { mockEq } = buildMockSupabase()
-    mockEq.mockResolvedValue({ error: { message: 'update failed' } })
-
+    buildUpdateFlowSupabase({ updateError: { message: 'update failed' } })
     const result = await updateMaintenanceRequest('req-001', { status: 'in_progress' })
     expect(result.success).toBe(false)
     expect(result.error).toBe('更新失敗，請重試')
+  })
+})
+
+// ─── getMaintenanceAssigneeOptions ────────────────────────────────────────────
+
+describe('getMaintenanceAssigneeOptions', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('returns empty when not authenticated', async () => {
+    ;(createClient as jest.Mock).mockResolvedValue({
+      auth: { getUser: jest.fn().mockResolvedValue({ data: { user: null } }) },
+      from: jest.fn(),
+    })
+    expect(await getMaintenanceAssigneeOptions()).toEqual([])
+  })
+
+  it('returns landlord profile when no ledger tenants', async () => {
+    const from = jest.fn((table: string) => {
+      if (table === 'Property_Rentals') {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockResolvedValue({ data: [{ id: 'prop-001' }], error: null }),
+          }),
+        }
+      }
+      if (table === 'rental_ledger') {
+        return {
+          select: jest.fn().mockReturnValue({
+            in: jest.fn().mockReturnValue({
+              not: jest.fn().mockResolvedValue({ data: [], error: null }),
+            }),
+          }),
+        }
+      }
+      if (table === 'users_profile') {
+        return {
+          select: jest.fn().mockReturnValue({
+            in: jest.fn().mockResolvedValue({
+              data: [{ id: MOCK_USER.id, full_name: '房東測試' }],
+              error: null,
+            }),
+          }),
+        }
+      }
+      return { select: jest.fn() }
+    })
+    ;(createClient as jest.Mock).mockResolvedValue({
+      auth: { getUser: jest.fn().mockResolvedValue({ data: { user: MOCK_USER } }) },
+      from,
+    })
+
+    const opts = await getMaintenanceAssigneeOptions()
+    expect(opts).toEqual([{ id: MOCK_USER.id, fullName: '房東測試' }])
   })
 })
 
@@ -426,19 +546,19 @@ describe('Maintenance Status Transitions', () => {
 
   transitions.forEach(({ from, to }) => {
     it(`allows transition: ${from} → ${to}`, async () => {
-      const { mockEq } = buildMockSupabase()
-      mockEq.mockResolvedValue({ error: null })
-
       // updateMaintenanceRequest handles landlord transitions
       // cancelMaintenanceRequest handles tenant open→cancelled
       let result
       if (to === 'cancelled') {
+        const { mockEq } = buildMockSupabase()
+        mockEq.mockResolvedValue({ error: null })
         const mockEq2 = jest.fn()
         const mockIn = jest.fn().mockResolvedValue({ error: null })
         mockEq2.mockReturnValue({ in: mockIn })
         mockEq.mockReturnValueOnce({ eq: mockEq2 })
         result = await cancelMaintenanceRequest('req-001')
       } else {
+        buildUpdateFlowSupabase({})
         result = await updateMaintenanceRequest('req-001', {
           status: to as 'in_progress' | 'completed' | 'cancelled' | 'open',
         })

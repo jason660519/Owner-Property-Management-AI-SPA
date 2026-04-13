@@ -1058,16 +1058,16 @@ const RAW_FEATURES: RoadmapFeature[] = [
   },
   {
     name: "房東的維修派工管理",
-    locatedPage: "web/landlord (待建)",
-    percentage: 0,
+    locatedPage: "web/landlord/maintenance",
+    percentage: 70,
     acceptanceCriteria:
       "1. 顯示所有維修請求列表（物件、申請人、描述、狀態、申請日期）。\n2. 可指派維修人員，並設定預約維修日期。\n3. 維修人員接單後租客收到通知（含到訪時間）。\n4. 維修完成後附上費用單與工作說明，租客確認後結案。\n5. 維修費用自動計入物件支出記錄。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 5,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip UI/UX",
+    lastModifiedDate: "2026/04/13",
   },
   {
     name: "房東的行銷部落格網站行為監控",

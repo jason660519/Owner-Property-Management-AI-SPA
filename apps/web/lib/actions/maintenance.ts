@@ -31,6 +31,8 @@ export interface MaintenanceRequest {
   notes: string | null
   createdAt: string
   requestedByName: string
+  assignedToId: string | null
+  assignedToName: string | null
 }
 
 export interface CreateMaintenanceInput {
@@ -46,12 +48,15 @@ export interface UpdateMaintenanceInput {
   status: MaintenanceStatus
   notes?: string
   estimatedCost?: number
-  scheduledDate?: string
+  scheduledDate?: string | null
+  assignedToId?: string | null
+  actualCost?: number | null
 }
 
 // Maps raw DB row to MaintenanceRequest interface
 function mapRow(r: Record<string, unknown>, requesterName = ''): MaintenanceRequest {
   const property = r.property as Record<string, unknown> | null
+  const assignee = r.assignee as Record<string, unknown> | null
   return {
     id: r.id as string,
     propertyId: r.property_id as string,
@@ -69,12 +74,15 @@ function mapRow(r: Record<string, unknown>, requesterName = ''): MaintenanceRequ
     notes: (r.notes as string) ?? null,
     createdAt: r.created_at as string,
     requestedByName: requesterName,
+    assignedToId: (r.assigned_to as string) ?? null,
+    assignedToName: (assignee?.full_name as string) || null,
   }
 }
 
 const SELECT_FIELDS = `
   id,
   property_id,
+  assigned_to,
   category,
   priority,
   title,
@@ -87,7 +95,8 @@ const SELECT_FIELDS = `
   photo_urls,
   notes,
   created_at,
-  property:Property_Rentals!property_id ( address, owner_id )
+  property:Property_Rentals!property_id ( address, owner_id ),
+  assignee:users_profile!assigned_to ( full_name )
 `
 
 // Tenant: list their own maintenance requests
@@ -193,6 +202,67 @@ export async function getLandlordMaintenanceRequests(): Promise<MaintenanceReque
   }
 }
 
+export interface MaintenanceAssigneeOption {
+  id: string
+  fullName: string
+}
+
+/** Profiles the landlord may assign as on-platform handler (self + ledger tenants). */
+export async function getMaintenanceAssigneeOptions(): Promise<MaintenanceAssigneeOption[]> {
+  noStore()
+  const supabase = await createClient()
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return []
+
+    const { data: properties, error: propError } = await supabase
+      .from('Property_Rentals')
+      .select('id')
+      .eq('owner_id', user.id)
+
+    if (propError) throw propError
+    const propertyIds = (properties ?? []).map((p: { id: string }) => p.id)
+    if (propertyIds.length === 0) return []
+
+    const { data: ledgerRows, error: ledgerError } = await supabase
+      .from('rental_ledger')
+      .select('tenant_id')
+      .in('property_id', propertyIds)
+      .not('tenant_id', 'is', null)
+
+    if (ledgerError) throw ledgerError
+
+    const tenantIds = [
+      ...new Set(
+        (ledgerRows ?? [])
+          .map((row: { tenant_id: string | null }) => row.tenant_id)
+          .filter((tid): tid is string => Boolean(tid))
+      ),
+    ]
+
+    const candidateIds = [...new Set([user.id, ...tenantIds])]
+
+    const { data: profiles, error: profileError } = await supabase
+      .from('users_profile')
+      .select('id, full_name')
+      .in('id', candidateIds)
+
+    if (profileError) throw profileError
+
+    const list = (profiles ?? []) as { id: string; full_name: string | null }[]
+    return list.map((p) => ({
+      id: p.id,
+      fullName: p.full_name?.trim() || (p.id === user.id ? '房東（本人）' : '未命名使用者'),
+    }))
+  } catch (error) {
+    console.error('Error loading maintenance assignee options:', error)
+    return []
+  }
+}
+
 // Landlord: update maintenance request status / details
 export async function updateMaintenanceRequest(
   id: string,
@@ -206,10 +276,50 @@ export async function updateMaintenanceRequest(
     } = await supabase.auth.getUser()
     if (!user) return { success: false, error: '請先登入' }
 
+    const { data: existing, error: loadError } = await supabase
+      .from('maintenance_requests')
+      .select(
+        `
+        id,
+        property:Property_Rentals!inner ( owner_id )
+      `
+      )
+      .eq('id', id)
+      .maybeSingle()
+
+    if (loadError) throw loadError
+    if (!existing) return { success: false, error: '找不到此維修申請' }
+
+    const property = existing.property as { owner_id: string } | null
+    if (!property || property.owner_id !== user.id) {
+      return { success: false, error: '無權限更新此申請' }
+    }
+
+    if (input.assignedToId !== undefined && input.assignedToId !== null) {
+      const { data: props } = await supabase.from('Property_Rentals').select('id').eq('owner_id', user.id)
+      const pids = (props ?? []).map((p: { id: string }) => p.id)
+      const { data: ledgerRows } = await supabase
+        .from('rental_ledger')
+        .select('tenant_id')
+        .in('property_id', pids)
+        .not('tenant_id', 'is', null)
+      const tenantIds = new Set(
+        (ledgerRows ?? [])
+          .map((row: { tenant_id: string | null }) => row.tenant_id)
+          .filter((tid): tid is string => Boolean(tid))
+      )
+      const allowed = new Set<string>([user.id, ...tenantIds])
+      if (!allowed.has(input.assignedToId)) {
+        return { success: false, error: '無效的指派對象' }
+      }
+    }
+
     const patch: Record<string, unknown> = { status: input.status }
     if (input.notes !== undefined) patch.notes = input.notes
     if (input.estimatedCost !== undefined) patch.estimated_cost = input.estimatedCost
     if (input.scheduledDate !== undefined) patch.scheduled_date = input.scheduledDate
+    if (input.assignedToId !== undefined) patch.assigned_to = input.assignedToId
+    if (input.actualCost !== undefined) patch.actual_cost = input.actualCost
     if (input.status === 'completed') patch.completed_date = new Date().toISOString()
 
     const { error } = await supabase.from('maintenance_requests').update(patch).eq('id', id)
