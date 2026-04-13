@@ -645,7 +645,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東的客戶－Details模式",
     locatedPage: "web/landlord/customers",
-    percentage: 80,
+    percentage: 95,
     acceptanceCriteria:
       "1. 顯示單一客戶的完整資料（個人基本資料、聯絡方式、租賃/購屋意向、看房紀錄）。\n2. 客戶狀態標籤（潛在/洽談中/已成交/已失效）可快速切換。\n3. 可記錄跟進備註，備註需有時間戳與操作者。\n4. 顯示與該客戶的溝通紀錄摘要（最新5條）。\n5. 提供「發送訊息」快捷按鈕直接進入溝通頁面。",
     docPath: "/project-process/test-logs/test-landlord-customers-details-2026-04-12.md",
@@ -654,10 +654,10 @@ const RAW_FEATURES: RoadmapFeature[] = [
     e2eTestCoverage: 0,
     category: "房東 (Landlord)",
     points: 2,
-    lastModifiedBy: "GPT-5 Codex",
-    lastModifiedDate: "2026/04/12",
+    lastModifiedBy: "Paperclip CTO",
+    lastModifiedDate: "2026/04/13",
     devLog:
-      "2026/04/12\n- `apps/web/app/(dashboard)/landlord/customers/page.tsx` 新增 Details 側欄模式（完整資料、狀態快速切換、意向、看房紀錄區塊、跟進備註、最新 5 筆溝通摘要、發送訊息快捷按鈕）\n- `apps/web/app/(dashboard)/landlord/customers/customer-details.ts` 抽離 Details 資料解析與序列化工具，兼容舊 notes 純文字\n- `apps/web/app/(dashboard)/landlord/customers/__tests__/customer-details.test.ts` 新增 6 個單元測試；覆蓋 status 正規化、follow-up/communication append、payload parse/serialize",
+      "2026/04/13 (VIS-26)\n- 依賴解除後複審 acceptance：`CustomerDetailsPanel` + `customer-details.ts` 符合 roadmap 五項驗收；TDD 報告見 `project-process/test-logs/test-landlord-customers-details-2026-04-12.md`。\n- 請 QA 在 `web/landlord/customers` 做 Details 側欄 smoke（可選）。\n\n2026/04/12\n- `apps/web/app/(dashboard)/landlord/customers/page.tsx` 新增 Details 側欄模式（完整資料、狀態快速切換、意向、看房紀錄區塊、跟進備註、最新 5 筆溝通摘要、發送訊息快捷按鈕）\n- `apps/web/app/(dashboard)/landlord/customers/customer-details.ts` 抽離 Details 資料解析與序列化工具，兼容舊 notes 純文字\n- `apps/web/app/(dashboard)/landlord/customers/__tests__/customer-details.test.ts` 新增 6 個單元測試；覆蓋 status 正規化、follow-up/communication append、payload parse/serialize",
   },
   {
     name: "房東的客戶－Grid模式",
