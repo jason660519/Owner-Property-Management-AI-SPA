@@ -112,8 +112,8 @@ export default function PropertiesPage() {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">我的物件</h1>
-          <p className="text-[#999999] mt-1">管理您的所有出租與出售物件</p>
+          <h1 className="text-3xl font-bold text-text-primary">我的物件</h1>
+          <p className="mt-1 text-text-muted">管理您的所有出租與出售物件</p>
         </div>
         <Link href="/landlord/properties/add">
           <Button>
@@ -146,7 +146,7 @@ export default function PropertiesPage() {
                   setFilterType(value)
                 }
               }}
-              className="px-4 py-3 bg-[#2A2A2A] border border-[#333333] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+              className="rounded-lg border border-border-default bg-bg-secondary px-4 py-3 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
             >
               <option value="all">所有類型</option>
               <option value="rental">出租</option>
@@ -156,7 +156,7 @@ export default function PropertiesPage() {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-3 bg-[#2A2A2A] border border-[#333333] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+              className="rounded-lg border border-border-default bg-bg-secondary px-4 py-3 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
             >
               <option value="all">所有狀態</option>
               <option value="available">待售</option>
@@ -170,18 +170,18 @@ export default function PropertiesPage() {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-[#999999]">
-              共找到 <span className="text-white font-medium">{filteredProperties.length}</span> 個物件
+            <p className="text-sm text-text-muted">
+              共找到 <span className="font-medium text-text-primary">{filteredProperties.length}</span> 個物件
             </p>
             <div className="flex flex-wrap items-center gap-3">
-              <div className="inline-flex rounded-lg border border-[#333333] bg-[#1A1A1A] p-0.5">
+              <div className="inline-flex rounded-lg border border-border-default bg-bg-primary p-0.5">
                 <button
                   type="button"
                   onClick={() => setViewMode('grid')}
                   className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                     viewMode === 'grid'
-                      ? 'bg-[#7C3AED] text-white'
-                      : 'text-[#999999] hover:text-white'
+                      ? 'bg-accent text-white'
+                      : 'text-text-muted hover:text-text-primary'
                   }`}
                   aria-pressed={viewMode === 'grid'}
                 >
@@ -193,8 +193,8 @@ export default function PropertiesPage() {
                   onClick={() => setViewMode('list')}
                   className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                     viewMode === 'list'
-                      ? 'bg-[#7C3AED] text-white'
-                      : 'text-[#999999] hover:text-white'
+                      ? 'bg-accent text-white'
+                      : 'text-text-muted hover:text-text-primary'
                   }`}
                   aria-pressed={viewMode === 'list'}
                 >
@@ -211,14 +211,14 @@ export default function PropertiesPage() {
                       setSortBy(value)
                     }
                   }}
-                  className="px-4 py-2 bg-[#2A2A2A] border border-[#333333] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+                  className="rounded-lg border border-border-default bg-bg-secondary px-4 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
                 >
                   <option value="newest">最新發布</option>
                   <option value="price_high">價格：高到低</option>
                   <option value="price_low">價格：低到高</option>
                 </select>
               ) : (
-                <span className="text-xs text-[#999999]">列表模式：點欄位標題排序</span>
+                <span className="text-xs text-text-muted">列表模式：點欄位標題排序</span>
               )}
             </div>
           </div>
@@ -229,8 +229,8 @@ export default function PropertiesPage() {
       {loading ? (
         <Card>
           <div className="p-12 text-center">
-            <div className="w-10 h-10 border-2 border-[#7C3AED] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-[#999999]">載入中...</p>
+            <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+            <p className="text-text-muted">載入中...</p>
           </div>
         </Card>
       ) : error ? (
@@ -241,21 +241,21 @@ export default function PropertiesPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
             </div>
-            <h3 className="text-xl font-semibold text-white mb-2">載入失敗</h3>
-            <p className="text-[#999999] mb-6">{error}</p>
+            <h3 className="mb-2 text-xl font-semibold text-text-primary">載入失敗</h3>
+            <p className="mb-6 text-text-muted">{error}</p>
             <Button onClick={() => window.location.reload()}>重新載入</Button>
           </div>
         </Card>
       ) : filteredProperties.length === 0 ? (
         <Card>
           <div className="p-12 text-center">
-            <div className="w-16 h-16 bg-[#333333] rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-[#666666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-bg-tertiary">
+              <svg className="h-8 w-8 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
             </div>
-            <h3 className="text-xl font-semibold text-white mb-2">沒有找到物件</h3>
-            <p className="text-[#999999] mb-6">
+            <h3 className="mb-2 text-xl font-semibold text-text-primary">沒有找到物件</h3>
+            <p className="mb-6 text-text-muted">
               {searchTerm || filterType !== 'all' || filterStatus !== 'all'
                 ? '請嘗試調整搜尋條件'
                 : '開始新增您的第一個物件'}
@@ -269,10 +269,11 @@ export default function PropertiesPage() {
         <PropertyListTable
           data={filteredProperties}
           onStatusPatched={(patch) => {
+            const now = new Date().toISOString()
             setProperties((prev) =>
               prev.map((p) => {
                 const hit = patch.find((x) => x.id === p.id && x.type === p.type)
-                return hit ? { ...p, status: hit.status } : p
+                return hit ? { ...p, status: hit.status, updated_at: now } : p
               })
             )
           }}
@@ -282,7 +283,7 @@ export default function PropertiesPage() {
           {gridSortedProperties.map((property) => (
             <Link key={property.id} href={`/landlord/properties/${property.id}`}>
               <Card hoverable className="h-full">
-                <div className="relative h-48 rounded-t-xl overflow-hidden bg-[#2A2A2A]">
+                <div className="relative h-48 overflow-hidden rounded-t-xl bg-bg-secondary">
                   {property.imageUrl ? (
                     <Image
                       src={property.imageUrl}
@@ -292,7 +293,7 @@ export default function PropertiesPage() {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <svg className="w-12 h-12 text-[#555]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="h-12 w-12 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                       </svg>
                     </div>
@@ -308,10 +309,10 @@ export default function PropertiesPage() {
                 </div>
 
                 <div className="p-6">
-                  <h3 className="text-lg font-semibold text-white mb-2 line-clamp-1">
+                  <h3 className="mb-2 line-clamp-1 text-lg font-semibold text-text-primary">
                     {property.title}
                   </h3>
-                  <p className="text-sm text-[#999999] mb-4 line-clamp-1">
+                  <p className="mb-4 line-clamp-1 text-sm text-text-muted">
                     <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -321,10 +322,10 @@ export default function PropertiesPage() {
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-2xl font-bold text-[#7C3AED]">
+                      <p className="text-2xl font-bold text-accent">
                         {formatPrice(property.price, property.type)}
                       </p>
-                      <p className="text-xs text-[#999999] mt-1">{property.area} 坪</p>
+                      <p className="mt-1 text-xs text-text-muted">{property.area} 坪</p>
                     </div>
                     <Button variant="ghost" size="sm">
                       查看詳情
