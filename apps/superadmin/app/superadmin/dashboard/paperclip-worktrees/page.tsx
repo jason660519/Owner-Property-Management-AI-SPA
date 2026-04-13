@@ -1,5 +1,5 @@
 import { DashboardLayout } from '@/components/dashboard';
-import PaperclipWorktreesClient from './PaperclipWorktreesClient';
+import PaperclipDashboardTabs from './PaperclipDashboardTabs';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,14 +7,14 @@ export default function PaperclipWorktreesPage() {
   return (
     <DashboardLayout
       currentRole="superadmin"
-      pageTitle="Paperclip Worktrees"
+      pageTitle="Paperclip Mission Control"
       breadcrumbs={[
         { label: '首頁', href: '/' },
         { label: '超級管理員專區', href: '/superadmin' },
-        { label: 'Paperclip Worktrees' },
+        { label: 'Paperclip Mission Control' },
       ]}
     >
-      <PaperclipWorktreesClient />
+      <PaperclipDashboardTabs />
     </DashboardLayout>
   );
 }
