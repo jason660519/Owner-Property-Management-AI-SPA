@@ -12,6 +12,7 @@ import { SharedStatsCards } from './components/SharedStatsCards';
 import { SheetTabs } from './components/SheetTabs';
 import { DevelopmentTab } from './components/DevelopmentTab';
 import AddRowModal from './components/development-table/AddRowModal';
+import { ExportToVISButton } from './components/ExportToVISButton';
 import {
   type PhaseRow,
   createTestingColumns,
@@ -171,11 +172,14 @@ export default function ProjectProgressPage() {
             </span>
           </p>
         </div>
-        <SharedStatsCards
-          phase={activePhase}
-          features={activePhase === 'development' ? allFeatures : activeRows}
-          compact
-        />
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <ExportToVISButton />
+          <SharedStatsCards
+            phase={activePhase}
+            features={activePhase === 'development' ? allFeatures : activeRows}
+            compact
+          />
+        </div>
       </div>
 
       {/* Sheet content area */}
