@@ -3,8 +3,15 @@
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { validateParentRoleSelection } from './rbac-parent-validation';
 
 const BASE = '/superadmin/dashboard/rbac_access_control';
+const IAM_MANAGEMENT = '/superadmin/dashboard/iam-management';
+
+function revalidateRbacViews() {
+  revalidatePath(BASE);
+  revalidatePath(IAM_MANAGEMENT);
+}
 
 export interface Role {
   id: string;
@@ -68,15 +75,53 @@ export async function getRbacAuditLogs(limit = 50): Promise<RbacAuditLog[]> {
   return (data as RbacAuditLog[]) ?? [];
 }
 
-/** Check if any users are assigned to this role */
-export async function checkRoleUsers(roleId: string): Promise<number> {
+/**
+ * Distinct users that hold this role directly or via a group that attaches the role.
+ */
+async function getAssignedUserCountForRole(
+  roleId: string
+): Promise<{ ok: true; count: number } | { ok: false; message: string }> {
   const admin = createAdminClient();
-  // Check iam_user_roles if exists, fallback to group memberships
-  const { count } = await admin
-    .from('iam_user_group_memberships')
-    .select('user_id', { count: 'exact', head: true })
-    .eq('group_id', roleId);
-  return count ?? 0;
+
+  const { data: directRows, error: e1 } = await admin
+    .from('iam_user_roles')
+    .select('user_id')
+    .eq('role_id', roleId);
+
+  if (e1) {
+    console.error('getAssignedUserCountForRole iam_user_roles:', e1);
+    return { ok: false, message: e1.message };
+  }
+
+  const userIds = new Set<string>((directRows ?? []).map(r => String(r.user_id)));
+
+  const { data: groupLinks, error: e2 } = await admin
+    .from('iam_group_roles')
+    .select('group_id')
+    .eq('role_id', roleId);
+
+  if (e2) {
+    console.error('getAssignedUserCountForRole iam_group_roles:', e2);
+    return { ok: false, message: e2.message };
+  }
+
+  const groupIds = (groupLinks ?? []).map(g => String(g.group_id));
+  if (groupIds.length > 0) {
+    const { data: memberRows, error: e3 } = await admin
+      .from('iam_group_members')
+      .select('user_id')
+      .in('group_id', groupIds);
+
+    if (e3) {
+      console.error('getAssignedUserCountForRole iam_group_members:', e3);
+      return { ok: false, message: e3.message };
+    }
+    for (const row of memberRows ?? []) {
+      userIds.add(String(row.user_id));
+    }
+  }
+
+  return { ok: true, count: userIds.size };
 }
 
 export async function deleteRole(
@@ -84,11 +129,15 @@ export async function deleteRole(
   roleName: string,
   actorEmail?: string
 ): Promise<{ success?: boolean; error?: string; hasUsers?: boolean }> {
-  // Check for assigned users before deletion
-  const userCount = await checkRoleUsers(roleId);
-  if (userCount > 0) {
+  const assigned = await getAssignedUserCountForRole(roleId);
+  if (!assigned.ok) {
     return {
-      error: `此角色仍有 ${userCount} 位用戶指派，請先移除指派後再刪除。`,
+      error: '無法確認角色是否仍有用戶指派，請稍後重試。',
+    };
+  }
+  if (assigned.count > 0) {
+    return {
+      error: `此角色仍有 ${assigned.count} 位用戶指派（含透過群組附帶的角色），請先移除指派後再刪除。`,
       hasUsers: true,
     };
   }
@@ -101,7 +150,7 @@ export async function deleteRole(
   // Write audit log
   await writeAuditLog(null, roleName, 'DELETE', actorEmail ?? null, { deleted_role_id: roleId });
 
-  revalidatePath(BASE);
+  revalidateRbacViews();
   return { success: true };
 }
 
@@ -116,6 +165,16 @@ export async function createRole(
 
   if (!name) return { error: 'Name is required' };
 
+  const parentErr = await validateParentRoleSelection(
+    null,
+    parentRoleId,
+    async rid => {
+      const { data } = await supabase.from('iam_roles').select('parent_role_id').eq('id', rid).maybeSingle();
+      return (data?.parent_role_id as string | null) ?? null;
+    }
+  );
+  if (parentErr) return { error: parentErr };
+
   const { data, error } = await supabase
     .from('iam_roles')
     .insert({ name, description, parent_role_id: parentRoleId })
@@ -127,7 +186,7 @@ export async function createRole(
   // Write audit log
   await writeAuditLog(data?.id ?? null, name, 'CREATE', actorEmail, { name, description, parent_role_id: parentRoleId });
 
-  revalidatePath(BASE);
+  revalidateRbacViews();
   return { success: true };
 }
 
@@ -172,8 +231,8 @@ export async function saveRolePermissions(
   permissions: { resource: string; actions: string[]; scope?: 'all' | 'own' | 'assigned' }[]
 ): Promise<{ success?: boolean; error?: string }> {
   const admin = createAdminClient();
+  const supabase = await createClient();
 
-  // Upsert each resource permission
   const rows = permissions.map(p => ({
     role_id: roleId,
     resource: p.resource,
@@ -181,31 +240,25 @@ export async function saveRolePermissions(
     scope: p.scope ?? 'all',
   }));
 
-  if (rows.length === 0) {
-    // Delete all permissions for this role if empty
-    const { error } = await admin
-      .from('iam_role_permissions')
-      .delete()
-      .eq('role_id', roleId);
-    if (error) return { error: error.message };
-    return { success: true };
+  const { error: delErr } = await admin.from('iam_role_permissions').delete().eq('role_id', roleId);
+  if (delErr) return { error: delErr.message };
+
+  if (rows.length > 0) {
+    const { error: insErr } = await admin.from('iam_role_permissions').insert(rows);
+    if (insErr) return { error: insErr.message };
   }
 
-  const { error } = await admin
-    .from('iam_role_permissions')
-    .upsert(rows, { onConflict: 'role_id,resource' });
+  const { data: authData } = await supabase.auth.getUser();
+  const actorEmail = authData.user?.email ?? null;
+  const { data: roleRow } = await admin.from('iam_roles').select('name').eq('id', roleId).maybeSingle();
+  const roleName = roleRow?.name ?? 'unknown';
 
-  if (error) return { error: error.message };
+  await writeAuditLog(roleId, roleName, 'UPDATE', actorEmail, {
+    kind: 'permissions_matrix',
+    resources: rows.map(r => ({ resource: r.resource, actions: r.actions, scope: r.scope })),
+  });
 
-  // Remove resources not in the new list
-  const resourcesKept = rows.map(r => r.resource);
-  await admin
-    .from('iam_role_permissions')
-    .delete()
-    .eq('role_id', roleId)
-    .not('resource', 'in', `(${resourcesKept.map(r => `"${r}"`).join(',')})`);
-
-  revalidatePath(BASE);
+  revalidateRbacViews();
   return { success: true };
 }
 
@@ -221,6 +274,16 @@ export async function updateRole(
 
   if (!id || !name) return { error: 'ID and Name are required' };
 
+  const parentErr = await validateParentRoleSelection(
+    id,
+    parentRoleId,
+    async rid => {
+      const { data } = await supabase.from('iam_roles').select('parent_role_id').eq('id', rid).maybeSingle();
+      return (data?.parent_role_id as string | null) ?? null;
+    }
+  );
+  if (parentErr) return { error: parentErr };
+
   const { error } = await supabase
     .from('iam_roles')
     .update({ name, description, parent_role_id: parentRoleId })
@@ -231,6 +294,6 @@ export async function updateRole(
   // Write audit log
   await writeAuditLog(id, name, 'UPDATE', actorEmail, { name, description, parent_role_id: parentRoleId });
 
-  revalidatePath(BASE);
+  revalidateRbacViews();
   return { success: true };
 }

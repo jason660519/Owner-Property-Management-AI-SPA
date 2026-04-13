@@ -146,7 +146,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員的RBAC CRUD平台",
     locatedPage: "superadmin/dashboard/rbac_access_control",
-    percentage: 95,
+    percentage: 98,
     acceptanceCriteria:
       "1. 可建立、編輯、刪除角色（Role），角色名稱需唯一。\n2. 可對角色設定細粒度權限（讀取、寫入、刪除各資源）。\n3. 角色變更需有稽核紀錄（修改者、修改時間、異動內容）。\n4. 支援角色繼承功能，子角色可繼承父角色權限。\n5. 刪除角色前需確認沒有使用者被指派此角色。",
     docPath: "",
@@ -158,11 +158,11 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/dev-logs/dev-superadmin-features-2026-02-26.md",
     category: "超級管理員 (Super Admin)",
     points: 8,
-    lastModifiedBy: "Claude Sonnet 4.6",
-    lastModifiedDate: "2026/02/26",
+    lastModifiedBy: "Paperclip Fullstack",
+    lastModifiedDate: "2026/04/13",
     phase: "development",
     developmentProgress:
-      "Permission Matrix 完整 DB 持久化：新增 iam_role_permissions 表（migration 20260226100000）、getRolePermissions / saveRolePermissions server actions；RolesTab 改為從 DB 載入/儲存角色權限，儲存前有 dirty 提示，儲存中 spinner；修復 iam_user_group_memberships view + parent_role_id 欄位未套用問題。",
+      "Permission Matrix 完整 DB 持久化：iam_role_permissions、RolesTab 矩陣儲存。2026/04/13：刪除前改以 iam_user_roles + 群組（iam_group_roles → iam_group_members）去重計算指派用戶；saveRolePermissions 改為先刪後寫並寫入 rbac_audit_logs（permissions_matrix）；父角色循環／自指驗證（validateParentRoleSelection）；IAM Roles 分頁新增角色列與編輯／刪除、父角色下拉；revalidate iam-management；test-manifest id 003 登錄 rbac-parent-validation 單元測試。",
   },
   {
     name: "超級管理員-雲端空間管理平台",

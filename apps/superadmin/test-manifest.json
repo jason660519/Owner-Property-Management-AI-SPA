@@ -62,6 +62,17 @@
       "linkedToolScripts": []
     },
     {
+      "id": "003",
+      "name": "RBAC CRUD / IAM roles matrix",
+      "tier": "pr",
+      "status": "active",
+      "unitPaths": [
+        "apps/superadmin/app/superadmin/dashboard/rbac_access_control/rbac-parent-validation.test.ts"
+      ],
+      "e2ePaths": [],
+      "linkedToolScripts": []
+    },
+    {
       "id": "004",
       "name": "Storage dashboard and quota",
       "tier": "pr",
