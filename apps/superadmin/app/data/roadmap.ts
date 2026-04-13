@@ -1046,15 +1046,15 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東的物件展示功能－List模式",
     locatedPage: "web/landlord/properties",
-    percentage: 0,
+    percentage: 100,
     acceptanceCriteria:
       "1. 以緊湊表格形式列出所有物件，欄位含：物件名、地址、類型、月租/售價、狀態、最後修改。\n2. 點擊欄標題可排序。\n3. 多選後可批次修改狀態。\n4. 搜尋欄即時過濾（依物件名/地址）。\n5. 每頁顯示筆數可設定（20/50/100）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 2,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "VIS-84 Paperclip",
+    lastModifiedDate: "2026-04-13",
   },
   {
     name: "房東的維修派工管理",

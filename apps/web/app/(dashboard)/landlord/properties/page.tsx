@@ -1,12 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { LayoutGrid, List } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import Link from 'next/link'
 import Image from 'next/image'
 import { getMyProperties, type MyPropertyItem } from '@/lib/actions/properties'
+import { PropertyListTable } from './PropertyListTable'
 
 export default function PropertiesPage() {
   const [properties, setProperties] = useState<MyPropertyItem[]>([])
@@ -16,6 +18,7 @@ export default function PropertiesPage() {
   const [filterType, setFilterType] = useState<'all' | 'rental' | 'sale'>('all')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'newest' | 'price_high' | 'price_low'>('newest')
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
   useEffect(() => {
     async function fetchProperties() {
@@ -39,20 +42,30 @@ export default function PropertiesPage() {
   }, [])
 
 
-  const filteredProperties = properties
-    .filter((p) => {
-      if (searchTerm && !p.title.toLowerCase().includes(searchTerm.toLowerCase()) && !p.address.toLowerCase().includes(searchTerm.toLowerCase())) {
-        return false
-      }
-      if (filterType !== 'all' && p.type !== filterType) {
-        return false
-      }
-      if (filterStatus !== 'all' && p.status !== filterStatus) {
-        return false
-      }
-      return true
-    })
-    .sort((a, b) => {
+  const filteredProperties = useMemo(
+    () =>
+      properties.filter((p) => {
+        if (
+          searchTerm &&
+          !p.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
+          !p.address.toLowerCase().includes(searchTerm.toLowerCase())
+        ) {
+          return false
+        }
+        if (filterType !== 'all' && p.type !== filterType) {
+          return false
+        }
+        if (filterStatus !== 'all' && p.status !== filterStatus) {
+          return false
+        }
+        return true
+      }),
+    [properties, searchTerm, filterType, filterStatus]
+  )
+
+  const gridSortedProperties = useMemo(() => {
+    const sorted = [...filteredProperties]
+    sorted.sort((a, b) => {
       switch (sortBy) {
         case 'price_high':
           return b.price - a.price
@@ -63,6 +76,8 @@ export default function PropertiesPage() {
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       }
     })
+    return sorted
+  }, [filteredProperties, sortBy])
 
   const getStatusBadge = (status: string) => {
     const badges: Record<string, { text: string; color: string }> = {
@@ -154,24 +169,58 @@ export default function PropertiesPage() {
             </select>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-[#999999]">
               共找到 <span className="text-white font-medium">{filteredProperties.length}</span> 個物件
             </p>
-            <select
-              value={sortBy}
-              onChange={(e) => {
-                const value = e.target.value
-                if (value === 'newest' || value === 'price_high' || value === 'price_low') {
-                  setSortBy(value)
-                }
-              }}
-              className="px-4 py-2 bg-[#2A2A2A] border border-[#333333] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
-            >
-              <option value="newest">最新發布</option>
-              <option value="price_high">價格：高到低</option>
-              <option value="price_low">價格：低到高</option>
-            </select>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="inline-flex rounded-lg border border-[#333333] bg-[#1A1A1A] p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('grid')}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                    viewMode === 'grid'
+                      ? 'bg-[#7C3AED] text-white'
+                      : 'text-[#999999] hover:text-white'
+                  }`}
+                  aria-pressed={viewMode === 'grid'}
+                >
+                  <LayoutGrid className="h-4 w-4" aria-hidden />
+                  網格
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('list')}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                    viewMode === 'list'
+                      ? 'bg-[#7C3AED] text-white'
+                      : 'text-[#999999] hover:text-white'
+                  }`}
+                  aria-pressed={viewMode === 'list'}
+                >
+                  <List className="h-4 w-4" aria-hidden />
+                  列表
+                </button>
+              </div>
+              {viewMode === 'grid' ? (
+                <select
+                  value={sortBy}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    if (value === 'newest' || value === 'price_high' || value === 'price_low') {
+                      setSortBy(value)
+                    }
+                  }}
+                  className="px-4 py-2 bg-[#2A2A2A] border border-[#333333] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+                >
+                  <option value="newest">最新發布</option>
+                  <option value="price_high">價格：高到低</option>
+                  <option value="price_low">價格：低到高</option>
+                </select>
+              ) : (
+                <span className="text-xs text-[#999999]">列表模式：點欄位標題排序</span>
+              )}
+            </div>
           </div>
         </div>
       </Card>
@@ -216,9 +265,21 @@ export default function PropertiesPage() {
             </Link>
           </div>
         </Card>
+      ) : viewMode === 'list' ? (
+        <PropertyListTable
+          data={filteredProperties}
+          onStatusPatched={(patch) => {
+            setProperties((prev) =>
+              prev.map((p) => {
+                const hit = patch.find((x) => x.id === p.id && x.type === p.type)
+                return hit ? { ...p, status: hit.status } : p
+              })
+            )
+          }}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProperties.map((property) => (
+          {gridSortedProperties.map((property) => (
             <Link key={property.id} href={`/landlord/properties/${property.id}`}>
               <Card hoverable className="h-full">
                 <div className="relative h-48 rounded-t-xl overflow-hidden bg-[#2A2A2A]">
