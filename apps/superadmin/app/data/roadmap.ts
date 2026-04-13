@@ -248,7 +248,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員AI LLM API效能監控－AI語音回應可靠度監控功能",
     locatedPage: "superadmin/dashboard/llm-monitor",
-    percentage: 70,
+    percentage: 92,
     acceptanceCriteria:
       "1. 即時顯示各 LLM API 的請求數量、平均回應時間、錯誤率。\n2. 可設定 API 使用量預算上限與警示閾值。\n3. 提供每日/每週 Token 消耗統計與費用估算。\n4. 語音回應品質分數（延遲、斷句率）需以圖表呈現。\n5. API 密鑰輪換提醒功能（距離過期 30 天前通知）。",
     docPath: "",
@@ -258,11 +258,11 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/dev-logs/dev-superadmin-features-2026-02-21.md",
     category: "超級管理員 (Super Admin)",
     points: 8,
-    lastModifiedBy: "GPT-5.2",
-    lastModifiedDate: "2026/04/04",
+    lastModifiedBy: "Cursor DevOps Agent",
+    lastModifiedDate: "2026/04/13",
     phase: "development",
     developmentProgress:
-      "連接真實 ai_performance_metrics 資料表，page.tsx + LLMMonitorClient + actions (getLLMMetrics/getLLMAggregateStats/getLLMOverallStats)；每模型效能比較表、最近請求記錄。\n\n### 2026-04-04 監控可追到 Prompt / 模組 / 成功失敗\n- 新增 ai_usage_logs 監控欄位（prompt source/version/hash、request_path、response_status 等）。\n- 物件介紹文案 AI（/api/property-description/stream）每次嘗試會寫入 ai_usage_logs（含成功/失敗、tokens、延遲、provider/model）。\n- llm-monitor 頁面新增「AI 使用紀錄（含 Prompt / 模組 / 狀態）」表格（最新 100 筆）。",
+      "連接真實 ai_performance_metrics 資料表，page.tsx + LLMMonitorClient + actions (getLLMMetrics/getLLMAggregateStats/getLLMOverallStats)；每模型效能比較表、最近請求記錄。\n\n### 2026-04-04 監控可追到 Prompt / 模組 / 成功失敗\n- 新增 ai_usage_logs 監控欄位（prompt source/version/hash、request_path、response_status 等）。\n- 物件介紹文案 AI（/api/property-description/stream）每次嘗試會寫入 ai_usage_logs（含成功/失敗、tokens、延遲、provider/model）。\n- llm-monitor 頁面新增「AI 使用紀錄（含 Prompt / 模組 / 狀態）」表格（最新 100 筆）。\n\n### 2026-04-13 對齊 Row 008 驗收\n- Migration `20260413233000_superadmin_llm_monitor_rpc.sql`：RPC 彙總 ai_usage_logs（整體/依模型錯誤率、日週 token+費用、語音模組日品質）。\n- `platform_settings.llm_monitor`：月度 USD 預算、警示閾值%、手動維護之 API 金鑰到期列（30 天內警示）。\n- UI：總覽錯誤率/本月花費、模型表 Provider+錯誤率欄、Token 趨勢與語音圖表、預算與密鑰分頁、60s 自動刷新。",
   },
   {
     name: "超級管理員-網路安全－隱私審計管理功能",
