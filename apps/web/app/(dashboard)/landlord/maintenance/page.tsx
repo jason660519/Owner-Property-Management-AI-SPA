@@ -22,6 +22,8 @@ import {
   getLandlordMaintenanceRequests,
   getMaintenanceAssigneeOptions,
   updateMaintenanceRequest,
+  completeMaintenanceAsLandlord,
+  syncMaintenanceExpenseLedgerForLandlord,
   type MaintenanceRequest,
   type MaintenanceStatus,
   type MaintenanceCategory,
@@ -79,16 +81,21 @@ const STATUS_BADGE: Record<
     icon: <XCircle className="w-3.5 h-3.5" />,
     variant: 'secondary',
   },
+  pending_tenant: {
+    label: '待租客確認',
+    icon: <Clock className="w-3.5 h-3.5" />,
+    variant: 'info',
+  },
 }
 
 const NEXT_STATUS: Partial<Record<MaintenanceStatus, MaintenanceStatus>> = {
   open: 'in_progress',
-  in_progress: 'completed',
+  in_progress: 'pending_tenant',
 }
 
 const NEXT_STATUS_LABEL: Partial<Record<MaintenanceStatus, string>> = {
   open: '開始處理',
-  in_progress: '標記完成',
+  in_progress: '送請租客確認結案',
 }
 
 function toLocalDatetimeInput(iso: string | null): string {
@@ -136,10 +143,17 @@ function DispatchFields({
   request,
   assigneeOptions,
   onPersist,
+  onForceComplete,
 }: {
   request: MaintenanceRequest
   assigneeOptions: MaintenanceAssigneeOption[]
   onPersist: (patch: UpdateMaintenanceInput) => Promise<boolean>
+  onForceComplete: (
+    payload: Pick<
+      UpdateMaintenanceInput,
+      'notes' | 'actualCost' | 'estimatedCost' | 'scheduledDate' | 'assignedToId'
+    >
+  ) => Promise<boolean>
 }) {
   const [notesInput, setNotesInput] = useState(request.notes ?? '')
   const [estimatedCost, setEstimatedCost] = useState(
@@ -184,6 +198,10 @@ function DispatchFields({
 
   const advance = async () => {
     if (!nextStatus) return
+    if (nextStatus === 'pending_tenant' && notesInput.trim().length < 3) {
+      window.alert('送請租客確認前，請至少填寫簡短工作說明（租客可見）。')
+      return
+    }
     setSaving(true)
     const ok = await onPersist({
       status: nextStatus,
@@ -196,6 +214,22 @@ function DispatchFields({
         actualCost.trim() === ''
           ? null
           : Number.parseFloat(actualCost.replace(/,/g, '')) || null,
+      scheduledDate: fromLocalDatetimeInput(scheduledLocal),
+      assignedToId: assignedToId === '' ? null : assignedToId,
+    })
+    setSaving(false)
+    return ok
+  }
+
+  const forceComplete = async () => {
+    setSaving(true)
+    const est =
+      estimatedCost.trim() === '' ? null : Number.parseFloat(estimatedCost.replace(/,/g, ''))
+    const act = actualCost.trim() === '' ? null : Number.parseFloat(actualCost.replace(/,/g, ''))
+    const ok = await onForceComplete({
+      notes: notesInput || undefined,
+      estimatedCost: est !== null && !Number.isNaN(est) ? est : undefined,
+      actualCost: act !== null && !Number.isNaN(act) ? act : null,
       scheduledDate: fromLocalDatetimeInput(scheduledLocal),
       assignedToId: assignedToId === '' ? null : assignedToId,
     })
@@ -285,17 +319,47 @@ function DispatchFields({
           {saving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
           儲存派工資料
         </Button>
-        {nextStatus && request.status !== 'cancelled' ? (
+        {nextStatus && request.status !== 'cancelled' && request.status !== 'pending_tenant' ? (
           <Button type="button" size="sm" disabled={saving} onClick={() => void advance()}>
             {saving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
             {NEXT_STATUS_LABEL[request.status]}
           </Button>
         ) : null}
+        {request.status === 'pending_tenant' ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={saving}
+            onClick={() => void forceComplete()}
+          >
+            {saving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
+            略過租客確認，直接結案
+          </Button>
+        ) : null}
+        {request.status === 'in_progress' ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={saving}
+            onClick={() => void forceComplete()}
+          >
+            {saving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
+            直接結案（略過租客）
+          </Button>
+        ) : null}
       </div>
+
+      {request.status === 'pending_tenant' ? (
+        <p className="text-xs text-text-muted">
+          已送請租客確認結案；租客確認後案件會標示為已完成，維修費用將自動寫入收支流水（若已填寫金額）。您亦可略過確認直接結案。
+        </p>
+      ) : null}
 
       {request.status === 'completed' ? (
         <p className="text-xs text-text-muted">
-          結案後請至財務流水確認「維修」類支出是否已自動帶入；若尚未串接，請手動補登。
+          結案後請至財務流水確認「維修」類支出是否已帶入；金額以實際費用為優先，未填則沿用預估費用。
         </p>
       ) : null}
     </div>
@@ -308,10 +372,18 @@ function RequestCard({
   request,
   assigneeOptions,
   onPersist,
+  onForceComplete,
 }: {
   request: MaintenanceRequest
   assigneeOptions: MaintenanceAssigneeOption[]
   onPersist: (id: string, patch: UpdateMaintenanceInput) => Promise<boolean>
+  onForceComplete: (
+    id: string,
+    payload: Pick<
+      UpdateMaintenanceInput,
+      'notes' | 'actualCost' | 'estimatedCost' | 'scheduledDate' | 'assignedToId'
+    >
+  ) => Promise<boolean>
 }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -355,6 +427,7 @@ function RequestCard({
               request={request}
               assigneeOptions={assigneeOptions}
               onPersist={(patch) => onPersist(request.id, patch)}
+              onForceComplete={(payload) => onForceComplete(request.id, payload)}
             />
           </div>
         ) : null}
@@ -371,12 +444,20 @@ function DesktopTable({
   expandedId,
   setExpandedId,
   onPersist,
+  onForceComplete,
 }: {
   requests: MaintenanceRequest[]
   assigneeOptions: MaintenanceAssigneeOption[]
   expandedId: string | null
   setExpandedId: (id: string | null) => void
   onPersist: (id: string, patch: UpdateMaintenanceInput) => Promise<boolean>
+  onForceComplete: (
+    id: string,
+    payload: Pick<
+      UpdateMaintenanceInput,
+      'notes' | 'actualCost' | 'estimatedCost' | 'scheduledDate' | 'assignedToId'
+    >
+  ) => Promise<boolean>
 }) {
   return (
     <div className="hidden overflow-x-auto rounded-lg border border-border-default md:block">
@@ -437,6 +518,7 @@ function DesktopTable({
                       request={r}
                       assigneeOptions={assigneeOptions}
                       onPersist={(patch) => onPersist(r.id, patch)}
+                      onForceComplete={(payload) => onForceComplete(r.id, payload)}
                     />
                   </td>
                 </tr>
@@ -469,7 +551,12 @@ export default function LandlordMaintenancePage() {
     ])
     setRequests(data)
     setAssigneeOptions(options)
+    const { inserted } = await syncMaintenanceExpenseLedgerForLandlord()
+    if (inserted > 0) {
+      showToast({ type: 'success', message: `已同步 ${inserted} 筆維修支出至財務流水` })
+    }
     setLoading(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- showToast is stable enough; including it can loop
   }, [])
 
   useEffect(() => {
@@ -490,10 +577,28 @@ export default function LandlordMaintenancePage() {
     return false
   }
 
+  const forceCompletePersist = async (
+    id: string,
+    payload: Pick<
+      UpdateMaintenanceInput,
+      'notes' | 'actualCost' | 'estimatedCost' | 'scheduledDate' | 'assignedToId'
+    >
+  ): Promise<boolean> => {
+    const result = await completeMaintenanceAsLandlord(id, payload)
+    if (result.success) {
+      showToast({ type: 'success', message: '已結案' })
+      await load()
+      return true
+    }
+    showToast({ type: 'error', message: result.error ?? '結案失敗' })
+    return false
+  }
+
   const counts = {
     all: requests.length,
     open: requests.filter((r) => r.status === 'open').length,
     in_progress: requests.filter((r) => r.status === 'in_progress').length,
+    pending_tenant: requests.filter((r) => r.status === 'pending_tenant').length,
     completed: requests.filter((r) => r.status === 'completed').length,
     cancelled: requests.filter((r) => r.status === 'cancelled').length,
   }
@@ -517,11 +622,12 @@ export default function LandlordMaintenancePage() {
         ) : null}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {(
           [
             { key: 'open', label: '待處理', accent: 'text-accent' },
             { key: 'in_progress', label: '處理中', accent: 'text-text-primary' },
+            { key: 'pending_tenant', label: '待租客確認', accent: 'text-blue-400' },
             { key: 'completed', label: '已完成', accent: 'text-success' },
             { key: 'all', label: '全部', accent: 'text-text-secondary' },
           ] as { key: Filter; label: string; accent: string }[]
@@ -548,6 +654,7 @@ export default function LandlordMaintenancePage() {
             { key: 'all', label: '全部' },
             { key: 'open', label: '待處理' },
             { key: 'in_progress', label: '處理中' },
+            { key: 'pending_tenant', label: '待租客確認' },
             { key: 'completed', label: '已完成' },
           ] as { key: Filter; label: string }[]
         ).map(({ key, label }) => (
@@ -586,6 +693,7 @@ export default function LandlordMaintenancePage() {
             expandedId={expandedId}
             setExpandedId={setExpandedId}
             onPersist={persist}
+            onForceComplete={forceCompletePersist}
           />
           <div className="space-y-3 md:hidden">
             {filtered.map((r) => (
@@ -594,6 +702,7 @@ export default function LandlordMaintenancePage() {
                 request={r}
                 assigneeOptions={assigneeOptions}
                 onPersist={persist}
+                onForceComplete={forceCompletePersist}
               />
             ))}
           </div>

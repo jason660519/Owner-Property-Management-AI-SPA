@@ -5,6 +5,7 @@ import {
   getLandlordMaintenanceRequests,
   getMaintenanceAssigneeOptions,
   updateMaintenanceRequest,
+  completeMaintenanceAsLandlord,
 } from '@/lib/actions/maintenance'
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
@@ -239,14 +240,26 @@ describe('cancelMaintenanceRequest', () => {
 
 function buildUpdateFlowSupabase(options: {
   ownerId?: string
-  existingRow?: { id: string; property: { owner_id: string } } | null
+  existingRow?: Record<string, unknown> | null
   updateError?: { message: string } | null
 }) {
   const ownerId = options.ownerId ?? MOCK_USER.id
   const existingRow =
-    options.existingRow !== undefined
-      ? options.existingRow
-      : { id: 'req-001', property: { owner_id: ownerId } }
+    options.existingRow === null
+      ? null
+      : {
+          id: 'req-001',
+          requested_by: 'tenant-99',
+          status: 'open',
+          scheduled_date: null,
+          title: '廚房水龍頭漏水',
+          property_id: 'prop-001',
+          actual_cost: null,
+          estimated_cost: null,
+          notes: null,
+          property: { owner_id: ownerId },
+          ...options.existingRow,
+        }
 
   const mockMaybeSingle = jest.fn().mockResolvedValue({
     data: existingRow,
@@ -254,6 +267,19 @@ function buildUpdateFlowSupabase(options: {
   })
   const mockUpdateEq = jest.fn().mockResolvedValue({ error: options.updateError ?? null })
   const mockUpdateFn = jest.fn().mockReturnValue({ eq: mockUpdateEq })
+
+  const ledgerSelectChain = {
+    in: jest.fn().mockReturnValue({
+      not: jest.fn().mockResolvedValue({ data: [], error: null }),
+    }),
+    eq: jest.fn().mockReturnValue({
+      eq: jest.fn().mockReturnValue({
+        ilike: jest.fn().mockReturnValue({
+          maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+        }),
+      }),
+    }),
+  }
 
   const from = jest.fn((table: string) => {
     if (table === 'Property_Rentals') {
@@ -265,11 +291,18 @@ function buildUpdateFlowSupabase(options: {
     }
     if (table === 'rental_ledger') {
       return {
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockReturnValue({
-            not: jest.fn().mockResolvedValue({ data: [], error: null }),
-          }),
+        select: jest.fn().mockImplementation((cols: string) => {
+          if (typeof cols === 'string' && cols.includes('tenant_id')) {
+            return ledgerSelectChain
+          }
+          return ledgerSelectChain
         }),
+        insert: jest.fn().mockResolvedValue({ error: null }),
+      }
+    }
+    if (table === 'notification_queue') {
+      return {
+        insert: jest.fn().mockResolvedValue({ error: null }),
       }
     }
     if (table === 'maintenance_requests') {
@@ -304,17 +337,13 @@ describe('updateMaintenanceRequest', () => {
     expect(result.success).toBe(true)
   })
 
-  it('sets completed_date when status is completed', async () => {
-    const { mockUpdateFn } = buildUpdateFlowSupabase({})
-    await updateMaintenanceRequest('req-001', {
-      status: 'completed',
-      notes: '修繕完成，已更換零件',
+  it('moves in_progress to pending_tenant', async () => {
+    const { mockUpdateFn } = buildUpdateFlowSupabase({
+      existingRow: { status: 'in_progress' },
     })
-
-    const updateArg = mockUpdateFn.mock.calls[0][0]
-    expect(updateArg.completed_date).toBeDefined()
-    expect(updateArg.status).toBe('completed')
-    expect(updateArg.notes).toBe('修繕完成，已更換零件')
+    const result = await updateMaintenanceRequest('req-001', { status: 'pending_tenant' })
+    expect(result.success).toBe(true)
+    expect(mockUpdateFn.mock.calls[0][0].status).toBe('pending_tenant')
   })
 
   it('includes estimatedCost, scheduledDate, assignedToId, and actualCost when provided', async () => {
@@ -342,7 +371,7 @@ describe('updateMaintenanceRequest', () => {
   })
 
   it('returns error when landlord does not own the property', async () => {
-    buildUpdateFlowSupabase({ ownerId: 'other-landlord' })
+    buildUpdateFlowSupabase({ existingRow: { property: { owner_id: 'other-landlord' } } })
     const result = await updateMaintenanceRequest('req-001', { status: 'in_progress' })
     expect(result.success).toBe(false)
     expect(result.error).toBe('無權限更新此申請')
@@ -364,6 +393,24 @@ describe('updateMaintenanceRequest', () => {
     const result = await updateMaintenanceRequest('req-001', { status: 'in_progress' })
     expect(result.success).toBe(false)
     expect(result.error).toBe('更新失敗，請重試')
+  })
+})
+
+// ─── completeMaintenanceAsLandlord ───────────────────────────────────────────
+
+describe('completeMaintenanceAsLandlord', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('sets completed and completed_date from in_progress', async () => {
+    const { mockUpdateFn } = buildUpdateFlowSupabase({
+      existingRow: { status: 'in_progress', actual_cost: 800 },
+    })
+    const result = await completeMaintenanceAsLandlord('req-001', { notes: '完成' })
+    expect(result.success).toBe(true)
+    const updateArg = mockUpdateFn.mock.calls[0][0]
+    expect(updateArg.status).toBe('completed')
+    expect(updateArg.completed_date).toBeDefined()
+    expect(updateArg.notes).toBe('完成')
   })
 })
 
@@ -540,7 +587,7 @@ describe('Maintenance Status Transitions', () => {
 
   const transitions: Array<{ from: string; to: string }> = [
     { from: 'open', to: 'in_progress' },
-    { from: 'in_progress', to: 'completed' },
+    { from: 'in_progress', to: 'pending_tenant' },
     { from: 'open', to: 'cancelled' },
   ]
 
@@ -558,13 +605,21 @@ describe('Maintenance Status Transitions', () => {
         mockEq.mockReturnValueOnce({ eq: mockEq2 })
         result = await cancelMaintenanceRequest('req-001')
       } else {
-        buildUpdateFlowSupabase({})
+        buildUpdateFlowSupabase({
+          existingRow: { status: from === 'open' ? 'open' : 'in_progress' },
+        })
         result = await updateMaintenanceRequest('req-001', {
-          status: to as 'in_progress' | 'completed' | 'cancelled' | 'open',
+          status: to as 'in_progress' | 'pending_tenant' | 'cancelled' | 'open',
         })
       }
 
       expect(result.success).toBe(true)
     })
+  })
+
+  it('allows in_progress → completed via completeMaintenanceAsLandlord', async () => {
+    buildUpdateFlowSupabase({ existingRow: { status: 'in_progress' } })
+    const result = await completeMaintenanceAsLandlord('req-001', {})
+    expect(result.success).toBe(true)
   })
 })
