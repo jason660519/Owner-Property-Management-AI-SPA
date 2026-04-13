@@ -266,8 +266,8 @@ const RAW_FEATURES: RoadmapFeature[] = [
   },
   {
     name: "超級管理員-網路安全－隱私審計管理功能",
-    locatedPage: "superadmin (待建)",
-    percentage: 0,
+    locatedPage: "superadmin/dashboard/security",
+    percentage: 60,
     acceptanceCriteria:
       "1. 提供資料存取稽核日誌，記錄誰在何時存取了哪些敏感資料。\n2. 自動偵測異常登入行為（不常用設備、異地登入）並警示。\n3. 支援設定 IP 白名單與黑名單。\n4. 個資保護合規報告（GDPR/PDPA）一鍵生成。\n5. SSL 憑證到期前 30 天自動提醒。",
     docPath: "",
@@ -275,8 +275,18 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/features/tdd-superadmin-platform-20260221.md",
     category: "超級管理員 (Super Admin)",
     points: 5,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "OpenAI Codex (DevOps Agent)",
+    lastModifiedDate: "2026/04/14",
+    phase: "development",
+    developmentProgress:
+      "2026/04/14 (VIS-68, DevOps Agent)\n" +
+      "- ✅ DB migration: security_audit_enhancements（audit_logs 增強、IP 白黑名單表）\n" +
+      "- ✅ Security Dashboard 頁面 /superadmin/dashboard/security（SecurityDashboardClient 626 行）\n" +
+      "- ✅ Server actions: getAuditLogs, getIPRules, addIPRule, removeIPRule\n" +
+      "- ✅ Sidebar nav-items 新增 Security 入口\n" +
+      "- ✅ Middleware 整合 IP 白黑名單檢查\n" +
+      "- ✅ SSL 憑證監控腳本 scripts/ssl-cert-monitor.js\n" +
+      "- 待完成：合規報告生成、異常登入自動偵測邏輯優化",
   },
   {
     name: "超級管理員-網站效能監控功能",
@@ -652,15 +662,24 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東的客戶－Grid模式",
     locatedPage: "web/landlord/customers",
-    percentage: 0,
+    percentage: 80,
     acceptanceCriteria:
       "1. 以卡片網格形式顯示客戶列表，每卡顯示頭像、姓名、狀態、最後聯絡時間。\n2. 支援欄數切換（2欄/3欄/4欄）。\n3. 卡片點擊進入 Details 模式。\n4. 支援拖曳重新排序（依優先級）。\n5. 懸停卡片顯示快速操作（發訊息、修改狀態）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 2,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "OpenAI Codex (Fullstack Agent)",
+    lastModifiedDate: "2026/04/14",
+    phase: "development",
+    developmentProgress:
+      "2026/04/14 (VIS-62, Fullstack Agent)\n" +
+      "- ✅ CustomerGridView.tsx 組件（231 行）：卡片網格、頭像/姓名/狀態/聯絡時間\n" +
+      "- ✅ customers/page.tsx 重構：整合 Grid 模式切換\n" +
+      "- ✅ API route /api/landlord/customers\n" +
+      "- ✅ DB migration: add_customer_priority（拖曳排序用）\n" +
+      "- ✅ customer-types.ts 擴充\n" +
+      "- 待完成：欄數切換 UI、拖曳重排",
   },
   {
     name: "房東的客戶－List模式",
@@ -904,15 +923,21 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東財務－銀行帳戶管理",
     locatedPage: "web/landlord/finance",
-    percentage: 0,
+    percentage: 30,
     acceptanceCriteria:
       "1. 可綁定多個銀行帳戶（支援主要銀行）。\n2. 顯示帳戶餘額（需連結開放銀行API）。\n3. 可設定各帳戶的收款用途（租金帳戶/維修備用金）。\n4. 帳戶資訊以加密方式儲存，顯示時遮蔽部分號碼。\n5. 可手動新增或刪除帳戶（不可刪除有未結清款項的帳戶）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 3,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Google Gemini 2.5 Flash (Database Agent)",
+    lastModifiedDate: "2026/04/14",
+    phase: "development",
+    developmentProgress:
+      "2026/04/14 (VIS-64, Database Agent)\n" +
+      "- ✅ DB migration: create_bank_accounts（113 行）含 bank_accounts 表、pgcrypto 加密、RLS 策略\n" +
+      "- ✅ RLS: 帳戶擁有者隔離（SELECT/INSERT/UPDATE/DELETE）\n" +
+      "- 待完成：前端 UI、API route、開放銀行 API 整合",
   },
   {
     name: "房東財務－收支明細儀表板",
@@ -1130,16 +1155,24 @@ const RAW_FEATURES: RoadmapFeature[] = [
   },
   {
     name: "租客的維修申請",
-    locatedPage: "web/tenant (待建)",
-    percentage: 0,
+    locatedPage: "web/tenant/maintenance",
+    percentage: 30,
     acceptanceCriteria:
       "1. 提供維修申請表單：物件/位置、問題類別（水電/管路/設備）、問題描述、照片上傳。\n2. 送出後可追蹤維修進度（待派工/已指派/完成）。\n3. 維修人員到訪確認後需由租客線上確認完成。\n4. 維修記錄存檔，供日後查閱。\n5. 緊急維修（如漏水）標記後，通知時間 < 10 分鐘。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-tenant-buyer-20260221.md",
     category: "租客 (Tenant)",
     points: 3,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "OpenAI Codex (QA Agent)",
+    lastModifiedDate: "2026/04/14",
+    phase: "testing",
+    testStatus: "passed",
+    testScriptPath: "apps/web/lib/actions/__tests__/",
+    developmentProgress:
+      "2026/04/14 (VIS-65, QA Agent)\n" +
+      "- ✅ Unit tests: maintenance.test.ts（450 行，覆蓋 server actions CRUD + 狀態流轉）\n" +
+      "- ✅ E2E test: maintenance.spec.ts（178 行，租客提交→房東審核→完成流程）\n" +
+      "- 注意：此 Row 原測試由 Row 120 維護，QA Agent 新增額外獨立測試檔案",
   },
   {
     name: "租客的溝通中心",
@@ -1250,17 +1283,22 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "一鍵切換UI風格：暗/亮模式",
     locatedPage: "全站",
-    percentage: 95,
+    percentage: 98,
     acceptanceCriteria:
       "1. 點擊切換按鈕（或依系統設定）立即切換暗/亮模式，無需刷新頁面。\n2. 使用者設定持久化（下次登入維持上次選擇）。\n3. 所有頁面、組件、彈窗均支援暗/亮模式，無色彩殘留問題。\n4. 過渡動畫流暢（約200ms）。\n5. 系統自動偵測作業系統主題並設為預設值。",
     devLog:
-      "ThemeProvider (next-themes, attribute=class, defaultTheme=system, enableSystem) 已部署至 superadmin 及 web 兩個 app；CSS 語意色彩 token（--color-text-primary / bg / border / accent 等）在 globals.css 以 .dark class 覆寫，完整支援 light/dark 切換。ThemeToggle component 採單一圓形按鈕、Sun/Moon icon 旋轉動畫 200ms；已置入 superadmin DashboardHeader、web Header（公共頁）及 web DashboardHeader（landlord/tenant 儀表板）。Tailwind darkMode: 'class' 已設定，所有語意 token 均透過 var() 對應，body 有 transition 300ms ease。",
+      "ThemeProvider (next-themes, attribute=class, defaultTheme=system, enableSystem) 已部署至 superadmin 及 web 兩個 app；CSS 語意色彩 token（--color-text-primary / bg / border / accent 等）在 globals.css 以 .dark class 覆寫，完整支援 light/dark 切換。ThemeToggle component 採單一圓形按鈕、Sun/Moon icon 旋轉動畫 200ms；已置入 superadmin DashboardHeader、web Header（公共頁）及 web DashboardHeader（landlord/tenant 儀表板）。Tailwind darkMode: 'class' 已設定，所有語意 token 均透過 var() 對應，body 有 transition 300ms ease。\n\n" +
+      "2026/04/14 (VIS-67, UI/UX Agent)\n" +
+      "- ✅ 多組件 dark mode 審查修正：DashboardLayout, KPICard, ProgressLink, RoleSwitcher\n" +
+      "- ✅ MessageDetail/MessageFilters/MessageList 暗色模式適配\n" +
+      "- ✅ Sheet.tsx dark mode 調整\n" +
+      "- ✅ globals.css dark token 完善（web + web-au）",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-system-common-20260221.md",
     category: "通用/系統 (General/System)",
     points: 2,
-    lastModifiedBy: "Claude Sonnet 4.6",
-    lastModifiedDate: "2026/04/13",
+    lastModifiedBy: "Google Gemini 2.5 Flash (UI/UX Agent)",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "RWD網頁響應式設計",
@@ -2341,7 +2379,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "VIS 同步基礎設施 — Engineer Profile V2 + Webhook 框架",
     category: "超級管理員 (Super Admin)",
-    percentage: 0,
+    percentage: 70,
     phase: "development",
     points: 8,
     locatedPage: "superadmin/engineers, api/webhooks/paperclip",
@@ -2355,13 +2393,22 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "3. POST /api/webhooks/paperclip 可接收並驗證 HMAC 事件，非同步加入背景 worker。\n" +
       "4. RoadmapFeature interface 新增 vis_issue_id / vis_issue_key / vis_sync_status / vis_last_synced_at 欄位。\n" +
       "5. 環境驗證腳本（PAPERCLIP_WEBHOOK_SECRET 等）執行無錯。",
-    lastModifiedBy: "Claude Sonnet 4.6",
+    lastModifiedBy: "OpenAI Codex (Architect Agent)",
     lastModifiedDate: "2026/04/14",
+    developmentProgress:
+      "2026/04/14 (VIS-66, Architect Agent)\n" +
+      "- ✅ DB migration: create_vis_sync_tables（115 行，paperclip_webhook_logs + sync_conflicts + RLS）\n" +
+      "- ✅ POST /api/webhooks/paperclip route（89 行，HMAC 驗證 + 事件分派）\n" +
+      "- ✅ Engineer 管理頁面 /superadmin/engineers（page.tsx 362 行 + actions.ts 105 行）\n" +
+      "- ✅ ADR 文件：adr-137-vis-sync-infrastructure.md\n" +
+      "- ✅ 環境驗證腳本：scripts/validate-vis-sync-env.sh\n" +
+      "- ✅ vis-roadmap-sync-dev-spec 更新\n" +
+      "- 待完成：HMAC 驗證整合測試、背景 worker 實作",
   },
   {
     name: "VIS 批量遷移工具 — 135 任務導出到 Paperclip VIS",
     category: "超級管理員 (Super Admin)",
-    percentage: 0,
+    percentage: 60,
     phase: "development",
     points: 5,
     locatedPage: "superadmin/dashboard/project-progress",
@@ -2375,8 +2422,13 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "3. roadmap.ts 每個已遷移 Feature 均有 vis_issue_id / vis_issue_key 回寫。\n" +
       "4. Superadmin 出現「導出到 VIS」按鈕，顯示實時進度日誌與完成摘要。\n" +
       "5. 增量模式：再次執行跳過已有 vis_issue_id 的 Feature，僅處理新增/變更項目。",
-    lastModifiedBy: "Claude Sonnet 4.6",
+    lastModifiedBy: "OpenAI Codex (Fullstack Agent)",
     lastModifiedDate: "2026/04/14",
+    developmentProgress:
+      "2026/04/14 (VIS-70, Fullstack Agent)\n" +
+      "- ✅ sync-roadmap-to-vis.ts 批量遷移腳本\n" +
+      "- ✅ Superadmin 導出 UI（ExportToVISButton + ExportProgressDialog）\n" +
+      "- 待完成：增量模式、vis_issue_id 回寫驗證",
   },
   {
     name: "VIS \u2194 Roadmap 雙向同步引擎 + 衝突解決",
