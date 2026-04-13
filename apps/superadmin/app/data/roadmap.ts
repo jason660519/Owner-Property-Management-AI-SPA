@@ -1250,16 +1250,17 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "一鍵切換UI風格：暗/亮模式",
     locatedPage: "全站",
-    percentage: 95,
+    percentage: 100,
     acceptanceCriteria:
       "1. 點擊切換按鈕（或依系統設定）立即切換暗/亮模式，無需刷新頁面。\n2. 使用者設定持久化（下次登入維持上次選擇）。\n3. 所有頁面、組件、彈窗均支援暗/亮模式，無色彩殘留問題。\n4. 過渡動畫流暢（約200ms）。\n5. 系統自動偵測作業系統主題並設為預設值。",
     devLog:
-      "ThemeProvider (next-themes, attribute=class, defaultTheme=system, enableSystem) 已部署至 superadmin 及 web 兩個 app；CSS 語意色彩 token（--color-text-primary / bg / border / accent 等）在 globals.css 以 .dark class 覆寫，完整支援 light/dark 切換。ThemeToggle component 採單一圓形按鈕、Sun/Moon icon 旋轉動畫 200ms；已置入 superadmin DashboardHeader、web Header（公共頁）及 web DashboardHeader（landlord/tenant 儀表板）。Tailwind darkMode: 'class' 已設定，所有語意 token 均透過 var() 對應，body 有 transition 300ms ease。",
+      "ThemeProvider (next-themes, attribute=class, defaultTheme=system, enableSystem) 已部署至 superadmin、web、web-au；CSS 語意色彩 token（--color-text-primary / bg / border / accent 等）在 globals.css 以 .dark class 覆寫，完整支援 light/dark 切換。ThemeToggle component 採單一圓形按鈕、Sun/Moon icon 旋轉動畫 200ms；已置入 superadmin DashboardHeader、web Header（公共頁）、web DashboardHeader（landlord/tenant 儀表板）、web-au `AUSidebar` 與 auth layout 右上角。Tailwind darkMode: 'class' 已設定，所有語意 token 均透過 var() 對應，body 有 transition 300ms ease。\n\n" +
+      "2026/04/13 (VIS-85)：補齊澳洲站（web-au）可見的明暗切換入口；Expo mobile 仍依裝置／NativeWind 主題，若需 App 內獨立切換可另開需求。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-system-common-20260221.md",
     category: "通用/系統 (General/System)",
     points: 2,
-    lastModifiedBy: "Claude Sonnet 4.6",
+    lastModifiedBy: "UI/UX Designer (Paperclip VIS-85)",
     lastModifiedDate: "2026/04/13",
   },
   {
