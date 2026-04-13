@@ -231,3 +231,14 @@ export function getIntentLabel(intent: CustomerIntent): string {
       return '尚未確定'
   }
 }
+
+/** Relative label for last activity (shared by grid + list views). */
+export function formatCustomerLastContact(input: { created_at: string; updated_at?: string }): string {
+  const dateStr = input.updated_at ?? input.created_at
+  const diffDays = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000)
+  if (diffDays === 0) return '今日'
+  if (diffDays === 1) return '昨日'
+  if (diffDays < 7) return `${diffDays}天前`
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}週前`
+  return `${Math.floor(diffDays / 30)}個月前`
+}

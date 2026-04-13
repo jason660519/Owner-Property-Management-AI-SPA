@@ -1,8 +1,8 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { GripVertical, MessageSquare, User } from 'lucide-react'
-import { getStatusLabel, type CustomerStatus } from './customer-details'
+import { formatCustomerLastContact, getStatusLabel, type CustomerStatus } from './customer-details'
 import { CustomerStatusBadge } from './CustomerDetailsPanel'
 import { type Customer } from './customer-types'
 
@@ -14,16 +14,6 @@ interface CustomerGridViewProps {
   onSelectCustomer: (id: string) => void
   onQuickStatusChange: (id: string, status: CustomerStatus) => void
   onReorder: (reordered: Customer[]) => void
-}
-
-function formatLastContact(c: Customer): string {
-  const dateStr = c.updated_at ?? c.created_at
-  const diffDays = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000)
-  if (diffDays === 0) return '今日'
-  if (diffDays === 1) return '昨日'
-  if (diffDays < 7) return `${diffDays}天前`
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)}週前`
-  return `${Math.floor(diffDays / 30)}個月前`
 }
 
 const STATUS_OPTIONS: CustomerStatus[] = ['potential', 'negotiating', 'closed', 'lost']
@@ -92,7 +82,7 @@ function CustomerCard({
             <CustomerStatusBadge status={customer.status} />
           </div>
           <p className="text-xs text-[#666666] mt-1.5">
-            最後聯絡：{formatLastContact(customer)}
+            最後聯絡：{formatCustomerLastContact(customer)}
           </p>
         </div>
       </div>
@@ -147,7 +137,9 @@ export function CustomerGridView({
 
   // Keep a ref so drag handlers always see the latest list
   const listRef = useRef<Customer[]>(customers)
-  listRef.current = customers
+  useEffect(() => {
+    listRef.current = customers
+  }, [customers])
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
     setDraggingId(id)
