@@ -642,15 +642,17 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東的客戶－Grid模式",
     locatedPage: "web/landlord/customers",
-    percentage: 0,
+    percentage: 100,
     acceptanceCriteria:
       "1. 以卡片網格形式顯示客戶列表，每卡顯示頭像、姓名、狀態、最後聯絡時間。\n2. 支援欄數切換（2欄/3欄/4欄）。\n3. 卡片點擊進入 Details 模式。\n4. 支援拖曳重新排序（依優先級）。\n5. 懸停卡片顯示快速操作（發訊息、修改狀態）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 2,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    devLog:
+      "2026/04/13\n- 新增 `CustomerGridView.tsx`：卡片網格元件，支援 2/3/4 欄切換\n- 卡片顯示頭像、姓名、狀態徽章、最後聯絡時間\n- 懸停卡片顯示快速操作（發訊息、修改狀態下拉）\n- 支援 HTML5 drag-and-drop 拖曳重新排序（依 priority 欄位）\n- `page.tsx` 加入 List/Grid 切換按鈕；Grid 模式共用右側 Details Panel\n- 新增 PATCH /api/landlord/customers 批量更新 priority\n- Migration: `20260413210000_add_customer_priority.sql` 為 landlord_customers 加入 priority INTEGER 欄位",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/04/13",
   },
   {
     name: "房東的客戶－List模式",
@@ -2387,22 +2389,6 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "5. Webhook 重試最多 3 次（指數退退），失敗後記錄至 paperclip_webhook_logs 並標記 failed。",
     lastModifiedBy: "Claude Sonnet 4.6",
     lastModifiedDate: "2026/04/14",
-  },
-  {
-    name: "房東的客戶 Grid 模式",
-    category: "房東 (Landlord)",
-    percentage: 100,
-    phase: "development",
-    points: 3,
-    locatedPage: "web/landlord/customers",
-    acceptanceCriteria:
-      "1. 以卡片網格形式顯示客戶列表，每卡顯示頭像、姓名、狀態、最後聯絡時間。\n" +
-      "2. 支援欄數切換（2欄/3欄/4欄）。\n" +
-      "3. 卡片點擊進入 Details 模式（右側面板）。\n" +
-      "4. 支援拖曳重新排序（依優先級）。\n" +
-      "5. 懸停卡片顯示快速操作（發訊息、修改狀態）。",
-    lastModifiedBy: "Claude",
-    lastModifiedDate: "2026/04/13",
   },
   {
     name: "CEO VIS 任務分配工作流 — Engineer 指派 + 進度整合",
