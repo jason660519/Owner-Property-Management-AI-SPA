@@ -12,6 +12,8 @@ services:
       CLAUDE_CODE_OAUTH_TOKEN: '${CLAUDE_CODE_OAUTH_TOKEN:-}'
       # Gemini adapter support (fallback when Claude/OpenAI quota exceeded)
       GEMINI_API_KEY: '${GEMINI_API_KEY:-}'
+      # opencode_local adapter requires this specific env var name
+      GOOGLE_GENERATIVE_AI_API_KEY: '${GOOGLE_GENERATIVE_AI_API_KEY:-}'
       # Cursor agent adapter
       CURSOR_API_KEY: '${CURSOR_API_KEY:-}'
       PAPERCLIP_DEPLOYMENT_MODE: 'authenticated'
