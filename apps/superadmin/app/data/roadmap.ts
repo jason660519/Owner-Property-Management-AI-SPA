@@ -1240,15 +1240,17 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "一鍵切換UI風格：暗/亮模式",
     locatedPage: "全站",
-    percentage: 0,
+    percentage: 95,
     acceptanceCriteria:
       "1. 點擊切換按鈕（或依系統設定）立即切換暗/亮模式，無需刷新頁面。\n2. 使用者設定持久化（下次登入維持上次選擇）。\n3. 所有頁面、組件、彈窗均支援暗/亮模式，無色彩殘留問題。\n4. 過渡動畫流暢（約200ms）。\n5. 系統自動偵測作業系統主題並設為預設值。",
+    devLog:
+      "ThemeProvider (next-themes, attribute=class, defaultTheme=system, enableSystem) 已部署至 superadmin 及 web 兩個 app；CSS 語意色彩 token（--color-text-primary / bg / border / accent 等）在 globals.css 以 .dark class 覆寫，完整支援 light/dark 切換。ThemeToggle component 採單一圓形按鈕、Sun/Moon icon 旋轉動畫 200ms；已置入 superadmin DashboardHeader、web Header（公共頁）及 web DashboardHeader（landlord/tenant 儀表板）。Tailwind darkMode: 'class' 已設定，所有語意 token 均透過 var() 對應，body 有 transition 300ms ease。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-system-common-20260221.md",
     category: "通用/系統 (General/System)",
     points: 2,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Claude Sonnet 4.6",
+    lastModifiedDate: "2026/04/13",
   },
   {
     name: "RWD網頁響應式設計",
@@ -2324,9 +2326,91 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "- ✅ 警報機制：餘額 < alert_threshold 時在 Paperclip 建立高優先度 issue 通知\n" +
       "- ✅ 熔斷器自動復原：operator 補充信用額後更新 total_credits_usd 即可自動解除",
   },
+
+  // --- VIS 同步系統 (Row 136-139) ---
+  {
+    name: "VIS 同步基礎設施 — Engineer Profile V2 + Webhook 框架",
+    category: "超級管理員 (Super Admin)",
+    percentage: 0,
+    phase: "development",
+    points: 8,
+    locatedPage: "superadmin/engineers, api/webhooks/paperclip",
+    featureSpecDocPath:
+      "/project-process/features/vis-roadmap-sync-dev-spec-20260414.md",
+    tddSpecDocPath:
+      "/project-process/features/tdd-vis-roadmap-sync-20260414.md",
+    acceptanceCriteria:
+      "1. engineer_profiles 管理頁面（/superadmin/engineers）可 CRUD 工程師，含角色/時薪/最大並發任務數。\n" +
+      "2. paperclip_webhook_logs、sync_conflicts 表建立，含 RLS 策略。\n" +
+      "3. POST /api/webhooks/paperclip 可接收並驗證 HMAC 事件，非同步加入背景 worker。\n" +
+      "4. RoadmapFeature interface 新增 vis_issue_id / vis_issue_key / vis_sync_status / vis_last_synced_at 欄位。\n" +
+      "5. 環境驗證腳本（PAPERCLIP_WEBHOOK_SECRET 等）執行無錯。",
+    lastModifiedBy: "Claude Sonnet 4.6",
+    lastModifiedDate: "2026/04/14",
+  },
+  {
+    name: "VIS 批量遷移工具 — 135 任務導出到 Paperclip VIS",
+    category: "超級管理員 (Super Admin)",
+    percentage: 0,
+    phase: "development",
+    points: 5,
+    locatedPage: "superadmin/dashboard/project-progress",
+    featureSpecDocPath:
+      "/project-process/features/vis-roadmap-sync-dev-spec-20260414.md",
+    tddSpecDocPath:
+      "/project-process/features/tdd-vis-roadmap-sync-20260414.md",
+    acceptanceCriteria:
+      "1. sync-roadmap-to-vis.ts dry-run 列印 135 行 VIS issue 草稿，格式與映射邏輯無誤。\n" +
+      "2. 實際執行後 VIS 儀表板出現 ~135 個 issue，title / labels / priority / story_points 正確。\n" +
+      "3. roadmap.ts 每個已遷移 Feature 均有 vis_issue_id / vis_issue_key 回寫。\n" +
+      "4. Superadmin 出現「導出到 VIS」按鈕，顯示實時進度日誌與完成摘要。\n" +
+      "5. 增量模式：再次執行跳過已有 vis_issue_id 的 Feature，僅處理新增/變更項目。",
+    lastModifiedBy: "Claude Sonnet 4.6",
+    lastModifiedDate: "2026/04/14",
+  },
+  {
+    name: "VIS \u2194 Roadmap 雙向同步引擎 + 衝突解決",
+    category: "超級管理員 (Super Admin)",
+    percentage: 0,
+    phase: "development",
+    points: 13,
+    locatedPage: "superadmin/conflicts, lib/paperclip/sync-engine",
+    featureSpecDocPath:
+      "/project-process/features/vis-roadmap-sync-dev-spec-20260414.md",
+    tddSpecDocPath:
+      "/project-process/features/tdd-vis-roadmap-sync-20260414.md",
+    acceptanceCriteria:
+      "1. VIS issue status 變更 → Webhook 觸發 → roadmap.ts 自動 git commit 更新（延遲 <10s）。\n" +
+      "2. Superadmin 編輯 Feature → PATCH /api/admin/features/:name → VIS issue 自動同步。\n" +
+      "3. 衝突時 vis_sync_status 標記 diverged，加入 /superadmin/conflicts 審核佇列。\n" +
+      "4. Conflict 頁面可選「採 roadmap」/「採 VIS」/「手動合併」三種解決方式，解決後雙端一致。\n" +
+      "5. Webhook 重試最多 3 次（指數退退），失敗後記錄至 paperclip_webhook_logs 並標記 failed。",
+    lastModifiedBy: "Claude Sonnet 4.6",
+    lastModifiedDate: "2026/04/14",
+  },
+  {
+    name: "CEO VIS 任務分配工作流 — Engineer 指派 + 進度整合",
+    category: "超級管理員 (Super Admin)",
+    percentage: 0,
+    phase: "development",
+    points: 5,
+    locatedPage: "superadmin/engineers, superadmin/dashboard/project-progress",
+    featureSpecDocPath:
+      "/project-process/features/vis-roadmap-sync-dev-spec-20260414.md",
+    tddSpecDocPath:
+      "/project-process/features/tdd-vis-roadmap-sync-20260414.md",
+    acceptanceCriteria:
+      "1. Engineer 管理頁面顯示每位工程師的已分配/完成任務數、成本與可用容量。\n" +
+      "2. Project Progress 表支援「自動指派」（按角色自動選最低負載 agent/engineer）。\n" +
+      "3. CEO 工作流文檔完整：Superadmin → 導出 VIS → 分配任務 → 監控進度 → 衝突處理。\n" +
+      "4. 工程師 claim 任務後 git worktree 自動建立，IDE 可直接使用。\n" +
+      "5. CI 測試完成後 coverage 結果自動回源 roadmap testCoverage / unitTestCoverage。",
+    lastModifiedBy: "Claude Sonnet 4.6",
+    lastModifiedDate: "2026/04/14",
+  },
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/13",
+  lastUpdated: "2026/04/14",
   features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
 };

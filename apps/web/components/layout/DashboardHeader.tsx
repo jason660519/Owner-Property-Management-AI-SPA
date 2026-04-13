@@ -11,6 +11,7 @@
 
 import React from 'react';
 import { UserNav } from '@/components/ui/UserNav';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { useEffect, useState } from 'react';
 import type { MeProfileResponse } from '@/app/api/me/profile/route';
 
@@ -45,6 +46,7 @@ export function DashboardHeader() {
       </div>
 
       <div className="flex items-center gap-4">
+        <ThemeToggle />
         {profile && (
           <UserNav
             user={{ email: profile.email }}

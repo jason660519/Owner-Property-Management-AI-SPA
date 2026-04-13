@@ -4,10 +4,8 @@ import * as React from "react"
 import { Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
 
-import { Button } from "@/components/ui/Button"
-
 export function ThemeToggle() {
-  const { setTheme, theme } = useTheme()
+  const { setTheme, resolvedTheme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
 
   React.useEffect(() => {
@@ -15,27 +13,40 @@ export function ThemeToggle() {
   }, [])
 
   if (!mounted) {
-    return <Button variant="ghost" size="sm" className="w-9 h-9 px-0"><Sun className="h-[1.2rem] w-[1.2rem]" /></Button>
-  }
-
-  return (
-    <div className="flex gap-2 p-2 bg-bg-secondary rounded-lg border border-border-default">
-      <Button
-        variant={theme === "light" ? "primary" : "ghost"}
-        size="sm"
-        onClick={() => setTheme("light")}
-        title="Light Mode"
+    return (
+      <button
+        className="w-9 h-9 flex items-center justify-center rounded-lg border border-border-default bg-bg-secondary text-text-secondary"
+        aria-label="切換主題"
+        disabled
       >
         <Sun className="h-4 w-4" />
-      </Button>
-      <Button
-        variant={theme === "dark" ? "primary" : "ghost"}
-        size="sm"
-        onClick={() => setTheme("dark")}
-        title="Dark Mode"
-      >
-        <Moon className="h-4 w-4" />
-      </Button>
-    </div>
+      </button>
+    )
+  }
+
+  const isDark = resolvedTheme === "dark"
+
+  return (
+    <button
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+      className="relative w-9 h-9 flex items-center justify-center rounded-lg border border-border-default bg-bg-secondary hover:bg-bg-tertiary text-text-secondary hover:text-text-primary transition-colors duration-200"
+      title={isDark ? "切換至亮模式" : "切換至暗模式"}
+      aria-label={isDark ? "切換至亮模式" : "切換至暗模式"}
+    >
+      <Sun
+        className={`h-4 w-4 absolute transition-all duration-200 ${
+          isDark
+            ? "opacity-100 rotate-0 scale-100"
+            : "opacity-0 rotate-90 scale-50 pointer-events-none"
+        }`}
+      />
+      <Moon
+        className={`h-4 w-4 absolute transition-all duration-200 ${
+          !isDark
+            ? "opacity-100 rotate-0 scale-100"
+            : "opacity-0 -rotate-90 scale-50 pointer-events-none"
+        }`}
+      />
+    </button>
   )
 }
