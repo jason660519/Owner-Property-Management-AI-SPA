@@ -2389,6 +2389,22 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/04/14",
   },
   {
+    name: "房東的客戶 Grid 模式",
+    category: "房東 (Landlord)",
+    percentage: 100,
+    phase: "development",
+    points: 3,
+    locatedPage: "web/landlord/customers",
+    acceptanceCriteria:
+      "1. 以卡片網格形式顯示客戶列表，每卡顯示頭像、姓名、狀態、最後聯絡時間。\n" +
+      "2. 支援欄數切換（2欄/3欄/4欄）。\n" +
+      "3. 卡片點擊進入 Details 模式（右側面板）。\n" +
+      "4. 支援拖曳重新排序（依優先級）。\n" +
+      "5. 懸停卡片顯示快速操作（發訊息、修改狀態）。",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/04/13",
+  },
+  {
     name: "CEO VIS 任務分配工作流 — Engineer 指派 + 進度整合",
     category: "超級管理員 (Super Admin)",
     percentage: 0,

@@ -9,12 +9,14 @@ export type Customer = {
   status: CustomerStatus
   emergency_contact?: string
   notes?: string
+  priority: number
   created_at: string
   updated_at?: string
 }
 
-export type CustomerApiRecord = Omit<Customer, 'status'> & {
+export type CustomerApiRecord = Omit<Customer, 'status' | 'priority'> & {
   status: string
+  priority?: number
 }
 
 export const customerSchema = z.object({
@@ -32,5 +34,6 @@ export function normalizeCustomer(record: CustomerApiRecord): Customer {
   return {
     ...record,
     status: normalizeCustomerStatus(record.status),
+    priority: record.priority ?? 0,
   }
 }
