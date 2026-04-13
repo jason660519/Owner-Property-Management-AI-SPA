@@ -72,14 +72,14 @@ export interface RoadmapFeature {
   lastIncident?: string;
   operationsNote?: string;
 
-  // VIS sync fields (Row 137+)
-  /** Paperclip VIS issue UUID */
+  // --- VIS sync fields ---
+  /** Paperclip VIS issue human-readable ID (e.g. "VIS-136") */
   vis_issue_id?: string;
-  /** VIS issue identifier, e.g. 'VIS-66' */
+  /** Paperclip VIS issue internal UUID */
   vis_issue_key?: string;
-  /** Sync state with Paperclip VIS */
-  vis_sync_status?: 'synced' | 'pending' | 'conflict' | 'error';
-  /** ISO 8601 timestamp of last successful sync */
+  /** Sync status with VIS */
+  vis_sync_status?: "in_sync" | "diverged" | "conflict" | "pending";
+  /** ISO timestamp of last successful sync */
   vis_last_synced_at?: string;
 }
 
@@ -2341,7 +2341,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "VIS 同步基礎設施 — Engineer Profile V2 + Webhook 框架",
     category: "超級管理員 (Super Admin)",
-    percentage: 100,
+    percentage: 0,
     phase: "development",
     points: 8,
     locatedPage: "superadmin/engineers, api/webhooks/paperclip",
@@ -2355,9 +2355,6 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "3. POST /api/webhooks/paperclip 可接收並驗證 HMAC 事件，非同步加入背景 worker。\n" +
       "4. RoadmapFeature interface 新增 vis_issue_id / vis_issue_key / vis_sync_status / vis_last_synced_at 欄位。\n" +
       "5. 環境驗證腳本（PAPERCLIP_WEBHOOK_SECRET 等）執行無錯。",
-    vis_issue_key: "VIS-66",
-    vis_sync_status: "synced",
-    vis_last_synced_at: "2026-04-14T00:00:00.000Z",
     lastModifiedBy: "Claude Sonnet 4.6",
     lastModifiedDate: "2026/04/14",
   },
