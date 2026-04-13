@@ -62,11 +62,22 @@ Do not duplicate route maps, folder walkthroughs, file inventories, or package s
 
 完整流程與 troubleshooting 見 `.claude/skills/dispatch-agents/SKILL.md`。
 
+## 三層自動化（Agent 工作流）
+
+| Layer | Skill / API | 用途 |
+|-------|------------|------|
+| **監控** | `GET /api/paperclip/work-summary` | 掃描 worktree branches，回報完成狀態與問題 |
+| **Review** | `/review-agent-work` | 檢查 agent 產出 → 修復問題 → 一鍵 merge → 更新 roadmap |
+| **派工** | `POST /api/paperclip/auto-dispatch` | 自動為 idle agents 從 roadmap 挑選並建立任務 |
+| **健康** | `GET /api/paperclip/agent-health` | 偵測 adapter 失敗並自動 fallback |
+
+**日常工作流**：Agent 完成 → `/review-agent-work` merge → auto-dispatch 派新任務。
+
 ## 省 Token 與工具使用
 
 完整指南見 `docs/operational-guides/token-saving-guide.md`，以下為摘要：
 
-**Custom Commands（最省）**：`/daily-report`、`/commit-push-pr`、`/roadmap-update`、`/test-coverage`、`/dispatch-agents`
+**Custom Commands（最省）**：`/daily-report`、`/commit-push-pr`、`/roadmap-update`、`/test-coverage`、`/dispatch-agents`、`/review-agent-work`
 
 **瀏覽器工具優先序**：專用 MCP → Claude Preview → Playwright CLI → Playwright MCP → Chrome DevTools → Computer Use
 

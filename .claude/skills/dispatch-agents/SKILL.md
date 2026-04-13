@@ -322,6 +322,27 @@ curl -s "http://localhost:3001/api/paperclip/worktrees"
 
 ---
 
+## Auto-Dispatch（自動派工）
+
+除了手動 `/dispatch-agents`，也可以用自動派工 API：
+
+```bash
+# Dry-run：只看計畫不執行
+curl -s -X POST "http://localhost:3001/api/paperclip/auto-dispatch?dryRun=true&limit=5"
+
+# 實際執行：最多派 2 個任務
+curl -s -X POST "http://localhost:3001/api/paperclip/auto-dispatch?limit=2"
+```
+
+Auto-dispatch 已設定 cron 每 10 分鐘執行（上限 2 個任務）。
+
+## 相關 Skills
+
+| Skill | 用途 |
+|-------|------|
+| `/dispatch-agents` | 手動派工（本 skill） |
+| `/review-agent-work` | 檢查 agent 產出 → 修復 → merge → 更新 roadmap |
+
 ## Quick Reference: API Endpoints
 
 | 用途 | Method | Endpoint |
@@ -334,3 +355,7 @@ curl -s "http://localhost:3001/api/paperclip/worktrees"
 | 查詢 worktrees | GET | `localhost:3001/api/paperclip/worktrees` |
 | 清理 worktrees | POST | `localhost:3001/api/paperclip/worktrees/cleanup` |
 | 健康檢查 | GET | `localhost:3187/api/health` |
+| 工作摘要 | GET | `localhost:3001/api/paperclip/work-summary` |
+| Agent 健康 | GET | `localhost:3001/api/paperclip/agent-health` |
+| 自動派工 | POST | `localhost:3001/api/paperclip/auto-dispatch?limit=N` |
+| Merge branch | POST | `localhost:3001/api/paperclip/worktrees/{slug}/merge` |
