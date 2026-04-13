@@ -162,7 +162,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/04/13",
     phase: "development",
     developmentProgress:
-      "Permission Matrix 完整 DB 持久化：iam_role_permissions、RolesTab 矩陣儲存。2026/04/13：刪除前改以 iam_user_roles + 群組（iam_group_roles → iam_group_members）去重計算指派用戶；saveRolePermissions 改為先刪後寫並寫入 rbac_audit_logs（permissions_matrix）；父角色循環／自指驗證（validateParentRoleSelection）；IAM Roles 分頁新增角色列與編輯／刪除、父角色下拉；revalidate iam-management；test-manifest id 003 登錄 rbac-parent-validation 單元測試。",
+      "Permission Matrix 完整 DB 持久化：iam_role_permissions、RolesTab 矩陣儲存。2026/04/13：刪除前改以 iam_user_roles + 群組（iam_group_roles → iam_group_members）去重計算指派用戶；saveRolePermissions 先刪後寫、rbac_audit_logs 含 permissions_matrix 的 before/after；父角色 validateParentRoleSelection；角色表單重複名稱友善錯誤、session actor_email 回填稽核；RolesTab 表單錯誤區塊；revalidate iam-management；test-manifest 003 rbac-parent-validation。",
   },
   {
     name: "超級管理員-雲端空間管理平台",

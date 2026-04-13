@@ -125,6 +125,7 @@ export function RolesTab() {
   const [isEditMode, setIsEditMode]   = useState(false);
   const [roleForm, setRoleForm]       = useState({ id: '', name: '', description: '', parent_role_id: '' });
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [formError, setFormError]     = useState<string | null>(null);
 
   useEffect(() => { loadAll(); }, []);
   const loadAll = async () => {
@@ -211,15 +212,21 @@ export function RolesTab() {
 
   const handleCreateOrUpdate = async () => {
     if (!roleForm.name) return;
+    setFormError(null);
     const formData = new FormData();
     formData.append('name', roleForm.name);
     formData.append('description', roleForm.description);
     formData.append('parent_role_id', roleForm.parent_role_id || '');
+    let result: { success?: boolean; error?: string };
     if (isEditMode && roleForm.id) {
       formData.append('id', roleForm.id);
-      await updateRole(formData);
+      result = await updateRole(formData);
     } else {
-      await createRole(formData);
+      result = await createRole(formData);
+    }
+    if (result.error) {
+      setFormError(result.error);
+      return;
     }
     setIsModalOpen(false);
     setRoleForm({ id: '', name: '', description: '', parent_role_id: '' });
@@ -242,6 +249,7 @@ export function RolesTab() {
   const openCreateModal = () => {
     setRoleForm({ id: '', name: '', description: '', parent_role_id: '' });
     setIsEditMode(false);
+    setFormError(null);
     setIsModalOpen(true);
   };
 
@@ -253,6 +261,7 @@ export function RolesTab() {
       parent_role_id: role.parent_role_id ?? '',
     });
     setIsEditMode(true);
+    setFormError(null);
     setIsModalOpen(true);
   };
 
@@ -519,6 +528,12 @@ export function RolesTab() {
               <button onClick={() => setIsModalOpen(false)} className="text-[#666666] hover:text-white"><X size={18} /></button>
             </div>
             <div className="p-6 space-y-4">
+              {formError && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-red-900/30 border border-red-500/30 rounded-lg text-red-300 text-xs">
+                  <AlertCircle size={14} />
+                  {formError}
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-medium text-[#999999] mb-1.5">角色名稱 <span className="text-red-500">*</span></label>
                 <input type="text" value={roleForm.name} onChange={e => setRoleForm({ ...roleForm, name: e.target.value })}

@@ -13,6 +13,21 @@ function revalidateRbacViews() {
   revalidatePath(IAM_MANAGEMENT);
 }
 
+async function getActorEmailFromSession(): Promise<string | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user?.email ?? null;
+}
+
+function mapUniqueViolation(message: string, code?: string): string | null {
+  if (code === '23505' || message.includes('duplicate key') || message.includes('23505')) {
+    return '此角色名稱已存在，請使用不重複的名稱。';
+  }
+  return null;
+}
+
 export interface Role {
   id: string;
   name: string;
@@ -147,8 +162,8 @@ export async function deleteRole(
 
   if (error) return { error: error.message };
 
-  // Write audit log
-  await writeAuditLog(null, roleName, 'DELETE', actorEmail ?? null, { deleted_role_id: roleId });
+  const resolvedActor = actorEmail ?? (await getActorEmailFromSession());
+  await writeAuditLog(null, roleName, 'DELETE', resolvedActor, { deleted_role_id: roleId });
 
   revalidateRbacViews();
   return { success: true };
@@ -161,7 +176,8 @@ export async function createRole(
   const name = formData.get('name') as string;
   const description = formData.get('description') as string;
   const parentRoleId = (formData.get('parent_role_id') as string) || null;
-  const actorEmail = (formData.get('actor_email') as string) || null;
+  const actorEmail =
+    (formData.get('actor_email') as string) || (await getActorEmailFromSession());
 
   if (!name) return { error: 'Name is required' };
 
@@ -181,7 +197,10 @@ export async function createRole(
     .select('id')
     .single();
 
-  if (error) return { error: error.message };
+  if (error) {
+    const friendly = mapUniqueViolation(error.message, error.code);
+    return { error: friendly ?? error.message };
+  }
 
   // Write audit log
   await writeAuditLog(data?.id ?? null, name, 'CREATE', actorEmail, { name, description, parent_role_id: parentRoleId });
@@ -233,6 +252,11 @@ export async function saveRolePermissions(
   const admin = createAdminClient();
   const supabase = await createClient();
 
+  const { data: prior } = await admin
+    .from('iam_role_permissions')
+    .select('resource, actions, scope')
+    .eq('role_id', roleId);
+
   const rows = permissions.map(p => ({
     role_id: roleId,
     resource: p.resource,
@@ -255,7 +279,8 @@ export async function saveRolePermissions(
 
   await writeAuditLog(roleId, roleName, 'UPDATE', actorEmail, {
     kind: 'permissions_matrix',
-    resources: rows.map(r => ({ resource: r.resource, actions: r.actions, scope: r.scope })),
+    before: prior ?? [],
+    after: rows.map(r => ({ resource: r.resource, actions: r.actions, scope: r.scope })),
   });
 
   revalidateRbacViews();
@@ -270,7 +295,8 @@ export async function updateRole(
   const name = formData.get('name') as string;
   const description = formData.get('description') as string;
   const parentRoleId = (formData.get('parent_role_id') as string) || null;
-  const actorEmail = (formData.get('actor_email') as string) || null;
+  const actorEmail =
+    (formData.get('actor_email') as string) || (await getActorEmailFromSession());
 
   if (!id || !name) return { error: 'ID and Name are required' };
 
@@ -289,7 +315,10 @@ export async function updateRole(
     .update({ name, description, parent_role_id: parentRoleId })
     .eq('id', id);
 
-  if (error) return { error: error.message };
+  if (error) {
+    const friendly = mapUniqueViolation(error.message, error.code);
+    return { error: friendly ?? error.message };
+  }
 
   // Write audit log
   await writeAuditLog(id, name, 'UPDATE', actorEmail, { name, description, parent_role_id: parentRoleId });
