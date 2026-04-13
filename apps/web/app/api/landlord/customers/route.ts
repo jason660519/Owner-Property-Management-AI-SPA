@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
     .from('landlord_customers')
     .select('*')
     .eq('landlord_id', user.id)
+    .order('priority', { ascending: true })
     .order('created_at', { ascending: false })
 
   if (query) {
@@ -32,6 +33,32 @@ export async function GET(req: NextRequest) {
   }
   
   return NextResponse.json(data)
+}
+
+export async function PATCH(req: NextRequest) {
+  const supabase = await createClient()
+  const body = await req.json() as { orders: { id: string; priority: number }[] }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  if (!Array.isArray(body.orders)) {
+    return NextResponse.json({ error: 'orders must be an array' }, { status: 400 })
+  }
+
+  const updates = body.orders.map(({ id, priority }) =>
+    supabase
+      .from('landlord_customers')
+      .update({ priority })
+      .eq('id', id)
+      .eq('landlord_id', user.id)
+  )
+
+  const results = await Promise.all(updates)
+  const failed = results.find((r) => r.error)
+  if (failed?.error) return NextResponse.json({ error: failed.error.message }, { status: 500 })
+
+  return NextResponse.json({ success: true })
 }
 
 export async function POST(req: NextRequest) {

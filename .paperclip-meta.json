@@ -1,8 +1,8 @@
 {
-  "issueId": "2bce9182-edf3-4e13-b764-0b3cd969226a",
-  "title": "[Row 009] 超級管理員網路安全隱私審計管理功能 部署監控",
+  "issueId": "d800ebc6-c724-4e99-aa38-81847c974422",
+  "title": "[Row 031] 房東的客戶 Grid模式",
   "status": "todo",
-  "slug": "row-009",
-  "branchName": "feature/paperclip-row-009",
-  "updatedAt": "2026-04-13T20:18:05.453Z"
+  "slug": "row-031",
+  "branchName": "feature/paperclip-row-031",
+  "updatedAt": "2026-04-13T20:12:47.052Z"
 }
