@@ -1020,15 +1020,15 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東的物件展示功能－Grid模式",
     locatedPage: "web/landlord/properties",
-    percentage: 0,
+    percentage: 100,
     acceptanceCriteria:
       "1. 以卡片網格形式展示物件（每行3-4筆），卡片含縮圖、物件名、租金/售價、狀態。\n2. 支援依租金/售價、狀態、地區排序篩選。\n3. 卡片點擊進入物件 Details 頁。\n4. 支援快速切換物件狀態（不需進入詳情頁）。\n5. 空置物件卡片以視覺標示突出（如淡灰底色）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 2,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip UI/UX Designer",
+    lastModifiedDate: "2026-04-13",
   },
   {
     name: "房東的物件－照片增生功能 (AI)",
