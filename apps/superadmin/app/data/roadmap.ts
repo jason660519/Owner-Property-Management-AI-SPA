@@ -894,15 +894,15 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東財務－銀行帳戶管理",
     locatedPage: "web/landlord/finance",
-    percentage: 0,
+    percentage: 25,
     acceptanceCriteria:
       "1. 可綁定多個銀行帳戶（支援主要銀行）。\n2. 顯示帳戶餘額（需連結開放銀行API）。\n3. 可設定各帳戶的收款用途（租金帳戶/維修備用金）。\n4. 帳戶資訊以加密方式儲存，顯示時遮蔽部分號碼。\n5. 可手動新增或刪除帳戶（不可刪除有未結清款項的帳戶）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 3,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/04/13",
   },
   {
     name: "房東財務－收支明細儀表板",
