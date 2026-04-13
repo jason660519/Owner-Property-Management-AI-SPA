@@ -71,6 +71,16 @@ export interface RoadmapFeature {
   avgResponseTime?: number;
   lastIncident?: string;
   operationsNote?: string;
+
+  // --- VIS sync fields ---
+  /** Paperclip VIS issue human-readable ID (e.g. "VIS-136") */
+  vis_issue_id?: string;
+  /** Paperclip VIS issue internal UUID */
+  vis_issue_key?: string;
+  /** Sync status with VIS */
+  vis_sync_status?: "in_sync" | "diverged" | "conflict" | "pending";
+  /** ISO timestamp of last successful sync */
+  vis_last_synced_at?: string;
 }
 
 export interface RoadmapData {
