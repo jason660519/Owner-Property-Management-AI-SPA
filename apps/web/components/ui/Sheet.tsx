@@ -72,10 +72,12 @@ export function SheetHeader({ children }: SheetHeaderProps) {
     <div className="flex items-center justify-between p-6 border-b border-border-default">
       <div className="flex-1">{children}</div>
       <button
+        type="button"
         onClick={() => context.onOpenChange(false)}
-        className="p-2 text-text-secondary hover:text-text-primary transition-colors"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-text-secondary transition-colors hover:text-text-primary"
+        aria-label="關閉"
       >
-        <X className="w-5 h-5" />
+        <X className="h-5 w-5" aria-hidden />
       </button>
     </div>
   )

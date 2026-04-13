@@ -10,12 +10,19 @@
 'use client';
 
 import React from 'react';
+import { Menu } from 'lucide-react';
 import { UserNav } from '@/components/ui/UserNav';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useEffect, useState } from 'react';
 import type { MeProfileResponse } from '@/app/api/me/profile/route';
 
-export function DashboardHeader() {
+export interface DashboardHeaderProps {
+  /** When set, shows a 44×44px menu control on viewports below `lg` (opens the sidebar drawer). */
+  onMenuClick?: () => void;
+  pageTitle?: string;
+}
+
+export function DashboardHeader({ onMenuClick, pageTitle = 'Dashboard' }: DashboardHeaderProps) {
   const [profile, setProfile] = useState<MeProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -33,19 +40,29 @@ export function DashboardHeader() {
 
   if (loading) {
     return (
-      <header className="flex h-16 items-center justify-end border-b border-border-default bg-bg-primary px-6 transition-colors duration-200">
+      <header className="flex h-16 min-h-16 items-center justify-end border-b border-border-default bg-bg-primary px-4 sm:px-6 transition-colors duration-200">
         <div className="h-10 w-10 animate-pulse rounded-full bg-bg-tertiary" />
       </header>
     );
   }
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-border-default bg-bg-primary px-6 transition-colors duration-200">
-      <div className="flex items-center gap-4">
-        <h1 className="text-xl font-semibold text-text-primary">Dashboard</h1>
+    <header className="flex h-16 min-h-16 items-center justify-between gap-3 border-b border-border-default bg-bg-primary px-4 sm:px-6 transition-colors duration-200">
+      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
+        {onMenuClick ? (
+          <button
+            type="button"
+            onClick={onMenuClick}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-text-primary hover:bg-bg-secondary lg:hidden"
+            aria-label="開啟側邊選單"
+          >
+            <Menu className="h-6 w-6" aria-hidden />
+          </button>
+        ) : null}
+        <h1 className="truncate text-lg font-semibold text-text-primary sm:text-xl">{pageTitle}</h1>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex shrink-0 items-center gap-2 sm:gap-4">
         <ThemeToggle />
         {profile && (
           <UserNav

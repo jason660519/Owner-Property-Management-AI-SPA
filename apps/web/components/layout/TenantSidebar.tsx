@@ -88,46 +88,47 @@ const contractedTenantNavItems: NavItem[] = [
   },
 ]
 
-export function TenantSidebar() {
+export interface TenantSidebarProps {
+  mobileOpen: boolean
+  onMobileOpenChange: (open: boolean) => void
+}
+
+function TenantSidebarInner({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
-  
-  // Determine which nav items to show based on path
-  // If we are in 'contracted' path or have a contracted context, show contracted items.
-  // Otherwise default to potential or detect potential path.
-  // For now, simple path check.
-  const isContracted = pathname.includes('/tenant/contracted') || 
-                       pathname.includes('/tenant/payments') || 
-                       pathname.includes('/tenant/maintenance') ||
-                       pathname.includes('/tenant/leases')
+
+  const isContracted =
+    pathname.includes('/tenant/contracted') ||
+    pathname.includes('/tenant/payments') ||
+    pathname.includes('/tenant/maintenance') ||
+    pathname.includes('/tenant/leases')
 
   const navItems = isContracted ? contractedTenantNavItems : potentialTenantNavItems
 
   return (
-    <aside className="fixed left-0 top-0 bottom-0 w-64 bg-[#2A2A2A] border-r border-[#333333] overflow-y-auto">
-      {/* Logo */}
-      <div className="p-6 border-b border-[#333333]">
-        <Link href="/" className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-[#7C3AED] rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-xl">R</span>
+    <aside className="flex w-64 flex-col overflow-y-auto border-r border-[#333333] bg-[#2A2A2A]">
+      <div className="border-b border-[#333333] p-6">
+        <Link href="/" className="flex items-center space-x-3" onClick={onNavigate}>
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#7C3AED]">
+            <span className="text-xl font-bold text-white">R</span>
           </div>
           <div>
-            <h1 className="text-white font-semibold">RESA AI</h1>
+            <h1 className="font-semibold text-white">RESA AI</h1>
             <p className="text-xs text-[#999999]">租客專區</p>
           </div>
         </Link>
       </div>
 
-      {/* Navigation */}
-      <nav className="p-4 space-y-1">
+      <nav className="space-y-1 p-4">
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
-          
+
           return (
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={clsx(
-                'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors',
+                'flex min-h-11 items-center gap-3 rounded-lg px-4 py-3 transition-colors',
                 isActive
                   ? 'bg-[#7C3AED] text-white'
                   : 'text-[#999999] hover:bg-[#333333] hover:text-white'
@@ -139,7 +140,30 @@ export function TenantSidebar() {
           )
         })}
       </nav>
-
     </aside>
+  )
+}
+
+export function TenantSidebar({ mobileOpen, onMobileOpenChange }: TenantSidebarProps) {
+  return (
+    <>
+      <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:block">
+        <TenantSidebarInner />
+      </div>
+
+      {mobileOpen ? (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-40 bg-black/60 lg:hidden"
+            aria-label="關閉側邊選單"
+            onClick={() => onMobileOpenChange(false)}
+          />
+          <div className="fixed inset-y-0 left-0 z-50 lg:hidden">
+            <TenantSidebarInner onNavigate={() => onMobileOpenChange(false)} />
+          </div>
+        </>
+      ) : null}
+    </>
   )
 }

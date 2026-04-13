@@ -6,6 +6,11 @@ import { clsx } from 'clsx'
 import { useQuery } from '@tanstack/react-query'
 import { messageService } from '../../services/messageService'
 
+export interface SidebarProps {
+  mobileOpen: boolean
+  onMobileOpenChange: (open: boolean) => void
+}
+
 interface NavItem {
   name: string
   href: string
@@ -98,7 +103,11 @@ const navItems: NavItem[] = [
   },
 ]
 
-export function Sidebar() {
+function SidebarInner({
+  onNavigate,
+}: {
+  onNavigate?: () => void
+}) {
   const pathname = usePathname()
 
   const { data: unreadCount = 0 } = useQuery({
@@ -107,41 +116,43 @@ export function Sidebar() {
     refetchInterval: 30000, // Poll every 30 seconds
   })
 
+  const asideClass =
+    'flex w-64 flex-col bg-[#2A2A2A] border-r border-[#333333] overflow-y-auto'
+
   return (
-    <aside className="fixed left-0 top-0 bottom-0 w-64 bg-[#2A2A2A] border-r border-[#333333] overflow-y-auto">
-      {/* Logo */}
-      <div className="p-6 border-b border-[#333333]">
-        <Link href="/" className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-[#7C3AED] rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-xl">R</span>
+    <aside className={asideClass}>
+      <div className="border-b border-[#333333] p-6">
+        <Link href="/" className="flex items-center space-x-3" onClick={onNavigate}>
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#7C3AED]">
+            <span className="text-xl font-bold text-white">R</span>
           </div>
           <div>
-            <h1 className="text-white font-semibold">RESA AI</h1>
+            <h1 className="font-semibold text-white">RESA AI</h1>
             <p className="text-xs text-[#999999]">房東管理平台</p>
           </div>
         </Link>
       </div>
 
-      {/* Navigation */}
-      <nav className="p-4 space-y-1">
+      <nav className="space-y-1 p-4">
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
-          
+
           return (
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={clsx(
-                'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors',
+                'flex min-h-11 items-center gap-3 rounded-lg px-4 py-3 transition-colors',
                 isActive
                   ? 'bg-[#7C3AED] text-white'
                   : 'text-[#999999] hover:bg-[#333333] hover:text-white'
               )}
             >
               {item.icon}
-              <span className="font-medium flex-1">{item.name}</span>
+              <span className="flex-1 font-medium">{item.name}</span>
               {item.href === '/landlord/messages' && unreadCount > 0 && (
-                <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               )}
@@ -149,7 +160,32 @@ export function Sidebar() {
           )
         })}
       </nav>
-
     </aside>
+  )
+}
+
+export function Sidebar({ mobileOpen, onMobileOpenChange }: SidebarProps) {
+  return (
+    <>
+      {/* Desktop: fixed rail */}
+      <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:block">
+        <SidebarInner />
+      </div>
+
+      {/* Mobile / tablet: overlay drawer */}
+      {mobileOpen ? (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-40 bg-black/60 lg:hidden"
+            aria-label="關閉側邊選單"
+            onClick={() => onMobileOpenChange(false)}
+          />
+          <div className="fixed inset-y-0 left-0 z-50 lg:hidden">
+            <SidebarInner onNavigate={() => onMobileOpenChange(false)} />
+          </div>
+        </>
+      ) : null}
+    </>
   )
 }
