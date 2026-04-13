@@ -126,7 +126,9 @@
         "apps/web/app/(dashboard)/landlord/customers/__tests__/customer-types.test.ts",
         "apps/web/app/(dashboard)/landlord/customers/__tests__/customer-duplicate.test.ts"
       ],
-      "e2ePaths": [],
+      "e2ePaths": [
+        "apps/web/e2e/flows/landlord/customers-add.spec.ts"
+      ],
       "linkedToolScripts": []
     },
     {
