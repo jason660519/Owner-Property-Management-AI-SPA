@@ -63,9 +63,9 @@ export function DashboardLayout({
   className = '',
 }: DashboardLayoutProps) {
   return (
-    <div className={`min-h-screen bg-[#1A1A1A] ${className}`}>
+    <div className={`min-h-screen bg-bg-primary transition-colors duration-200 ${className}`}>
       {/* Header */}
-      <div className="bg-[#1F1F1F] border-b border-[#333333] px-6 py-4">
+      <div className="bg-bg-secondary border-b border-border-default px-6 py-4 transition-colors duration-200">
         <div className="max-w-7xl mx-auto">
           {/* Breadcrumbs */}
           <nav className="flex items-center gap-2 text-sm mb-4">
@@ -74,15 +74,15 @@ export function DashboardLayout({
                 {crumb.href ? (
                   <Link
                     href={crumb.href}
-                    className="text-[#999999] hover:text-white transition-colors"
+                    className="text-text-secondary hover:text-text-primary transition-colors"
                   >
                     {crumb.label}
                   </Link>
                 ) : (
-                  <span className="text-white font-medium">{crumb.label}</span>
+                  <span className="text-text-primary font-medium">{crumb.label}</span>
                 )}
                 {index < breadcrumbs.length - 1 && (
-                  <ChevronRight className="w-4 h-4 text-[#666666]" />
+                  <ChevronRight className="w-4 h-4 text-text-muted" />
                 )}
               </React.Fragment>
             ))}
@@ -91,11 +91,11 @@ export function DashboardLayout({
           {/* Title Row */}
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-white mb-1">
+              <h1 className="text-2xl font-bold text-text-primary mb-1">
                 {pageTitle}
               </h1>
               {greeting && (
-                <p className="text-sm text-[#999999]">{greeting}</p>
+                <p className="text-sm text-text-secondary">{greeting}</p>
               )}
             </div>
 

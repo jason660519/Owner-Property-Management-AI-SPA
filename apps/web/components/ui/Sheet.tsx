@@ -52,7 +52,7 @@ export function SheetContent({ className = '', children }: SheetContentProps) {
 
       {/* Sheet Content */}
       <div
-        className={`fixed right-0 top-0 z-50 h-full w-full sm:max-w-md bg-[#1A1A1A] shadow-xl overflow-y-auto ${className}`}
+        className={`fixed right-0 top-0 z-50 h-full w-full sm:max-w-md bg-bg-primary shadow-xl overflow-y-auto transition-colors duration-200 ${className}`}
       >
         {children}
       </div>
@@ -69,11 +69,11 @@ export function SheetHeader({ children }: SheetHeaderProps) {
   if (!context) throw new Error('SheetHeader must be used within Sheet')
 
   return (
-    <div className="flex items-center justify-between p-6 border-b border-[#333333]">
+    <div className="flex items-center justify-between p-6 border-b border-border-default">
       <div className="flex-1">{children}</div>
       <button
         onClick={() => context.onOpenChange(false)}
-        className="p-2 text-[#999999] hover:text-white transition-colors"
+        className="p-2 text-text-secondary hover:text-text-primary transition-colors"
       >
         <X className="w-5 h-5" />
       </button>
@@ -87,7 +87,7 @@ export interface SheetTitleProps {
 }
 
 export function SheetTitle({ className = '', children }: SheetTitleProps) {
-  return <h2 className={`text-xl font-semibold text-white ${className}`}>{children}</h2>
+  return <h2 className={`text-xl font-semibold text-text-primary ${className}`}>{children}</h2>
 }
 
 export interface SheetDescriptionProps {
@@ -96,5 +96,5 @@ export interface SheetDescriptionProps {
 }
 
 export function SheetDescription({ className = '', children }: SheetDescriptionProps) {
-  return <p className={`text-sm text-[#999999] mt-1 ${className}`}>{children}</p>
+  return <p className={`text-sm text-text-secondary mt-1 ${className}`}>{children}</p>
 }
