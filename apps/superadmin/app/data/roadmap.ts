@@ -1266,17 +1266,31 @@ const RAW_FEATURES: RoadmapFeature[] = [
   },
   {
     name: "使用者身份驗證系統",
-    locatedPage: "web/login, web/register",
-    percentage: 90,
+    locatedPage: "web/login, web/register, superadmin/middleware",
+    percentage: 95,
     acceptanceCriteria:
-      "1. 支援 Email/密碼登入與 Google OAuth 登入。\n2. JWT Token 有效期24小時，Refresh Token 有效期7天。\n3. 連續5次登入失敗後帳號暫時鎖定（15分鐘）。\n4. 新裝置登入時發送 Email 安全通知。\n5. 密碼需符合強度要求（最少8字元、含大小寫與數字）。",
+      "1. 支援 Email/密碼登入與 Google OAuth 登入。\n2. JWT Token 有效期24小時，Refresh Token 有效期7天。\n3. 連續5次登入失敗後帳號暫時鎖定（15分鐘）。\n4. 新裝置登入時發送 Email 安全通知。\n5. 密碼需符合強度要求（最少8字元、含大小寫與數字）。\n6. Superadmin middleware session refresh cookie 需正確保留（2026/04/13 修復）。",
     docPath: "/project-process/features/auth-system.md",
     featureSpecDocPath: "/project-process/features/auth-system.md",
     tddSpecDocPath: "/project-process/features/tdd-system-common-20260221.md",
+    devLogDocPath: "/project-process/dev-logs/dev-superadmin-middleware-cookie-fix-2026-04-13.md",
     category: "通用/系統 (General/System)",
     points: 8,
-    lastModifiedBy: "Claude Sonnet 4.5",
-    lastModifiedDate: "2026/02/05",
+    devLog:
+      "### 2026-04-13 修復 Superadmin Middleware Cookie 丟失\n" +
+      "**問題**：Superadmin 間歇性登入失敗（時好時壞），用戶反覆被踢回登入頁。\n" +
+      "**根因**：middleware.ts 的 setAll callback 未同步 request.cookies 也未重建 response；redirect 路徑建立新 NextResponse.redirect() 導致 session refresh cookie 全部丟失。\n" +
+      "**修復**：\n" +
+      "- setAll 中先 mirror request.cookies，再 rebuild response（與 apps/web 一致）\n" +
+      "- 新增 redirectWithCookies() helper，redirect 時攜帶刷新後的 session cookie\n" +
+      "**影響檔案**：apps/superadmin/middleware.ts\n" +
+      "**避坑**：\n" +
+      "⚠️ middleware response 必須用 let，不能用 const\n" +
+      "⚠️ redirect 時必須複製 cookie，否則 session refresh 靜默失敗\n" +
+      "⚠️ 新建 middleware 需與主站 pattern 交叉比對\n" +
+      "**下階段**：抽取共用 middleware Supabase client 到 packages/；補 E2E session refresh 測試",
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/13",
   },
   {
     name: "註冊的使用者都有自己的行事曆管理頁面",
@@ -2175,7 +2189,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     testStatus: "passed",
     unitTestCoverage: 100,
     testCoverage: 100,
-    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedBy: "GPT-5.3-Codex",
     lastModifiedDate: "2026/04/13",
     docPath: "/docs/operational-guides/paperclip-mac-mini-24h.md",
     testProgress:
@@ -2191,6 +2205,10 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/features/paperclip-automation-optimization-tdd-spec-20260413.md",
     developmentProgress:
       "2026/04/13 實作完成：lib/paperclip/polling.ts（issue 自適應輪詢間隔、worktrees 列表 10–45s）、api-error-meta.ts（HTTP 分類與可恢復建議文案）；PromptEngineerModal 改用自適應輪詢與送單／cleanup 錯誤強化；預設／分類 Prompt 附加【成本與 API 節制】段落；PaperclipWorktreesClient 依成本／commits 調整列表輪詢；新增 docs/operational-guides/paperclip-mac-mini-24h.md 與 tools/paperclip/health-check.sh；單元測試 polling.test.ts、api-error-meta.test.ts；test-manifest id 133 已填路徑並通過 validate-test-manifest。",
+    devLog:
+      "[2026/04/13] (GPT-5.3-Codex)\n• 完成 Paperclip 5 分鐘週期性 failed 事件根因盤點（adapter/model mismatch、API quota 路徑、OAuth/API key 混用）。\n• 新增 scripts/paperclip-start-oauth.sh：一鍵重建 OAuth 優先執行路徑，並寫入 fixpoint timestamp。\n• 新增 scripts/paperclip-health-last10m.sh：提供最近 10 分鐘健康摘要，支援 fixpoint 視角統計。\n• 8 位 agent 統一修正為 claude_local + model=sonnet 並恢復 active。\n• 今日任務狀態判定：實作層 Done；穩定性治理 In review（待 24h 觀測收斂）。",
+    devLogDocPath:
+      "/project-process/dev-logs/dev-paperclip-stability-recovery-2026-04-13.md",
     testScriptPath: "apps/superadmin/unit_test/133",
   },
   {
@@ -2287,6 +2305,24 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "- ✅ test-manifest ID 135 已登錄、validate 通過（13 entries）\n" +
       "- ✅ Supabase migration 上線驗證（paperclip_tasks + engineer_profiles）\n" +
       "- ✅ 6 adapter 環境測試全通過（claude/codex/cursor/hermes/opencode ✅ PASS，pi ⚠️ 需設 model）",
+  },
+  {
+    name: "[Stability] Anthropic credit low-balance alert + circuit breaker",
+    category: "通用/系統 (General/System)",
+    percentage: 100,
+    phase: "development",
+    lastModifiedBy: "Claude (CTO)",
+    lastModifiedDate: "2026/04/13",
+    points: 5,
+    developmentProgress:
+      "2026/04/13 VIS-50：實作 Anthropic 信用額度低餘額警報與熔斷器（2026-04-13 VIS-48 停電事後修復）。\n" +
+      "- ✅ Supabase migration 20260413200000：anthropic_credit_guard 表（單例，RLS）\n" +
+      "- ✅ lib/ai/anthropic-credit-guard.ts：核心邏輯（loadCreditGuardConfig、getPaperclipSpendUsd、evaluateCreditStatus、runCreditGuardCycle）\n" +
+      "- ✅ GET/POST /api/ai-billing/anthropic：查詢狀態 / 更新設定（total_credits_usd、閾值、reset_circuit_breaker）\n" +
+      "- ✅ POST /api/paperclip/issues：新增熔斷器檢查，餘額不足時返回 503\n" +
+      "- ✅ GET /api/paperclip/task-queue/poll：每次 poll 後觸發 credit guard 週期（限頻 5 分鐘）\n" +
+      "- ✅ 警報機制：餘額 < alert_threshold 時在 Paperclip 建立高優先度 issue 通知\n" +
+      "- ✅ 熔斷器自動復原：operator 補充信用額後更新 total_credits_usd 即可自動解除",
   },
 ];
 

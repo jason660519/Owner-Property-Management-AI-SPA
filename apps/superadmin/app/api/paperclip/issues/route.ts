@@ -14,6 +14,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { createIssue } from '@/lib/paperclip/client';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { loadCreditGuardConfig, type CreditGuardReader } from '@/lib/ai/anthropic-credit-guard';
 import type { PaperclipIssuePayload, PaperclipRoleId } from '@/lib/paperclip/types';
 import type { WorktreePaths } from '@/lib/paperclip/worktree';
 import {
@@ -198,7 +199,31 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // ── Phase E: create isolated worktree before dispatching the task ──
+  // ── Credit guard: block dispatch when circuit breaker is active ──────
+  // Checked after config validation so we never reject a config-error as a
+  // credit error.  Best-effort: if the DB is unreachable we allow the call.
+  try {
+    const supabase = createAdminClient() as unknown as CreditGuardReader;
+    const guardConfig = await loadCreditGuardConfig(supabase);
+    if (guardConfig?.circuit_breaker_active) {
+      return NextResponse.json(
+        {
+          ok: false,
+          status: 503,
+          error:
+            'Anthropic credit circuit breaker is active — new task dispatch is paused. '
+            + 'Replenish Anthropic credits and call POST /api/ai-billing/anthropic with '
+            + '{ "total_credits_usd": <new_total>, "reset_circuit_breaker": true } to restore.',
+        },
+        { status: 503 },
+      );
+    }
+  } catch (err) {
+    // Guard check is best-effort; do not block legitimate dispatch on DB hiccup.
+    console.warn('[paperclip/issues] credit guard check error (allowing dispatch):', err instanceof Error ? err.message : err);
+  }
+
+  // ── Phase E: create isolated worktree before dispatching the task ──────
   let worktreePaths: WorktreePaths;
   try {
     worktreePaths = await prepareWorktreeForTask(body.title, process.cwd());

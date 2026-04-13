@@ -2,6 +2,7 @@
 // Shared types, constants, and utilities for the DevelopmentTab table
 
 import type { RoadmapFeature } from '@/app/data/roadmap';
+import type { PaperclipIssueStatus } from '@/lib/paperclip/types';
 import type { CustomProjectProgressRowPayload } from '../../types';
 import { canUseProjectFilePath } from './path-utils';
 
@@ -102,9 +103,8 @@ export const COLUMN_HEADERS: ColumnHeaderDef[] = [
   { en: 'TDD Progress', zh: 'TDD進度' },
   { en: 'E2E Test Progress', zh: 'E2E測試進度' },
   { en: 'Prompt and IDE Setting', zh: 'Prompt 與 IDE 設定' },
-  { en: 'Status', zh: '狀態' },
   { en: 'Assignee', zh: '負責人' },
-  { en: 'Paperclip Status', zh: 'Paperclip 狀態' },
+  { en: 'Status', zh: '狀態' },
   { en: 'Notes', zh: '備註' },
 ];
 
@@ -114,16 +114,16 @@ export const COLUMN_LETTERS = COLUMN_HEADERS.map((_, i) => String.fromCharCode(6
 export const IDE_OPTIONS: IDEOption[] = ['', ...RUNTIME_OPTIONS.map(o => o.id)];
 
 // --- Layout constants ---
-// 16 columns: original 14 + Assignee (5%) + Paperclip Status (7%), Notes reduced 8→6
-export const INITIAL_WIDTHS = [4, 4, 5, 5, 20, 17, 9, 7, 9, 7, 7, 12, 5, 5, 7, 6];
-export const TABLE_SCROLL_MIN_WIDTH_PX = 1600;
+// 15 columns: merged Status + Paperclip Status into one unified Status column
+export const INITIAL_WIDTHS = [3, 3, 4, 4, 16, 13, 7, 6, 7, 6, 5, 9, 4, 8, 5];
+export const TABLE_SCROLL_MIN_WIDTH_PX = 2600;
 export const DEFAULT_HEADER_HEIGHT = 56;
 export const MIN_HEADER_HEIGHT = 40;
 export const MAX_HEADER_HEIGHT = 120;
 export const DEFAULT_COLUMN_ALIGNMENT: ColumnAlignment = { h: 'left', v: 'middle' };
 
 export const DEV_TAB_PAGE_KEY = 'project_progress';
-export const DEV_TAB_STORAGE_KEY = 'project_progress_settings_v2';
+export const DEV_TAB_STORAGE_KEY = 'project_progress_settings_v3';
 
 export const DEV_TAB_DEFAULTS: DevTabSettings = {
   colWidths: INITIAL_WIDTHS,
@@ -164,6 +164,35 @@ export function deriveRowStatus(feature: RoadmapFeature): RowStatus {
   if (feature.phase === 'testing' || feature.testStatus === 'in_progress') return 'in_progress';
 
   return 'not_started';
+}
+
+/** Map Paperclip issue status → local RowStatus for auto-sync. */
+const PAPERCLIP_TO_ROW_STATUS: Record<PaperclipIssueStatus, RowStatus> = {
+  backlog: 'not_started',
+  todo: 'not_started',
+  in_progress: 'in_progress',
+  in_review: 'in_progress',
+  blocked: 'on_hold',
+  done: 'completed',
+  cancelled: 'on_hold',
+};
+
+export function paperclipStatusToRowStatus(status: PaperclipIssueStatus): RowStatus {
+  return PAPERCLIP_TO_ROW_STATUS[status] ?? 'not_started';
+}
+
+/** Map local DB task status (from paperclip_tasks table) → RowStatus. */
+const LOCAL_TASK_STATUS_MAP: Record<string, RowStatus> = {
+  submitted: 'not_started',
+  running: 'in_progress',
+  succeeded: 'completed',
+  failed: 'on_hold',
+  tripped: 'on_hold',
+  cancelled: 'on_hold',
+};
+
+export function localTaskStatusToRowStatus(dbStatus: string): RowStatus {
+  return LOCAL_TASK_STATUS_MAP[dbStatus] ?? 'not_started';
 }
 
 export function getEffectiveRowStatus(

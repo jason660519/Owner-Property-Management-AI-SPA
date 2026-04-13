@@ -4,6 +4,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { updateIssue } from '@/lib/paperclip/client';
+
+const PAPERCLIP_BASE_URL =
+  process.env.NEXT_PUBLIC_PAPERCLIP_BASE_URL ?? 'http://localhost:3187';
+const PAPERCLIP_API_KEY = process.env.PAPERCLIP_API_KEY ?? '';
 
 interface AssignBody {
   rowId: string;
@@ -41,7 +46,7 @@ export async function POST(request: NextRequest) {
   // Find the active task for this row
   const { data: task, error: findError } = await supabase
     .from('paperclip_tasks')
-    .select('id')
+    .select('id, issue_id, assigned_agent')
     .eq('row_id', body.rowId)
     .in('status', ['submitted', 'running'])
     .maybeSingle();
@@ -76,6 +81,18 @@ export async function POST(request: NextRequest) {
       { ok: false, error: updateError.message },
       { status: 500 },
     );
+  }
+
+  // Best-effort: sync assignee to Paperclip (fire-and-forget)
+  if (task.issue_id && task.assigned_agent && PAPERCLIP_API_KEY) {
+    updateIssue({
+      baseUrl: PAPERCLIP_BASE_URL,
+      apiKey: PAPERCLIP_API_KEY,
+      issueId: task.issue_id,
+      payload: { assigneeAgentId: task.assigned_agent },
+    }).catch(() => {
+      // Paperclip sync is best-effort — don't block the assign response
+    });
   }
 
   return NextResponse.json({ ok: true, task: updated });

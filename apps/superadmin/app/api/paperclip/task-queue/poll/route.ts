@@ -15,6 +15,7 @@ import {
   switchAgentAdapter,
   isAdapterQuotaError,
 } from '@/lib/paperclip/adapter-fallback';
+import { runCreditGuardCycle, type CreditGuardReader } from '@/lib/ai/anthropic-credit-guard';
 
 const PAPERCLIP_BASE_URL =
   process.env.NEXT_PUBLIC_PAPERCLIP_BASE_URL ?? 'http://localhost:3187';
@@ -25,6 +26,7 @@ interface TaskRow {
   row_id: string;
   issue_id: string;
   assigned_agent: string | null;
+  claimed_by: string | null;
   status: string;
   attempt_count: number;
   consecutive_failures: number;
@@ -70,7 +72,7 @@ export async function GET() {
 
   const { data: tasks, error: fetchError } = await supabase
     .from('paperclip_tasks')
-    .select('id, row_id, issue_id, assigned_agent, status, attempt_count, consecutive_failures, max_attempts, last_error, cost_usd')
+    .select('id, row_id, issue_id, assigned_agent, claimed_by, status, attempt_count, consecutive_failures, max_attempts, last_error, cost_usd')
     .in('status', ['submitted', 'running'])
     .order('created_at', { ascending: true });
 
@@ -196,6 +198,12 @@ export async function GET() {
         }
       }
 
+      // Sync assignee from Paperclip → local DB if local has no claim
+      const assigneeSync: Record<string, string> = {};
+      if (snapshot.assigneeAgentId && !task.claimed_by) {
+        assigneeSync.assigned_agent = snapshot.assigneeAgentId;
+      }
+
       await supabase
         .from('paperclip_tasks')
         .update({
@@ -203,6 +211,7 @@ export async function GET() {
           consecutive_failures: newTaskStatus === 'running' ? 0 : task.consecutive_failures,
           ...(costUsd !== null && costUsd !== undefined ? { cost_usd: costUsd } : {}),
           ...(newTaskStatus !== task.status ? { last_error: null } : {}),
+          ...assigneeSync,
         })
         .eq('id', task.id);
 
@@ -239,6 +248,24 @@ export async function GET() {
     }
 
     results.push(result);
+  }
+
+  // ── Credit guard cycle (fire-and-forget, rate-limited to every 5 min) ──
+  // Runs after every poll pass so monitoring happens without a dedicated cron.
+  // Errors are swallowed — poll health is independent of credit guard health.
+  const paperclipCompanyId = process.env.NEXT_PUBLIC_PAPERCLIP_COMPANY_ID ?? '';
+  if (PAPERCLIP_API_KEY && paperclipCompanyId) {
+    runCreditGuardCycle(supabase as unknown as CreditGuardReader, {
+      baseUrl: PAPERCLIP_BASE_URL,
+      companyId: paperclipCompanyId,
+      apiKey: PAPERCLIP_API_KEY,
+      projectId: process.env.PAPERCLIP_PROJECT_ID,
+    }).catch((err) =>
+      console.warn(
+        '[task-queue/poll] credit guard cycle error:',
+        err instanceof Error ? err.message : err,
+      ),
+    );
   }
 
   return NextResponse.json({

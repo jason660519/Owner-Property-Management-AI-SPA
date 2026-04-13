@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import type { RoadmapFeature } from '@/app/data/roadmap';
 import { useAISettings } from '@/lib/hooks/useAISettings';
 import { useTablePreferences } from '@/lib/hooks/useTablePreferences';
@@ -20,6 +20,7 @@ import {
   INITIAL_WIDTHS,
   DEFAULT_HEADER_HEIGHT,
   deriveRowStatus,
+  localTaskStatusToRowStatus,
   getRowKey,
   summarizeRowStatuses,
 } from './development-table/types';
@@ -27,9 +28,7 @@ import { useDevTableData } from './development-table/useDevTableData';
 import { createDevColumns } from './development-table/columns';
 import TableCore from './development-table/TableCore';
 import TableToolbar from './development-table/TableToolbar';
-import { TaskDispatchModal, TaskStatusChip, TaskDetailPanel } from './development-table/task-dispatch';
-import type { TaskCreatedPayload } from './development-table/task-dispatch';
-import { usePaperclipTaskStatus } from '@/lib/hooks/usePaperclipTaskStatus';
+import { TaskDispatchModal } from './development-table/task-dispatch';
 import { usePaperclipTasks } from '@/lib/hooks/usePaperclipTasks';
 import { useEngineerProfiles } from '@/lib/hooks/useEngineerProfiles';
 import AddRowModal from './development-table/AddRowModal';
@@ -61,10 +60,10 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [showHiddenRows, setShowHiddenRows] = useState(false);
 
-  // Mutual exclusion: column-header single filter vs sidebar multi-select
-  useEffect(() => {
-    if (categoryFilterSingle) setSelectedCategories(new Set());
-  }, [categoryFilterSingle]);
+  const handleCategoryFilterSingleChange = useCallback((value: string) => {
+    setCategoryFilterSingle(value);
+    if (value) setSelectedCategories(new Set());
+  }, []);
 
   // --- Data ---
   const { filteredRows, categoryList, hiddenRowsList, existingRowIds } = useDevTableData(
@@ -81,46 +80,33 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
 
   // --- Per-row IDE & status ---
   const [ideSelections, setIdeSelections] = useState<Record<string, IDEOption>>({});
-  const [statusSelections, setStatusSelections] = useState<Record<string, RowStatus>>({});
+  const [manualStatusSelections, setManualStatusSelections] = useState<Record<string, RowStatus>>({});
 
-  // Auto-derive default row status from feature data
-  useEffect(() => {
-    setStatusSelections(prev => {
-      let changed = false;
-      const next: Record<string, RowStatus> = { ...prev };
-      for (const row of filteredRows) {
-        const key = getRowKey(row.__source, row.__rowId);
-        if (next[key]) continue;
-        next[key] = deriveRowStatus(row);
-        changed = true;
-      }
-      return changed ? next : prev;
-    });
-  }, [filteredRows]);
+  const derivedStatusSelections = useMemo(() => {
+    const derived: Record<string, RowStatus> = {};
+    for (const row of filteredRows) {
+      const key = getRowKey(row.__source, row.__rowId);
+      const task = tasksByRowId[row.__rowId];
+      if (task) derived[key] = localTaskStatusToRowStatus(task.status);
+      else derived[key] = deriveRowStatus(row);
+    }
+    return derived;
+  }, [filteredRows, tasksByRowId]);
+
+  const statusSelections = useMemo(
+    () => ({ ...derivedStatusSelections, ...manualStatusSelections }),
+    [derivedStatusSelections, manualStatusSelections],
+  );
 
   // --- Task dispatch modal + active task tracking ---
   const [promptTarget, setPromptTarget] = useState<{ row: ProgressRow; rowKey: string } | null>(null);
-  const [activeTask, setActiveTask] = useState<{
-    rowKey: string;
-    issueId: string;
-    issueUrl: string;
-    worktree?: import('@/lib/paperclip/worktree').WorktreePaths;
-  } | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
 
   const openPromptConfig = useCallback((row: ProgressRow) => {
     const rowKey = getRowKey(row.__source, row.__rowId);
     setPromptTarget({ row, rowKey });
   }, []);
 
-  const handleTaskCreated = useCallback((rowKey: string, payload: TaskCreatedPayload) => {
-    setActiveTask({
-      rowKey,
-      issueId: payload.issue.id,
-      issueUrl: payload.issueUrl,
-      worktree: payload.worktree,
-    });
-    // Refresh server-side task queue to pick up the newly created task
+  const handleTaskCreated = useCallback(() => {
     refreshTasks();
   }, [refreshTasks]);
 
@@ -144,7 +130,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   }, [patchTablePrefs, tablePrefs.customRows]);
 
   const handleStatusChange = useCallback((rowKey: string, status: RowStatus) => {
-    setStatusSelections(prev => ({ ...prev, [rowKey]: status }));
+    setManualStatusSelections(prev => ({ ...prev, [rowKey]: status }));
   }, []);
 
   // --- Column definitions (memoized) ---
@@ -231,7 +217,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
         onToggleCategory={toggleCategory}
         onClearCategories={clearCategories}
         categoryFilterSingle={categoryFilterSingle}
-        onCategoryFilterSingleChange={setCategoryFilterSingle}
+        onCategoryFilterSingleChange={handleCategoryFilterSingleChange}
         columnAlignments={tablePrefs.columnAlignments}
         onSetColumnAlignment={(colIndex: number, alignment: ColumnAlignment) => {
           const next = [...tablePrefs.columnAlignments];
@@ -288,7 +274,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
           onIdeChange={(rowKey: string, ide: IDEOption) => {
             setIdeSelections(prev => ({ ...prev, [rowKey]: ide }));
           }}
-          onTaskCreated={(payload) => handleTaskCreated(promptTarget.rowKey, payload)}
+          onTaskCreated={handleTaskCreated}
           onClose={() => setPromptTarget(null)}
         />
       )}

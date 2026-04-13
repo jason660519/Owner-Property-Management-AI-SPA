@@ -98,6 +98,7 @@ function ProgressBar({ pct, color }: { pct: number; color: 'emerald' | 'blue' })
 // -- Helper to attach column meta from COLUMN_HEADERS --
 function meta(idx: number) {
   const h = COLUMN_HEADERS[idx];
+  if (!h) return { headerEn: `Col ${idx}`, headerZh: `Col ${idx}` };
   return { headerEn: h.en, headerZh: h.zh };
 }
 
@@ -301,12 +302,43 @@ export function createDevColumns(deps: CreateDevColumnsDeps): ColumnDef<Progress
       ),
     }),
 
-    // 13. Status
+    // 13. Assignee
     col.display({
-      id: 'col-status',
+      id: 'col-assignee',
       meta: meta(12),
       cell: ({ row }) => {
         const r = row.original;
+        const task = tasksByRowId[r.__rowId];
+        return (
+          <AssigneeColumn
+            rowId={r.__rowId}
+            task={task}
+            currentUserId={userId}
+            profiles={engineerProfiles}
+            profilesByUserId={profilesByUserId}
+            onRefresh={onRefreshTasks}
+          />
+        );
+      },
+    }),
+
+    // 14. Status (unified: Paperclip badge when task exists, dropdown fallback otherwise)
+    col.display({
+      id: 'col-status',
+      meta: meta(13),
+      cell: ({ row }) => {
+        const r = row.original;
+        const task = tasksByRowId[r.__rowId];
+        if (task) {
+          return (
+            <PaperclipStatusColumn
+              task={task}
+              userId={userId}
+              onClickDetail={onClickTaskDetail ? () => onClickTaskDetail(r.__rowId) : undefined}
+            />
+          );
+        }
+        // No Paperclip task — show manual dropdown
         const rowKey = getRowKey(r.__source, r.__rowId);
         return (
           <select
@@ -324,47 +356,10 @@ export function createDevColumns(deps: CreateDevColumnsDeps): ColumnDef<Progress
       },
     }),
 
-    // 14. Assignee (P2)
-    col.display({
-      id: 'col-assignee',
-      meta: meta(13),
-      cell: ({ row }) => {
-        const r = row.original;
-        const task = tasksByRowId[r.__rowId];
-        return (
-          <AssigneeColumn
-            rowId={r.__rowId}
-            task={task}
-            currentUserId={userId}
-            profiles={engineerProfiles}
-            profilesByUserId={profilesByUserId}
-            onRefresh={onRefreshTasks}
-          />
-        );
-      },
-    }),
-
-    // 15. Paperclip Status (P2)
-    col.display({
-      id: 'col-paperclip-status',
-      meta: meta(14),
-      cell: ({ row }) => {
-        const r = row.original;
-        const task = tasksByRowId[r.__rowId];
-        return (
-          <PaperclipStatusColumn
-            task={task}
-            userId={userId}
-            onClickDetail={onClickTaskDetail ? () => onClickTaskDetail(r.__rowId) : undefined}
-          />
-        );
-      },
-    }),
-
-    // 16. Notes (placeholder)
+    // 15. Notes (placeholder)
     col.display({
       id: 'col-notes',
-      meta: meta(15),
+      meta: meta(14),
       cell: () => (
         <span className="text-sm text-text-muted truncate max-w-full block">&mdash;</span>
       ),

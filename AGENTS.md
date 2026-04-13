@@ -40,6 +40,20 @@ Do not duplicate route maps, folder walkthroughs, file inventories, or package s
 
 完成工作後，更新 `apps/superadmin/app/data/roadmap.ts` 的 `RAW_FEATURES` 陣列。完整規則見 `docs/update-project-progress-guide.md`。
 
+也可使用 Custom Command：`/daily-report`（自動產生報告 + 更新 roadmap + 判斷是否建 VIS issue）。
+
+## 省 Token 與工具使用
+
+完整指南見 `docs/operational-guides/token-saving-guide.md`，以下為摘要：
+
+**Custom Commands（最省）**：`/daily-report`、`/commit-push-pr`、`/roadmap-update`、`/test-coverage`
+
+**瀏覽器工具優先序**：專用 MCP → Claude Preview → Playwright CLI → Playwright MCP → Chrome DevTools → Computer Use
+
+- Playwright CLI（`bash tools/testing/playwright-cli.sh <cmd>`）批次執行，比 Playwright MCP 逐步 snapshot 省 3-5x token
+- 查 library 文件用 Context7 MCP，不用 Web Search
+- 讀檔用 `Read offset/limit` 指定範圍，搜尋用 `Grep`，找檔用 `Glob`
+
 ## 測試腳本與工具放置
 
 - `testScriptPath` 只能填 ID 專屬測試目錄：`apps/superadmin/unit_test/{ID}`。

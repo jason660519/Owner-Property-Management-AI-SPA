@@ -29,11 +29,19 @@ __pycache__/
 .env.local
 .env.*.local
 *.env
+.env.bak
+.env.*.bak
+*.env.bak
+*.env.*.bak
+docker/**/.env*.bak*
+docker/**/.env.*.bak*
 
 # ============================================
 # IDE & Editor
 # ============================================
 .DS_Store
+.agents/
+.playwright-cli/
 .vscode/
 .idea/
 .claude/*

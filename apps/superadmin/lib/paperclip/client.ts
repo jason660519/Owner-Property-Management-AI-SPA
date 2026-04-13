@@ -137,6 +137,92 @@ function pickString(v: unknown): string | undefined {
   return typeof v === 'string' && v.length > 0 ? v : undefined;
 }
 
+// ── updateIssue ──────────────────────────────────────────────────────────
+
+export interface UpdateIssueArgs {
+  baseUrl: string;
+  apiKey: string;
+  issueId: string;
+  /** Partial update — only include fields you want to change. */
+  payload: { status?: PaperclipIssueStatus; assigneeAgentId?: string };
+  fetchImpl?: typeof fetch;
+  signal?: AbortSignal;
+}
+
+export type UpdateIssueResult =
+  | { ok: true; issue: PaperclipIssueResource }
+  | { ok: false; status: number; error: string; detail?: unknown };
+
+/**
+ * Update a Paperclip issue (status, assignee, etc.) via PATCH.
+ * Same error-discipline as createIssue: never throws, always returns a
+ * discriminated union.
+ */
+export async function updateIssue(args: UpdateIssueArgs): Promise<UpdateIssueResult> {
+  const { baseUrl, apiKey, issueId, payload, fetchImpl, signal } = args;
+
+  if (!baseUrl || !apiKey || !issueId) {
+    return { ok: false, status: 0, error: 'updateIssue missing required config.' };
+  }
+
+  const normalizedBase = normalizePaperclipBaseUrl(baseUrl);
+  const endpoint = `${normalizedBase}/api/issues/${encodeURIComponent(issueId)}`;
+  const doFetch = fetchImpl ?? globalThis.fetch;
+
+  let response: Response;
+  try {
+    response = await doFetch(endpoint, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(payload),
+      signal,
+    });
+  } catch (err) {
+    return {
+      ok: false,
+      status: 0,
+      error: err instanceof Error ? `Network error: ${err.message}` : 'Network error',
+    };
+  }
+
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
+  }
+
+  if (!response.ok) {
+    const errMessage =
+      (isRecord(body) && typeof body.error === 'string' && body.error) ||
+      (isRecord(body) && typeof body.message === 'string' && body.message) ||
+      `Paperclip API error (HTTP ${response.status})`;
+    return { ok: false, status: response.status, error: errMessage, detail: body };
+  }
+
+  if (!isRecord(body) || typeof body.id !== 'string') {
+    return {
+      ok: false,
+      status: response.status,
+      error: 'Paperclip returned an unexpected response shape.',
+      detail: body,
+    };
+  }
+
+  return {
+    ok: true,
+    issue: {
+      id: body.id,
+      issueKey: typeof body.issueKey === 'string' ? body.issueKey : undefined,
+      title: typeof body.title === 'string' ? body.title : undefined,
+      status: typeof body.status === 'string' ? body.status : undefined,
+    },
+  };
+}
+
 // ── fetchIssueCost ────────────────────────────────────────────────────────
 
 export interface FetchIssueCostArgs {
@@ -444,6 +530,8 @@ export interface PaperclipIssueStatusSnapshot {
   issueUrl: string;
   /** True if the status is a resting / terminal state — UI should stop polling. */
   terminal: boolean;
+  /** Paperclip agent ID assigned to this issue, if any. */
+  assigneeAgentId?: string;
 }
 
 export type FetchIssueStatusResult =
@@ -530,6 +618,7 @@ export async function fetchIssueStatus(
     updatedAt: typeof body.updatedAt === 'string' ? body.updatedAt : undefined,
     issueUrl: buildPaperclipIssueUrl(normalizedBase, issueKey),
     terminal: isTerminalIssueStatus(status),
+    assigneeAgentId: typeof body.assigneeAgentId === 'string' ? body.assigneeAgentId : undefined,
   };
 
   return { ok: true, snapshot };

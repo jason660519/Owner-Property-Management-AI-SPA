@@ -43,7 +43,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  const response = NextResponse.next({ request });
+  let response = NextResponse.next({ request });
 
   // 與 apps/web 一致：本機 http://localhost 須 lax + 非 Secure，否則 session cookie 無法寫入／帶上
   const isProduction = process.env.NODE_ENV === 'production';
@@ -57,6 +57,9 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
+          // Mirror request cookies so downstream NextResponse.next() picks them up
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          response = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
           );
@@ -74,12 +77,22 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Helper: create a redirect that preserves any session cookies set during refresh
+  const redirectWithCookies = (url: URL) => {
+    const redirectResponse = NextResponse.redirect(url);
+    // Copy refreshed session cookies from the Supabase response to the redirect
+    response.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value);
+    });
+    return redirectResponse;
+  };
+
   // 1. 未登入：重導向至本機登入頁（同 port 3001），避免依賴 3000 主站
   if (isSuperadminRoute && !user) {
     const loginUrl = new URL('/login', request.url);
     const returnUrl = request.nextUrl.pathname + request.nextUrl.search;
     if (returnUrl && returnUrl !== '/login') loginUrl.searchParams.set('returnUrl', returnUrl);
-    return NextResponse.redirect(loginUrl);
+    return redirectWithCookies(loginUrl);
   }
 
   // 2. 已登入：以 IAM 為準判斷是否為 Super Admin（與主站 Portal 一致）
@@ -96,7 +109,7 @@ export async function middleware(request: NextRequest) {
     if (!isSuperAdmin) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('reason', 'insufficient_role');
-      return NextResponse.redirect(loginUrl);
+      return redirectWithCookies(loginUrl);
     }
   }
 
