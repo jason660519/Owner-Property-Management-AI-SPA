@@ -233,7 +233,52 @@ description 會被 superadmin route **自動**在最前面加上 worktree 指引
 
 ---
 
+## Adapter 切換注意事項
+
+切換 adapter 時**必須同時更新 `adapterConfig.model`**，否則會報 model_not_found。
+
+| Adapter | 正確的 model 值 |
+|---------|----------------|
+| `claude_local` | `sonnet`（預設） |
+| `codex_local` | `gpt-5.3-codex` |
+| `opencode_local` | `google/gemini-2.5-flash` |
+| `cursor` | `auto` |
+
+```bash
+# 正確切換範例（同時改 adapterType + model）
+curl -X PATCH -H "$AUTH" -H "Content-Type: application/json" \
+  "http://localhost:3187/api/agents/$AGENT_ID" \
+  -d '{"adapterType":"codex_local","adapterConfig":{"model":"gpt-5.3-codex"}}'
+```
+
+**⚠️ 只改 adapterType 不改 model 會導致持續失敗**（如 codex 收到 `sonnet` → "model does not exist"）。
+
+### 容器內可用的 CLI
+
+| Adapter | CLI 命令 | 安裝方式 |
+|---------|---------|---------|
+| `claude_local` | `claude` | 預裝（`@anthropic-ai/claude-code`） |
+| `codex_local` | `codex` | 預裝（`@openai/codex`） |
+| `opencode_local` | `opencode` | 預裝（`opencode-ai`） |
+| `cursor` | `agent` | `curl https://cursor.com/install -fsSL \| bash` + `ln -sf $HOME/.local/bin/agent /usr/local/bin/agent` |
+
+### 必要環境變數（docker-compose.paperclip.yml）
+
+| Adapter | 環境變數 |
+|---------|---------|
+| `claude_local` | `CLAUDE_CODE_OAUTH_TOKEN` |
+| `codex_local` | `OPENAI_API_KEY` |
+| `opencode_local` | `GOOGLE_GENERATIVE_AI_API_KEY`（不是 `GEMINI_API_KEY`） |
+| `cursor` | `CURSOR_API_KEY` |
+
+---
+
 ## Troubleshooting
+
+### Agent 顯示 "The requested model 'sonnet' does not exist" (codex_local)
+
+**原因**：切換 adapter 時只改了 `adapterType`，沒改 `adapterConfig.model`。
+**修復**：PATCH agent 同時設定正確的 model（見上方對照表）。
 
 ### Agent 顯示 "Process lost -- child pid X is no longer running"
 

@@ -42,11 +42,31 @@ Do not duplicate route maps, folder walkthroughs, file inventories, or package s
 
 也可使用 Custom Command：`/daily-report`（自動產生報告 + 更新 roadmap + 判斷是否建 VIS issue）。
 
+## Paperclip VIS 派工
+
+使用 `/dispatch-agents` Skill 從 roadmap 挑選 feature 並指派給 Paperclip agent。
+
+**關鍵規則**：
+- 建立 issue **必須**透過 `POST localhost:3001/api/paperclip/issues`（superadmin API），不可直接打 Paperclip API（缺 worktree 會導致 agent 失敗）
+- Title 格式必須含 `[Row XXX]`，如 `[Row 031] 房東的客戶 Grid模式`
+- 切換 adapter 時**必須同時更新 `adapterConfig.model`**
+
+**Adapter / Model 對照**：
+
+| Adapter | model 值 | 帳單 | CLI |
+|---------|---------|------|-----|
+| `claude_local` | `sonnet` | Anthropic | `claude` |
+| `codex_local` | `gpt-5.3-codex` | OpenAI | `codex` |
+| `opencode_local` | `google/gemini-2.5-flash` | Google | `opencode` |
+| `cursor` | `auto` | Cursor | `agent` |
+
+完整流程與 troubleshooting 見 `.claude/skills/dispatch-agents/SKILL.md`。
+
 ## 省 Token 與工具使用
 
 完整指南見 `docs/operational-guides/token-saving-guide.md`，以下為摘要：
 
-**Custom Commands（最省）**：`/daily-report`、`/commit-push-pr`、`/roadmap-update`、`/test-coverage`
+**Custom Commands（最省）**：`/daily-report`、`/commit-push-pr`、`/roadmap-update`、`/test-coverage`、`/dispatch-agents`
 
 **瀏覽器工具優先序**：專用 MCP → Claude Preview → Playwright CLI → Playwright MCP → Chrome DevTools → Computer Use
 
