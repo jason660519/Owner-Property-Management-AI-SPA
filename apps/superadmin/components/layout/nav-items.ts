@@ -17,6 +17,7 @@ import {
   Search,
   GitBranch,
   Wrench,
+  ShieldAlert,
 } from 'lucide-react';
 import type { ElementType } from 'react';
 
@@ -29,6 +30,7 @@ export interface NavItem {
 export const navItems: NavItem[] = [
   { name: 'Overview', href: '/superadmin', icon: Home },
   { name: 'IAM Management', href: '/superadmin/dashboard/iam-management', icon: Shield },
+  { name: '網路安全 / 隱私審計', href: '/superadmin/dashboard/security', icon: ShieldAlert },
   { name: 'Properties Management', href: '/superadmin/properties', icon: Building },
   { name: 'Contact Leads', href: '/superadmin/contacts', icon: Mail },
   { name: 'Database', href: '/superadmin/dashboard/supabase', icon: Database },

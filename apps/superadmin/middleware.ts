@@ -19,7 +19,9 @@ export async function middleware(request: NextRequest) {
 
   const isSuperadminRoute = request.nextUrl.pathname.startsWith('/superadmin');
 
-  // 黑名單檢查：superadmin 路由先檢查 IP / User-Agent，封鎖駭客與惡意爬蟲
+  // IP 白名單 + 黑名單檢查：superadmin 路由先檢查 IP / User-Agent
+  // 白名單非空時：不在白名單內的 IP 直接拒絕（優先）
+  // 黑名單：符合黑名單的 IP / User-Agent 拒絕
   if (isSuperadminRoute) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -30,6 +32,14 @@ export async function middleware(request: NextRequest) {
         });
         const ip = getClientIp(request);
         const userAgent = request.headers.get('user-agent') ?? null;
+
+        // 1. 白名單檢查（若白名單非空，未在白名單的 IP 直接拒絕）
+        const { data: whitelisted } = await admin.rpc('check_ip_whitelist', { p_ip: ip });
+        if (whitelisted === false) {
+          return new NextResponse('Forbidden', { status: 403 });
+        }
+
+        // 2. 黑名單檢查
         const { data: blocked } = await admin.rpc('check_superadmin_blacklist', {
           p_ip: ip,
           p_user_agent: userAgent,
@@ -38,7 +48,7 @@ export async function middleware(request: NextRequest) {
           return new NextResponse('Forbidden', { status: 403 });
         }
       } catch {
-        // 黑名單查詢失敗時不阻擋請求，避免影響可用性
+        // IP 檢查失敗時不阻擋請求，避免影響可用性
       }
     }
   }
