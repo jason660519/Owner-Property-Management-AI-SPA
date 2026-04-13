@@ -51,7 +51,7 @@ export function KPICard({ config, loading, className = '' }: KPICardProps) {
     return (
       <Card className={`p-6 ${className}`}>
         <div className="flex items-center justify-center h-32">
-          <Loader2 className="w-6 h-6 animate-spin text-[#7C3AED]" />
+          <Loader2 className="w-6 h-6 animate-spin text-accent" />
         </div>
       </Card>
     )
@@ -63,7 +63,7 @@ export function KPICard({ config, loading, className = '' }: KPICardProps) {
       <Card className={`p-6 border-red-500 ${className}`}>
         <div className="flex flex-col items-center justify-center h-32 text-center">
           <p className="text-sm text-red-500 mb-2">載入失敗</p>
-          <p className="text-xs text-[#666666]">{loading.error}</p>
+          <p className="text-xs text-text-muted">{loading.error}</p>
         </div>
       </Card>
     )
@@ -75,23 +75,23 @@ export function KPICard({ config, loading, className = '' }: KPICardProps) {
       <Card className={`p-6 ${className}`}>
         <div className="mb-4 flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg bg-[#2A2A2A]`}>
+            <div className={`p-2 rounded-lg bg-bg-tertiary`}>
               <Icon className={`w-5 h-5 ${color}`} />
             </div>
             <div>
-              <h3 className="text-sm font-medium text-[#999999]">{title}</h3>
+              <h3 className="text-sm font-medium text-text-secondary">{title}</h3>
             </div>
           </div>
         </div>
         <p className="text-2xl font-bold text-white mb-4">-</p>
-        <p className="text-sm text-[#666666]">暫無資料</p>
+        <p className="text-sm text-text-muted">暫無資料</p>
       </Card>
     )
   }
 
   // Normal state
   return (
-    <Card className={`p-6 hover:border-[#7C3AED]/50 transition-all ${className}`}>
+    <Card className={`p-6 hover:border-accent/50 transition-all ${className}`}>
       {/* Header: Icon + Title */}
       <div className="mb-4 flex items-start justify-between">
         <div className="flex items-center gap-3">
@@ -106,7 +106,7 @@ export function KPICard({ config, loading, className = '' }: KPICardProps) {
 
       {/* Value */}
       <div className="mb-4">
-        <p className="text-3xl font-bold text-white">{value}</p>
+        <p className="text-3xl font-bold text-text-primary">{value}</p>
       </div>
 
       {/* Trend (if provided) */}
@@ -125,13 +125,13 @@ export function KPICard({ config, loading, className = '' }: KPICardProps) {
             {trend.direction === 'up' ? '+' : '-'}
             {Math.abs(trend.value)}%
           </span>
-          <span className="text-sm text-[#666666]">{trend.label}</span>
+          <span className="text-sm text-text-muted">{trend.label}</span>
         </div>
       )}
 
       {/* Progress Links */}
       {progressLinks.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-[#333333] space-y-1">
+        <div className="mt-4 pt-4 border-t border-border-default space-y-1">
           {progressLinks.map((link, index) => (
             <ProgressLink key={index} link={link} />
           ))}

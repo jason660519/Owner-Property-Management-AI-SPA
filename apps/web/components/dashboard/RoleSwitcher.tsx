@@ -73,7 +73,7 @@ export function RoleSwitcher({
       <Select value={currentRole} onValueChange={handleRoleChange}>
         <SelectTrigger
           data-testid="role-switcher"
-          className="w-[240px] bg-[#2A2A2A] border-[#333333] text-white hover:border-[#7C3AED]"
+          className="w-[240px] bg-bg-tertiary border-border-default text-text-primary hover:border-accent"
         >
           <div className="flex items-center gap-3">
             <CurrentIcon className={`w-5 h-5 ${currentRoleMetadata.color}`} />
@@ -81,7 +81,7 @@ export function RoleSwitcher({
               <span className="text-sm font-medium">
                 {currentRoleMetadata.displayName}
               </span>
-              <span className="text-xs text-[#666666]">
+              <span className="text-xs text-text-muted">
                 {currentRoleMetadata.description}
               </span>
             </div>
@@ -102,7 +102,7 @@ export function RoleSwitcher({
                     <span className="text-sm font-medium">
                       {roleData.displayName}
                     </span>
-                    <span className="text-xs text-[#666666]">
+                    <span className="text-xs text-text-muted">
                       {roleData.description}
                     </span>
                   </div>

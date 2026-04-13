@@ -18,9 +18,9 @@ export function MessageDetail({ message, onBack, onReply }: MessageDetailProps) 
 
   if (!message) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-gray-500 bg-white dark:bg-gray-900">
-        <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
-          <Send className="w-8 h-8 text-gray-400" />
+      <div className="h-full flex flex-col items-center justify-center text-text-secondary bg-bg-primary">
+        <div className="w-16 h-16 bg-bg-tertiary rounded-full flex items-center justify-center mb-4">
+          <Send className="w-8 h-8 text-text-muted" />
         </div>
         <p className="text-lg font-medium">選擇一則訊息開始閱讀</p>
       </div>
@@ -40,22 +40,22 @@ export function MessageDetail({ message, onBack, onReply }: MessageDetailProps) 
   }
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-900">
+    <div className="flex flex-col h-full bg-bg-primary transition-colors duration-200">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="flex items-center justify-between p-4 border-b border-border-default">
         <div className="flex items-center gap-3">
-          <button 
+          <button
             onClick={onBack}
-            className="md:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"
+            className="md:hidden p-2 hover:bg-bg-tertiary rounded-full"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h2 className="text-lg font-semibold text-text-primary">
               {message.subject || '(無主旨)'}
             </h2>
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <span className="font-medium text-gray-900 dark:text-gray-300">
+            <div className="flex items-center gap-2 text-sm text-text-secondary">
+              <span className="font-medium text-text-primary">
                 {message.from_user?.display_name}
               </span>
               <span>&bull;</span>
@@ -63,9 +63,9 @@ export function MessageDetail({ message, onBack, onReply }: MessageDetailProps) 
             </div>
           </div>
         </div>
-        
-        <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
-          <MoreVertical className="w-5 h-5 text-gray-500" />
+
+        <button className="p-2 hover:bg-bg-tertiary rounded-full">
+          <MoreVertical className="w-5 h-5 text-text-secondary" />
         </button>
       </div>
 
@@ -73,20 +73,20 @@ export function MessageDetail({ message, onBack, onReply }: MessageDetailProps) 
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         <div className="flex gap-4">
           {message.from_user?.avatar_url ? (
-            <img 
-              src={message.from_user.avatar_url} 
+            <img
+              src={message.from_user.avatar_url}
               alt={message.from_user.display_name}
-              className="w-10 h-10 rounded-full object-cover" 
+              className="w-10 h-10 rounded-full object-cover"
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-600 dark:text-blue-300 font-bold">
+            <div className="w-10 h-10 rounded-full bg-accent-subtle flex items-center justify-center text-accent font-bold">
               {message.from_user?.display_name?.[0] || '?'}
             </div>
           )}
-          
+
           <div className="flex-1">
-            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg rounded-tl-none">
-              <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
+            <div className="bg-bg-secondary p-4 rounded-lg rounded-tl-none">
+              <p className="text-text-primary whitespace-pre-wrap leading-relaxed">
                 {message.content}
               </p>
             </div>
@@ -95,17 +95,17 @@ export function MessageDetail({ message, onBack, onReply }: MessageDetailProps) 
       </div>
 
       {/* Reply Area */}
-      <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+      <div className="p-4 border-t border-border-default bg-bg-secondary">
+        <div className="bg-bg-primary rounded-lg border border-border-default shadow-sm overflow-hidden">
           <textarea
             value={replyContent}
             onChange={(e) => setReplyContent(e.target.value)}
             placeholder="撰寫回覆..."
-            className="w-full p-4 min-h-[100px] resize-none focus:outline-none bg-transparent dark:text-white"
+            className="w-full p-4 min-h-[100px] resize-none focus:outline-none bg-transparent text-text-primary placeholder:text-text-muted"
           />
-          <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between p-2 bg-bg-secondary border-t border-border-default">
             <div className="flex gap-1">
-              <button className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-gray-500">
+              <button className="p-2 hover:bg-bg-tertiary rounded-full text-text-secondary">
                 <Paperclip className="w-5 h-5" />
               </button>
             </div>
@@ -115,8 +115,8 @@ export function MessageDetail({ message, onBack, onReply }: MessageDetailProps) 
               className={clsx(
                 "flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors",
                 replyContent.trim() && !isSending
-                  ? "bg-blue-600 text-white hover:bg-blue-700"
-                  : "bg-gray-200 text-gray-400 cursor-not-allowed dark:bg-gray-700"
+                  ? "bg-accent text-white hover:bg-accent-hover"
+                  : "bg-bg-tertiary text-text-muted cursor-not-allowed"
               )}
             >
               <Send className="w-4 h-4" />

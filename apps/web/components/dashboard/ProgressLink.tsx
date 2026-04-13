@@ -47,8 +47,8 @@ export function ProgressLink({ link, className = '' }: ProgressLinkProps) {
       className={`
         group flex items-center justify-between
         px-3 py-2 rounded-md
-        text-sm text-[#999999]
-        hover:bg-[#2A2A2A] hover:text-white
+        text-sm text-text-secondary
+        hover:bg-bg-tertiary hover:text-text-primary
         transition-all duration-200
         ${className}
       `}
