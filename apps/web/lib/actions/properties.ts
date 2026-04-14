@@ -71,6 +71,8 @@ export interface MyPropertyItem {
   area: number
   imageUrl: string
   created_at: string
+  /** 資料庫 updated_at；列表模式「最後修改」欄位 */
+  updated_at: string
 }
 
 /** 與 DB CHECK（20260301110000）一致之出售物件可選狀態 */
@@ -153,6 +155,7 @@ export async function getMyProperties(): Promise<MyPropertiesResult> {
         area: Number(details.main_area_sqm || details.area) || 0,
         imageUrl: (details.imageUrl as string) || '',
         created_at: s.created_at,
+        updated_at: s.updated_at ?? s.created_at,
       }
     })
 
@@ -171,6 +174,7 @@ export async function getMyProperties(): Promise<MyPropertiesResult> {
         area: Number(details.main_area_sqm || details.area) || 0,
         imageUrl: (details.imageUrl as string) || '',
         created_at: r.created_at,
+        updated_at: r.updated_at ?? r.created_at,
       }
     })
 
@@ -196,6 +200,7 @@ export async function getMyProperties(): Promise<MyPropertiesResult> {
   }
 }
 
+<<<<<<< HEAD
 export interface UpdateMyPropertyStatusResult {
   success: boolean
   error?: string
@@ -212,6 +217,29 @@ export async function updateMyPropertyStatus(
   try {
     const supabase = await createClient()
 
+=======
+export interface BatchLandlordPropertyStatusItem {
+  id: string
+  listingType: 'rental' | 'sale'
+  status: string
+}
+
+const VALID_RENTAL_STATUSES = new Set(['vacant', 'occupied', 'maintenance', 'archived'])
+const VALID_SALE_STATUSES = new Set(['available', 'pending', 'sold', 'archived'])
+
+/**
+ * 房東物件列表：批次更新狀態（RLS 限制僅能更新自己的物件）
+ */
+export async function batchUpdateLandlordPropertyStatus(
+  items: ReadonlyArray<BatchLandlordPropertyStatusItem>
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (items.length === 0) {
+      return { success: true }
+    }
+
+    const supabase = await createClient()
+>>>>>>> feature/paperclip-row-059
     const {
       data: { user },
       error: authError,
@@ -221,6 +249,7 @@ export async function updateMyPropertyStatus(
       return { success: false, error: '用戶未登入' }
     }
 
+<<<<<<< HEAD
     const allowed =
       propertyType === 'sale'
         ? landlordSaleStatusValues
@@ -248,6 +277,31 @@ export async function updateMyPropertyStatus(
     return { success: true }
   } catch (error) {
     console.error('[UpdateMyPropertyStatus] Unexpected error:', error)
+=======
+    for (const item of items) {
+      const allowed =
+        item.listingType === 'rental' ? VALID_RENTAL_STATUSES : VALID_SALE_STATUSES
+      if (!allowed.has(item.status)) {
+        return {
+          success: false,
+          error: `無效的${item.listingType === 'rental' ? '出租' : '出售'}狀態：${item.status}`,
+        }
+      }
+
+      const table = item.listingType === 'rental' ? 'property_rentals' : 'property_sales'
+      const { error } = await supabase.from(table).update({ status: item.status }).eq('id', item.id)
+
+      if (error) {
+        console.error('[batchUpdateLandlordPropertyStatus]', table, item.id, error)
+        return { success: false, error: error.message }
+      }
+    }
+
+    revalidatePath('/landlord/properties')
+    return { success: true }
+  } catch (error) {
+    console.error('[batchUpdateLandlordPropertyStatus] Unexpected:', error)
+>>>>>>> feature/paperclip-row-059
     return {
       success: false,
       error: error instanceof Error ? error.message : '未知錯誤',
