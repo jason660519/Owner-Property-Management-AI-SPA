@@ -33,5 +33,9 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,json,md}": "prettier --write",
+    "package.json": "node scripts/check-critical-deps.js"
+  }
 }

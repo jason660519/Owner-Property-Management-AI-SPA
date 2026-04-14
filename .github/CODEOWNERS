@@ -1,0 +1,41 @@
+# CODEOWNERS — GitHub enforces owner review on these paths.
+# Any PR touching a matched path requires approval from a listed owner
+# before it can merge into the protected branch.
+#
+# Syntax: <path-glob> <owner-1> <owner-2> ...
+# First match wins; more specific patterns should come later.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-security/customizing-your-repository/about-code-owners
+
+# Default owner for everything (fall-through).
+*                                    @jason660519
+
+# Dependency manifests — highest-risk file to downgrade or bloat.
+package.json                         @jason660519
+**/package.json                      @jason660519
+package-lock.json                    @jason660519
+**/package-lock.json                 @jason660519
+
+# Project rules and Claude/agent configuration.
+CLAUDE.md                            @jason660519
+AGENTS.md                            @jason660519
+HERMES.md                            @jason660519
+.claude/rules/**                     @jason660519
+.claude/skills/**                    @jason660519
+
+# Pre-commit / CI guards — bypassing these defeats the whole system.
+.husky/**                            @jason660519
+scripts/check-critical-deps.js       @jason660519
+scripts/check-staged-no-any.js       @jason660519
+.github/**                           @jason660519
+
+# Database schema — irreversible, needs careful review.
+supabase/migrations/**               @jason660519
+supabase/config.toml                 @jason660519
+
+# Roadmap (shared file that agents love to conflict on).
+apps/superadmin/app/data/roadmap.ts  @jason660519
+
+# Docker / infra.
+docker/**                            @jason660519
+docker-compose*.yml                  @jason660519
+tools/hermes-runtime/**              @jason660519
