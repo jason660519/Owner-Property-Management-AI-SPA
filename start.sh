@@ -4,7 +4,7 @@
 # Owner Property Management - 統一啟動腳本
 # ==========================================
 # 功能：整合開發環境啟動、服務管理、依賴檢查
-# 用法：./start.sh [all|web|web-au|admin|ocr|test|menu]
+# 用法：./start.sh [all|web|web-au|admin|ocr|elastic|observability|test|menu]
 
 set -e
 
@@ -14,6 +14,7 @@ LOG_DIR="$PROJECT_ROOT/logs/dev"
 ENV_FILE="$PROJECT_ROOT/.env"
 HERMES_RUNTIME_DIR="$PROJECT_ROOT/tools/hermes-runtime"
 HERMES_DASHBOARD_PORT="${HERMES_DASHBOARD_PORT:-9119}"
+ELASTIC_DIR="$PROJECT_ROOT/backend/elasticsearch"
 
 # --- 顏色定義 ---
 RED='\033[0;31m'
@@ -433,11 +434,86 @@ start_hermes_dashboard() {
     echo -e "${GREEN}✅ Hermes Dashboard 啟動成功: http://localhost:${HERMES_DASHBOARD_PORT}${NC}"
 }
 
+start_elasticsearch_stack() {
+    echo -e "${BLUE}🔎 啟動 Elasticsearch + Kibana (Docker)...${NC}"
+
+    local compose_file="$ELASTIC_DIR/docker-compose.yml"
+    if [ ! -f "$compose_file" ]; then
+        echo -e "${RED}❌ 找不到 Elasticsearch compose 設定: $compose_file${NC}"
+        return 1
+    fi
+
+    (
+        cd "$ELASTIC_DIR"
+        docker compose -f "$compose_file" up -d elasticsearch kibana
+    ) > /dev/null 2>&1 || {
+        echo -e "${RED}❌ Elasticsearch/Kibana 啟動失敗${NC}"
+        return 1
+    }
+
+    local es_ok=0
+    for _ in $(seq 1 30); do
+        if curl -fsS "http://localhost:9200/_cluster/health" > /dev/null 2>&1; then
+            es_ok=1
+            break
+        fi
+        sleep 1
+    done
+
+    local kb_ok=0
+    for _ in $(seq 1 45); do
+        if curl -fsS "http://localhost:5601" > /dev/null 2>&1; then
+            kb_ok=1
+            break
+        fi
+        sleep 1
+    done
+
+    if [ "$es_ok" -eq 1 ] && [ "$kb_ok" -eq 1 ]; then
+        echo -e "${GREEN}✅ Elasticsearch/Kibana 啟動成功${NC}"
+        echo -e "   • Elasticsearch:  http://localhost:9200"
+        echo -e "   • Kibana:         http://localhost:5601"
+        return 0
+    fi
+
+    if [ "$es_ok" -ne 1 ]; then
+        echo -e "${YELLOW}⚠️  Elasticsearch 尚未完成就緒，請稍候再檢查 http://localhost:9200${NC}"
+    fi
+    if [ "$kb_ok" -ne 1 ]; then
+        echo -e "${YELLOW}⚠️  Kibana 尚未完成就緒，請稍候再檢查 http://localhost:5601${NC}"
+    fi
+}
+
+run_observability_checks() {
+    echo -e "${BLUE}📊 執行 Elastic Observability MVP 檢查...${NC}"
+
+    local registry_script="$PROJECT_ROOT/tools/observability/check-fleet-registry.sh"
+    local smoke_script="$PROJECT_ROOT/tools/observability/mvp-smoke.sh"
+
+    if [ ! -x "$registry_script" ] || [ ! -x "$smoke_script" ]; then
+        echo -e "${RED}❌ 找不到可執行的 observability 腳本，請確認 tools/observability 目錄${NC}"
+        return 1
+    fi
+
+    if "$registry_script"; then
+        echo -e "${GREEN}✅ Fleet registry 檢查完成${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Fleet registry 檢查有警示，請參考 docs/operational-guides/elastic-observability-mvp.md${NC}"
+    fi
+
+    if "$smoke_script"; then
+        echo -e "${GREEN}✅ MVP smoke 檢查完成${NC}"
+    else
+        echo -e "${YELLOW}⚠️  MVP smoke 檢查有警示，請先完成 integrations 安裝${NC}"
+    fi
+}
+
 start_all() {
     echo -e "${BLUE}🚀 正在啟動所有服務 (背景模式)...${NC}"
     check_dependencies
     ensure_log_dir
     ensure_supabase_running
+    start_elasticsearch_stack
     start_web "bg"
     start_web_au "bg"
     start_admin "bg"
@@ -451,6 +527,8 @@ start_all() {
     echo -e "   • Web App (AU):     http://localhost:3002"
     echo -e "   • Superadmin:       http://localhost:3001/superadmin/dashboard"
     echo -e "   • OCR Service:      http://localhost:8819"
+    echo -e "   • Elasticsearch:    http://localhost:9200"
+    echo -e "   • Kibana:           http://localhost:5601"
     echo -e "   • Paperclip (Docker-only): ${PAPERCLIP_PUBLIC_URL:-http://localhost:${PAPERCLIP_PORT:-3187}}"
     echo -e "   • Hermes Dashboard (Docker-only): http://localhost:${HERMES_DASHBOARD_PORT:-9119}"
     echo -e "   • Supabase Studio:  http://localhost:54323"
@@ -525,7 +603,9 @@ show_menu() {
     echo "8) 📎 啟動 Paperclip (Docker-only)"
     echo "9) 📦 更新 Paperclip 映像檔 (Docker-only)"
     echo "10) 🤖 啟動 Hermes Dashboard (Docker-only)"
-    echo "11) 🛑 停止所有服務"
+    echo "11) 🔎 啟動 Elasticsearch + Kibana (Docker)"
+    echo "12) 📊 執行 Observability MVP 檢查"
+    echo "13) 🛑 停止所有服務"
     echo "0) 離開"
     echo ""
     read -p "請輸入選項: " choice
@@ -541,7 +621,9 @@ show_menu() {
         8) start_paperclip ;;
         9) update_paperclip_image ;;
         10) start_hermes_dashboard ;;
-        11) ./stop.sh ;;
+        11) start_elasticsearch_stack ;;
+        12) run_observability_checks ;;
+        13) ./stop.sh ;;
         0) exit 0 ;;
         *) echo "無效選項"; sleep 1; show_menu ;;
     esac
@@ -554,11 +636,13 @@ case "${1:-menu}" in
     web-au) check_dependencies; ensure_supabase_running; start_web_au ;;
     admin)  check_dependencies; ensure_supabase_running; start_admin ;;
     ocr)    check_dependencies; ensure_supabase_running; start_ocr ;;
+    elastic) check_dependencies; start_elasticsearch_stack ;;
+    observability) check_dependencies; run_observability_checks ;;
     paperclip) check_dependencies; start_paperclip ;;
     paperclip-update) check_dependencies; update_paperclip_image ;;
     hermes) check_dependencies; start_hermes_dashboard ;;
     test)   run_tests ;;
     clean)  clean_cache ;;
     menu)   show_menu ;;
-    *)      echo "用法: $0 [all|web|web-au|admin|ocr|paperclip|paperclip-update|hermes|test|clean|menu]" ;;
+    *)      echo "用法: $0 [all|web|web-au|admin|ocr|elastic|observability|paperclip|paperclip-update|hermes|test|clean|menu]" ;;
 esac

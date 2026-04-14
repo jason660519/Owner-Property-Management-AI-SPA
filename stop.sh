@@ -12,6 +12,7 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$PROJECT_ROOT/logs/dev"
 PAPERCLIP_ENV_FILE="$PROJECT_ROOT/docker/paperclip/.env.paperclip"
 PAPERCLIP_COMPOSE_FILE="$PROJECT_ROOT/docker/paperclip/docker-compose.paperclip.yml"
+ELASTIC_COMPOSE_FILE="$PROJECT_ROOT/backend/elasticsearch/docker-compose.yml"
 PAPERCLIP_PORT="3187"
 
 if [ -f "$PAPERCLIP_ENV_FILE" ]; then
@@ -61,6 +62,22 @@ elif docker ps -a --format '{{.Names}}' | grep -q '^paperclip-paperclip-1$'; the
     echo -e "${GREEN}✅ Paperclip stopped${NC}"
 fi
 kill_port "$PAPERCLIP_PORT" "Paperclip"
+
+# 停止 Elasticsearch / Kibana Docker 服務
+if [ -f "$ELASTIC_COMPOSE_FILE" ]; then
+    echo -e "${YELLOW}Stopping Elasticsearch + Kibana (Docker)...${NC}"
+    (
+        cd "$PROJECT_ROOT/backend/elasticsearch"
+        docker compose -f "$ELASTIC_COMPOSE_FILE" down
+    ) > /dev/null 2>&1 || true
+    echo -e "${GREEN}✅ Elasticsearch + Kibana stopped${NC}"
+elif docker ps -a --format '{{.Names}}' | grep -Eq '^(elasticsearch|kibana)$'; then
+    echo -e "${YELLOW}Stopping Elasticsearch/Kibana containers directly...${NC}"
+    docker rm -f elasticsearch kibana > /dev/null 2>&1 || true
+    echo -e "${GREEN}✅ Elasticsearch + Kibana stopped${NC}"
+fi
+kill_port 9200 "Elasticsearch"
+kill_port 5601 "Kibana"
 
 # 2. 停止 Python 殘留進程
 echo -e "${YELLOW}檢查殘留 Python 進程...${NC}"

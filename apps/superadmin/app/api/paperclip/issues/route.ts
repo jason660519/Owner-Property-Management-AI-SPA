@@ -324,9 +324,13 @@ export async function POST(request: NextRequest) {
     const rowIdMatch = body.title.match(/\[Row\s+(\S+?)\]/i);
     const rowId = rowIdMatch?.[1] ?? body.title;
 
+    // Extract per-task adapter/model from optional _taskMeta
+    const taskMeta = (body as unknown as Record<string, unknown>)._taskMeta as
+      { adapter_type?: string; model?: string } | undefined;
+
     try {
       const supabase = createAdminClient();
-      await supabase.from('paperclip_tasks').insert({
+      const { data: insertedTask } = await supabase.from('paperclip_tasks').insert({
         row_id: rowId,
         issue_id: result.issue.id,
         issue_url: result.issueUrl,
@@ -336,7 +340,26 @@ export async function POST(request: NextRequest) {
         worktree_slug: worktreePaths.slug,
         worktree_branch: worktreePaths.branchName,
         status: 'submitted',
-      });
+        adapter_type: taskMeta?.adapter_type ?? null,
+        model: taskMeta?.model ?? null,
+        agent_id_snapshot: enrichedPayload.assigneeAgentId ?? autoRoutedAgentId ?? null,
+      }).select('id').single();
+
+      // Log dispatch event for audit
+      if (insertedTask?.id) {
+        await supabase.from('paperclip_task_events').insert({
+          task_id: insertedTask.id,
+          agent_id: enrichedPayload.assigneeAgentId ?? autoRoutedAgentId ?? null,
+          event_type: 'dispatched',
+          detail: {
+            row_id: rowId,
+            adapter_type: taskMeta?.adapter_type,
+            model: taskMeta?.model,
+            worktree_slug: worktreePaths.slug,
+          },
+          performed_by: userId ?? null,
+        });
+      }
     } catch (err) {
       // Best effort — task queue insert failure should not block issue creation
       // eslint-disable-next-line no-console

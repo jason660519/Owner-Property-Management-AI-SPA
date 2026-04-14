@@ -8,6 +8,7 @@ import { useState, useCallback } from 'react';
 import {
   ExternalLink, GitBranch, Copy, Trash2, Loader2,
   Terminal, ChevronDown, ChevronUp, CheckCircle2,
+  Play, Pause, Activity, RefreshCw,
 } from 'lucide-react';
 import clsx from 'clsx';
 import type { WorktreePaths } from '@/lib/paperclip/worktree';
@@ -21,19 +22,59 @@ interface TaskDetailPanelProps {
   userId: string;
   worktree?: WorktreePaths;
   taskStatus: UsePaperclipTaskStatusReturn;
+  agentId?: string;
+  adapterType?: string;
+  model?: string;
   onClose: () => void;
 }
 
 type CleanupPhase = 'idle' | 'sending' | 'done' | 'error';
 
 export default function TaskDetailPanel({
-  issueId, issueUrl, userId, worktree, taskStatus, onClose,
+  issueId, issueUrl, userId, worktree, taskStatus, agentId, adapterType, model, onClose,
 }: TaskDetailPanelProps) {
   const { runLog } = taskStatus;
   const [showRunLog, setShowRunLog] = useState(true);
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
   const [cleanupPhase, setCleanupPhase] = useState<CleanupPhase>('idle');
   const [cleanupError, setCleanupError] = useState<string | null>(null);
+  const [opsAction, setOpsAction] = useState<'idle' | 'resuming' | 'pausing' | 'heartbeat'>('idle');
+
+  const handleResume = useCallback(async () => {
+    if (!agentId) return;
+    setOpsAction('resuming');
+    try {
+      await fetch(`/api/paperclip/agents/${encodeURIComponent(agentId)}/resume`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+        body: JSON.stringify(adapterType ? { adapterType } : {}),
+      });
+    } catch { /* ignore */ }
+    setOpsAction('idle');
+  }, [agentId, adapterType, userId]);
+
+  const handlePause = useCallback(async () => {
+    if (!agentId) return;
+    setOpsAction('pausing');
+    try {
+      await fetch(`/api/paperclip/agents/${encodeURIComponent(agentId)}/pause`, {
+        method: 'POST',
+        headers: { 'x-user-id': userId },
+      });
+    } catch { /* ignore */ }
+    setOpsAction('idle');
+  }, [agentId, userId]);
+
+  const handleHeartbeat = useCallback(async () => {
+    setOpsAction('heartbeat');
+    try {
+      await fetch('/api/paperclip/heartbeat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+      });
+    } catch { /* ignore */ }
+    setOpsAction('idle');
+  }, [userId]);
 
   const handleCopy = useCallback(async (key: string, text: string) => {
     try {
@@ -107,6 +148,47 @@ export default function TaskDetailPanel({
           在 Paperclip 開啟 <ExternalLink className="h-3 w-3" />
         </a>
       </div>
+
+      {/* Agent / adapter info + ops buttons */}
+      {agentId && (
+        <div className="flex flex-wrap items-center gap-2 rounded border border-sky-500/30 bg-bg-primary/60 p-2">
+          <div className="flex items-center gap-1.5 text-[10px] text-text-secondary">
+            <Activity className="h-3 w-3 text-sky-600 dark:text-sky-400" />
+            <span>Agent: <span className="font-mono">{agentId.slice(0, 12)}</span></span>
+            {adapterType && <span className="rounded bg-bg-tertiary px-1">{adapterType}</span>}
+            {model && <span className="font-mono text-text-muted">{model}</span>}
+          </div>
+          <div className="ml-auto flex items-center gap-1.5">
+            {opsAction !== 'idle' ? (
+              <Loader2 className="h-3 w-3 animate-spin text-text-muted" />
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={handleResume}
+                  className="inline-flex items-center gap-0.5 rounded border border-emerald-500/40 px-1.5 py-0.5 text-[9px] font-medium text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40"
+                >
+                  <Play className="h-2.5 w-2.5" /> Resume
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePause}
+                  className="inline-flex items-center gap-0.5 rounded border border-amber-500/40 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40"
+                >
+                  <Pause className="h-2.5 w-2.5" /> Pause
+                </button>
+                <button
+                  type="button"
+                  onClick={handleHeartbeat}
+                  className="inline-flex items-center gap-0.5 rounded border border-sky-500/40 px-1.5 py-0.5 text-[9px] font-medium text-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-950/40"
+                >
+                  <RefreshCw className="h-2.5 w-2.5" /> Heartbeat
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Run log */}
       {runLog && (runLog.stdoutExcerpt || runLog.runStatus) && (

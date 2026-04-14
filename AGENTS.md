@@ -18,6 +18,9 @@ Do not duplicate route maps, folder walkthroughs, file inventories, or package s
 ```bash
 # 先開 Docker Desktop，再執行：
 ./start.sh
+./start.sh all     # 一鍵啟動全部服務（含 Elasticsearch + Kibana）
+./start.sh elastic # 僅啟動 Elasticsearch + Kibana（9200/5601）
+./stop.sh          # 一鍵停止服務（含 Elasticsearch + Kibana / Paperclip）
 ```
 
 ## ⚠️ Supabase 客戶端

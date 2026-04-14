@@ -7,10 +7,15 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Activity } from 'lucide-react';
 import { ROADMAP_DATA, type PhaseType } from '@/app/data/roadmap';
 import { useTablePreferences } from '@/lib/hooks/useTablePreferences';
+import { useAISettings } from '@/lib/hooks/useAISettings';
+import { usePaperclipAgents } from '@/lib/hooks/usePaperclipAgents';
+import { usePaperclipCron } from '@/lib/hooks/usePaperclipCron';
 import EnhancedTable from '@/components/ui/EnhancedTable';
 import { SharedStatsCards } from './components/SharedStatsCards';
 import { SheetTabs } from './components/SheetTabs';
 import { DevelopmentTab } from './components/DevelopmentTab';
+import AgentOpsPanel from './components/AgentOpsPanel';
+import CronControlPanel from './components/CronControlPanel';
 import AddRowModal from './components/development-table/AddRowModal';
 import { ExportToVISButton } from './components/ExportToVISButton';
 import {
@@ -40,6 +45,10 @@ interface PhaseCustomRowsSettings extends Record<string, unknown> {
 const PHASE_CUSTOM_DEFAULTS: PhaseCustomRowsSettings = { customRows: [] };
 
 export default function ProjectProgressPage() {
+  const { userId } = useAISettings();
+  const agentOps = usePaperclipAgents(userId);
+  const cronOps = usePaperclipCron(userId);
+
   const [activePhase, setActivePhase] = useState<PhaseType>(
     () => getPhaseFromHash() ?? 'development',
   );
@@ -157,7 +166,7 @@ export default function ProjectProgressPage() {
   const showAddRow = activePhase !== 'development';
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col gap-4">
+    <div className="flex flex-col gap-4 min-h-[calc(100vh-8rem)]">
       {/* Header row */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 flex-none">
         <div className="flex flex-col gap-1 min-w-0">
@@ -182,8 +191,31 @@ export default function ProjectProgressPage() {
         </div>
       </div>
 
-      {/* Sheet content area */}
-      <div className="flex-1 min-h-0 flex flex-col">
+      {/* Paperclip Ops Panels (Agent health + Cron controls) */}
+      {activePhase === 'development' && (
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 flex-none">
+          <AgentOpsPanel
+            agents={agentOps.agents}
+            loading={agentOps.loading}
+            error={agentOps.error}
+            onRefresh={agentOps.refresh}
+            onResume={agentOps.resumeAgent}
+            onPause={agentOps.pauseAgent}
+            onSwitchAdapter={agentOps.switchAdapter}
+          />
+          <CronControlPanel
+            configs={cronOps.configs}
+            loading={cronOps.loading}
+            runningJob={cronOps.runningJob}
+            onToggle={(jt, enabled) => cronOps.updateConfig(jt, { enabled })}
+            onUpdateInterval={(jt, sec) => cronOps.updateConfig(jt, { interval_seconds: sec })}
+            onRunJob={cronOps.runJob}
+          />
+        </div>
+      )}
+
+      {/* Sheet content area — min-h ensures table gets usable space even after ops panels */}
+      <div className="flex-1 min-h-0 flex flex-col" style={{ minHeight: '24rem' }}>
         <div className="flex-1 min-h-0 flex flex-col">
           {activePhase === 'development' && <DevelopmentTab features={allFeatures} />}
 

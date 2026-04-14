@@ -1,10 +1,11 @@
-// PATCH /api/paperclip/agents/[agentId]/adapter
+// POST /api/paperclip/agents/[agentId]/resume
 //
-// Switch a Paperclip agent's adapter and model via the Paperclip REST API.
-// Used by the Agents tab in the Mission Control dashboard.
+// Resume a paused/errored Paperclip agent by resetting its status to 'idle'
+// while preserving the current adapter. Logs a task event for audit.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { ADAPTER_MODEL_MAP, isValidAdapter } from '@/lib/paperclip/adapter-models';
+import { ADAPTER_MODEL_MAP } from '@/lib/paperclip/adapter-models';
+import { createClient } from '@/utils/supabase/server';
 
 function readConfig() {
   return {
@@ -13,7 +14,7 @@ function readConfig() {
   };
 }
 
-export async function PATCH(
+export async function POST(
   request: NextRequest,
   context: { params: Promise<{ agentId: string }> },
 ) {
@@ -27,25 +28,34 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: 'agentId is required.' }, { status: 400 });
   }
 
-  let body: { adapterType?: string; model?: string };
+  let body: { adapterType?: string } = {};
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ ok: false, error: 'Invalid JSON body.' }, { status: 400 });
+    // body is optional — resume with current adapter
   }
-
-  const adapterType = body.adapterType;
-  if (!adapterType || !isValidAdapter(adapterType)) {
-    return NextResponse.json(
-      { ok: false, error: `Invalid adapter. Valid: ${Object.keys(ADAPTER_MODEL_MAP).join(', ')}` },
-      { status: 400 },
-    );
-  }
-
-  // Use custom model if provided, otherwise use default for this adapter
-  const model = body.model ?? ADAPTER_MODEL_MAP[adapterType];
 
   const base = config.baseUrl.replace(/\/+$/, '');
+
+  // First fetch current agent state to preserve adapter if not overridden
+  let currentAdapter = body.adapterType;
+  if (!currentAdapter) {
+    try {
+      const agentRes = await fetch(`${base}/api/agents/${encodeURIComponent(agentId)}`, {
+        headers: { Authorization: `Bearer ${config.apiKey}` },
+        cache: 'no-store',
+      });
+      if (agentRes.ok) {
+        const agentData = (await agentRes.json()) as Record<string, unknown>;
+        currentAdapter = String(agentData.adapterType ?? 'claude_local');
+      }
+    } catch {
+      currentAdapter = 'claude_local';
+    }
+  }
+
+  const model = ADAPTER_MODEL_MAP[currentAdapter ?? ''] ?? 'auto';
+
   try {
     const res = await fetch(`${base}/api/agents/${encodeURIComponent(agentId)}`, {
       method: 'PATCH',
@@ -54,21 +64,35 @@ export async function PATCH(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        adapterType,
+        adapterType: currentAdapter,
         adapterConfig: { model },
         status: 'idle',
+        pauseReason: null,
       }),
     });
 
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       return NextResponse.json(
-        { ok: false, error: `Paperclip PATCH failed (${res.status}): ${text.slice(0, 200)}` },
+        { ok: false, error: `Resume failed (${res.status}): ${text.slice(0, 200)}` },
         { status: res.status },
       );
     }
 
     const data = (await res.json()) as Record<string, unknown>;
+
+    // Log the resume event
+    const userId = request.headers.get('x-user-id');
+    if (userId) {
+      const supabase = await createClient();
+      await supabase.from('paperclip_task_events').insert({
+        agent_id: agentId,
+        event_type: 'resumed',
+        detail: { adapter: currentAdapter, model, previousStatus: 'paused_or_error' },
+        performed_by: userId,
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       agent: {

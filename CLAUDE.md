@@ -30,7 +30,9 @@ Monorepo（npm workspaces）：
 ```bash
 # 先開 Docker Desktop，再執行：
 ./start.sh                # 互動式選單
-./start.sh all            # 一鍵啟動全部服務
+./start.sh all            # 一鍵啟動全部服務（含 Elasticsearch + Kibana）
+./start.sh elastic        # 僅啟動 Elasticsearch + Kibana（9200/5601）
+./stop.sh                 # 一鍵停止服務（含 Elasticsearch + Kibana / Paperclip）
 
 # 測試（需進入各 app 目錄）
 cd apps/web && npx jest                          # 全部單元測試

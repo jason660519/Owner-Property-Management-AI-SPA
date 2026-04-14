@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-12-row-030",
+  "updatedAt": "2026-04-14-row-142",
   "entries": [
     {
       "id": "common-smoke",
@@ -224,6 +224,18 @@
       ],
       "e2ePaths": [],
       "linkedToolScripts": []
+    },
+    {
+      "id": "142",
+      "name": "Elastic Observability MVP",
+      "tier": "pr",
+      "status": "active",
+      "unitPaths": [],
+      "e2ePaths": [],
+      "linkedToolScripts": [
+        "tools/observability/check-fleet-registry.sh",
+        "tools/observability/mvp-smoke.sh"
+      ]
     }
   ]
 }

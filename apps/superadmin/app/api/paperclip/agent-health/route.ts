@@ -10,16 +10,7 @@ import { NextResponse } from 'next/server';
 import {
   isAdapterQuotaError,
 } from '@/lib/paperclip/adapter-fallback';
-
-// ── Adapter → Model mapping ──────────────────────────────────────────
-// Each adapter requires a specific model value. Using the wrong model
-// (e.g. "sonnet" on codex_local) causes "model does not exist" errors.
-const ADAPTER_MODEL_MAP: Record<string, string> = {
-  claude_local: 'sonnet',
-  codex_local: 'gpt-5.3-codex',
-  cursor: 'auto',
-  opencode_local: 'google/gemini-2.5-flash',
-};
+import { ADAPTER_MODEL_MAP } from '@/lib/paperclip/adapter-models';
 
 // Only adapters confirmed working in the Paperclip Docker container.
 // Order: cheapest/most-available first, Claude last (preserve token budget).

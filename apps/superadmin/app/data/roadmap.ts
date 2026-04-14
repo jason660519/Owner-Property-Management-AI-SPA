@@ -355,7 +355,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "買家的繳費記錄",
     locatedPage: "web (待建)",
-    percentage: 0,
+    percentage: 45,
     acceptanceCriteria:
       "1. 顯示所有付款紀錄（日期、金額、類型、付款方式、狀態）。\n2. 支援下載單筆收據（PDF格式）。\n3. 可依日期範圍、金額、付款狀態篩選。\n4. 顯示未付款項目提醒與到期日。\n5. 年度付款總額統計與圖表。",
     docPath: "",
@@ -2506,6 +2506,40 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "- ✅ Cron 定時任務設定\n" +
       "- ✅ 文件更新：CLAUDE.md, AGENTS.md, dispatch-agents/SKILL.md\n" +
       "- 待完成：UI 驗證、Agent Tab adapter 切換 dropdown",
+  },
+  // --- Row 142: Elastic Observability MVP ---
+  {
+    name: "Elastic Observability MVP（APM / PostgreSQL / Docker / Synthetics）",
+    category: "通用/系統 (General/System)",
+    percentage: 0,
+    phase: "development",
+    points: 8,
+    locatedPage: "start.sh + tools/observability + docs/operational-guides",
+    featureSpecDocPath:
+      "/project-process/features/elastic-observability-mvp-dev-spec-20260414.md",
+    tddSpecDocPath:
+      "/project-process/features/tdd-elastic-observability-mvp-20260414.md",
+    docPath:
+      "/project-process/test-logs/test-elastic-observability-mvp-2026-04-14.md",
+    testScriptPath: "apps/superadmin/unit_test/142",
+    acceptanceCriteria:
+      "1. 完成 Kibana/Fleet 套件來源連線治理（online 或自建 registry）並可安裝目標 integrations。\n" +
+      "2. 第一期整合至少包含 System、Docker、APM（Node.js / Python）、PostgreSQL、Synthetics。\n" +
+      "3. 建立 4 張 MVP dashboard（Platform Health、Journey Performance、OCR Pipeline、DB Reliability）。\n" +
+      "4. 設定 5 條核心告警（p95 latency、5xx ratio、OCR fail rate、DB connections、container restart）。\n" +
+      "5. 完成開發與測試文件、腳本與 roadmap 欄位更新，驗收可重現。",
+    developmentProgress:
+      "Task ID: ELASTIC-OBS-142。2026/04/14 已完成第一波落地：\n" +
+      "• start.sh 新增 observability 指令與選單入口（執行 Fleet registry + MVP smoke 檢查）。\n" +
+      "• 新增 tools/observability/check-fleet-registry.sh（EPR/Fleet 連線檢查，含容器視角）。\n" +
+      "• 新增 tools/observability/mvp-smoke.sh（ES/Kibana 可達、容器狀態、APM/System/Docker/PostgreSQL/Synthetics index 提示）。\n" +
+      "• 新增 docs/operational-guides/elastic-observability-mvp.md 與 elastic-alert-thresholds.md。\n" +
+      "• test-manifest 新增 id=142，納入 observability 工具腳本。\n" +
+      "待完成：實際 integrations 安裝、4 張 dashboard 建置、5 條告警建立與觸發驗證。",
+    testProgress:
+      "已完成腳本層驗證（語法/執行/manifest）；待完成 integrations 實裝後的 dashboard 與告警驗收。",
+    lastModifiedBy: "GPT-5.3-Codex",
+    lastModifiedDate: "2026/04/14",
   },
 ];
 

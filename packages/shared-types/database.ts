@@ -1,3 +1,5 @@
+WARN: no SMS provider is enabled. Disabling phone login
+Connecting to db 5432
 export type Json =
   | string
   | number
@@ -194,6 +196,59 @@ export type Database = {
           },
         ]
       }
+      ai_agent_model_assignments: {
+        Row: {
+          agent_key: string
+          created_at: string
+          fallbacks: Json
+          guardrails: Json
+          id: string
+          is_enabled: boolean
+          notes: string | null
+          primary_config: Json
+          primary_model_id: string
+          primary_provider: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          agent_key: string
+          created_at?: string
+          fallbacks?: Json
+          guardrails?: Json
+          id?: string
+          is_enabled?: boolean
+          notes?: string | null
+          primary_config?: Json
+          primary_model_id: string
+          primary_provider: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          agent_key?: string
+          created_at?: string
+          fallbacks?: Json
+          guardrails?: Json
+          id?: string
+          is_enabled?: boolean
+          notes?: string | null
+          primary_config?: Json
+          primary_model_id?: string
+          primary_provider?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_model_assignments_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "iam_users_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_api_keys: {
         Row: {
           api_key_encrypted: string
@@ -234,6 +289,35 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "ai_api_keys_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "iam_users_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_call_rate_limits: {
+        Row: {
+          called_at: string
+          endpoint_key: string
+          id: number
+          user_id: string
+        }
+        Insert: {
+          called_at?: string
+          endpoint_key: string
+          id?: number
+          user_id: string
+        }
+        Update: {
+          called_at?: string
+          endpoint_key?: string
+          id?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_call_rate_limits_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "iam_users_view"
@@ -762,6 +846,91 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_prompt_audit_logs: {
+        Row: {
+          agent_key: string | null
+          ai_system_prompt_id: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          injection_flags: string[]
+          input_tokens: number | null
+          latency_ms: number | null
+          model_id: string
+          module_key: string
+          output_tokens: number | null
+          prompt_source: string | null
+          provider: string
+          saved_prompt_id: string | null
+          status: string
+          user_id: string | null
+          user_input_length: number | null
+          user_input_sha256: string | null
+        }
+        Insert: {
+          agent_key?: string | null
+          ai_system_prompt_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          injection_flags?: string[]
+          input_tokens?: number | null
+          latency_ms?: number | null
+          model_id: string
+          module_key: string
+          output_tokens?: number | null
+          prompt_source?: string | null
+          provider: string
+          saved_prompt_id?: string | null
+          status: string
+          user_id?: string | null
+          user_input_length?: number | null
+          user_input_sha256?: string | null
+        }
+        Update: {
+          agent_key?: string | null
+          ai_system_prompt_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          injection_flags?: string[]
+          input_tokens?: number | null
+          latency_ms?: number | null
+          model_id?: string
+          module_key?: string
+          output_tokens?: number | null
+          prompt_source?: string | null
+          provider?: string
+          saved_prompt_id?: string | null
+          status?: string
+          user_id?: string | null
+          user_input_length?: number | null
+          user_input_sha256?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_prompt_audit_logs_ai_system_prompt_id_fkey"
+            columns: ["ai_system_prompt_id"]
+            isOneToOne: false
+            referencedRelation: "ai_system_prompts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_prompt_audit_logs_saved_prompt_id_fkey"
+            columns: ["saved_prompt_id"]
+            isOneToOne: false
+            referencedRelation: "saved_prompts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_prompt_audit_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "iam_users_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_settings_validation_summary: {
         Row: {
           total_models: number
@@ -921,6 +1090,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      anthropic_credit_guard: {
+        Row: {
+          alert_threshold_usd: number
+          circuit_breaker_active: boolean
+          circuit_breaker_restored_at: string | null
+          circuit_breaker_threshold_usd: number
+          circuit_breaker_tripped_at: string | null
+          created_at: string
+          id: string
+          last_alert_fired_at: string | null
+          last_balance_check_at: string | null
+          total_credits_usd: number
+          tracking_start_at: string
+          updated_at: string
+        }
+        Insert: {
+          alert_threshold_usd?: number
+          circuit_breaker_active?: boolean
+          circuit_breaker_restored_at?: string | null
+          circuit_breaker_threshold_usd?: number
+          circuit_breaker_tripped_at?: string | null
+          created_at?: string
+          id?: string
+          last_alert_fired_at?: string | null
+          last_balance_check_at?: string | null
+          total_credits_usd?: number
+          tracking_start_at?: string
+          updated_at?: string
+        }
+        Update: {
+          alert_threshold_usd?: number
+          circuit_breaker_active?: boolean
+          circuit_breaker_restored_at?: string | null
+          circuit_breaker_threshold_usd?: number
+          circuit_breaker_tripped_at?: string | null
+          created_at?: string
+          id?: string
+          last_alert_fired_at?: string | null
+          last_balance_check_at?: string | null
+          total_credits_usd?: number
+          tracking_start_at?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       api_call_logs: {
         Row: {
@@ -2719,6 +2933,47 @@ export type Database = {
           },
         ]
       }
+      engineer_profiles: {
+        Row: {
+          created_at: string
+          default_role: string | null
+          display_name: string
+          id: string
+          is_active: boolean
+          preferred_ide: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          default_role?: string | null
+          display_name: string
+          id?: string
+          is_active?: boolean
+          preferred_ide?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          default_role?: string | null
+          display_name?: string
+          id?: string
+          is_active?: boolean
+          preferred_ide?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engineer_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "iam_users_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       error_logs: {
         Row: {
           created_at: string
@@ -3249,6 +3504,59 @@ export type Database = {
           },
         ]
       }
+      import_batches: {
+        Row: {
+          created_at: string | null
+          data_source: string
+          description: string | null
+          error_message: string | null
+          id: string
+          imported_by: string
+          label: string
+          processed_records: number | null
+          skipped_records: number | null
+          status: string | null
+          total_records: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_source: string
+          description?: string | null
+          error_message?: string | null
+          id?: string
+          imported_by: string
+          label: string
+          processed_records?: number | null
+          skipped_records?: number | null
+          status?: string | null
+          total_records?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data_source?: string
+          description?: string | null
+          error_message?: string | null
+          id?: string
+          imported_by?: string
+          label?: string
+          processed_records?: number | null
+          skipped_records?: number | null
+          status?: string | null
+          total_records?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_batches_imported_by_fkey"
+            columns: ["imported_by"]
+            isOneToOne: false
+            referencedRelation: "iam_users_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       insurance_plans: {
         Row: {
           coverage_amount: number
@@ -3564,6 +3872,7 @@ export type Database = {
           name: string
           notes: string | null
           phone: string
+          priority: number
           status: string | null
           updated_at: string
         }
@@ -3576,6 +3885,7 @@ export type Database = {
           name: string
           notes?: string | null
           phone: string
+          priority?: number
           status?: string | null
           updated_at?: string
         }
@@ -3588,6 +3898,7 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string
+          priority?: number
           status?: string | null
           updated_at?: string
         }
@@ -4813,6 +5124,194 @@ export type Database = {
           },
         ]
       }
+      paperclip_cron_configs: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          interval_seconds: number
+          job_type: string
+          last_result: Json | null
+          last_run_at: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          interval_seconds?: number
+          job_type: string
+          last_result?: Json | null
+          last_run_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          interval_seconds?: number
+          job_type?: string
+          last_result?: Json | null
+          last_run_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paperclip_cron_configs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "iam_users_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      paperclip_task_events: {
+        Row: {
+          agent_id: string | null
+          created_at: string
+          detail: Json | null
+          event_type: string
+          id: string
+          performed_by: string | null
+          task_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string
+          detail?: Json | null
+          event_type: string
+          id?: string
+          performed_by?: string | null
+          task_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string
+          detail?: Json | null
+          event_type?: string
+          id?: string
+          performed_by?: string | null
+          task_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paperclip_task_events_performed_by_fkey"
+            columns: ["performed_by"]
+            isOneToOne: false
+            referencedRelation: "iam_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paperclip_task_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "paperclip_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      paperclip_tasks: {
+        Row: {
+          adapter_type: string | null
+          agent_id_snapshot: string | null
+          assigned_agent: string | null
+          assigned_by: string | null
+          assigned_role: string | null
+          attempt_count: number
+          claimed_at: string | null
+          claimed_by: string | null
+          consecutive_failures: number
+          cooldown_seconds: number
+          cost_usd: number | null
+          created_at: string
+          id: string
+          ide: string | null
+          issue_id: string
+          issue_url: string
+          last_error: string | null
+          max_attempts: number
+          model: string | null
+          prompt_text: string | null
+          row_id: string
+          status: string
+          updated_at: string
+          worktree_branch: string | null
+          worktree_slug: string | null
+        }
+        Insert: {
+          adapter_type?: string | null
+          agent_id_snapshot?: string | null
+          assigned_agent?: string | null
+          assigned_by?: string | null
+          assigned_role?: string | null
+          attempt_count?: number
+          claimed_at?: string | null
+          claimed_by?: string | null
+          consecutive_failures?: number
+          cooldown_seconds?: number
+          cost_usd?: number | null
+          created_at?: string
+          id?: string
+          ide?: string | null
+          issue_id: string
+          issue_url: string
+          last_error?: string | null
+          max_attempts?: number
+          model?: string | null
+          prompt_text?: string | null
+          row_id: string
+          status?: string
+          updated_at?: string
+          worktree_branch?: string | null
+          worktree_slug?: string | null
+        }
+        Update: {
+          adapter_type?: string | null
+          agent_id_snapshot?: string | null
+          assigned_agent?: string | null
+          assigned_by?: string | null
+          assigned_role?: string | null
+          attempt_count?: number
+          claimed_at?: string | null
+          claimed_by?: string | null
+          consecutive_failures?: number
+          cooldown_seconds?: number
+          cost_usd?: number | null
+          created_at?: string
+          id?: string
+          ide?: string | null
+          issue_id?: string
+          issue_url?: string
+          last_error?: string | null
+          max_attempts?: number
+          model?: string | null
+          prompt_text?: string | null
+          row_id?: string
+          status?: string
+          updated_at?: string
+          worktree_branch?: string | null
+          worktree_slug?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paperclip_tasks_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "iam_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paperclip_tasks_claimed_by_fkey"
+            columns: ["claimed_by"]
+            isOneToOne: false
+            referencedRelation: "iam_users_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_transactions: {
         Row: {
           admin_notes: string | null
@@ -4992,6 +5491,152 @@ export type Database = {
             columns: ["sale_id"]
             isOneToOne: false
             referencedRelation: "property_sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      people_duplicates: {
+        Row: {
+          created_at: string | null
+          duplicate_record_id: string
+          id: string
+          notes: string | null
+          primary_record_id: string
+          review_status: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          similarity_score: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          duplicate_record_id: string
+          id?: string
+          notes?: string | null
+          primary_record_id: string
+          review_status?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          similarity_score?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          duplicate_record_id?: string
+          id?: string
+          notes?: string | null
+          primary_record_id?: string
+          review_status?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          similarity_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "people_duplicates_duplicate_record_id_fkey"
+            columns: ["duplicate_record_id"]
+            isOneToOne: false
+            referencedRelation: "people_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "people_duplicates_primary_record_id_fkey"
+            columns: ["primary_record_id"]
+            isOneToOne: false
+            referencedRelation: "people_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "people_duplicates_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "iam_users_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      people_records: {
+        Row: {
+          address: string | null
+          created_at: string | null
+          data_source: string
+          duplicate_flag: string | null
+          duplicate_of_id: string | null
+          id: string
+          id_number: string | null
+          import_batch_id: string
+          imported_by: string
+          name: string
+          ocr_confidence: number | null
+          organization: string | null
+          phone: string | null
+          quality_score: number | null
+          record_id: string
+          source_document_id: string | null
+          source_file_path: string | null
+          title_position: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string | null
+          data_source: string
+          duplicate_flag?: string | null
+          duplicate_of_id?: string | null
+          id?: string
+          id_number?: string | null
+          import_batch_id: string
+          imported_by: string
+          name: string
+          ocr_confidence?: number | null
+          organization?: string | null
+          phone?: string | null
+          quality_score?: number | null
+          record_id: string
+          source_document_id?: string | null
+          source_file_path?: string | null
+          title_position?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string | null
+          data_source?: string
+          duplicate_flag?: string | null
+          duplicate_of_id?: string | null
+          id?: string
+          id_number?: string | null
+          import_batch_id?: string
+          imported_by?: string
+          name?: string
+          ocr_confidence?: number | null
+          organization?: string | null
+          phone?: string | null
+          quality_score?: number | null
+          record_id?: string
+          source_document_id?: string | null
+          source_file_path?: string | null
+          title_position?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "people_records_duplicate_of_id_fkey"
+            columns: ["duplicate_of_id"]
+            isOneToOne: false
+            referencedRelation: "people_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "people_records_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "people_records_imported_by_fkey"
+            columns: ["imported_by"]
+            isOneToOne: false
+            referencedRelation: "iam_users_view"
             referencedColumns: ["id"]
           },
         ]
@@ -9712,10 +10357,6 @@ export type Database = {
           size: number
         }[]
       }
-      investigation_property_number_is_duplicate: {
-        Args: { p_exclude_property_id: string; p_property_number: string }
-        Returns: boolean
-      }
       is_identity_verified: { Args: { p_user_id: string }; Returns: boolean }
       is_owner_or_authorized_agent: {
         Args: {
@@ -9872,3 +10513,5 @@ export const Constants = {
   },
 } as const
 
+A new version of Supabase CLI is available: v2.90.0 (currently installed v2.72.7)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
