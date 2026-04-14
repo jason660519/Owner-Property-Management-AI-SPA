@@ -233,10 +233,12 @@ export async function GET() {
     agentCount: agents.length,
     switchCount,
     results: results.map((r) => ({
+      id: r.agent.id,
       name: r.agent.name,
       adapter: r.agent.adapterType,
       model: r.agent.model,
       status: r.agent.status,
+      lastHeartbeatAt: r.agent.lastHeartbeatAt,
       action: r.action,
       ...(r.switchedFrom ? { switchedFrom: r.switchedFrom } : {}),
       ...(r.switchedTo ? { switchedTo: r.switchedTo } : {}),
