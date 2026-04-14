@@ -14,6 +14,25 @@ describe('customer-details utility', () => {
     expect(details.communicationLog).toHaveLength(0)
   })
 
+  it('parses tenantProfile when present', () => {
+    const raw = JSON.stringify({
+      summaryNote: '',
+      intent: 'undecided',
+      followUps: [],
+      viewingRecords: [],
+      communicationLog: [],
+      tenantProfile: {
+        creditScore: 720,
+        monthlyIncome: 90000,
+        occupationType: '工程師',
+      },
+    })
+    const details = parseCustomerDetails(raw)
+    expect(details.tenantProfile?.creditScore).toBe(720)
+    expect(details.tenantProfile?.monthlyIncome).toBe(90000)
+    expect(details.tenantProfile?.occupationType).toBe('工程師')
+  })
+
   it('parses structured notes payload', () => {
     const raw = JSON.stringify({
       summaryNote: '重點客戶',
