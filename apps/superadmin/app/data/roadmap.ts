@@ -146,7 +146,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員的RBAC CRUD平台",
     locatedPage: "superadmin/dashboard/rbac_access_control",
-    percentage: 98,
+    percentage: 95,
     acceptanceCriteria:
       "1. 可建立、編輯、刪除角色（Role），角色名稱需唯一。\n2. 可對角色設定細粒度權限（讀取、寫入、刪除各資源）。\n3. 角色變更需有稽核紀錄（修改者、修改時間、異動內容）。\n4. 支援角色繼承功能，子角色可繼承父角色權限。\n5. 刪除角色前需確認沒有使用者被指派此角色。",
     docPath: "",
@@ -158,11 +158,11 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/dev-logs/dev-superadmin-features-2026-02-26.md",
     category: "超級管理員 (Super Admin)",
     points: 8,
-    lastModifiedBy: "Paperclip Fullstack",
-    lastModifiedDate: "2026/04/13",
+    lastModifiedBy: "Claude Sonnet 4.6",
+    lastModifiedDate: "2026/02/26",
     phase: "development",
     developmentProgress:
-      "Permission Matrix 完整 DB 持久化：iam_role_permissions、RolesTab 矩陣儲存。2026/04/13：刪除前改以 iam_user_roles + 群組（iam_group_roles → iam_group_members）去重計算指派用戶；saveRolePermissions 先刪後寫、rbac_audit_logs 含 permissions_matrix 的 before/after；父角色 validateParentRoleSelection；角色表單重複名稱友善錯誤、session actor_email 回填稽核；RolesTab 表單錯誤區塊；revalidate iam-management；test-manifest 003 rbac-parent-validation。",
+      "Permission Matrix 完整 DB 持久化：新增 iam_role_permissions 表（migration 20260226100000）、getRolePermissions / saveRolePermissions server actions；RolesTab 改為從 DB 載入/儲存角色權限，儲存前有 dirty 提示，儲存中 spinner；修復 iam_user_group_memberships view + parent_role_id 欄位未套用問題。",
   },
   {
     name: "超級管理員-雲端空間管理平台",
@@ -2453,7 +2453,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "CEO VIS 任務分配工作流 — Engineer 指派 + 進度整合",
     category: "超級管理員 (Super Admin)",
-    percentage: 0,
+    percentage: 50,
     phase: "development",
     points: 5,
     locatedPage: "superadmin/engineers, superadmin/dashboard/project-progress",
@@ -2467,8 +2467,45 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "3. CEO 工作流文檔完整：Superadmin → 導出 VIS → 分配任務 → 監控進度 → 衝突處理。\n" +
       "4. 工程師 claim 任務後 git worktree 自動建立，IDE 可直接使用。\n" +
       "5. CI 測試完成後 coverage 結果自動回源 roadmap testCoverage / unitTestCoverage。",
-    lastModifiedBy: "Claude Sonnet 4.6",
+    lastModifiedBy: "Claude Opus 4.6",
     lastModifiedDate: "2026/04/14",
+    developmentProgress:
+      "2026/04/14\n" +
+      "- ✅ /dispatch-agents Skill 建立（手動派工流程標準化）\n" +
+      "- ✅ /review-agent-work Skill 建立（檢查 + 修復 + merge）\n" +
+      "- ✅ POST /api/paperclip/auto-dispatch（自動派工 API，含 dry-run）\n" +
+      "- ✅ 兩輪派工完成（14 個 VIS issues，10 個完成）\n" +
+      "- 待完成：Engineer 管理頁面工作量統計、CI coverage 回源",
+  },
+
+  // --- 三層自動化 + Mission Control (Row 141) ---
+  {
+    name: "Paperclip 三層自動化 + Mission Control Dashboard",
+    category: "專案管理與工具 (Project Management)",
+    percentage: 90,
+    phase: "development",
+    points: 8,
+    locatedPage: "superadmin/dashboard/paperclip-worktrees",
+    devLogDocPath:
+      "/project-process/dev-logs/dev-paperclip-three-layer-automation-2026-04-14.md",
+    acceptanceCriteria:
+      "1. GET /api/paperclip/agent-health 自動偵測 error agent 並切換 adapter（含 model 映射）。\n" +
+      "2. GET /api/paperclip/work-summary 掃描 worktree branches 並回報 merge readiness。\n" +
+      "3. POST /api/paperclip/auto-dispatch 自動為 idle agents 從 roadmap 派工。\n" +
+      "4. Mission Control Dashboard 4-Tab UI（Worktrees/Summary/Agents/Dispatch）。\n" +
+      "5. Cron 定時任務：agent-health 3min、work-summary 5min、auto-dispatch 10min。",
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/14",
+    developmentProgress:
+      "2026/04/14\n" +
+      "- ✅ Layer 1 (監控): GET /api/paperclip/work-summary — 偵測誤刪共用檔、shared file 衝突\n" +
+      "- ✅ Layer 2 (Review): /review-agent-work Skill — 檢查 → 修復 → merge → roadmap 更新\n" +
+      "- ✅ Layer 3 (派工): POST /api/paperclip/auto-dispatch — dry-run + 執行，role 匹配\n" +
+      "- ✅ Agent Health: GET /api/paperclip/agent-health — adapter auto-fallback（opencode→cursor→codex→claude）\n" +
+      "- ✅ 4-Tab Dashboard: PaperclipDashboardTabs + WorkSummaryTab + AgentsTab + AutoDispatchTab\n" +
+      "- ✅ Cron 定時任務設定\n" +
+      "- ✅ 文件更新：CLAUDE.md, AGENTS.md, dispatch-agents/SKILL.md\n" +
+      "- 待完成：UI 驗證、Agent Tab adapter 切換 dropdown",
   },
 ];
 
