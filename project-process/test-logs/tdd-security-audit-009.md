@@ -27,3 +27,8 @@ cd apps/superadmin && npx jest unit_test/009
 ## Outcome
 
 - 8/8 tests passed（本機執行約 3–4 分鐘，含 Next/Jest 冷啟動）。
+
+## 2026-04-14 follow-up (DevOps)
+
+- **UI:** Replaced `startTransition(async () => …)` with synchronous `startTransition(() => { void promise.then(…) })` so server actions run immediately (async transition callbacks were starving RTL / hanging `waitFor`).
+- **Tests:** `jest.setTimeout(30_000)`, `userEvent.setup({ delay: null })`, and `waitFor` timeouts on IP tab form fields.

@@ -135,55 +135,72 @@ export default function SecurityDashboardClient({
   };
 
   const handleRunDetection = () => {
-    startTransition(async () => {
-      const result = await runAnomalyDetection();
-      showToast(result.message);
+    startTransition(() => {
+      void runAnomalyDetection().then((result) => {
+        showToast(result.message);
+      });
     });
   };
 
   const handleResolveAnomaly = (id: string) => {
-    startTransition(async () => {
-      await resolveAnomaly(id);
-      setAnomalies((prev) => prev.filter((a) => a.id !== id));
-      showToast('已標記為已處理');
+    startTransition(() => {
+      void resolveAnomaly(id).then(() => {
+        setAnomalies((prev) => prev.filter((a) => a.id !== id));
+        showToast('已標記為已處理');
+      });
     });
   };
 
   const handleAddWhitelist = () => {
     if (!wlIp.trim()) return;
-    startTransition(async () => {
-      const res = await addIpToWhitelist(wlIp, wlLabel);
-      if (res.error) { showToast(`錯誤: ${res.error}`); return; }
-      setWlIp('');
-      setWlLabel('');
-      showToast(`已加入白名單: ${wlIp}`);
+    const ip = wlIp.trim();
+    const label = wlLabel;
+    startTransition(() => {
+      void addIpToWhitelist(ip, label).then((res) => {
+        if (res.error) {
+          showToast(`錯誤: ${res.error}`);
+          return;
+        }
+        setWlIp('');
+        setWlLabel('');
+        showToast(`已加入白名單: ${ip}`);
+      });
     });
   };
 
   const handleRemoveWhitelist = (id: string, ip: string) => {
-    startTransition(async () => {
-      await removeIpFromWhitelist(id);
-      setWhitelist((prev) => prev.filter((e) => e.id !== id));
-      showToast(`已移除白名單: ${ip}`);
+    startTransition(() => {
+      void removeIpFromWhitelist(id).then(() => {
+        setWhitelist((prev) => prev.filter((e) => e.id !== id));
+        showToast(`已移除白名單: ${ip}`);
+      });
     });
   };
 
   const handleAddBlacklist = () => {
     if (!blValue.trim()) return;
-    startTransition(async () => {
-      const res = await addToBlacklist(blType, blValue, blReason);
-      if (res.error) { showToast(`錯誤: ${res.error}`); return; }
-      setBlValue('');
-      setBlReason('');
-      showToast(`已加入黑名單: ${blValue}`);
+    const type = blType;
+    const value = blValue.trim();
+    const reason = blReason;
+    startTransition(() => {
+      void addToBlacklist(type, value, reason).then((res) => {
+        if (res.error) {
+          showToast(`錯誤: ${res.error}`);
+          return;
+        }
+        setBlValue('');
+        setBlReason('');
+        showToast(`已加入黑名單: ${value}`);
+      });
     });
   };
 
   const handleRemoveBlacklist = (id: string, value: string) => {
-    startTransition(async () => {
-      await removeFromBlacklist(id);
-      setBlacklist((prev) => prev.filter((e) => e.id !== id));
-      showToast(`已移除黑名單: ${value}`);
+    startTransition(() => {
+      void removeFromBlacklist(id).then(() => {
+        setBlacklist((prev) => prev.filter((e) => e.id !== id));
+        showToast(`已移除黑名單: ${value}`);
+      });
     });
   };
 

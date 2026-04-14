@@ -116,6 +116,8 @@ function renderDashboard(
 }
 
 describe('SecurityDashboardClient (Row 009)', () => {
+  jest.setTimeout(30_000);
+
   beforeEach(() => {
     jest.clearAllMocks();
     jest.mocked(runAnomalyDetection).mockResolvedValue({ message: '未發現新的異常登入', count: 0 });
@@ -141,7 +143,7 @@ describe('SecurityDashboardClient (Row 009)', () => {
   });
 
   it('switches to anomalies tab and resolves an anomaly', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderDashboard();
     await user.click(screen.getByRole('button', { name: /異常登入/ }));
     expect(screen.getByText('geo_velocity')).toBeInTheDocument();
@@ -150,16 +152,19 @@ describe('SecurityDashboardClient (Row 009)', () => {
   });
 
   it('runs anomaly detection from header button', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderDashboard();
     await user.click(screen.getByRole('button', { name: '執行異常偵測' }));
-    await waitFor(() => {
-      expect(runAnomalyDetection).toHaveBeenCalled();
-    });
+    await waitFor(
+      () => {
+        expect(runAnomalyDetection).toHaveBeenCalled();
+      },
+      { timeout: 15_000 },
+    );
   });
 
   it('shows SSL expiry alert when certs are expiring', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderDashboard();
     await user.click(screen.getByRole('button', { name: /SSL 憑證/ }));
     expect(screen.getByText('app.example.com')).toBeInTheDocument();
@@ -167,10 +172,10 @@ describe('SecurityDashboardClient (Row 009)', () => {
   });
 
   it('adds whitelist IP via form', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderDashboard();
     await user.click(screen.getByRole('button', { name: 'IP 白/黑名單' }));
-    const ipInput = screen.getByPlaceholderText(/IP 位址或 CIDR/);
+    const ipInput = await waitFor(() => screen.getByPlaceholderText(/IP 位址或 CIDR/), { timeout: 10_000 });
     await user.type(ipInput, '10.1.1.1');
     const addButtons = screen.getAllByRole('button', { name: '加入' });
     await user.click(addButtons[0]);
@@ -178,10 +183,12 @@ describe('SecurityDashboardClient (Row 009)', () => {
   });
 
   it('adds blacklist entry', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderDashboard();
     await user.click(screen.getByRole('button', { name: 'IP 白/黑名單' }));
-    const valueInput = screen.getByPlaceholderText(/值（IP\/CIDR 或 UA 子字串）/);
+    const valueInput = await waitFor(() => screen.getByPlaceholderText(/值（IP\/CIDR 或 UA 子字串）/), {
+      timeout: 10_000,
+    });
     await user.type(valueInput, '192.0.2.99');
     const addButtons = screen.getAllByRole('button', { name: '加入' });
     await user.click(addButtons[1]);
