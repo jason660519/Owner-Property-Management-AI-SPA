@@ -9,7 +9,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Home, DollarSign, TrendingUp, FileText, Plus, Calendar, CreditCard } from 'lucide-react'
+import { Home, DollarSign, TrendingUp, FileText, Plus, Calendar, CreditCard, Handshake } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import Link from 'next/link'
@@ -76,6 +76,24 @@ export default function LandlordDashboardPage() {
         {
           label: '新增物件',
           href: '/landlord/properties/add',
+        },
+      ],
+    },
+    {
+      title: '成交客戶',
+      value: stats?.closedCustomersCount ?? 0,
+      icon: Handshake,
+      color: 'text-emerald-500',
+      trend: {
+        value: 0,
+        direction: 'up',
+        label: '未封存筆數',
+      },
+      progressLinks: [
+        {
+          label: '客戶管理（已成交）',
+          href: '/landlord/customers',
+          query: { status: 'closed' },
         },
       ],
     },

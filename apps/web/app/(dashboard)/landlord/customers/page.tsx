@@ -1,6 +1,7 @@
 'use client'
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { LayoutGrid, List, Loader2, Mail, Edit, Phone, Plus, Search, Trash2, User } from 'lucide-react'
@@ -8,6 +9,11 @@ import { LayoutGrid, List, Loader2, Mail, Edit, Phone, Plus, Search, Trash2, Use
 import { useCallback, useEffect, useState } from 'react'
 import { LayoutGrid, List, Loader2, Plus, Search } from 'lucide-react'
 >>>>>>> feature/paperclip-row-032
+=======
+import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Archive, LayoutGrid, List, Loader2, Mail, Edit, Phone, Plus, Search, Trash2, User } from 'lucide-react'
+>>>>>>> feature/paperclip-row-034
 import { DashboardLayout } from '@/components/dashboard'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -36,6 +42,7 @@ import { findDuplicateCustomer } from './customer-duplicate'
 import { normalizeCustomer, type Customer, type CustomerApiRecord, type CustomerFormData } from './customer-types'
 import { TenantFilterWorkbench } from './TenantFilterWorkbench'
 
+<<<<<<< HEAD
 function mergeTenantProfileFromForm(
   base: CustomerDetailsPayload,
   data: CustomerFormData,
@@ -64,6 +71,9 @@ function mergeTenantProfileFromForm(
 }
 
 function LandlordCustomersPageInner() {
+=======
+export default function LandlordCustomersPage() {
+>>>>>>> feature/paperclip-row-034
   const searchParams = useSearchParams()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -79,8 +89,14 @@ function LandlordCustomersPageInner() {
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
   const [mainTab, setMainTab] = useState<'overview' | 'tenant_filter'>('overview')
 
+<<<<<<< HEAD
   const [filterCustomers, setFilterCustomers] = useState<Customer[]>([])
   const [filterLoading, setFilterLoading] = useState(false)
+=======
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
+  const [includeArchivedClosed, setIncludeArchivedClosed] = useState(false)
+>>>>>>> feature/paperclip-row-034
 
   const { showToast } = useToast()
 
@@ -92,6 +108,7 @@ function LandlordCustomersPageInner() {
       const params = new URLSearchParams()
       if (searchQuery) params.append('query', searchQuery)
       if (statusFilter !== 'all') params.append('status', statusFilter)
+      if (includeArchivedClosed) params.append('include_archived', '1')
 
       const res = await fetch(`/api/landlord/customers?${params.toString()}`)
       if (!res.ok) throw new Error('Failed to fetch data')
@@ -109,12 +126,13 @@ function LandlordCustomersPageInner() {
     } finally {
       setIsLoading(false)
     }
-  }, [searchQuery, showToast, statusFilter])
+  }, [includeArchivedClosed, searchQuery, showToast, statusFilter])
 
   useEffect(() => {
     void fetchCustomers()
   }, [fetchCustomers])
 
+<<<<<<< HEAD
   const reloadFilterCustomers = useCallback(async () => {
     setFilterLoading(true)
     try {
@@ -150,6 +168,14 @@ function LandlordCustomersPageInner() {
       setMainTab('overview')
     }
   }, [searchParams, customers, filterCustomers])
+=======
+  useEffect(() => {
+    const s = searchParams.get('status')
+    if (s === 'potential' || s === 'negotiating' || s === 'closed' || s === 'lost') {
+      setStatusFilter(s)
+    }
+  }, [searchParams])
+>>>>>>> feature/paperclip-row-034
 
   const updateCustomerById = async (id: string, next: Partial<Customer>) => {
     const res = await fetch(`/api/landlord/customers/${id}`, {
@@ -174,6 +200,16 @@ function LandlordCustomersPageInner() {
   }
 
   const handleDelete = async (id: string) => {
+    const target = customers.find((c) => c.id === id)
+    if (target?.status === 'closed') {
+      showToast({
+        type: 'warning',
+        message: '無法刪除已成交客戶',
+        description: '請在右側詳情使用「封存客戶」以保留歷史紀錄。',
+      })
+      return
+    }
+
     if (!confirm('確定要刪除此客戶資料嗎？此操作無法復原。')) return
 
     try {
@@ -240,6 +276,7 @@ function LandlordCustomersPageInner() {
             followUps: [],
             viewingRecords: [],
             communicationLog: [],
+<<<<<<< HEAD
           },
           data,
         )
@@ -247,6 +284,12 @@ function LandlordCustomersPageInner() {
           ...data,
           status: normalizeCustomerStatus(data.status),
           notes: serializeCustomerDetails(merged),
+=======
+            archived: false,
+            closedRoleTag: null,
+            closedDeal: null,
+          }),
+>>>>>>> feature/paperclip-row-034
         }
 
         const res = await fetch('/api/landlord/customers', {
@@ -365,6 +408,7 @@ function LandlordCustomersPageInner() {
     }
   }
 
+<<<<<<< HEAD
   const handleBatchTenantStatus = async (ids: string[], nextStatus: CustomerStatus) => {
     const now = new Date().toISOString()
     for (const id of ids) {
@@ -385,6 +429,16 @@ function LandlordCustomersPageInner() {
         }),
       })
       if (!res.ok) throw new Error('Batch update failed')
+=======
+  const handlePersistCustomerNotes = async (nextNotes: string) => {
+    if (!selectedCustomer) return
+    try {
+      await updateCustomerById(selectedCustomer.id, { notes: nextNotes })
+      showToast({ type: 'success', message: '已更新', description: '客戶詳細資料已儲存' })
+    } catch (error) {
+      console.error(error)
+      showToast({ type: 'error', message: '儲存失敗', description: '請稍後再試' })
+>>>>>>> feature/paperclip-row-034
     }
   }
 
@@ -483,6 +537,16 @@ function LandlordCustomersPageInner() {
             </select>
           </div>
 
+          <label className="flex items-center gap-2 text-sm text-[#cccccc] cursor-pointer select-none shrink-0">
+            <input
+              type="checkbox"
+              checked={includeArchivedClosed}
+              onChange={(e) => setIncludeArchivedClosed(e.target.checked)}
+              className="rounded border-[#333333] bg-[#1A1A1A] accent-[#7C3AED]"
+            />
+            顯示已封存成交客戶
+          </label>
+
           {/* View mode toggle */}
           <div className="flex items-center gap-0.5 border border-[#333333] rounded-lg p-0.5 self-start md:self-auto">
             <button
@@ -531,6 +595,7 @@ function LandlordCustomersPageInner() {
               )}
             </Card>
           ) : (
+<<<<<<< HEAD
             <CustomerListView
               key={`${searchQuery}-${statusFilter}`}
               customers={customers}
@@ -541,6 +606,61 @@ function LandlordCustomersPageInner() {
               onEditCustomer={(customer) => { setEditingCustomer(customer); setIsModalOpen(true) }}
               onDeleteCustomer={(id) => { void handleDelete(id) }}
             />
+=======
+            <Card className="bg-[#1A1A1A] border-[#333333]">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="text-xs text-[#999999] uppercase bg-[#262626] border-b border-[#333333]">
+                    <tr>
+                      <th className="px-6 py-4 font-medium">姓名</th>
+                      <th className="px-6 py-4 font-medium">聯絡資訊</th>
+                      <th className="px-6 py-4 font-medium">客戶狀態</th>
+                      <th className="px-6 py-4 font-medium">備註摘要</th>
+                      <th className="px-6 py-4 font-medium text-right">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#333333]">
+                    {isLoading ? (
+                      <tr><td colSpan={5} className="px-6 py-12 text-center text-[#999999]"><div className="flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" />載入中...</div></td></tr>
+                    ) : paginatedCustomers.length === 0 ? (
+                      <tr><td colSpan={5} className="px-6 py-12 text-center text-[#999999]">尚無客戶資料</td></tr>
+                    ) : (
+                      paginatedCustomers.map((customer) => {
+                        const details = parseCustomerDetails(customer.notes)
+                        const isSelected = customer.id === selectedCustomerId
+
+                        return (
+                          <tr key={customer.id} className={`transition-colors cursor-pointer ${isSelected ? 'bg-[#262626]' : 'hover:bg-[#262626]/50'}`} onClick={() => setSelectedCustomerId(customer.id)}>
+                            <td className="px-6 py-4"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-[#7C3AED]/20 flex items-center justify-center text-[#7C3AED]"><User className="w-4 h-4" /></div><span className="font-medium text-white">{customer.name}</span></div></td>
+                            <td className="px-6 py-4"><div className="flex flex-col gap-1"><div className="flex items-center gap-2 text-[#cccccc]"><Phone className="w-3 h-3" />{customer.phone}</div><div className="flex items-center gap-2 text-[#999999]"><Mail className="w-3 h-3" />{customer.email}</div></div></td>
+                            <td className="px-6 py-4"><CustomerStatusBadge status={customer.status} /></td>
+                            <td className="px-6 py-4 text-[#999999] max-w-xs truncate">{details.summaryNote || '-'}</td>
+                            <td className="px-6 py-4 text-right"><div className="flex items-center justify-end gap-2"><Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); setEditingCustomer(customer); setIsModalOpen(true) }}><Edit className="w-4 h-4 text-blue-400" /></Button>{customer.status === 'closed' ? (
+                              <span className="inline-flex h-8 w-8 items-center justify-center" title="已成交客戶請至右側詳情封存，不可刪除">
+                                <Archive className="w-4 h-4 text-[#666666]" />
+                              </span>
+                            ) : (
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); void handleDelete(customer.id) }}><Trash2 className="w-4 h-4 text-red-400" /></Button>
+                            )}</div></td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {!isLoading && customers.length > 0 && (
+                <div className="flex items-center justify-between p-4 border-t border-[#333333]">
+                  <span className="text-sm text-[#999999]">顯示 {Math.min((currentPage - 1) * itemsPerPage + 1, customers.length)} 到 {Math.min(currentPage * itemsPerPage, customers.length)} 筆，共 {customers.length} 筆</span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage === 1}>上一頁</Button>
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} disabled={currentPage >= totalPages}>下一頁</Button>
+                  </div>
+                </div>
+              )}
+            </Card>
+>>>>>>> feature/paperclip-row-034
           )}
 
           <Card className="bg-[#1A1A1A] border-[#333333] p-5 space-y-5">
@@ -551,6 +671,7 @@ function LandlordCustomersPageInner() {
               onAddFollowUp={() => { void handleAddFollowUp() }}
               onQuickStatusChange={(status) => { void handleQuickStatusChange(status) }}
               onIntentChange={(intent) => { void handleIntentChange(intent) }}
+              onSaveCustomerNotes={(notes) => handlePersistCustomerNotes(notes)}
             />
           </Card>
         </div>

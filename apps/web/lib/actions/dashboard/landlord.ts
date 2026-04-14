@@ -1,5 +1,6 @@
 'use server'
 
+import { isActiveClosedLandlordCustomer } from '@/app/(dashboard)/landlord/customers/customer-details'
 import { createClient } from '@/lib/supabase/server'
 import { unstable_noStore as noStore } from 'next/cache'
 
@@ -11,6 +12,8 @@ export interface LandlordStats {
   yearlyIncome: number
   pendingTasks: number
   occupancyRate: number
+  /** 已成交且未封存的房東客戶數（Row 034） */
+  closedCustomersCount: number
 }
 
 export async function getLandlordDashboardStats(): Promise<LandlordStats> {
@@ -50,6 +53,13 @@ export async function getLandlordDashboardStats(): Promise<LandlordStats> {
       .filter(p => p.status === 'rented')
       .reduce((sum, p) => sum + (Number(p.monthly_rent) || 0), 0)
 
+    const { data: landlordCustomers } = await supabase
+      .from('landlord_customers')
+      .select('status,notes')
+      .eq('landlord_id', user.id)
+
+    const closedCustomersCount = (landlordCustomers ?? []).filter(isActiveClosedLandlordCustomer).length
+
     return {
       totalProperties,
       rentedProperties,
@@ -57,7 +67,8 @@ export async function getLandlordDashboardStats(): Promise<LandlordStats> {
       monthlyIncome,
       yearlyIncome: monthlyIncome * 12,
       pendingTasks: 0,
-      occupancyRate: totalProperties > 0 ? Math.round((rentedProperties / totalProperties) * 100) : 0
+      occupancyRate: totalProperties > 0 ? Math.round((rentedProperties / totalProperties) * 100) : 0,
+      closedCustomersCount,
     }
   } catch (error) {
     console.error('Error fetching landlord stats:', error)
@@ -68,7 +79,8 @@ export async function getLandlordDashboardStats(): Promise<LandlordStats> {
       monthlyIncome: 0,
       yearlyIncome: 0,
       pendingTasks: 0,
-      occupancyRate: 0
+      occupancyRate: 0,
+      closedCustomersCount: 0,
     }
   }
 }

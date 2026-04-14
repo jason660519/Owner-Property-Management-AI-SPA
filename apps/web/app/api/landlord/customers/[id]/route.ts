@@ -50,6 +50,22 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const { data: existing, error: readErr } = await supabase
+    .from('landlord_customers')
+    .select('status')
+    .eq('id', id)
+    .eq('landlord_id', user.id)
+    .maybeSingle()
+
+  if (readErr) return NextResponse.json({ error: readErr.message }, { status: 500 })
+  if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (existing.status === 'closed') {
+    return NextResponse.json(
+      { error: '已成交客戶不可刪除，請在客戶詳情使用「封存」以保留歷史紀錄。' },
+      { status: 400 },
+    )
+  }
+
   const { error } = await supabase
     .from('landlord_customers')
     .delete()
