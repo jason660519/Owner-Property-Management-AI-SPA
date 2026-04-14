@@ -146,7 +146,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員的RBAC CRUD平台",
     locatedPage: "superadmin/dashboard/rbac_access_control",
-    percentage: 95,
+    percentage: 98,
     acceptanceCriteria:
       "1. 可建立、編輯、刪除角色（Role），角色名稱需唯一。\n2. 可對角色設定細粒度權限（讀取、寫入、刪除各資源）。\n3. 角色變更需有稽核紀錄（修改者、修改時間、異動內容）。\n4. 支援角色繼承功能，子角色可繼承父角色權限。\n5. 刪除角色前需確認沒有使用者被指派此角色。",
     docPath: "",
@@ -158,8 +158,8 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/dev-logs/dev-superadmin-features-2026-02-26.md",
     category: "超級管理員 (Super Admin)",
     points: 8,
-    lastModifiedBy: "Claude Sonnet 4.6",
-    lastModifiedDate: "2026/02/26",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
     phase: "development",
     developmentProgress:
       "Permission Matrix 完整 DB 持久化：新增 iam_role_permissions 表（migration 20260226100000）、getRolePermissions / saveRolePermissions server actions；RolesTab 改為從 DB 載入/儲存角色權限，儲存前有 dirty 提示，儲存中 spinner；修復 iam_user_group_memberships view + parent_role_id 欄位未套用問題。",
@@ -248,7 +248,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員AI LLM API效能監控－AI語音回應可靠度監控功能",
     locatedPage: "superadmin/dashboard/llm-monitor",
-    percentage: 70,
+    percentage: 80,
     acceptanceCriteria:
       "1. 即時顯示各 LLM API 的請求數量、平均回應時間、錯誤率。\n2. 可設定 API 使用量預算上限與警示閾值。\n3. 提供每日/每週 Token 消耗統計與費用估算。\n4. 語音回應品質分數（延遲、斷句率）需以圖表呈現。\n5. API 密鑰輪換提醒功能（距離過期 30 天前通知）。",
     docPath: "",
@@ -258,8 +258,8 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/dev-logs/dev-superadmin-features-2026-02-21.md",
     category: "超級管理員 (Super Admin)",
     points: 8,
-    lastModifiedBy: "GPT-5.2",
-    lastModifiedDate: "2026/04/04",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
     phase: "development",
     developmentProgress:
       "連接真實 ai_performance_metrics 資料表，page.tsx + LLMMonitorClient + actions (getLLMMetrics/getLLMAggregateStats/getLLMOverallStats)；每模型效能比較表、最近請求記錄。\n\n### 2026-04-04 監控可追到 Prompt / 模組 / 成功失敗\n- 新增 ai_usage_logs 監控欄位（prompt source/version/hash、request_path、response_status 等）。\n- 物件介紹文案 AI（/api/property-description/stream）每次嘗試會寫入 ai_usage_logs（含成功/失敗、tokens、延遲、provider/model）。\n- llm-monitor 頁面新增「AI 使用紀錄（含 Prompt / 模組 / 狀態）」表格（最新 100 筆）。",
@@ -684,41 +684,41 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東的客戶－List模式",
     locatedPage: "web/landlord/customers",
-    percentage: 0,
+    percentage: 50,
     acceptanceCriteria:
       "1. 以表格列表形式顯示客戶，欄位可自訂顯示/隱藏。\n2. 支援依姓名、狀態、最後聯絡時間排序。\n3. 支援多選批次操作（批次發訊息、批次修改狀態）。\n4. 搜尋欄可即時過濾姓名/電話/Email。\n5. 支援 CSV 匯出客戶列表。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 2,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "房東的客戶－新增客戶",
     locatedPage: "web/landlord/customers",
-    percentage: 0,
+    percentage: 50,
     acceptanceCriteria:
       "1. 表單含：姓名、電話、Email、意向（租/買）、預算、備註。\n2. Email 格式驗證，電話號碼格式驗證。\n3. 同一 Email 已存在時提示重複並詢問是否合併。\n4. 新增成功後自動跳轉至客戶 Details 頁。\n5. 支援從名片圖片 OCR 自動填入（可選）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 3,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "房東的客戶－成交客戶",
     locatedPage: "web/landlord/customers",
-    percentage: 0,
+    percentage: 40,
     acceptanceCriteria:
       "1. 已成交客戶可選擇標記為「買家」或「已簽約租客」。\n2. 標記後自動建立對應角色的基本資料與儀表板。\n3. 成交資訊記錄：成交日期、成交物件、成交金額。\n4. 成交客戶不可刪除，只能封存（以保留歷史紀錄）。\n5. 成交數量統計顯示於儀表板指標卡。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 3,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "房東－邀請第三人成為user的功能",
@@ -942,15 +942,15 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東財務－收支明細儀表板",
     locatedPage: "web/landlord/finance",
-    percentage: 0,
+    percentage: 40,
     acceptanceCriteria:
       "1. 顯示選定月份的收入/支出圓餅圖與明細。\n2. 支援日/月/季/年時間範圍切換。\n3. 收支類別可自訂（如「維修費」「管理費」）。\n4. 顯示淨利潤趨勢折線圖（最近12個月）。\n5. 一鍵匯出財務報表（PDF/Excel）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 5,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "房東財務－租金收支管理",
@@ -994,41 +994,41 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東的溝通頁面",
     locatedPage: "web/landlord/messages",
-    percentage: 0,
+    percentage: 15,
     acceptanceCriteria:
       "1. 集中顯示與所有租客/買家/仲介的訊息對話。\n2. 左側為對話列表（含未讀數徽章），右側為對話內容。\n3. 支援訊息搜尋（依關鍵字）。\n4. 可傳送文字、圖片、附件（最大10MB）。\n5. 可設定自動回覆訊息（不在線時啟用）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 3,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "房東的物件展示功能－Details模式",
     locatedPage: "web/landlord/properties/[id]",
-    percentage: 0,
+    percentage: 50,
     acceptanceCriteria:
       "1. 顯示物件完整資訊（照片輪播、地址、格局、設備、租金/售價）。\n2. 顯示物件當前狀態（空置/出租中/待售/已售）。\n3. 顯示看房預約列表（最近10筆）。\n4. 提供物件 QR Code 分享功能。\n5. 可直接從物件詳情頁面觸發生成銷售部落格。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 2,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "房東的物件展示功能－Grid模式",
     locatedPage: "web/landlord/properties",
-    percentage: 0,
+    percentage: 50,
     acceptanceCriteria:
       "1. 以卡片網格形式展示物件（每行3-4筆），卡片含縮圖、物件名、租金/售價、狀態。\n2. 支援依租金/售價、狀態、地區排序篩選。\n3. 卡片點擊進入物件 Details 頁。\n4. 支援快速切換物件狀態（不需進入詳情頁）。\n5. 空置物件卡片以視覺標示突出（如淡灰底色）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 2,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "房東的物件－照片增生功能 (AI)",
@@ -1046,28 +1046,28 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東的物件展示功能－List模式",
     locatedPage: "web/landlord/properties",
-    percentage: 0,
+    percentage: 50,
     acceptanceCriteria:
       "1. 以緊湊表格形式列出所有物件，欄位含：物件名、地址、類型、月租/售價、狀態、最後修改。\n2. 點擊欄標題可排序。\n3. 多選後可批次修改狀態。\n4. 搜尋欄即時過濾（依物件名/地址）。\n5. 每頁顯示筆數可設定（20/50/100）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 2,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "房東的維修派工管理",
     locatedPage: "web/landlord (待建)",
-    percentage: 0,
+    percentage: 50,
     acceptanceCriteria:
       "1. 顯示所有維修請求列表（物件、申請人、描述、狀態、申請日期）。\n2. 可指派維修人員，並設定預約維修日期。\n3. 維修人員接單後租客收到通知（含到訪時間）。\n4. 維修完成後附上費用單與工作說明，租客確認後結案。\n5. 維修費用自動計入物件支出記錄。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 5,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "房東的行銷部落格網站行為監控",
@@ -1098,15 +1098,15 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東的客戶-租客篩選功能",
     locatedPage: "web/landlord/customers",
-    percentage: 0,
+    percentage: 40,
     acceptanceCriteria:
       "1. 依信用分數、月收入、職業類型對申請租客進行排序篩選。\n2. 提供自動化評分機制（根據填寫資料評估租客適合度）。\n3. 可設定篩選條件範本（如「月收入需為月租3倍以上」）。\n4. 篩選結果可一鍵發送面談邀請。\n5. 不合格申請者可禮貌性自動回絕（附原因說明範本）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 5,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "房東的會計人員查帳審計功能",
@@ -1267,7 +1267,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "電子簽約功能",
     locatedPage: "web (待建)",
-    percentage: 0,
+    percentage: 40,
     acceptanceCriteria:
       "1. 生成合約後可發送電子簽署邀請至買賣/租賃雙方 Email。\n2. 每一方在安全連結中完成電子簽名（手寫簽名或文字簽名）。\n3. 所有方完成簽署後，生成合法效力的電子合約（含簽署時間戳）。\n4. 已簽署合約以 PDF 格式自動發送至所有簽署方。\n5. 合約簽署狀態可即時追蹤（待某方簽署/全部完成）。",
     docPath: "",
@@ -1275,15 +1275,15 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/features/tdd-contracts-payments-20260221.md",
     category: "合約與法務 (Contracts & Legal)",
     points: 8,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
 
   // 通用/系統
   {
     name: "一鍵切換UI風格：暗/亮模式",
     locatedPage: "全站",
-    percentage: 98,
+    percentage: 100,
     acceptanceCriteria:
       "1. 點擊切換按鈕（或依系統設定）立即切換暗/亮模式，無需刷新頁面。\n2. 使用者設定持久化（下次登入維持上次選擇）。\n3. 所有頁面、組件、彈窗均支援暗/亮模式，無色彩殘留問題。\n4. 過渡動畫流暢（約200ms）。\n5. 系統自動偵測作業系統主題並設為預設值。",
     devLog:
@@ -1297,13 +1297,13 @@ const RAW_FEATURES: RoadmapFeature[] = [
     tddSpecDocPath: "/project-process/features/tdd-system-common-20260221.md",
     category: "通用/系統 (General/System)",
     points: 2,
-    lastModifiedBy: "Google Gemini 2.5 Flash (UI/UX Agent)",
+    lastModifiedBy: "Paperclip Agent",
     lastModifiedDate: "2026/04/14",
   },
   {
     name: "RWD網頁響應式設計",
     locatedPage: "全站",
-    percentage: 80,
+    percentage: 85,
     acceptanceCriteria:
       "1. 手機（320px+）、平板（768px+）、桌機（1024px+）三種斷點下版面正確顯示。\n2. 導航選單在手機版切換為漢堡選單（Hamburger Menu）。\n3. 所有表單元素在手機版觸控操作友善（最小觸控區域44x44px）。\n4. 圖片採用響應式圖片（srcset），依裝置解析度載入適當尺寸。\n5. 手機版首屏渲染 < 3 秒（4G網路環境）。",
     docPath: "/project-process/features/company-homepage.md",
@@ -1311,13 +1311,13 @@ const RAW_FEATURES: RoadmapFeature[] = [
     tddSpecDocPath: "/project-process/features/tdd-system-common-20260221.md",
     category: "通用/系統 (General/System)",
     points: 5,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "使用者身份驗證系統",
     locatedPage: "web/login, web/register, superadmin/middleware",
-    percentage: 95,
+    percentage: 98,
     acceptanceCriteria:
       "1. 支援 Email/密碼登入與 Google OAuth 登入。\n2. JWT Token 有效期24小時，Refresh Token 有效期7天。\n3. 連續5次登入失敗後帳號暫時鎖定（15分鐘）。\n4. 新裝置登入時發送 Email 安全通知。\n5. 密碼需符合強度要求（最少8字元、含大小寫與數字）。\n6. Superadmin middleware session refresh cookie 需正確保留（2026/04/13 修復）。",
     docPath: "/project-process/features/auth-system.md",
@@ -1339,8 +1339,8 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "⚠️ redirect 時必須複製 cookie，否則 session refresh 靜默失敗\n" +
       "⚠️ 新建 middleware 需與主站 pattern 交叉比對\n" +
       "**下階段**：抽取共用 middleware Supabase client 到 packages/；補 E2E session refresh 測試",
-    lastModifiedBy: "Claude Opus 4.6",
-    lastModifiedDate: "2026/04/13",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "註冊的使用者都有自己的行事曆管理頁面",
