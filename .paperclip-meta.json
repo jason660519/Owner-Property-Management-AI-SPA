@@ -1,8 +1,9 @@
 {
-  "issueId": "b4694971-7df0-4003-a64e-558329da98a8",
-  "title": "[Row 137] VIS 同步基礎設施 架構設計 Engineer Profile V2",
+  "issueId": "5b6cb75e-4f65-4c36-9dc1-85f564f9672f",
+  "issueKey": "VIS-81",
+  "title": "[Row 057] 房東的物件展示功能 Grid模式",
   "status": "todo",
-  "slug": "row-137",
-  "branchName": "feature/paperclip-row-137",
-  "updatedAt": "2026-04-13T20:17:34.248Z"
+  "slug": "row-057",
+  "branchName": "feature/paperclip-row-057",
+  "updatedAt": "2026-04-13T22:20:09.000Z"
 }
