@@ -1,15 +1,22 @@
+'use client'
+
 import Link from 'next/link'
-import { CalendarDays, Mail, MessageSquare, Phone } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { CalendarDays, Mail, MessageSquare, PackageOpen, Phone } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import {
+  appendCommunication,
+  getClosedRoleTagLabel,
   getIntentLabel,
   getLatestCommunication,
   getStatusLabel,
+  serializeCustomerDetails,
+  type ClosedRoleTag,
   type CustomerIntent,
   type CustomerStatus,
+  parseCustomerDetails,
 } from './customer-details'
 import { type Customer } from './customer-types'
-import { parseCustomerDetails } from './customer-details'
 
 export function CustomerStatusBadge({ status }: { status: CustomerStatus }) {
   const styles: Record<CustomerStatus, string> = {
@@ -33,6 +40,7 @@ export function CustomerDetailsPanel({
   onAddFollowUp,
   onQuickStatusChange,
   onIntentChange,
+  onSaveCustomerNotes,
 }: {
   customer: Customer | null
   followUpDraft: string
@@ -40,7 +48,100 @@ export function CustomerDetailsPanel({
   onAddFollowUp: () => void
   onQuickStatusChange: (status: CustomerStatus) => void
   onIntentChange: (intent: CustomerIntent) => void
+  onSaveCustomerNotes: (nextNotes: string) => Promise<void>
 }) {
+  const [closedRoleChoice, setClosedRoleChoice] = useState<ClosedRoleTag | ''>('')
+  const [dealDate, setDealDate] = useState('')
+  const [dealProperty, setDealProperty] = useState('')
+  const [dealAmount, setDealAmount] = useState('')
+  const [closedSavePending, setClosedSavePending] = useState(false)
+
+  useEffect(() => {
+    if (!customer) {
+      setClosedRoleChoice('')
+      setDealDate('')
+      setDealProperty('')
+      setDealAmount('')
+      return
+    }
+    const d = parseCustomerDetails(customer.notes)
+    setClosedRoleChoice(d.closedRoleTag ?? '')
+    if (d.closedDeal) {
+      setDealDate(d.closedDeal.closedAt.slice(0, 10))
+      setDealProperty(d.closedDeal.propertyLabel)
+      setDealAmount(
+        d.closedDeal.amountTwd === null || d.closedDeal.amountTwd === undefined
+          ? ''
+          : String(d.closedDeal.amountTwd),
+      )
+    } else {
+      setDealDate('')
+      setDealProperty('')
+      setDealAmount('')
+    }
+  }, [customer])
+
+  const persistDetails = useCallback(
+    async (next: ReturnType<typeof parseCustomerDetails>, comm?: { summary: string; channel: 'system' | 'note' }) => {
+      const now = new Date().toISOString()
+      let payload = next
+      if (comm) {
+        payload = appendCommunication(next, { ...comm, createdAt: now, channel: comm.channel })
+      }
+      await onSaveCustomerNotes(serializeCustomerDetails(payload))
+    },
+    [onSaveCustomerNotes],
+  )
+
+  const handleSaveClosedSection = async () => {
+    if (!customer || !closedRoleChoice) {
+      return
+    }
+    const amountTrim = dealAmount.trim()
+    const amountNum = amountTrim === '' ? null : Number(amountTrim.replace(/,/g, ''))
+    if (amountTrim !== '' && (amountNum === null || !Number.isFinite(amountNum))) {
+      return
+    }
+    if (!dealDate || !dealProperty.trim()) {
+      return
+    }
+
+    setClosedSavePending(true)
+    try {
+      const base = parseCustomerDetails(customer.notes)
+      const next = {
+        ...base,
+        closedRoleTag: closedRoleChoice,
+        closedDeal: {
+          closedAt: new Date(dealDate).toISOString(),
+          propertyLabel: dealProperty.trim(),
+          amountTwd: amountNum,
+        },
+      }
+      await persistDetails(next, {
+        summary: `已標記為「${getClosedRoleTagLabel(closedRoleChoice)}」並儲存成交資訊`,
+        channel: 'system',
+      })
+    } finally {
+      setClosedSavePending(false)
+    }
+  }
+
+  const handleArchive = async (archived: boolean) => {
+    if (!customer) return
+    setClosedSavePending(true)
+    try {
+      const base = parseCustomerDetails(customer.notes)
+      const next = { ...base, archived }
+      await persistDetails(next, {
+        summary: archived ? '客戶已封存（保留歷史紀錄）' : '已取消封存客戶',
+        channel: 'system',
+      })
+    } finally {
+      setClosedSavePending(false)
+    }
+  }
+
   if (!customer) {
     return (
       <div className="text-sm text-[#999999]">請先在左側清單選擇一位客戶查看 Details 模式。</div>
@@ -55,10 +156,17 @@ export function CustomerDetailsPanel({
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-lg font-semibold text-white">{customer.name}</p>
-            <p className="text-xs text-[#999999] mt-1">{customer.email}</p>
+            <p className="text-lg font-semibold text-text-primary">{customer.name}</p>
+            <p className="text-xs text-text-secondary mt-1">{customer.email}</p>
           </div>
-          <CustomerStatusBadge status={customer.status} />
+          <div className="flex flex-col items-end gap-1">
+            <CustomerStatusBadge status={customer.status} />
+            {details.archived && (
+              <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded border border-border-default text-text-secondary bg-bg-secondary">
+                已封存
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
@@ -84,6 +192,128 @@ export function CustomerDetailsPanel({
           <p className="text-[#999999]">摘要：{details.summaryNote || '尚未填寫'}</p>
         </div>
       </section>
+
+      {customer.status === 'closed' && (
+        <section className="space-y-3 rounded-lg border border-border-default bg-bg-secondary p-3">
+          <p className="text-xs uppercase text-text-secondary tracking-wide">已成交客戶</p>
+          <p className="text-xs text-text-secondary">
+            標記為買家或已簽約租客後，可由此進入對應角色的儀表板（系統會保留客戶與成交紀錄）。
+          </p>
+
+          <div className="space-y-2">
+            <p className="text-xs text-text-secondary">角色標記</p>
+            <div className="flex flex-col gap-2">
+              {(['buyer', 'signed_tenant'] as const).map((tag) => (
+                <label
+                  key={tag}
+                  className="flex items-center gap-2 text-sm text-text-primary cursor-pointer"
+                >
+                  <input
+                    type="radio"
+                    name="closed-role"
+                    checked={closedRoleChoice === tag}
+                    onChange={() => setClosedRoleChoice(tag)}
+                    className="accent-[#7C3AED]"
+                  />
+                  {getClosedRoleTagLabel(tag)}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2">
+            <label className="text-xs text-text-secondary block space-y-1">
+              <span>成交日期</span>
+              <input
+                type="date"
+                value={dealDate}
+                onChange={(e) => setDealDate(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary"
+              />
+            </label>
+            <label className="text-xs text-text-secondary block space-y-1">
+              <span>成交物件</span>
+              <input
+                type="text"
+                value={dealProperty}
+                onChange={(e) => setDealProperty(e.target.value)}
+                placeholder="例如：台北市大安區〇〇路一段"
+                className="flex h-10 w-full rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary"
+              />
+            </label>
+            <label className="text-xs text-text-secondary block space-y-1">
+              <span>成交金額（NTD，可留空）</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={dealAmount}
+                onChange={(e) => setDealAmount(e.target.value)}
+                placeholder="例如：18500000"
+                className="flex h-10 w-full rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary"
+              />
+            </label>
+          </div>
+
+          <Button
+            size="sm"
+            className="w-full"
+            disabled={closedSavePending || !closedRoleChoice || !dealDate || !dealProperty.trim()}
+            onClick={() => void handleSaveClosedSection()}
+          >
+            儲存成交資訊與角色標記
+          </Button>
+
+          {details.closedRoleTag && (
+            <div className="space-y-2 pt-1 border-t border-border-default">
+              <p className="text-xs text-text-secondary">對應角色儀表板</p>
+              {details.closedRoleTag === 'buyer' && (
+                <Link
+                  href={`/buyer/contracted/dashboard?fromLandlordCustomer=${encodeURIComponent(customer.id)}`}
+                  className="block"
+                >
+                  <Button variant="outline" size="sm" className="w-full justify-center">
+                    <PackageOpen className="w-4 h-4 mr-2" />
+                    前往買家簽約儀表板
+                  </Button>
+                </Link>
+              )}
+              {details.closedRoleTag === 'signed_tenant' && (
+                <Link
+                  href={`/tenant/contracted/dashboard?fromLandlordCustomer=${encodeURIComponent(customer.id)}`}
+                  className="block"
+                >
+                  <Button variant="outline" size="sm" className="w-full justify-center">
+                    <PackageOpen className="w-4 h-4 mr-2" />
+                    前往簽約租客儀表板
+                  </Button>
+                </Link>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2 pt-1 border-t border-border-default">
+            {!details.archived ? (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={closedSavePending}
+                onClick={() => void handleArchive(true)}
+              >
+                封存客戶（保留紀錄）
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={closedSavePending}
+                onClick={() => void handleArchive(false)}
+              >
+                取消封存
+              </Button>
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="space-y-2">
         <p className="text-xs uppercase text-[#999999] tracking-wide">租賃 / 購屋意向</p>

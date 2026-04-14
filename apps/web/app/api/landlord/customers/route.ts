@@ -1,4 +1,4 @@
-
+import { parseCustomerDetails } from '@/app/(dashboard)/landlord/customers/customer-details'
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -7,6 +7,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const query = searchParams.get('query') || ''
   const status = searchParams.get('status')
+  const includeArchived = searchParams.get('include_archived') === '1'
   
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -31,8 +32,16 @@ export async function GET(req: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
-  
-  return NextResponse.json(data)
+
+  let rows = data ?? []
+  if (!includeArchived) {
+    rows = rows.filter((row) => {
+      if (row.status !== 'closed') return true
+      return !parseCustomerDetails(row.notes).archived
+    })
+  }
+
+  return NextResponse.json(rows)
 }
 
 export async function PATCH(req: NextRequest) {

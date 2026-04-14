@@ -2,6 +2,15 @@ export type CustomerStatus = 'potential' | 'negotiating' | 'closed' | 'lost'
 
 export type CustomerIntent = 'rent' | 'buy' | 'both' | 'undecided'
 
+/** 已成交客戶在房東端的角色標記（對應買家 / 簽約租客儀表板入口） */
+export type ClosedRoleTag = 'buyer' | 'signed_tenant'
+
+export type ClosedDealInfo = {
+  closedAt: string
+  propertyLabel: string
+  amountTwd: number | null
+}
+
 export type FollowUpEntry = {
   id: string
   content: string
@@ -29,6 +38,11 @@ export type CustomerDetailsPayload = {
   followUps: FollowUpEntry[]
   viewingRecords: ViewingRecord[]
   communicationLog: CommunicationEntry[]
+  /** 已成交客戶封存後仍保留紀錄，預設自清單隱藏 */
+  archived: boolean
+  /** 已成交客戶標記為買家或已簽約租客，用於導向對應儀表板 */
+  closedRoleTag: ClosedRoleTag | null
+  closedDeal: ClosedDealInfo | null
 }
 
 const DEFAULT_DETAILS: CustomerDetailsPayload = {
@@ -37,6 +51,9 @@ const DEFAULT_DETAILS: CustomerDetailsPayload = {
   followUps: [],
   viewingRecords: [],
   communicationLog: [],
+  archived: false,
+  closedRoleTag: null,
+  closedDeal: null,
 }
 
 type PartialDetails = Partial<CustomerDetailsPayload>
@@ -86,6 +103,34 @@ function normalizeViewingRecords(value: unknown): ViewingRecord[] {
     .filter((item) => item.propertyLabel.length > 0)
 }
 
+function normalizeClosedRoleTag(value: unknown): ClosedRoleTag | null {
+  if (value === 'buyer' || value === 'signed_tenant') {
+    return value
+  }
+  return null
+}
+
+function normalizeClosedDeal(value: unknown): ClosedDealInfo | null {
+  if (!isObject(value)) {
+    return null
+  }
+  const closedAt = typeof value.closedAt === 'string' ? value.closedAt : ''
+  const propertyLabel = typeof value.propertyLabel === 'string' ? value.propertyLabel.trim() : ''
+  if (!closedAt || !propertyLabel) {
+    return null
+  }
+  let amountTwd: number | null = null
+  if (value.amountTwd === null || value.amountTwd === undefined || value.amountTwd === '') {
+    amountTwd = null
+  } else if (typeof value.amountTwd === 'number' && Number.isFinite(value.amountTwd)) {
+    amountTwd = value.amountTwd
+  } else if (typeof value.amountTwd === 'string') {
+    const n = Number(value.amountTwd.replace(/,/g, ''))
+    amountTwd = Number.isFinite(n) ? n : null
+  }
+  return { closedAt, propertyLabel, amountTwd }
+}
+
 function normalizeCommunicationLog(value: unknown): CommunicationEntry[] {
   if (!Array.isArray(value)) {
     return []
@@ -131,12 +176,16 @@ export function parseCustomerDetails(rawNotes: string | null | undefined): Custo
     }
 
     const summaryNote = typeof parsed.summaryNote === 'string' ? parsed.summaryNote : ''
+    const archived = parsed.archived === true
     return {
       summaryNote,
       intent: normalizeIntent(parsed.intent),
       followUps: normalizeFollowUps(parsed.followUps),
       viewingRecords: normalizeViewingRecords(parsed.viewingRecords),
       communicationLog: normalizeCommunicationLog(parsed.communicationLog),
+      archived,
+      closedRoleTag: normalizeClosedRoleTag(parsed.closedRoleTag),
+      closedDeal: normalizeClosedDeal(parsed.closedDeal),
     }
   } catch {
     return {
@@ -230,4 +279,23 @@ export function getIntentLabel(intent: CustomerIntent): string {
     default:
       return '尚未確定'
   }
+}
+
+export function getClosedRoleTagLabel(tag: ClosedRoleTag): string {
+  switch (tag) {
+    case 'buyer':
+      return '買家'
+    case 'signed_tenant':
+      return '已簽約租客'
+    default:
+      return ''
+  }
+}
+
+/** 儀表板統計用：已成交且未封存的客戶 */
+export function isActiveClosedLandlordCustomer(row: {
+  status?: string | null
+  notes?: string | null
+}): boolean {
+  return normalizeCustomerStatus(row.status ?? undefined) === 'closed' && !parseCustomerDetails(row.notes).archived
 }

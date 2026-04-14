@@ -1,6 +1,7 @@
 import {
   appendFollowUp,
   getLatestCommunication,
+  isActiveClosedLandlordCustomer,
   normalizeCustomerStatus,
   parseCustomerDetails,
   serializeCustomerDetails,
@@ -104,5 +105,24 @@ describe('customer-details utility', () => {
     const reparsed = parseCustomerDetails(serialized)
     expect(reparsed.summaryNote).toBe('A')
     expect(reparsed.intent).toBe('rent')
+    expect(reparsed.archived).toBe(false)
+    expect(reparsed.closedRoleTag).toBeNull()
+    expect(reparsed.closedDeal).toBeNull()
+  })
+
+  it('counts active closed customers excluding archived', () => {
+    expect(
+      isActiveClosedLandlordCustomer({
+        status: 'closed',
+        notes: JSON.stringify({ archived: true }),
+      }),
+    ).toBe(false)
+    expect(
+      isActiveClosedLandlordCustomer({
+        status: 'closed',
+        notes: JSON.stringify({ archived: false }),
+      }),
+    ).toBe(true)
+    expect(isActiveClosedLandlordCustomer({ status: 'potential', notes: '{}' })).toBe(false)
   })
 })

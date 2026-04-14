@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { LayoutGrid, List, Loader2, Mail, Edit, Phone, Plus, Search, Trash2, User } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
+import { Archive, LayoutGrid, List, Loader2, Mail, Edit, Phone, Plus, Search, Trash2, User } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -24,6 +25,7 @@ import { CustomerGridView } from './CustomerGridView'
 import { normalizeCustomer, type Customer, type CustomerApiRecord, type CustomerFormData } from './customer-types'
 
 export default function LandlordCustomersPage() {
+  const searchParams = useSearchParams()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -39,6 +41,7 @@ export default function LandlordCustomersPage() {
 
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
+  const [includeArchivedClosed, setIncludeArchivedClosed] = useState(false)
 
   const { showToast } = useToast()
 
@@ -52,6 +55,7 @@ export default function LandlordCustomersPage() {
       const params = new URLSearchParams()
       if (searchQuery) params.append('query', searchQuery)
       if (statusFilter !== 'all') params.append('status', statusFilter)
+      if (includeArchivedClosed) params.append('include_archived', '1')
 
       const res = await fetch(`/api/landlord/customers?${params.toString()}`)
       if (!res.ok) throw new Error('Failed to fetch data')
@@ -70,11 +74,18 @@ export default function LandlordCustomersPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [searchQuery, showToast, statusFilter])
+  }, [includeArchivedClosed, searchQuery, showToast, statusFilter])
 
   useEffect(() => {
     void fetchCustomers()
   }, [fetchCustomers])
+
+  useEffect(() => {
+    const s = searchParams.get('status')
+    if (s === 'potential' || s === 'negotiating' || s === 'closed' || s === 'lost') {
+      setStatusFilter(s)
+    }
+  }, [searchParams])
 
   const updateCustomerById = async (id: string, next: Partial<Customer>) => {
     const res = await fetch(`/api/landlord/customers/${id}`, {
@@ -99,6 +110,16 @@ export default function LandlordCustomersPage() {
   }
 
   const handleDelete = async (id: string) => {
+    const target = customers.find((c) => c.id === id)
+    if (target?.status === 'closed') {
+      showToast({
+        type: 'warning',
+        message: '無法刪除已成交客戶',
+        description: '請在右側詳情使用「封存客戶」以保留歷史紀錄。',
+      })
+      return
+    }
+
     if (!confirm('確定要刪除此客戶資料嗎？此操作無法復原。')) return
 
     try {
@@ -146,6 +167,9 @@ export default function LandlordCustomersPage() {
             followUps: [],
             viewingRecords: [],
             communicationLog: [],
+            archived: false,
+            closedRoleTag: null,
+            closedDeal: null,
           }),
         }
 
@@ -244,6 +268,17 @@ export default function LandlordCustomersPage() {
     }
   }
 
+  const handlePersistCustomerNotes = async (nextNotes: string) => {
+    if (!selectedCustomer) return
+    try {
+      await updateCustomerById(selectedCustomer.id, { notes: nextNotes })
+      showToast({ type: 'success', message: '已更新', description: '客戶詳細資料已儲存' })
+    } catch (error) {
+      console.error(error)
+      showToast({ type: 'error', message: '儲存失敗', description: '請稍後再試' })
+    }
+  }
+
   const handleAddFollowUp = async () => {
     if (!selectedCustomer) return
 
@@ -305,6 +340,16 @@ export default function LandlordCustomersPage() {
               <option value="lost">已失效</option>
             </select>
           </div>
+
+          <label className="flex items-center gap-2 text-sm text-[#cccccc] cursor-pointer select-none shrink-0">
+            <input
+              type="checkbox"
+              checked={includeArchivedClosed}
+              onChange={(e) => setIncludeArchivedClosed(e.target.checked)}
+              className="rounded border-[#333333] bg-[#1A1A1A] accent-[#7C3AED]"
+            />
+            顯示已封存成交客戶
+          </label>
 
           {/* View mode toggle */}
           <div className="flex items-center gap-0.5 border border-[#333333] rounded-lg p-0.5 self-start md:self-auto">
@@ -382,7 +427,13 @@ export default function LandlordCustomersPage() {
                             <td className="px-6 py-4"><div className="flex flex-col gap-1"><div className="flex items-center gap-2 text-[#cccccc]"><Phone className="w-3 h-3" />{customer.phone}</div><div className="flex items-center gap-2 text-[#999999]"><Mail className="w-3 h-3" />{customer.email}</div></div></td>
                             <td className="px-6 py-4"><CustomerStatusBadge status={customer.status} /></td>
                             <td className="px-6 py-4 text-[#999999] max-w-xs truncate">{details.summaryNote || '-'}</td>
-                            <td className="px-6 py-4 text-right"><div className="flex items-center justify-end gap-2"><Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); setEditingCustomer(customer); setIsModalOpen(true) }}><Edit className="w-4 h-4 text-blue-400" /></Button><Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); void handleDelete(customer.id) }}><Trash2 className="w-4 h-4 text-red-400" /></Button></div></td>
+                            <td className="px-6 py-4 text-right"><div className="flex items-center justify-end gap-2"><Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); setEditingCustomer(customer); setIsModalOpen(true) }}><Edit className="w-4 h-4 text-blue-400" /></Button>{customer.status === 'closed' ? (
+                              <span className="inline-flex h-8 w-8 items-center justify-center" title="已成交客戶請至右側詳情封存，不可刪除">
+                                <Archive className="w-4 h-4 text-[#666666]" />
+                              </span>
+                            ) : (
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); void handleDelete(customer.id) }}><Trash2 className="w-4 h-4 text-red-400" /></Button>
+                            )}</div></td>
                           </tr>
                         )
                       })
@@ -411,6 +462,7 @@ export default function LandlordCustomersPage() {
               onAddFollowUp={() => { void handleAddFollowUp() }}
               onQuickStatusChange={(status) => { void handleQuickStatusChange(status) }}
               onIntentChange={(intent) => { void handleIntentChange(intent) }}
+              onSaveCustomerNotes={(notes) => handlePersistCustomerNotes(notes)}
             />
           </Card>
         </div>
