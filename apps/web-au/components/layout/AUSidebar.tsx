@@ -21,6 +21,7 @@ import {
   ClipboardList,
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 // ---------------------------------------------------------------------------
 // Nav item definitions per role
@@ -138,6 +139,16 @@ export default function AUSidebar() {
 
       {/* Bottom actions */}
       <div className="border-t border-border-default px-2 py-3 space-y-0.5 shrink-0">
+        <div
+          className={[
+            'flex items-center gap-3 rounded-lg px-3 py-2',
+            collapsed ? 'justify-center px-0' : '',
+          ].join(' ')}
+          title={collapsed ? 'Toggle light / dark theme' : undefined}
+        >
+          <ThemeToggle />
+          {!collapsed && <span className="text-sm text-text-secondary">Theme</span>}
+        </div>
         <Link
           href="/settings"
           title={collapsed ? 'Settings' : undefined}

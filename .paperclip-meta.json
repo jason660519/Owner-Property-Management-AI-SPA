@@ -1,8 +1,8 @@
 {
-  "issueId": "1654a2f5-df33-4c77-92f9-41facb32c937",
-  "title": "[Row 074] 電子簽約功能 安全基礎建設",
+  "issueId": "efe34cc8-0cd7-4fc1-b8ed-f2695f0a5dab",
+  "title": "[Row 075] 一鍵切換UI風格 暗/亮模式",
   "status": "todo",
-  "slug": "row-074",
-  "branchName": "feature/paperclip-row-074",
-  "updatedAt": "2026-04-13T21:13:29.642Z"
+  "slug": "row-075",
+  "branchName": "feature/paperclip-row-075",
+  "updatedAt": "2026-04-14T02:59:24.725Z"
 }
