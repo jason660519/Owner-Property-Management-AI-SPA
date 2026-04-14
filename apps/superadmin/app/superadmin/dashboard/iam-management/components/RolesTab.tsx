@@ -123,8 +123,9 @@ export function RolesTab() {
   // Create / Edit modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode]   = useState(false);
-  const [roleForm, setRoleForm]       = useState({ id: '', name: '', description: '' });
+  const [roleForm, setRoleForm]       = useState({ id: '', name: '', description: '', parent_role_id: '' });
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [formError, setFormError]     = useState<string | null>(null);
 
   useEffect(() => { loadAll(); }, []);
   const loadAll = async () => {
@@ -211,17 +212,24 @@ export function RolesTab() {
 
   const handleCreateOrUpdate = async () => {
     if (!roleForm.name) return;
+    setFormError(null);
     const formData = new FormData();
     formData.append('name', roleForm.name);
     formData.append('description', roleForm.description);
+    formData.append('parent_role_id', roleForm.parent_role_id || '');
+    let result: { success?: boolean; error?: string };
     if (isEditMode && roleForm.id) {
       formData.append('id', roleForm.id);
-      await updateRole(formData);
+      result = await updateRole(formData);
     } else {
-      await createRole(formData);
+      result = await createRole(formData);
+    }
+    if (result.error) {
+      setFormError(result.error);
+      return;
     }
     setIsModalOpen(false);
-    setRoleForm({ id: '', name: '', description: '' });
+    setRoleForm({ id: '', name: '', description: '', parent_role_id: '' });
     setIsEditMode(false);
     await loadAll();
   };
@@ -239,8 +247,21 @@ export function RolesTab() {
   };
 
   const openCreateModal = () => {
-    setRoleForm({ id: '', name: '', description: '' });
+    setRoleForm({ id: '', name: '', description: '', parent_role_id: '' });
     setIsEditMode(false);
+    setFormError(null);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (role: Role) => {
+    setRoleForm({
+      id: role.id,
+      name: role.name,
+      description: role.description ?? '',
+      parent_role_id: role.parent_role_id ?? '',
+    });
+    setIsEditMode(true);
+    setFormError(null);
     setIsModalOpen(true);
   };
 
@@ -378,6 +399,37 @@ export function RolesTab() {
         <h2 className="text-xl font-bold text-white">Roles &amp; Permissions Matrix</h2>
       </div>
 
+      {/* Role list — edit / delete / inheritance at a glance */}
+      <div className="flex-none flex flex-wrap gap-2 max-h-28 overflow-y-auto pr-1">
+        {roles.map(role => (
+          <div
+            key={role.id}
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[#2A2A2A] border border-[#333333] text-xs text-[#CCCCCC]"
+          >
+            <span className="text-white font-medium">{role.name}</span>
+            {role.parent_role_id ? (
+              <span className="text-[#666666] max-w-[140px] truncate" title="繼承的父角色">
+                ←{roles.find(p => p.id === role.parent_role_id)?.name ?? '…'}
+              </span>
+            ) : null}
+            <button
+              type="button"
+              className="text-[#7C3AED] hover:text-[#A78BFA] font-medium"
+              onClick={() => openEditModal(role)}
+            >
+              編輯
+            </button>
+            <button
+              type="button"
+              className="text-red-400 hover:text-red-300 font-medium"
+              onClick={() => void handleDeleteRole(role.id, role.name)}
+            >
+              刪除
+            </button>
+          </div>
+        ))}
+      </div>
+
       {/* Error banners */}
       {deleteError && (
         <div className="flex-none flex items-center gap-2 px-4 py-2.5 bg-red-900/30 border border-red-500/30 rounded-lg text-red-300 text-sm">
@@ -476,6 +528,12 @@ export function RolesTab() {
               <button onClick={() => setIsModalOpen(false)} className="text-[#666666] hover:text-white"><X size={18} /></button>
             </div>
             <div className="p-6 space-y-4">
+              {formError && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-red-900/30 border border-red-500/30 rounded-lg text-red-300 text-xs">
+                  <AlertCircle size={14} />
+                  {formError}
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-medium text-[#999999] mb-1.5">角色名稱 <span className="text-red-500">*</span></label>
                 <input type="text" value={roleForm.name} onChange={e => setRoleForm({ ...roleForm, name: e.target.value })}
@@ -485,6 +543,21 @@ export function RolesTab() {
                 <label className="block text-xs font-medium text-[#999999] mb-1.5">說明</label>
                 <textarea value={roleForm.description} onChange={e => setRoleForm({ ...roleForm, description: e.target.value })}
                   rows={2} placeholder="角色職責說明..." className="w-full px-3 py-2 border border-[#333333] rounded-lg bg-[#1A1A1A] text-white text-sm focus:ring-2 focus:ring-[#7C3AED] outline-none" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#999999] mb-1.5">繼承自（父角色）</label>
+                <select
+                  value={roleForm.parent_role_id}
+                  onChange={e => setRoleForm({ ...roleForm, parent_role_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-[#333333] rounded-lg bg-[#1A1A1A] text-white text-sm focus:ring-2 focus:ring-[#7C3AED] outline-none"
+                >
+                  <option value="">（無 — 根角色）</option>
+                  {roles
+                    .filter(r => r.id !== roleForm.id)
+                    .map(r => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                </select>
               </div>
               <div className="flex justify-end gap-3 pt-1">
                 <Button variant="outline" onClick={() => setIsModalOpen(false)} className="border-[#333333] text-[#999999] hover:bg-[#333333] text-sm">取消</Button>

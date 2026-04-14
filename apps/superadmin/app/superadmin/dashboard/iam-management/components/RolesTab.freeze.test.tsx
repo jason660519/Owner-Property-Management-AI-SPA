@@ -7,7 +7,7 @@ import { IamViewSettingsProvider } from './viewSettings';
 
 jest.mock('../../rbac_access_control/actions', () => ({
   getRoles: jest.fn().mockResolvedValue([
-    { id: 'role-1', name: 'super_admin', description: 'Super admin' },
+    { id: 'role-1', name: 'super_admin', description: 'Super admin', parent_role_id: null },
   ]),
   createRole: jest.fn(),
   deleteRole: jest.fn().mockResolvedValue({ error: null }),
