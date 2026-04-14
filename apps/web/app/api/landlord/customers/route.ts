@@ -70,9 +70,34 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { name, phone, email, status, emergency_contact, notes } = body
-  
+
   if (!name || !phone || !email) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  }
+
+  const phoneNorm = String(phone).replace(/[\s-]/g, '')
+
+  const { data: dupByPhone } = await supabase
+    .from('landlord_customers')
+    .select('id')
+    .eq('landlord_id', user.id)
+    .eq('phone', phoneNorm)
+    .maybeSingle()
+
+  const emailTrim = String(email).trim()
+
+  const { data: dupByEmail } = await supabase
+    .from('landlord_customers')
+    .select('id')
+    .eq('landlord_id', user.id)
+    .ilike('email', emailTrim)
+    .maybeSingle()
+
+  if (dupByPhone || dupByEmail) {
+    return NextResponse.json(
+      { error: '此電話或 Email 已存在於您的客戶名單' },
+      { status: 409 },
+    )
   }
 
   const { data, error } = await supabase
@@ -80,8 +105,8 @@ export async function POST(req: NextRequest) {
     .insert({
       landlord_id: user.id,
       name,
-      phone,
-      email,
+      phone: phoneNorm,
+      email: emailTrim,
       status: status || 'potential',
       emergency_contact,
       notes

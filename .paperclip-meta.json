@@ -1,8 +1,8 @@
 {
-  "issueId": "1f4525c5-62cf-4ddb-a620-0c4cbc91c556",
-  "title": "[Row 032] 房東的客戶 List模式",
+  "issueId": "2028e710-f7c7-4361-9f19-0e1a2d96456f",
+  "title": "[Row 033] 房東的客戶 新增客戶功能",
   "status": "todo",
-  "slug": "row-032",
-  "branchName": "feature/paperclip-row-032",
-  "updatedAt": "2026-04-13T21:12:36.250Z"
+  "slug": "row-033",
+  "branchName": "feature/paperclip-row-033",
+  "updatedAt": "2026-04-13T21:12:54.688Z"
 }

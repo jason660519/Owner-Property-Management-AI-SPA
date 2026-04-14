@@ -28,7 +28,11 @@ import {
 import { CustomerDetailsPanel } from './CustomerDetailsPanel'
 import { CustomerFormModal } from './CustomerFormModal'
 import { CustomerGridView } from './CustomerGridView'
+<<<<<<< HEAD
 import { CustomerListView } from './CustomerListView'
+=======
+import { findDuplicateCustomer } from './customer-duplicate'
+>>>>>>> feature/paperclip-row-033
 import { normalizeCustomer, type Customer, type CustomerApiRecord, type CustomerFormData } from './customer-types'
 import { TenantFilterWorkbench } from './TenantFilterWorkbench'
 
@@ -212,8 +216,25 @@ function LandlordCustomersPageInner() {
 
         showToast({ type: 'success', message: '更新成功', description: '客戶資料已更新' })
       } else {
+<<<<<<< HEAD
         const merged = mergeTenantProfileFromForm(
           {
+=======
+        const dup = findDuplicateCustomer(customers, data.phone, data.email)
+        if (dup) {
+          const proceed = confirm(
+            `已存在相同電話或 Email 的客戶：${dup.name}（${dup.phone} / ${dup.email}）。仍要新增嗎？`,
+          )
+          if (!proceed) {
+            return
+          }
+        }
+
+        const payload = {
+          ...data,
+          status: normalizeCustomerStatus(data.status),
+          notes: serializeCustomerDetails({
+>>>>>>> feature/paperclip-row-033
             summaryNote: data.notes?.trim() || '',
             intent: 'undecided',
             followUps: [],
@@ -233,9 +254,30 @@ function LandlordCustomersPageInner() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         })
+        if (res.status === 409) {
+          let msg = '此電話或 Email 已存在於您的客戶名單'
+          try {
+            const errBody = (await res.json()) as { error?: string }
+            if (errBody.error) msg = errBody.error
+          } catch {
+            /* ignore */
+          }
+          showToast({ type: 'error', message: '無法新增', description: msg })
+          return
+        }
         if (!res.ok) throw new Error('Create failed')
 
+        const created = (await res.json()) as CustomerApiRecord
+        const createdId = created.id
+
         showToast({ type: 'success', message: '新增成功', description: '客戶資料已新增' })
+
+        setIsModalOpen(false)
+        await fetchCustomers()
+        if (createdId) {
+          setSelectedCustomerId(createdId)
+        }
+        return
       }
 
       setIsModalOpen(false)
