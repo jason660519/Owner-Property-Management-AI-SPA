@@ -414,3 +414,236 @@ export async function getPropertyOptions(): Promise<{ id: string; title: string 
     .order('title')
   return data ?? []
 }
+
+/** 房東後台 — 單一物件詳情（出售或出租擇一） */
+export interface LandlordPropertyDetail {
+  id: string
+  title: string
+  address: string
+  type: 'rental' | 'sale'
+  status: string
+  price: number
+  areaSqm: number
+  bedrooms: number
+  bathrooms: number
+  floor: number | null
+  totalFloors: number | null
+  description: string
+  images: string[]
+  ownerName: string
+  buildingNumber?: string
+  landNumber?: string
+  createdAt: string
+  auxiliaryBuildings?: Array<{
+    id: string
+    name: string
+    area_sqm: number
+    location: string
+  }>
+  parkingSpaces?: Array<{
+    id: string
+    type: 'independent' | 'shared'
+    category: string
+    number: string
+    area_sqm: number
+    location: string
+  }>
+  commonAreaSqm?: number
+}
+
+export interface PropertyViewingAppointmentRow {
+  id: string
+  source: 'tenant' | 'buyer'
+  visitorName: string
+  visitorPhone: string
+  preferredDate: string
+  preferredTime: string
+  status: string | null
+}
+
+function mapDetailsToLandlordProperty(
+  row: Record<string, unknown>,
+  kind: 'sale' | 'rental'
+): LandlordPropertyDetail {
+  const d = (row.details && typeof row.details === 'object'
+    ? row.details
+    : {}) as Record<string, unknown>
+  const rawImages = Array.isArray(d.images) ? (d.images as string[]) : []
+  const imageUrl = typeof d.imageUrl === 'string' ? d.imageUrl : ''
+  const images =
+    rawImages.length > 0 ? rawImages : imageUrl ? [imageUrl] : []
+
+  const areaSqm = Number(d.main_area_sqm ?? d.area ?? 0) || 0
+
+  return {
+    id: row.id as string,
+    title: (typeof d.title === 'string' ? d.title : '') || (typeof row.address === 'string' ? row.address : ''),
+    address: typeof row.address === 'string' ? row.address : '',
+    type: kind === 'sale' ? 'sale' : 'rental',
+    status: typeof row.status === 'string' ? row.status : 'unknown',
+    price:
+      kind === 'sale'
+        ? Number(row.price) || 0
+        : Number(row.monthly_rent) || 0,
+    areaSqm,
+    bedrooms: typeof d.bedrooms === 'number' ? d.bedrooms : 0,
+    bathrooms: typeof d.bathrooms === 'number' ? d.bathrooms : 0,
+    floor: d.floor != null ? Number(d.floor) : null,
+    totalFloors: d.total_floors != null ? Number(d.total_floors) : null,
+    description: typeof d.description === 'string' ? d.description : '',
+    images,
+    ownerName: typeof d.owner_name === 'string' ? d.owner_name : '—',
+    buildingNumber: typeof d.building_number === 'string' ? d.building_number : undefined,
+    landNumber: typeof d.land_number === 'string' ? d.land_number : undefined,
+    createdAt: typeof row.created_at === 'string' ? row.created_at : new Date().toISOString(),
+    auxiliaryBuildings: Array.isArray(d.auxiliary_buildings)
+      ? (d.auxiliary_buildings as LandlordPropertyDetail['auxiliaryBuildings'])
+      : undefined,
+    parkingSpaces: Array.isArray(d.parking_spaces)
+      ? (d.parking_spaces as LandlordPropertyDetail['parkingSpaces'])
+      : undefined,
+    commonAreaSqm:
+      d.common_area_sqm != null ? Number(d.common_area_sqm) : undefined,
+  }
+}
+
+/**
+ * 載入當前房東擁有之單一物件（RLS）；先查出售再查出租。
+ */
+export async function getLandlordPropertyById(
+  id: string
+): Promise<{ success: boolean; property?: LandlordPropertyDetail; error?: string }> {
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return { success: false, error: '用戶未登入' }
+    }
+
+    const [salesResult, rentalsResult] = await Promise.all([
+      supabase.from('property_sales').select('*').eq('id', id).maybeSingle(),
+      supabase.from('property_rentals').select('*').eq('id', id).maybeSingle(),
+    ])
+
+    if (salesResult.data) {
+      return {
+        success: true,
+        property: mapDetailsToLandlordProperty(
+          salesResult.data as Record<string, unknown>,
+          'sale'
+        ),
+      }
+    }
+    if (rentalsResult.data) {
+      return {
+        success: true,
+        property: mapDetailsToLandlordProperty(
+          rentalsResult.data as Record<string, unknown>,
+          'rental'
+        ),
+      }
+    }
+
+    if (salesResult.error || rentalsResult.error) {
+      console.error('[getLandlordPropertyById]', salesResult.error, rentalsResult.error)
+    }
+
+    return { success: false, error: '找不到物件或無權限檢視' }
+  } catch (error) {
+    console.error('[getLandlordPropertyById] Unexpected error:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '未知錯誤',
+    }
+  }
+}
+
+export const PLACEHOLDER_IMAGE =
+  'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200'
+
+/**
+ * 此物件最近看房預約（租屋 + 買家），最多 10 筆，依日期新到舊。
+ */
+export async function getPropertyViewingAppointments(
+  propertyId: string,
+  limit: number = 10
+): Promise<{ success: boolean; appointments: PropertyViewingAppointmentRow[]; error?: string }> {
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return { success: false, appointments: [], error: '用戶未登入' }
+    }
+
+    const [tenantRes, buyerRes] = await Promise.all([
+      supabase
+        .from('viewing_appointments_tenant')
+        .select(
+          'id, visitor_name, visitor_phone, preferred_date, preferred_time, status'
+        )
+        .eq('property_id', propertyId)
+        .eq('landlord_id', user.id),
+      supabase
+        .from('viewing_appointments_buyer')
+        .select(
+          'id, visitor_name, visitor_phone, preferred_date, preferred_time, status'
+        )
+        .eq('property_id', propertyId)
+        .eq('landlord_id', user.id),
+    ])
+
+    if (tenantRes.error) {
+      console.error('[getPropertyViewingAppointments] tenant:', tenantRes.error)
+    }
+    if (buyerRes.error) {
+      console.error('[getPropertyViewingAppointments] buyer:', buyerRes.error)
+    }
+
+    const tenantRows = (tenantRes.data || []).map((a) => ({
+      id: a.id,
+      source: 'tenant' as const,
+      visitorName: a.visitor_name,
+      visitorPhone: a.visitor_phone,
+      preferredDate: a.preferred_date,
+      preferredTime: a.preferred_time,
+      status: a.status,
+    }))
+
+    const buyerRows = (buyerRes.data || []).map((a) => ({
+      id: a.id,
+      source: 'buyer' as const,
+      visitorName: a.visitor_name,
+      visitorPhone: a.visitor_phone,
+      preferredDate: a.preferred_date,
+      preferredTime: a.preferred_time,
+      status: a.status,
+    }))
+
+    const combined = [...tenantRows, ...buyerRows].sort((a, b) => {
+      const da = new Date(`${a.preferredDate}T${a.preferredTime}`).getTime()
+      const db = new Date(`${b.preferredDate}T${b.preferredTime}`).getTime()
+      return db - da
+    })
+
+    return {
+      success: true,
+      appointments: combined.slice(0, limit),
+    }
+  } catch (error) {
+    console.error('[getPropertyViewingAppointments] Unexpected error:', error)
+    return {
+      success: false,
+      appointments: [],
+      error: error instanceof Error ? error.message : '未知錯誤',
+    }
+  }
+}
+
