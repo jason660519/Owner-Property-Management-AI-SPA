@@ -1,8 +1,9 @@
 {
-  "issueId": "fecf61b4-2e4b-4fff-b8be-bff96f8dc0da",
-  "title": "[Row 056] 房東的物件展示功能 Details模式",
+  "issueId": "5b6cb75e-4f65-4c36-9dc1-85f564f9672f",
+  "issueKey": "VIS-81",
+  "title": "[Row 057] 房東的物件展示功能 Grid模式",
   "status": "todo",
-  "slug": "row-056",
-  "branchName": "feature/paperclip-row-056",
-  "updatedAt": "2026-04-13T21:13:20.787Z"
+  "slug": "row-057",
+  "branchName": "feature/paperclip-row-057",
+  "updatedAt": "2026-04-13T22:20:09.000Z"
 }

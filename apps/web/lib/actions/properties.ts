@@ -61,6 +61,10 @@ export interface MyPropertyItem {
   id: string
   title: string
   address: string
+  /** 結構化地址：縣市（篩選／排序用） */
+  address_city: string | null
+  /** 結構化地址：行政區（篩選／排序用） */
+  address_district: string | null
   type: 'rental' | 'sale'
   status: string
   price: number
@@ -68,6 +72,28 @@ export interface MyPropertyItem {
   imageUrl: string
   created_at: string
 }
+
+/** 與 DB CHECK（20260301110000）一致之出售物件可選狀態 */
+export const landlordSaleStatusValues = [
+  'for_sale',
+  'pending',
+  'sold',
+  'expired',
+  'invalid',
+] as const
+
+/** 與 DB CHECK 一致之出租物件可選狀態 */
+export const landlordRentalStatusValues = [
+  'for_rent',
+  'collecting_rent',
+  'rented',
+  'pending',
+  'expired',
+  'invalid',
+] as const
+
+export type LandlordSaleStatus = (typeof landlordSaleStatusValues)[number]
+export type LandlordRentalStatus = (typeof landlordRentalStatusValues)[number]
 
 export interface MyPropertiesResult {
   success: boolean
@@ -119,6 +145,8 @@ export async function getMyProperties(): Promise<MyPropertiesResult> {
         id: s.id,
         title: (details.title as string) || s.address,
         address: s.address,
+        address_city: s.address_city ?? null,
+        address_district: s.address_district ?? null,
         type: 'sale' as const,
         status: s.status,
         price: Number(s.price) || 0,
@@ -135,6 +163,8 @@ export async function getMyProperties(): Promise<MyPropertiesResult> {
         id: r.id,
         title: (details.title as string) || r.address,
         address: r.address,
+        address_city: r.address_city ?? null,
+        address_district: r.address_district ?? null,
         type: 'rental' as const,
         status: r.status,
         price: Number(r.monthly_rent) || 0,
@@ -161,6 +191,65 @@ export async function getMyProperties(): Promise<MyPropertiesResult> {
     return {
       success: false,
       properties: [],
+      error: error instanceof Error ? error.message : '未知錯誤',
+    }
+  }
+}
+
+export interface UpdateMyPropertyStatusResult {
+  success: boolean
+  error?: string
+}
+
+/**
+ * 房東於列表頁快速更新物件狀態（不需進入詳情頁）
+ */
+export async function updateMyPropertyStatus(
+  propertyId: string,
+  propertyType: 'sale' | 'rental',
+  newStatus: string
+): Promise<UpdateMyPropertyStatusResult> {
+  try {
+    const supabase = await createClient()
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return { success: false, error: '用戶未登入' }
+    }
+
+    const allowed =
+      propertyType === 'sale'
+        ? landlordSaleStatusValues
+        : landlordRentalStatusValues
+
+    if (!(allowed as readonly string[]).includes(newStatus)) {
+      return { success: false, error: '不支援的狀態值' }
+    }
+
+    const tableName = propertyType === 'sale' ? 'property_sales' : 'property_rentals'
+
+    const { error } = await supabase
+      .from(tableName)
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .eq('id', propertyId)
+
+    if (error) {
+      console.error('[UpdateMyPropertyStatus]', error)
+      return { success: false, error: error.message }
+    }
+
+    revalidatePath('/landlord/properties')
+    revalidatePath(`/landlord/properties/${propertyId}`)
+
+    return { success: true }
+  } catch (error) {
+    console.error('[UpdateMyPropertyStatus] Unexpected error:', error)
+    return {
+      success: false,
       error: error instanceof Error ? error.message : '未知錯誤',
     }
   }
@@ -233,7 +322,7 @@ export async function createProperty(
           owner_id: profile.id,
           address: input.address,
           price: input.price,
-          status: 'available',
+          status: 'for_sale',
           details,
         })
         .select('id')
@@ -257,7 +346,7 @@ export async function createProperty(
           owner_id: profile.id,
           address: input.address,
           monthly_rent: input.price, // 月租金
-          status: 'vacant',
+          status: 'for_rent',
           lease_term: 12, // 預設 12 個月
           details,
         })
