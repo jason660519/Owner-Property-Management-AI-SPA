@@ -26,6 +26,9 @@ export const customerSchema = z.object({
   status: z.enum(['potential', 'negotiating', 'closed', 'lost']).optional(),
   emergency_contact: z.string().optional(),
   notes: z.string().optional(),
+  credit_score: z.string().optional(),
+  monthly_income: z.string().optional(),
+  occupation_type: z.string().optional(),
 })
 
 export type CustomerFormData = z.infer<typeof customerSchema>

@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { LayoutGrid, List, Loader2, Mail, Edit, Phone, Plus, Search, Trash2, User } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard'
 import { Button } from '@/components/ui/Button'
@@ -15,6 +16,7 @@ import {
   normalizeCustomerStatus,
   parseCustomerDetails,
   serializeCustomerDetails,
+  type CustomerDetailsPayload,
   type CustomerIntent,
   type CustomerStatus,
 } from './customer-details'
@@ -22,8 +24,37 @@ import { CustomerDetailsPanel, CustomerStatusBadge } from './CustomerDetailsPane
 import { CustomerFormModal } from './CustomerFormModal'
 import { CustomerGridView } from './CustomerGridView'
 import { normalizeCustomer, type Customer, type CustomerApiRecord, type CustomerFormData } from './customer-types'
+import { TenantFilterWorkbench } from './TenantFilterWorkbench'
 
-export default function LandlordCustomersPage() {
+function mergeTenantProfileFromForm(
+  base: CustomerDetailsPayload,
+  data: CustomerFormData,
+): CustomerDetailsPayload {
+  const cs = data.credit_score?.trim() ?? ''
+  const inc = data.monthly_income?.trim() ?? ''
+  const occ = data.occupation_type?.trim() ?? ''
+
+  const creditScore = cs === '' || Number.isNaN(Number(cs)) ? null : Number(cs)
+  const monthlyIncome = inc === '' || Number.isNaN(Number(inc)) ? null : Number(inc)
+  const occupationType = occ === '' ? null : occ
+
+  if (creditScore === null && monthlyIncome === null && occupationType === null) {
+    const { tenantProfile: _omit, ...rest } = base
+    return rest
+  }
+
+  return {
+    ...base,
+    tenantProfile: {
+      creditScore,
+      monthlyIncome,
+      occupationType,
+    },
+  }
+}
+
+function LandlordCustomersPageInner() {
+  const searchParams = useSearchParams()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -36,6 +67,10 @@ export default function LandlordCustomersPage() {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null)
   const [followUpDraft, setFollowUpDraft] = useState('')
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
+  const [mainTab, setMainTab] = useState<'overview' | 'tenant_filter'>('overview')
+
+  const [filterCustomers, setFilterCustomers] = useState<Customer[]>([])
+  const [filterLoading, setFilterLoading] = useState(false)
 
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
@@ -75,6 +110,42 @@ export default function LandlordCustomersPage() {
   useEffect(() => {
     void fetchCustomers()
   }, [fetchCustomers])
+
+  const reloadFilterCustomers = useCallback(async () => {
+    setFilterLoading(true)
+    try {
+      const res = await fetch('/api/landlord/customers')
+      if (!res.ok) throw new Error('Failed to fetch data')
+      const data = await res.json() as CustomerApiRecord[]
+      setFilterCustomers(data.map(normalizeCustomer))
+    } catch (error) {
+      console.error(error)
+      showToast({ type: 'error', message: '載入失敗', description: '無法載入租客篩選資料' })
+    } finally {
+      setFilterLoading(false)
+    }
+  }, [showToast])
+
+  useEffect(() => {
+    if (mainTab !== 'tenant_filter') return
+    void reloadFilterCustomers()
+  }, [mainTab, reloadFilterCustomers])
+
+  const reloadFilterAndOverview = useCallback(async () => {
+    await reloadFilterCustomers()
+    await fetchCustomers()
+  }, [reloadFilterCustomers, fetchCustomers])
+
+  useEffect(() => {
+    const cid = searchParams.get('customerId')
+    if (!cid) return
+    const inOverview = customers.some((c) => c.id === cid)
+    const inFilterList = filterCustomers.some((c) => c.id === cid)
+    if (inOverview || inFilterList) {
+      setSelectedCustomerId(cid)
+      setMainTab('overview')
+    }
+  }, [searchParams, customers, filterCustomers])
 
   const updateCustomerById = async (id: string, next: Partial<Customer>) => {
     const res = await fetch(`/api/landlord/customers/${id}`, {
@@ -122,10 +193,14 @@ export default function LandlordCustomersPage() {
     try {
       if (editingCustomer) {
         const details = parseCustomerDetails(editingCustomer.notes)
+        const merged = mergeTenantProfileFromForm(
+          { ...details, summaryNote: data.notes?.trim() || '' },
+          data,
+        )
         const payload = {
           ...data,
           status: normalizeCustomerStatus(data.status),
-          notes: serializeCustomerDetails({ ...details, summaryNote: data.notes?.trim() || '' }),
+          notes: serializeCustomerDetails(merged),
         }
 
         const res = await fetch(`/api/landlord/customers/${editingCustomer.id}`, {
@@ -137,16 +212,20 @@ export default function LandlordCustomersPage() {
 
         showToast({ type: 'success', message: '更新成功', description: '客戶資料已更新' })
       } else {
-        const payload = {
-          ...data,
-          status: normalizeCustomerStatus(data.status),
-          notes: serializeCustomerDetails({
+        const merged = mergeTenantProfileFromForm(
+          {
             summaryNote: data.notes?.trim() || '',
             intent: 'undecided',
             followUps: [],
             viewingRecords: [],
             communicationLog: [],
-          }),
+          },
+          data,
+        )
+        const payload = {
+          ...data,
+          status: normalizeCustomerStatus(data.status),
+          notes: serializeCustomerDetails(merged),
         }
 
         const res = await fetch('/api/landlord/customers', {
@@ -244,6 +323,29 @@ export default function LandlordCustomersPage() {
     }
   }
 
+  const handleBatchTenantStatus = async (ids: string[], nextStatus: CustomerStatus) => {
+    const now = new Date().toISOString()
+    for (const id of ids) {
+      const customer = filterCustomers.find((c) => c.id === id)
+      if (!customer) continue
+      const details = parseCustomerDetails(customer.notes)
+      const nextDetails = appendCommunication(details, {
+        summary: `批次狀態更新為「${getStatusLabel(nextStatus)}」`,
+        createdAt: now,
+        channel: 'system',
+      })
+      const res = await fetch(`/api/landlord/customers/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: nextStatus,
+          notes: serializeCustomerDetails(nextDetails),
+        }),
+      })
+      if (!res.ok) throw new Error('Batch update failed')
+    }
+  }
+
   const handleAddFollowUp = async () => {
     if (!selectedCustomer) return
 
@@ -281,6 +383,39 @@ export default function LandlordCustomersPage() {
       }
     >
       <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row gap-2 border-b border-[#333333] pb-3">
+          <button
+            type="button"
+            onClick={() => setMainTab('overview')}
+            className={[
+              'px-4 py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px]',
+              mainTab === 'overview' ? 'bg-[#7C3AED] text-white' : 'text-[#cccccc] hover:bg-[#262626]',
+            ].join(' ')}
+          >
+            總覽
+          </button>
+          <button
+            type="button"
+            onClick={() => setMainTab('tenant_filter')}
+            className={[
+              'px-4 py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px]',
+              mainTab === 'tenant_filter' ? 'bg-[#7C3AED] text-white' : 'text-[#cccccc] hover:bg-[#262626]',
+            ].join(' ')}
+          >
+            租客篩選
+          </button>
+        </div>
+
+        {mainTab === 'tenant_filter' ? (
+          <TenantFilterWorkbench
+            customers={filterCustomers}
+            isLoading={filterLoading}
+            onReload={reloadFilterAndOverview}
+            onBatchUpdateStatus={handleBatchTenantStatus}
+            showToast={showToast}
+          />
+        ) : (
+          <>
         {/* Filters + view toggle */}
         <div className="flex flex-col md:flex-row gap-4">
           <div className="relative flex-1">
@@ -414,6 +549,8 @@ export default function LandlordCustomersPage() {
             />
           </Card>
         </div>
+          </>
+        )}
       </div>
 
       <CustomerFormModal
@@ -424,5 +561,30 @@ export default function LandlordCustomersPage() {
         onSubmit={(data) => { void handleSubmit(data) }}
       />
     </DashboardLayout>
+  )
+}
+
+export default function LandlordCustomersPage() {
+  return (
+    <Suspense
+      fallback={(
+        <DashboardLayout
+          currentRole="landlord"
+          pageTitle="客戶管理"
+          breadcrumbs={[
+            { label: '首頁', href: '/' },
+            { label: '房東專區', href: '/landlord' },
+            { label: '客戶管理' },
+          ]}
+        >
+          <div className="flex items-center justify-center py-24 text-[#999999] gap-2">
+            <Loader2 className="w-6 h-6 animate-spin" />
+            載入頁面…
+          </div>
+        </DashboardLayout>
+      )}
+    >
+      <LandlordCustomersPageInner />
+    </Suspense>
   )
 }

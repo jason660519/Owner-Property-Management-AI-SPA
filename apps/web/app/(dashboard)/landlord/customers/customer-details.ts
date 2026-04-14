@@ -23,12 +23,19 @@ export type CommunicationEntry = {
   channel: 'system' | 'note' | 'message'
 }
 
+export type TenantProfile = {
+  creditScore: number | null
+  monthlyIncome: number | null
+  occupationType: string | null
+}
+
 export type CustomerDetailsPayload = {
   summaryNote: string
   intent: CustomerIntent
   followUps: FollowUpEntry[]
   viewingRecords: ViewingRecord[]
   communicationLog: CommunicationEntry[]
+  tenantProfile?: TenantProfile
 }
 
 const DEFAULT_DETAILS: CustomerDetailsPayload = {
@@ -86,6 +93,39 @@ function normalizeViewingRecords(value: unknown): ViewingRecord[] {
     .filter((item) => item.propertyLabel.length > 0)
 }
 
+function normalizeTenantProfile(value: unknown): TenantProfile | undefined {
+  if (!isObject(value)) {
+    return undefined
+  }
+
+  const creditRaw = value.creditScore
+  const incomeRaw = value.monthlyIncome
+  const occupationRaw = value.occupationType
+
+  const creditScore =
+    typeof creditRaw === 'number' && Number.isFinite(creditRaw)
+      ? creditRaw
+      : typeof creditRaw === 'string' && creditRaw.trim() !== '' && Number.isFinite(Number(creditRaw))
+        ? Number(creditRaw)
+        : null
+
+  const monthlyIncome =
+    typeof incomeRaw === 'number' && Number.isFinite(incomeRaw)
+      ? incomeRaw
+      : typeof incomeRaw === 'string' && incomeRaw.trim() !== '' && Number.isFinite(Number(incomeRaw))
+        ? Number(incomeRaw)
+        : null
+
+  const occupationType =
+    typeof occupationRaw === 'string' && occupationRaw.trim().length > 0 ? occupationRaw.trim() : null
+
+  if (creditScore === null && monthlyIncome === null && occupationType === null) {
+    return undefined
+  }
+
+  return { creditScore, monthlyIncome, occupationType }
+}
+
 function normalizeCommunicationLog(value: unknown): CommunicationEntry[] {
   if (!Array.isArray(value)) {
     return []
@@ -131,12 +171,15 @@ export function parseCustomerDetails(rawNotes: string | null | undefined): Custo
     }
 
     const summaryNote = typeof parsed.summaryNote === 'string' ? parsed.summaryNote : ''
+    const tenantProfile = normalizeTenantProfile(parsed.tenantProfile)
+
     return {
       summaryNote,
       intent: normalizeIntent(parsed.intent),
       followUps: normalizeFollowUps(parsed.followUps),
       viewingRecords: normalizeViewingRecords(parsed.viewingRecords),
       communicationLog: normalizeCommunicationLog(parsed.communicationLog),
+      ...(tenantProfile ? { tenantProfile } : {}),
     }
   } catch {
     return {
