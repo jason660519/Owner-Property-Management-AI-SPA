@@ -1,18 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { GitBranch, ClipboardCheck, Users, Rocket } from 'lucide-react';
+import { GitBranch, ClipboardCheck, Users, Rocket, History } from 'lucide-react';
 import { BottomSheetTabs, type SheetTabDef } from '@/components/ui/BottomSheetTabs';
 import PaperclipWorktreesClient from './PaperclipWorktreesClient';
 import WorkSummaryTab from './WorkSummaryTab';
 import AgentsTab from './AgentsTab';
 import AutoDispatchTab from './AutoDispatchTab';
+import MergeHistoryTab from './MergeHistoryTab';
 
 const TAB_DEFS: SheetTabDef[] = [
   { id: 'worktrees', label: 'Worktrees', zhLabel: 'Worktrees', icon: GitBranch, color: 'text-purple-500', activeColor: 'bg-purple-600 text-white' },
   { id: 'work-summary', label: 'Summary', zhLabel: 'Work Summary', icon: ClipboardCheck, color: 'text-emerald-500', activeColor: 'bg-emerald-600 text-white' },
   { id: 'agents', label: 'Agents', zhLabel: 'Paperclip', icon: Users, color: 'text-sky-500', activeColor: 'bg-sky-600 text-white' },
   { id: 'dispatch', label: 'Auto Dispatch', icon: Rocket, color: 'text-amber-500', activeColor: 'bg-amber-600 text-white' },
+  { id: 'history', label: 'History', zhLabel: 'Merge History', icon: History, color: 'text-teal-500', activeColor: 'bg-teal-600 text-white' },
 ];
 
 export default function PaperclipDashboardTabs() {
@@ -44,6 +46,7 @@ export default function PaperclipDashboardTabs() {
         {activeTab === 'work-summary' && <WorkSummaryTab onBadgeChange={(n) => updateBadge('work-summary', n)} />}
         {activeTab === 'agents' && <AgentsTab onBadgeChange={(n) => updateBadge('agents', n)} />}
         {activeTab === 'dispatch' && <AutoDispatchTab onBadgeChange={(n) => updateBadge('dispatch', n)} />}
+        {activeTab === 'history' && <MergeHistoryTab onBadgeChange={(n) => updateBadge('history', n)} />}
       </div>
       <BottomSheetTabs tabs={tabsWithBadges} activeTab={activeTab} onTabChange={setActiveTab} />
     </div>

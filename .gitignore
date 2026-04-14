@@ -4,6 +4,9 @@
 apps/superadmin/backups/*.json
 !apps/superadmin/backups/.gitkeep
 
+# Merge history (operational data, not source)
+apps/superadmin/data/merge-history.json
+
 # ============================================
 # Paperclip worktrees (Phase E: per-task isolated git worktrees)
 # Paperclip agents write to .paperclip-worktrees/<branch>/ inside the

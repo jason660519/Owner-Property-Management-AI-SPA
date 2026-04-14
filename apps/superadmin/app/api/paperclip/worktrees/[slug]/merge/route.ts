@@ -20,6 +20,7 @@ import {
   makeDockerGitRunner,
   type MergeBranchOutcome,
 } from '@/lib/paperclip/worktree';
+import { addEntry } from '@/lib/paperclip/merge-history';
 
 const PAPERCLIP_CONTAINER_NAME =
   process.env.PAPERCLIP_CONTAINER_NAME ?? 'paperclip-paperclip-1';
@@ -115,6 +116,15 @@ export async function POST(
       cleanup: { requested: false, ok: null },
     });
   }
+
+  // Record in merge history
+  addEntry({
+    slug: sanitizeSlug(slug),
+    branch: result.mergedBranch,
+    status: 'merged',
+    mergeSha: result.mergeSha,
+    commitsMerged: result.commitsMerged,
+  }).catch(() => { /* best-effort — don't fail the merge response */ });
 
   // Optional post-merge cleanup. Failures here don't invalidate the merge
   // itself, so we annotate the response but still return 200.
