@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
 
+import { createSupabaseRedirectCookieBridge } from '@/lib/middleware/supabase-redirect-cookies';
+
 /** 從 request 取得客戶端 IP（支援 proxy 的 x-forwarded-for / x-real-ip） */
 function getClientIp(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for');
@@ -54,6 +56,7 @@ export async function middleware(request: NextRequest) {
   }
 
   let response = NextResponse.next({ request });
+  const redirectCookies = createSupabaseRedirectCookieBridge();
 
   // 與 apps/web 一致：本機 http://localhost 須 lax + 非 Secure，否則 session cookie 無法寫入／帶上
   const isProduction = process.env.NODE_ENV === 'production';
@@ -73,6 +76,7 @@ export async function middleware(request: NextRequest) {
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
           );
+          redirectCookies.recordFromSetAll(cookiesToSet);
         },
       },
       cookieOptions: {
@@ -87,13 +91,11 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Helper: create a redirect that preserves any session cookies set during refresh
+  // Helper: redirect while preserving Supabase session cookies (incl. httpOnly / path / sameSite).
+  // Do not use response.cookies.getAll() alone — it drops options and breaks refresh.
   const redirectWithCookies = (url: URL) => {
     const redirectResponse = NextResponse.redirect(url);
-    // Copy refreshed session cookies from the Supabase response to the redirect
-    response.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
-    });
+    redirectCookies.applyToRedirect(redirectResponse.cookies);
     return redirectResponse;
   };
 
