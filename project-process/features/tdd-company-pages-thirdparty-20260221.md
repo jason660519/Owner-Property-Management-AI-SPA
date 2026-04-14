@@ -136,6 +136,6 @@
 
 ---
 
-## 四、第三方 API 整合測試策略（原規格）
+## 五、第三方 API 整合測試策略（原規格）
 
 第三方 API 整合：先以 MSW（Mock Service Worker）模擬 API 回應進行快速單元測試，再於 Staging 環境連真實沙盒 API 執行整合測試。

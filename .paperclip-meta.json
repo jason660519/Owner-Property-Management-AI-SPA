@@ -1,8 +1,8 @@
 {
-  "issueId": "e4bd9835-89fe-48e7-9365-63658d6dcd4a",
-  "title": "[Row 008] 超級管理員AI LLM API效能監控 AI語音回應可靠度監控功能",
-  "status": "in_review",
-  "slug": "row-008",
-  "branchName": "feature/paperclip-row-008",
-  "updatedAt": "2026-04-14T00:00:27Z"
+  "issueId": "88645a57-fa52-4912-bac2-9533c323eaed",
+  "title": "[Row 020] 聯絡我們>發送訊息功能",
+  "status": "todo",
+  "slug": "row-020",
+  "branchName": "feature/paperclip-row-020",
+  "updatedAt": "2026-04-12T23:02:14.968Z"
 }
