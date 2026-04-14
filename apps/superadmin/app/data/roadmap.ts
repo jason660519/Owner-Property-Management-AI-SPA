@@ -71,6 +71,16 @@ export interface RoadmapFeature {
   avgResponseTime?: number;
   lastIncident?: string;
   operationsNote?: string;
+
+  // --- VIS sync fields ---
+  /** Paperclip VIS issue human-readable ID (e.g. "VIS-136") */
+  vis_issue_id?: string;
+  /** Paperclip VIS issue internal UUID */
+  vis_issue_key?: string;
+  /** Sync status with VIS */
+  vis_sync_status?: "in_sync" | "diverged" | "conflict" | "pending";
+  /** ISO timestamp of last successful sync */
+  vis_last_synced_at?: string;
 }
 
 export interface RoadmapData {
@@ -256,8 +266,8 @@ const RAW_FEATURES: RoadmapFeature[] = [
   },
   {
     name: "超級管理員-網路安全－隱私審計管理功能",
-    locatedPage: "superadmin (待建)",
-    percentage: 0,
+    locatedPage: "superadmin/dashboard/security",
+    percentage: 60,
     acceptanceCriteria:
       "1. 提供資料存取稽核日誌，記錄誰在何時存取了哪些敏感資料。\n2. 自動偵測異常登入行為（不常用設備、異地登入）並警示。\n3. 支援設定 IP 白名單與黑名單。\n4. 個資保護合規報告（GDPR/PDPA）一鍵生成。\n5. SSL 憑證到期前 30 天自動提醒。",
     docPath: "",
@@ -265,8 +275,18 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/features/tdd-superadmin-platform-20260221.md",
     category: "超級管理員 (Super Admin)",
     points: 5,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "OpenAI Codex (DevOps Agent)",
+    lastModifiedDate: "2026/04/14",
+    phase: "development",
+    developmentProgress:
+      "2026/04/14 (VIS-68, DevOps Agent)\n" +
+      "- ✅ DB migration: security_audit_enhancements（audit_logs 增強、IP 白黑名單表）\n" +
+      "- ✅ Security Dashboard 頁面 /superadmin/dashboard/security（SecurityDashboardClient 626 行）\n" +
+      "- ✅ Server actions: getAuditLogs, getIPRules, addIPRule, removeIPRule\n" +
+      "- ✅ Sidebar nav-items 新增 Security 入口\n" +
+      "- ✅ Middleware 整合 IP 白黑名單檢查\n" +
+      "- ✅ SSL 憑證監控腳本 scripts/ssl-cert-monitor.js\n" +
+      "- 待完成：合規報告生成、異常登入自動偵測邏輯優化",
   },
   {
     name: "超級管理員-網站效能監控功能",
@@ -642,15 +662,24 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東的客戶－Grid模式",
     locatedPage: "web/landlord/customers",
-    percentage: 0,
+    percentage: 80,
     acceptanceCriteria:
       "1. 以卡片網格形式顯示客戶列表，每卡顯示頭像、姓名、狀態、最後聯絡時間。\n2. 支援欄數切換（2欄/3欄/4欄）。\n3. 卡片點擊進入 Details 模式。\n4. 支援拖曳重新排序（依優先級）。\n5. 懸停卡片顯示快速操作（發訊息、修改狀態）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 2,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "OpenAI Codex (Fullstack Agent)",
+    lastModifiedDate: "2026/04/14",
+    phase: "development",
+    developmentProgress:
+      "2026/04/14 (VIS-62, Fullstack Agent)\n" +
+      "- ✅ CustomerGridView.tsx 組件（231 行）：卡片網格、頭像/姓名/狀態/聯絡時間\n" +
+      "- ✅ customers/page.tsx 重構：整合 Grid 模式切換\n" +
+      "- ✅ API route /api/landlord/customers\n" +
+      "- ✅ DB migration: add_customer_priority（拖曳排序用）\n" +
+      "- ✅ customer-types.ts 擴充\n" +
+      "- 待完成：欄數切換 UI、拖曳重排",
   },
   {
     name: "房東的客戶－List模式",
@@ -894,15 +923,21 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東財務－銀行帳戶管理",
     locatedPage: "web/landlord/finance",
-    percentage: 0,
+    percentage: 30,
     acceptanceCriteria:
       "1. 可綁定多個銀行帳戶（支援主要銀行）。\n2. 顯示帳戶餘額（需連結開放銀行API）。\n3. 可設定各帳戶的收款用途（租金帳戶/維修備用金）。\n4. 帳戶資訊以加密方式儲存，顯示時遮蔽部分號碼。\n5. 可手動新增或刪除帳戶（不可刪除有未結清款項的帳戶）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 3,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Google Gemini 2.5 Flash (Database Agent)",
+    lastModifiedDate: "2026/04/14",
+    phase: "development",
+    developmentProgress:
+      "2026/04/14 (VIS-64, Database Agent)\n" +
+      "- ✅ DB migration: create_bank_accounts（113 行）含 bank_accounts 表、pgcrypto 加密、RLS 策略\n" +
+      "- ✅ RLS: 帳戶擁有者隔離（SELECT/INSERT/UPDATE/DELETE）\n" +
+      "- 待完成：前端 UI、API route、開放銀行 API 整合",
   },
   {
     name: "房東財務－收支明細儀表板",
@@ -1120,16 +1155,24 @@ const RAW_FEATURES: RoadmapFeature[] = [
   },
   {
     name: "租客的維修申請",
-    locatedPage: "web/tenant (待建)",
-    percentage: 0,
+    locatedPage: "web/tenant/maintenance",
+    percentage: 30,
     acceptanceCriteria:
       "1. 提供維修申請表單：物件/位置、問題類別（水電/管路/設備）、問題描述、照片上傳。\n2. 送出後可追蹤維修進度（待派工/已指派/完成）。\n3. 維修人員到訪確認後需由租客線上確認完成。\n4. 維修記錄存檔，供日後查閱。\n5. 緊急維修（如漏水）標記後，通知時間 < 10 分鐘。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-tenant-buyer-20260221.md",
     category: "租客 (Tenant)",
     points: 3,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "OpenAI Codex (QA Agent)",
+    lastModifiedDate: "2026/04/14",
+    phase: "testing",
+    testStatus: "passed",
+    testScriptPath: "apps/web/lib/actions/__tests__/",
+    developmentProgress:
+      "2026/04/14 (VIS-65, QA Agent)\n" +
+      "- ✅ Unit tests: maintenance.test.ts（450 行，覆蓋 server actions CRUD + 狀態流轉）\n" +
+      "- ✅ E2E test: maintenance.spec.ts（178 行，租客提交→房東審核→完成流程）\n" +
+      "- 注意：此 Row 原測試由 Row 120 維護，QA Agent 新增額外獨立測試檔案",
   },
   {
     name: "租客的溝通中心",
@@ -1240,15 +1283,22 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "一鍵切換UI風格：暗/亮模式",
     locatedPage: "全站",
-    percentage: 0,
+    percentage: 98,
     acceptanceCriteria:
       "1. 點擊切換按鈕（或依系統設定）立即切換暗/亮模式，無需刷新頁面。\n2. 使用者設定持久化（下次登入維持上次選擇）。\n3. 所有頁面、組件、彈窗均支援暗/亮模式，無色彩殘留問題。\n4. 過渡動畫流暢（約200ms）。\n5. 系統自動偵測作業系統主題並設為預設值。",
+    devLog:
+      "ThemeProvider (next-themes, attribute=class, defaultTheme=system, enableSystem) 已部署至 superadmin 及 web 兩個 app；CSS 語意色彩 token（--color-text-primary / bg / border / accent 等）在 globals.css 以 .dark class 覆寫，完整支援 light/dark 切換。ThemeToggle component 採單一圓形按鈕、Sun/Moon icon 旋轉動畫 200ms；已置入 superadmin DashboardHeader、web Header（公共頁）及 web DashboardHeader（landlord/tenant 儀表板）。Tailwind darkMode: 'class' 已設定，所有語意 token 均透過 var() 對應，body 有 transition 300ms ease。\n\n" +
+      "2026/04/14 (VIS-67, UI/UX Agent)\n" +
+      "- ✅ 多組件 dark mode 審查修正：DashboardLayout, KPICard, ProgressLink, RoleSwitcher\n" +
+      "- ✅ MessageDetail/MessageFilters/MessageList 暗色模式適配\n" +
+      "- ✅ Sheet.tsx dark mode 調整\n" +
+      "- ✅ globals.css dark token 完善（web + web-au）",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-system-common-20260221.md",
     category: "通用/系統 (General/System)",
     points: 2,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Google Gemini 2.5 Flash (UI/UX Agent)",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "RWD網頁響應式設計",
@@ -1266,17 +1316,31 @@ const RAW_FEATURES: RoadmapFeature[] = [
   },
   {
     name: "使用者身份驗證系統",
-    locatedPage: "web/login, web/register",
-    percentage: 90,
+    locatedPage: "web/login, web/register, superadmin/middleware",
+    percentage: 95,
     acceptanceCriteria:
-      "1. 支援 Email/密碼登入與 Google OAuth 登入。\n2. JWT Token 有效期24小時，Refresh Token 有效期7天。\n3. 連續5次登入失敗後帳號暫時鎖定（15分鐘）。\n4. 新裝置登入時發送 Email 安全通知。\n5. 密碼需符合強度要求（最少8字元、含大小寫與數字）。",
+      "1. 支援 Email/密碼登入與 Google OAuth 登入。\n2. JWT Token 有效期24小時，Refresh Token 有效期7天。\n3. 連續5次登入失敗後帳號暫時鎖定（15分鐘）。\n4. 新裝置登入時發送 Email 安全通知。\n5. 密碼需符合強度要求（最少8字元、含大小寫與數字）。\n6. Superadmin middleware session refresh cookie 需正確保留（2026/04/13 修復）。",
     docPath: "/project-process/features/auth-system.md",
     featureSpecDocPath: "/project-process/features/auth-system.md",
     tddSpecDocPath: "/project-process/features/tdd-system-common-20260221.md",
+    devLogDocPath: "/project-process/dev-logs/dev-superadmin-middleware-cookie-fix-2026-04-13.md",
     category: "通用/系統 (General/System)",
     points: 8,
-    lastModifiedBy: "Claude Sonnet 4.5",
-    lastModifiedDate: "2026/02/05",
+    devLog:
+      "### 2026-04-13 修復 Superadmin Middleware Cookie 丟失\n" +
+      "**問題**：Superadmin 間歇性登入失敗（時好時壞），用戶反覆被踢回登入頁。\n" +
+      "**根因**：middleware.ts 的 setAll callback 未同步 request.cookies 也未重建 response；redirect 路徑建立新 NextResponse.redirect() 導致 session refresh cookie 全部丟失。\n" +
+      "**修復**：\n" +
+      "- setAll 中先 mirror request.cookies，再 rebuild response（與 apps/web 一致）\n" +
+      "- 新增 redirectWithCookies() helper，redirect 時攜帶刷新後的 session cookie\n" +
+      "**影響檔案**：apps/superadmin/middleware.ts\n" +
+      "**避坑**：\n" +
+      "⚠️ middleware response 必須用 let，不能用 const\n" +
+      "⚠️ redirect 時必須複製 cookie，否則 session refresh 靜默失敗\n" +
+      "⚠️ 新建 middleware 需與主站 pattern 交叉比對\n" +
+      "**下階段**：抽取共用 middleware Supabase client 到 packages/；補 E2E session refresh 測試",
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/13",
   },
   {
     name: "註冊的使用者都有自己的行事曆管理頁面",
@@ -2175,11 +2239,12 @@ const RAW_FEATURES: RoadmapFeature[] = [
     testStatus: "passed",
     unitTestCoverage: 100,
     testCoverage: 100,
-    lastModifiedBy: "Cursor Agent",
+    lastModifiedBy: "GPT-5.3-Codex",
     lastModifiedDate: "2026/04/13",
     docPath: "/docs/operational-guides/paperclip-mac-mini-24h.md",
     testProgress:
-      "2026/04/13：`polling.test.ts`、`api-error-meta.test.ts` 通過；`npm run test --workspace superadmin -- paperclip --runInBand` 無迴歸；`validate-test-manifest.sh` 通過。",
+      "2026/04/13：`polling.test.ts`、`api-error-meta.test.ts` 通過；194 paperclip tests 全過；`validate-test-manifest.sh` 通過。\n" +
+      "追加改進：連錯 ≥5 次自動停止輪詢（getPaperclipIssuePollDelayMs 回傳 null）、cost loading 超時 3 分鐘降速、backoff 上限 60s→120s。",
     featureDescription:
       "在 Row 130 既有閉環（Prompt→Issue→Worktree→Diff→Merge）上，系統化優化：降低無效 API／輪詢成本、改善卡住與可恢復性、補強 Mac mini 長時運行之 Docker／磁碟／映像與憑證策略文件與可選健康檢查。",
     acceptanceCriteria:
@@ -2188,9 +2253,12 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/features/paperclip-automation-optimization-dev-spec-20260413.md",
     tddSpecDocPath:
       "/project-process/features/paperclip-automation-optimization-tdd-spec-20260413.md",
-    docPath: "",
     developmentProgress:
       "2026/04/13 實作完成：lib/paperclip/polling.ts（issue 自適應輪詢間隔、worktrees 列表 10–45s）、api-error-meta.ts（HTTP 分類與可恢復建議文案）；PromptEngineerModal 改用自適應輪詢與送單／cleanup 錯誤強化；預設／分類 Prompt 附加【成本與 API 節制】段落；PaperclipWorktreesClient 依成本／commits 調整列表輪詢；新增 docs/operational-guides/paperclip-mac-mini-24h.md 與 tools/paperclip/health-check.sh；單元測試 polling.test.ts、api-error-meta.test.ts；test-manifest id 133 已填路徑並通過 validate-test-manifest。",
+    devLog:
+      "[2026/04/13] (GPT-5.3-Codex)\n• 完成 Paperclip 5 分鐘週期性 failed 事件根因盤點（adapter/model mismatch、API quota 路徑、OAuth/API key 混用）。\n• 新增 scripts/paperclip-start-oauth.sh：一鍵重建 OAuth 優先執行路徑，並寫入 fixpoint timestamp。\n• 新增 scripts/paperclip-health-last10m.sh：提供最近 10 分鐘健康摘要，支援 fixpoint 視角統計。\n• 8 位 agent 統一修正為 claude_local + model=sonnet 並恢復 active。\n• 今日任務狀態判定：實作層 Done；穩定性治理 In review（待 24h 觀測收斂）。",
+    devLogDocPath:
+      "/project-process/dev-logs/dev-paperclip-stability-recovery-2026-04-13.md",
     testScriptPath: "apps/superadmin/unit_test/133",
   },
   {
@@ -2238,9 +2306,210 @@ const RAW_FEATURES: RoadmapFeature[] = [
     testProgress:
       "2026/04/13 已執行：\n- ✅ 新增並通過 `backend/ocr_service/tests/unit/test_people_db_search_strategy.py`（5 cases：query intent、phone normalize、quality band）\n- ✅ 新增並通過 `backend/ocr_service/tests/integration/test_people_db_id132_api_contract.py`（3 cases：exact-match 契約/資料集 facets/匯入台帳 API）\n- ✅ `apps/superadmin/app/superadmin/settings/people-database/page.test.tsx` 通過（1 case）\n- ✅ 新增 E2E：`apps/superadmin/e2e/132/people-db-id132-acceptance.spec.ts`（覆蓋 exact-match、多資料集勾選、來源追溯、匯入台帳四條路徑）\n- ✅ 本機實跑 E2E（帶入 `PLAYWRIGHT_SUPERADMIN_EMAIL` / `PLAYWRIGHT_SUPERADMIN_PASSWORD`）已全綠：2 passed\n- ⚠️ `backend/ocr_service/tests/unit/test_people_db.py` 現存 1 個既有失敗（`test_missing_required_fields`，與本次改動無直接關聯；目前 ImportSubmitRequest 本就允許該 payload）。",
   },
+  // --- Row 135: PromptEngineer 重建 — 多人協作任務派遣系統 ---
+  {
+    name: "PromptEngineer 重建 — 多人協作任務派遣系統 + Adapter 自動輪替",
+    locatedPage: "superadmin/dashboard/project-progress + docker/paperclip",
+    percentage: 100,
+    category: "超級管理員 (Super Admin)",
+    points: 13,
+    phase: "testing",
+    testStatus: "passed",
+    unitTestCoverage: 100,
+    testCoverage: 100,
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/13",
+    featureSpecDocPath: "/project-process/features/prompt-engineer-rebuild-dev-spec-20260413.md",
+    tddSpecDocPath: "/project-process/features/tdd-prompt-engineer-rebuild-20260413.md",
+    docPath: "/docs/operational-guides/paperclip-mac-mini-24h.md",
+    testScriptPath: "apps/superadmin/unit_test/135",
+    developmentProgress:
+      "2026/04/13 全日完成 P0+P1+P2+Adapter Fallback：\n" +
+      "P0（拆 Modal）：\n" +
+      "- ✅ prompt-templates.ts + status-styles.ts（純函數抽出）\n" +
+      "- ✅ usePaperclipTaskStatus.ts（共用輪詢 hook）\n" +
+      "- ✅ TaskDispatchModal.tsx（~200 行，送完即關）\n" +
+      "- ✅ TaskStatusChip.tsx + TaskDetailPanel.tsx\n" +
+      "- ✅ DevelopmentTab.tsx 接入新元件\n" +
+      "P1（Server-side Task Queue）：\n" +
+      "- ✅ paperclip_tasks 表 + partial unique index 防重複送單\n" +
+      "- ✅ /api/paperclip/task-queue CRUD + poll（server-side 重試）\n" +
+      "- ✅ usePaperclipTasks hook\n" +
+      "P2（多人協作）：\n" +
+      "- ✅ engineer_profiles 表 + claim/assign API\n" +
+      "- ✅ AssigneeColumn + PaperclipStatusColumn（表格新增 2 欄）\n" +
+      "Adapter 自動輪替：\n" +
+      "- ✅ adapter-fallback.ts：6 adapter fallback chain\n" +
+      "- ✅ task-queue/poll 整合自動切換（偵測 quota exceeded → PATCH /api/agents/:id）\n" +
+      "- ✅ 容器安裝 6 個 coding agent CLI（claude/codex/cursor/hermes/opencode/pi）\n" +
+      "- ✅ .env.paperclip 灌入 Anthropic/OpenAI/Gemini/Cursor key\n" +
+      "- ✅ 8 個 Paperclip agent 從 codex_local → claude_local\n" +
+      "- ✅ 運維文件更新（§5.1 Adapter 自動輪替、§6 成本監控）",
+    testProgress:
+      "2026/04/13：\n" +
+      "- ✅ prompt-templates.test.ts（12 tests）\n" +
+      "- ✅ status-styles.test.ts（5 tests）\n" +
+      "- ✅ adapter-fallback.test.ts（10 tests）\n" +
+      "- ✅ 全套 paperclip tests 192 passed\n" +
+      "- ✅ TS 編譯無新增錯誤\n" +
+      "- ✅ test-manifest ID 135 已登錄、validate 通過（13 entries）\n" +
+      "- ✅ Supabase migration 上線驗證（paperclip_tasks + engineer_profiles）\n" +
+      "- ✅ 6 adapter 環境測試全通過（claude/codex/cursor/hermes/opencode ✅ PASS，pi ⚠️ 需設 model）",
+  },
+  {
+    name: "[Stability] Anthropic credit low-balance alert + circuit breaker",
+    category: "通用/系統 (General/System)",
+    percentage: 100,
+    phase: "development",
+    lastModifiedBy: "Claude (CTO)",
+    lastModifiedDate: "2026/04/13",
+    points: 5,
+    developmentProgress:
+      "2026/04/13 VIS-50：實作 Anthropic 信用額度低餘額警報與熔斷器（2026-04-13 VIS-48 停電事後修復）。\n" +
+      "- ✅ Supabase migration 20260413200000：anthropic_credit_guard 表（單例，RLS）\n" +
+      "- ✅ lib/ai/anthropic-credit-guard.ts：核心邏輯（loadCreditGuardConfig、getPaperclipSpendUsd、evaluateCreditStatus、runCreditGuardCycle）\n" +
+      "- ✅ GET/POST /api/ai-billing/anthropic：查詢狀態 / 更新設定（total_credits_usd、閾值、reset_circuit_breaker）\n" +
+      "- ✅ POST /api/paperclip/issues：新增熔斷器檢查，餘額不足時返回 503\n" +
+      "- ✅ GET /api/paperclip/task-queue/poll：每次 poll 後觸發 credit guard 週期（限頻 5 分鐘）\n" +
+      "- ✅ 警報機制：餘額 < alert_threshold 時在 Paperclip 建立高優先度 issue 通知\n" +
+      "- ✅ 熔斷器自動復原：operator 補充信用額後更新 total_credits_usd 即可自動解除",
+  },
+
+  // --- VIS 同步系統 (Row 136-139) ---
+  {
+    name: "VIS 同步基礎設施 — Engineer Profile V2 + Webhook 框架",
+    category: "超級管理員 (Super Admin)",
+    percentage: 70,
+    phase: "development",
+    points: 8,
+    locatedPage: "superadmin/engineers, api/webhooks/paperclip",
+    featureSpecDocPath:
+      "/project-process/features/vis-roadmap-sync-dev-spec-20260414.md",
+    tddSpecDocPath:
+      "/project-process/features/tdd-vis-roadmap-sync-20260414.md",
+    acceptanceCriteria:
+      "1. engineer_profiles 管理頁面（/superadmin/engineers）可 CRUD 工程師，含角色/時薪/最大並發任務數。\n" +
+      "2. paperclip_webhook_logs、sync_conflicts 表建立，含 RLS 策略。\n" +
+      "3. POST /api/webhooks/paperclip 可接收並驗證 HMAC 事件，非同步加入背景 worker。\n" +
+      "4. RoadmapFeature interface 新增 vis_issue_id / vis_issue_key / vis_sync_status / vis_last_synced_at 欄位。\n" +
+      "5. 環境驗證腳本（PAPERCLIP_WEBHOOK_SECRET 等）執行無錯。",
+    lastModifiedBy: "OpenAI Codex (Architect Agent)",
+    lastModifiedDate: "2026/04/14",
+    developmentProgress:
+      "2026/04/14 (VIS-66, Architect Agent)\n" +
+      "- ✅ DB migration: create_vis_sync_tables（115 行，paperclip_webhook_logs + sync_conflicts + RLS）\n" +
+      "- ✅ POST /api/webhooks/paperclip route（89 行，HMAC 驗證 + 事件分派）\n" +
+      "- ✅ Engineer 管理頁面 /superadmin/engineers（page.tsx 362 行 + actions.ts 105 行）\n" +
+      "- ✅ ADR 文件：adr-137-vis-sync-infrastructure.md\n" +
+      "- ✅ 環境驗證腳本：scripts/validate-vis-sync-env.sh\n" +
+      "- ✅ vis-roadmap-sync-dev-spec 更新\n" +
+      "- 待完成：HMAC 驗證整合測試、背景 worker 實作",
+  },
+  {
+    name: "VIS 批量遷移工具 — 135 任務導出到 Paperclip VIS",
+    category: "超級管理員 (Super Admin)",
+    percentage: 60,
+    phase: "development",
+    points: 5,
+    locatedPage: "superadmin/dashboard/project-progress",
+    featureSpecDocPath:
+      "/project-process/features/vis-roadmap-sync-dev-spec-20260414.md",
+    tddSpecDocPath:
+      "/project-process/features/tdd-vis-roadmap-sync-20260414.md",
+    acceptanceCriteria:
+      "1. sync-roadmap-to-vis.ts dry-run 列印 135 行 VIS issue 草稿，格式與映射邏輯無誤。\n" +
+      "2. 實際執行後 VIS 儀表板出現 ~135 個 issue，title / labels / priority / story_points 正確。\n" +
+      "3. roadmap.ts 每個已遷移 Feature 均有 vis_issue_id / vis_issue_key 回寫。\n" +
+      "4. Superadmin 出現「導出到 VIS」按鈕，顯示實時進度日誌與完成摘要。\n" +
+      "5. 增量模式：再次執行跳過已有 vis_issue_id 的 Feature，僅處理新增/變更項目。",
+    lastModifiedBy: "OpenAI Codex (Fullstack Agent)",
+    lastModifiedDate: "2026/04/14",
+    developmentProgress:
+      "2026/04/14 (VIS-70, Fullstack Agent)\n" +
+      "- ✅ sync-roadmap-to-vis.ts 批量遷移腳本\n" +
+      "- ✅ Superadmin 導出 UI（ExportToVISButton + ExportProgressDialog）\n" +
+      "- 待完成：增量模式、vis_issue_id 回寫驗證",
+  },
+  {
+    name: "VIS \u2194 Roadmap 雙向同步引擎 + 衝突解決",
+    category: "超級管理員 (Super Admin)",
+    percentage: 0,
+    phase: "development",
+    points: 13,
+    locatedPage: "superadmin/conflicts, lib/paperclip/sync-engine",
+    featureSpecDocPath:
+      "/project-process/features/vis-roadmap-sync-dev-spec-20260414.md",
+    tddSpecDocPath:
+      "/project-process/features/tdd-vis-roadmap-sync-20260414.md",
+    acceptanceCriteria:
+      "1. VIS issue status 變更 → Webhook 觸發 → roadmap.ts 自動 git commit 更新（延遲 <10s）。\n" +
+      "2. Superadmin 編輯 Feature → PATCH /api/admin/features/:name → VIS issue 自動同步。\n" +
+      "3. 衝突時 vis_sync_status 標記 diverged，加入 /superadmin/conflicts 審核佇列。\n" +
+      "4. Conflict 頁面可選「採 roadmap」/「採 VIS」/「手動合併」三種解決方式，解決後雙端一致。\n" +
+      "5. Webhook 重試最多 3 次（指數退退），失敗後記錄至 paperclip_webhook_logs 並標記 failed。",
+    lastModifiedBy: "Claude Sonnet 4.6",
+    lastModifiedDate: "2026/04/14",
+  },
+  {
+    name: "CEO VIS 任務分配工作流 — Engineer 指派 + 進度整合",
+    category: "超級管理員 (Super Admin)",
+    percentage: 50,
+    phase: "development",
+    points: 5,
+    locatedPage: "superadmin/engineers, superadmin/dashboard/project-progress",
+    featureSpecDocPath:
+      "/project-process/features/vis-roadmap-sync-dev-spec-20260414.md",
+    tddSpecDocPath:
+      "/project-process/features/tdd-vis-roadmap-sync-20260414.md",
+    acceptanceCriteria:
+      "1. Engineer 管理頁面顯示每位工程師的已分配/完成任務數、成本與可用容量。\n" +
+      "2. Project Progress 表支援「自動指派」（按角色自動選最低負載 agent/engineer）。\n" +
+      "3. CEO 工作流文檔完整：Superadmin → 導出 VIS → 分配任務 → 監控進度 → 衝突處理。\n" +
+      "4. 工程師 claim 任務後 git worktree 自動建立，IDE 可直接使用。\n" +
+      "5. CI 測試完成後 coverage 結果自動回源 roadmap testCoverage / unitTestCoverage。",
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/14",
+    developmentProgress:
+      "2026/04/14\n" +
+      "- ✅ /dispatch-agents Skill 建立（手動派工流程標準化）\n" +
+      "- ✅ /review-agent-work Skill 建立（檢查 + 修復 + merge）\n" +
+      "- ✅ POST /api/paperclip/auto-dispatch（自動派工 API，含 dry-run）\n" +
+      "- ✅ 兩輪派工完成（14 個 VIS issues，10 個完成）\n" +
+      "- 待完成：Engineer 管理頁面工作量統計、CI coverage 回源",
+  },
+
+  // --- 三層自動化 + Mission Control (Row 141) ---
+  {
+    name: "Paperclip 三層自動化 + Mission Control Dashboard",
+    category: "專案管理與工具 (Project Management)",
+    percentage: 90,
+    phase: "development",
+    points: 8,
+    locatedPage: "superadmin/dashboard/paperclip-worktrees",
+    devLogDocPath:
+      "/project-process/dev-logs/dev-paperclip-three-layer-automation-2026-04-14.md",
+    acceptanceCriteria:
+      "1. GET /api/paperclip/agent-health 自動偵測 error agent 並切換 adapter（含 model 映射）。\n" +
+      "2. GET /api/paperclip/work-summary 掃描 worktree branches 並回報 merge readiness。\n" +
+      "3. POST /api/paperclip/auto-dispatch 自動為 idle agents 從 roadmap 派工。\n" +
+      "4. Mission Control Dashboard 4-Tab UI（Worktrees/Summary/Agents/Dispatch）。\n" +
+      "5. Cron 定時任務：agent-health 3min、work-summary 5min、auto-dispatch 10min。",
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/14",
+    developmentProgress:
+      "2026/04/14\n" +
+      "- ✅ Layer 1 (監控): GET /api/paperclip/work-summary — 偵測誤刪共用檔、shared file 衝突\n" +
+      "- ✅ Layer 2 (Review): /review-agent-work Skill — 檢查 → 修復 → merge → roadmap 更新\n" +
+      "- ✅ Layer 3 (派工): POST /api/paperclip/auto-dispatch — dry-run + 執行，role 匹配\n" +
+      "- ✅ Agent Health: GET /api/paperclip/agent-health — adapter auto-fallback（opencode→cursor→codex→claude）\n" +
+      "- ✅ 4-Tab Dashboard: PaperclipDashboardTabs + WorkSummaryTab + AgentsTab + AutoDispatchTab\n" +
+      "- ✅ Cron 定時任務設定\n" +
+      "- ✅ 文件更新：CLAUDE.md, AGENTS.md, dispatch-agents/SKILL.md\n" +
+      "- 待完成：UI 驗證、Agent Tab adapter 切換 dropdown",
+  },
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/13",
+  lastUpdated: "2026/04/14",
   features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
 };
