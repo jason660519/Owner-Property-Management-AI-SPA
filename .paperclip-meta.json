@@ -1,8 +1,8 @@
 {
-  "issueId": "9d4e0965-edea-4887-8017-f31bf687dbc7",
-  "title": "[Row 003] 超級管理員的RBAC CRUD平台",
-  "status": "todo",
-  "slug": "row-003",
-  "branchName": "feature/paperclip-row-003",
-  "updatedAt": "2026-04-13T23:00:58.636Z"
+  "issueId": "e4bd9835-89fe-48e7-9365-63658d6dcd4a",
+  "title": "[Row 008] 超級管理員AI LLM API效能監控 AI語音回應可靠度監控功能",
+  "status": "in_review",
+  "slug": "row-008",
+  "branchName": "feature/paperclip-row-008",
+  "updatedAt": "2026-04-14T00:00:27Z"
 }

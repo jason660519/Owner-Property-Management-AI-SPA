@@ -1,18 +1,36 @@
 import { render, screen } from '@testing-library/react';
 import LLMMonitorClient from './LLMMonitorClient';
 
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    refresh: jest.fn(),
+    replace: jest.fn(),
+    push: jest.fn(),
+  }),
+}));
+
+const baseOverall = {
+  total_requests: 0,
+  avg_latency_ms: 0,
+  total_cost: 0,
+  avg_feedback: 0,
+  models_count: 0,
+  error_rate: 0,
+  month_spend_usd: 0,
+};
+
+const baseConfig = {
+  monthlyBudgetUsd: 100,
+  alertThresholdPercent: 80,
+  providerApiKeys: [] as { id: string; label: string; expiresAt: string | null }[],
+};
+
 describe('LLMMonitorClient (AI usage logs)', () => {
   it('renders the AI usage logs table with prompt/model fields', () => {
     window.location.hash = '#ai-usage-logs';
     render(
       <LLMMonitorClient
-        overallStats={{
-          total_requests: 0,
-          avg_latency_ms: 0,
-          total_cost: 0,
-          avg_feedback: 0,
-          models_count: 0,
-        }}
+        overallStats={baseOverall}
         aggregateStats={[]}
         usageLogs={[
           {
@@ -36,6 +54,10 @@ describe('LLMMonitorClient (AI usage logs)', () => {
             created_at: new Date('2026-04-04T00:00:00.000Z').toISOString(),
           },
         ]}
+        monitorConfig={baseConfig}
+        dailyTokenSeries={[]}
+        weeklyTokenSeries={[]}
+        voiceQualitySeries={[]}
       />,
     );
 
