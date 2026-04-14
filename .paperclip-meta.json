@@ -1,8 +1,8 @@
 {
-  "issueId": "c7f8ddd1-d255-4b01-a765-eb367a83b8d1",
-  "title": "[Row 051] 房東財務 收支明細儀表板 DB schema",
+  "issueId": "7be49072-dffd-453a-a437-db7ec704c821",
+  "title": "[Row 055] 房東的溝通頁面 架構設計",
   "status": "todo",
-  "slug": "row-051",
-  "branchName": "feature/paperclip-row-051",
-  "updatedAt": "2026-04-13T21:12:45.012Z"
+  "slug": "row-055",
+  "branchName": "feature/paperclip-row-055",
+  "updatedAt": "2026-04-13T21:13:09.433Z"
 }
