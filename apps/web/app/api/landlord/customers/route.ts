@@ -19,7 +19,8 @@ export async function GET(req: NextRequest) {
     .order('created_at', { ascending: false })
 
   if (query) {
-    dbQuery = dbQuery.or(`name.ilike.%${query}%,phone.ilike.%${query}%`)
+    const q = query.trim()
+    dbQuery = dbQuery.or(`name.ilike.%${q}%,phone.ilike.%${q}%,email.ilike.%${q}%`)
   }
   
   if (status && status !== 'all') {

@@ -1,8 +1,8 @@
 {
-  "issueId": "88645a57-fa52-4912-bac2-9533c323eaed",
-  "title": "[Row 020] 聯絡我們>發送訊息功能",
+  "issueId": "1f4525c5-62cf-4ddb-a620-0c4cbc91c556",
+  "title": "[Row 032] 房東的客戶 List模式",
   "status": "todo",
-  "slug": "row-020",
-  "branchName": "feature/paperclip-row-020",
-  "updatedAt": "2026-04-12T23:02:14.968Z"
+  "slug": "row-032",
+  "branchName": "feature/paperclip-row-032",
+  "updatedAt": "2026-04-13T21:12:36.250Z"
 }
