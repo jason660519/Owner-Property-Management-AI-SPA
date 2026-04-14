@@ -86,7 +86,7 @@ function ContactPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#141414] text-white font-urbanist">
+    <div className="min-h-screen bg-bg-primary text-text-primary font-urbanist">
       <Header />
 
       <main>
@@ -94,13 +94,13 @@ function ContactPageContent() {
         <section className="relative overflow-hidden px-6 pb-20 pt-32 md:px-12 lg:px-20">
           <div className="absolute inset-x-0 top-0 h-[480px] bg-[radial-gradient(circle_at_top_left,_rgba(124,58,237,0.18),_transparent_35%),radial-gradient(circle_at_top_right,_rgba(34,197,94,0.12),_transparent_35%)]" />
           <div className="relative mx-auto max-w-4xl text-center">
-            <span className="mb-4 inline-flex rounded-full border border-[#7C3AED]/30 bg-[#7C3AED]/10 px-4 py-2 text-sm uppercase tracking-[0.18em] text-[#C7B7FF]">
+            <span className="mb-4 inline-flex rounded-full border border-accent/30 bg-accent-subtle px-4 py-2 text-sm uppercase tracking-[0.18em] text-accent">
               Contact us
             </span>
             <h1 className="mb-6 text-4xl font-bold md:text-5xl lg:text-6xl">
               聯絡我們
             </h1>
-            <p className="mx-auto max-w-2xl text-lg leading-8 text-[#999999]">
+            <p className="mx-auto max-w-2xl text-lg leading-8 text-text-muted">
               無論你是想導入平台、洽談合作，或是有台灣不動產流程的具體問題，我們都樂意直接談。
             </p>
           </div>
@@ -111,43 +111,43 @@ function ContactPageContent() {
           <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24">
             {/* Contact Information */}
             <div>
-              <span className="text-[#7C3AED] font-semibold tracking-wider uppercase text-sm mb-2 block">
+              <span className="text-accent font-semibold tracking-wider uppercase text-sm mb-2 block">
                 保持聯繫
               </span>
               <h2 className="text-3xl md:text-4xl font-bold mb-8">
                 讓我們開始對話
               </h2>
-              <p className="text-[#999999] mb-12 leading-relaxed">
+              <p className="text-text-muted mb-12 leading-relaxed">
                 無論你是仲介、店長、代書、律師或企業合作方，我們可以先從了解你的案件流開始，再決定最小可行的導入方式。
               </p>
 
               <div className="space-y-8">
                 <div className="flex items-start gap-6">
-                  <div className="w-12 h-12 rounded-full bg-[#141414] border border-[#262626] flex items-center justify-center flex-shrink-0 text-[#7C3AED]">
+                  <div className="w-12 h-12 rounded-full bg-bg-primary border border-border-default flex items-center justify-center flex-shrink-0 text-accent">
                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                   </div>
                   <div>
                     <h3 className="text-lg font-bold mb-1">Email</h3>
-                    <p className="text-[#999999]">a0405142777@gmail.com</p>
+                    <p className="text-text-muted">a0405142777@gmail.com</p>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-6">
-                  <div className="w-12 h-12 rounded-full bg-[#141414] border border-[#262626] flex items-center justify-center flex-shrink-0 text-[#7C3AED]">
+                  <div className="w-12 h-12 rounded-full bg-bg-primary border border-border-default flex items-center justify-center flex-shrink-0 text-accent">
                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                     </svg>
                   </div>
                   <div>
                     <h3 className="text-lg font-bold mb-1">聯絡電話</h3>
-                    <p className="text-[#999999]">請透過 Email 或表單預約通話時間</p>
+                    <p className="text-text-muted">請透過 Email 或表單預約通話時間</p>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-6">
-                  <div className="w-12 h-12 rounded-full bg-[#141414] border border-[#262626] flex items-center justify-center flex-shrink-0 text-[#7C3AED]">
+                  <div className="w-12 h-12 rounded-full bg-bg-primary border border-border-default flex items-center justify-center flex-shrink-0 text-accent">
                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -155,35 +155,35 @@ function ContactPageContent() {
                   </div>
                   <div>
                     <h3 className="text-lg font-bold mb-1">服務地區</h3>
-                    <p className="text-[#999999]">台灣全台（線上服務）</p>
-                    <p className="text-[#999999]">台北市信義區信義路五段 7 號</p>
+                    <p className="text-text-muted">台灣全台（線上服務）</p>
+                    <p className="text-text-muted">台北市信義區信義路五段 7 號</p>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-6">
-                  <div className="w-12 h-12 rounded-full bg-[#141414] border border-[#262626] flex items-center justify-center flex-shrink-0 text-[#7C3AED]">
+                  <div className="w-12 h-12 rounded-full bg-bg-primary border border-border-default flex items-center justify-center flex-shrink-0 text-accent">
                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
                   <div>
                     <h3 className="text-lg font-bold mb-1">回覆時間</h3>
-                    <p className="text-[#999999]">週一至週五：09:00 - 18:00</p>
-                    <p className="text-[#999999]">一般 24 小時內回覆</p>
+                    <p className="text-text-muted">週一至週五：09:00 - 18:00</p>
+                    <p className="text-text-muted">一般 24 小時內回覆</p>
                   </div>
                 </div>
               </div>
 
               {/* Social Links */}
               <div className="mt-12">
-                <p className="text-sm text-[#666666] mb-4 uppercase tracking-wider">社群聯絡</p>
+                <p className="text-sm text-text-muted mb-4 uppercase tracking-wider">社群聯絡</p>
                 <div className="flex gap-4">
                   {["Facebook", "Line", "Instagram", "LinkedIn"].map((social) => (
                     <Button
                       key={social}
                       variant="icon"
                       size="md"
-                      className="rounded-full bg-[#262626] hover:bg-[#7C3AED] border-none text-white"
+                      className="rounded-full border-none bg-bg-secondary text-text-primary hover:bg-accent-hover"
                     >
                       <span className="sr-only">{social}</span>
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -195,11 +195,11 @@ function ContactPageContent() {
               </div>
 
               {/* Quick links */}
-              <div className="mt-10 rounded-2xl border border-[#262626] bg-[#1A1A1A] p-5">
-                <p className="text-sm font-semibold text-[#CCCCCC] mb-3">常見洽詢類型</p>
+              <div className="mt-10 rounded-2xl border border-border-default bg-bg-secondary p-5">
+                <p className="text-sm font-semibold text-text-secondary mb-3">常見洽詢類型</p>
                 <div className="flex flex-wrap gap-2">
                   {["仲介方案洽談", "分店導入", "代書合作", "企業 API 串接", "功能建議"].map((tag) => (
-                    <span key={tag} className="rounded-full border border-[#333333] bg-[#111111] px-3 py-1 text-xs text-[#AAAAAA]">
+                    <span key={tag} className="rounded-full border border-border-light bg-bg-tertiary px-3 py-1 text-xs text-text-muted">
                       {tag}
                     </span>
                   ))}
@@ -209,13 +209,13 @@ function ContactPageContent() {
 
             {/* Contact Form */}
             <div>
-              <Card className="bg-[#141414] border-[#262626] p-8">
+              <Card className="bg-bg-primary border-border-default p-8">
                 {submissionResult ? (
                   <Alert
                     variant="default"
-                    className="bg-[#1A1A1A] border-[#7C3AED] text-white"
+                    className="bg-bg-secondary border-accent text-text-primary"
                   >
-                    <AlertTitle className="text-[#7C3AED] text-lg font-bold mb-2">
+                    <AlertTitle className="text-accent text-lg font-bold mb-2">
                       發送成功！
                     </AlertTitle>
                     <AlertDescription>
@@ -259,13 +259,13 @@ function ContactPageContent() {
                 ) : (
                   <form className="space-y-6" onSubmit={handleSubmit}>
                     {sourceSummary && (
-                      <div className="rounded-xl border border-[#333333] bg-[#1A1A1A] px-4 py-3 text-sm text-[#CCCCCC]">
-                        <span className="block text-xs uppercase tracking-[0.18em] text-[#7C3AED]">
+                      <div className="rounded-xl border border-border-light bg-bg-secondary px-4 py-3 text-sm text-text-secondary">
+                        <span className="block text-xs uppercase tracking-[0.18em] text-accent">
                           {sourceSummary.title}
                         </span>
                         <span className="mt-2 block">{sourceSummary.body}</span>
                         {sourceSummary.detail && (
-                          <span className="mt-2 block text-[#999999]">
+                          <span className="mt-2 block text-text-muted">
                             {sourceSummary.detail}
                           </span>
                         )}
@@ -274,18 +274,18 @@ function ContactPageContent() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-white">
+                        <label className="text-sm font-medium text-text-primary">
                           姓名
                         </label>
                         <Input
                           required
                           name="name"
                           placeholder="請輸入您的姓名"
-                          className="bg-[#1A1A1A] border-[#333333]"
+                          className="bg-bg-secondary border-border-light"
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-white">
+                        <label className="text-sm font-medium text-text-primary">
                           Email
                         </label>
                         <Input
@@ -293,30 +293,30 @@ function ContactPageContent() {
                           name="email"
                           type="email"
                           placeholder="請輸入您的 Email"
-                          className="bg-[#1A1A1A] border-[#333333]"
+                          className="bg-bg-secondary border-border-light"
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-white">
+                        <label className="text-sm font-medium text-text-primary">
                           電話（選填）
                         </label>
                         <Input
                           name="phone"
                           placeholder="09xx-xxx-xxx"
-                          className="bg-[#1A1A1A] border-[#333333]"
+                          className="bg-bg-secondary border-border-light"
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-white">
+                        <label className="text-sm font-medium text-text-primary">
                           詢問類型
                         </label>
                         <select
                           defaultValue={initialInquiryType ?? "一般諮詢"}
                           name="inquiryType"
-                          className="w-full h-10 px-3 py-2 bg-[#1A1A1A] border border-[#333333] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+                          className="h-11 min-h-11 w-full rounded-md border border-border-light bg-bg-secondary px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
                         >
                           {inquiryOptions.map((option) => (
                             <option key={option}>{option}</option>
@@ -326,7 +326,7 @@ function ContactPageContent() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-white">
+                      <label className="text-sm font-medium text-text-primary">
                         訊息內容
                       </label>
                       <textarea
@@ -334,7 +334,7 @@ function ContactPageContent() {
                         name="message"
                         rows={6}
                         placeholder="請描述您的需求，例如：目前案件量、想導入的角色、或具體問題…"
-                        className="w-full px-3 py-2 bg-[#1A1A1A] border border-[#333333] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+                        className="min-h-11 w-full rounded-md border border-border-light bg-bg-secondary px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
                       ></textarea>
                     </div>
 
@@ -343,9 +343,9 @@ function ContactPageContent() {
                         required
                         type="checkbox"
                         id="scrapi"
-                        className="rounded bg-[#1A1A1A] border-[#333333] text-[#7C3AED] focus:ring-[#7C3AED]"
+                        className="rounded bg-bg-secondary border-border-light text-accent focus:ring-accent"
                       />
-                      <label htmlFor="scrapi" className="text-sm text-[#999999]">
+                      <label htmlFor="scrapi" className="text-sm text-text-muted">
                         我同意 Owner AI 處理我的個人資料以回應此詢問，並遵守台灣個人資料保護法相關規定。
                       </label>
                     </div>
@@ -372,11 +372,11 @@ function ContactPageContent() {
         </section>
 
         {/* Map / Location Section */}
-        <section className="h-[360px] w-full bg-[#1A1A1A] relative flex items-center justify-center border-t border-[#262626]">
-          <div className="relative z-10 bg-[#141414] p-8 rounded-xl border border-[#333333] shadow-2xl max-w-sm w-full mx-6">
+        <section className="h-[360px] w-full bg-bg-secondary relative flex items-center justify-center border-t border-border-default">
+          <div className="relative z-10 bg-bg-primary p-8 rounded-xl border border-border-light shadow-2xl max-w-sm w-full mx-6">
             <h3 className="text-xl font-bold mb-2">服務地區</h3>
-            <p className="text-[#999999] mb-1">台北市信義區信義路五段 7 號</p>
-            <p className="text-[#999999] mb-4">線上服務覆蓋台灣全台</p>
+            <p className="text-text-muted mb-1">台北市信義區信義路五段 7 號</p>
+            <p className="text-text-muted mb-4">線上服務覆蓋台灣全台</p>
             <Button variant="outline" size="sm" fullWidth>
               在 Google 地圖上查看
             </Button>
@@ -391,7 +391,7 @@ function ContactPageContent() {
 
 export default function ContactPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#141414]" />}>
+    <Suspense fallback={<div className="min-h-screen bg-bg-primary text-text-primary" />}>
       <ContactPageContent />
     </Suspense>
   );

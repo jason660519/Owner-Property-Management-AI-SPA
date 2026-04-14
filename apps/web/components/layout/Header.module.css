@@ -27,11 +27,14 @@
 
 .bannerContent {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: center;
     gap: var(--spacing-2);
+    row-gap: var(--spacing-3);
     font-size: var(--text-sm);
     color: var(--color-text-secondary);
+    text-align: center;
 }
 
 .sparkle {
@@ -41,7 +44,11 @@
 .bannerLink {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: var(--spacing-1);
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0 var(--spacing-2);
     color: var(--color-text-primary);
     font-weight: var(--font-medium);
     margin-left: var(--spacing-2);
@@ -245,6 +252,28 @@
     transform: translateY(-7px) rotate(-45deg);
 }
 
+/* Dim area below sticky header when mobile drawer is open */
+.mobileMenuBackdrop {
+    display: none;
+}
+
+@media (max-width: 1023px) {
+    .mobileMenuBackdrop {
+        display: block;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        top: var(--public-site-header-height, 136px);
+        z-index: calc(var(--z-sticky) - 2);
+        border: none;
+        padding: 0;
+        margin: 0;
+        cursor: pointer;
+        background: rgba(0, 0, 0, 0.45);
+    }
+}
+
 /* Mobile Menu */
 .mobileMenu {
     position: fixed;
@@ -253,9 +282,9 @@
     right: 0;
     bottom: 0;
     background: var(--color-bg-primary);
+    /* Below sticky header so banner + nav stay interactive */
     z-index: calc(var(--z-sticky) - 1);
-    padding-top: 136px;
-    /* Height of header (banner + navbar) */
+    padding-top: var(--public-site-header-height, 136px);
     transform: translateX(100%);
     transition: transform var(--transition-normal);
     overflow-y: auto;
@@ -279,7 +308,9 @@
 }
 
 .mobileNavLink {
-    display: block;
+    display: flex;
+    align-items: center;
+    min-height: 44px;
     padding: var(--spacing-4);
     font-size: var(--text-xl);
     font-weight: var(--font-medium);

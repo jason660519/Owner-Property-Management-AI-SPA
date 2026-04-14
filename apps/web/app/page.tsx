@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { getProperties } from '@/lib/api/properties';
@@ -215,13 +216,13 @@ export default async function HomePage() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
                 href="/register"
-                className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-accent hover:bg-accent-hover text-white font-semibold text-base transition-all shadow-lg hover:shadow-accent/25 hover:-translate-y-0.5"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-accent px-8 py-3.5 text-base font-semibold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-accent/25"
               >
                 免費開始使用 <ArrowRight className="w-4 h-4" />
               </Link>
               <Link
                 href="/properties"
-                className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl border border-border-default hover:border-accent text-text-secondary hover:text-text-primary font-semibold text-base transition-all"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border-default px-8 py-3.5 text-base font-semibold text-text-secondary transition-all hover:border-accent hover:text-text-primary"
               >
                 瀏覽物件列表
               </Link>
@@ -347,14 +348,14 @@ export default async function HomePage() {
         {featuredProperties.length > 0 && (
           <section className="py-20 px-6 md:px-12 lg:px-20 bg-bg-secondary/30">
             <div className="max-w-6xl mx-auto">
-              <div className="flex items-end justify-between mb-10">
-                <div>
+              <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div className="min-w-0">
                   <h2 className="text-3xl font-bold text-text-primary mb-2">最新上架物件</h2>
                   <p className="text-text-muted">由屋主直接刊登，資訊透明無仲介抽成。</p>
                 </div>
                 <Link
                   href="/properties"
-                  className="hidden md:flex items-center gap-1 text-sm text-accent hover:underline"
+                  className="hidden min-h-11 shrink-0 items-center gap-1 text-sm text-accent hover:underline md:inline-flex"
                 >
                   查看全部 <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
@@ -366,8 +367,21 @@ export default async function HomePage() {
                     href={`/properties/${p.id}`}
                     className="group rounded-xl border border-border-default bg-bg-secondary overflow-hidden hover:border-accent transition-colors"
                   >
-                    <div className="h-44 bg-bg-tertiary flex items-center justify-center">
-                      <Home className="w-8 h-8 text-border-default" />
+                    <div className="relative h-44 overflow-hidden bg-bg-tertiary">
+                      {p.imageUrl ? (
+                        <Image
+                          src={p.imageUrl}
+                          alt={p.title || p.address || '物件圖片'}
+                          fill
+                          unoptimized
+                          className="object-cover transition-transform duration-500 group-hover:scale-105"
+                          sizes="(max-width: 768px) 100vw, 33vw"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center">
+                          <Home className="h-8 w-8 text-border-default" />
+                        </div>
+                      )}
                     </div>
                     <div className="p-4">
                       <p className="font-semibold text-text-primary truncate">{p.title || p.address}</p>
@@ -380,7 +394,10 @@ export default async function HomePage() {
                 ))}
               </div>
               <div className="mt-6 text-center md:hidden">
-                <Link href="/properties" className="text-sm text-accent hover:underline">
+                <Link
+                  href="/properties"
+                  className="inline-flex min-h-11 items-center justify-center text-sm text-accent hover:underline"
+                >
                   查看全部物件 →
                 </Link>
               </div>
@@ -400,7 +417,7 @@ export default async function HomePage() {
                   key={faq.q}
                   className="group rounded-xl border border-border-default bg-bg-secondary overflow-hidden"
                 >
-                  <summary className="flex items-center justify-between px-6 py-4 cursor-pointer text-text-primary font-medium list-none">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-6 py-4 text-left font-medium text-text-primary">
                     {faq.q}
                     <ChevronRight className="w-4 h-4 text-text-muted group-open:rotate-90 transition-transform shrink-0 ml-4" />
                   </summary>
@@ -425,13 +442,13 @@ export default async function HomePage() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
                 href="/register"
-                className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-accent hover:bg-accent-hover text-white font-semibold transition-all shadow-lg hover:shadow-accent/25"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-accent px-8 py-3.5 font-semibold text-white shadow-lg transition-all hover:bg-accent-hover hover:shadow-accent/25"
               >
                 立即免費開始 <ArrowRight className="w-4 h-4" />
               </Link>
               <Link
                 href="/contact"
-                className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl border border-border-default hover:border-accent text-text-secondary hover:text-text-primary font-semibold transition-all"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border-default px-8 py-3.5 font-semibold text-text-secondary transition-all hover:border-accent hover:text-text-primary"
               >
                 聯絡我們諮詢
               </Link>
