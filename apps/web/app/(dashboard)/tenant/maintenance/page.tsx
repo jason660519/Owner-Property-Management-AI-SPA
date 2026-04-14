@@ -25,6 +25,7 @@ import {
   getMyMaintenanceRequests,
   createMaintenanceRequest,
   cancelMaintenanceRequest,
+  confirmMaintenanceClosureByTenant,
   type MaintenanceRequest,
   type MaintenanceCategory,
   type MaintenancePriority,
@@ -80,6 +81,11 @@ const STATUS_CONFIG: Record<
     icon: <XCircle className="w-4 h-4" />,
     style: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
   },
+  pending_tenant: {
+    label: '待您確認結案',
+    icon: <CheckCircle className="w-4 h-4" />,
+    style: 'bg-violet-500/10 text-violet-300 border-violet-500/20',
+  },
 }
 
 // ─── Form Schema ──────────────────────────────────────────────────────────────
@@ -122,9 +128,11 @@ function PriorityBadge({ priority }: { priority: MaintenancePriority }) {
 function RequestCard({
   request,
   onCancel,
+  onConfirmClosure,
 }: {
   request: MaintenanceRequest
   onCancel: (id: string) => void
+  onConfirmClosure: (id: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -145,6 +153,15 @@ function RequestCard({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {request.status === 'pending_tenant' && (
+              <Button
+                size="sm"
+                className="bg-violet-600 hover:bg-violet-500 text-white text-xs"
+                onClick={() => onConfirmClosure(request.id)}
+              >
+                確認結案
+              </Button>
+            )}
             {request.status === 'open' && (
               <Button
                 size="sm"
@@ -180,7 +197,22 @@ function RequestCard({
               <div>
                 <p className="text-xs text-[#666666] mb-1">預約維修時間</p>
                 <p className="text-[#cccccc] text-sm">
-                  {new Date(request.scheduledDate).toLocaleDateString('zh-TW')}
+                  {new Date(request.scheduledDate).toLocaleString('zh-TW', {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  })}
+                </p>
+              </div>
+            )}
+            {(request.actualCost != null || request.estimatedCost != null) && (
+              <div>
+                <p className="text-xs text-[#666666] mb-1">費用</p>
+                <p className="text-[#cccccc] text-sm">
+                  {request.actualCost != null
+                    ? `實際 NT$ ${Number(request.actualCost).toLocaleString('zh-TW')}`
+                    : request.estimatedCost != null
+                      ? `預估 NT$ ${Number(request.estimatedCost).toLocaleString('zh-TW')}`
+                      : '—'}
                 </p>
               </div>
             )}
@@ -271,6 +303,21 @@ export default function TenantMaintenancePage() {
     }
   }
 
+  const handleConfirmClosure = async (id: string) => {
+    const result = await confirmMaintenanceClosureByTenant(id)
+    if (result.success) {
+      showToast({
+        type: 'success',
+        message: '已確認結案',
+        description: '房東開啟維修管理頁面後，維修費用將寫入收支流水（若已填寫金額）。',
+      })
+      const updated = await getMyMaintenanceRequests()
+      setRequests(updated)
+    } else {
+      showToast({ type: 'error', message: result.error ?? '確認失敗' })
+    }
+  }
+
   const handleCancel = async (id: string) => {
     const result = await cancelMaintenanceRequest(id)
     if (result.success) {
@@ -291,6 +338,7 @@ export default function TenantMaintenancePage() {
   const counts = {
     open: requests.filter((r) => r.status === 'open').length,
     in_progress: requests.filter((r) => r.status === 'in_progress').length,
+    pending_tenant: requests.filter((r) => r.status === 'pending_tenant').length,
     completed: requests.filter((r) => r.status === 'completed').length,
   }
 
@@ -314,10 +362,11 @@ export default function TenantMaintenancePage() {
       </div>
 
       {/* KPI row */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[
           { key: 'open', label: '待處理', color: 'text-yellow-400' },
           { key: 'in_progress', label: '處理中', color: 'text-blue-400' },
+          { key: 'pending_tenant', label: '待確認', color: 'text-violet-300' },
           { key: 'completed', label: '已完成', color: 'text-green-400' },
         ].map(({ key, label, color }) => (
           <Card
@@ -476,7 +525,12 @@ export default function TenantMaintenancePage() {
       ) : (
         <div className="space-y-3">
           {filtered.map((r) => (
-            <RequestCard key={r.id} request={r} onCancel={handleCancel} />
+            <RequestCard
+              key={r.id}
+              request={r}
+              onCancel={handleCancel}
+              onConfirmClosure={handleConfirmClosure}
+            />
           ))}
         </div>
       )}
