@@ -638,9 +638,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     phase: "testing",
     points: 3,
     lastModifiedBy: "Paperclip CTO",
-    lastModifiedDate: "2026/04/14",
+    lastModifiedDate: "2026/04/12",
     devLog:
-      "[2026/04/12] (Paperclip CTO)\n• 補齊房東預約 API 狀態變更通知：confirmed/cancelled/completed 會寄送訪客 Email（含取消原因）。\n• 新增房東預約月曆視圖，顯示每日時段與筆數。\n• 新增 Row 029 對應單元測試與 TDD Progress Report。\n[2026/04/14] (Paperclip CTO, VIS-92)\n• 於共用 workspace 重跑 `appointment-notifications` / `appointment-calendar` 單元測試：2 suites、4 tests 全通過。\n• 新增彙總文件 `project-process/test-logs/tdd-progress-029.md`。",
+      "[2026/04/12] (Paperclip CTO)\n• 補齊房東預約 API 狀態變更通知：confirmed/cancelled/completed 會寄送訪客 Email（含取消原因）。\n• 新增房東預約月曆視圖，顯示每日時段與筆數。\n• 新增 Row 029 對應單元測試與 TDD Progress Report。",
   },
   {
     name: "房東的客戶－Details模式",
