@@ -1046,15 +1046,15 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東的物件展示功能－List模式",
     locatedPage: "web/landlord/properties",
-    percentage: 100,
+    percentage: 0,
     acceptanceCriteria:
       "1. 以緊湊表格形式列出所有物件，欄位含：物件名、地址、類型、月租/售價、狀態、最後修改。\n2. 點擊欄標題可排序。\n3. 多選後可批次修改狀態。\n4. 搜尋欄即時過濾（依物件名/地址）。\n5. 每頁顯示筆數可設定（20/50/100）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 2,
-    lastModifiedBy: "VIS-84 Paperclip",
-    lastModifiedDate: "2026-04-13",
+    lastModifiedBy: "",
+    lastModifiedDate: "",
   },
   {
     name: "房東的維修派工管理",
@@ -2453,7 +2453,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "CEO VIS 任務分配工作流 — Engineer 指派 + 進度整合",
     category: "超級管理員 (Super Admin)",
-    percentage: 0,
+    percentage: 50,
     phase: "development",
     points: 5,
     locatedPage: "superadmin/engineers, superadmin/dashboard/project-progress",
@@ -2467,8 +2467,45 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "3. CEO 工作流文檔完整：Superadmin → 導出 VIS → 分配任務 → 監控進度 → 衝突處理。\n" +
       "4. 工程師 claim 任務後 git worktree 自動建立，IDE 可直接使用。\n" +
       "5. CI 測試完成後 coverage 結果自動回源 roadmap testCoverage / unitTestCoverage。",
-    lastModifiedBy: "Claude Sonnet 4.6",
+    lastModifiedBy: "Claude Opus 4.6",
     lastModifiedDate: "2026/04/14",
+    developmentProgress:
+      "2026/04/14\n" +
+      "- ✅ /dispatch-agents Skill 建立（手動派工流程標準化）\n" +
+      "- ✅ /review-agent-work Skill 建立（檢查 + 修復 + merge）\n" +
+      "- ✅ POST /api/paperclip/auto-dispatch（自動派工 API，含 dry-run）\n" +
+      "- ✅ 兩輪派工完成（14 個 VIS issues，10 個完成）\n" +
+      "- 待完成：Engineer 管理頁面工作量統計、CI coverage 回源",
+  },
+
+  // --- 三層自動化 + Mission Control (Row 141) ---
+  {
+    name: "Paperclip 三層自動化 + Mission Control Dashboard",
+    category: "專案管理與工具 (Project Management)",
+    percentage: 90,
+    phase: "development",
+    points: 8,
+    locatedPage: "superadmin/dashboard/paperclip-worktrees",
+    devLogDocPath:
+      "/project-process/dev-logs/dev-paperclip-three-layer-automation-2026-04-14.md",
+    acceptanceCriteria:
+      "1. GET /api/paperclip/agent-health 自動偵測 error agent 並切換 adapter（含 model 映射）。\n" +
+      "2. GET /api/paperclip/work-summary 掃描 worktree branches 並回報 merge readiness。\n" +
+      "3. POST /api/paperclip/auto-dispatch 自動為 idle agents 從 roadmap 派工。\n" +
+      "4. Mission Control Dashboard 4-Tab UI（Worktrees/Summary/Agents/Dispatch）。\n" +
+      "5. Cron 定時任務：agent-health 3min、work-summary 5min、auto-dispatch 10min。",
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/14",
+    developmentProgress:
+      "2026/04/14\n" +
+      "- ✅ Layer 1 (監控): GET /api/paperclip/work-summary — 偵測誤刪共用檔、shared file 衝突\n" +
+      "- ✅ Layer 2 (Review): /review-agent-work Skill — 檢查 → 修復 → merge → roadmap 更新\n" +
+      "- ✅ Layer 3 (派工): POST /api/paperclip/auto-dispatch — dry-run + 執行，role 匹配\n" +
+      "- ✅ Agent Health: GET /api/paperclip/agent-health — adapter auto-fallback（opencode→cursor→codex→claude）\n" +
+      "- ✅ 4-Tab Dashboard: PaperclipDashboardTabs + WorkSummaryTab + AgentsTab + AutoDispatchTab\n" +
+      "- ✅ Cron 定時任務設定\n" +
+      "- ✅ 文件更新：CLAUDE.md, AGENTS.md, dispatch-agents/SKILL.md\n" +
+      "- 待完成：UI 驗證、Agent Tab adapter 切換 dropdown",
   },
 ];
 
