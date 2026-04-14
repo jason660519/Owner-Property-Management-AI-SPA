@@ -1,8 +1,8 @@
 {
-  "issueId": "2028e710-f7c7-4361-9f19-0e1a2d96456f",
-  "title": "[Row 033] 房東的客戶 新增客戶功能",
+  "issueId": "c7f8ddd1-d255-4b01-a765-eb367a83b8d1",
+  "title": "[Row 051] 房東財務 收支明細儀表板 DB schema",
   "status": "todo",
-  "slug": "row-033",
-  "branchName": "feature/paperclip-row-033",
-  "updatedAt": "2026-04-13T21:12:54.688Z"
+  "slug": "row-051",
+  "branchName": "feature/paperclip-row-051",
+  "updatedAt": "2026-04-13T21:12:45.012Z"
 }
