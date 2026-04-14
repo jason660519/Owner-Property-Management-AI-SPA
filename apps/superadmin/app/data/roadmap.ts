@@ -267,7 +267,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員-網路安全－隱私審計管理功能",
     locatedPage: "superadmin/dashboard/security",
-    percentage: 60,
+    percentage: 80,
     acceptanceCriteria:
       "1. 提供資料存取稽核日誌，記錄誰在何時存取了哪些敏感資料。\n2. 自動偵測異常登入行為（不常用設備、異地登入）並警示。\n3. 支援設定 IP 白名單與黑名單。\n4. 個資保護合規報告（GDPR/PDPA）一鍵生成。\n5. SSL 憑證到期前 30 天自動提醒。",
     docPath: "",
@@ -275,18 +275,22 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/features/tdd-superadmin-platform-20260221.md",
     category: "超級管理員 (Super Admin)",
     points: 5,
-    lastModifiedBy: "OpenAI Codex (DevOps Agent)",
+    lastModifiedBy: "Paperclip DevOps Engineer (VIS-96)",
     lastModifiedDate: "2026/04/14",
     phase: "development",
     developmentProgress:
       "2026/04/14 (VIS-68, DevOps Agent)\n" +
       "- ✅ DB migration: security_audit_enhancements（audit_logs 增強、IP 白黑名單表）\n" +
-      "- ✅ Security Dashboard 頁面 /superadmin/dashboard/security（SecurityDashboardClient 626 行）\n" +
-      "- ✅ Server actions: getAuditLogs, getIPRules, addIPRule, removeIPRule\n" +
+      "- ✅ Security Dashboard 頁面 /superadmin/dashboard/security（SecurityDashboardClient）\n" +
+      "- ✅ Server actions: `actions.ts`（稽核摘要、login_anomalies、ssl_certificates、ip_whitelist、superadmin_blacklist 等）\n" +
       "- ✅ Sidebar nav-items 新增 Security 入口\n" +
       "- ✅ Middleware 整合 IP 白黑名單檢查\n" +
       "- ✅ SSL 憑證監控腳本 scripts/ssl-cert-monitor.js\n" +
-      "- 待完成：合規報告生成、異常登入自動偵測邏輯優化",
+      "2026/04/14 (VIS-96, Paperclip DevOps)\n" +
+      "- ✅ `unit_test/009/security-dashboard.test.tsx`：SecurityDashboardClient 8 項互動／顯示測試\n" +
+      "- ✅ Jest：`jest.config.js` 開頭固定 `NODE_ENV=test`，讓 React 19 `act` 與 RTL 相容\n" +
+      "- ✅ TDD 紀錄：`project-process/test-logs/tdd-security-audit-009.md`\n" +
+      "- 待完成：合規報告生成、異常登入偵測規則優化",
   },
   {
     name: "超級管理員-網站效能監控功能",

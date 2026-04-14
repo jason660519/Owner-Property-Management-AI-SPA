@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-12-row-030",
+  "updatedAt": "2026-04-14-row-009-vis-96",
   "entries": [
     {
       "id": "common-smoke",
@@ -90,6 +90,17 @@
         "tools/people-db/check-es.sh",
         "tools/people-db/seed-es-sample.sh"
       ]
+    },
+    {
+      "id": "009",
+      "name": "Superadmin security and privacy audit dashboard",
+      "tier": "pr",
+      "status": "active",
+      "unitPaths": [
+        "apps/superadmin/unit_test/009/security-dashboard.test.tsx"
+      ],
+      "e2ePaths": [],
+      "linkedToolScripts": []
     },
     {
       "id": "019",
