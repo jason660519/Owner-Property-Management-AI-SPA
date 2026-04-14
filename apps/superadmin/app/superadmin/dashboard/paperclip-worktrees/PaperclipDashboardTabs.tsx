@@ -11,8 +11,8 @@ import AutoDispatchTab from './AutoDispatchTab';
 const TAB_DEFS: SheetTabDef[] = [
   { id: 'worktrees', label: 'Worktrees', zhLabel: 'Worktrees', icon: GitBranch, color: 'text-purple-500', activeColor: 'bg-purple-600 text-white' },
   { id: 'work-summary', label: 'Summary', zhLabel: 'Work Summary', icon: ClipboardCheck, color: 'text-emerald-500', activeColor: 'bg-emerald-600 text-white' },
-  { id: 'agents', label: 'Agents', zhLabel: 'Agents', icon: Users, color: 'text-sky-500', activeColor: 'bg-sky-600 text-white' },
-  { id: 'dispatch', label: 'Dispatch', zhLabel: 'Auto Dispatch', icon: Rocket, color: 'text-amber-500', activeColor: 'bg-amber-600 text-white' },
+  { id: 'agents', label: 'Agents', zhLabel: 'Paperclip', icon: Users, color: 'text-sky-500', activeColor: 'bg-sky-600 text-white' },
+  { id: 'dispatch', label: 'Auto Dispatch', icon: Rocket, color: 'text-amber-500', activeColor: 'bg-amber-600 text-white' },
 ];
 
 export default function PaperclipDashboardTabs() {
