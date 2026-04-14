@@ -4,6 +4,7 @@ FastAPI main application for OCR VLM service
 import asyncio
 import os
 import time
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,7 +17,8 @@ from ..utils.cache_manager import CacheManager
 from ..utils.log_archiver import LogArchiver
 from ..utils.logger import LOG_ROOT, SystemLogger
 from ..utils.metrics_collector import MetricsCollector
-from .routes import documents, es_admin, health, integrations, logs, ocr, people_db, search
+from ..utils.pdf_generator import PDFGenerator
+from .routes import contracts, documents, es_admin, health, integrations, logs, ocr, people_db, search
 
 app = FastAPI(
     title="OCR VLM Service",
@@ -60,11 +62,14 @@ app.include_router(documents.router, tags=["documents"])
 app.include_router(search.router, tags=["search"])
 app.include_router(es_admin.router, tags=["admin-es"])
 app.include_router(people_db.router, prefix="/api/v1", tags=["people-database"])
+app.include_router(contracts.router, prefix="/api/v1/contracts", tags=["contracts"])
 
 # Global instances
 ocr_processor = OCRProcessor()
 cache_manager = CacheManager()
 metrics = MetricsCollector()
+_OCR_SERVICE_ROOT = Path(__file__).resolve().parent.parent
+pdf_generator = PDFGenerator(template_dir=str(_OCR_SERVICE_ROOT / "templates"))
 
 @app.on_event("startup")
 async def startup_event():
@@ -87,19 +92,21 @@ async def startup_event():
     health.ocr_processor = ocr_processor
     health.cache_manager = cache_manager
 
+    contracts.pdf_generator = pdf_generator
+
+    supabase_client_instance = get_supabase_client()
+    try:
+        await supabase_client_instance.initialize()
+    except Exception as e:
+        logger.error(f"Failed to initialize Supabase client: {e}")
+    contracts.supabase_client = supabase_client_instance
+
     # Initialize Search Client
     search_client = get_search_client()
     try:
         await search_client.initialize()
     except Exception as e:
         logger.error(f"Failed to initialize Elasticsearch client: {e}")
-
-    # Initialize Supabase Client
-    supabase_client = get_supabase_client()
-    try:
-        await supabase_client.initialize()
-    except Exception as e:
-        logger.error(f"Failed to initialize Supabase client: {e}")
 
     logger.info("OCR VLM Service started successfully")
 

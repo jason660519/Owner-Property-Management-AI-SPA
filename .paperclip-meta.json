@@ -1,9 +1,8 @@
 {
-  "issueId": "8c98e3f3-c649-4ffa-8c3a-cf2754debf88",
-  "issueKey": "VIS-84",
-  "title": "[Row 059] 房東的物件展示功能 List模式",
+  "issueId": "1654a2f5-df33-4c77-92f9-41facb32c937",
+  "title": "[Row 074] 電子簽約功能 安全基礎建設",
   "status": "todo",
-  "slug": "row-059",
-  "branchName": "feature/paperclip-row-059",
-  "updatedAt": "2026-04-13T22:37:17.133Z"
+  "slug": "row-074",
+  "branchName": "feature/paperclip-row-074",
+  "updatedAt": "2026-04-13T21:13:29.642Z"
 }
