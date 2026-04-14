@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
-set -x
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_LOCAL="$ROOT_DIR/apps/superadmin/.env.local"
@@ -62,8 +61,8 @@ TMP_AGENTS="$(mktemp)"
 TMP_RUNS="$(mktemp)"
 trap 'rm -f "$TMP_AGENTS" "$TMP_RUNS"' EXIT
 
-curl -s -H "Authorization: Bearer $API" "$BASE/api/companies/$CID/agents" > "$TMP_AGENTS"
-curl -s -H "Authorization: Bearer $API" "$BASE/api/companies/$CID/heartbeat-runs?limit=500" > "$TMP_RUNS"
+curl -H "Authorization: Bearer $API" "$BASE/api/companies/$CID/agents" > "$TMP_AGENTS"
+curl -H "Authorization: Bearer $API" "$BASE/api/companies/$CID/heartbeat-runs?limit=500" > "$TMP_RUNS"
 export SINCE_ISO FIXPOINT_FILE
 
 node - "$TMP_AGENTS" "$TMP_RUNS" <<'NODE'

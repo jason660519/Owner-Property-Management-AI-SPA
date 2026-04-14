@@ -76,7 +76,7 @@ export interface MyPropertyItem {
 }
 
 /** 與 DB CHECK（20260301110000）一致之出售物件可選狀態 */
-export const landlordSaleStatusValues = [
+const landlordSaleStatusValues = [
   'for_sale',
   'pending',
   'sold',
@@ -85,7 +85,7 @@ export const landlordSaleStatusValues = [
 ] as const
 
 /** 與 DB CHECK 一致之出租物件可選狀態 */
-export const landlordRentalStatusValues = [
+const landlordRentalStatusValues = [
   'for_rent',
   'collecting_rent',
   'rented',
@@ -101,6 +101,42 @@ export interface MyPropertiesResult {
   success: boolean
   properties: MyPropertyItem[]
   error?: string
+}
+
+export interface UpdateMyPropertyStatusResult {
+  success: boolean
+  error?: string
+}
+
+export interface BatchLandlordPropertyStatusItem {
+  id: string
+  listingType: 'rental' | 'sale'
+  status: string
+}
+
+function normalizeLandlordPropertyStatus(
+  listingType: 'rental' | 'sale',
+  status: string,
+): string | null {
+  if (listingType === 'sale') {
+    if (status === 'available') return 'for_sale'
+    if ((landlordSaleStatusValues as readonly string[]).includes(status)) return status
+    if (status === 'archived') return 'expired'
+    return null
+  }
+
+  switch (status) {
+    case 'vacant':
+      return 'for_rent'
+    case 'occupied':
+      return 'collecting_rent'
+    case 'maintenance':
+      return 'pending'
+    case 'archived':
+      return 'expired'
+    default:
+      return (landlordRentalStatusValues as readonly string[]).includes(status) ? status : null
+  }
 }
 
 /**
@@ -200,33 +236,6 @@ export async function getMyProperties(): Promise<MyPropertiesResult> {
   }
 }
 
-<<<<<<< HEAD
-export interface UpdateMyPropertyStatusResult {
-  success: boolean
-  error?: string
-}
-
-/**
- * 房東於列表頁快速更新物件狀態（不需進入詳情頁）
- */
-export async function updateMyPropertyStatus(
-  propertyId: string,
-  propertyType: 'sale' | 'rental',
-  newStatus: string
-): Promise<UpdateMyPropertyStatusResult> {
-  try {
-    const supabase = await createClient()
-
-=======
-export interface BatchLandlordPropertyStatusItem {
-  id: string
-  listingType: 'rental' | 'sale'
-  status: string
-}
-
-const VALID_RENTAL_STATUSES = new Set(['vacant', 'occupied', 'maintenance', 'archived'])
-const VALID_SALE_STATUSES = new Set(['available', 'pending', 'sold', 'archived'])
-
 /**
  * 房東物件列表：批次更新狀態（RLS 限制僅能更新自己的物件）
  */
@@ -239,7 +248,6 @@ export async function batchUpdateLandlordPropertyStatus(
     }
 
     const supabase = await createClient()
->>>>>>> feature/paperclip-row-059
     const {
       data: { user },
       error: authError,
@@ -249,39 +257,9 @@ export async function batchUpdateLandlordPropertyStatus(
       return { success: false, error: '用戶未登入' }
     }
 
-<<<<<<< HEAD
-    const allowed =
-      propertyType === 'sale'
-        ? landlordSaleStatusValues
-        : landlordRentalStatusValues
-
-    if (!(allowed as readonly string[]).includes(newStatus)) {
-      return { success: false, error: '不支援的狀態值' }
-    }
-
-    const tableName = propertyType === 'sale' ? 'property_sales' : 'property_rentals'
-
-    const { error } = await supabase
-      .from(tableName)
-      .update({ status: newStatus, updated_at: new Date().toISOString() })
-      .eq('id', propertyId)
-
-    if (error) {
-      console.error('[UpdateMyPropertyStatus]', error)
-      return { success: false, error: error.message }
-    }
-
-    revalidatePath('/landlord/properties')
-    revalidatePath(`/landlord/properties/${propertyId}`)
-
-    return { success: true }
-  } catch (error) {
-    console.error('[UpdateMyPropertyStatus] Unexpected error:', error)
-=======
     for (const item of items) {
-      const allowed =
-        item.listingType === 'rental' ? VALID_RENTAL_STATUSES : VALID_SALE_STATUSES
-      if (!allowed.has(item.status)) {
+      const normalizedStatus = normalizeLandlordPropertyStatus(item.listingType, item.status)
+      if (!normalizedStatus) {
         return {
           success: false,
           error: `無效的${item.listingType === 'rental' ? '出租' : '出售'}狀態：${item.status}`,
@@ -289,7 +267,10 @@ export async function batchUpdateLandlordPropertyStatus(
       }
 
       const table = item.listingType === 'rental' ? 'property_rentals' : 'property_sales'
-      const { error } = await supabase.from(table).update({ status: item.status }).eq('id', item.id)
+      const { error } = await supabase
+        .from(table)
+        .update({ status: normalizedStatus, updated_at: new Date().toISOString() })
+        .eq('id', item.id)
 
       if (error) {
         console.error('[batchUpdateLandlordPropertyStatus]', table, item.id, error)
@@ -301,12 +282,31 @@ export async function batchUpdateLandlordPropertyStatus(
     return { success: true }
   } catch (error) {
     console.error('[batchUpdateLandlordPropertyStatus] Unexpected:', error)
->>>>>>> feature/paperclip-row-059
     return {
       success: false,
       error: error instanceof Error ? error.message : '未知錯誤',
     }
   }
+}
+
+/**
+ * 房東於列表頁快速更新物件狀態（不需進入詳情頁）
+ */
+export async function updateMyPropertyStatus(
+  propertyId: string,
+  propertyType: 'sale' | 'rental',
+  newStatus: string,
+): Promise<UpdateMyPropertyStatusResult> {
+  const result = await batchUpdateLandlordPropertyStatus([
+    { id: propertyId, listingType: propertyType, status: newStatus },
+  ])
+
+  if (!result.success) {
+    return { success: false, error: result.error }
+  }
+
+  revalidatePath(`/landlord/properties/${propertyId}`)
+  return { success: true }
 }
 
 /**
@@ -704,9 +704,6 @@ export async function getLandlordPropertyById(
     }
   }
 }
-
-export const PLACEHOLDER_IMAGE =
-  'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200'
 
 /**
  * 此物件最近看房預約（租屋 + 買家），最多 10 筆，依日期新到舊。

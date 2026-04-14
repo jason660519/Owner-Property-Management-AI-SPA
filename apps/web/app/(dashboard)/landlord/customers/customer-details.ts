@@ -44,15 +44,12 @@ export type CustomerDetailsPayload = {
   followUps: FollowUpEntry[]
   viewingRecords: ViewingRecord[]
   communicationLog: CommunicationEntry[]
-<<<<<<< HEAD
   tenantProfile?: TenantProfile
-=======
   /** 已成交客戶封存後仍保留紀錄，預設自清單隱藏 */
   archived: boolean
   /** 已成交客戶標記為買家或已簽約租客，用於導向對應儀表板 */
   closedRoleTag: ClosedRoleTag | null
   closedDeal: ClosedDealInfo | null
->>>>>>> feature/paperclip-row-034
 }
 
 const DEFAULT_DETAILS: CustomerDetailsPayload = {
@@ -113,7 +110,6 @@ function normalizeViewingRecords(value: unknown): ViewingRecord[] {
     .filter((item) => item.propertyLabel.length > 0)
 }
 
-<<<<<<< HEAD
 function normalizeTenantProfile(value: unknown): TenantProfile | undefined {
   if (!isObject(value)) {
     return undefined
@@ -145,7 +141,8 @@ function normalizeTenantProfile(value: unknown): TenantProfile | undefined {
   }
 
   return { creditScore, monthlyIncome, occupationType }
-=======
+}
+
 function normalizeClosedRoleTag(value: unknown): ClosedRoleTag | null {
   if (value === 'buyer' || value === 'signed_tenant') {
     return value
@@ -172,7 +169,6 @@ function normalizeClosedDeal(value: unknown): ClosedDealInfo | null {
     amountTwd = Number.isFinite(n) ? n : null
   }
   return { closedAt, propertyLabel, amountTwd }
->>>>>>> feature/paperclip-row-034
 }
 
 function normalizeCommunicationLog(value: unknown): CommunicationEntry[] {
@@ -185,7 +181,8 @@ function normalizeCommunicationLog(value: unknown): CommunicationEntry[] {
     .map((item, index) => {
       const summary = typeof item.summary === 'string' ? item.summary.trim() : ''
       const createdAt = typeof item.createdAt === 'string' ? item.createdAt : new Date(0).toISOString()
-      const channel = item.channel === 'note' || item.channel === 'message' ? item.channel : 'system'
+      const channel: CommunicationEntry['channel'] =
+        item.channel === 'note' || item.channel === 'message' ? item.channel : 'system'
       const id = typeof item.id === 'string' && item.id.trim().length > 0 ? item.id : `communication-${index + 1}`
       return { id, summary, createdAt, channel }
     })
@@ -220,25 +217,19 @@ export function parseCustomerDetails(rawNotes: string | null | undefined): Custo
     }
 
     const summaryNote = typeof parsed.summaryNote === 'string' ? parsed.summaryNote : ''
-<<<<<<< HEAD
     const tenantProfile = normalizeTenantProfile(parsed.tenantProfile)
-
-=======
     const archived = parsed.archived === true
->>>>>>> feature/paperclip-row-034
     return {
       summaryNote,
       intent: normalizeIntent(parsed.intent),
       followUps: normalizeFollowUps(parsed.followUps),
       viewingRecords: normalizeViewingRecords(parsed.viewingRecords),
       communicationLog: normalizeCommunicationLog(parsed.communicationLog),
-<<<<<<< HEAD
       ...(tenantProfile ? { tenantProfile } : {}),
-=======
+      ...(tenantProfile ? { tenantProfile } : {}),
       archived,
       closedRoleTag: normalizeClosedRoleTag(parsed.closedRoleTag),
       closedDeal: normalizeClosedDeal(parsed.closedDeal),
->>>>>>> feature/paperclip-row-034
     }
   } catch {
     return {
@@ -334,7 +325,6 @@ export function getIntentLabel(intent: CustomerIntent): string {
   }
 }
 
-<<<<<<< HEAD
 /** Relative label for last activity (shared by grid + list views). */
 export function formatCustomerLastContact(input: { created_at: string; updated_at?: string }): string {
   const dateStr = input.updated_at ?? input.created_at
@@ -344,7 +334,8 @@ export function formatCustomerLastContact(input: { created_at: string; updated_a
   if (diffDays < 7) return `${diffDays}天前`
   if (diffDays < 30) return `${Math.floor(diffDays / 7)}週前`
   return `${Math.floor(diffDays / 30)}個月前`
-=======
+}
+
 export function getClosedRoleTagLabel(tag: ClosedRoleTag): string {
   switch (tag) {
     case 'buyer':
@@ -362,5 +353,4 @@ export function isActiveClosedLandlordCustomer(row: {
   notes?: string | null
 }): boolean {
   return normalizeCustomerStatus(row.status ?? undefined) === 'closed' && !parseCustomerDetails(row.notes).archived
->>>>>>> feature/paperclip-row-034
 }

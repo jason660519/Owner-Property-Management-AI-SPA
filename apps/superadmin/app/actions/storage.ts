@@ -116,7 +116,7 @@ export async function getOrphanedFiles(limit = 1000): Promise<OrphanedFile[]> {
           name: file.name,
           bucket_id: bucket,
           size: file.metadata?.size ?? 0,
-          created_at: file.created_at,
+          created_at: file.created_at ?? '',
           url: urlData?.signedUrl || '',
         });
       }

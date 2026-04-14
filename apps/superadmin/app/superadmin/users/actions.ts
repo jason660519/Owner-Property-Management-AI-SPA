@@ -9,6 +9,14 @@ import nodemailer from "nodemailer";
 
 const BASE = "/superadmin/users";
 
+export type SocialContacts = {
+  lineId?: string | null;
+  wechatId?: string | null;
+  whatsapp?: string | null;
+  facebookUrl?: string | null;
+  instagramUrl?: string | null;
+};
+
 /**
  * Generate an 8-digit numeric invite code (10000000–99999999)
  */
@@ -494,154 +502,75 @@ export async function updateUser(
   return { success: true };
 }
 
-
-
-  const { data: profile } = await supabase
-    .from("users_profile")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  const hasSuperAdminRole =
-    profile?.role === "super_admin" ||
-    user.app_metadata?.roles?.includes("super_admin") ||
-    user.user_metadata?.roles?.includes("super_admin");
-
-  if (!hasSuperAdminRole) {
-    return { success: false, message: "Unauthorized: Admin access required" };
-  }
-
-  const { data: targetProfile, error: fetchError } = await supabase
-    .from("users_profile")
-    .select("roles")
-    .eq("id", userId)
-    .single();
-
-  if (fetchError) {
-    return { success: false, message: fetchError.message };
-  }
-
-  const currentRoles = (targetProfile?.roles as string[] | null) || [];
-  const trimmedRole = role.trim();
-  if (!trimmedRole) {
-    return { success: false, message: "Role is required" };
-  }
-  if (currentRoles.includes(trimmedRole)) {
-    return { success: false, message: "Role is already assigned to this user" };
-  }
-
-  const updatedRoles = [...currentRoles, trimmedRole];
-
-  const { error: updateError } = await supabase
-    .from("users_profile")
-    .update({ roles: updatedRoles })
-    .eq("id", userId);
-
-  if (updateError) {
-    return { success: false, message: updateError.message };
-  }
-
-  revalidatePath(BASE);
-  return { success: true };
-}
-
-
-
-  const { data: profile } = await supabase
-    .from("users_profile")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  const hasSuperAdminRole =
-    profile?.role === "super_admin" ||
-    user.app_metadata?.roles?.includes("super_admin") ||
-    user.user_metadata?.roles?.includes("super_admin");
-
-  if (!hasSuperAdminRole) {
-    return { success: false, message: "Unauthorized: Admin access required" };
-  }
-
-  const trimmed = displayName.trim();
-  if (!trimmed) {
-    return { success: false, message: "Display name cannot be empty" };
-  }
+export async function addRoleToUser(
+  userId: string,
+  role: string,
+): Promise<{ success: boolean; message?: string }> {
+  const nextRole = role.trim();
+  if (!nextRole) return { success: false, message: "Role is required" };
 
   const admin = createAdminClient();
-  const { data: authUser, error: fetchError } =
-    await admin.auth.admin.getUserById(userId);
-  if (fetchError || !authUser?.user) {
-    return { success: false, message: fetchError?.message ?? "User not found" };
-  }
-
-  const existingMeta = authUser.user.user_metadata ?? {};
-  const { error: updateAuthError } = await admin.auth.admin.updateUserById(
-    userId,
-    {
-      user_metadata: { ...existingMeta, display_name: trimmed },
-    },
-  );
-  if (updateAuthError) {
-    return { success: false, message: updateAuthError.message };
-  }
-
-  const { error: updateProfileError } = await admin
-    .from("users_profile")
-    .update({ display_name: trimmed, updated_at: new Date().toISOString() })
-    .eq("id", userId);
-  if (updateProfileError) {
-    return { success: false, message: updateProfileError.message };
-  }
-
-  revalidatePath(BASE);
-  return { success: true };
-}
-
-
-
-  const { data: profile } = await supabase
-    .from("users_profile")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  const hasSuperAdminRole =
-    profile?.role === "super_admin" ||
-    user.app_metadata?.roles?.includes("super_admin") ||
-    user.user_metadata?.roles?.includes("super_admin");
-
-  if (!hasSuperAdminRole) {
-    return { success: false, message: "Unauthorized: Admin access required" };
-  }
-
-  const { data: targetProfile, error: fetchError } = await supabase
+  const { data: profile, error } = await admin
     .from("users_profile")
     .select("roles")
     .eq("id", userId)
     .single();
 
-  if (fetchError) {
-    return { success: false, message: fetchError.message };
+  if (error) return { success: false, message: error.message };
+
+  const currentRoles = (profile?.roles as string[] | null) ?? [];
+  if (currentRoles.includes(nextRole)) {
+    return { success: false, message: "Role already assigned" };
   }
 
-  const currentRoles = (targetProfile?.roles as string[] | null) || [];
-  const trimmedRole = role.trim();
-  const updatedRoles = currentRoles.filter((r) => r !== trimmedRole);
-
-  const { error: updateError } = await supabase
-    .from("users_profile")
-    .update({ roles: updatedRoles })
-    .eq("id", userId);
-
-  if (updateError) {
-    return { success: false, message: updateError.message };
-  }
-
-  revalidatePath(BASE);
-  return { success: true };
+  return updateUser(userId, { roles: [...currentRoles, nextRole] });
 }
 
+export async function removeRoleFromUser(
+  userId: string,
+  role: string,
+): Promise<{ success: boolean; message?: string }> {
+  const targetRole = role.trim();
+  if (!targetRole) return { success: false, message: "Role is required" };
 
+  const admin = createAdminClient();
+  const { data: profile, error } = await admin
+    .from("users_profile")
+    .select("roles")
+    .eq("id", userId)
+    .single();
+
+  if (error) return { success: false, message: error.message };
+
+  const currentRoles = (profile?.roles as string[] | null) ?? [];
+  if (!currentRoles.includes(targetRole)) {
+    return { success: false, message: "Role not assigned" };
+  }
+
+  const nextRoles = currentRoles.filter((r) => r !== targetRole);
+  return updateUser(userId, { roles: nextRoles });
+}
+
+export async function updateUserDisplayName(
+  userId: string,
+  displayName: string,
+): Promise<{ success: boolean; message?: string }> {
+  return updateUser(userId, { displayName });
+}
+
+export async function updateUserPhone(
+  userId: string,
+  phone: string,
+): Promise<{ success: boolean; message?: string }> {
+  return updateUser(userId, { phone });
+}
+
+export async function updateUserEmail(
+  userId: string,
+  email: string,
+): Promise<{ success: boolean; message?: string }> {
+  return updateUser(userId, { email });
+}
 
 
 

@@ -379,11 +379,11 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/features/tdd-company-pages-thirdparty-20260221.md",
     category: "公司頁面 (Company Pages)",
     points: 5,
-    lastModifiedBy: "GPT-5.4",
-    lastModifiedDate: "2026/03/22",
+    lastModifiedBy: "GitHub Copilot (GPT-5.4)",
+    lastModifiedDate: "2026/04/14",
     phase: "development",
     developmentProgress:
-      "首頁 Hero 與 metadata 已從單一房東工具重新定位為多角色不動產 AI 協作平台；Header banner、FeaturedProperties、Footer CTA、services 頁、Testimonials 與 FAQ 文案已同步對齊，並補上 HeroSection、FeaturedProperties、Testimonials、FAQ、Footer、services 導流測試。另新增 public marketing funnel Playwright 測試，覆蓋首頁進 pricing/services，以及 pricing、services、about、properties 導向 contact 的公開漏斗。下一步可接上真實 lead funnel tracking。",
+      "首頁 Hero 與 metadata 已從單一房東工具重新定位為多角色不動產 AI 協作平台；Header banner、FeaturedProperties、Footer CTA、services 頁、Testimonials 與 FAQ 文案已同步對齊，並補上 HeroSection、FeaturedProperties、Testimonials、FAQ、Footer、services 導流測試。另新增 public marketing funnel Playwright 測試，覆蓋首頁進 pricing/services，以及 pricing、services、about、properties 導向 contact 的公開漏斗。2026/04/14 補做穩定性修復：清除 `customer-details.ts` 未解 merge conflict，恢復首頁編譯；同時修正 Header/Footer 首頁可見 CTA 的 `a > button` 無效 HTML，改為 link-wrapped button-styled span，消除 localhost:3000 首頁 hydration mismatch。另以 Jest 驗證 landlord customers 相關 2 suites、10 tests 全數通過。下一步可接上真實 lead funnel tracking。",
   },
   {
     name: "公司產品費用說明頁",

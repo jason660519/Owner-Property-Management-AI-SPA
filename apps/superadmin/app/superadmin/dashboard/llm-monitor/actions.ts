@@ -15,7 +15,7 @@ const ProviderKeySchema = z.object({
   expiresAt: z.string().nullable(),
 });
 
-export const LLMMonitorConfigSchema = z.object({
+const LLMMonitorConfigSchema = z.object({
   monthlyBudgetUsd: z.number().nonnegative(),
   alertThresholdPercent: z.number().min(1).max(100),
   providerApiKeys: z.array(ProviderKeySchema),

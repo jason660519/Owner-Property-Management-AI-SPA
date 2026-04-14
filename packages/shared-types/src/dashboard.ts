@@ -1,4 +1,6 @@
-import type { LucideIcon } from 'lucide-react';
+import type { ComponentType, SVGProps } from 'react';
+
+export type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
 export type BadgeVariant = 'info' | 'warning' | 'success' | 'error' | 'default';
 
@@ -18,7 +20,7 @@ export interface TrendIndicator {
 export interface KPIConfig {
   title: string;
   value: number | string;
-  icon: LucideIcon;
+  icon: IconComponent;
   color: string;
   trend?: TrendIndicator;
   progressLinks: ProgressLink[];

@@ -6,10 +6,10 @@ import Link from 'next/link'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { PropertyImageCarousel } from '@/components/property/PropertyImageCarousel'
+import { PLACEHOLDER_IMAGE } from '@/lib/properties/constants'
 import {
   getLandlordPropertyById,
   getPropertyViewingAppointments,
-  PLACEHOLDER_IMAGE,
   type LandlordPropertyDetail,
   type PropertyViewingAppointmentRow,
 } from '@/lib/actions/properties'

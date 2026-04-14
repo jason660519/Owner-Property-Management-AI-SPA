@@ -88,10 +88,10 @@ const STATUS_BADGE: Record<
   },
 }
 
-const NEXT_STATUS: Partial<Record<MaintenanceStatus, MaintenanceStatus>> = {
+const NEXT_STATUS = {
   open: 'in_progress',
   in_progress: 'pending_tenant',
-}
+} as const satisfies Partial<Record<MaintenanceStatus, Exclude<MaintenanceStatus, 'completed'>>>
 
 const NEXT_STATUS_LABEL: Partial<Record<MaintenanceStatus, string>> = {
   open: '開始處理',
@@ -182,19 +182,25 @@ function DispatchFields({
     const est =
       estimatedCost.trim() === '' ? null : Number.parseFloat(estimatedCost.replace(/,/g, ''))
     const act = actualCost.trim() === '' ? null : Number.parseFloat(actualCost.replace(/,/g, ''))
-    const ok = await onPersist({
-      status: request.status,
+    const patch: UpdateMaintenanceInput = {
       notes: notesInput || undefined,
       estimatedCost: est !== null && !Number.isNaN(est) ? est : undefined,
       actualCost: act !== null && !Number.isNaN(act) ? act : null,
       scheduledDate: fromLocalDatetimeInput(scheduledLocal),
       assignedToId: assignedToId === '' ? null : assignedToId,
-    })
+    }
+    if (request.status !== 'completed') {
+      patch.status = request.status
+    }
+    const ok = await onPersist(patch)
     setSaving(false)
     return ok
   }
 
-  const nextStatus = NEXT_STATUS[request.status]
+  const nextStatus =
+    request.status === 'open' || request.status === 'in_progress'
+      ? NEXT_STATUS[request.status]
+      : undefined
 
   const advance = async () => {
     if (!nextStatus) return

@@ -170,7 +170,7 @@ export function Header() {
             ) : user ? (
               <>
                 <Link href={dashboardUrl}>
-                  <Button variant="ghost" size="md">
+                  <Button as="span" variant="ghost" size="md">
                     儀表板
                   </Button>
                 </Link>
@@ -247,7 +247,7 @@ export function Header() {
             {user ? (
               <>
                 <Link href={dashboardUrl} onClick={() => setIsMobileMenuOpen(false)}>
-                  <Button variant="ghost" fullWidth>
+                  <Button as="span" variant="ghost" fullWidth>
                     儀表板
                   </Button>
                 </Link>
@@ -258,12 +258,12 @@ export function Header() {
             ) : (
               <>
                 <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Button variant={loginVariant} fullWidth>
+                  <Button as="span" variant={loginVariant} fullWidth>
                     登入
                   </Button>
                 </Link>
                 <Link href="/register" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Button variant={registerVariant} fullWidth>
+                  <Button as="span" variant={registerVariant} fullWidth>
                     註冊
                   </Button>
                 </Link>

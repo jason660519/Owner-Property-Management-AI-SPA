@@ -12,7 +12,7 @@ import {
   deleteUser,
   inviteUser,
   IAMUser,
-} from '../../users/actions';
+} from '../../../users/actions';
 import { getRoles, Role } from '../../rbac_access_control/actions';
 
 export function UsersTab() {
@@ -99,8 +99,8 @@ export function UsersTab() {
     setDeleteError(null);
     if (!window.confirm(`確定要刪除使用者 "${email}"？此操作無法復原。`)) return;
     const result = await deleteUser(id);
-    if (result.error || !result.success) {
-      setDeleteError(result.error || result.message || 'An unknown error occurred during deletion.');
+    if (!result.success) {
+      setDeleteError(result.message || 'An unknown error occurred during deletion.');
       setTimeout(() => setDeleteError(null), 5000);
       return;
     }
@@ -191,7 +191,7 @@ export function UsersTab() {
           <Button variant="outline" size="sm" onClick={() => openEditModal(row.original)} className="text-xs">
             編輯
           </Button>
-          <Button variant="destructive" size="sm" onClick={() => void handleDeleteUser(row.original.id, row.original.email)} className="text-xs">
+            <Button variant="danger" size="sm" onClick={() => void handleDeleteUser(row.original.id, row.original.email)} className="text-xs">
             刪除
           </Button>
         </div>
@@ -264,7 +264,7 @@ export function UsersTab() {
           <div className="bg-[#2A2A2A] border border-[#333333] rounded-xl shadow-xl w-full max-w-md">
             <div className="flex justify-between items-center px-6 py-4 border-b border-[#333333]">
               <h3 className="font-semibold text-white text-sm">{isEditMode ? '編輯使用者' : '新增使用者'}</h3>
-              <Button variant="ghost" size="icon" onClick={() => setIsModalOpen(false)} className="text-[#666666] hover:text-white"><X size={18} /></Button>
+              <Button variant="ghost" size="sm" onClick={() => setIsModalOpen(false)} className="text-[#666666] hover:text-white"><X size={18} /></Button>
             </div>
             <div className="p-6 space-y-4">
               {formError && (
@@ -348,56 +348,6 @@ export function UsersTab() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-      } catch (error) {
-        console.error('Failed to load users data:', error);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20 text-gray-400 text-sm">
-        載入中...
-      </div>
-    );
-  }
-
-  const totalUsers = users.length;
-
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-xl font-bold text-white">User Management</h2>
-        </div>
-        <div className="flex items-center gap-4">
-          <IAMLayoutControls />
-          <div className="flex items-center gap-4">
-            <div className="text-xs text-[#999999]">
-              <span className="font-medium text-white">
-                Total Users: {totalUsers}
-              </span>
-              <span className="mx-1 text-[#555555]">/</span>
-              <span className="font-medium text-green-400">
-                Online Users:{' '}
-                {onlineUsersCount != null ? onlineUsersCount : '—'}
-              </span>
-            </div>
-            <div className="flex gap-2">
-              <button className="px-4 py-2 bg-[#2A2A2A] text-white border border-[#333333] rounded-md hover:bg-[#333333] transition-colors text-sm">
-                匯出用戶資料
-              </button>
-              <InviteUserModal />
-            </div>
-          </div>
-        </div>
-      </div>
-      <UserList initialUsers={users} availableGroups={groups} />
     </div>
   );
 }

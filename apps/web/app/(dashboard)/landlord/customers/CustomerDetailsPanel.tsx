@@ -173,7 +173,7 @@ export function CustomerDetailsPanel({
           {(['potential', 'negotiating', 'closed', 'lost'] as CustomerStatus[]).map((status) => (
             <Button
               key={status}
-              variant={customer.status === status ? 'default' : 'outline'}
+              variant={customer.status === status ? 'primary' : 'outline'}
               size="sm"
               onClick={() => onQuickStatusChange(status)}
             >

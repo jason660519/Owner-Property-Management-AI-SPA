@@ -197,12 +197,12 @@ export function Footer() {
           </p>
           <div className={styles.ctaActions}>
             <Link href="/pricing">
-              <Button variant="primary" size="lg">
+              <Button as="span" variant="primary" size="lg">
                 查看角色方案
               </Button>
             </Link>
             <Link href="/contact?inquiryType=%E5%90%88%E4%BD%9C%E6%8F%90%E6%A1%88">
-              <Button variant="secondary" size="lg">
+              <Button as="span" variant="secondary" size="lg">
                 預約平台諮詢
               </Button>
             </Link>

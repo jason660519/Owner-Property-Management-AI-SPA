@@ -37,5 +37,9 @@
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,md}": "prettier --write",
     "package.json": "node scripts/check-critical-deps.js"
+  },
+  "dependencies": {
+    "highlight.js": "^11.11.1",
+    "pdf-lib": "^1.17.1"
   }
 }

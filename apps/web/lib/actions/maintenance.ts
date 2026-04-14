@@ -52,7 +52,7 @@ export interface CreateMaintenanceInput {
 
 export interface UpdateMaintenanceInput {
   /** Landlord workflow: cannot set `completed` here — use `confirmMaintenanceClosureByTenant` or `completeMaintenanceAsLandlord`. */
-  status: Exclude<MaintenanceStatus, 'completed'>
+  status?: Exclude<MaintenanceStatus, 'completed'>
   notes?: string
   estimatedCost?: number
   scheduledDate?: string | null
@@ -135,6 +135,13 @@ async function ensureMaintenanceLedgerExpense(
 }
 
 // Maps raw DB row to MaintenanceRequest interface
+function extractOwnerId(value: unknown): string | null {
+  const relation = Array.isArray(value) ? value[0] : value
+  if (!relation || typeof relation !== 'object') return null
+  const ownerId = (relation as { owner_id?: unknown }).owner_id
+  return typeof ownerId === 'string' ? ownerId : null
+}
+
 function mapRow(r: Record<string, unknown>, requesterName = ''): MaintenanceRequest {
   const property = r.property as Record<string, unknown> | null
   const assignee = r.assignee as Record<string, unknown> | null
@@ -379,8 +386,8 @@ export async function updateMaintenanceRequest(
     if (loadError) throw loadError
     if (!existing) return { success: false, error: '找不到此維修申請' }
 
-    const property = existing.property as { owner_id: string } | null
-    if (!property || property.owner_id !== user.id) {
+    const ownerId = extractOwnerId(existing.property)
+    if (!ownerId || ownerId !== user.id) {
       return { success: false, error: '無權限更新此申請' }
     }
 
@@ -411,7 +418,8 @@ export async function updateMaintenanceRequest(
       }
     }
 
-    const patch: Record<string, unknown> = { status: input.status }
+    const patch: Record<string, unknown> = {}
+    if (input.status !== undefined) patch.status = input.status
     if (input.notes !== undefined) patch.notes = input.notes
     if (input.estimatedCost !== undefined) patch.estimated_cost = input.estimatedCost
     if (input.scheduledDate !== undefined) patch.scheduled_date = input.scheduledDate
@@ -509,7 +517,10 @@ export async function confirmMaintenanceClosureByTenant(
       return { success: false, error: '此申請不在待確認結案狀態' }
     }
 
-    const ownerId = (row.property as { owner_id: string }).owner_id
+    const ownerId = extractOwnerId(row.property)
+    if (!ownerId) {
+      return { success: false, error: '找不到房東資料' }
+    }
 
     const { error } = await supabase
       .from('maintenance_requests')
@@ -574,8 +585,8 @@ export async function completeMaintenanceAsLandlord(
     if (loadError) throw loadError
     if (!existing) return { success: false, error: '找不到此維修申請' }
 
-    const property = existing.property as { owner_id: string } | null
-    if (!property || property.owner_id !== user.id) {
+    const ownerId = extractOwnerId(existing.property)
+    if (!ownerId || ownerId !== user.id) {
       return { success: false, error: '無權限更新此申請' }
     }
 

@@ -411,7 +411,7 @@ export function TenantFilterWorkbench({
                 key={m}
                 type="button"
                 size="sm"
-                variant={active ? 'default' : 'outline'}
+                variant={active ? 'primary' : 'outline'}
                 className={active ? 'bg-[#7C3AED]' : ''}
                 onClick={() =>
                   setDraftCriteria((p) => ({
