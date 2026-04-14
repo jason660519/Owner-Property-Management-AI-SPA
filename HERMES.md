@@ -1,11 +1,32 @@
 # HERMES.md — Hermes Agent Operating Rules
 
-> **狀態**：草稿 v0.2 / 2026-04-12
+> **狀態**：草稿 v0.4 / 2026-04-14
 > **適用對象**：Hermes Agent(由 Telegram 遠端觸發)
 > **不適用**：Claude Code 本機 session（請改讀 `CLAUDE.md`）
 
 本檔是 Hermes Agent 操作這個 monorepo 時的**安全護欄與工作規範**。
 Claude Code 讀 `CLAUDE.md`；Hermes 讀這份 + `CLAUDE.md`。兩者衝突時以本檔較嚴格的一方為準。
+
+---
+
+## 0. Hermes 部署架構
+
+本專案 Hermes 僅使用 Docker 實例：
+
+| | Docker Gateway（`hermes-opm`） | Docker Dashboard（`hermes-dashboard`） |
+|---|---|---|
+| **程式碼來源** | `nousresearch/hermes-agent:latest` image | `hermes-opm:local`（同 base image） |
+| **Data 目錄** | `~/.hermes-opm/`（volume mount） | `~/.hermes-opm/`（共用同一份） |
+| **用途** | 長跑 gateway，接收 Telegram 指令 | Hermes Web UI |
+| **Port** | — | `9119`（若衝突可改 `HERMES_DASHBOARD_PORT`） |
+
+### 更新流程
+
+```bash
+# 更新 Hermes Docker image：
+cd tools/hermes-runtime
+docker compose build --pull && docker compose up -d
+```
 
 ---
 
@@ -407,7 +428,7 @@ SUPABASE_SERVICE_ROLE_KEY=<your-local-service-role-key>
 
 ---
 
-## 14. 未實作 / 待確認(v0.2 草稿的坑)
+## 14. 未實作 / 待確認(v0.4 草稿的坑)
 
 以下項目等 Hermes 真的裝起來後再驗證並補上:
 
@@ -418,6 +439,11 @@ SUPABASE_SERVICE_ROLE_KEY=<your-local-service-role-key>
 - [ ] 確認 Hermes memory 系統的寫入/刪除 API,以便第 9 節規則可強制執行
 - [ ] 確認 Telegram long-polling 模式的心跳/重連行為
 - [ ] 撰寫 Hermes skill:「讀取 `.claude/rules/` 並套用到當前 task」
+
+**v0.4 新增 — Docker-only 架構（已確認）**
+- [x] Hermes 執行模式統一為 Docker runtime（`hermes-opm` + `hermes-dashboard`）
+- [x] `start.sh all` 已納入 Hermes Dashboard 啟動與 URL 顯示
+- [ ] Docker image 版本更新流程加入 CI 或 start.sh 提示（避免與官方 latest 長期分歧）
 
 **v0.2 新增 — PII 保護**
 - [ ] 確認 Hermes 是否有 output filter / post-processing hook,可在回 Telegram 前攔截 PII
@@ -433,4 +459,4 @@ SUPABASE_SERVICE_ROLE_KEY=<your-local-service-role-key>
 
 ---
 
-*本檔為安全護欄的 v0.2 草稿,正式啟用前會與 Hermes 實際 config 對齊。*
+*本檔為安全護欄的 v0.4 草稿,正式啟用前會與 Hermes 實際 config 對齊。*

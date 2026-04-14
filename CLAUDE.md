@@ -147,6 +147,21 @@ supabase gen types typescript --local > packages/types/database.ts     # 型別�
 - `test-manifest.json` 中 `tier=nightly` 的條目必填 `nightlyOrder`（非負整數，數字越小越先跑）。
 - 合併前先跑：`tools/testing/validate-test-manifest.sh`。
 
+## Hermes Agent
+
+本專案 Hermes 僅保留 Docker runtime（不使用本機 CLI）：
+
+| 實例 | 用途 | Data 目錄 |
+|---|---|---|
+| Docker `hermes-opm` | Gateway / Telegram 長跑服務 | `~/.hermes-opm/` |
+| Docker `hermes-dashboard` | Hermes Web UI | `~/.hermes-opm/` |
+
+```bash
+cd tools/hermes-runtime && docker compose build --pull && docker compose up -d
+```
+
+Hermes 操作規範詳見 `HERMES.md`。
+
 ## 角色目錄
 
 給人類查閱的角色 Prompt 目錄在 `docs/prompts/agent_roles_index.md`，不要與本檔混用。

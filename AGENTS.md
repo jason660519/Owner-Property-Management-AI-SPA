@@ -98,9 +98,18 @@ Do not duplicate route maps, folder walkthroughs, file inventories, or package s
 - `test-manifest.json` 中 `tier=nightly` 的條目必填 `nightlyOrder`（非負整數，數字越小越先跑）。
 - 合併前至少執行一次：`tools/testing/validate-test-manifest.sh`。
 
-## 角色目錄
+## Hermes Agent
 
-原本給人類查閱的角色目錄已移到 `docs/prompts/agent_roles_index.md`，避免與本檔用途混淆。
+`tools/hermes-runtime/`（Docker gateway + dashboard）為唯一 Hermes 執行方式（不使用本機 CLI）。
+
+```bash
+cd tools/hermes-runtime && docker compose build --pull \
+  && docker compose up -d
+```
+
+完整規範：`HERMES.md`
+
+## 角色目錄
 
 ## 維護規則
 

@@ -12,6 +12,8 @@ set -e
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$PROJECT_ROOT/logs/dev"
 ENV_FILE="$PROJECT_ROOT/.env"
+HERMES_RUNTIME_DIR="$PROJECT_ROOT/tools/hermes-runtime"
+HERMES_DASHBOARD_PORT="${HERMES_DASHBOARD_PORT:-9119}"
 
 # --- 顏色定義 ---
 RED='\033[0;31m'
@@ -218,7 +220,7 @@ open_paperclip_dashboard() {
 }
 
 start_paperclip() {
-    echo -e "${BLUE}📎 啟動 Paperclip (Docker)...${NC}"
+    echo -e "${BLUE}📎 啟動 Paperclip (Docker-only)...${NC}"
     local compose_file="$PROJECT_ROOT/docker/paperclip/docker-compose.paperclip.yml"
     local env_file="$PROJECT_ROOT/docker/paperclip/.env.paperclip"
     local paperclip_container_id=""
@@ -261,7 +263,7 @@ start_paperclip() {
 }
 
 update_paperclip_image() {
-    echo -e "${BLUE}📦 更新 Paperclip 映像檔 (Docker)...${NC}"
+    echo -e "${BLUE}📦 更新 Paperclip 映像檔 (Docker-only)...${NC}"
     local compose_file="$PROJECT_ROOT/docker/paperclip/docker-compose.paperclip.yml"
     local env_file="$PROJECT_ROOT/docker/paperclip/.env.paperclip"
 
@@ -364,6 +366,73 @@ start_ocr() {
     fi
 }
 
+start_hermes_dashboard() {
+    echo -e "${BLUE}🤖 啟動 Hermes Dashboard (Docker-only)...${NC}"
+
+    if [ ! -f "$HERMES_RUNTIME_DIR/docker-compose.yml" ]; then
+        echo -e "${RED}❌ 找不到 Hermes runtime 設定: $HERMES_RUNTIME_DIR/docker-compose.yml${NC}"
+        return 1
+    fi
+
+    local selected_port="$HERMES_DASHBOARD_PORT"
+    if lsof -i :"$selected_port" > /dev/null 2>&1; then
+        if docker ps --format '{{.Names}}' | grep -q '^hermes-dashboard$'; then
+            if curl -fsS "http://localhost:${selected_port}" >/dev/null 2>&1; then
+                echo -e "${GREEN}✅ Hermes Dashboard 已在運行: http://localhost:${selected_port}${NC}"
+                return 0
+            fi
+            echo -e "${YELLOW}⚠️  Hermes Dashboard 容器在運行但 HTTP 不可達，將嘗試重建${NC}"
+            (
+                cd "$HERMES_RUNTIME_DIR"
+                HERMES_HOME_DIR="$HOME/.hermes-opm" HERMES_DASHBOARD_PORT="$selected_port" docker compose up -d --force-recreate hermes-dashboard
+            ) >> "$LOG_DIR/hermes-runtime.log" 2>&1 || {
+                echo -e "${RED}❌ Hermes Dashboard 重建失敗，詳見: $LOG_DIR/hermes-runtime.log${NC}"
+                return 1
+            }
+        fi
+        selected_port="9120"
+        if lsof -i :"$selected_port" > /dev/null 2>&1; then
+            echo -e "${RED}❌ Port 9119 / 9120 都被佔用，請先釋放 port 或手動指定 HERMES_DASHBOARD_PORT${NC}"
+            return 1
+        fi
+        echo -e "${YELLOW}⚠️  Port 9119 已被佔用，改用 Port ${selected_port}${NC}"
+    fi
+
+    ensure_log_dir
+    (
+        cd "$HERMES_RUNTIME_DIR"
+        HERMES_HOME_DIR="$HOME/.hermes-opm" HERMES_DASHBOARD_PORT="$selected_port" docker compose up -d hermes hermes-dashboard
+    ) > "$LOG_DIR/hermes-runtime.log" 2>&1 || {
+        echo -e "${RED}❌ Hermes Dashboard 啟動失敗，詳見: $LOG_DIR/hermes-runtime.log${NC}"
+        return 1
+    }
+
+    local state
+    state=$(docker inspect -f '{{.State.Status}}' hermes-dashboard 2>/dev/null || echo "missing")
+    if [ "$state" != "running" ]; then
+        echo -e "${RED}❌ Hermes Dashboard 容器未正常運行（state: $state），詳見: $LOG_DIR/hermes-runtime.log${NC}"
+        return 1
+    fi
+
+    local health_ok=0
+    for _ in $(seq 1 20); do
+        if curl -fsS "http://localhost:${selected_port}" >/dev/null 2>&1; then
+            health_ok=1
+            break
+        fi
+        sleep 1
+    done
+
+    if [ "$health_ok" -ne 1 ]; then
+        echo -e "${RED}❌ Hermes Dashboard 尚未可連線，詳見: $LOG_DIR/hermes-runtime.log${NC}"
+        return 1
+    fi
+
+    HERMES_DASHBOARD_PORT="$selected_port"
+    export HERMES_DASHBOARD_PORT
+    echo -e "${GREEN}✅ Hermes Dashboard 啟動成功: http://localhost:${HERMES_DASHBOARD_PORT}${NC}"
+}
+
 start_all() {
     echo -e "${BLUE}🚀 正在啟動所有服務 (背景模式)...${NC}"
     check_dependencies
@@ -374,6 +443,7 @@ start_all() {
     start_admin "bg"
     start_ocr
     start_paperclip
+    start_hermes_dashboard
 
     echo ""
     echo -e "${GREEN}🎉 所有服務啟動程序已完成${NC}"
@@ -381,7 +451,8 @@ start_all() {
     echo -e "   • Web App (AU):     http://localhost:3002"
     echo -e "   • Superadmin:       http://localhost:3001/superadmin/dashboard"
     echo -e "   • OCR Service:      http://localhost:8819"
-    echo -e "   • Paperclip:        ${PAPERCLIP_PUBLIC_URL:-http://localhost:${PAPERCLIP_PORT:-3187}}"
+    echo -e "   • Paperclip (Docker-only): ${PAPERCLIP_PUBLIC_URL:-http://localhost:${PAPERCLIP_PORT:-3187}}"
+    echo -e "   • Hermes Dashboard (Docker-only): http://localhost:${HERMES_DASHBOARD_PORT:-9119}"
     echo -e "   • Supabase Studio:  http://localhost:54323"
     echo -e "   • Mailpit (Email):  http://localhost:54324"
     echo -e "   • Logs:             $LOG_DIR/"
@@ -451,9 +522,10 @@ show_menu() {
     echo "5) 👁️  啟動 OCR/VLM 後端"
     echo "6) 🧪 執行 Superadmin 測試 (含截圖)"
     echo "7) 🧹 清除快取 (TW + AU + Superadmin)"
-    echo "8) 📎 啟動 Paperclip (Docker)"
-    echo "9) 📦 更新 Paperclip 映像檔"
-    echo "10) 🛑 停止所有服務"
+    echo "8) 📎 啟動 Paperclip (Docker-only)"
+    echo "9) 📦 更新 Paperclip 映像檔 (Docker-only)"
+    echo "10) 🤖 啟動 Hermes Dashboard (Docker-only)"
+    echo "11) 🛑 停止所有服務"
     echo "0) 離開"
     echo ""
     read -p "請輸入選項: " choice
@@ -468,7 +540,8 @@ show_menu() {
         7) clean_cache ;;
         8) start_paperclip ;;
         9) update_paperclip_image ;;
-        10) ./stop.sh ;;
+        10) start_hermes_dashboard ;;
+        11) ./stop.sh ;;
         0) exit 0 ;;
         *) echo "無效選項"; sleep 1; show_menu ;;
     esac
@@ -483,8 +556,9 @@ case "${1:-menu}" in
     ocr)    check_dependencies; ensure_supabase_running; start_ocr ;;
     paperclip) check_dependencies; start_paperclip ;;
     paperclip-update) check_dependencies; update_paperclip_image ;;
+    hermes) check_dependencies; start_hermes_dashboard ;;
     test)   run_tests ;;
     clean)  clean_cache ;;
     menu)   show_menu ;;
-    *)      echo "用法: $0 [all|web|web-au|admin|ocr|paperclip|paperclip-update|test|clean|menu]" ;;
+    *)      echo "用法: $0 [all|web|web-au|admin|ocr|paperclip|paperclip-update|hermes|test|clean|menu]" ;;
 esac
