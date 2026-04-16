@@ -7,6 +7,10 @@ import type { AIProvider } from '@/lib/ai-providers';
 import { decryptApiKey } from '@/lib/crypto';
 import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 import { pickRecommendedModelByProvider } from '@/lib/pick-latest-model';
+import {
+  validateKiloGatewayKey,
+  validateOpenCodeZenKey,
+} from '@/lib/ai-key-validation/kilo-opencode-zen';
 
 interface ValidationResult {
   valid: boolean;
@@ -423,32 +427,32 @@ async function validateQwen(apiKey: string): Promise<ValidationResult> {
 }
 
 async function validateKilo(apiKey: string): Promise<ValidationResult> {
-  const trimmed = apiKey.trim();
-  if (!trimmed) {
-    return { valid: false, provider: 'kilo', message: '金鑰為空，請重新貼上 KILO_API_KEY' };
+  const r = await validateKiloGatewayKey(apiKey);
+  if (!r.valid) {
+    return { valid: false, provider: 'kilo', message: r.message };
   }
-  // Kilo is currently consumed via local CLI adapter flow; no stable public
-  // HTTP validation endpoint is used here.
+  const models = r.availableModels ?? [];
   return {
     valid: true,
     provider: 'kilo',
-    message: '金鑰格式已接收（Kilo 連線請於 Adapter Config 實測）',
-    modelInfo: 'CLI adapter provider',
-    availableModels: ['minimax-m2.6', 'dola-seed-2.0-pro', 'qwen-3.6-plus'],
+    message: r.message,
+    modelInfo: buildModelInfo('kilo', models) ?? r.modelInfo,
+    availableModels: models,
   };
 }
 
 async function validateOpenCode(apiKey: string): Promise<ValidationResult> {
-  const trimmed = apiKey.trim();
-  if (!trimmed) {
-    return { valid: false, provider: 'opencode', message: '金鑰為空，請重新貼上 OPENCODE_API_KEY' };
+  const r = await validateOpenCodeZenKey(apiKey);
+  if (!r.valid) {
+    return { valid: false, provider: 'opencode', message: r.message };
   }
+  const models = r.availableModels ?? [];
   return {
     valid: true,
     provider: 'opencode',
-    message: '金鑰格式已接收（OpenCode 連線請於 Adapter Config 實測）',
-    modelInfo: 'CLI adapter provider',
-    availableModels: ['kimi-k2.5', 'glm5.1', 'minimax-m2.7', 'qwen3.6-plus'],
+    message: r.message,
+    modelInfo: buildModelInfo('opencode', models) ?? r.modelInfo,
+    availableModels: models,
   };
 }
 

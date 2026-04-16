@@ -8,7 +8,7 @@ import { createAdminClient } from '@/utils/supabase/admin';
 import { decryptApiKey } from '@/lib/crypto';
 import { AI_PROVIDERS, type AIProvider } from '@/lib/ai-providers';
 import { shouldUseApiFallback } from '@/lib/adapter-runs/fallback';
-import { ADAPTER_CONFIG_ITEMS } from '@/lib/adapter-config';
+import { ADAPTER_CONFIG_ITEMS, DEFAULT_ADAPTER_TEST_PROMPT } from '@/lib/adapter-config';
 import { pickRecommendedModelByProvider } from '@/lib/pick-latest-model';
 
 export const runtime = 'nodejs';
@@ -440,7 +440,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { tempDir, tempFilePath } = await writeTempFileIfNeeded(file instanceof File ? file : null);
-  const safePrompt = prompt || '你是哪一家的模型？';
+  const safePrompt = prompt || DEFAULT_ADAPTER_TEST_PROMPT;
   const cli = getCommand(provider, safePrompt, tempFilePath, resolvedModel);
   const keyEnv = await loadUserApiKeyEnv(auth.userId);
   const fallbackResolved = resolveFallbackModel(provider, resolvedModel, keyEnv.availableModelsByProvider);

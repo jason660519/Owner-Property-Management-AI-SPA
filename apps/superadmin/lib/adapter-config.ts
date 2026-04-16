@@ -166,3 +166,6 @@ export const ADAPTER_SELECT_OPTIONS = ADAPTER_CONFIG_ITEMS.map((item) => ({
   adapterType: item.provider,
   model: item.model,
 }));
+
+/** 適配器設定表格「測試 Prompt」欄位與後端啟動 CLI 時的預設內容 */
+export const DEFAULT_ADAPTER_TEST_PROMPT = '你是哪一家的模型？型號是？你的專長是？';

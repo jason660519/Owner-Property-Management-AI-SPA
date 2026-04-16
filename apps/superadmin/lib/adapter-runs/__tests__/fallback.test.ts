@@ -3,7 +3,7 @@ import { hasCreditBalanceError, shouldUseAnthropicApiFallback, shouldUseApiFallb
 describe('adapter-runs fallback guard', () => {
   it('should detect Claude CLI credit balance error log', () => {
     const lines = [
-      '[05:58:19] 啟動命令：claude -p 你是哪一家的模型？',
+      '[05:58:19] 啟動命令：claude -p 你是哪一家的模型？型號是？你的專長是？',
       '[05:58:25] Credit balance is too low',
       '[05:58:26] 程序已結束 (code=1, signal=null)',
     ];

@@ -41,8 +41,6 @@ export function formatAdapterSerial(n: number): string {
 
 export interface CreateAdapterConfigColumnsDeps {
   providerLabel: Record<string, string>;
-  lifecycleLabel: Record<string, string>;
-  runStatusLabel: Record<AdapterConfigDraftCell['runStatus'], string>;
   reviewLabel: Record<'planned' | 'ok', string>;
   promptOptions: AdapterPromptOptionCell[];
   adapterFileInputRefs: React.MutableRefObject<Record<string, HTMLInputElement | null>>;
@@ -67,8 +65,6 @@ export function createAdapterConfigColumns(
 ): ColumnDef<AdapterConfigTableRow, unknown>[] {
   const {
     providerLabel,
-    lifecycleLabel,
-    runStatusLabel,
     reviewLabel,
     promptOptions,
     adapterFileInputRefs,
@@ -102,18 +98,7 @@ export function createAdapterConfigColumns(
       enableSorting: false,
       cell: ({ row }) => {
         const { item } = row.original;
-        return (
-          <>
-            <p className="font-medium text-xs text-text-primary">{item.optionLabel}</p>
-            <p className="mt-1 text-[11px] text-text-muted">
-              狀態：{lifecycleLabel[item.status] ?? item.status}
-            </p>
-            <p className="mt-1 font-mono text-[11px] text-text-muted break-all">
-              CLI：{item.cliCommandTemplate}
-            </p>
-            <p className="mt-1 text-[11px] text-text-muted break-all">文件：{item.docsPath}</p>
-          </>
-        );
+        return <p className="font-medium text-xs text-text-primary">{item.optionLabel}</p>;
       },
     }) as ColumnDef<AdapterConfigTableRow, unknown>,
 
@@ -127,12 +112,14 @@ export function createAdapterConfigColumns(
           <div className="space-y-2">
             <textarea
               value={draft.promptText}
+              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
               onChange={(e) => {
                 const value = e.target.value;
-                setAdapterConfigDrafts((prev) => ({
-                  ...prev,
-                  [item.id]: { ...draft, promptText: value },
-                }));
+                setAdapterConfigDrafts((prev) => {
+                  const cur = prev[item.id] ?? draft;
+                  return { ...prev, [item.id]: { ...cur, promptText: value } };
+                });
               }}
               rows={3}
               className="w-full rounded-md border border-border-default bg-bg-secondary px-2 py-1.5 text-xs text-text-primary outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
@@ -140,14 +127,16 @@ export function createAdapterConfigColumns(
             <div className="flex items-center gap-2">
               <select
                 value={draft.selectedPromptId}
+                onMouseDown={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
                 onChange={(e) => {
                   const value = e.target.value;
-                  setAdapterConfigDrafts((prev) => ({
-                    ...prev,
-                    [item.id]: { ...draft, selectedPromptId: value },
-                  }));
+                  setAdapterConfigDrafts((prev) => {
+                    const cur = prev[item.id] ?? draft;
+                    return { ...prev, [item.id]: { ...cur, selectedPromptId: value } };
+                  });
                 }}
-                className="h-8 flex-1 rounded-md border border-border-default bg-bg-secondary px-2 text-xs text-text-primary outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                className="relative z-10 h-8 min-h-8 flex-1 rounded-md border border-border-default bg-bg-secondary px-2 text-xs text-text-primary outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
               >
                 <option value="">從 Prompt Management 選擇</option>
                 {promptOptions.map((prompt) => (
@@ -158,16 +147,14 @@ export function createAdapterConfigColumns(
               </select>
               <button
                 type="button"
+                onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => {
-                  const selected = promptOptions.find((p) => p.id === draft.selectedPromptId);
-                  if (!selected) return;
-                  setAdapterConfigDrafts((prev) => ({
-                    ...prev,
-                    [item.id]: {
-                      ...draft,
-                      promptText: selected.content,
-                    },
-                  }));
+                  setAdapterConfigDrafts((prev) => {
+                    const cur = prev[item.id] ?? draft;
+                    const selected = promptOptions.find((p) => p.id === cur.selectedPromptId);
+                    if (!selected) return prev;
+                    return { ...prev, [item.id]: { ...cur, promptText: selected.content } };
+                  });
                 }}
                 className="h-8 rounded-md border border-border-default bg-bg-secondary px-2 text-xs text-text-secondary transition hover:bg-bg-tertiary hover:text-text-primary"
               >
@@ -278,7 +265,6 @@ export function createAdapterConfigColumns(
               >
                 <Square size={12} />
               </button>
-              <span className="ml-1 text-[11px] text-text-muted">{runStatusLabel[draft.runStatus]}</span>
             </div>
             <p className="mt-1 text-[11px] text-text-muted">已執行輪次：{draft.runCount}</p>
             {draft.pid != null && <p className="text-[11px] text-text-muted">PID：{draft.pid}</p>}
@@ -289,12 +275,24 @@ export function createAdapterConfigColumns(
 
     col.display({
       id: 'col-resolved',
-      meta: meta('Resolved model', 'Resolved Model'),
+      meta: meta('Reported model', '執行回報型號'),
       enableSorting: false,
       cell: ({ row }) => {
         const { item, draft } = row.original;
+        const reported = draft.resolvedModel?.trim() ?? '';
+        const display = reported || item.model;
+        const isPresetOnly = !reported;
         return (
-          <p className="break-all font-mono text-xs text-text-primary">{draft.resolvedModel || item.model}</p>
+          <p
+            className={`break-all font-mono text-xs ${isPresetOnly ? 'text-text-muted' : 'text-text-primary'}`}
+            title={
+              isPresetOnly
+                ? '尚未收到本次執行的回報：先顯示設定中的 CLI 型號。執行後若有回報會改為回報值（可能與行銷用 Adapter 名稱不同）。'
+                : '本次執行由 CLI／API 回報的型號。'
+            }
+          >
+            {display}
+          </p>
         );
       },
     }) as ColumnDef<AdapterConfigTableRow, unknown>,

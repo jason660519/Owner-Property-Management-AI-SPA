@@ -710,8 +710,8 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     dashboardUrl: 'https://kilo.ai/',
     sdkDocsLabel: 'Kilo CLI Doc',
     dashboardLabel: 'Kilo',
-    // Kilo adapter currently runs via local CLI; this URL is metadata only.
-    baseUrl: 'https://kilo.ai',
+    // HTTP 驗證與連線測試使用 Kilo AI Gateway（OpenAI-compatible）。
+    baseUrl: 'https://api.kilo.ai/api/gateway',
     keyPrefix: '',
     models: [],
   },
@@ -726,8 +726,8 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     dashboardUrl: 'https://opencode.ai/',
     sdkDocsLabel: 'OpenCode CLI Doc',
     dashboardLabel: 'OpenCode',
-    // OpenCode adapter currently runs via local CLI; this URL is metadata only.
-    baseUrl: 'https://opencode.ai',
+    // HTTP 驗證與連線測試使用 OpenCode Zen API（OpenAI-compatible）。
+    baseUrl: 'https://opencode.ai/zen/v1',
     keyPrefix: 'sk-',
     models: [],
   },

@@ -92,6 +92,13 @@ export interface EnhancedTableProps<T> {
   pageSizes?: number[];
   /** Min width of table content in px (enables horizontal scroll) */
   minWidth?: number;
+  /**
+   * When true (default), the grid uses `minWidth: max(100%, minWidth)` so it stretches on wide
+   * monitors (no horizontal scroll if the viewport is wider than `minWidth`). Set false for
+   * dense tables: the grid stays exactly `minWidth` px wide so horizontal scroll appears whenever
+   * the card is narrower than that value.
+   */
+  stretchToContainer?: boolean;
   /** Extra toolbar content (rendered after standard buttons) */
   extraToolbar?: React.ReactNode;
 }
@@ -136,6 +143,7 @@ export default function EnhancedTable<T>({
   onAddRow,
   pageSizes,
   minWidth = 1200,
+  stretchToContainer = true,
   extraToolbar,
 }: EnhancedTableProps<T>) {
   // --- Persisted preferences ---
@@ -365,7 +373,7 @@ export default function EnhancedTable<T>({
     ro.observe(container);
     if (tableInnerRef.current) ro.observe(tableInnerRef.current);
     return () => ro.disconnect();
-  }, [colWidths, minWidth]);
+  }, [colWidths, minWidth, stretchToContainer]);
 
   const handleResizeStart = useCallback((index: number, e: React.MouseEvent) => {
     e.preventDefault();
@@ -401,7 +409,7 @@ export default function EnhancedTable<T>({
   const { frozenDataColCount, freezeRowCount } = prefs;
 
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 space-y-3">
       {/* Batch actions */}
       {renderBatchActions && Object.keys(rowSelection).length > 0 && (
         <div className="bg-bg-primary p-3 rounded-lg border border-border-default">
@@ -590,9 +598,23 @@ export default function EnhancedTable<T>({
       </div>
 
       {/* Table */}
-      <div className="bg-bg-primary border border-border-default rounded-lg shadow-sm overflow-hidden">
-        <div className="overflow-auto" ref={tableContainerRef} style={{ maxHeight: 'calc(100vh - 320px)' }}>
-          <div ref={tableInnerRef} style={{ minWidth: `max(100%, ${minWidth}px)` }}>
+      <div className="min-w-0 overflow-hidden rounded-lg border border-border-default bg-bg-primary shadow-sm">
+        <div
+          className={clsx(
+            'min-w-0',
+            stretchToContainer ? 'overflow-auto' : 'overflow-y-auto overflow-x-scroll',
+          )}
+          ref={tableContainerRef}
+          style={{ maxHeight: 'calc(100vh - 320px)' }}
+        >
+          <div
+            ref={tableInnerRef}
+            style={
+              stretchToContainer
+                ? { minWidth: `max(100%, ${minWidth}px)` }
+                : { width: minWidth, minWidth }
+            }
+          >
             {/* Header */}
             <div className={clsx('relative z-10 bg-bg-secondary w-full',
               freezeRowCount > 0 ? 'sticky top-0 border-b-4 border-solid border-gray-300 dark:border-gray-600' : 'border-b border-border-default')}>

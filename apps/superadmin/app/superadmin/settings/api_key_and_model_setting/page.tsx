@@ -34,7 +34,7 @@ import {
 import { getProviderById, AI_PROVIDERS } from '@/lib/ai-providers';
 import { getModelDisplayName } from '@/components/ai-settings/model-evaluator/utils';
 import { SUPPORTED_AI_ENV_KEY_NAMES } from '@/lib/parse-env-keys';
-import { ADAPTER_CONFIG_ITEMS } from '@/lib/adapter-config';
+import { ADAPTER_CONFIG_ITEMS, DEFAULT_ADAPTER_TEST_PROMPT } from '@/lib/adapter-config';
 
 
 type SettingsTab = 'keys' | 'llm-leaderboard' | 'adapter-config' | 'agent-config' | 'ocr';
@@ -247,14 +247,6 @@ type AdapterConfigDraft = {
 };
 type AdapterPromptOption = { id: string; label: string; content: string };
 
-const ADAPTER_RUN_STATUS_LABEL: Record<AdapterRunStatus, string> = {
-  idle: '尚未開始',
-  running: '執行中',
-  paused: '已暫停',
-  stopped: '已停止',
-};
-
-const DEFAULT_ADAPTER_TEST_PROMPT = '你是哪一家的模型？';
 const LS_ADAPTER_REVIEW_STATUS = 'ai-settings:adapter-review-status';
 const LS_ADAPTER_RUN_SNAPSHOT = 'ai-settings:adapter-run-snapshot';
 const ADAPTER_RESULTS_MODULE_KEY = 'adapter_config_test_results';
@@ -262,12 +254,8 @@ const ADAPTER_RESULTS_MODULE_KEY = 'adapter_config_test_results';
 /** EnhancedTable：欄寬加總 100%，對應「編號 + 公司名稱 + …」共 10 欄 */
 const ADAPTER_CONFIG_TABLE_ID = 'ai-settings-adapter-config-v1';
 const ADAPTER_CONFIG_TABLE_INITIAL_WIDTHS = [4, 7, 10, 14, 8, 10, 8, 14, 13, 12];
-
-const ADAPTER_LIFECYCLE_LABEL: Record<string, string> = {
-  planned: '規劃中',
-  active: '啟用中',
-  deprecated: '已淘汰',
-};
+/** 固定表格寬（搭配 stretchToContainer={false}），常見視窗寬度下才會出現底部橫向捲軸 */
+const ADAPTER_CONFIG_TABLE_MIN_WIDTH_PX = 2400;
 
 const ADAPTER_REVIEW_LABEL: Record<AdapterReviewStatus, string> = {
   planned: '規劃中',
@@ -1067,8 +1055,6 @@ export default function AIServiceSettingsPage() {
     () =>
       createAdapterConfigColumns({
         providerLabel: ADAPTER_PROVIDER_LABEL,
-        lifecycleLabel: ADAPTER_LIFECYCLE_LABEL,
-        runStatusLabel: ADAPTER_RUN_STATUS_LABEL,
         reviewLabel: ADAPTER_REVIEW_LABEL,
         promptOptions,
         adapterFileInputRefs,
@@ -1166,7 +1152,8 @@ export default function AIServiceSettingsPage() {
             columns={adapterConfigTableColumns}
             data={adapterTableRows}
             initialWidths={[...ADAPTER_CONFIG_TABLE_INITIAL_WIDTHS]}
-            minWidth={1580}
+            minWidth={ADAPTER_CONFIG_TABLE_MIN_WIDTH_PX}
+            stretchToContainer={false}
             getSearchValue={getAdapterConfigSearchValue}
             getCategoryValue={getAdapterConfigCategoryValue}
             extraToolbar={
@@ -1434,12 +1421,14 @@ export default function AIServiceSettingsPage() {
         <div className="flex items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2 gap-y-1 min-w-0">
             {React.createElement(currentTab.icon, { size: 18, className: 'text-accent shrink-0' })}
-            <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-text-primary">{currentTab.label}</h2>
-              {currentTab.description && (
-                <p className="text-[11px] text-text-muted">{currentTab.description}</p>
-              )}
-            </div>
+            {activeTab !== 'adapter-config' && (
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-text-primary">{currentTab.label}</h2>
+                {currentTab.description && (
+                  <p className="text-[11px] text-text-muted">{currentTab.description}</p>
+                )}
+              </div>
+            )}
             {activeTab !== 'llm-leaderboard' && activeTab !== 'agent-config' && activeTab !== 'adapter-config' && (
             <div className="flex items-center gap-2 shrink-0">
               <button
@@ -1664,9 +1653,9 @@ export default function AIServiceSettingsPage() {
       fixedContent={fixedBlock}
       contentFullHeight
     >
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden w-full px-2 sm:px-4 lg:px-6 py-3 lg:py-4 min-w-0">
-        <section className="space-y-4">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="min-w-0 w-full flex-1 overflow-y-auto overflow-x-hidden px-2 py-3 sm:px-4 lg:px-6 lg:py-4">
+        <section className="min-w-0 space-y-4">
           <div className="bg-bg-secondary border border-border-default rounded-base p-4 sm:p-5 shadow-sm min-w-0">
             {renderContent()}
           </div>
