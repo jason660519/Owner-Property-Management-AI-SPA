@@ -22,19 +22,19 @@ import {
 import { WORK_CATEGORY_OPTIONS, getDefaultPrompt } from '../../components/development-table/task-dispatch/prompt-templates';
 
 function buildProgressRowFromCustom(r: CustomProjectProgressRowPayload): ProgressRow | null {
-  const id = normalizeRowIdInput(r.rowId);
+  const id = normalizeRowIdInput(r.rowId ?? '');
   if (!id) return null;
-  const name = r.name.trim();
-  const category = r.category.trim();
+  const name = (r.name ?? '').trim();
+  const category = (r.category ?? '').trim();
   if (!name || !category) return null;
   return {
     name,
     category,
-    locatedPage: r.locatedPage?.trim() || undefined,
+    locatedPage: (r.locatedPage ?? '').trim() || undefined,
     percentage: typeof r.percentage === 'number' ? r.percentage : 0,
-    featureSpecDocPath: r.featureSpecDocPath?.trim() || undefined,
-    tddSpecDocPath: r.tddSpecDocPath?.trim() || undefined,
-    docPath: r.docPath?.trim() || undefined,
+    featureSpecDocPath: (r.featureSpecDocPath ?? '').trim() || undefined,
+    tddSpecDocPath: (r.tddSpecDocPath ?? '').trim() || undefined,
+    docPath: (r.docPath ?? '').trim() || undefined,
     testCoverage: typeof r.testCoverage === 'number' ? r.testCoverage : undefined,
     e2eTestCoverage: typeof r.e2eTestCoverage === 'number' ? r.e2eTestCoverage : undefined,
     __rowId: id,

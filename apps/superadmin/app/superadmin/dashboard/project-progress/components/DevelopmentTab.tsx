@@ -3,16 +3,19 @@
 
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import type { RoadmapFeature } from '@/app/data/roadmap';
 import { useAISettings } from '@/lib/hooks/useAISettings';
 import { useTablePreferences } from '@/lib/hooks/useTablePreferences';
 import {
   type ColumnAlignment,
   type DevTabSettings,
+  type IDEOption,
   type ProgressRow,
   type RowStatus,
   type SelectionType,
+  COLUMN_HEADERS,
+  DEFAULT_COLUMN_ALIGNMENT,
   DEV_TAB_PAGE_KEY,
   DEV_TAB_STORAGE_KEY,
   DEV_TAB_DEFAULTS,
@@ -27,7 +30,9 @@ import { useDevTableData } from './development-table/useDevTableData';
 import { createDevColumns } from './development-table/columns';
 import TableCore from './development-table/TableCore';
 import TableToolbar from './development-table/TableToolbar';
+import { TaskDispatchModal } from './development-table/task-dispatch';
 import { usePaperclipTasks } from '@/lib/hooks/usePaperclipTasks';
+import { useEngineerProfiles } from '@/lib/hooks/useEngineerProfiles';
 import AddRowModal from './development-table/AddRowModal';
 import type { CustomProjectProgressRowPayload } from '../types';
 
@@ -39,7 +44,8 @@ interface DevelopmentTabProps {
 
 export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   const { userId } = useAISettings();
-  const { tasksByRowId } = usePaperclipTasks();
+  const { tasksByRowId, refresh: refreshTasks } = usePaperclipTasks();
+  const { profiles: engineerProfiles, profilesByUserId } = useEngineerProfiles();
 
   // --- Persisted preferences ---
   const { settings: tablePrefs, patch: patchTablePrefs } = useTablePreferences<DevTabSettings>({
@@ -49,6 +55,20 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   });
 
   const hiddenRowKeysSet = useMemo(() => new Set(tablePrefs.hiddenRowKeys), [tablePrefs.hiddenRowKeys]);
+
+  useEffect(() => {
+    const expectedColCount = COLUMN_HEADERS.length;
+    const next: Partial<DevTabSettings> = {};
+    if (tablePrefs.colWidths.length !== expectedColCount) {
+      next.colWidths = [...INITIAL_WIDTHS];
+    }
+    if (tablePrefs.columnAlignments.length !== expectedColCount) {
+      next.columnAlignments = Array.from({ length: expectedColCount }, (_, i) => (
+        tablePrefs.columnAlignments[i] ?? { ...DEFAULT_COLUMN_ALIGNMENT }
+      ));
+    }
+    if (Object.keys(next).length > 0) patchTablePrefs(next);
+  }, [tablePrefs.colWidths.length, tablePrefs.columnAlignments, patchTablePrefs]);
 
   // --- Filters ---
   const [searchQuery, setSearchQuery] = useState('');
@@ -93,11 +113,22 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
     [derivedStatusSelections, manualStatusSelections],
   );
 
-  // --- Prompt settings page ---
-  const openPromptConfig = useCallback((row: ProgressRow) => {
+  const [ideSelections, setIdeSelections] = useState<Record<string, IDEOption>>({});
+  const [promptTarget, setPromptTarget] = useState<{ row: ProgressRow; rowKey: string } | null>(null);
+
+  const openPromptPage = useCallback((row: ProgressRow) => {
     const url = `/superadmin/dashboard/project-progress/task/${encodeURIComponent(row.__rowId)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   }, []);
+
+  const openPromptModal = useCallback((row: ProgressRow) => {
+    const rowKey = getRowKey(row.__source, row.__rowId);
+    setPromptTarget({ row, rowKey });
+  }, []);
+
+  const handleTaskCreated = useCallback(() => {
+    refreshTasks();
+  }, [refreshTasks]);
 
   // --- Add row modal ---
   const [addRowOpen, setAddRowOpen] = useState(false);
@@ -124,7 +155,8 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
 
   // --- Column definitions (memoized) ---
   const columns = useMemo(() => createDevColumns({
-    onOpenPromptConfig: openPromptConfig,
+    onOpenPromptModal: openPromptModal,
+    onOpenPromptPage: openPromptPage,
     statusSelections,
     onStatusChange: handleStatusChange,
     hiddenRowKeysSet,
@@ -132,7 +164,10 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
     onDeleteCustomRow: handleDeleteCustomRow,
     userId,
     tasksByRowId,
-  }), [openPromptConfig, statusSelections, handleStatusChange, hiddenRowKeysSet, handleToggleHideRow, handleDeleteCustomRow, userId, tasksByRowId]);
+    engineerProfiles,
+    profilesByUserId,
+    onRefreshTasks: refreshTasks,
+  }), [openPromptModal, openPromptPage, statusSelections, handleStatusChange, hiddenRowKeysSet, handleToggleHideRow, handleDeleteCustomRow, userId, tasksByRowId, engineerProfiles, profilesByUserId, refreshTasks]);
 
   const statusSummary = useMemo(
     () => summarizeRowStatuses(filteredRows, statusSelections),
@@ -249,6 +284,20 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
         }}
         onSelectAll={() => setSelectionType('all')}
       />
+
+      {promptTarget && (
+        <TaskDispatchModal
+          row={promptTarget.row}
+          rowKey={promptTarget.rowKey}
+          userId={userId}
+          currentIDE={ideSelections[promptTarget.rowKey] ?? ''}
+          onIdeChange={(rowKey: string, ide: IDEOption) => {
+            setIdeSelections(prev => ({ ...prev, [rowKey]: ide }));
+          }}
+          onTaskCreated={handleTaskCreated}
+          onClose={() => setPromptTarget(null)}
+        />
+      )}
 
       <AddRowModal
         open={addRowOpen}
