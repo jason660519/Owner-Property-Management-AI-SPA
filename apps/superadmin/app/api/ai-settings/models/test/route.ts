@@ -482,6 +482,22 @@ async function testQwen(
   }
 }
 
+async function testKilo(): Promise<TestResult> {
+  // Kilo currently runs through local CLI adapters; this endpoint only verifies
+  // cloud providers. Keep an explicit message so UI feedback is actionable.
+  return {
+    success: false,
+    message: 'Kilo 目前僅支援 Adapter Config（CLI）測試，請至 Adapter 調適頁執行。',
+  };
+}
+
+async function testOpenCode(): Promise<TestResult> {
+  return {
+    success: false,
+    message: 'OpenCode 目前僅支援 Adapter Config（CLI）測試，請至 Adapter 調適頁執行。',
+  };
+}
+
 type TesterFn = (key: string, modelId: string, userPrompt?: string, file?: FileAttachment) => Promise<TestResult>;
 const testers: Record<AIProvider, TesterFn> = {
   openai: testOpenAI,
@@ -495,6 +511,8 @@ const testers: Record<AIProvider, TesterFn> = {
   zhipu: testZhipu,
   perplexity: testPerplexity,
   qwen: testQwen,
+  kilo: testKilo,
+  opencode: testOpenCode,
 };
 
 export async function POST(request: NextRequest) {

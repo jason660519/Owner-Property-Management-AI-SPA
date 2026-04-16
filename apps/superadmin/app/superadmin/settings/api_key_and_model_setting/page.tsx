@@ -3,10 +3,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Key, FlaskConical, ScanText, BookMarked, Trophy, Bot,
-  Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download,
+  Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download, Play, Pause, Square,
 } from 'lucide-react';
 
 import { BottomSheetTabs, type SheetTabDef } from '@/components/ui/BottomSheetTabs';
+import EnhancedTable from '@/components/ui/EnhancedTable';
+import {
+  createAdapterConfigColumns,
+  formatAdapterSerial,
+  type AdapterConfigTableRow,
+} from './adapter-config-columns';
 import { readLocalStorage, writeLocalStorage } from '@/lib/utils/storage-state';
 import { DashboardLayout } from '@/components/dashboard';
 import { Button } from '@/components/ui/Button';
@@ -19,6 +25,7 @@ import { OcrSystemPromptPanel } from '@/components/ai-settings/OcrSystemPromptPa
 import { LlmLeaderboardPanel } from '@/components/ai-settings/LlmLeaderboardPanel';
 import { AgentModelAssignmentPanel } from '@/components/ai-settings/AgentModelAssignmentPanel';
 import { useAISettings, type KeyValidationResult } from '@/lib/hooks/useAISettings';
+import { listSavedPrompts } from '@/app/superadmin/settings/evaluations-global-test/promptActions';
 import {
   getTotalAvailableModels,
   getSelectedCountInAvailable,
@@ -27,11 +34,12 @@ import {
 import { getProviderById, AI_PROVIDERS } from '@/lib/ai-providers';
 import { getModelDisplayName } from '@/components/ai-settings/model-evaluator/utils';
 import { SUPPORTED_AI_ENV_KEY_NAMES } from '@/lib/parse-env-keys';
+import { ADAPTER_CONFIG_ITEMS } from '@/lib/adapter-config';
 
 
-type SettingsTab = 'keys' | 'llm-leaderboard' | 'agent-config' | 'ocr';
+type SettingsTab = 'keys' | 'llm-leaderboard' | 'adapter-config' | 'agent-config' | 'ocr';
 
-const TAB_IDS: SettingsTab[] = ['keys', 'llm-leaderboard', 'agent-config', 'ocr'];
+const TAB_IDS: SettingsTab[] = ['keys', 'llm-leaderboard', 'adapter-config', 'agent-config', 'ocr'];
 
 const LS_GLOBAL_PROMPT = 'ai-settings:globalTestPrompt';
 const LS_SAVED_PROMPTS = 'ai-settings:savedPrompts';
@@ -150,6 +158,12 @@ const TABS: { id: SettingsTab; label: string; icon: React.ElementType; descripti
     description: 'Artificial Analysis LLM 排行榜（每日同步）',
   },
   {
+    id: 'adapter-config',
+    label: 'Adapter調適與設定',
+    icon: Bot,
+    description: '設定 Adapter 的模型映射、調適策略與可用性',
+  },
+  {
     id: 'agent-config',
     label: '模型選擇與設定',
     icon: Bot,
@@ -187,6 +201,14 @@ const SHEET_TABS: SheetTabDef[] = [
     activeColor: 'bg-violet-600 text-white',
   },
   {
+    id: 'adapter-config',
+    label: 'Adapter Config',
+    zhLabel: 'Adapter調適與設定',
+    icon: Bot,
+    color: 'text-teal-600',
+    activeColor: 'bg-teal-600 text-white',
+  },
+  {
     id: 'agent-config',
     label: 'Agent Config',
     zhLabel: '模型選擇與設定',
@@ -196,6 +218,101 @@ const SHEET_TABS: SheetTabDef[] = [
   },
   { id: 'ocr', label: 'OCR', zhLabel: 'OCR解析設定', icon: ScanText, color: 'text-blue-600', activeColor: 'bg-blue-600 text-white' },
 ];
+
+const ADAPTER_PROVIDER_LABEL: Record<string, string> = {
+  claude: 'Claude',
+  gemini: 'Gemini',
+  codex: 'Codex',
+  kilo: 'Kilo',
+  opencode: 'OpenCode',
+};
+
+type AdapterRunStatus = 'idle' | 'running' | 'paused' | 'stopped';
+type AdapterReviewStatus = 'planned' | 'ok';
+
+type AdapterConfigDraft = {
+  promptText: string;
+  selectedPromptId: string;
+  testFileName: string;
+  testFile: File | null;
+  runStatus: AdapterRunStatus;
+  outputLines: string[];
+  runCount: number;
+  logCursor: number;
+  pid: number | null;
+  commandPreview: string;
+  renderedOutput: string;
+  resolvedModel: string;
+  reviewStatus: AdapterReviewStatus;
+};
+type AdapterPromptOption = { id: string; label: string; content: string };
+
+const ADAPTER_RUN_STATUS_LABEL: Record<AdapterRunStatus, string> = {
+  idle: '尚未開始',
+  running: '執行中',
+  paused: '已暫停',
+  stopped: '已停止',
+};
+
+const DEFAULT_ADAPTER_TEST_PROMPT = '你是哪一家的模型？';
+const LS_ADAPTER_REVIEW_STATUS = 'ai-settings:adapter-review-status';
+const LS_ADAPTER_RUN_SNAPSHOT = 'ai-settings:adapter-run-snapshot';
+const ADAPTER_RESULTS_MODULE_KEY = 'adapter_config_test_results';
+
+/** EnhancedTable：欄寬加總 100%，對應「編號 + 公司名稱 + …」共 10 欄 */
+const ADAPTER_CONFIG_TABLE_ID = 'ai-settings-adapter-config-v1';
+const ADAPTER_CONFIG_TABLE_INITIAL_WIDTHS = [4, 7, 10, 14, 8, 10, 8, 14, 13, 12];
+
+const ADAPTER_LIFECYCLE_LABEL: Record<string, string> = {
+  planned: '規劃中',
+  active: '啟用中',
+  deprecated: '已淘汰',
+};
+
+const ADAPTER_REVIEW_LABEL: Record<AdapterReviewStatus, string> = {
+  planned: '規劃中',
+  ok: '測試OK',
+};
+
+type AdapterRunSnapshot = Record<
+  string,
+  Pick<AdapterConfigDraft, 'outputLines' | 'renderedOutput' | 'resolvedModel' | 'reviewStatus' | 'commandPreview' | 'runCount'>
+>;
+
+function quoteCliArg(value: string): string {
+  return `"${value.replace(/"/g, '\\"')}"`;
+}
+
+function buildAdapterCommand(
+  item: (typeof ADAPTER_CONFIG_ITEMS)[number],
+  draft: AdapterConfigDraft
+): string {
+  const prompt = draft.promptText.trim() || DEFAULT_ADAPTER_TEST_PROMPT;
+  const promptArg = quoteCliArg(prompt);
+  const fileArg = draft.testFileName ? quoteCliArg(draft.testFileName) : '';
+  if (item.provider === 'claude') {
+    return draft.testFileName
+      ? `cat ${fileArg} | claude --model ${item.model} -p ${promptArg}`
+      : `claude --model ${item.model} -p ${promptArg}`;
+  }
+  if (item.provider === 'codex') {
+    return `codex exec -m ${item.model} ${promptArg}`;
+  }
+  if (item.provider === 'gemini') {
+    return `agent --model ${item.model} -p ${promptArg}`;
+  }
+  if (item.provider === 'kilo') {
+    return draft.testFileName
+      ? `kilo -m ${item.model} run -f ${fileArg} ${promptArg}`
+      : `kilo -m ${item.model} run ${promptArg}`;
+  }
+  if (item.provider === 'opencode') {
+    return draft.testFileName
+      ? `opencode -m ${item.model} run -f ${fileArg} ${promptArg}`
+      : `opencode -m ${item.model} run ${promptArg}`;
+  }
+  return item.cliCommandTemplate.replace('<prompt>', prompt);
+}
 
 
 export default function AIServiceSettingsPage() {
@@ -259,6 +376,356 @@ export default function AIServiceSettingsPage() {
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
   const [exportingSettings, setExportingSettings] = useState(false);
   const [importingSettings, setImportingSettings] = useState(false);
+  const [bulkStarting, setBulkStarting] = useState(false);
+  const [adapterConfigDrafts, setAdapterConfigDrafts] = useState<Record<string, AdapterConfigDraft>>(() =>
+    {
+      const persistedStatus = readLocalStorage<Record<string, AdapterReviewStatus>>(LS_ADAPTER_REVIEW_STATUS, {});
+      const persistedSnapshot = readLocalStorage<AdapterRunSnapshot>(LS_ADAPTER_RUN_SNAPSHOT, {});
+      return Object.fromEntries(
+        ADAPTER_CONFIG_ITEMS.map((item) => [
+          item.id,
+          {
+            promptText: DEFAULT_ADAPTER_TEST_PROMPT,
+            selectedPromptId: '',
+            testFileName: '',
+            testFile: null,
+            runStatus: 'idle' as AdapterRunStatus,
+            logCursor: 0,
+            pid: null,
+            commandPreview: persistedSnapshot[item.id]?.commandPreview ?? '',
+            renderedOutput: persistedSnapshot[item.id]?.renderedOutput ?? '',
+            resolvedModel: persistedSnapshot[item.id]?.resolvedModel ?? '',
+            reviewStatus: persistedSnapshot[item.id]?.reviewStatus ?? persistedStatus[item.id] ?? 'planned',
+            outputLines: persistedSnapshot[item.id]?.outputLines ?? [],
+            runCount: persistedSnapshot[item.id]?.runCount ?? 0,
+          },
+        ])
+      );
+    }
+  );
+  const [adapterPromptOptions, setAdapterPromptOptions] = useState<AdapterPromptOption[]>([]);
+  const adapterPollIntervalRefs = useRef<Record<string, ReturnType<typeof setInterval> | null>>({});
+  const adapterFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const adapterDraftsRef = useRef(adapterConfigDrafts);
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const adapterConfigGroups = useMemo(() => {
+    const grouped = new Map<string, typeof ADAPTER_CONFIG_ITEMS>();
+    for (const item of ADAPTER_CONFIG_ITEMS) {
+      const arr = grouped.get(item.provider) ?? [];
+      grouped.set(item.provider, [...arr, item]);
+    }
+    return Array.from(grouped.entries());
+  }, []);
+
+  useEffect(() => {
+    adapterDraftsRef.current = adapterConfigDrafts;
+  }, [adapterConfigDrafts]);
+  const promptOptions = adapterPromptOptions;
+
+  useEffect(() => {
+    setAdapterConfigDrafts((prev) => {
+      const next = { ...prev };
+      for (const item of ADAPTER_CONFIG_ITEMS) {
+        if (!next[item.id]) {
+          next[item.id] = {
+            promptText: DEFAULT_ADAPTER_TEST_PROMPT,
+            selectedPromptId: '',
+            testFileName: '',
+            testFile: null,
+            runStatus: 'idle',
+            outputLines: [],
+            runCount: 0,
+            logCursor: 0,
+            pid: null,
+            commandPreview: '',
+            renderedOutput: '',
+            resolvedModel: '',
+            reviewStatus: 'planned',
+          };
+        }
+      }
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const persisted = Object.fromEntries(
+      Object.entries(adapterConfigDrafts).map(([adapterId, draft]) => [adapterId, draft.reviewStatus])
+    );
+    writeLocalStorage(LS_ADAPTER_REVIEW_STATUS, persisted);
+    const snapshot = Object.fromEntries(
+      Object.entries(adapterConfigDrafts).map(([adapterId, draft]) => [
+        adapterId,
+        {
+          outputLines: draft.outputLines,
+          renderedOutput: draft.renderedOutput,
+          resolvedModel: draft.resolvedModel,
+          reviewStatus: draft.reviewStatus,
+          commandPreview: draft.commandPreview,
+          runCount: draft.runCount,
+        },
+      ])
+    ) as AdapterRunSnapshot;
+    writeLocalStorage(LS_ADAPTER_RUN_SNAPSHOT, snapshot);
+  }, [adapterConfigDrafts]);
+
+  useEffect(() => {
+    const cloudModule = settings.modules.find((m) => m.module_key === ADAPTER_RESULTS_MODULE_KEY);
+    const cloudSnapshot = (cloudModule?.config?.adapterSnapshots ?? null) as AdapterRunSnapshot | null;
+    if (!cloudSnapshot || typeof cloudSnapshot !== 'object') return;
+    setAdapterConfigDrafts((prev) => {
+      const next = { ...prev };
+      for (const item of ADAPTER_CONFIG_ITEMS) {
+        const snap = cloudSnapshot[item.id];
+        if (!snap) continue;
+        const current = next[item.id];
+        if (!current) continue;
+        next[item.id] = {
+          ...current,
+          outputLines: Array.isArray(snap.outputLines) ? snap.outputLines.slice(-120) : current.outputLines,
+          renderedOutput: typeof snap.renderedOutput === 'string' ? snap.renderedOutput : current.renderedOutput,
+          resolvedModel: typeof snap.resolvedModel === 'string' ? snap.resolvedModel : current.resolvedModel,
+          reviewStatus: snap.reviewStatus === 'ok' ? 'ok' : 'planned',
+          commandPreview: typeof snap.commandPreview === 'string' ? snap.commandPreview : current.commandPreview,
+          runCount: typeof snap.runCount === 'number' ? snap.runCount : current.runCount,
+          runStatus: 'stopped',
+          pid: null,
+          logCursor: 0,
+        };
+      }
+      return next;
+    });
+  }, [settings.modules]);
+
+  useEffect(() => {
+    if (!settings.userId) return;
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = setTimeout(async () => {
+      const snapshot = Object.fromEntries(
+        Object.entries(adapterDraftsRef.current).map(([adapterId, draft]) => [
+          adapterId,
+          {
+            outputLines: draft.outputLines.slice(-120),
+            renderedOutput: draft.renderedOutput,
+            resolvedModel: draft.resolvedModel,
+            reviewStatus: draft.reviewStatus,
+            commandPreview: draft.commandPreview,
+            runCount: draft.runCount,
+          },
+        ])
+      ) as AdapterRunSnapshot;
+      try {
+        await settings.saveModule(
+          ADAPTER_RESULTS_MODULE_KEY,
+          true,
+          [],
+          undefined,
+          {
+            adapterSnapshots: snapshot,
+            updatedAt: new Date().toISOString(),
+          }
+        );
+      } catch {
+        // silent; local snapshot already persisted
+      }
+    }, 1500);
+    return () => {
+      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    };
+  }, [adapterConfigDrafts, settings.userId, settings.saveModule]);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadPromptOptions = async () => {
+      const result = await listSavedPrompts();
+      if (!mounted) return;
+      if (result.error || !result.data) {
+        setAdapterPromptOptions([]);
+        return;
+      }
+      setAdapterPromptOptions(
+        result.data.map((prompt) => ({
+          id: prompt.id,
+          label: prompt.name,
+          content: prompt.content,
+        }))
+      );
+    };
+    void loadPromptOptions();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      for (const key of Object.keys(adapterPollIntervalRefs.current)) {
+        const timer = adapterPollIntervalRefs.current[key];
+        if (timer) {
+          clearInterval(timer);
+        }
+      }
+    };
+  }, []);
+
+  const stopAdapterPolling = useCallback((adapterId: string) => {
+    const timer = adapterPollIntervalRefs.current[adapterId];
+    if (timer) {
+      clearInterval(timer);
+      adapterPollIntervalRefs.current[adapterId] = null;
+    }
+  }, []);
+
+  const pollAdapterRun = useCallback(async (adapterId: string) => {
+    const draft = adapterDraftsRef.current[adapterId];
+    if (!draft) return;
+    const res = await fetch(`/api/ai-settings/adapter-runs?adapterId=${encodeURIComponent(adapterId)}&cursor=${draft.logCursor}`);
+    const data = await res.json() as {
+      success: boolean;
+      status: AdapterRunStatus;
+      logs: string[];
+      cursor: number;
+      command: string;
+      pid: number | null;
+      resultText: string;
+      resolvedModel: string;
+    };
+    if (!data.success) return;
+    setAdapterConfigDrafts((prev) => {
+      const current = prev[adapterId];
+      if (!current) return prev;
+      const nextStatus = data.status;
+      if (nextStatus === 'idle' || nextStatus === 'stopped') {
+        stopAdapterPolling(adapterId);
+      }
+      return {
+        ...prev,
+        [adapterId]: {
+          ...current,
+          runStatus: nextStatus,
+          commandPreview: data.command || current.commandPreview,
+          pid: data.pid ?? null,
+          logCursor: data.cursor,
+          outputLines: [...current.outputLines, ...data.logs].slice(-120),
+          renderedOutput: data.resultText || current.renderedOutput,
+          resolvedModel: data.resolvedModel || current.resolvedModel,
+        },
+      };
+    });
+  }, [stopAdapterPolling]);
+
+  const startAdapterPolling = useCallback((adapterId: string) => {
+    stopAdapterPolling(adapterId);
+    const timer = setInterval(() => {
+      void pollAdapterRun(adapterId);
+    }, 1500);
+    adapterPollIntervalRefs.current[adapterId] = timer;
+  }, [pollAdapterRun, stopAdapterPolling]);
+
+  const startAdapterRun = useCallback(async (item: (typeof ADAPTER_CONFIG_ITEMS)[number], draft: AdapterConfigDraft) => {
+    const form = new FormData();
+    form.append('adapterId', item.id);
+    form.append('provider', item.provider);
+    form.append('model', item.model);
+    form.append('prompt', draft.promptText.trim() || DEFAULT_ADAPTER_TEST_PROMPT);
+    if (draft.testFile) form.append('file', draft.testFile);
+    const res = await fetch('/api/ai-settings/adapter-runs', {
+      method: 'POST',
+      body: form,
+    });
+    const data = await res.json() as {
+      success: boolean;
+      message?: string;
+      status: AdapterRunStatus;
+      logs: string[];
+      cursor: number;
+      command: string;
+      pid: number | null;
+      resultText: string;
+      resolvedModel: string;
+    };
+    if (!res.ok || !data.success) {
+      if (typeof window !== 'undefined') window.alert(data.message ?? '啟動失敗');
+      return;
+    }
+    setAdapterConfigDrafts((prev) => ({
+      ...prev,
+      [item.id]: {
+        ...prev[item.id],
+        runStatus: data.status,
+        runCount: (prev[item.id]?.runCount ?? 0) + 1,
+        outputLines: data.logs ?? [],
+        logCursor: data.cursor ?? 0,
+        commandPreview: data.command ?? '',
+        pid: data.pid ?? null,
+        renderedOutput: data.resultText ?? '',
+        resolvedModel: data.resolvedModel ?? item.model,
+      },
+    }));
+    startAdapterPolling(item.id);
+  }, [startAdapterPolling]);
+
+  const controlAdapterRun = useCallback(async (adapterId: string, action: 'pause' | 'resume' | 'stop') => {
+    const res = await fetch('/api/ai-settings/adapter-runs', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adapterId, action }),
+    });
+    const data = await res.json() as {
+      success: boolean;
+      message?: string;
+      status: AdapterRunStatus;
+      logs: string[];
+      cursor: number;
+      command: string;
+      pid: number | null;
+      resultText: string;
+      resolvedModel: string;
+    };
+    if (!res.ok || !data.success) {
+      if (typeof window !== 'undefined') window.alert(data.message ?? '操作失敗');
+      return;
+    }
+    setAdapterConfigDrafts((prev) => {
+      const current = prev[adapterId];
+      if (!current) return prev;
+      return {
+        ...prev,
+        [adapterId]: {
+          ...current,
+          runStatus: data.status,
+          outputLines: data.logs ?? current.outputLines,
+          logCursor: data.cursor ?? current.logCursor,
+          commandPreview: data.command ?? current.commandPreview,
+          pid: data.pid ?? current.pid,
+          renderedOutput: data.resultText || current.renderedOutput,
+          resolvedModel: data.resolvedModel || current.resolvedModel,
+        },
+      };
+    });
+    if (action === 'stop') {
+      stopAdapterPolling(adapterId);
+    } else {
+      startAdapterPolling(adapterId);
+    }
+  }, [startAdapterPolling, stopAdapterPolling]);
+
+  const runAllAdapters = useCallback(async () => {
+    if (bulkStarting) return;
+    setBulkStarting(true);
+    try {
+      const drafts = adapterDraftsRef.current;
+      const tasks = ADAPTER_CONFIG_ITEMS.map(async (item) => {
+        const draft = drafts[item.id];
+        if (!draft) return;
+        if (draft.runStatus === 'running') return;
+        await startAdapterRun(item, draft);
+      });
+      await Promise.allSettled(tasks);
+    } finally {
+      setBulkStarting(false);
+    }
+  }, [bulkStarting, startAdapterRun]);
 
   const handleExportSettings = useCallback(async () => {
     setExportingSettings(true);
@@ -562,6 +1029,77 @@ export default function AIServiceSettingsPage() {
     [settings.keys]
   );
 
+  const adapterTableRows = useMemo((): AdapterConfigTableRow[] => {
+    let serial = 0;
+    const rows: AdapterConfigTableRow[] = [];
+    for (const [provider, items] of adapterConfigGroups) {
+      for (const item of items) {
+        serial += 1;
+        const draft =
+          adapterConfigDrafts[item.id] ?? {
+            promptText: DEFAULT_ADAPTER_TEST_PROMPT,
+            selectedPromptId: '',
+            testFileName: '',
+            testFile: null,
+            runStatus: 'idle' as AdapterRunStatus,
+            outputLines: [],
+            runCount: 0,
+            logCursor: 0,
+            pid: null,
+            commandPreview: '',
+            renderedOutput: '',
+            resolvedModel: '',
+            reviewStatus: 'planned',
+          };
+        rows.push({
+          serialNo: serial,
+          provider,
+          item,
+          draft,
+          commandPreview: buildAdapterCommand(item, draft),
+        });
+      }
+    }
+    return rows;
+  }, [adapterConfigGroups, adapterConfigDrafts]);
+
+  const adapterConfigTableColumns = useMemo(
+    () =>
+      createAdapterConfigColumns({
+        providerLabel: ADAPTER_PROVIDER_LABEL,
+        lifecycleLabel: ADAPTER_LIFECYCLE_LABEL,
+        runStatusLabel: ADAPTER_RUN_STATUS_LABEL,
+        reviewLabel: ADAPTER_REVIEW_LABEL,
+        promptOptions,
+        adapterFileInputRefs,
+        setAdapterConfigDrafts,
+        startAdapterRun,
+        controlAdapterRun,
+      }),
+    [promptOptions, startAdapterRun, controlAdapterRun],
+  );
+
+  const getAdapterConfigSearchValue = useCallback((row: AdapterConfigTableRow) => {
+    const { item, draft, provider, serialNo } = row;
+    return [
+      formatAdapterSerial(serialNo),
+      String(serialNo),
+      ADAPTER_PROVIDER_LABEL[provider] ?? provider,
+      item.optionLabel,
+      item.model,
+      item.id,
+      draft.promptText,
+      draft.renderedOutput,
+      draft.resolvedModel,
+      ...draft.outputLines.slice(-40),
+    ].join(' ');
+  }, []);
+
+  const getAdapterConfigCategoryValue = useCallback(
+    (row: AdapterConfigTableRow) => ADAPTER_PROVIDER_LABEL[row.provider] ?? row.provider,
+    [],
+  );
+
   const renderContent = () => {
     if (settings.loading) {
       return (
@@ -611,6 +1149,43 @@ export default function AIServiceSettingsPage() {
 
     if (activeTab === 'llm-leaderboard') {
       return <LlmLeaderboardPanel />;
+    }
+
+    if (activeTab === 'adapter-config') {
+      return (
+        <div className="space-y-4">
+          <div className="rounded-base border border-dashed border-border-default bg-bg-secondary p-4">
+            <p className="text-xs font-semibold text-text-primary">Adapter Config 規劃中</p>
+            <p className="mt-1 text-xs text-text-muted">
+              可針對每家 Adapter 設定測試 Prompt、上傳測試文件並控制執行；Prompt 可自行編輯或從 Prompt Management 載入。
+            </p>
+          </div>
+
+          <EnhancedTable<AdapterConfigTableRow>
+            tableId={ADAPTER_CONFIG_TABLE_ID}
+            columns={adapterConfigTableColumns}
+            data={adapterTableRows}
+            initialWidths={[...ADAPTER_CONFIG_TABLE_INITIAL_WIDTHS]}
+            minWidth={1580}
+            getSearchValue={getAdapterConfigSearchValue}
+            getCategoryValue={getAdapterConfigCategoryValue}
+            extraToolbar={
+              <button
+                type="button"
+                onClick={() => {
+                  void runAllAdapters();
+                }}
+                disabled={bulkStarting}
+                className="inline-flex h-8 items-center gap-1 rounded-md bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                title="一鍵啟動全部 Adapter 測試"
+              >
+                <Play size={14} />
+                全測
+              </button>
+            }
+          />
+        </div>
+      );
     }
 
     if (activeTab === 'agent-config') {
@@ -865,7 +1440,7 @@ export default function AIServiceSettingsPage() {
                 <p className="text-[11px] text-text-muted">{currentTab.description}</p>
               )}
             </div>
-            {activeTab !== 'llm-leaderboard' && activeTab !== 'agent-config' && (
+            {activeTab !== 'llm-leaderboard' && activeTab !== 'agent-config' && activeTab !== 'adapter-config' && (
             <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"

@@ -1731,10 +1731,10 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員-AI 服務設定（API 金鑰與模型費用）",
     locatedPage: "superadmin/settings/api_key_and_model_setting",
-    percentage: 86,
+    percentage: 92,
     acceptanceCriteria:
       "1. API 金鑰管理：從 .env 導入、單筆/全部刪除、金鑰驗證。\n2. 未登入時以 resolveUserId fallback 寫入/讀取 Supabase（keys/models/modules/prompts）。\n3. 側欄組態概況：已選總 models 數量即時反映各 provider 勾選加總。\n4. 儲存設定按鈕：將畫面上已選模型寫入 ai_model_selections。\n5. 分頁命名：模型費用說明；說明文案導向「模型費用說明」分頁。",
-    docPath: "/docs/update-project-progress-guide.md",
+    docPath: "/project-process/test-logs/test-ai-settings-adapter-config-2026-04-17.md",
     featureSpecDocPath: "/project-process/features/tdd-ai-settings-20260221.md",
     tddSpecDocPath: "/project-process/features/tdd-ai-settings-20260221.md",
     category: "超級管理員 (Super Admin)",
@@ -1742,12 +1742,12 @@ const RAW_FEATURES: RoadmapFeature[] = [
     devLog:
       "### 2026-03-04 更新\n- 修復 AI 模型全域評測 Prompt 測試功能無限重渲染 bug（Maximum update depth exceeded）。\n- 根本原因：page.tsx 每次渲染時 currentKeys 產生新陣列引用，導致 allRows→handleBatchTest→headerActionsRef useEffect 形成無限迴圈。\n- 修復方案（雙重防護）：(1) ModelEvaluator.tsx 使用 stable ref 模式（handleBatchTestRef + stableRunBatchTest），移除 handleBatchTest 作為 useEffect dep；(2) page.tsx 以 useMemo 穩定 currentKeys 引用。\n- TDD：新增 5 個批次測試執行行為測試案例，共 28 個測試全部通過。\n\n### 2026-03-06 更新\n- 在「已選/可選模型評估」分頁列右側新增「AI 模型全域評測」按鈕。\n- 按鈕重用既有 isEvalToolbarOpen 狀態，僅切換本頁全域評測面板顯示，不影響其他頁面功能。\n- 補上 aria-controls 對應面板 id（global-test-settings-panel），強化可及性。\n\n### 2026-03-06 更新（調整）\n- 移除 ModelEvaluator 表頭「AI 模型全域評測」按鈕與 onOpenGlobalTestPanel 相關程式碼。\n- 移除 settings/api_key_and_model_setting 的 `*-global-test` hash 入口，`#blog-global-test` 不再觸發對應頁面行為。\n- 同步刪除已不適用的按鈕行為測試案例，避免測試與現況不一致。\n\n### 2026-03-06 更新（獨立頁）\n- 「AI 模型全域評測」按鈕改為固定顯示在分頁列右側，不再只在 evaluations 分頁顯示。\n- 按鈕改為導向獨立頁 `/superadmin/settings/evaluations-global-test`，不再綁定 `#evaluations` 或本頁內嵌面板開關。\n- 移除 api_key_and_model_setting 內嵌的 AI 模型全域評測面板，避免與獨立頁重複。\n\n### 2026-03-06 更新（批次報告）\n- 批次測試完成後，自動將結果快照寫入 localStorage（最近一次報告）。\n- 新增「檢視最近報告」動作，透過 headerActionsRef 暴露給頁首按鈕呼叫。\n- 在「開始全域評測」旁新增「檢視最近報告」按鈕，使用者可隨時重新開啟最近一次批次結果視窗。\n\n### 2026-03-06 更新（UX 精簡）\n- 將右側設定區主流程收斂為「雲端 Prompt 選擇/載入 + 儲存雲端新版本 + 開始全域評測」。\n- 補上「載入雲端 Prompt」明確動作，避免僅選取下拉選單卻未真正載入內容的混淆。\n- 將本機 Prompt、下載、刪除雲端等操作收進「進階設定」摺疊區，降低主畫面複雜度。\n\n### 2026-03-06 更新（提示與確認流程）\n- 將 evaluations-global-test 頁面的 window.alert / window.confirm 全數移除，改為頁內 inline 提示訊息。\n- 刪除本機 Prompt 與刪除雲端 Prompt 改為「二次點擊確認」流程，避免誤刪且不中斷操作。\n- 提示訊息統一在右側設定區顯示，成功/錯誤/資訊狀態一致化。\n\n### 2026-03-06 更新（最近報告一鍵修正）\n- 新增「套用最近報告修正狀態」按鈕，將最近批次報告一次套用到模型分類與狀態。\n- 依報告內容自動推斷 `display_status_override`（VLM/LLM/不可用）並同步更新 `is_working`、`notes`、`last_tested_at`。\n- 套用後即回寫 ai_model_evaluations，避免逐筆手動調整模型狀態。\n\n### 2026-03-06 更新（移除混亂控件）\n- 依使用者回饋移除右側設定區的雲端 Prompt 管理與進階設定區塊（含載入、版本命名、儲存版本、本機 Prompt、刪除與下載）。\n- 僅保留核心流程：上傳測試檔案、編輯全域評測 Prompt、開始全域評測、檢視最近報告、套用最近報告修正狀態。\n\n### 2026-04-09 更新\n- 將 `/superadmin/settings` 首頁入口與 `api_key_and_model_setting` 頁面的跳轉按鈕命名統一為「AI 模型全域評測」。\n- 將 `/superadmin/settings/evaluations-global-test` 頁內主標題與麵包屑同步調整為「AI 模型全域評測」。\n- 將 settings 相關使用者可見文案、元件註解與規劃文件同步收斂為「AI 模型全域評測」與「全域評測 Prompt」等一致說法。\n- 保持既有路由不變，只修正跨頁入口、頁內標題與說明文案命名一致性。\n\n### 2026-04-11 更新\n- BottomSheetTabs 在「OCR解析設定」左側新增「LLM Leader Board」分頁（`#llm-leaderboard`）。\n- 新增 `GET /api/artificial-analysis/llm-leaderboard`：伺服器端抓取 artificialanalysis.ai leaderboard SSR HTML 並解析表格列；前端 `LlmLeaderboardPanel` 以 EnhancedTable 呈現並每日自動同步、可手動刷新。\n\n### 2026-04-11 更新（Qwen 整合）\n- 新增 Qwen（Alibaba DashScope / 通義千問）為第 11 家 AI 供應商，API 金鑰導入、驗證、連線測試、OCR 謄本解析全流程打通。\n- `AIProvider` 型別擴充 `'qwen'`；`AI_PROVIDERS` 新增 Qwen 卡片，內含 qwen-max / qwen-plus / qwen-turbo / qwen-vl-max / qwen-vl-plus / qwq-32b-preview 六個模型與定價。\n- `/api/ai-settings/keys/validate`：新增 `validateQwen`，主打 DashScope 國際區 OpenAI-compatible `/models` 端點，404/403 時回退 `/chat/completions` 1-token 探針。\n- `/api/ai-settings/models/test`：新增 `testQwen`，支援 qwen-vl-* 模型以 image_url 內嵌圖片進行多模態測試。\n- `lib/utils/ai-api-callers.ts`：新增 `callQwen`，供 OCR 謄本解析（TRANSCRIPT_PARSE_PROMPT）與多模型共識使用，強制 JSON 輸出格式。\n- Migration `20260411120000_add_qwen_provider.sql`：將 `'qwen'` 加入 `ai_api_keys` / `ai_model_selections` / `ai_chat_logs` / `ai_model_evaluations` / `ai_key_validation_cache` 五張表的 provider CHECK constraint。\n- UI 細節：`ApiKeyManager` 自動從 `AI_PROVIDERS.map` 渲染出 Qwen 卡片，新增 Qwen 品牌紫色 `#615CED`；`ModelSettingsModal` 的 `PROVIDER_DOCS` 補上 Qwen API 參數連結。",
     testProgress:
-      "TDD: 28/28 tests passing（含 統一/單一 prompt 測試功能完整測試）",
-    testCoverage: 15,
-    testScriptCount: 28,
-    testScriptPassedCount: 28,
-    lastModifiedBy: "Claude Opus 4.6",
-    lastModifiedDate: "2026/04/11",
+      "TDD: 34/34 tests passing（含 adapter fallback 判斷 6 tests + 既有 28 tests）",
+    testCoverage: 22,
+    testScriptCount: 34,
+    testScriptPassedCount: 34,
+    lastModifiedBy: "GPT-5.3-Codex",
+    lastModifiedDate: "2026/04/17",
   },
 
   // === 2026-02-21 新增任務 ===
@@ -2541,9 +2541,39 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedBy: "GPT-5.3-Codex",
     lastModifiedDate: "2026/04/14",
   },
+
+  // === 2026-04-17 新增 Row 143 ===
+  {
+    name: "Adapter CLI 文件自動更新流程（15 天排程）",
+    category: "專案管理與工具 (Project Management)",
+    percentage: 80,
+    phase: "development",
+    points: 3,
+    locatedPage: "docs/Adapter CLIs/",
+    featureSpecDocPath: "",
+    tddSpecDocPath: "",
+    docPath: "",
+    testScriptPath: "",
+    devLog:
+      "### 2026-04-17 完成項目\n" +
+      "- 建立 `scripts/collect-cli-help.sh`：自動對 6 個 CLI（claude/codex/cursor/opencode/gemini/kilo）執行 --help，收集原始輸出到 /tmp/cli-help-raw/，含子指令深層 help、版本偵測、缺少 CLI 清單\n" +
+      "- 建立 `.claude/commands/update-cli-docs.md`：Claude Command，讀取 help 輸出 + Context7 MCP 補齊未安裝 CLI，比對現有 7 份 Adapter CLI 文件並更新 6 欄表格，產生 changelog summary\n" +
+      "- 設計半自動流程：cron 定時收集 → 通知 → 手動 `/update-cli-docs` 觸發更新\n" +
+      "- 格式規範直接嵌入 Command（不額外建 Skill），避免過度設計\n" +
+      "### 待完成\n" +
+      "- 首次實際執行 collect-cli-help.sh 驗證輸出\n" +
+      "- 首次執行 /update-cli-docs 端到端驗證\n" +
+      "- 設定 cron 排程（15 天）",
+    developmentProgress:
+      "2026/04/17：完成核心 shell script 與 Claude Command。\n" +
+      "交付物：scripts/collect-cli-help.sh、.claude/commands/update-cli-docs.md\n" +
+      "架構決策：Command 為主（流程編排）、不建獨立 Skill（格式規範嵌入 Command）、半自動排程（cron 收集 + 手動觸發更新）。",
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/17",
+  },
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/14",
+  lastUpdated: "2026/04/17",
   features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
 };

@@ -637,4 +637,6 @@ export const CALLERS: Record<AIProvider, CallerFn> = {
   zhipu: callZhipu,
   perplexity: callPerplexity,
   qwen: callQwen,
+  kilo: callOpenRouter,
+  opencode: callOpenRouter,
 };

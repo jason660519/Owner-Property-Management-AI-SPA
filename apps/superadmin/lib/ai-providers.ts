@@ -3,7 +3,20 @@
 
 import { TRANSCRIPT_PARSE_PROMPT, TRANSCRIPT_JUDGE_PROMPT } from '@/lib/transcript-prompts';
 
-export type AIProvider = 'openai' | 'anthropic' | 'gemini' | 'deepseek' | 'grok' | 'together' | 'kimi' | 'openrouter' | 'zhipu' | 'perplexity' | 'qwen';
+export type AIProvider =
+  | 'openai'
+  | 'anthropic'
+  | 'gemini'
+  | 'deepseek'
+  | 'grok'
+  | 'together'
+  | 'kimi'
+  | 'openrouter'
+  | 'zhipu'
+  | 'perplexity'
+  | 'qwen'
+  | 'kilo'
+  | 'opencode';
 
 export interface AIProviderInfo {
   id: AIProvider;
@@ -685,6 +698,38 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
         capabilities: ['text', 'web_search', 'reasoning'],
       },
     ],
+  },
+  {
+    id: 'kilo',
+    name: 'Kilo',
+    envKey: 'KILO_API_KEY',
+    sdkPackage: 'kilo cli',
+    docsUrl: 'https://kilo.ai/docs/code-with-ai/platforms/cli-reference',
+    apiKeyUrl: 'https://kilo.ai/docs/code-with-ai/platforms/cli-reference',
+    sdkDocsUrl: 'https://kilo.ai/docs/code-with-ai/platforms/cli-reference',
+    dashboardUrl: 'https://kilo.ai/',
+    sdkDocsLabel: 'Kilo CLI Doc',
+    dashboardLabel: 'Kilo',
+    // Kilo adapter currently runs via local CLI; this URL is metadata only.
+    baseUrl: 'https://kilo.ai',
+    keyPrefix: '',
+    models: [],
+  },
+  {
+    id: 'opencode',
+    name: 'OpenCode',
+    envKey: 'OPENCODE_API_KEY',
+    sdkPackage: 'opencode cli',
+    docsUrl: 'https://opencode.ai/docs/cli/',
+    apiKeyUrl: 'https://opencode.ai/docs/web/',
+    sdkDocsUrl: 'https://opencode.ai/docs/cli/',
+    dashboardUrl: 'https://opencode.ai/',
+    sdkDocsLabel: 'OpenCode CLI Doc',
+    dashboardLabel: 'OpenCode',
+    // OpenCode adapter currently runs via local CLI; this URL is metadata only.
+    baseUrl: 'https://opencode.ai',
+    keyPrefix: 'sk-',
+    models: [],
   },
   {
     id: 'qwen',

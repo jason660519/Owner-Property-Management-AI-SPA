@@ -422,6 +422,36 @@ async function validateQwen(apiKey: string): Promise<ValidationResult> {
   }
 }
 
+async function validateKilo(apiKey: string): Promise<ValidationResult> {
+  const trimmed = apiKey.trim();
+  if (!trimmed) {
+    return { valid: false, provider: 'kilo', message: '金鑰為空，請重新貼上 KILO_API_KEY' };
+  }
+  // Kilo is currently consumed via local CLI adapter flow; no stable public
+  // HTTP validation endpoint is used here.
+  return {
+    valid: true,
+    provider: 'kilo',
+    message: '金鑰格式已接收（Kilo 連線請於 Adapter Config 實測）',
+    modelInfo: 'CLI adapter provider',
+    availableModels: ['minimax-m2.6', 'dola-seed-2.0-pro', 'qwen-3.6-plus'],
+  };
+}
+
+async function validateOpenCode(apiKey: string): Promise<ValidationResult> {
+  const trimmed = apiKey.trim();
+  if (!trimmed) {
+    return { valid: false, provider: 'opencode', message: '金鑰為空，請重新貼上 OPENCODE_API_KEY' };
+  }
+  return {
+    valid: true,
+    provider: 'opencode',
+    message: '金鑰格式已接收（OpenCode 連線請於 Adapter Config 實測）',
+    modelInfo: 'CLI adapter provider',
+    availableModels: ['kimi-k2.5', 'glm5.1', 'minimax-m2.7', 'qwen3.6-plus'],
+  };
+}
+
 const validators: Record<AIProvider, (key: string) => Promise<ValidationResult>> = {
   openai: validateOpenAI,
   anthropic: validateAnthropic,
@@ -434,6 +464,8 @@ const validators: Record<AIProvider, (key: string) => Promise<ValidationResult>>
   zhipu: validateZhipu,
   perplexity: validatePerplexity,
   qwen: validateQwen,
+  kilo: validateKilo,
+  opencode: validateOpenCode,
 };
 
 export async function POST(request: NextRequest) {

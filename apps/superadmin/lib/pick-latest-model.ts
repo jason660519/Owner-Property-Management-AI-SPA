@@ -250,6 +250,8 @@ const REQUIRED_PREFIXES: Partial<Record<AIProvider, readonly string[]>> = {
   kimi: ['kimi', 'moonshot'],
   zhipu: ['glm-'],
   perplexity: ['sonar'],
+  kilo: ['minimax', 'dola', 'qwen'],
+  opencode: ['kimi', 'glm', 'minimax', 'qwen'],
 };
 
 // ---------------------------------------------------------------------------
@@ -351,6 +353,8 @@ const TIEBREAKER_KEYWORDS: Record<AIProvider, readonly string[]> = {
   zhipu: ['glm-4-plus', 'glm-4v', 'glm-4'],
   perplexity: ['sonar-deep-research', 'sonar-reasoning-pro', 'sonar-pro', 'sonar'],
   qwen: ['qwen-max', 'qwen-plus', 'qwen-turbo', 'qwen-vl'],
+  kilo: ['dola-seed', 'minimax', 'qwen'],
+  opencode: ['kimi', 'glm', 'minimax', 'qwen'],
 };
 
 function tiebreakerScore(id: string, keywords: readonly string[]): number {

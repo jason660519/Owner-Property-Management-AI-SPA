@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Pause, Play, Square } from 'lucide-react';
 import { ROADMAP_DATA } from '@/app/data/roadmap';
 import { useTablePreferences } from '@/lib/hooks/useTablePreferences';
+import { ADAPTER_SELECT_OPTIONS } from '@/lib/adapter-config';
 import type { CustomProjectProgressRowPayload } from '../../types';
 import {
   DEV_TAB_DEFAULTS,
@@ -57,24 +58,7 @@ function mergeDispatchConfig(base: TaskDispatchConfig, patch: Partial<TaskDispat
   return { ...base, ...patch };
 }
 
-type AdapterOption = {
-  value: string;
-  label: string;
-  adapterType: string;
-  model: string;
-};
-
-const ADAPTER_OPTIONS: AdapterOption[] = [
-  { value: 'claude-sonnet-4-6', label: 'Claude + Sonet4.6', adapterType: 'claude', model: 'sonnet-4.6' },
-  { value: 'claude-opus-4-6', label: 'Claude + Opus4.6', adapterType: 'claude', model: 'opus-4.6' },
-  { value: 'claude-haiku-4-5', label: 'Claude + Hilku4.5', adapterType: 'claude', model: 'haiku-4.5' },
-  { value: 'gemini-3-1-pro-preview', label: 'Gemini + Gimini3.1 Pro Preview', adapterType: 'gemini', model: 'gemini-3.1-pro-preview' },
-  { value: 'codex-gpt-5-4-xhigh', label: 'Codex + GPT-5.4 (xhigh)', adapterType: 'codex', model: 'gpt-5.4-xhigh' },
-  { value: 'codex-gpt-5-3-xhigh', label: 'Codex + GPT-5.3 Codex-xhigh', adapterType: 'codex', model: 'gpt-5.3-codex-xhigh' },
-  { value: 'kilo-minimax-m2-6', label: 'Kilo + Minimax-m2.6', adapterType: 'kilo', model: 'minimax-m2.6' },
-  { value: 'kilo-dola-seed-2-0-pro', label: 'Kilo + Dola Seed2.0 Pro', adapterType: 'kilo', model: 'dola-seed-2.0-pro' },
-  { value: 'kilo-qwen-3-6-plus', label: 'Kilo + Qwen 3.6 Plus', adapterType: 'kilo', model: 'qwen-3.6-plus' },
-];
+const ADAPTER_OPTIONS = ADAPTER_SELECT_OPTIONS;
 
 type ExecutionStatus = 'idle' | 'running' | 'paused' | 'stopped';
 
