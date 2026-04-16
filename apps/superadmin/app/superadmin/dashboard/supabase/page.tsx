@@ -1,5 +1,7 @@
 import { Suspense } from 'react';
-import { ExternalLink, Database } from 'lucide-react';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { Database } from 'lucide-react';
 import { createAdminClient } from '@/utils/supabase/admin';
 import SupabaseDashboardClient from './SupabaseDashboardClient';
 
@@ -10,7 +12,7 @@ interface TableStat {
   tablename: string;
   n_live_tup: number;
   n_dead_tup: number;
-  last_autovacuum: string | null;
+  last_updated_at: string | null;
 }
 
 interface RLSPolicy {
@@ -21,63 +23,209 @@ interface RLSPolicy {
   roles: string[];
 }
 
+interface MigrationHistoryItem {
+  version: string;
+  appliedAt: string | null;
+  status: 'applied' | 'pending';
+}
+
+const KNOWN_TABLES = [
+  'iam_roles',
+  'iam_groups',
+  'iam_user_group_memberships',
+  'ai_performance_metrics',
+  'web_analytics',
+  'behavior_logs',
+  'web_vitals',
+  'user_page_settings',
+  'module_model_assignments',
+];
+
+const TIMESTAMP_CANDIDATES = ['updated_at', 'created_at', 'inserted_at'];
+
+async function getTableLastUpdatedAt(
+  supabase: ReturnType<typeof createAdminClient>,
+  tableName: string,
+): Promise<string | null> {
+  for (const columnName of TIMESTAMP_CANDIDATES) {
+    const { data, error } = await supabase
+      .from(tableName)
+      .select(columnName)
+      .not(columnName, 'is', null)
+      .order(columnName, { ascending: false })
+      .limit(1);
+
+    if (error) continue;
+    const value = data?.[0]?.[columnName as keyof (typeof data)[0]];
+    if (typeof value === 'string' && value) return value;
+  }
+
+  return null;
+}
+
+async function readLocalMigrationVersions(): Promise<string[]> {
+  const candidates = [
+    path.resolve(process.cwd(), 'supabase/migrations'),
+    path.resolve(process.cwd(), '../../supabase/migrations'),
+    path.resolve(process.cwd(), '../supabase/migrations'),
+  ];
+
+  for (const dir of candidates) {
+    try {
+      const files = await fs.readdir(dir);
+      const versions = files
+        .filter((filename) => /^\d{14}.*\.sql$/.test(filename))
+        .map((filename) => filename.match(/^(\d{14})/)?.[1])
+        .filter((version): version is string => Boolean(version))
+        .sort((a, b) => b.localeCompare(a));
+
+      if (versions.length > 0) return versions;
+    } catch {
+      // Keep trying fallback directories.
+    }
+  }
+
+  return [];
+}
+
+async function getMigrationHistory(
+  supabase: ReturnType<typeof createAdminClient>,
+): Promise<MigrationHistoryItem[]> {
+  const localVersions = await readLocalMigrationVersions();
+
+  const migrationSchemaClient =
+    typeof (supabase as { schema?: unknown }).schema === 'function'
+      ? (supabase as { schema: (schemaName: string) => ReturnType<typeof createAdminClient> }).schema(
+          'supabase_migrations',
+        )
+      : supabase;
+
+  const { data: appliedRows } = await migrationSchemaClient
+    .from('schema_migrations')
+    .select('version, inserted_at')
+    .order('version', { ascending: false })
+    .limit(200);
+
+  const appliedMap = new Map<string, string | null>();
+  for (const row of appliedRows ?? []) {
+    const version = String((row as { version?: unknown }).version ?? '');
+    if (!version) continue;
+    const insertedAt =
+      typeof (row as { inserted_at?: unknown }).inserted_at === 'string'
+        ? ((row as { inserted_at?: string }).inserted_at ?? null)
+        : null;
+    appliedMap.set(version, insertedAt);
+  }
+
+  if (localVersions.length === 0) {
+    return Array.from(appliedMap.entries()).map(([version, appliedAt]) => ({
+      version,
+      appliedAt,
+      status: 'applied',
+    }));
+  }
+
+  return localVersions.map((version) => ({
+    version,
+    appliedAt: appliedMap.get(version) ?? null,
+    status: appliedMap.has(version) ? 'applied' : 'pending',
+  }));
+}
+
+async function getConnectionCount(
+  supabase: ReturnType<typeof createAdminClient>,
+): Promise<number | null> {
+  try {
+    if (typeof (supabase as { schema?: unknown }).schema !== 'function') return null;
+
+    const pgCatalogClient = (
+      supabase as { schema: (schemaName: string) => ReturnType<typeof createAdminClient> }
+    ).schema('pg_catalog');
+
+    const { count, error } = await pgCatalogClient
+      .from('pg_stat_activity')
+      .select('pid', { count: 'exact', head: true });
+
+    if (error) return null;
+    return count ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function getDatabaseStats() {
   const supabase = createAdminClient();
   let healthy = false;
+  let latencyMs: number | null = null;
+  let connectionCount: number | null = null;
   let tablestats: TableStat[] = [];
   let rlsPolicies: RLSPolicy[] = [];
   let userCount = 0;
+  let migrationHistory: MigrationHistoryItem[] = [];
 
   try {
-    // Health check: simple ping
+    const start = Date.now();
     const { error: pingErr } = await supabase.from('iam_groups').select('id').limit(1);
+    latencyMs = Date.now() - start;
     healthy = !pingErr;
 
-    // Table stats via pg_stat_user_tables (raw SQL via rpc if available)
-    // Fallback: list known public tables with record counts
-    const knownTables = [
-      'iam_roles', 'iam_groups', 'iam_user_group_memberships',
-      'ai_performance_metrics', 'web_analytics', 'behavior_logs',
-      'web_vitals', 'user_page_settings', 'module_model_assignments',
-    ];
+    connectionCount = await getConnectionCount(supabase);
 
     const tableResults = await Promise.allSettled(
-      knownTables.map(async (t) => {
-        const { count } = await supabase.from(t).select('*', { count: 'exact', head: true });
-        return { tablename: t, count: count ?? 0 };
-      })
+      KNOWN_TABLES.map(async (tableName) => {
+        const [{ count }, lastUpdatedAt] = await Promise.all([
+          supabase.from(tableName).select('*', { count: 'exact', head: true }),
+          getTableLastUpdatedAt(supabase, tableName),
+        ]);
+
+        return {
+          schemaname: 'public',
+          tablename: tableName,
+          n_live_tup: count ?? 0,
+          n_dead_tup: 0,
+          last_updated_at: lastUpdatedAt,
+        } as TableStat;
+      }),
     );
 
     tablestats = tableResults
-      .filter((r): r is PromiseFulfilledResult<{ tablename: string; count: number }> => r.status === 'fulfilled')
-      .map(r => ({
-        schemaname: 'public',
-        tablename: r.value.tablename,
-        n_live_tup: r.value.count,
-        n_dead_tup: 0,
-        last_autovacuum: null,
-      }));
+      .filter((result): result is PromiseFulfilledResult<TableStat> => result.status === 'fulfilled')
+      .map((result) => result.value);
 
-    // User count from auth.users
     const { count: uCount } = await supabase
       .from('iam_user_group_memberships')
       .select('user_id', { count: 'exact', head: true });
     userCount = uCount ?? 0;
 
-    // RLS policies: use pg_policies view if accessible
     const { data: policies } = await supabase.rpc('get_rls_policies').maybeSingle();
-    if (policies) {
-      rlsPolicies = policies as RLSPolicy[];
-    }
-  } catch (err) {
-    console.error('Error fetching DB stats:', err);
+    if (policies) rlsPolicies = policies as RLSPolicy[];
+
+    migrationHistory = await getMigrationHistory(supabase);
+  } catch (error) {
+    console.error('Error fetching Supabase dashboard stats:', error);
   }
 
-  return { healthy, tablestats, rlsPolicies, userCount };
+  return {
+    healthy,
+    latencyMs,
+    connectionCount,
+    tablestats,
+    rlsPolicies,
+    userCount,
+    migrationHistory,
+  };
 }
 
 export default async function SupabasePage() {
-  const { healthy, tablestats, rlsPolicies, userCount } = await getDatabaseStats();
+  const {
+    healthy,
+    latencyMs,
+    connectionCount,
+    tablestats,
+    rlsPolicies,
+    userCount,
+    migrationHistory,
+  } = await getDatabaseStats();
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
   const projectRef = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] ?? '';
@@ -95,9 +243,12 @@ export default async function SupabasePage() {
     >
       <SupabaseDashboardClient
         healthy={healthy}
+        latencyMs={latencyMs}
+        connectionCount={connectionCount}
         tablestats={tablestats}
         rlsPolicies={rlsPolicies}
         userCount={userCount}
+        migrationHistory={migrationHistory}
         projectRef={projectRef}
         supabaseUrl={supabaseUrl}
       />
