@@ -47,8 +47,6 @@ echo -e "${BLUE}🛑 正在停止所有服務...${NC}"
 kill_port 3000 "Web App"
 kill_port 3002 "Web App AU"
 kill_port 3001 "Superadmin"
-kill_port 8819 "OCR Service"
-kill_port 8000 "OCR Service (Legacy Port)"
 kill_port 8081 "Expo/Metro"
 
 # 停止 Paperclip Docker 服務
@@ -79,24 +77,17 @@ fi
 kill_port 9200 "Elasticsearch"
 kill_port 5601 "Kibana"
 
-# 2. 停止 Python 殘留進程
-echo -e "${YELLOW}檢查殘留 Python 進程...${NC}"
-pkill -f "minimal_app.py" 2>/dev/null || true
-pkill -f "uvicorn" 2>/dev/null || true
-
-# 3. 清理 Log (可選)
+# 2. 清理 Log (可選)
 rm -f \
     "$LOG_DIR/nextjs.log" \
     "$LOG_DIR/nextjs-au.log" \
     "$LOG_DIR/superadmin.log" \
-    "$LOG_DIR/ocr_service.log" \
     "$LOG_DIR/paperclip.log" \
     /tmp/nextjs.log \
     /tmp/nextjs-au.log \
-    /tmp/superadmin.log \
-    /tmp/ocr_service.log 2>/dev/null
+    /tmp/superadmin.log 2>/dev/null
 
-# 4. 詢問 Supabase
+# 3. 詢問 Supabase
 echo ""
 if command -v supabase &> /dev/null; then
     if docker ps --format '{{.Names}}' | grep -q "supabase_db_"; then

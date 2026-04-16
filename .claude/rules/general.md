@@ -1,20 +1,6 @@
 # 通用開發規則
 
----
-
-## Monorepo 概要（npm workspaces）
-
-| 路徑 | 說明 | 本機埠 / 備註 |
-| :--- | :--- | :--- |
-| `apps/web` | Next.js App Router，主站（房東 / 租客 / 買家等）+ PWA | 3000 |
-| `apps/superadmin` | Next.js 超級管理員後台 | 3001 |
-| `apps/web-au` | Next.js 澳洲區站（結構與主站相近） | 3002 |
-| `apps/mobile` | Expo / React Native | `expo start` |
-| `backend/` | Python FastAPI（OCR 等） | 8819（見專案啟動腳本） |
-| `supabase/` | 本地 Supabase（PostgreSQL 17 + Auth + Storage） | API 54321、Studio 54323 |
-| `packages/` | 共用套件（如 types） | — |
-
-詳細啟動指令以根目錄 `CLAUDE.md` / `AGENTS.md` 為準（避免與 `package.json` 腳本重複貼兩份）。
+> Monorepo 結構與 port 對照見 `.claude/rules/frontend/react-next.md`（前端視角）與 `.claude/rules/backend/supabase.md`（後端視角）。啟動指令見 `CLAUDE.md`。
 
 ---
 

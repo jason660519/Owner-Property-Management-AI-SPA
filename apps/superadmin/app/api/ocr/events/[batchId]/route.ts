@@ -4,7 +4,7 @@
 
 import { NextRequest } from 'next/server';
 
-const OCR_SERVICE_URL = process.env.OCR_SERVICE_URL || 'http://localhost:8819';
+const OCR_SERVICE_URL = process.env.OCR_SERVICE_URL;
 
 export const runtime = 'nodejs';
 // Prevent Next.js from buffering the response
@@ -14,6 +14,16 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ batchId: string }> }
 ) {
+  if (!OCR_SERVICE_URL) {
+    return new Response(
+      JSON.stringify({ detail: 'OCR_SERVICE_URL is not configured' }),
+      {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
   const { batchId } = await params;
 
   try {

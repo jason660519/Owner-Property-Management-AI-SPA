@@ -282,7 +282,7 @@ export function useAISettings() {
     ) => {
       const res = await fetch('/api/ai-settings/keys/validate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
         body: JSON.stringify({ provider, apiKey, keyId, userId }),
       });
       const result = (await res.json()) as KeyValidationResult & { error?: string };

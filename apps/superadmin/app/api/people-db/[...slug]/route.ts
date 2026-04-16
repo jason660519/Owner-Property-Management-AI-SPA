@@ -2,10 +2,14 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 
-const BACKEND_URL = process.env.BACKEND_PEOPLE_DB_URL ?? 'http://127.0.0.1:8819';
+const BACKEND_URL = process.env.BACKEND_PEOPLE_DB_URL;
 const SAFE_SEGMENT_REGEX = /^[a-zA-Z0-9._-]+$/;
 
 async function proxyRequest(req: NextRequest, segments: string[]) {
+  if (!BACKEND_URL) {
+    return NextResponse.json({ detail: 'BACKEND_PEOPLE_DB_URL is not configured' }, { status: 503 });
+  }
+
   const hasUnsafeSegment = segments.some(
     (segment) => !segment || segment === '.' || segment === '..' || !SAFE_SEGMENT_REGEX.test(segment)
   );

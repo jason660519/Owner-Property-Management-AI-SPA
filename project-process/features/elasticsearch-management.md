@@ -26,7 +26,7 @@ OCR 辨識完成後自動索引，並提供全量重建索引 (Reindex) 機制�
 [Frontend: Superadmin Dashboard]
 |
 v
-[Backend API: OCR Service]
+[Backend API: Search Data Service]
 |-- POST /ocr/single (Trigger Sync)
 |-- GET /admin/es/health
 |-- GET /admin/es/stats

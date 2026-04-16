@@ -44,7 +44,6 @@
 - `logs/dev/nextjs.log`：Web App (3000)
 - `logs/dev/nextjs-au.log`：Web App AU (3002)
 - `logs/dev/superadmin.log`：Superadmin (3001)
-- `logs/dev/ocr_service.log`：OCR Service (8819)
 
 用途：
 
@@ -313,7 +312,6 @@ chore: 雜項
 | **Web App** | http://localhost:3000 | Next.js 主應用 (房東/租客/買家) | Port 3000 預留 |
 | **Superadmin 後台** | http://localhost:3001 | 超級管理員儀表板 (`npm run dev:superadmin`) | 按需啟動 |
 | **開發進度追蹤** | http://localhost:3001/superadmin/dashboard/project-progress | Sprint 進度儀表板 (`npm run dev:superadmin`) | 按需啟動 |
-| **VLM OCR 服務** | http://localhost:8819 | 離線謄本查詢系統 | ✅ 運行中 |
 | **Supabase API** | http://localhost:54321 | 本地資料庫 API | ✅ 運行中 |
 | **Supabase Studio** | http://localhost:54323 | 資料庫管理介面 | ✅ 運行中 |
 | **Mailpit** | http://localhost:54324 | 郵件測試服務 | ✅ 運行中 |
@@ -325,7 +323,7 @@ chore: 雜項
 # 開啟互動式啟動選單 (推薦)
 ./start.sh
 
-# 一鍵啟動所有服務 (Web, Admin, OCR, Tracker)
+# 一鍵啟動所有服務 (Web, Admin, Tracker)
 ./start.sh all
 
 # 停止所有服務

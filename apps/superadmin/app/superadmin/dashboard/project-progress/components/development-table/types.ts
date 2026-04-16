@@ -112,7 +112,6 @@ export const COLUMN_HEADERS: ColumnHeaderDef[] = [
   { en: 'TDD Progress', zh: 'TDD進度' },
   { en: 'E2E Test Progress', zh: 'E2E測試進度' },
   { en: 'Prompt and IDE Setting', zh: 'Prompt 與 IDE 設定' },
-  { en: 'Assignee', zh: '負責人' },
   { en: 'Status', zh: '狀態' },
   { en: 'Notes', zh: '備註' },
 ];
@@ -123,8 +122,8 @@ export const COLUMN_LETTERS = COLUMN_HEADERS.map((_, i) => String.fromCharCode(6
 export const IDE_OPTIONS: IDEOption[] = ['', ...RUNTIME_OPTIONS.map(o => o.id)];
 
 // --- Layout constants ---
-// 15 columns: merged Status + Paperclip Status into one unified Status column
-export const INITIAL_WIDTHS = [3, 3, 4, 4, 16, 13, 7, 6, 7, 6, 5, 9, 4, 8, 5];
+// 14 columns: Status + Notes after removing Assignee column
+export const INITIAL_WIDTHS = [3, 3, 4, 4, 16, 13, 7, 6, 7, 6, 5, 9, 8, 5];
 export const TABLE_SCROLL_MIN_WIDTH_PX = 2600;
 export const DEFAULT_HEADER_HEIGHT = 56;
 export const MIN_HEADER_HEIGHT = 40;

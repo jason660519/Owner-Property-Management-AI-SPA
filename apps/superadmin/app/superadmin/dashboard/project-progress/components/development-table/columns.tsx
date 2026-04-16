@@ -8,8 +8,7 @@ import type { ProgressRow, RowStatus } from './types';
 import { getRowKey, deriveRowStatus, COLUMN_HEADERS, resolveUnitTestFolder, resolveE2EFolder } from './types';
 import { buildProjectFileHref } from './path-utils';
 import type { PaperclipTaskRow } from '@/app/api/paperclip/task-queue/route';
-import type { EngineerProfile } from '@/lib/hooks/useEngineerProfiles';
-import { AssigneeColumn, PaperclipStatusColumn } from './task-dispatch';
+import { PaperclipStatusColumn } from './task-dispatch';
 
 const PROJECT_FILE_ALLOWED_PREFIXES = ['apps/superadmin/', 'project-process/'] as const;
 
@@ -104,8 +103,7 @@ function meta(idx: number) {
 
 // -- Factory --
 export interface CreateDevColumnsDeps {
-  onOpenPromptModal: (row: ProgressRow) => void;
-  onOpenPromptPage: (row: ProgressRow) => void;
+  onOpenPromptConfig: (row: ProgressRow) => void;
   statusSelections: Record<string, RowStatus>;
   onStatusChange: (rowKey: string, status: RowStatus) => void;
   hiddenRowKeysSet: Set<string>;
@@ -114,16 +112,12 @@ export interface CreateDevColumnsDeps {
   // P2: multi-engineer collaboration
   userId: string;
   tasksByRowId: Record<string, PaperclipTaskRow>;
-  engineerProfiles: EngineerProfile[];
-  profilesByUserId: Record<string, EngineerProfile>;
-  onRefreshTasks: () => void;
   onClickTaskDetail?: (rowId: string) => void;
 }
 
 export function createDevColumns(deps: CreateDevColumnsDeps): ColumnDef<ProgressRow, unknown>[] {
   const {
-    onOpenPromptModal,
-    onOpenPromptPage,
+    onOpenPromptConfig,
     statusSelections,
     onStatusChange,
     hiddenRowKeysSet,
@@ -131,9 +125,6 @@ export function createDevColumns(deps: CreateDevColumnsDeps): ColumnDef<Progress
     onDeleteCustomRow,
     userId,
     tasksByRowId,
-    engineerProfiles,
-    profilesByUserId,
-    onRefreshTasks,
     onClickTaskDetail,
   } = deps;
 
@@ -292,52 +283,21 @@ export function createDevColumns(deps: CreateDevColumnsDeps): ColumnDef<Progress
       id: 'col-prompt',
       meta: meta(11),
       cell: ({ row }) => (
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onOpenPromptModal(row.original); }}
-            className="inline-flex items-center gap-1 rounded-md border border-border-default bg-bg-secondary/60 px-2 py-1 text-[11px] text-text-secondary hover:bg-bg-secondary hover:text-text-primary transition-colors"
-          >
-            <Settings className="w-3.5 h-3.5" />
-            <span className="truncate">設定 Prompt / 執行</span>
-          </button>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onOpenPromptPage(row.original); }}
-            className="inline-flex items-center justify-center rounded-md border border-border-default bg-bg-secondary/60 p-1 text-text-muted hover:bg-bg-secondary hover:text-text-primary transition-colors"
-            title="在新頁籤開啟設定頁"
-            aria-label="在新頁籤開啟設定頁"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onOpenPromptConfig(row.original); }}
+          className="inline-flex items-center gap-1 rounded-md border border-border-default bg-bg-secondary/60 px-2 py-1 text-[11px] text-text-secondary hover:bg-bg-secondary hover:text-text-primary transition-colors"
+        >
+          <Settings className="w-3.5 h-3.5" />
+          <span className="truncate">設定 Prompt / 執行</span>
+        </button>
       ),
     }),
 
-    // 13. Assignee
-    col.display({
-      id: 'col-assignee',
-      meta: meta(12),
-      cell: ({ row }) => {
-        const r = row.original;
-        const task = tasksByRowId[r.__rowId];
-        return (
-          <AssigneeColumn
-            rowId={r.__rowId}
-            task={task}
-            currentUserId={userId}
-            profiles={engineerProfiles}
-            profilesByUserId={profilesByUserId}
-            onRefresh={onRefreshTasks}
-          />
-        );
-      },
-    }),
-
-    // 14. Status (unified: Paperclip badge when task exists, dropdown fallback otherwise)
+    // 13. Status (unified: Paperclip badge when task exists, dropdown fallback otherwise)
     col.display({
       id: 'col-status',
-      meta: meta(13),
+      meta: meta(12),
       cell: ({ row }) => {
         const r = row.original;
         const task = tasksByRowId[r.__rowId];
@@ -368,10 +328,10 @@ export function createDevColumns(deps: CreateDevColumnsDeps): ColumnDef<Progress
       },
     }),
 
-    // 15. Notes (placeholder)
+    // 14. Notes (placeholder)
     col.display({
       id: 'col-notes',
-      meta: meta(14),
+      meta: meta(13),
       cell: () => (
         <span className="text-sm text-text-muted truncate max-w-full block">&mdash;</span>
       ),

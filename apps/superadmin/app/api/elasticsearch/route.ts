@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const OCR_SERVICE_URL = process.env.OCR_SERVICE_URL || 'http://localhost:8819';
+const OCR_SERVICE_URL = process.env.OCR_SERVICE_URL;
 
 export async function GET(request: NextRequest) {
+  if (!OCR_SERVICE_URL) {
+    return NextResponse.json(
+      { error: 'OCR_SERVICE_URL is not configured' },
+      { status: 503 }
+    );
+  }
+
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action');
   const q = searchParams.get('q');
@@ -63,6 +70,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!OCR_SERVICE_URL) {
+    return NextResponse.json(
+      { error: 'OCR_SERVICE_URL is not configured' },
+      { status: 503 }
+    );
+  }
+
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action');
 

@@ -69,7 +69,7 @@
 ├─────────────────┬───────────────────────────────┤
 │ /api/people-db/ │ upload, search, stats, etc    │
 ├─────────────────────────────────────────────────┤
-│ FastAPI Backend (OCR Service)                   │
+│ Backend Data Service                            │
 ├─────────────────┬───────────────────────────────┤
 │ /import/people  │ /search/people, /stats        │
 ├─────────────────────────────────────────────────┤
@@ -486,7 +486,7 @@ interface FieldMapping {
 **信心度計算**：
 
 ```python
-# FastAPI backend (backend/ocr_service)
+# Backend confidence scoring service（已下線）
 confidence_score = (
     field_extraction_confidence  # OCR 引擎評分
     * field_validity_score       # 欄位內容合理性（如電話格式）
