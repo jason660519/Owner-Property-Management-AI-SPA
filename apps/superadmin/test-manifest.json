@@ -282,6 +282,30 @@
         "apps/superadmin/e2e/144/search-to-related.spec.ts"
       ],
       "linkedToolScripts": []
+    },
+    {
+      "id": "145",
+      "name": "People Database (Row 145) — bulk ingestion pipeline (Sprint 1\u20134b)",
+      "tier": "pr",
+      "status": "active",
+      "unitPaths": [
+        "apps/superadmin/lib/people-db/__tests__/inventory.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/fp-parse.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/ocr-pipeline.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/normalize.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/staging.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/entity-resolution.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/merge-candidates.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/search-person-aggregate.test.ts",
+        "apps/superadmin/app/api/people-db/merge-candidates/__tests__/route.test.ts",
+        "apps/superadmin/app/api/people-db/search/__tests__/route-group-by.test.ts",
+        "apps/superadmin/app/superadmin/settings/people-database/merge-candidates/__tests__/MergeCandidatesPage.test.tsx",
+        "apps/superadmin/app/superadmin/settings/people-database/search/__tests__/search-person-toggle.test.tsx"
+      ],
+      "e2ePaths": [
+        "apps/superadmin/e2e/145/er-merge-candidates-flow.spec.ts"
+      ],
+      "linkedToolScripts": []
     }
   ]
 }

@@ -6,56 +6,73 @@
 這些是**必跑**，不是可選：
 
 1. `git status --short` + `git log --oneline -10` — 確認本次 session 的 commit 與未提交變更
-2. 讀本次 session 最後 commit 的核心檔案（看**現況內容**，不是只看 diff；Jason 常在平行分支編輯）
+2. 讀本次 session 最後 commit 的核心檔案（看**現況內容**，不是只看 diff；User, AI Engineers, Jason 常在平行分支編輯）
 3. 讀 `apps/superadmin/app/data/roadmap.ts` 最末端的相關 Row entry，確認 `percentage` / `lastUpdated` / `developmentProgress` 與現況一致
 4. 若有 dev-spec / tdd-spec（`project-process/features/*.md`），讀「下一 Sprint」章節把具體任務拆解帶出來
 5. 掃一下 `.claude/rules/` 與 `CLAUDE.md`，把**非直覺**的慣例挑出來（例：TS strict 禁 any、SQL 只放 migrations、Supabase client 依環境選 path、RLS 雙軌）
+6. **驗證你要在 prompt 中提及的每個技術斷言** — 任何「專案使用 X 套件」、「已有 Y provider / helper」、「在 Z 路徑」的陳述，**都要在寫下前用 grep/Glob/Read 驗證**；沒驗證就不准寫。常見翻車題見下方「常見臆測陷阱」。
+7. **API shape 確認** — 若下一任務需要某 API 回特定欄位，必須**實際 Read 那支 route.ts** 確認現況是否已支援；若不支援，在 prompt 中**明確標註「需擴充 X API，補 Y 欄位」**，不得假設它已能回。
 
 ## 輸出格式
 
 用一個 markdown fenced code block 包住**整份 prompt**，讓 Jason 一鍵複製。內含以下段落（依序）：
 
 1. **身分與慣例**
+
    - 回覆語言繁中、程式碼註解英文、TS strict 禁 `any`
    - SQL 只能放 `supabase/migrations/`，檔名 `YYYYMMDDHHMMSS_description.sql`
    - **Jason 常在不同分支並行開發**：動工前 + 每次 commit 前都要 `git status` 避免覆寫他的平行變更
    - 進度更新要改 `apps/superadmin/app/data/roadmap.ts`（percentage + lastUpdated + developmentProgress）
-
 2. **專案位置** — 絕對路徑
-
 3. **剛完成（commit hash）**
+
    - 條列交付物（檔案路徑 + 功能摘要）
    - 附「先讀這幾個檔案建立脈絡」的**優先序清單**
-
 4. **驗證基線綠的指令** — 讓新 AI 一開始就能確認環境 OK：
+
    ```
    cd apps/superadmin && npx jest <path> --no-coverage
    cd apps/superadmin && npx tsc --noEmit
    ```
-
 5. **下一步任務拆解**
+
    - 要建立哪些檔案（絕對 / repo-relative 完整路徑）
    - 用什麼套件（說明為什麼：避 CVE、效能、peer dep 相容）
    - TDD 要先寫什麼測試（引用 tdd-spec 對應章節）
-
 6. **延後 / 待辦** — 本次暫時不做但要記得的事
-
 7. **關鍵慣例與雷區**
+
    - Supabase client import 選哪個（server / client / admin）
    - RLS 政策範本（deny_all + superadmin 四政策 + service_role 雙軌）
    - Pre-commit hooks 會擋什麼（`scripts/check-staged-no-any.js`、`scripts/check-critical-deps.js`、`tools/testing/lint-adapter-model-ids.sh`、`tools/testing/validate-test-manifest.sh`）
    - 不准降級：react 19 / react-leaflet 5 / next 16 / typescript 5
-
 8. **驗收門檻** — 下一任務完成條件 + commit message 格式
-
 9. **動工前的確認指令** — `git status` + `git log --oneline -5` 驗證 baseline commit
 
 ## 品質要求
 
 - 每個檔案路徑寫**絕對路徑或 repo-relative 完整路徑**，不要含糊的「在 lib 裡」
 - 列套件建議時**說明為什麼**（避 CVE / 效能 / peer dep）
+- **技術斷言必須附證據**：每個提及「專案既有 X」的句子，後面要掛 grep 結果、檔案路徑、或 package.json 欄位當**證據**。例：「專案使用 TanStack Query（見 `apps/web/app/providers.tsx:3` 的 `QueryClientProvider`）」；若 grep 查不到，禁止寫「專案使用 X」這類句式，改寫「可評估引入 X」或「依循既有 pattern（useState + fetch，見 `.../search/page.tsx`）」
 - 不寫「Based on my analysis...」這種空話，直接給指令
 - 結尾留一句：動工前先跟我確認 Sprint 拆解，避免悶頭寫錯方向
+
+## 常見臆測陷阱（寫前必 grep）
+
+這些是訓練資料印象 vs. repo reality 常分歧的地雷。凡是要在 prompt 中斷言，**先用左欄指令驗證**：
+
+| 要斷言的事 | 驗證指令 | 若查不到就不准寫 |
+| :-- | :-- | :-- |
+| 專案使用 TanStack Query | `grep -r "@tanstack/react-query" apps/<target-app>` | 不准寫「用 useQuery」；改寫現行 `useState + fetch` |
+| 專案使用 SWR | `grep -r "from 'swr'" apps/<target-app>` | 同上 |
+| 專案使用 Zustand / Jotai / Redux | `grep -r "zustand\|jotai\|redux" apps/<target-app>` | 同上 |
+| 專案用 sonner / react-hot-toast | `grep -r "sonner\|react-hot-toast" apps/<target-app>` | 讀 `components/ui/Toast*.tsx` 看自製方案 |
+| 專案用 shadcn/ui / radix | 看 `components/ui/` 檔案 + `package.json` | 別假設 variant 集合（例 Badge 無 `danger`，用 `error`）|
+| 某 provider 檔案存在 | `Read <path>` 成功才算 | 不准憑「常見 Next.js 架構」寫「QueryProvider 在 …」|
+| API 已回某欄位 | Read `route.ts` | 若沒回，要明寫「**需擴充 API**」|
+| Migration 已存在某表 | `ls supabase/migrations | grep <keyword>` | 沒有就標註為「需新 migration」|
+
+違反任何一條寫出錯誤斷言 → 接手 AI 會照錯誤描述動工，浪費時間排雷。
 
 ## 特別強調
 
