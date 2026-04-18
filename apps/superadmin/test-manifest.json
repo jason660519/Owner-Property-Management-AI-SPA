@@ -154,6 +154,19 @@
       "linkedToolScripts": []
     },
     {
+      "id": "100",
+      "name": "Adapter model id prefix lint",
+      "tier": "pr",
+      "status": "active",
+      "unitPaths": [
+        "apps/superadmin/unit_test/100/lint-adapter-model-ids.test.js"
+      ],
+      "e2ePaths": [],
+      "linkedToolScripts": [
+        "tools/testing/lint-adapter-model-ids.sh"
+      ]
+    },
+    {
       "id": "120",
       "name": "Contract template selector",
       "tier": "nightly",

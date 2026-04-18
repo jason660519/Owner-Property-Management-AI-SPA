@@ -11,6 +11,10 @@
 #   the full <provider>/<vendor>/<model> slug; a bare vendor id silently falls
 #   back to `openrouter/auto`, which masks version drift.
 #
+# Legacy exemptions: a short allowlist of ids that predate this lint is
+# tolerated with a warning — their correct replacement model id is blocked on
+# the Row 100 P1 baseline self-report audit. New rows get no such grace.
+#
 # Usage:
 #   tools/testing/lint-adapter-model-ids.sh [path/to/adapter-config.ts]
 #
@@ -93,7 +97,23 @@ if (entries.length === 0) {
 
 const PROVIDERS_REQUIRING_PREFIX = new Set(['opencode', 'kilo']);
 const ALLOWED_PREFIXES = ['opencode/', 'openrouter/'];
+
+// Temporary exemptions — rows that predate this lint and whose correct
+// replacement model id is blocked on the Row 100 P1 baseline self-report
+// audit (see §5 P0/P1 of the 2026-04-19 dev log). Each entry should be
+// removed in the same PR that fixes the row's model id.
+// DO NOT add new entries here without explicit approval — the point of
+// this lint is to stop new rows from landing without a prefix.
+const LEGACY_EXEMPTIONS = new Set([
+  'kilo-dola-seed-2-0-pro',
+  'kilo-qwen-3-6-plus',
+  'opencode-kimi-k2-5',
+  'opencode-glm-5-1',
+  'opencode-qwen-3-6-plus',
+]);
+
 const violations = [];
+const exempted = [];
 
 function lineOf(text, offset) {
   return text.slice(0, offset).split('\n').length;
@@ -121,17 +141,31 @@ for (const entry of entries) {
   if (!PROVIDERS_REQUIRING_PREFIX.has(provider)) continue;
   if (ALLOWED_PREFIXES.some((p) => model.startsWith(p))) continue;
 
-  violations.push({
+  const record = {
     id,
     provider,
     model,
     line,
     reason: `model must start with one of: ${ALLOWED_PREFIXES.join(', ')}`,
-  });
+  };
+  if (LEGACY_EXEMPTIONS.has(id)) {
+    exempted.push(record);
+  } else {
+    violations.push(record);
+  }
+}
+
+if (exempted.length > 0) {
+  console.warn(
+    `⚠️  lint-adapter-model-ids: ${exempted.length} legacy exemption(s) still pending Row 100 P1 audit:`,
+  );
+  for (const v of exempted) {
+    console.warn(`  - [${v.id}] (line ${v.line}) provider='${v.provider}' model='${v.model}'`);
+  }
 }
 
 if (violations.length === 0) {
-  console.log(`✅ lint-adapter-model-ids: ${entries.length} adapter entries OK`);
+  console.log(`✅ lint-adapter-model-ids: ${entries.length - exempted.length} adapter entries OK`);
   process.exit(0);
 }
 
