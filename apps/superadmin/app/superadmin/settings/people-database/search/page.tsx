@@ -62,6 +62,27 @@ interface SearchResponse {
   total: number;
   page: number;
   page_size: number;
+  group_by?: 'person' | 'record';
+}
+
+// Sprint 4b: person-aggregate shape returned when group_by=person.
+interface PersonAggregate {
+  person_id: string | null;
+  canonical_name: string | null;
+  canonical_id_no: string | null;
+  canonical_phones: string[];
+  canonical_address: string | null;
+  source_count: number;
+  quality_score: number | null;
+  sources: ApiPeopleRecord[];
+}
+
+interface PersonSearchResponse {
+  results: PersonAggregate[];
+  total: number;
+  page: number;
+  page_size: number;
+  group_by: 'person';
 }
 
 interface DataSourceFacet {
@@ -90,6 +111,7 @@ interface ImportBatchResponse {
 }
 
 type QualityLevel = 'all' | 'high' | 'medium' | 'low';
+type GroupBy = 'person' | 'record';
 
 function toPercentQuality(score: number | null): number | null {
   if (score === null || Number.isNaN(score)) return null;
@@ -240,6 +262,10 @@ export function PeopleDatabaseSearchWorkspace() {
   const [showFilters, setShowFilters] = useState(false);
 
   const [results, setResults] = useState<PeopleRecord[]>([]);
+  // Sprint 4b: person-mode aggregates are returned when groupBy='person'.
+  const [personResults, setPersonResults] = useState<PersonAggregate[]>([]);
+  const [expandedPersons, setExpandedPersons] = useState<Set<string>>(new Set());
+  const [groupBy, setGroupBy] = useState<GroupBy>('person');
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -340,6 +366,7 @@ export function PeopleDatabaseSearchWorkspace() {
         q: query.trim(),
         page: String(currentPage),
         page_size: String(PAGE_SIZE),
+        group_by: groupBy,
       });
       if (qualityFilter !== 'all') params.set('quality', qualityFilter);
       // Expand parent selections to include every descendant path so backend
@@ -351,16 +378,35 @@ export function PeopleDatabaseSearchWorkspace() {
       try {
         const res = await fetch(`/api/people-db/search?${params.toString()}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = (await res.json()) as SearchResponse;
-        setResults(data.results.map(mapApiRecord));
+        const data = (await res.json()) as SearchResponse | PersonSearchResponse;
+        if (data.group_by === 'person') {
+          const agg = (data as PersonSearchResponse).results;
+          setPersonResults(agg);
+          setResults([]);
+        } else {
+          setResults((data.results as ApiPeopleRecord[]).map(mapApiRecord));
+          setPersonResults([]);
+        }
         setTotal(data.total);
         setPage(currentPage);
+        setExpandedPersons(new Set());
       } finally {
         setLoading(false);
       }
     },
-    [datasetTree, datasets.length, query, qualityFilter, selectedSources]
+    [datasetTree, datasets.length, groupBy, query, qualityFilter, selectedSources]
   );
+
+  // When the user flips the toggle after running a search, refetch with the
+  // new group_by so the UI reflects the chosen aggregation immediately.
+  useEffect(() => {
+    if (hasSearched) {
+      void doSearch(1);
+    }
+    // `doSearch` is stable between groupBy flips because we include groupBy
+    // in its deps; depending on it directly would schedule a double fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupBy]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') doSearch(1);
@@ -386,6 +432,27 @@ export function PeopleDatabaseSearchWorkspace() {
         <div>
           <h1 className="text-2xl font-bold text-text-primary">搜尋人員資料庫</h1>
           <p className="text-text-secondary mt-1">支援電話/身分證精準查詢，並可追溯每筆資料來源與匯入批次。</p>
+        </div>
+
+        {/* ---- Group-by toggle (person aggregate vs. flat records) ---- */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-text-secondary">結果呈現：</span>
+          <Button
+            variant={groupBy === 'person' ? 'primary' : 'outline'}
+            size="sm"
+            onClick={() => setGroupBy('person')}
+            aria-pressed={groupBy === 'person'}
+          >
+            依 person 聚合
+          </Button>
+          <Button
+            variant={groupBy === 'record' ? 'primary' : 'outline'}
+            size="sm"
+            onClick={() => setGroupBy('record')}
+            aria-pressed={groupBy === 'record'}
+          >
+            依 record 展開
+          </Button>
         </div>
 
         {/* ---- Search bar ---- */}
@@ -485,6 +552,73 @@ export function PeopleDatabaseSearchWorkspace() {
                   <RefreshCw className="h-4 w-4 animate-spin" />
                   搜尋中…
                 </div>
+              ) : groupBy === 'person' ? (
+                personResults.length === 0 ? (
+                  <div className="flex items-center justify-center h-32 text-text-secondary">
+                    沒有符合的資料
+                  </div>
+                ) : (
+                  <div className="p-4 space-y-3">
+                    {personResults.map((p, idx) => {
+                      const key = p.person_id ?? `orphan-${idx}`;
+                      const isExpanded = expandedPersons.has(key);
+                      return (
+                        <div
+                          key={key}
+                          className="rounded-md border border-border-default p-3 space-y-2"
+                        >
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium text-text-primary">
+                              {p.canonical_name ?? '—'}
+                            </span>
+                            {p.person_id ? (
+                              <Badge variant="info">person</Badge>
+                            ) : (
+                              <Badge variant="warning">未解析</Badge>
+                            )}
+                            <span className="text-xs text-text-secondary">
+                              電話：{p.canonical_phones.join('、') || '—'}
+                            </span>
+                            <span className="text-xs text-text-secondary">
+                              地址：{p.canonical_address ?? '—'}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="ml-auto"
+                              onClick={() => {
+                                setExpandedPersons((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(key)) next.delete(key);
+                                  else next.add(key);
+                                  return next;
+                                });
+                              }}
+                            >
+                              {isExpanded
+                                ? `隱藏 ${p.sources.length} 筆來源`
+                                : `顯示 ${p.sources.length} 筆來源`}
+                            </Button>
+                          </div>
+                          {isExpanded && (
+                            <ul className="pl-3 space-y-1 text-xs text-text-secondary">
+                              {p.sources.map((s) => (
+                                <li key={s.record_id} className="flex flex-wrap gap-2">
+                                  <span className="font-mono">{s.record_id}</span>
+                                  <span>{s.full_name ?? s.name ?? ''}</span>
+                                  <span>{s.data_source ?? ''}</span>
+                                  <span className="truncate">
+                                    {s.source_file_path ?? ''}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
               ) : results.length === 0 ? (
                 <div className="flex items-center justify-center h-32 text-text-secondary">
                   沒有符合的資料

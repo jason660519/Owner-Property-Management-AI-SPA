@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { buildSearchBody } from '@/lib/people-db/search-strategy';
 import { esSearch, requireSuperAdmin } from '@/lib/people-db/es-gateway';
+import { createAdminClient } from '@/utils/supabase/admin';
+import {
+  aggregateByPerson,
+  type PersonCanonical,
+  type PersonSourceLink,
+  type SearchRecord,
+} from '@/lib/people-db/search-person-aggregate';
 
 interface EsHit {
   _id: string;
@@ -33,6 +40,7 @@ interface EsSearchResponse {
 }
 
 const VALID_QUALITY = new Set(['all', 'high', 'medium', 'low']);
+const VALID_GROUP_BY = new Set(['record', 'person']);
 
 export async function GET(req: NextRequest) {
   const auth = await requireSuperAdmin();
@@ -51,6 +59,13 @@ export async function GET(req: NextRequest) {
     | 'high'
     | 'medium'
     | 'low';
+
+  // Sprint 4b: group_by toggle. Default 'record' keeps the Row 144
+  // flat-list shape working for existing callers.
+  const groupByParam = searchParams.get('group_by') ?? 'record';
+  const groupBy = (VALID_GROUP_BY.has(groupByParam) ? groupByParam : 'record') as
+    | 'record'
+    | 'person';
 
   const dataSources = [
     ...searchParams.getAll('data_sources'),
@@ -85,11 +100,57 @@ export async function GET(req: NextRequest) {
       };
     });
 
+    if (groupBy === 'person' && results.length > 0) {
+      const recordIds = results.map((r) => r.record_id);
+      const supabase = createAdminClient();
+
+      const linksRes = await supabase
+        .from('people_db_person_sources')
+        .select('record_id, person_id')
+        .in('record_id', recordIds);
+      if (linksRes.error) {
+        return NextResponse.json(
+          { detail: 'Search aggregation failed (source_links)', error: linksRes.error.message },
+          { status: 503 },
+        );
+      }
+      const sourceLinks = (linksRes.data ?? []) as PersonSourceLink[];
+      const personIds = Array.from(new Set(sourceLinks.map((l) => l.person_id)));
+
+      let persons: PersonCanonical[] = [];
+      if (personIds.length > 0) {
+        const pRes = await supabase
+          .from('people_db_persons')
+          .select(
+            'person_id, canonical_name, canonical_id_no, canonical_phones, canonical_address, source_count, quality_score',
+          )
+          .in('person_id', personIds);
+        if (pRes.error) {
+          return NextResponse.json(
+            { detail: 'Search aggregation failed (persons)', error: pRes.error.message },
+            { status: 503 },
+          );
+        }
+        persons = (pRes.data ?? []) as PersonCanonical[];
+      }
+
+      const aggregated = aggregateByPerson(results as SearchRecord[], sourceLinks, persons);
+
+      return NextResponse.json({
+        results: aggregated,
+        total,
+        page,
+        page_size: pageSize,
+        group_by: 'person',
+      });
+    }
+
     return NextResponse.json({
       results,
       total,
       page,
       page_size: pageSize,
+      group_by: 'record',
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';

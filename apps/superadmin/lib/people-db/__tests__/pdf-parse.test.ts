@@ -50,6 +50,52 @@ describe('extractPdfText', () => {
     expect(result.likelyScanned).toBe(false);
   });
 
+  it('stitches same-baseline glyphs into one line even when items arrive per-char', async () => {
+    // Simulates 台北市里長 PDFs: pdfjs emits every CJK glyph as its own item,
+    // but items on the same visual line share a baseline y (within a few px).
+    setMockPages([
+      [
+        { str: '編', transform: [1, 0, 0, 1, 10, 200] },
+        { str: '號', transform: [1, 0, 0, 1, 20, 200] },
+        { str: ' ', transform: [1, 0, 0, 1, 30, 200] },
+        { str: '305', transform: [1, 0, 0, 1, 40, 200] },
+        { str: '姓', transform: [1, 0, 0, 1, 10, 180] },
+        { str: '名', transform: [1, 0, 0, 1, 20, 180] },
+        { str: ' ', transform: [1, 0, 0, 1, 30, 180] },
+        { str: '闕貴卿', transform: [1, 0, 0, 1, 40, 180] },
+      ],
+    ]);
+    const result = await extractPdfText(new Uint8Array([0]));
+    expect(result.pages[0]).toBe('編號 305\n姓名 闕貴卿');
+  });
+
+  it('tolerates sub-pixel baseline drift within a visual line', async () => {
+    // Baseline y values vary between 200.0 and 200.9 — all within tolerance.
+    setMockPages([
+      [
+        { str: '編', transform: [1, 0, 0, 1, 10, 200.0] },
+        { str: '號', transform: [1, 0, 0, 1, 20, 200.5] },
+        { str: ' ', transform: [1, 0, 0, 1, 30, 200.9] },
+        { str: '305', transform: [1, 0, 0, 1, 40, 200.2] },
+      ],
+    ]);
+    const result = await extractPdfText(new Uint8Array([0]));
+    expect(result.pages[0]).toBe('編號 305');
+  });
+
+  it('restores x-order within a line when pdfjs emits items out of sequence', async () => {
+    // pdfjs sometimes returns glyphs in creation order, not reading order.
+    setMockPages([
+      [
+        { str: '305', transform: [1, 0, 0, 1, 40, 200] }, // x=40 but emitted first
+        { str: '編', transform: [1, 0, 0, 1, 10, 200] },
+        { str: '號', transform: [1, 0, 0, 1, 20, 200] },
+      ],
+    ]);
+    const result = await extractPdfText(new Uint8Array([0]));
+    expect(result.pages[0]).toBe('編號305');
+  });
+
   it('flags a likely-scanned PDF when total chars per page is tiny', async () => {
     setMockPages([
       [{ str: '', transform: [1, 0, 0, 1, 0, 0] }],
