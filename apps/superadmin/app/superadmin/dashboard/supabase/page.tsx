@@ -95,9 +95,11 @@ async function getMigrationHistory(
 
   const migrationSchemaClient =
     typeof (supabase as { schema?: unknown }).schema === 'function'
-      ? (supabase as { schema: (schemaName: string) => ReturnType<typeof createAdminClient> }).schema(
-          'supabase_migrations',
-        )
+      ? (
+          supabase as unknown as {
+            schema: (schemaName: string) => ReturnType<typeof createAdminClient>;
+          }
+        ).schema('supabase_migrations')
       : supabase;
 
   const { data: appliedRows } = await migrationSchemaClient
@@ -139,7 +141,9 @@ async function getConnectionCount(
     if (typeof (supabase as { schema?: unknown }).schema !== 'function') return null;
 
     const pgCatalogClient = (
-      supabase as { schema: (schemaName: string) => ReturnType<typeof createAdminClient> }
+      supabase as unknown as {
+        schema: (schemaName: string) => ReturnType<typeof createAdminClient>;
+      }
     ).schema('pg_catalog');
 
     const { count, error } = await pgCatalogClient
