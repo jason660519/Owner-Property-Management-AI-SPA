@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 export interface GDriveConfig {
   enabled: boolean;
@@ -48,7 +49,16 @@ async function loadConfig<T>(key: string, defaults: T): Promise<T> {
   return data?.value ? { ...defaults, ...(data.value as Partial<T>) } : defaults;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/backup/cloud-settings',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+
   const [gdrive, s3] = await Promise.all([
     loadConfig<GDriveConfig>(GDRIVE_KEY, defaultGDrive),
     loadConfig<S3Config>(S3_KEY, defaultS3),
@@ -74,6 +84,15 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request: req,
+    allowHeaderFallback: false,
+    routeLabel: 'api/backup/cloud-settings',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+
   const body = await req.json() as {
     gdrive?: Partial<GDriveConfig>;
     s3?: Partial<S3Config>;

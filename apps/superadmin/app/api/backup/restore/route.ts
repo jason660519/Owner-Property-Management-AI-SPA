@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
 
@@ -17,6 +18,15 @@ interface RestoreResult {
 }
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request: req,
+    allowHeaderFallback: false,
+    routeLabel: 'api/backup/restore',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+
   const { id } = (await req.json()) as { id: string };
   if (!/^backup_\d{8}_\d{6}$/.test(id)) {
     return NextResponse.json({ error: 'Invalid backup id' }, { status: 400 });
