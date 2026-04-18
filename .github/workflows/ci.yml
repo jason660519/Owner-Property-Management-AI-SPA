@@ -40,13 +40,9 @@ jobs:
         working-directory: apps/superadmin
         run: npx tsc --noEmit
 
-  # TODO: eslint-config-next currently breaks on Next.js 16 (missing
-  # next/dist/compiled/babel/eslint-parser). Fix the config chain then
-  # flip continue-on-error off so lint becomes a hard gate.
   lint-superadmin:
     name: Lint (superadmin)
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

@@ -165,7 +165,7 @@ export async function GET() {
 
     // Paperclip agent API does not expose run error details.
     // We rely on agent status + heartbeat recency to decide.
-    let errorHint: string | null = null;
+    const errorHint: string | null = null;
 
     if (!shouldSwitchAdapter(agent.status, errorHint, agent.lastHeartbeatAt)) {
       // Agent in error but stale heartbeat — just reset, don't switch

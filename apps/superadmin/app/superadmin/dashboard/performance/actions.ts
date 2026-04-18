@@ -144,7 +144,12 @@ export async function getTopApiLatencies(): Promise<ApiLatency[]> {
     return [];
   }
 
-  const groups: Record<string, any> = {};
+  interface LatencyGroup {
+    endpoint: string;
+    method: string;
+    values: number[];
+  }
+  const groups: Record<string, LatencyGroup> = {};
   data.forEach((m) => {
     const endpoint = m.tags?.endpoint || m.metric_name;
     const method = m.tags?.method || 'UNKNOWN';
