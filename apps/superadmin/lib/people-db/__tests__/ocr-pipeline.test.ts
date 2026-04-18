@@ -33,10 +33,11 @@ interface Row {
 }
 
 const store = new Map<string, Row>();
+const stagingStore: Array<{ file_id: string; record_index: number; raw: Record<string, unknown> }> = [];
 
 function makeFakeDb() {
   return {
-    from: (_table: string) => ({
+    from: (table: string) => ({
       select: () => ({
         eq: (col: string, val: unknown) => ({
           maybeSingle: async () => {
@@ -60,6 +61,18 @@ function makeFakeDb() {
           return { error: { message: 'row not found' } };
         },
       }),
+      upsert: async (rows: unknown[], _opts?: unknown) => {
+        if (table === 'people_db_staging_records') {
+          for (const r of rows as typeof stagingStore) {
+            const idx = stagingStore.findIndex(
+              (s) => s.file_id === r.file_id && s.record_index === r.record_index,
+            );
+            if (idx >= 0) stagingStore[idx] = r;
+            else stagingStore.push(r);
+          }
+        }
+        return { error: null };
+      },
     }),
   };
 }
@@ -100,6 +113,7 @@ describeIntegration('OCR pipeline integration: enqueue → callback → parsed',
 
   beforeEach(() => {
     store.clear();
+    stagingStore.length = 0;
     tmpDir = mkdtempSync(join(tmpdir(), 'ocr-pipeline-'));
     pdfPath = join(tmpDir, 'scanned.pdf');
     // Minimal fake PDF bytes; MockOcrClient only checks byteLength.
@@ -158,6 +172,16 @@ describeIntegration('OCR pipeline integration: enqueue → callback → parsed',
     expect(afterCallback?.parser).toBe('ocr');
     expect(afterCallback?.row_count).toBe(3);
     expect(afterCallback?.ocr_job_id).toBe(job.jobId); // preserved for audit
+
+    // Staging rows should hold the page text verbatim, one row per page,
+    // record_index = pageNumber - 1.
+    expect(stagingStore).toHaveLength(3);
+    expect(stagingStore[0]).toEqual({
+      file_id: 'f1',
+      record_index: 0,
+      raw: { page_text: '闕貴卿 南港路一段212號2樓', page_number: 1 },
+    });
+    expect(stagingStore[2].record_index).toBe(2);
   });
 
   it('does not transition the row when the jobId is unknown to the DB', async () => {

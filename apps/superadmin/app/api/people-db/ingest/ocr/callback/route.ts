@@ -5,9 +5,10 @@
 // looks up the matching people_db_files row by ocr_job_id, and transitions
 // it from `ocr_queued` → `parsed`.
 //
-// Sprint 4 (Entity Resolution) owns the real staging table; for now we
-// only persist row_count + parser='ocr' + error_msg with the OCR result
-// marker so downstream sprints know where to pick up.
+// Sprint 4a Phase 1 wires this callback to `people_db_staging_records`:
+// pages are inserted as staging rows (1 row per page, raw.page_text holds
+// the OCR text) so the normalize + ER workers can treat OCR output and
+// parser output uniformly.
 //
 // Signature: header `x-ocr-signature: sha256=<hex-digest>` over the raw
 // request body using env OCR_CALLBACK_SECRET. Shared with MockOcrClient's
@@ -16,6 +17,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { insertStagingRecords, ocrPagesToStaging } from '@/lib/people-db/staging';
 
 interface OcrCallbackPage {
   pageNumber: number;
@@ -103,16 +105,32 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Sprint 4 will write the OCR pages to a proper staging table; for now we
-  // record the count + a marker in error_msg so the monitor UI can see OCR
-  // actually ran. parser='ocr' lets downstream sprints branch on provider.
+  // Sprint 4a Phase 1: persist OCR pages as staging rows (one row per
+  // page, raw.page_text holds the text). Staging insert runs BEFORE the
+  // status flip so if it fails the file stays 'ocr_queued' and can be
+  // retried by re-calling this webhook; the unique (file_id, record_index)
+  // constraint plus upsert makes that idempotent.
+  const stagingRows = ocrPagesToStaging(lookup.data.id, payload.pages);
+  try {
+    await insertStagingRecords(supabase, stagingRows);
+  } catch (err) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'Staging insert failed',
+        detail: err instanceof Error ? err.message : String(err),
+      },
+      { status: 500 },
+    );
+  }
+
   const updateResult = await supabase
     .from('people_db_files')
     .update({
       status: 'parsed',
       parser: 'ocr',
       row_count: payload.pages.length,
-      error_msg: 'OCR_RESULT_FOR_SPRINT_4', // TODO(Sprint 4): replace with FK to staging
+      error_msg: null,
     })
     .eq('id', lookup.data.id);
   if (updateResult.error) {

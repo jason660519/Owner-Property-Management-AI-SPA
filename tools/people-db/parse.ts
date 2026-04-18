@@ -39,6 +39,10 @@ import {
   parseProviderFromEnv,
 } from '../../apps/superadmin/lib/people-db/ocr/client-factory';
 import type { OcrClient } from '../../apps/superadmin/lib/people-db/ocr/types';
+import {
+  insertStagingRecords,
+  parsedRowsToStaging,
+} from '../../apps/superadmin/lib/people-db/staging';
 
 // ---------------------------------------------------------------------------
 // CLI args
@@ -50,6 +54,12 @@ const { values } = parseArgs({
     'dry-run': { type: 'boolean', default: false },
     'max-attempts': { type: 'string', default: '5' },
     'batch-size': { type: 'string', default: '20' },
+    // Process only files with this extension (e.g. --ext .mdb). Lets us tier
+    // the 89k pending queue into high-value small batches (.mdb/.dbf) before
+    // expensive ones (.pdf). Leading dot, case-insensitive.
+    ext: { type: 'string' },
+    // Process only files whose dataset_root matches this value.
+    'dataset-root': { type: 'string' },
   },
 });
 
@@ -57,6 +67,8 @@ const limit = values.limit ? Number(values.limit) : Number.POSITIVE_INFINITY;
 const dryRun = Boolean(values['dry-run']);
 const maxAttempts = Number(values['max-attempts']);
 const batchSize = Number(values['batch-size']);
+const extFilter = values.ext ? values.ext.toLowerCase() : null;
+const datasetRootFilter = values['dataset-root'] ?? null;
 
 if (Number.isNaN(maxAttempts) || maxAttempts < 1) {
   console.error('--max-attempts must be a positive integer');
@@ -124,13 +136,16 @@ interface PendingRow {
 
 async function fetchPendingBatch(): Promise<PendingRow[]> {
   if (!db) return [];
-  const { data, error } = await db
+  let query = db
     .from('people_db_files')
     .select('id, sha256, source_path, ext, attempts')
     .eq('status', 'pending')
     .lt('attempts', maxAttempts)
     .order('created_at', { ascending: true })
     .limit(batchSize);
+  if (extFilter) query = query.eq('ext', extFilter);
+  if (datasetRootFilter) query = query.eq('dataset_root', datasetRootFilter);
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as PendingRow[];
 }
@@ -151,13 +166,21 @@ async function markResult(row: PendingRow, result: ParseResult): Promise<void> {
     // Route scanned PDFs to the OCR queue. dispatchOcr enqueues with the
     // client and sets status='ocr_queued' + ocr_job_id on the row. The
     // callback webhook (Sprint 3 Task C) later flips status → 'parsed'
-    // when the provider returns OCR text.
+    // and inserts staging rows when the provider returns OCR text.
     const client = requireOcrClient();
     await dispatchOcr(db, { id: row.id, sha256: row.sha256, source_path: row.source_path }, client);
-    // parser + row_count are intentionally left null here; OCR fills them
-    // in via the callback handler once text is extracted.
     counters.ocrQueued += 1;
     return;
+  }
+
+  // Sprint 4a Phase 1: persist parser rows to staging BEFORE flipping the
+  // file status to 'parsed'. If the staging insert fails the file stays
+  // in 'parsing' and the next worker run retries. Keeping these two
+  // updates independent (no transaction) is fine because both are
+  // idempotent — the (file_id, record_index) unique constraint plus the
+  // file status gate prevent duplicate work.
+  if (result.rows.length > 0) {
+    await insertStagingRecords(db, parsedRowsToStaging(row.id, result.rows));
   }
 
   const { error } = await db
