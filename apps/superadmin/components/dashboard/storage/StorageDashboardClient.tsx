@@ -113,13 +113,13 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
 
   const handleEditQuota = async (quota: StorageQuota) => {
     const currentMb = quota.quota_mb || 0;
-    // eslint-disable-next-line no-alert
+     
     const input = window.prompt('請輸入新的配額上限 (MB)：', currentMb.toString());
     if (!input) return;
 
     const parsed = Number.parseInt(input);
     if (!Number.isFinite(parsed) || parsed <= 0) {
-      // eslint-disable-next-line no-alert
+       
       window.alert('請輸入大於 0 的數值');
       return;
     }
@@ -127,12 +127,12 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
     setSavingQuotaFor(quota.user_id);
     try {
       await setUserQuota(quota.user_id, parsed);
-      // eslint-disable-next-line no-alert
+       
       window.alert('配額已更新');
       router.refresh();
     } catch (error) {
       console.error(error);
-      // eslint-disable-next-line no-alert
+       
       window.alert('更新配額時發生錯誤');
     } finally {
       setSavingQuotaFor(null);

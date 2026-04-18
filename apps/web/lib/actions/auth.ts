@@ -36,14 +36,33 @@ function normalizeSignInEmail(raw: string): string {
   return raw.replace(/\u00a0/g, ' ').trim().toLowerCase();
 }
 
+function normalizePasswordForRetry(raw: string): { value: string; changed: boolean } {
+  const withoutNbsp = raw.replace(/\u00a0/g, ' ');
+  const trimmed = withoutNbsp.trim();
+  const changed = trimmed !== raw;
+  return { value: trimmed, changed };
+}
+
 export async function signInWithPasswordAction(email: string, password: string): Promise<SignInResult> {
   try {
     const supabase = await createServerClient();
     const normalizedEmail = normalizeSignInEmail(email);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
-      password,
-    });
+    const attempt = async (pw: string) =>
+      supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password: pw,
+      });
+
+    let { data, error } = await attempt(password);
+
+    if (error) {
+      const retry = normalizePasswordForRetry(password);
+      if (retry.changed) {
+        const second = await attempt(retry.value);
+        data = second.data;
+        error = second.error;
+      }
+    }
 
     if (error) {
       const isDev = process.env.NODE_ENV === 'development';

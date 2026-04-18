@@ -103,7 +103,7 @@ export function useTablePreferences<T extends Record<string, unknown>>(
         setTableSettings(pageKey, settingsRef.current);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [pageKey]);
 
   // 3. Patch: localStorage immediate, DB debounced

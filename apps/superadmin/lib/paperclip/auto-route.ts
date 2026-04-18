@@ -175,7 +175,7 @@ function matchKeyword(keyword: string, haystack: string): boolean {
 }
 
 function isAscii(s: string): boolean {
-  // eslint-disable-next-line no-control-regex
+   
   return /^[\x00-\x7F]+$/.test(s);
 }
 

@@ -1615,7 +1615,7 @@ export function ModelEvaluator({
     if (typeof headerActionsRef === 'function') {
       headerActionsRef(payload);
     } else if (headerActionsRef && 'current' in headerActionsRef) {
-      // eslint-disable-next-line no-param-reassign
+       
       headerActionsRef.current = payload;
     }
   }, [headerActionsRef, stableRunBatchTest, stableAbortBatchTest, openRecentBatchReport, applyRecentBatchReport, hasRecentBatchReport, applyingRecentBatchReport, batchTesting, allSelectedCount, batchProgress, testableCount, batchTestableCount, hasCategoryFilter, lastBatchTestSummary, allRows.length, rowsAfterCategoryFilter.length, filteredSelectedCount]);
