@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Search, SlidersHorizontal, RefreshCw } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard';
@@ -9,6 +10,12 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import EnhancedTable from '@/components/ui/EnhancedTable';
+import DatasetTreePanel from '@/components/people-database/DatasetTreePanel';
+import {
+  buildDatasetTree,
+  flattenSelectedPaths,
+  type DatasetTreeNode,
+} from '@/lib/people-db/dataset-tree';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -129,9 +136,21 @@ const columns: ColumnDef<PeopleRecord, unknown>[] = [
     id: 'full_name',
     accessorKey: 'full_name',
     header: '姓名',
-    cell: ({ getValue }) => (
-      <span className="font-medium text-text-primary">{String(getValue() ?? '')}</span>
-    ),
+    cell: ({ row }) => {
+      const name = String(row.original.full_name ?? '');
+      const recordId = row.original.id;
+      if (!recordId) {
+        return <span className="font-medium text-text-primary">{name || '—'}</span>;
+      }
+      return (
+        <Link
+          href={`/superadmin/settings/people-database/person/${encodeURIComponent(recordId)}`}
+          className="font-medium text-accent hover:underline"
+        >
+          {name || '—'}
+        </Link>
+      );
+    },
   },
   {
     id: 'id_number',
@@ -213,6 +232,8 @@ const INITIAL_WIDTHS = [12, 13, 10, 12, 18, 16, 8, 11, 10];
 export function PeopleDatabaseSearchWorkspace() {
   const [query, setQuery] = useState('');
   const [datasets, setDatasets] = useState<DataSourceFacet[]>([]);
+  const [datasetTree, setDatasetTree] = useState<DatasetTreeNode[]>([]);
+  const [treeLoading, setTreeLoading] = useState(false);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [importBatches, setImportBatches] = useState<ImportBatchSummary[]>([]);
   const [qualityFilter, setQualityFilter] = useState<QualityLevel>('all');
@@ -229,17 +250,44 @@ export function PeopleDatabaseSearchWorkspace() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/people-db/datasets')
+    setTreeLoading(true);
+
+    // Prefer the new hierarchical endpoint; fall back to the flat /datasets
+    // facet endpoint if it fails (e.g. backend not yet migrated).
+    fetch('/api/people-db/dataset-tree')
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
-      .then((data: DataSourceResponse) => {
+      .then((data: { tree?: DatasetTreeNode[] }) => {
         if (cancelled) return;
-        const nextDatasets = data.datasets ?? [];
-        setDatasets(nextDatasets);
-        setSelectedSources((prev) =>
-          prev.length > 0 ? prev.filter((item) => nextDatasets.some((dataset) => dataset.key === item)) : nextDatasets.map((item) => item.key)
-        );
+        const nextTree = data.tree ?? [];
+        setDatasetTree(nextTree);
+        setDatasets(nextTree.map((n) => ({ key: n.path, count: n.count })));
+        setSelectedSources((prev) => (prev.length > 0 ? prev : nextTree.map((n) => n.path)));
       })
-      .catch(() => null);
+      .catch(() => {
+        // Legacy fallback: build a flat tree from the old /datasets endpoint.
+        if (cancelled) return;
+        fetch('/api/people-db/datasets')
+          .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
+          .then((data: DataSourceResponse) => {
+            if (cancelled) return;
+            const nextDatasets = data.datasets ?? [];
+            const fallbackTree = buildDatasetTree(
+              nextDatasets.map((d) => ({ key: d.key, doc_count: d.count })),
+            );
+            setDatasets(nextDatasets);
+            setDatasetTree(fallbackTree);
+            setSelectedSources((prev) =>
+              prev.length > 0
+                ? prev.filter((item) => nextDatasets.some((dataset) => dataset.key === item))
+                : nextDatasets.map((item) => item.key),
+            );
+          })
+          .catch(() => null);
+      })
+      .finally(() => {
+        if (!cancelled) setTreeLoading(false);
+      });
+
     return () => {
       cancelled = true;
     };
@@ -294,7 +342,11 @@ export function PeopleDatabaseSearchWorkspace() {
         page_size: String(PAGE_SIZE),
       });
       if (qualityFilter !== 'all') params.set('quality', qualityFilter);
-      selectedSources.forEach((source) => params.append('data_sources', source));
+      // Expand parent selections to include every descendant path so backend
+      // filters can emit precise terms queries regardless of tree depth.
+      const expandedPaths = flattenSelectedPaths(selectedSources, datasetTree);
+      const payloadPaths = expandedPaths.length > 0 ? expandedPaths : selectedSources;
+      payloadPaths.forEach((source) => params.append('data_sources', source));
 
       try {
         const res = await fetch(`/api/people-db/search?${params.toString()}`);
@@ -307,7 +359,7 @@ export function PeopleDatabaseSearchWorkspace() {
         setLoading(false);
       }
     },
-    [datasets.length, query, qualityFilter, selectedSources]
+    [datasetTree, datasets.length, query, qualityFilter, selectedSources]
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -315,7 +367,20 @@ export function PeopleDatabaseSearchWorkspace() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="grid gap-5 lg:grid-cols-[280px_1fr]">
+
+      {/* ---- Left: Dataset tree panel (sticky on large screens) ---- */}
+      <div className="lg:sticky lg:top-4 lg:self-start">
+        <DatasetTreePanel
+          tree={datasetTree}
+          selectedPaths={selectedSources}
+          onChange={setSelectedSources}
+          loading={treeLoading}
+        />
+      </div>
+
+      {/* ---- Right: Search workspace ---- */}
+      <div className="space-y-5 min-w-0">
 
         {/* ---- Header ---- */}
         <div>
@@ -351,58 +416,9 @@ export function PeopleDatabaseSearchWorkspace() {
               </Button>
             </div>
 
-            {/* Filters panel */}
+            {/* Filters panel — dataset selection moved to left tree panel. */}
             {showFilters && (
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-border-default">
-                <div className="space-y-2">
-                  <label className="text-sm text-text-secondary">資料來源</label>
-                  {datasets.length > 0 ? (
-                    <>
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setSelectedSources(datasets.map((item) => item.key))}
-                        >
-                          全選
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setSelectedSources([])}
-                        >
-                          清空
-                        </Button>
-                      </div>
-                      <div className="max-h-40 overflow-auto rounded-md border border-border-default p-2 space-y-1">
-                        {datasets.map((dataset) => {
-                          const checked = selectedSources.includes(dataset.key);
-                          return (
-                            <label key={dataset.key} className="flex items-center gap-2 text-sm text-text-secondary">
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={(event) => {
-                                  const nextChecked = event.target.checked;
-                                  setSelectedSources((prev) => {
-                                    if (nextChecked) return [...prev, dataset.key];
-                                    return prev.filter((value) => value !== dataset.key);
-                                  });
-                                }}
-                              />
-                              <span className="truncate">{dataset.key}</span>
-                              <span className="text-xs text-text-secondary/80">({dataset.count})</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-xs text-text-secondary">尚無可用資料來源（或索引尚未建立）。</p>
-                  )}
-                </div>
                 <div className="space-y-1">
                   <label className="text-sm text-text-secondary">品質分數</label>
                   <select
@@ -415,6 +431,9 @@ export function PeopleDatabaseSearchWorkspace() {
                     <option value="medium">中（50–79）</option>
                     <option value="low">低（&lt; 50）</option>
                   </select>
+                </div>
+                <div className="text-xs text-text-secondary flex items-end">
+                  資料來源請於左側樹狀面板勾選。
                 </div>
               </div>
             )}
@@ -515,6 +534,7 @@ export function PeopleDatabaseSearchWorkspace() {
           </Card>
         )}
       </div>
+    </div>
   );
 }
 

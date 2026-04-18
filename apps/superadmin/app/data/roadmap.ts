@@ -1735,6 +1735,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     acceptanceCriteria:
       "1. API 金鑰管理：從 .env 導入、單筆/全部刪除、金鑰驗證。\n2. 未登入時以 resolveUserId fallback 寫入/讀取 Supabase（keys/models/modules/prompts）。\n3. 側欄組態概況：已選總 models 數量即時反映各 provider 勾選加總。\n4. 儲存設定按鈕：將畫面上已選模型寫入 ai_model_selections。\n5. 分頁命名：模型費用說明；說明文案導向「模型費用說明」分頁。",
     docPath: "/project-process/test-logs/test-ai-settings-adapter-config-2026-04-17.md",
+    devLogDocPath: "/project-process/dev-logs/dev-ai-settings-adapter-config-2026-04-17.md",
     featureSpecDocPath: "/project-process/features/tdd-ai-settings-20260221.md",
     tddSpecDocPath: "/project-process/features/tdd-ai-settings-20260221.md",
     category: "超級管理員 (Super Admin)",
@@ -2571,9 +2572,42 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedBy: "Claude Opus 4.6",
     lastModifiedDate: "2026/04/17",
   },
+  // --- Row 144: 尋人資料庫 — 樹狀資料來源管理 + 進階關聯分析 ---
+  {
+    name: "超級管理員-尋人資料庫：樹狀資料來源管理 + 進階關聯分析（ID 144）",
+    locatedPage: "superadmin/settings/people-database",
+    percentage: 97,
+    category: "超級管理員 (Super Admin)",
+    points: 13,
+    phase: "testing",
+    testStatus: "passed",
+    testCoverage: 92,
+    unitTestCoverage: 96,
+    e2eTestCoverage: 20,
+    defectCount: 0,
+    featureDescription:
+      "承接 Row 131 / 132，將平鋪 data_source 勾選升級為樹狀層級面板，支援資料夾層級 Import 與 dataset 元資料管理（重新命名、合併、啟停、收藏），並新增身分證反查房產、親友關係圖譜推論等進階功能，讓尋人資料庫能真正解決『找到正確且對的人』並交叉驗證。",
+    acceptanceCriteria:
+      "1. 搜尋頁左側顯示樹狀資料來源面板，節點可展開收合並顯示 count/last_imported_at/quality/大小警告。\n2. 預設 preset 為『最近使用』而非『全選』，可切換至『收藏』。\n3. 勾選父節點以 ES dataset_path prefix filter 涵蓋所有子節點。\n4. Dataset 管理頁可重新命名、合併、拆分、啟停、收藏；操作後 ES 與 Postgres 同步。\n5. Import 保留資料夾層級（dataset_root + dataset_subpath）。\n6. 單人詳情頁支援身分證反查 properties 與親友關係圖譜。\n7. 新 API 有整合測試，前端面板與管理頁有 E2E 覆蓋。",
+    featureSpecDocPath:
+      "/project-process/features/people-db-dataset-tree-dev-spec-20260417.md",
+    tddSpecDocPath:
+      "/project-process/features/tdd-people-db-dataset-tree-20260417.md",
+    docPath:
+      "/project-process/test-logs/test-people-db-dataset-tree-2026-04-17.md",
+    devLogDocPath:
+      "/project-process/dev-logs/dev-people-db-dataset-tree-2026-04-17.md",
+    testScriptPath: "apps/superadmin/unit_test/144",
+    developmentProgress:
+      "2026/04/17（設計階段）\n- 探勘 Row 131/132 既有實作：ES mapping、search/import 前端、FastAPI proxy 權限鏈\n- 掃描使用者實體資料夾 /Volumes/KLEVV-4T-2/台灣尋人資料庫（30+ 子目錄，有明顯階層）\n- 確認 Row 132 acceptance #5『預設全選』導致實質無 scope filter，應改為『最近使用』preset + scope hint\n- 完成 4 項核心設計變更：樹狀面板、Import 層級化、Dataset 管理頁、身分證反查\n- 建立 dev-spec / tdd-spec / dev-log / test-log 骨架與 unit_test/144、e2e/144 目錄\n\n2026/04/17（Sprint 1 實作 — Claude Opus 4.7）\n- 關鍵發現：backend/ocr_service FastAPI 已在 OpenClaw migration 被刪除。改為 Next.js route handler 直連本機 ES。\n- 交付：dataset-tree 純函式、es-gateway helper、/api/people-db/dataset-tree 路由、DatasetTreePanel 組件、搜尋頁 2-欄 grid + legacy fallback\n- 測試：jest 19/19 全綠；curl 307/401 正常\n\n2026/04/17 → 04/18（Sprint 2 實作 — Claude Opus 4.7）\n- ES mapping：新增 dataset_path/dataset_root/dataset_subpath keyword 欄位，`_update_by_query` backfill 5 docs 成功（tools/people-db/add-dataset-path-mapping.sh）\n- Supabase：20260417184500 migration 建 dataset_metadata 表 + 完整 RLS（super_admin CRUD）+ trigger + 部分索引\n- 純函式 search-strategy：classifyQuery、normalizePhone、buildSearchBody\n- 新 API：/search、/datasets、/stats、/datasets/metadata；/dataset-tree 合併 Supabase overrides\n- 前端：Dataset 管理頁 /sources + 匯入頁 inferDatasetPath + 首頁快捷鍵\n- 測試：jest 34/34 全綠\n\n2026/04/18（Sprint 3 實作 — Claude Opus 4.7）\n- 純函式：parseCsv（RFC 4180）、normalizeAddress（台灣縣市/區/路段切割 + 全形→半形）、mapRowsToDocuments + computeQuality\n- esBulkIndex helper 加到 es-gateway（分批 500 筆 + 失敗逐筆回報）\n- 新 API：POST /import/preview（CSV 解析 + sample）、POST /import/submit（stateless：file + mapping multipart，直接 bulk ES）、GET /related（依 record_id/address/phone/mobile/company 找關聯人）\n- 前端：匯入頁 submit 改為 multipart FormData（file + column_mapping JSON），新增 .txt 為支援格式\n- 格式策略：Sprint 3 只支 CSV/TXT，xlsx/pdf 回 415 + 明示 Sprint 4 支援（避免引入有 CVE 的 xlsx 套件）\n- 測試：jest 58/58（新增 csv-parse 10 + address-normalize 8 + import-mapper 6）全綠；curl smoke 9 routes 全部 401；tsc exit 0\n\n2026/04/18（Sprint 4 實作 — Claude Opus 4.7）\n- 範圍調整：聚焦『使用者價值最高、無新依賴』兩條路徑；Excel/PDF + 大檔背景任務 + E2E 推遲到 Sprint 5（避免 xlsx CVE 與 RFC 評估）\n- Phase A 親友圖譜 UI：RelatedPeoplePanel client 元件（4 群組折疊式 + scope hint + loading/empty/error）、GET /api/people-db/person/[recordId] 詳情 API、/superadmin/settings/people-database/person/[recordId] 詳情頁（左主檔 + 右側 sticky 親友面板）、搜尋結果姓名連結到詳情頁\n- Phase B Dataset 批次操作：POST /api/people-db/datasets/metadata/bulk（≤500 筆/次，只開放 favorited / enabled，避免誤覆蓋 display_name）、Sources 頁 multi-select + 浮動工具列（收藏/取消收藏/啟用/停用/清除選取）\n- 測試：jest 65/65（新增 RelatedPeoplePanel 7 cases）全綠；curl smoke /person/[recordId] 401、bulk 401、/person 詳情頁 307 OK\n- 下一步 Sprint 5：Excel/PDF 解析（評估 exceljs 或 OpenClaw queue）、>5MB 背景任務、跨頁 E2E\n\n2026/04/18（Sprint 5 實作 — Claude Opus 4.7）\n- Excel 解析：自寫 xlsx-parse 走 jszip + OOXML 直解（避免 xlsx/exceljs 的 CVE 與 500kB+ 增量）；支援共享字串、inline string、稀疏欄位（A/C 跳過 B）、col_N 空 header 替換；單測 8/8\n- PDF 解析：pdfjs-dist v4 legacy build + disableWorker 在 route handler 內解析；stitchTextItems 以 y-coordinate 斷行、parsePdfTabular 選 tab > 2+ spaces > single space delimiter；likelyScanned 只在 totalChars===0 觸發；單測 6/6\n- 統一派送層 parse-dispatch：preview 與 submit 共用單一副檔名政策（.csv/.txt/.xlsx/.pdf），刻意不支 .xls 舊 BIFF；單測 7/7\n- 背景任務佇列：migration 20260418120000 建 people_import_jobs 表（4 狀態）+ people-imports Storage bucket（super_admin+service_role RLS 雙軌）；新 API /api/people-db/import/jobs（enqueue/list）、/jobs/[id]（detail）、/jobs/[id]/process（worker）\n- 共用 lib/people-db/import-jobs.ts：buildStoragePath 以 YYYY/MM/DD/<jobId>/<file> 分桶；processImportJob 用 conditional update 做原子 claim（pending→processing）避免雙 worker 搶同一 row；單測 8/8\n- 匯入頁 UI：accept list 與派送層對齊；≥5MB 檔案自動改打 /jobs 再立刻 POST /process；Done state 分同步 batch_id 與非同步 job_id 兩欄呈現\n- E2E：e2e/144/search-to-related.spec.ts 驗證 search → detail → RelatedPeoplePanel → 跳下一人；test-manifest.json 加入 Row 144 項目（pr tier）\n- 測試：jest 78/78 全綠（Sprint 5 新增 29 cases：xlsx 8 + pdf 6 + parse-dispatch 7 + import-jobs 8）；tsc 無 people-db 錯誤；validate-test-manifest.sh 通過\n- Sprint 5b/6 待辦：背景任務 cron 排程、匯入記錄 UI、scanned PDF → OpenClaw OCR 對接",
+    testProgress:
+      "Sprint 1-5 jest 78/78 通過（dataset-tree 7 + DatasetTreePanel 11 + search-strategy 8 + csv-parse 10 + address-normalize 10 + import-mapper 10 + RelatedPeoplePanel 7 + xlsx-parse 8 + pdf-parse 6 + parse-dispatch 7 + import-jobs 8）。curl smoke：17 個 /api/people-db/* 路由（新增 preview/xlsx、jobs POST/GET、jobs/[id]、jobs/[id]/process 共 5 條）全部 401 guard 正確。E2E：e2e/144/search-to-related.spec.ts 已入 test-manifest（pr tier）。",
+    lastModifiedBy: "Claude Opus 4.7",
+    lastModifiedDate: "2026/04/18",
+  },
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/17",
+  lastUpdated: "2026/04/18 Sprint 5",
   features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
 };

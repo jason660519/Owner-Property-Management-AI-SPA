@@ -236,6 +236,28 @@
         "tools/observability/check-fleet-registry.sh",
         "tools/observability/mvp-smoke.sh"
       ]
+    },
+    {
+      "id": "144",
+      "name": "People Database (Row 144) — parsers + async queue + cross-page flow",
+      "tier": "pr",
+      "status": "active",
+      "unitPaths": [
+        "apps/superadmin/lib/people-db/__tests__/csv-parse.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/xlsx-parse.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/pdf-parse.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/parse-dispatch.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/import-jobs.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/import-mapper.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/address-normalize.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/search-strategy.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/dataset-tree.test.ts",
+        "apps/superadmin/components/people-database/__tests__/RelatedPeoplePanel.test.tsx"
+      ],
+      "e2ePaths": [
+        "apps/superadmin/e2e/144/search-to-related.spec.ts"
+      ],
+      "linkedToolScripts": []
     }
   ]
 }

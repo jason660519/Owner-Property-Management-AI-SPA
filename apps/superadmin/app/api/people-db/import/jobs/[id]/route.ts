@@ -1,0 +1,36 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { requireSuperAdmin } from '@/lib/people-db/es-gateway';
+import { createAdminClient } from '@/utils/supabase/admin';
+
+// GET a single job row. Used by the UI to poll status while the worker runs.
+
+export const runtime = 'nodejs';
+
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const auth = await requireSuperAdmin();
+  if (!auth.ok) return auth.response;
+
+  const { id } = await params;
+  if (!id) {
+    return NextResponse.json({ detail: 'job id is required' }, { status: 400 });
+  }
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('people_import_jobs')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) {
+    return NextResponse.json({ detail: error.message }, { status: 500 });
+  }
+  if (!data) {
+    return NextResponse.json({ detail: 'job not found' }, { status: 404 });
+  }
+
+  return NextResponse.json({ job: data });
+}
