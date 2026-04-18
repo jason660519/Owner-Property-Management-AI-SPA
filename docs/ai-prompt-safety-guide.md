@@ -2,7 +2,7 @@
 
 > **目的**：本手冊是本專案所有涉及 LLM 呼叫功能的**設計與實作依據**。任何新增或修改 AI 功能的工程師，都必須先閱讀本文件，並遵守其中的規則。
 >
-> **適用範圍**：`apps/web/`、`apps/superadmin/`、`backend/ocr_service/` 內所有呼叫 LLM API 的程式碼（包含 OpenAI、Anthropic、Gemini、DeepSeek、Grok、Together、Kimi、OpenRouter、Zhipu 等)。
+> **適用範圍**：`apps/web/`、`apps/superadmin/` 內所有呼叫 LLM API 的程式碼（包含 OpenAI、Anthropic、Gemini、DeepSeek、Grok、Together、Kimi、OpenRouter、Zhipu 等)。
 >
 > **最後更新**：2026-04-10
 
@@ -724,7 +724,6 @@ return result.data.items;
 | `apps/superadmin/app/api/transcript-parse/detect-building-count/route.ts` | `transcript.detect_building_count` | 上傳文件（OCR） |
 | `apps/superadmin/app/api/transcript-parse/detect-land-count/route.ts` | `transcript.detect_land_count` | 上傳文件（OCR） |
 | `apps/superadmin/app/api/property-description/stream/route.ts` | `property.description.default` | 表單欄位 |
-| `backend/ocr_service/src/ocr_engine/vlm.py` | `ocr.vlm.system` | 上傳圖片 |
 
 ### 11.3 Prompt 管理 UI
 

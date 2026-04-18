@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Users } from 'lucide-react';
+import Link from 'next/link';
+import { Users, Settings as SettingsIcon } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PeopleDatabaseImportWorkspace } from './import/page';
@@ -47,14 +48,23 @@ export default function PeopleDatabasePage() {
       <div className="max-w-6xl mx-auto space-y-8">
 
         {/* ---- Title ---- */}
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-accent/10">
-            <Users className="h-6 w-6 text-accent" />
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-accent/10">
+              <Users className="h-6 w-6 text-accent" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-text-primary">尋人資料庫</h1>
+              <p className="text-text-secondary">人員資料管理、搜尋與品質監控</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-text-primary">尋人資料庫</h1>
-            <p className="text-text-secondary">人員資料管理、搜尋與品質監控</p>
-          </div>
+          <Link
+            href="/superadmin/settings/people-database/sources"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border-default px-3 py-1.5 text-sm text-text-secondary hover:bg-bg-secondary hover:text-text-primary transition-colors"
+          >
+            <SettingsIcon className="h-4 w-4" />
+            資料來源管理
+          </Link>
         </div>
 
         {/* ---- Stats ---- */}

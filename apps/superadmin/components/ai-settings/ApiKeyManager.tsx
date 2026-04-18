@@ -135,6 +135,8 @@ function ProviderKeyRow({ provider, savedKey, providerSavedModels = [], validati
     grok: '#FFFFFF',
     together: '#6366F1',
     qwen: '#615CED', // Qwen / 通義千問 brand purple
+    kilo: '#0F766E',
+    opencode: '#7C3AED',
   };
 
   return (

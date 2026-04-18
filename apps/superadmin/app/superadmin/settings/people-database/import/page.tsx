@@ -25,8 +25,15 @@ interface PreviewResponse {
 
 type ImportStatus = 'idle' | 'uploading' | 'preview' | 'mapping' | 'submitting' | 'done' | 'error';
 
-const SUPPORTED_FILE_EXTENSIONS = ['.csv', '.xlsx', '.xls', '.pdf'] as const;
-const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
+// Supported formats mirror apps/superadmin/lib/people-db/parse-dispatch.ts.
+// `.xls` (legacy BIFF binary) is intentionally excluded — users should save
+// as `.xlsx` first; adding a BIFF parser would pull in a much larger dep.
+const SUPPORTED_FILE_EXTENSIONS = ['.csv', '.txt', '.xlsx', '.pdf'] as const;
+// Files at or above this size are routed to the async /jobs queue (Sprint 5)
+// instead of the synchronous /submit path. Keep in sync with
+// ASYNC_THRESHOLD_BYTES in lib/people-db/import-jobs.ts.
+const ASYNC_THRESHOLD_BYTES = 5 * 1024 * 1024;
+const MAX_FILE_SIZE_BYTES = 200 * 1024 * 1024;
 const WARN_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 const MAX_FILES_PER_BATCH = 100;
 const MAX_TOTAL_SIZE_BYTES = 300 * 1024 * 1024;
@@ -255,8 +262,11 @@ export function PeopleDatabaseImportWorkspace() {
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [mappingConfidence, setMappingConfidence] = useState<Partial<Record<PeopleFieldKey, MappingConfidence>>>({});
   const [dataSource, setDataSource] = useState('');
+  const [datasetRoot, setDatasetRoot] = useState('');
+  const [datasetSubpath, setDatasetSubpath] = useState('');
   const [batchLabel, setBatchLabel] = useState('');
   const [batchIds, setBatchIds] = useState<string[]>([]);
+  const [jobIds, setJobIds] = useState<string[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [selectionNotice, setSelectionNotice] = useState<string | null>(null);
 
@@ -304,6 +314,20 @@ export function PeopleDatabaseImportWorkspace() {
     return relativePath.split('/')[0] ?? '';
   };
 
+  // Infer dataset_root / dataset_subpath from the webkitRelativePath of the
+  // first selected file. Example: "企業名錄/2012/三萬企業/foo.csv" ->
+  // root="企業名錄", subpath="2012/三萬企業"
+  const inferDatasetPath = (selectedFiles: File[]): { root: string; subpath: string } => {
+    const firstFile = selectedFiles[0] as File & { webkitRelativePath?: string };
+    const relativePath = firstFile?.webkitRelativePath ?? '';
+    if (!relativePath) return { root: '', subpath: '' };
+    const parts = relativePath.split('/').filter(Boolean);
+    if (parts.length <= 1) return { root: '', subpath: '' };
+    const root = parts[0];
+    const subpath = parts.slice(1, parts.length - 1).join('/');
+    return { root, subpath };
+  };
+
   // --------------------------- File selection ---------------------------
   const onFilesChange = async (selectedFiles: File[], mode: 'file' | 'folder') => {
     const normalizedFiles = mode === 'file' ? selectedFiles.slice(0, 1) : selectedFiles;
@@ -331,12 +355,21 @@ export function PeopleDatabaseImportWorkspace() {
 
     const firstFile = validFiles[0];
     setImportMode(mode);
-    setFolderName(mode === 'folder' ? getFolderNameFromFiles(validFiles) : '');
+    const folderNameResolved = mode === 'folder' ? getFolderNameFromFiles(validFiles) : '';
+    setFolderName(folderNameResolved);
     setFilesToImport(validFiles);
     setFile(firstFile);
     setBatchIds([]);
     setStatus('uploading');
     setErrorMsg(null);
+
+    // Auto-fill dataset hierarchy from the folder structure so the user can
+    // just confirm instead of re-typing for every import.
+    if (mode === 'folder') {
+      const { root, subpath } = inferDatasetPath(validFiles);
+      if (root && !datasetRoot) setDatasetRoot(root);
+      if (subpath && !datasetSubpath) setDatasetSubpath(subpath);
+    }
 
     const form = new FormData();
     form.append('file', firstFile);
@@ -401,27 +434,68 @@ export function PeopleDatabaseImportWorkspace() {
 
     try {
       const nextBatchIds: string[] = [];
+      const nextJobIds: string[] = [];
       for (const targetFile of filesToImport) {
-        const res = await fetch('/api/people-db/import/submit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            file_name: targetFile.name,
-            total_rows: preview.row_count,
-            column_mapping: columnMapping,
-            data_source: dataSource,
-            batch_label: batchLabel || undefined,
-          }),
-        });
+        const submitForm = new FormData();
+        submitForm.append('file', targetFile);
+        submitForm.append('column_mapping', JSON.stringify(columnMapping));
+        if (dataSource) submitForm.append('data_source', dataSource);
+        if (datasetRoot) submitForm.append('dataset_root', datasetRoot);
+        if (datasetSubpath) submitForm.append('dataset_subpath', datasetSubpath);
+        const composedPath =
+          datasetRoot && datasetSubpath
+            ? `${datasetRoot}/${datasetSubpath}`
+            : datasetRoot || '';
+        if (composedPath) submitForm.append('dataset_path', composedPath);
+        if (batchLabel) submitForm.append('batch_label', batchLabel);
+
+        // Large files go through the async /jobs queue; small files stay on
+        // the direct /submit path so imports under 5MB still complete in one
+        // request without the cost of a storage round-trip.
+        const useAsync = targetFile.size >= ASYNC_THRESHOLD_BYTES;
+        const endpoint = useAsync
+          ? '/api/people-db/import/jobs'
+          : '/api/people-db/import/submit';
+
+        const res = await fetch(endpoint, { method: 'POST', body: submitForm });
         if (!res.ok) {
           const json = (await res.json()) as { detail?: string };
           throw new Error(`[${targetFile.name}] ${json.detail ?? `HTTP ${res.status}`}`);
         }
-        const data = (await res.json()) as { batch_id?: string; batchId?: string };
-        const resolvedBatchId = data.batch_id ?? data.batchId;
-        if (resolvedBatchId) nextBatchIds.push(resolvedBatchId);
+
+        if (useAsync) {
+          const data = (await res.json()) as { job_id?: string };
+          if (data.job_id) {
+            nextJobIds.push(data.job_id);
+            // Kick off the worker immediately; we don't block on completion
+            // (the user will poll from the "import history" panel), but we DO
+            // want visibility if the kickoff itself 500s so the job doesn't
+            // silently sit in 'pending' forever. Log + surface a soft warning.
+            fetch(`/api/people-db/import/jobs/${encodeURIComponent(data.job_id)}/process`, {
+              method: 'POST',
+            })
+              .then(async (processRes) => {
+                if (!processRes.ok) {
+                  // eslint-disable-next-line no-console
+                  console.warn(
+                    `[import] /process kickoff failed (${processRes.status}) for job ${data.job_id}`,
+                    await processRes.text().catch(() => ''),
+                  );
+                }
+              })
+              .catch((err: unknown) => {
+                // eslint-disable-next-line no-console
+                console.warn(`[import] /process kickoff threw for job ${data.job_id}`, err);
+              });
+          }
+        } else {
+          const data = (await res.json()) as { batch_id?: string; batchId?: string };
+          const resolvedBatchId = data.batch_id ?? data.batchId;
+          if (resolvedBatchId) nextBatchIds.push(resolvedBatchId);
+        }
       }
       setBatchIds(nextBatchIds);
+      setJobIds(nextJobIds);
       setStatus('done');
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : '提交失敗');
@@ -436,8 +510,11 @@ export function PeopleDatabaseImportWorkspace() {
     setMapping({});
     setMappingConfidence({});
     setDataSource('');
+    setDatasetRoot('');
+    setDatasetSubpath('');
     setBatchLabel('');
     setBatchIds([]);
+    setJobIds([]);
     setFilesToImport([]);
     setImportMode('file');
     setFolderName('');
@@ -456,9 +533,10 @@ export function PeopleDatabaseImportWorkspace() {
         {/* ---- Header ---- */}
         <div>
           <h1 className="text-2xl font-bold text-text-primary">匯入人員資料</h1>
-          <p className="text-text-secondary mt-1">上傳 CSV / Excel / PDF 檔案，設定欄位映射後批量匯入至尋人資料庫。</p>
+          <p className="text-text-secondary mt-1">上傳 CSV / TXT / XLSX / PDF 檔案，設定欄位映射後批量匯入至尋人資料庫。</p>
           <p className="text-xs text-text-secondary mt-2">
             限制：單檔 {formatBytes(MAX_FILE_SIZE_BYTES)}、單次最多 {MAX_FILES_PER_BATCH} 份、總大小最多 {formatBytes(MAX_TOTAL_SIZE_BYTES)}。
+            <span className="ml-1">&ge; {formatBytes(ASYNC_THRESHOLD_BYTES)} 的檔案會進入背景佇列處理。</span>
           </p>
         </div>
 
@@ -468,21 +546,48 @@ export function PeopleDatabaseImportWorkspace() {
             <CheckCircle2 className="h-6 w-6 text-green-500 shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold text-text-primary">匯入任務已建立</p>
-              <p className="text-text-secondary text-sm mt-1">
-                {batchIds.length > 1 ? `已建立 ${batchIds.length} 個批次` : '批次 ID：'}
-                {batchIds.length === 1 && <code className="text-accent ml-1">{batchIds[0]}</code>}
-              </p>
-              {batchIds.length > 1 && (
-                <div className="mt-2 text-xs text-text-secondary space-y-1">
-                  {batchIds.slice(0, 5).map((id) => (
-                    <div key={id}>
-                      <code className="text-accent">{id}</code>
+
+              {/* Sync path — immediate ES indexing results */}
+              {batchIds.length > 0 && (
+                <>
+                  <p className="text-text-secondary text-sm mt-1">
+                    {batchIds.length > 1 ? `已完成 ${batchIds.length} 個同步批次` : '同步批次 ID：'}
+                    {batchIds.length === 1 && <code className="text-accent ml-1">{batchIds[0]}</code>}
+                  </p>
+                  {batchIds.length > 1 && (
+                    <div className="mt-2 text-xs text-text-secondary space-y-1">
+                      {batchIds.slice(0, 5).map((id) => (
+                        <div key={id}>
+                          <code className="text-accent">{id}</code>
+                        </div>
+                      ))}
+                      {batchIds.length > 5 && <div>... 其餘 {batchIds.length - 5} 個批次</div>}
                     </div>
-                  ))}
-                  {batchIds.length > 5 && <div>... 其餘 {batchIds.length - 5} 個批次</div>}
+                  )}
+                </>
+              )}
+
+              {/* Async path — queued large files */}
+              {jobIds.length > 0 && (
+                <div className="mt-3" data-testid="async-job-notice">
+                  <p className="text-text-secondary text-sm">
+                    已將 <strong>{jobIds.length}</strong> 份大檔排入背景佇列（&ge; 5MB），系統正在處理中。
+                  </p>
+                  <div className="mt-2 text-xs text-text-secondary space-y-1">
+                    {jobIds.slice(0, 5).map((id) => (
+                      <div key={id} className="flex items-center gap-2">
+                        <code className="text-accent">{id}</code>
+                        <span className="text-[11px] text-text-secondary/70">處理中…</span>
+                      </div>
+                    ))}
+                    {jobIds.length > 5 && <div>... 其餘 {jobIds.length - 5} 個任務</div>}
+                  </div>
                 </div>
               )}
-              <p className="text-text-secondary text-sm">資料將在後台非同步處理，可至<strong>匯入記錄</strong>查看進度。</p>
+
+              <p className="text-text-secondary text-sm mt-3">
+                大檔匯入會在背景處理；完成結果可於<strong>匯入記錄</strong>頁面查看。
+              </p>
               <Button variant="outline" size="sm" className="mt-3" onClick={handleReset}>
                 繼續匯入新檔案
               </Button>
@@ -510,7 +615,7 @@ export function PeopleDatabaseImportWorkspace() {
                 <FileSpreadsheet className="h-5 w-5 text-accent" />
                 選擇檔案或資料夾
               </CardTitle>
-              <CardDescription>支援 .csv、.xlsx、.xls、.pdf 格式（可一次匯入整個資料夾）</CardDescription>
+              <CardDescription>支援 .csv、.txt、.xlsx、.pdf 格式（可一次匯入整個資料夾）</CardDescription>
             </CardHeader>
             <CardContent>
               <div
@@ -527,7 +632,7 @@ export function PeopleDatabaseImportWorkspace() {
                   <div className="flex flex-col items-center gap-2 text-text-secondary">
                     <Upload className="h-8 w-8" />
                     <span className="text-sm font-medium text-text-primary">拖放檔案，或選擇檔案 / 資料夾</span>
-                    <span className="text-xs">.csv / .xlsx / .xls / .pdf</span>
+                    <span className="text-xs">.csv / .txt / .xlsx / .pdf</span>
                     <div className="mt-2 flex gap-2">
                       <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
                         選擇檔案
@@ -543,7 +648,7 @@ export function PeopleDatabaseImportWorkspace() {
                   ref={fileInputRef}
                   id="file-upload"
                   type="file"
-                  accept=".csv,.xlsx,.xls,.pdf"
+                  accept=".csv,.txt,.xlsx,.pdf"
                   className="hidden"
                   onChange={(e) => {
                     const nextFiles = Array.from(e.target.files ?? []);
@@ -687,10 +792,35 @@ export function PeopleDatabaseImportWorkspace() {
             <Card>
               <CardHeader>
                 <CardTitle>批次設定</CardTitle>
+                <CardDescription>
+                  資料來源主分類與子路徑會組成 dataset_path（用於搜尋頁樹狀面板的層級過濾）。
+                </CardDescription>
               </CardHeader>
               <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-sm text-text-secondary">資料來源</label>
+                  <label className="text-sm text-text-secondary">資料來源主分類 *</label>
+                  <Input
+                    placeholder="例：企業名錄 / 北市稅籍 / 台北市里長"
+                    value={datasetRoot}
+                    onChange={(e) => setDatasetRoot(e.target.value)}
+                  />
+                  <p className="text-[11px] text-text-secondary/80">
+                    選擇資料夾時會自動帶入頂層資料夾名。
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm text-text-secondary">子路徑（選填）</label>
+                  <Input
+                    placeholder="例：2012/三萬企業"
+                    value={datasetSubpath}
+                    onChange={(e) => setDatasetSubpath(e.target.value)}
+                  />
+                  <p className="text-[11px] text-text-secondary/80">
+                    與主分類合併為 dataset_path（例：企業名錄/2012/三萬企業）。
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm text-text-secondary">舊版扁平標籤（相容用）</label>
                   <Input
                     placeholder="例：台灣不動產交易資料"
                     value={dataSource}

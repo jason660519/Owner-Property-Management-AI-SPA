@@ -10,7 +10,6 @@ import { useTablePreferences } from '@/lib/hooks/useTablePreferences';
 import {
   type ColumnAlignment,
   type DevTabSettings,
-  type IDEOption,
   type ProgressRow,
   type RowStatus,
   type SelectionType,
@@ -28,9 +27,7 @@ import { useDevTableData } from './development-table/useDevTableData';
 import { createDevColumns } from './development-table/columns';
 import TableCore from './development-table/TableCore';
 import TableToolbar from './development-table/TableToolbar';
-import { TaskDispatchModal } from './development-table/task-dispatch';
 import { usePaperclipTasks } from '@/lib/hooks/usePaperclipTasks';
-import { useEngineerProfiles } from '@/lib/hooks/useEngineerProfiles';
 import AddRowModal from './development-table/AddRowModal';
 import type { CustomProjectProgressRowPayload } from '../types';
 
@@ -42,8 +39,7 @@ interface DevelopmentTabProps {
 
 export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   const { userId } = useAISettings();
-  const { tasksByRowId, refresh: refreshTasks } = usePaperclipTasks();
-  const { profiles: engineerProfiles, profilesByUserId } = useEngineerProfiles();
+  const { tasksByRowId } = usePaperclipTasks();
 
   // --- Persisted preferences ---
   const { settings: tablePrefs, patch: patchTablePrefs } = useTablePreferences<DevTabSettings>({
@@ -78,8 +74,7 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   const [selectedRow, setSelectedRow] = useState(0);
   const [selectedCol, setSelectedCol] = useState(0);
 
-  // --- Per-row IDE & status ---
-  const [ideSelections, setIdeSelections] = useState<Record<string, IDEOption>>({});
+  // --- Per-row status ---
   const [manualStatusSelections, setManualStatusSelections] = useState<Record<string, RowStatus>>({});
 
   const derivedStatusSelections = useMemo(() => {
@@ -98,17 +93,11 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
     [derivedStatusSelections, manualStatusSelections],
   );
 
-  // --- Task dispatch modal + active task tracking ---
-  const [promptTarget, setPromptTarget] = useState<{ row: ProgressRow; rowKey: string } | null>(null);
-
+  // --- Prompt settings page ---
   const openPromptConfig = useCallback((row: ProgressRow) => {
-    const rowKey = getRowKey(row.__source, row.__rowId);
-    setPromptTarget({ row, rowKey });
+    const url = `/superadmin/dashboard/project-progress/task/${encodeURIComponent(row.__rowId)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   }, []);
-
-  const handleTaskCreated = useCallback(() => {
-    refreshTasks();
-  }, [refreshTasks]);
 
   // --- Add row modal ---
   const [addRowOpen, setAddRowOpen] = useState(false);
@@ -138,16 +127,12 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
     onOpenPromptConfig: openPromptConfig,
     statusSelections,
     onStatusChange: handleStatusChange,
-    ideSelections,
     hiddenRowKeysSet,
     onToggleHideRow: handleToggleHideRow,
     onDeleteCustomRow: handleDeleteCustomRow,
     userId,
     tasksByRowId,
-    engineerProfiles,
-    profilesByUserId,
-    onRefreshTasks: refreshTasks,
-  }), [openPromptConfig, statusSelections, handleStatusChange, ideSelections, hiddenRowKeysSet, handleToggleHideRow, handleDeleteCustomRow, userId, tasksByRowId, engineerProfiles, profilesByUserId, refreshTasks]);
+  }), [openPromptConfig, statusSelections, handleStatusChange, hiddenRowKeysSet, handleToggleHideRow, handleDeleteCustomRow, userId, tasksByRowId]);
 
   const statusSummary = useMemo(
     () => summarizeRowStatuses(filteredRows, statusSelections),
@@ -264,20 +249,6 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
         }}
         onSelectAll={() => setSelectionType('all')}
       />
-
-      {promptTarget && (
-        <TaskDispatchModal
-          row={promptTarget.row}
-          rowKey={promptTarget.rowKey}
-          userId={userId}
-          currentIDE={ideSelections[promptTarget.rowKey] ?? ''}
-          onIdeChange={(rowKey: string, ide: IDEOption) => {
-            setIdeSelections(prev => ({ ...prev, [rowKey]: ide }));
-          }}
-          onTaskCreated={handleTaskCreated}
-          onClose={() => setPromptTarget(null)}
-        />
-      )}
 
       <AddRowModal
         open={addRowOpen}
