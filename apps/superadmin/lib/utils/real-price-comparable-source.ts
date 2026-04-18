@@ -5,6 +5,22 @@ import { createAdminClient } from '@/utils/supabase/admin';
 import type { NormalizedComparableSale, PropertyComparableContext } from '@/lib/utils/real-price-comparables';
 import { autoFetchLvrDataIfNeeded, resolveCityName } from '@/lib/utils/lvr-open-data';
 
+interface LvrLandTransactionRow {
+  transaction_date: string;
+  total_price_twd: number | string;
+  building_area_sqm: number | string | null;
+  unit_price_per_sqm: number | string | null;
+  building_type: string | null;
+  floor: string | null;
+  address_snippet: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  city: string;
+  district: string;
+  village: string | null;
+  land_section_tokens: string[] | null;
+}
+
 /** 從資料庫載入最近一年的成交資料 (按縣市＋行政區篩選，支援 台/臺 正規化) */
 export async function loadComparableSalesFromDb(ctx: PropertyComparableContext): Promise<{
   rows: NormalizedComparableSale[];
@@ -20,7 +36,7 @@ export async function loadComparableSalesFromDb(ctx: PropertyComparableContext):
   // Use district to narrow down the pool (1000+ per district is still common in big cities)
   // Implementing pagination to fetch all rows for the city/district
   const PAGE_SIZE = 1000;
-  let allRows: any[] = [];
+  let allRows: LvrLandTransactionRow[] = [];
   let from = 0;
 
   for (;;) {
@@ -39,7 +55,7 @@ export async function loadComparableSalesFromDb(ctx: PropertyComparableContext):
     }
 
     if (!data || data.length === 0) break;
-    allRows = allRows.concat(data);
+    allRows = allRows.concat(data as LvrLandTransactionRow[]);
     if (data.length < PAGE_SIZE) break;
     from += PAGE_SIZE;
 
@@ -50,7 +66,7 @@ export async function loadComparableSalesFromDb(ctx: PropertyComparableContext):
   return { rows: mapToNormalized(allRows) };
 }
 
-function mapToNormalized(data: any[]): NormalizedComparableSale[] {
+function mapToNormalized(data: LvrLandTransactionRow[]): NormalizedComparableSale[] {
   return data.map((o) => ({
     transactionDate: o.transaction_date,
     totalPriceTwd: Number(o.total_price_twd),
@@ -58,13 +74,13 @@ function mapToNormalized(data: any[]): NormalizedComparableSale[] {
     unitPricePerSqm: o.unit_price_per_sqm ? Number(o.unit_price_per_sqm) : null,
     buildingType: o.building_type,
     floor: o.floor,
-    addressSnippet: o.address_snippet,
+    addressSnippet: o.address_snippet ?? '',
     latitude: o.latitude,
     longitude: o.longitude,
     city: o.city,
     district: o.district,
     village: o.village,
-    landSectionTokens: o.land_section_tokens || [],
+    landSectionTokens: o.land_section_tokens ?? [],
   }));
 }
 
@@ -81,7 +97,9 @@ export async function loadComparableSalesCombined(ctx: PropertyComparableContext
   const notes: string[] = [];
 
   // 1. Try DB first
-  let { rows, dbError } = await loadComparableSalesFromDb(ctx);
+  const first = await loadComparableSalesFromDb(ctx);
+  let rows = first.rows;
+  const dbError = first.dbError;
   if (dbError) {
     notes.push(`讀取成交資料表失敗（請確認已執行 migration：lvr_land_transactions）：${dbError}`);
   }

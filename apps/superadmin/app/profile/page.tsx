@@ -59,9 +59,10 @@ export default function ProfilePage() {
           last_sign_in_at: user.last_sign_in_at || null,
           display_name: userProfile.display_name
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error fetching profile:', err);
-        setError(err.message || '無法載入個人資料');
+        const message = err instanceof Error ? err.message : '無法載入個人資料';
+        setError(message);
       } finally {
         setLoading(false);
       }

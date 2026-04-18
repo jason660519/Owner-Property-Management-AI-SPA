@@ -19,10 +19,19 @@ export interface GeocodeParams {
   rawAddress?: string;
 }
 
+interface NominatimResult {
+  lat: string;
+  lon: string;
+  display_name: string;
+  class?: string;
+  type?: string;
+  address?: { house_number?: string };
+}
+
 /**
  * Query Nominatim for coordinates based on address.
  */
-async function queryNominatim(params: Record<string, string>): Promise<any | null> {
+async function queryNominatim(params: Record<string, string>): Promise<NominatimResult | null> {
   const searchParams = new URLSearchParams({
     ...params,
     format: 'json',
@@ -43,8 +52,8 @@ async function queryNominatim(params: Record<string, string>): Promise<any | nul
     );
 
     if (!res.ok) return null;
-    const data = await res.json();
-    return Array.isArray(data) && data.length > 0 ? data[0] : null;
+    const data = (await res.json()) as NominatimResult[] | unknown;
+    return Array.isArray(data) && data.length > 0 ? (data[0] as NominatimResult) : null;
   } catch (error) {
     console.error('Nominatim query error:', error);
     return null;
@@ -54,9 +63,9 @@ async function queryNominatim(params: Record<string, string>): Promise<any | nul
 /**
  * Determine accuracy level from Nominatim result.
  */
-function getAccuracy(result: any): GeocodeResult['accuracy'] {
+function getAccuracy(result: NominatimResult): GeocodeResult['accuracy'] {
   const { class: className, type } = result;
-  
+
   if (className === 'building' || type === 'house' || type === 'address' || result.address?.house_number) {
     return 'building';
   }

@@ -24,7 +24,7 @@ interface FileStatus {
   status: 'pending' | 'uploading' | 'processing' | 'completed' | 'error';
   progress: number;
   message?: string;
-  result?: any;
+  result?: unknown;
   jsonPath?: string;
   logId?: string | null;
 }

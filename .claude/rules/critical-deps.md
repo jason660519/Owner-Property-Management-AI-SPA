@@ -20,6 +20,6 @@
 
 - **2026-04-14**：發現 `react` 被從 19.2.4 降到 18.2.0、`react-leaflet` 從 5 降到 4。推測是為了繞過 SWC 啟動錯誤。已恢復並建立本守則。真正的啟動問題是 `packageManager: "npm@10.0.0"` 欄位觸發 yarn/corepack，跟 React 版本無關。
 
-## 已知待修
+## 歷史事件（續）
 
-- **ESLint lint 鏈壞掉**：`eslint-config-next` 找不到 `next/dist/compiled/babel/eslint-parser`（Next.js 16 移除了該路徑）。影響：`npm run lint --workspace superadmin` 整個跑不起來。所以 ESLint 的 `no-explicit-any: error` 目前只在 IDE 或 lint 修好後才生效；**即時防護靠 `scripts/check-staged-no-any.js`（在 pre-commit 層級、不經 ESLint）**。修好 lint 鏈後把 CI 的 `continue-on-error` 拿掉。
+- **2026-04-19**：CI lint job (`Lint (superadmin)`) 失敗的根因不是 Next.js 16 移除 `next/dist/compiled/babel/eslint-parser`（檔案仍存在於 16.1.6 / 16.2.4 的 tarball），而是 npm workspaces hoist 不對稱：`eslint-config-next` 被 hoist 到 root，但 `next` 只裝在每個 app 自己的 `node_modules/`，導致 root 的 `eslint-config-next/dist/parser.js` 用 Node 解析 `next/...` 時找不到模組。修法：在 root `package.json` devDependencies 加 `next@16.1.6` 強制 hoist，CI lint job 拿掉 `continue-on-error`。同時放寬測試檔的部分規則（mock 用 `any`、`require()`），並把 `eslint-plugin-react-hooks@7` 的 React Compiler 新規則（`set-state-in-effect`/`purity`/`immutability`/`refs`）暫降為 `warn`（後續評估完整啟用）。Production code 仍維持 `no-explicit-any: error`。
