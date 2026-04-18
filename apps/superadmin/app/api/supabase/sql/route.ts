@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 const MAX_LIMIT = 200;
 const FORBIDDEN_SQL = /(insert|update|delete|drop|alter|create|grant|revoke|truncate|call|execute|copy)\b/i;
@@ -44,6 +45,19 @@ function parseSelectQuery(raw: string): ParsedSelect | null {
 }
 
 export async function POST(req: NextRequest) {
+  // Issue #31: gate this endpoint behind a super_admin Supabase session.
+  // The route uses the admin (service_role) client below, which bypasses RLS,
+  // and middleware.ts's matcher does not cover /api/*, so without this check
+  // any unauthenticated caller could read arbitrary tables.
+  const auth = await requireSuperadmin({
+    request: req,
+    allowHeaderFallback: false,
+    routeLabel: 'api/supabase/sql',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+
   try {
     const body = (await req.json().catch(() => ({}))) as { query?: string };
     const query = body.query ?? '';
