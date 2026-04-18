@@ -24,7 +24,13 @@ node scripts/check-critical-deps.js
 echo "🚫 Checking for new \`any\` types in staged changes..."
 node scripts/check-staged-no-any.js
 
-# 4. Run lint-staged (prettier + eslint on touched files only).
+# 4. Adapter model id prefix guard — only when adapter-config.ts is touched.
+if git diff --cached --name-only --diff-filter=AM | grep -qx 'apps/superadmin/lib/adapter-config.ts'; then
+  echo "🔌 Linting adapter model ids..."
+  bash tools/testing/lint-adapter-model-ids.sh
+fi
+
+# 5. Run lint-staged (prettier + eslint on touched files only).
 if git diff --cached --name-only --diff-filter=AM | grep -qE '\.(ts|tsx|js|jsx|json|md)$'; then
   echo "✨ Running lint-staged on touched files..."
   npx --no-install lint-staged
