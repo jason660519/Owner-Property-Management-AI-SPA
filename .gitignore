@@ -53,6 +53,7 @@ docker/**/.env.*.bak*
 !.claude/settings.json
 !.claude/.mcp.json
 !.claude/skills/
+!.claude/commands/
 .pi/*
 !.pi/SYSTEM.md
 !.pi/APPEND_SYSTEM.md
