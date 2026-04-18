@@ -28,6 +28,10 @@ jest.mock('@/lib/hooks/useAISettings', () => ({
   useAISettings: () => ({ userId: 'test-user' }),
 }));
 
+jest.mock('@/lib/hooks/usePaperclipTasks', () => ({
+  usePaperclipTasks: () => ({ tasksByRowId: {} }),
+}));
+
 jest.mock('@/lib/actions/table-settings', () => ({
   getTableSettings: async () => ({ data: null }),
   setTableSettings: async () => ({}),
@@ -43,6 +47,14 @@ const mockFeatures = [
 ];
 
 describe('DevelopmentTab View controls (freeze panes)', () => {
+  it('renders development log summary header and cell link', () => {
+    render(<DevelopmentTab features={mockFeatures} />);
+
+    expect(screen.getByText(/Development Log Summary/i)).toBeInTheDocument();
+    expect(screen.getByText('查看匯總')).toBeInTheDocument();
+    expect(screen.getByText('尚未建立 .md')).toBeInTheDocument();
+  });
+
   it('toggles sticky header via View dropdown (凍結第 1 row)', async () => {
     const { container } = render(<DevelopmentTab features={mockFeatures} />);
 

@@ -8,6 +8,7 @@ import { createAdminClient } from '@/utils/supabase/admin';
 import { decryptApiKey } from '@/lib/crypto';
 import { AI_PROVIDERS, type AIProvider } from '@/lib/ai-providers';
 import { shouldUseApiFallback } from '@/lib/adapter-runs/fallback';
+import { extractChatCompletionAssistantText } from '@/lib/adapter-runs/extract-chat-completion-text';
 import { ADAPTER_CONFIG_ITEMS, DEFAULT_ADAPTER_TEST_PROMPT } from '@/lib/adapter-config';
 import { pickRecommendedModelByProvider } from '@/lib/pick-latest-model';
 
@@ -25,7 +26,9 @@ type ActiveRun = {
   command: string;
   logs: string[];
   resultText: string;
-  resolvedModel: string;
+  requestedModel: string;
+  effectiveModel: string;
+  modelSource: string;
   createdAt: number;
   updatedAt: number;
   tempDir?: string;
@@ -181,7 +184,8 @@ async function runOpenAiCompatFallback(
     : {
         model,
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 120,
+        // OpenRouter 推理模型可能先耗用 token 在 reasoning；120 易導致 content 與 reasoning 皆空
+        max_tokens: /openrouter\.ai/i.test(endpoint) ? 1024 : 120,
       };
   const response = await fetch(finalEndpoint, {
     method: 'POST',
@@ -205,8 +209,7 @@ async function runOpenAiCompatFallback(
             .join('')
             .trim())
         : ''))
-    : ((data as { choices?: Array<{ message?: { content?: string } }> })
-      .choices?.[0]?.message?.content?.trim() ?? '');
+    : extractChatCompletionAssistantText(data);
   return text ? `API fallback 成功：${text}` : 'API fallback 成功，但無文字輸出。';
 }
 
@@ -409,6 +412,35 @@ function resolveFallbackModel(
   return { model: target.defaultModel, source: 'default' };
 }
 
+function preflightStrictModelCheck(
+  provider: AdapterProvider,
+  requestedModel: string,
+  availableModelsByProvider: Partial<Record<AIProvider, string[]>>
+): { ok: true } | { ok: false; message: string } {
+  if (!requestedModel) return { ok: true };
+
+  const strictMapping: Partial<Record<AdapterProvider, AIProvider>> = {
+    claude: 'anthropic',
+    gemini: 'gemini',
+    codex: 'openai',
+  };
+  const targetProvider = strictMapping[provider];
+  if (!targetProvider) return { ok: true };
+
+  const available = availableModelsByProvider[targetProvider] ?? [];
+  if (available.length === 0) return { ok: true };
+  if (available.includes(requestedModel)) return { ok: true };
+
+  const suggested = pickRecommendedModelByProvider(targetProvider, available)
+    ?? available[0]
+    ?? '';
+  const suggestionText = suggested ? ` 建議改用：${suggested}` : '';
+  return {
+    ok: false,
+    message: `Model preflight 失敗：${provider} 不支援「${requestedModel}」。${suggestionText}`.trim(),
+  };
+}
+
 export async function POST(request: NextRequest) {
   const supabase = createAdminClient();
   const auth = await requireSuperadmin({
@@ -443,6 +475,10 @@ export async function POST(request: NextRequest) {
   const safePrompt = prompt || DEFAULT_ADAPTER_TEST_PROMPT;
   const cli = getCommand(provider, safePrompt, tempFilePath, resolvedModel);
   const keyEnv = await loadUserApiKeyEnv(auth.userId);
+  const preflight = preflightStrictModelCheck(provider, resolvedModel, keyEnv.availableModelsByProvider);
+  if (!preflight.ok) {
+    return NextResponse.json({ success: false, message: preflight.message }, { status: 400 });
+  }
   const fallbackResolved = resolveFallbackModel(provider, resolvedModel, keyEnv.availableModelsByProvider);
   const child = spawn(cli.command, cli.args, {
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -461,7 +497,9 @@ export async function POST(request: NextRequest) {
     command: commandPreview,
     logs: [],
     resultText: '',
-    resolvedModel,
+    requestedModel: resolvedModel,
+    effectiveModel: resolvedModel,
+    modelSource: 'requested',
     createdAt: Date.now(),
     updatedAt: Date.now(),
     tempDir,
@@ -510,6 +548,8 @@ export async function POST(request: NextRequest) {
       const fallbackMsg = await runProviderFallback(provider, safePrompt, keyEnv.env, fallbackResolved.model);
       pushLog(run, fallbackMsg);
       run.resultText = stripAnsi(fallbackMsg.replace(/^.*fallback 成功：/, '').trim());
+      run.effectiveModel = fallbackResolved.model;
+      run.modelSource = `fallback:${fallbackResolved.source}`;
     }
     if (!run.resultText) {
       run.resultText = deriveResultFromLogs(run.logs);
@@ -525,7 +565,9 @@ export async function POST(request: NextRequest) {
     pid: child.pid ?? null,
     logs: run.logs,
     resultText: run.resultText,
-    resolvedModel: run.resolvedModel,
+    requestedModel: run.requestedModel,
+    effectiveModel: run.effectiveModel,
+    modelSource: run.modelSource,
     cursor: run.logs.length,
   });
 }
@@ -578,7 +620,9 @@ export async function PATCH(request: NextRequest) {
     pid: run.process.pid ?? null,
     logs: run.logs,
     resultText: run.resultText,
-    resolvedModel: run.resolvedModel,
+    requestedModel: run.requestedModel,
+    effectiveModel: run.effectiveModel,
+    modelSource: run.modelSource,
     cursor: run.logs.length,
   });
 }
@@ -610,7 +654,9 @@ export async function GET(request: NextRequest) {
       pid: null,
       logs: [],
       resultText: '',
-      resolvedModel: '',
+      requestedModel: '',
+      effectiveModel: '',
+      modelSource: '',
       cursor: 0,
     });
   }
@@ -622,7 +668,9 @@ export async function GET(request: NextRequest) {
     pid: run.process.pid ?? null,
     logs: run.logs.slice(Math.max(0, cursor)),
     resultText: run.resultText,
-    resolvedModel: run.resolvedModel,
+    requestedModel: run.requestedModel,
+    effectiveModel: run.effectiveModel,
+    modelSource: run.modelSource,
     cursor: run.logs.length,
   });
 }

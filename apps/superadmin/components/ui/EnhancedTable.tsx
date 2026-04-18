@@ -99,6 +99,12 @@ export interface EnhancedTableProps<T> {
    * the card is narrower than that value.
    */
   stretchToContainer?: boolean;
+  /**
+   * Show a persistent horizontal scrollbar right below toolbar and keep it synced
+   * with the real table scroll. Useful for long tables so users don't need to
+   * scroll to the very bottom before they can drag horizontally.
+   */
+  persistentHorizontalScrollbar?: boolean;
   /** Extra toolbar content (rendered after standard buttons) */
   extraToolbar?: React.ReactNode;
 }
@@ -144,6 +150,7 @@ export default function EnhancedTable<T>({
   pageSizes,
   minWidth = 1200,
   stretchToContainer = true,
+  persistentHorizontalScrollbar = false,
   extraToolbar,
 }: EnhancedTableProps<T>) {
   // --- Persisted preferences ---
@@ -344,8 +351,11 @@ export default function EnhancedTable<T>({
   // --- Column resize ---
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const tableInnerRef = useRef<HTMLDivElement>(null);
+  const externalScrollbarRef = useRef<HTMLDivElement>(null);
   const currentWidthsRef = useRef(colWidths);
   currentWidthsRef.current = colWidths;
+  const [tableScrollContentWidth, setTableScrollContentWidth] = useState(minWidth);
+  const syncingScrollRef = useRef<'table' | 'external' | null>(null);
 
   const [colPxWidths, setColPxWidths] = useState<number[]>(() => columns.map(() => 80));
   const gridTemplate = useMemo(() => colWidths.map(w => `${w}%`).join(' '), [colWidths]);
@@ -367,6 +377,10 @@ export default function EnhancedTable<T>({
       const inner = tableInnerRef.current;
       const w = inner?.offsetWidth || Math.max(container.clientWidth, minWidth);
       if (w > 0) setColPxWidths(colWidths.map(pct => Math.max(40, (pct / 100) * w)));
+      if (inner?.offsetWidth) {
+        const nextContentWidth = inner.offsetWidth;
+        setTableScrollContentWidth(nextContentWidth);
+      }
     };
     update();
     const ro = new ResizeObserver(update);
@@ -374,6 +388,35 @@ export default function EnhancedTable<T>({
     if (tableInnerRef.current) ro.observe(tableInnerRef.current);
     return () => ro.disconnect();
   }, [colWidths, minWidth, stretchToContainer]);
+
+  const syncExternalScrollbarFromTable = useCallback(() => {
+    if (!persistentHorizontalScrollbar) return;
+    const table = tableContainerRef.current;
+    const external = externalScrollbarRef.current;
+    if (!table || !external) return;
+    if (syncingScrollRef.current === 'external') return;
+    syncingScrollRef.current = 'table';
+    external.scrollLeft = table.scrollLeft;
+    syncingScrollRef.current = null;
+  }, [persistentHorizontalScrollbar]);
+
+  const syncTableFromExternalScrollbar = useCallback(() => {
+    const table = tableContainerRef.current;
+    const external = externalScrollbarRef.current;
+    if (!table || !external) return;
+    if (syncingScrollRef.current === 'table') return;
+    syncingScrollRef.current = 'external';
+    table.scrollLeft = external.scrollLeft;
+    syncingScrollRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    if (!persistentHorizontalScrollbar) return;
+    const table = tableContainerRef.current;
+    const external = externalScrollbarRef.current;
+    if (!table || !external) return;
+    external.scrollLeft = table.scrollLeft;
+  }, [persistentHorizontalScrollbar, tableScrollContentWidth]);
 
   const handleResizeStart = useCallback((index: number, e: React.MouseEvent) => {
     e.preventDefault();
@@ -604,6 +647,7 @@ export default function EnhancedTable<T>({
             'min-w-0',
             stretchToContainer ? 'overflow-auto' : 'overflow-y-auto overflow-x-scroll',
           )}
+          onScroll={persistentHorizontalScrollbar ? syncExternalScrollbarFromTable : undefined}
           ref={tableContainerRef}
           style={{ maxHeight: 'calc(100vh - 320px)' }}
         >
@@ -681,6 +725,19 @@ export default function EnhancedTable<T>({
             </div>
           </div>
         </div>
+
+        {persistentHorizontalScrollbar && (
+          <div className="border-t border-border-default bg-bg-secondary/60 px-2 py-1">
+            <div
+              ref={externalScrollbarRef}
+              onScroll={syncTableFromExternalScrollbar}
+              className="h-3 overflow-x-auto overflow-y-hidden"
+              aria-label="表格水平捲軸"
+            >
+              <div style={{ width: tableScrollContentWidth, height: 1 }} />
+            </div>
+          </div>
+        )}
 
         {/* Pagination */}
         {hasPagination && (

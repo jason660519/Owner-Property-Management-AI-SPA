@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
 
-test('Get Session for a0405142777@gmail.com', async ({ page }) => {
-  const email = 'a0405142777@gmail.com';
-  const password = '!qaz2wsX';
+test('Get Session after password login', async ({ page }) => {
+  const email = process.env.E2E_TEST_EMAIL;
+  const password = process.env.E2E_TEST_PASSWORD;
+  test.skip(!email || !password, 'Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD in apps/web/.env.local');
 
   await page.goto('http://localhost:3000/login');
   await page.waitForLoadState('networkidle');

@@ -36,9 +36,18 @@ describe('adapter-runs fallback guard', () => {
     const lines = [
       'Error: Requested entity was not found.',
       'Status: 404',
-      'Tool Debug Summary: ...',
+      'extra debug logs ...',
     ];
     expect(shouldUseApiFallback('opencode', 0, null, lines)).toBe(true);
+  });
+
+  it('should not fallback when logs only contain tool debug noise', () => {
+    const lines = [
+      'Tool Debug Summary: request sent',
+      'FunctionDeclarations: []',
+      '程序已結束 (code=0, signal=null)',
+    ];
+    expect(shouldUseApiFallback('opencode', 0, null, lines)).toBe(false);
   });
 });
 

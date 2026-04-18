@@ -51,7 +51,7 @@ http://localhost:3001/superadmin/dashboard/project-progress#testing
 | 10 | **TDD Progress / TDD進度**                       | `percentage`                         | 進度條，顯示 `feature.percentage %`                                                                                   |
 | 11 | **E2E Test Progress / E2E測試進度**              | `e2eTestCoverage` / `testCoverage` | 進度條，優先用 `e2eTestCoverage`，fallback `testCoverage`                                                           |
 | 12 | **Prompt and IDE Setting / Prompt 與 IDE 設定**  | UI 操作按鈕                            | 點擊開啟「設定 Prompt / 執行」Modal，在 Modal 內選擇 IDE、今日工作類別並編輯 Prompt（**不存入** roadmap.ts）      |
-| 13 | **Status / 狀態**                                | `statusSelections`（記憶體）         | 下拉選擇列狀態（已完成/進行中/未開始/暫緩），頁面初次載入由 `deriveRowStatus()` 自動推導，**不寫入** roadmap.ts |
+| 13 | **Development Log Summary / 開發日誌匯總**      | `devLogDocPath` / fallback 路徑       | 開啟任務 ID 專屬頁面 `/superadmin/dashboard/project-progress/task/{ID}/dev-log`；頁面優先讀 `devLogDocPath`，若未設定則 fallback 到 `/project-process/dev-logs/{ID}-development-log-summary.md` |
 | 14 | **Notes / 備註**                                 | —                                     | 備註欄（目前顯示 `—`，預留擴充）                                                                                     |
 
 > ⚠️ **測試腳本目錄注意**：欄8 的自動產生路徑為 `apps/superadmin/unit_test/{ID}/`（**非** `unit_and_integration_test`）。實際目前已有資料的子目錄為 `unit_test/002/` 和 `unit_test/004/`。
@@ -68,6 +68,7 @@ http://localhost:3001/superadmin/dashboard/project-progress#testing
 | `docPath`                               | 欄7：TDD Progress Report (.md) 連結（顯示為 `001-TDD-Report.md`） |
 | `percentage`                            | 欄10：TDD 進度條（同時供統計卡片使用）                              |
 | `e2eTestCoverage` / `testCoverage`    | 欄11：E2E 進度條                                                    |
+| `devLogDocPath`                        | 欄13：開發日誌匯總頁的 md 主來源                                    |
 | `lastModifiedBy` / `lastModifiedDate` | 不在 Development Tab 顯示（仍建議填寫）                             |
 
 ### 送出 Prompt 與本地 Agent 流程（全自動化到 TDD + 測試 + git push）
@@ -135,6 +136,7 @@ http://localhost:3001/superadmin/dashboard/project-progress#testing
 
 - 檔名帶日期，例如：`dev-behavior-monitor-2026-03-07.md`
 - 沒有對應文件時，欄位留空字串 `""` 即可
+- 開發日誌匯總頁 URL 固定為：`/superadmin/dashboard/project-progress/task/{Row-ID}/dev-log`
 
 ---
 
@@ -313,7 +315,7 @@ apps/superadmin/app/superadmin/dashboard/project-progress/
     ├── SharedStatsCards.tsx    # 各階段差異化統計卡片
     ├── ProgressBar.tsx         # 通用進度條
     ├── StatCard.tsx            # 通用統計卡片
-    ├── DevelopmentTab.tsx      # 開發 Tab（14 欄：ID/Role/LocatedPage/Feature/DEV-SPEC/TDD-Spec/TDD-Report/Unit-Folder/E2E-Folder/TDD進度/E2E進度/Prompt/Status/Notes）~1626 行
+    ├── DevelopmentTab.tsx      # 開發 Tab（14 欄：ID/Role/LocatedPage/Feature/DEV-SPEC/TDD-Spec/TDD-Report/Unit-Folder/E2E-Folder/TDD進度/E2E進度/Prompt/DevLogSummary/Notes）
     ├── DevelopmentTab.view.test.tsx  # DevelopmentTab 視覺測試
     ├── TestingTab.tsx          # 測試 Tab（testStatus/coverage/defect）
     ├── DeploymentTab.tsx       # 部署 Tab（deployStatus/env/version）
@@ -347,7 +349,7 @@ apps/superadmin/
 | `devCompletedCount` / `devTodoCount`        | 開發任務完成數/總數，顯示為「完成數/TODO數」         |
 | `testScriptCount` / `testScriptPassedCount` | 測試腳本總數 / 已通過數（顯示通過率）                |
 | `testScriptPath`                              | 測試腳本實際目錄路徑（相對專案根）                   |
-| `devLogDocPath`                               | 開發日誌文件路徑（`project-process/dev-logs/` 下） |
+| `devLogDocPath`                               | 開發日誌文件路徑；欄13 會開啟任務 ID 專屬頁並以此 md 為主來源 |
 | `developmentProgress`                         | 開發進度的文字描述（非百分比，供摘要說明）           |
 | `workCategory`                                | 工作類別（如「重構/優化」「維運」「文件撰寫」）      |
 | `points`                                      | Story Points，工作量估算                             |
@@ -356,9 +358,9 @@ apps/superadmin/
 
 ---
 
-## 🚦 Status 自動推導邏輯（`deriveRowStatus()`）
+## 🚦 狀態統計卡片自動推導邏輯（`deriveRowStatus()`）
 
-頁面載入時系統自動推導每列狀態（**不**寫入 roadmap.ts）：
+雖然 Development Tab 已不再顯示 `Status` 下拉欄，但頁面上方的狀態統計卡片仍會自動推導每列狀態（**不**寫入 roadmap.ts）：
 
 | 條件                                                                  | 推導狀態        |
 | :-------------------------------------------------------------------- | :-------------- |
@@ -368,8 +370,6 @@ apps/superadmin/
 | `phase === 'operations'` 或 `'deployment'`                        | `completed`   |
 | `phase === 'testing'` 或 `testStatus === 'in_progress'`           | `in_progress` |
 | 其他                                                                  | `not_started` |
-
-工程師可在儀表板 Status 欄的下拉選單手動覆寫（僅本次瀏覽會話有效，頁面重整後恢復自動推導）。
 
 ---
 

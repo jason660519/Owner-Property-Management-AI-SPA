@@ -5,7 +5,6 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import type { RoadmapFeature } from '@/app/data/roadmap';
-import { useAISettings } from '@/lib/hooks/useAISettings';
 import { useTablePreferences } from '@/lib/hooks/useTablePreferences';
 import {
   type ColumnAlignment,
@@ -19,8 +18,8 @@ import {
   INITIAL_WIDTHS,
   DEFAULT_HEADER_HEIGHT,
   deriveRowStatus,
-  localTaskStatusToRowStatus,
   getRowKey,
+  localTaskStatusToRowStatus,
   summarizeRowStatuses,
 } from './development-table/types';
 import { useDevTableData } from './development-table/useDevTableData';
@@ -38,7 +37,6 @@ interface DevelopmentTabProps {
 }
 
 export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
-  const { userId } = useAISettings();
   const { tasksByRowId } = usePaperclipTasks();
 
   // --- Persisted preferences ---
@@ -74,24 +72,16 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   const [selectedRow, setSelectedRow] = useState(0);
   const [selectedCol, setSelectedCol] = useState(0);
 
-  // --- Per-row status ---
-  const [manualStatusSelections, setManualStatusSelections] = useState<Record<string, RowStatus>>({});
-
-  const derivedStatusSelections = useMemo(() => {
+  const statusSelections = useMemo(() => {
     const derived: Record<string, RowStatus> = {};
     for (const row of filteredRows) {
-      const key = getRowKey(row.__source, row.__rowId);
       const task = tasksByRowId[row.__rowId];
-      if (task) derived[key] = localTaskStatusToRowStatus(task.status);
-      else derived[key] = deriveRowStatus(row);
+      derived[getRowKey(row.__source, row.__rowId)] = task
+        ? localTaskStatusToRowStatus(task.status)
+        : deriveRowStatus(row);
     }
     return derived;
   }, [filteredRows, tasksByRowId]);
-
-  const statusSelections = useMemo(
-    () => ({ ...derivedStatusSelections, ...manualStatusSelections }),
-    [derivedStatusSelections, manualStatusSelections],
-  );
 
   // --- Prompt settings page ---
   const openPromptConfig = useCallback((row: ProgressRow) => {
@@ -118,21 +108,13 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
     patchTablePrefs({ customRows: tablePrefs.customRows.filter(r => r.rowId !== rowId) });
   }, [patchTablePrefs, tablePrefs.customRows]);
 
-  const handleStatusChange = useCallback((rowKey: string, status: RowStatus) => {
-    setManualStatusSelections(prev => ({ ...prev, [rowKey]: status }));
-  }, []);
-
   // --- Column definitions (memoized) ---
   const columns = useMemo(() => createDevColumns({
     onOpenPromptConfig: openPromptConfig,
-    statusSelections,
-    onStatusChange: handleStatusChange,
     hiddenRowKeysSet,
     onToggleHideRow: handleToggleHideRow,
     onDeleteCustomRow: handleDeleteCustomRow,
-    userId,
-    tasksByRowId,
-  }), [openPromptConfig, statusSelections, handleStatusChange, hiddenRowKeysSet, handleToggleHideRow, handleDeleteCustomRow, userId, tasksByRowId]);
+  }), [openPromptConfig, hiddenRowKeysSet, handleToggleHideRow, handleDeleteCustomRow]);
 
   const statusSummary = useMemo(
     () => summarizeRowStatuses(filteredRows, statusSelections),

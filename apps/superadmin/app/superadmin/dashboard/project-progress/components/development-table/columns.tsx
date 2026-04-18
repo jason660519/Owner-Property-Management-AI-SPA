@@ -4,11 +4,17 @@
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { ExternalLink, Settings, EyeOff, Eye, X } from 'lucide-react';
 
-import type { ProgressRow, RowStatus } from './types';
-import { getRowKey, deriveRowStatus, COLUMN_HEADERS, resolveUnitTestFolder, resolveE2EFolder } from './types';
+import type { ProgressRow } from './types';
+import {
+  buildDevLogSummaryRoute,
+  COLUMN_HEADERS,
+  getRowKey,
+  resolveConfiguredDevLogDocPath,
+  resolveDevLogDocPath,
+  resolveE2EFolder,
+  resolveUnitTestFolder,
+} from './types';
 import { buildProjectFileHref } from './path-utils';
-import type { PaperclipTaskRow } from '@/app/api/paperclip/task-queue/route';
-import { PaperclipStatusColumn } from './task-dispatch';
 
 const PROJECT_FILE_ALLOWED_PREFIXES = ['apps/superadmin/', 'project-process/'] as const;
 
@@ -104,28 +110,17 @@ function meta(idx: number) {
 // -- Factory --
 export interface CreateDevColumnsDeps {
   onOpenPromptConfig: (row: ProgressRow) => void;
-  statusSelections: Record<string, RowStatus>;
-  onStatusChange: (rowKey: string, status: RowStatus) => void;
   hiddenRowKeysSet: Set<string>;
   onToggleHideRow: (rowKey: string) => void;
   onDeleteCustomRow: (rowId: string) => void;
-  // P2: multi-engineer collaboration
-  userId: string;
-  tasksByRowId: Record<string, PaperclipTaskRow>;
-  onClickTaskDetail?: (rowId: string) => void;
 }
 
 export function createDevColumns(deps: CreateDevColumnsDeps): ColumnDef<ProgressRow, unknown>[] {
   const {
     onOpenPromptConfig,
-    statusSelections,
-    onStatusChange,
     hiddenRowKeysSet,
     onToggleHideRow,
     onDeleteCustomRow,
-    userId,
-    tasksByRowId,
-    onClickTaskDetail,
   } = deps;
 
   return [
@@ -294,36 +289,53 @@ export function createDevColumns(deps: CreateDevColumnsDeps): ColumnDef<Progress
       ),
     }),
 
-    // 13. Status (unified: Paperclip badge when task exists, dropdown fallback otherwise)
+    // 13. Development log summary
     col.display({
-      id: 'col-status',
+      id: 'col-dev-log-summary',
       meta: meta(12),
       cell: ({ row }) => {
         const r = row.original;
-        const task = tasksByRowId[r.__rowId];
-        if (task) {
-          return (
-            <PaperclipStatusColumn
-              task={task}
-              userId={userId}
-              onClickDetail={onClickTaskDetail ? () => onClickTaskDetail(r.__rowId) : undefined}
-            />
-          );
-        }
-        // No Paperclip task — show manual dropdown
-        const rowKey = getRowKey(r.__source, r.__rowId);
+        const summaryHref = buildDevLogSummaryRoute(r.__rowId);
+        const rawConfiguredDocPath = r.devLogDocPath?.trim() ?? '';
+        const configuredDocPath = resolveConfiguredDevLogDocPath(r);
+        const rawDocPath = resolveDevLogDocPath(r, r.__rowId);
+
         return (
-          <select
-            className="w-full rounded-md border border-border-default bg-bg-secondary px-2 py-1 text-xs text-text-primary focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
-            value={statusSelections[rowKey] ?? ''}
-            onChange={(e) => onStatusChange(rowKey, e.target.value as RowStatus)}
-          >
-            <option value="">&mdash;</option>
-            <option value="completed">已完成</option>
-            <option value="in_progress">進行中</option>
-            <option value="not_started">未開始</option>
-            <option value="on_hold">暫緩</option>
-          </select>
+          <div className="flex min-w-0 flex-col gap-1">
+            <a
+              href={summaryHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full"
+              title={`查看 Row ${r.__rowId} 的開發日誌匯總`}
+            >
+              <ExternalLink className="w-3 h-3 flex-shrink-0" />
+              <span className="truncate">查看匯總</span>
+            </a>
+
+            {configuredDocPath ? (
+              <span
+                className="text-[10px] text-text-muted truncate max-w-full"
+                title={`/${configuredDocPath}`}
+              >
+                已設定 md
+              </span>
+            ) : rawConfiguredDocPath ? (
+              <span
+                className="text-[10px] text-amber-600 dark:text-amber-400 truncate max-w-full"
+                title={`原始設定值：/${rawConfiguredDocPath.replace(/^\/+/, '')}`}
+              >
+                路徑格式有誤
+              </span>
+            ) : (
+              <span
+                className="text-[10px] text-text-muted truncate max-w-full"
+                title={`建議路徑：/${rawDocPath}`}
+              >
+                尚未建立 .md
+              </span>
+            )}
+          </div>
         );
       },
     }),

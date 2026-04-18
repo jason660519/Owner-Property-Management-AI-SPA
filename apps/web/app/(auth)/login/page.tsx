@@ -28,14 +28,19 @@ import { normalizeRoles } from '@/lib/roles';
 import Link from 'next/link';
 
 // --- Schemas ---
+const emailField = z
+  .string()
+  .transform((s) => s.replace(/\u00a0/g, ' ').trim().toLowerCase())
+  .pipe(z.string().email('請輸入有效的電子郵件地址'));
+
 const loginSchema = z.object({
-  email: z.string().email('請輸入有效的電子郵件地址'),
+  email: emailField,
   password: z.string().min(8, '密碼至少需要 8 個字元'),
   rememberMe: z.boolean().optional(),
 });
 
 const inviteSchema = z.object({
-  email: z.string().email('請輸入有效的電子郵件地址'),
+  email: emailField,
   inviteCode: z
     .string()
     .length(8, '邀請碼必須為 8 位數字')

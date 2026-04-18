@@ -5,10 +5,14 @@ const SUPERADMIN_URL = 'http://localhost:3001';
 
 test.describe('Role Portal Login Flow', () => {
   test('Multi-role user should be redirected to Portal', async ({ page }) => {
+    const email = process.env.E2E_TEST_EMAIL;
+    const password = process.env.E2E_TEST_PASSWORD;
+    test.skip(!email || !password, 'Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD in apps/web/.env.local');
+
     // 1. Login
     await page.goto(`${BASE_URL}/login`);
-    await page.fill('input[type="email"]', 'a0405142777@gmail.com');
-    await page.fill('input[type="password"]', 'NewPassword123!');
+    await page.fill('input[type="email"]', email);
+    await page.fill('input[type="password"]', password);
     await page.click('button[type="submit"]');
 
     // 2. Expect redirect to Portal
@@ -29,11 +33,15 @@ test.describe('Role Portal Login Flow', () => {
   });
 
   test('Portal should allow navigation to Super Admin (Port 3001)', async ({ page }) => {
+    const email = process.env.E2E_TEST_EMAIL;
+    const password = process.env.E2E_TEST_PASSWORD;
+    test.skip(!email || !password, 'Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD in apps/web/.env.local');
+
     // 1. Login directly to Portal (if session persists) or login again
     // Playwright creates new context per test, so login again
     await page.goto(`${BASE_URL}/login`);
-    await page.fill('input[type="email"]', 'a0405142777@gmail.com');
-    await page.fill('input[type="password"]', 'NewPassword123!');
+    await page.fill('input[type="email"]', email);
+    await page.fill('input[type="password"]', password);
     await page.click('button[type="submit"]');
     await page.waitForURL(/\/portal/);
 

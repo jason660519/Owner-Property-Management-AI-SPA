@@ -230,9 +230,7 @@ export function generateAgentReportMarkdown(input: AgentReportInput): string {
   lines.push(
     '本報告為 `ai_agent_model_assignments`（全平台共用）+ `ai_model_role_assignments`（模型能力標籤）的當前快照。',
   );
-  lines.push(
-    '產生頁面：`/superadmin/settings/api_key_and_model_setting#agent-config`',
-  );
+  lines.push('產生來源：Agent 模型指派設定匯出。');
   lines.push('');
   lines.push('---');
   lines.push('');
@@ -281,7 +279,7 @@ export function generateAgentReportMarkdown(input: AgentReportInput): string {
     `- Catalog available 數：${catalogRows.filter((r) => r.status === 'available').length}`,
   );
   lines.push('');
-  lines.push('<sub>本檔案由 Agent Config 面板自動生成；手動修改不會被保留。</sub>');
+  lines.push('<sub>本檔案由 Agent 模型設定匯出自動生成；手動修改不會被保留。</sub>');
   lines.push('');
 
   return lines.join('\n');

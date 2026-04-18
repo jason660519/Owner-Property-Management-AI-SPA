@@ -112,7 +112,7 @@ export const COLUMN_HEADERS: ColumnHeaderDef[] = [
   { en: 'TDD Progress', zh: 'TDD進度' },
   { en: 'E2E Test Progress', zh: 'E2E測試進度' },
   { en: 'Prompt and IDE Setting', zh: 'Prompt 與 IDE 設定' },
-  { en: 'Status', zh: '狀態' },
+  { en: 'Development Log Summary', zh: '開發日誌匯總' },
   { en: 'Notes', zh: '備註' },
 ];
 
@@ -278,6 +278,16 @@ export interface PromptContext {
 
 const UNIT_TEST_FALLBACK_ROOT = 'apps/superadmin/unit_test';
 const ALLOWED_TEST_SCRIPT_PREFIX = 'apps/superadmin/';
+const DEV_LOG_ALLOWED_PREFIXES = ['project-process/', 'docs/'] as const;
+
+function normalizeProjectDocPath(path: string): string {
+  return path.trim().replace(/^\/+/, '');
+}
+
+function sanitizeRowIdForFileSegment(rowId: string): string {
+  const sanitized = rowId.trim().replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+  return sanitized || 'task';
+}
 
 export function resolveUnitTestFolder(feature: RoadmapFeature, rowId: string): string {
   const fallback = `${UNIT_TEST_FALLBACK_ROOT}/${rowId}`;
@@ -289,6 +299,29 @@ export function resolveUnitTestFolder(feature: RoadmapFeature, rowId: string): s
 
 export function resolveE2EFolder(rowId: string): string {
   return `apps/superadmin/e2e/${rowId}`;
+}
+
+export function resolveConfiguredDevLogDocPath(feature: RoadmapFeature): string | null {
+  const configured = feature.devLogDocPath?.trim();
+  if (!configured) return null;
+
+  const normalized = normalizeProjectDocPath(configured);
+  if (!normalized.toLowerCase().endsWith('.md')) return null;
+  if (!canUseProjectFilePath(normalized, DEV_LOG_ALLOWED_PREFIXES)) return null;
+
+  return normalized;
+}
+
+export function buildFallbackDevLogDocPath(rowId: string): string {
+  return `project-process/dev-logs/${sanitizeRowIdForFileSegment(rowId)}-development-log-summary.md`;
+}
+
+export function resolveDevLogDocPath(feature: RoadmapFeature, rowId: string): string {
+  return resolveConfiguredDevLogDocPath(feature) ?? buildFallbackDevLogDocPath(rowId);
+}
+
+export function buildDevLogSummaryRoute(rowId: string): string {
+  return `/superadmin/dashboard/project-progress/task/${encodeURIComponent(rowId)}/dev-log`;
 }
 
 export function buildPromptContext(

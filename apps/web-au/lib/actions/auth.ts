@@ -12,10 +12,18 @@ type SignInResult =
  * Server-side sign in with password for Australia platform.
  * Sets auth cookies on the response so the client is logged in.
  */
+function normalizeSignInEmail(raw: string): string {
+  return raw.replace(/\u00a0/g, ' ').trim().toLowerCase();
+}
+
 export async function signInWithPasswordAction(email: string, password: string): Promise<SignInResult> {
   try {
     const supabase = await createServerClient();
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const normalizedEmail = normalizeSignInEmail(email);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password,
+    });
 
     if (error) {
       const isDev = process.env.NODE_ENV === 'development';

@@ -18,16 +18,6 @@
 
 ---
 
-## 📊 資料庫與資料完整性 (Database & Data Integrity)
-
-| 腳本名稱 | 格式 | 說明 |
-| :--- | :--- | :--- |
-| `address_audit.sql` | SQL | 診斷物件地址欄位是否發生「串位」或格式錯誤。 |
-| `address_fix.sql` | SQL | 修復地址欄位中的常見錯誤。 |
-| `address_validate.sql` | SQL | 驗證地址資料的結構化完整性。 |
-
----
-
 ## 🔐 身分識別與存取管理 (IAM & User Management)
 
 | 腳本名稱 | 格式 | 說明 |
