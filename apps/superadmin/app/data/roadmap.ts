@@ -146,7 +146,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員的RBAC CRUD平台",
     locatedPage: "superadmin/dashboard/rbac_access_control",
-    percentage: 95,
+    percentage: 98,
     acceptanceCriteria:
       "1. 可建立、編輯、刪除角色（Role），角色名稱需唯一。\n2. 可對角色設定細粒度權限（讀取、寫入、刪除各資源）。\n3. 角色變更需有稽核紀錄（修改者、修改時間、異動內容）。\n4. 支援角色繼承功能，子角色可繼承父角色權限。\n5. 刪除角色前需確認沒有使用者被指派此角色。",
     docPath: "",
@@ -158,8 +158,8 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/dev-logs/dev-superadmin-features-2026-02-26.md",
     category: "超級管理員 (Super Admin)",
     points: 8,
-    lastModifiedBy: "Claude Sonnet 4.6",
-    lastModifiedDate: "2026/02/26",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
     phase: "development",
     developmentProgress:
       "Permission Matrix 完整 DB 持久化：新增 iam_role_permissions 表（migration 20260226100000）、getRolePermissions / saveRolePermissions server actions；RolesTab 改為從 DB 載入/儲存角色權限，儲存前有 dirty 提示，儲存中 spinner；修復 iam_user_group_memberships view + parent_role_id 欄位未套用問題。",
@@ -248,7 +248,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員AI LLM API效能監控－AI語音回應可靠度監控功能",
     locatedPage: "superadmin/dashboard/llm-monitor",
-    percentage: 70,
+    percentage: 80,
     acceptanceCriteria:
       "1. 即時顯示各 LLM API 的請求數量、平均回應時間、錯誤率。\n2. 可設定 API 使用量預算上限與警示閾值。\n3. 提供每日/每週 Token 消耗統計與費用估算。\n4. 語音回應品質分數（延遲、斷句率）需以圖表呈現。\n5. API 密鑰輪換提醒功能（距離過期 30 天前通知）。",
     docPath: "",
@@ -258,8 +258,8 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/dev-logs/dev-superadmin-features-2026-02-21.md",
     category: "超級管理員 (Super Admin)",
     points: 8,
-    lastModifiedBy: "GPT-5.2",
-    lastModifiedDate: "2026/04/04",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
     phase: "development",
     developmentProgress:
       "連接真實 ai_performance_metrics 資料表，page.tsx + LLMMonitorClient + actions (getLLMMetrics/getLLMAggregateStats/getLLMOverallStats)；每模型效能比較表、最近請求記錄。\n\n### 2026-04-04 監控可追到 Prompt / 模組 / 成功失敗\n- 新增 ai_usage_logs 監控欄位（prompt source/version/hash、request_path、response_status 等）。\n- 物件介紹文案 AI（/api/property-description/stream）每次嘗試會寫入 ai_usage_logs（含成功/失敗、tokens、延遲、provider/model）。\n- llm-monitor 頁面新增「AI 使用紀錄（含 Prompt / 模組 / 狀態）」表格（最新 100 筆）。",
@@ -359,7 +359,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "買家的繳費記錄",
     locatedPage: "web (待建)",
-    percentage: 0,
+    percentage: 45,
     acceptanceCriteria:
       "1. 顯示所有付款紀錄（日期、金額、類型、付款方式、狀態）。\n2. 支援下載單筆收據（PDF格式）。\n3. 可依日期範圍、金額、付款狀態篩選。\n4. 顯示未付款項目提醒與到期日。\n5. 年度付款總額統計與圖表。",
     docPath: "",
@@ -383,11 +383,11 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/features/tdd-company-pages-thirdparty-20260221.md",
     category: "公司頁面 (Company Pages)",
     points: 5,
-    lastModifiedBy: "GPT-5.4",
-    lastModifiedDate: "2026/03/22",
+    lastModifiedBy: "GitHub Copilot (GPT-5.4)",
+    lastModifiedDate: "2026/04/14",
     phase: "development",
     developmentProgress:
-      "首頁 Hero 與 metadata 已從單一房東工具重新定位為多角色不動產 AI 協作平台；Header banner、FeaturedProperties、Footer CTA、services 頁、Testimonials 與 FAQ 文案已同步對齊，並補上 HeroSection、FeaturedProperties、Testimonials、FAQ、Footer、services 導流測試。另新增 public marketing funnel Playwright 測試，覆蓋首頁進 pricing/services，以及 pricing、services、about、properties 導向 contact 的公開漏斗。下一步可接上真實 lead funnel tracking。",
+      "首頁 Hero 與 metadata 已從單一房東工具重新定位為多角色不動產 AI 協作平台；Header banner、FeaturedProperties、Footer CTA、services 頁、Testimonials 與 FAQ 文案已同步對齊，並補上 HeroSection、FeaturedProperties、Testimonials、FAQ、Footer、services 導流測試。另新增 public marketing funnel Playwright 測試，覆蓋首頁進 pricing/services，以及 pricing、services、about、properties 導向 contact 的公開漏斗。2026/04/14 補做穩定性修復：清除 `customer-details.ts` 未解 merge conflict，恢復首頁編譯；同時修正 Header/Footer 首頁可見 CTA 的 `a > button` 無效 HTML，改為 link-wrapped button-styled span，消除 localhost:3000 首頁 hydration mismatch。另以 Jest 驗證 landlord customers 相關 2 suites、10 tests 全數通過。下一步可接上真實 lead funnel tracking。",
   },
   {
     name: "公司產品費用說明頁",
@@ -642,9 +642,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     phase: "testing",
     points: 3,
     lastModifiedBy: "Paperclip CTO",
-    lastModifiedDate: "2026/04/14",
+    lastModifiedDate: "2026/04/12",
     devLog:
-      "[2026/04/12] (Paperclip CTO)\n• 補齊房東預約 API 狀態變更通知：confirmed/cancelled/completed 會寄送訪客 Email（含取消原因）。\n• 新增房東預約月曆視圖，顯示每日時段與筆數。\n• 新增 Row 029 對應單元測試與 TDD Progress Report。\n[2026/04/14] (Paperclip CTO, VIS-92)\n• 於共用 workspace 重跑 `appointment-notifications` / `appointment-calendar` 單元測試：2 suites、4 tests 全通過。\n• 新增彙總文件 `project-process/test-logs/tdd-progress-029.md`。",
+      "[2026/04/12] (Paperclip CTO)\n• 補齊房東預約 API 狀態變更通知：confirmed/cancelled/completed 會寄送訪客 Email（含取消原因）。\n• 新增房東預約月曆視圖，顯示每日時段與筆數。\n• 新增 Row 029 對應單元測試與 TDD Progress Report。",
   },
   {
     name: "房東的客戶－Details模式",
@@ -688,41 +688,41 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東的客戶－List模式",
     locatedPage: "web/landlord/customers",
-    percentage: 0,
+    percentage: 50,
     acceptanceCriteria:
       "1. 以表格列表形式顯示客戶，欄位可自訂顯示/隱藏。\n2. 支援依姓名、狀態、最後聯絡時間排序。\n3. 支援多選批次操作（批次發訊息、批次修改狀態）。\n4. 搜尋欄可即時過濾姓名/電話/Email。\n5. 支援 CSV 匯出客戶列表。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 2,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "房東的客戶－新增客戶",
     locatedPage: "web/landlord/customers",
-    percentage: 0,
+    percentage: 50,
     acceptanceCriteria:
       "1. 表單含：姓名、電話、Email、意向（租/買）、預算、備註。\n2. Email 格式驗證，電話號碼格式驗證。\n3. 同一 Email 已存在時提示重複並詢問是否合併。\n4. 新增成功後自動跳轉至客戶 Details 頁。\n5. 支援從名片圖片 OCR 自動填入（可選）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 3,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "房東的客戶－成交客戶",
     locatedPage: "web/landlord/customers",
-    percentage: 0,
+    percentage: 40,
     acceptanceCriteria:
       "1. 已成交客戶可選擇標記為「買家」或「已簽約租客」。\n2. 標記後自動建立對應角色的基本資料與儀表板。\n3. 成交資訊記錄：成交日期、成交物件、成交金額。\n4. 成交客戶不可刪除，只能封存（以保留歷史紀錄）。\n5. 成交數量統計顯示於儀表板指標卡。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 3,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "房東－邀請第三人成為user的功能",
@@ -946,15 +946,15 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東財務－收支明細儀表板",
     locatedPage: "web/landlord/finance",
-    percentage: 0,
+    percentage: 40,
     acceptanceCriteria:
       "1. 顯示選定月份的收入/支出圓餅圖與明細。\n2. 支援日/月/季/年時間範圍切換。\n3. 收支類別可自訂（如「維修費」「管理費」）。\n4. 顯示淨利潤趨勢折線圖（最近12個月）。\n5. 一鍵匯出財務報表（PDF/Excel）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 5,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "房東財務－租金收支管理",
@@ -998,41 +998,41 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東的溝通頁面",
     locatedPage: "web/landlord/messages",
-    percentage: 0,
+    percentage: 15,
     acceptanceCriteria:
       "1. 集中顯示與所有租客/買家/仲介的訊息對話。\n2. 左側為對話列表（含未讀數徽章），右側為對話內容。\n3. 支援訊息搜尋（依關鍵字）。\n4. 可傳送文字、圖片、附件（最大10MB）。\n5. 可設定自動回覆訊息（不在線時啟用）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 3,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "房東的物件展示功能－Details模式",
     locatedPage: "web/landlord/properties/[id]",
-    percentage: 0,
+    percentage: 50,
     acceptanceCriteria:
       "1. 顯示物件完整資訊（照片輪播、地址、格局、設備、租金/售價）。\n2. 顯示物件當前狀態（空置/出租中/待售/已售）。\n3. 顯示看房預約列表（最近10筆）。\n4. 提供物件 QR Code 分享功能。\n5. 可直接從物件詳情頁面觸發生成銷售部落格。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 2,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "房東的物件展示功能－Grid模式",
     locatedPage: "web/landlord/properties",
-    percentage: 0,
+    percentage: 50,
     acceptanceCriteria:
       "1. 以卡片網格形式展示物件（每行3-4筆），卡片含縮圖、物件名、租金/售價、狀態。\n2. 支援依租金/售價、狀態、地區排序篩選。\n3. 卡片點擊進入物件 Details 頁。\n4. 支援快速切換物件狀態（不需進入詳情頁）。\n5. 空置物件卡片以視覺標示突出（如淡灰底色）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 2,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "房東的物件－照片增生功能 (AI)",
@@ -1050,28 +1050,28 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東的物件展示功能－List模式",
     locatedPage: "web/landlord/properties",
-    percentage: 0,
+    percentage: 50,
     acceptanceCriteria:
       "1. 以緊湊表格形式列出所有物件，欄位含：物件名、地址、類型、月租/售價、狀態、最後修改。\n2. 點擊欄標題可排序。\n3. 多選後可批次修改狀態。\n4. 搜尋欄即時過濾（依物件名/地址）。\n5. 每頁顯示筆數可設定（20/50/100）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 2,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "房東的維修派工管理",
     locatedPage: "web/landlord (待建)",
-    percentage: 0,
+    percentage: 50,
     acceptanceCriteria:
       "1. 顯示所有維修請求列表（物件、申請人、描述、狀態、申請日期）。\n2. 可指派維修人員，並設定預約維修日期。\n3. 維修人員接單後租客收到通知（含到訪時間）。\n4. 維修完成後附上費用單與工作說明，租客確認後結案。\n5. 維修費用自動計入物件支出記錄。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 5,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "房東的行銷部落格網站行為監控",
@@ -1102,15 +1102,15 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "房東的客戶-租客篩選功能",
     locatedPage: "web/landlord/customers",
-    percentage: 0,
+    percentage: 40,
     acceptanceCriteria:
       "1. 依信用分數、月收入、職業類型對申請租客進行排序篩選。\n2. 提供自動化評分機制（根據填寫資料評估租客適合度）。\n3. 可設定篩選條件範本（如「月收入需為月租3倍以上」）。\n4. 篩選結果可一鍵發送面談邀請。\n5. 不合格申請者可禮貌性自動回絕（附原因說明範本）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 5,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "房東的會計人員查帳審計功能",
@@ -1271,7 +1271,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "電子簽約功能",
     locatedPage: "web (待建)",
-    percentage: 0,
+    percentage: 40,
     acceptanceCriteria:
       "1. 生成合約後可發送電子簽署邀請至買賣/租賃雙方 Email。\n2. 每一方在安全連結中完成電子簽名（手寫簽名或文字簽名）。\n3. 所有方完成簽署後，生成合法效力的電子合約（含簽署時間戳）。\n4. 已簽署合約以 PDF 格式自動發送至所有簽署方。\n5. 合約簽署狀態可即時追蹤（待某方簽署/全部完成）。",
     docPath: "",
@@ -1279,15 +1279,15 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/features/tdd-contracts-payments-20260221.md",
     category: "合約與法務 (Contracts & Legal)",
     points: 8,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
 
   // 通用/系統
   {
     name: "一鍵切換UI風格：暗/亮模式",
     locatedPage: "全站",
-    percentage: 98,
+    percentage: 100,
     acceptanceCriteria:
       "1. 點擊切換按鈕（或依系統設定）立即切換暗/亮模式，無需刷新頁面。\n2. 使用者設定持久化（下次登入維持上次選擇）。\n3. 所有頁面、組件、彈窗均支援暗/亮模式，無色彩殘留問題。\n4. 過渡動畫流暢（約200ms）。\n5. 系統自動偵測作業系統主題並設為預設值。",
     devLog:
@@ -1301,13 +1301,13 @@ const RAW_FEATURES: RoadmapFeature[] = [
     tddSpecDocPath: "/project-process/features/tdd-system-common-20260221.md",
     category: "通用/系統 (General/System)",
     points: 2,
-    lastModifiedBy: "Google Gemini 2.5 Flash (UI/UX Agent)",
+    lastModifiedBy: "Paperclip Agent",
     lastModifiedDate: "2026/04/14",
   },
   {
     name: "RWD網頁響應式設計",
     locatedPage: "全站",
-    percentage: 80,
+    percentage: 85,
     acceptanceCriteria:
       "1. 手機（320px+）、平板（768px+）、桌機（1024px+）三種斷點下版面正確顯示。\n2. 導航選單在手機版切換為漢堡選單（Hamburger Menu）。\n3. 所有表單元素在手機版觸控操作友善（最小觸控區域44x44px）。\n4. 圖片採用響應式圖片（srcset），依裝置解析度載入適當尺寸。\n5. 手機版首屏渲染 < 3 秒（4G網路環境）。",
     docPath: "/project-process/features/company-homepage.md",
@@ -1315,13 +1315,13 @@ const RAW_FEATURES: RoadmapFeature[] = [
     tddSpecDocPath: "/project-process/features/tdd-system-common-20260221.md",
     category: "通用/系統 (General/System)",
     points: 5,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "使用者身份驗證系統",
     locatedPage: "web/login, web/register, superadmin/middleware",
-    percentage: 95,
+    percentage: 98,
     acceptanceCriteria:
       "1. 支援 Email/密碼登入與 Google OAuth 登入。\n2. JWT Token 有效期24小時，Refresh Token 有效期7天。\n3. 連續5次登入失敗後帳號暫時鎖定（15分鐘）。\n4. 新裝置登入時發送 Email 安全通知。\n5. 密碼需符合強度要求（最少8字元、含大小寫與數字）。\n6. Superadmin middleware session refresh cookie 需正確保留（2026/04/13 修復）。",
     docPath: "/project-process/features/auth-system.md",
@@ -1343,8 +1343,8 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "⚠️ redirect 時必須複製 cookie，否則 session refresh 靜默失敗\n" +
       "⚠️ 新建 middleware 需與主站 pattern 交叉比對\n" +
       "**下階段**：抽取共用 middleware Supabase client 到 packages/；補 E2E session refresh 測試",
-    lastModifiedBy: "Claude Opus 4.6",
-    lastModifiedDate: "2026/04/13",
+    lastModifiedBy: "Paperclip Agent",
+    lastModifiedDate: "2026/04/14",
   },
   {
     name: "註冊的使用者都有自己的行事曆管理頁面",
@@ -1735,23 +1735,24 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員-AI 服務設定（API 金鑰與模型費用）",
     locatedPage: "superadmin/settings/api_key_and_model_setting",
-    percentage: 86,
+    percentage: 97,
     acceptanceCriteria:
       "1. API 金鑰管理：從 .env 導入、單筆/全部刪除、金鑰驗證。\n2. 未登入時以 resolveUserId fallback 寫入/讀取 Supabase（keys/models/modules/prompts）。\n3. 側欄組態概況：已選總 models 數量即時反映各 provider 勾選加總。\n4. 儲存設定按鈕：將畫面上已選模型寫入 ai_model_selections。\n5. 分頁命名：模型費用說明；說明文案導向「模型費用說明」分頁。",
-    docPath: "/docs/update-project-progress-guide.md",
+    docPath: "/project-process/test-logs/test-ai-settings-adapter-config-2026-04-17.md",
+    devLogDocPath: "/project-process/dev-logs/dev-ai-settings-adapter-config-2026-04-17.md",
     featureSpecDocPath: "/project-process/features/tdd-ai-settings-20260221.md",
     tddSpecDocPath: "/project-process/features/tdd-ai-settings-20260221.md",
     category: "超級管理員 (Super Admin)",
     points: 5,
     devLog:
-      "### 2026-03-04 更新\n- 修復 AI 模型全域評測 Prompt 測試功能無限重渲染 bug（Maximum update depth exceeded）。\n- 根本原因：page.tsx 每次渲染時 currentKeys 產生新陣列引用，導致 allRows→handleBatchTest→headerActionsRef useEffect 形成無限迴圈。\n- 修復方案（雙重防護）：(1) ModelEvaluator.tsx 使用 stable ref 模式（handleBatchTestRef + stableRunBatchTest），移除 handleBatchTest 作為 useEffect dep；(2) page.tsx 以 useMemo 穩定 currentKeys 引用。\n- TDD：新增 5 個批次測試執行行為測試案例，共 28 個測試全部通過。\n\n### 2026-03-06 更新\n- 在「已選/可選模型評估」分頁列右側新增「AI 模型全域評測」按鈕。\n- 按鈕重用既有 isEvalToolbarOpen 狀態，僅切換本頁全域評測面板顯示，不影響其他頁面功能。\n- 補上 aria-controls 對應面板 id（global-test-settings-panel），強化可及性。\n\n### 2026-03-06 更新（調整）\n- 移除 ModelEvaluator 表頭「AI 模型全域評測」按鈕與 onOpenGlobalTestPanel 相關程式碼。\n- 移除 settings/api_key_and_model_setting 的 `*-global-test` hash 入口，`#blog-global-test` 不再觸發對應頁面行為。\n- 同步刪除已不適用的按鈕行為測試案例，避免測試與現況不一致。\n\n### 2026-03-06 更新（獨立頁）\n- 「AI 模型全域評測」按鈕改為固定顯示在分頁列右側，不再只在 evaluations 分頁顯示。\n- 按鈕改為導向獨立頁 `/superadmin/settings/evaluations-global-test`，不再綁定 `#evaluations` 或本頁內嵌面板開關。\n- 移除 api_key_and_model_setting 內嵌的 AI 模型全域評測面板，避免與獨立頁重複。\n\n### 2026-03-06 更新（批次報告）\n- 批次測試完成後，自動將結果快照寫入 localStorage（最近一次報告）。\n- 新增「檢視最近報告」動作，透過 headerActionsRef 暴露給頁首按鈕呼叫。\n- 在「開始全域評測」旁新增「檢視最近報告」按鈕，使用者可隨時重新開啟最近一次批次結果視窗。\n\n### 2026-03-06 更新（UX 精簡）\n- 將右側設定區主流程收斂為「雲端 Prompt 選擇/載入 + 儲存雲端新版本 + 開始全域評測」。\n- 補上「載入雲端 Prompt」明確動作，避免僅選取下拉選單卻未真正載入內容的混淆。\n- 將本機 Prompt、下載、刪除雲端等操作收進「進階設定」摺疊區，降低主畫面複雜度。\n\n### 2026-03-06 更新（提示與確認流程）\n- 將 evaluations-global-test 頁面的 window.alert / window.confirm 全數移除，改為頁內 inline 提示訊息。\n- 刪除本機 Prompt 與刪除雲端 Prompt 改為「二次點擊確認」流程，避免誤刪且不中斷操作。\n- 提示訊息統一在右側設定區顯示，成功/錯誤/資訊狀態一致化。\n\n### 2026-03-06 更新（最近報告一鍵修正）\n- 新增「套用最近報告修正狀態」按鈕，將最近批次報告一次套用到模型分類與狀態。\n- 依報告內容自動推斷 `display_status_override`（VLM/LLM/不可用）並同步更新 `is_working`、`notes`、`last_tested_at`。\n- 套用後即回寫 ai_model_evaluations，避免逐筆手動調整模型狀態。\n\n### 2026-03-06 更新（移除混亂控件）\n- 依使用者回饋移除右側設定區的雲端 Prompt 管理與進階設定區塊（含載入、版本命名、儲存版本、本機 Prompt、刪除與下載）。\n- 僅保留核心流程：上傳測試檔案、編輯全域評測 Prompt、開始全域評測、檢視最近報告、套用最近報告修正狀態。\n\n### 2026-04-09 更新\n- 將 `/superadmin/settings` 首頁入口與 `api_key_and_model_setting` 頁面的跳轉按鈕命名統一為「AI 模型全域評測」。\n- 將 `/superadmin/settings/evaluations-global-test` 頁內主標題與麵包屑同步調整為「AI 模型全域評測」。\n- 將 settings 相關使用者可見文案、元件註解與規劃文件同步收斂為「AI 模型全域評測」與「全域評測 Prompt」等一致說法。\n- 保持既有路由不變，只修正跨頁入口、頁內標題與說明文案命名一致性。\n\n### 2026-04-11 更新\n- BottomSheetTabs 在「OCR解析設定」左側新增「LLM Leader Board」分頁（`#llm-leaderboard`）。\n- 新增 `GET /api/artificial-analysis/llm-leaderboard`：伺服器端抓取 artificialanalysis.ai leaderboard SSR HTML 並解析表格列；前端 `LlmLeaderboardPanel` 以 EnhancedTable 呈現並每日自動同步、可手動刷新。\n\n### 2026-04-11 更新（Qwen 整合）\n- 新增 Qwen（Alibaba DashScope / 通義千問）為第 11 家 AI 供應商，API 金鑰導入、驗證、連線測試、OCR 謄本解析全流程打通。\n- `AIProvider` 型別擴充 `'qwen'`；`AI_PROVIDERS` 新增 Qwen 卡片，內含 qwen-max / qwen-plus / qwen-turbo / qwen-vl-max / qwen-vl-plus / qwq-32b-preview 六個模型與定價。\n- `/api/ai-settings/keys/validate`：新增 `validateQwen`，主打 DashScope 國際區 OpenAI-compatible `/models` 端點，404/403 時回退 `/chat/completions` 1-token 探針。\n- `/api/ai-settings/models/test`：新增 `testQwen`，支援 qwen-vl-* 模型以 image_url 內嵌圖片進行多模態測試。\n- `lib/utils/ai-api-callers.ts`：新增 `callQwen`，供 OCR 謄本解析（TRANSCRIPT_PARSE_PROMPT）與多模型共識使用，強制 JSON 輸出格式。\n- Migration `20260411120000_add_qwen_provider.sql`：將 `'qwen'` 加入 `ai_api_keys` / `ai_model_selections` / `ai_chat_logs` / `ai_model_evaluations` / `ai_key_validation_cache` 五張表的 provider CHECK constraint。\n- UI 細節：`ApiKeyManager` 自動從 `AI_PROVIDERS.map` 渲染出 Qwen 卡片，新增 Qwen 品牌紫色 `#615CED`；`ModelSettingsModal` 的 `PROVIDER_DOCS` 補上 Qwen API 參數連結。",
+      "### 2026-03-04 更新\n- 修復 AI 模型全域評測 Prompt 測試功能無限重渲染 bug（Maximum update depth exceeded）。\n- 根本原因：page.tsx 每次渲染時 currentKeys 產生新陣列引用，導致 allRows→handleBatchTest→headerActionsRef useEffect 形成無限迴圈。\n- 修復方案（雙重防護）：(1) ModelEvaluator.tsx 使用 stable ref 模式（handleBatchTestRef + stableRunBatchTest），移除 handleBatchTest 作為 useEffect dep；(2) page.tsx 以 useMemo 穩定 currentKeys 引用。\n- TDD：新增 5 個批次測試執行行為測試案例，共 28 個測試全部通過。\n\n### 2026-03-06 更新\n- 在「已選/可選模型評估」分頁列右側新增「AI 模型全域評測」按鈕。\n- 按鈕重用既有 isEvalToolbarOpen 狀態，僅切換本頁全域評測面板顯示，不影響其他頁面功能。\n- 補上 aria-controls 對應面板 id（global-test-settings-panel），強化可及性。\n\n### 2026-03-06 更新（調整）\n- 移除 ModelEvaluator 表頭「AI 模型全域評測」按鈕與 onOpenGlobalTestPanel 相關程式碼。\n- 移除 settings/api_key_and_model_setting 的 `*-global-test` hash 入口，`#blog-global-test` 不再觸發對應頁面行為。\n- 同步刪除已不適用的按鈕行為測試案例，避免測試與現況不一致。\n\n### 2026-03-06 更新（獨立頁）\n- 「AI 模型全域評測」按鈕改為固定顯示在分頁列右側，不再只在 evaluations 分頁顯示。\n- 按鈕改為導向獨立頁 `/superadmin/settings/evaluations-global-test`，不再綁定 `#evaluations` 或本頁內嵌面板開關。\n- 移除 api_key_and_model_setting 內嵌的 AI 模型全域評測面板，避免與獨立頁重複。\n\n### 2026-03-06 更新（批次報告）\n- 批次測試完成後，自動將結果快照寫入 localStorage（最近一次報告）。\n- 新增「檢視最近報告」動作，透過 headerActionsRef 暴露給頁首按鈕呼叫。\n- 在「開始全域評測」旁新增「檢視最近報告」按鈕，使用者可隨時重新開啟最近一次批次結果視窗。\n\n### 2026-03-06 更新（UX 精簡）\n- 將右側設定區主流程收斂為「雲端 Prompt 選擇/載入 + 儲存雲端新版本 + 開始全域評測」。\n- 補上「載入雲端 Prompt」明確動作，避免僅選取下拉選單卻未真正載入內容的混淆。\n- 將本機 Prompt、下載、刪除雲端等操作收進「進階設定」摺疊區，降低主畫面複雜度。\n\n### 2026-03-06 更新（提示與確認流程）\n- 將 evaluations-global-test 頁面的 window.alert / window.confirm 全數移除，改為頁內 inline 提示訊息。\n- 刪除本機 Prompt 與刪除雲端 Prompt 改為「二次點擊確認」流程，避免誤刪且不中斷操作。\n- 提示訊息統一在右側設定區顯示，成功/錯誤/資訊狀態一致化。\n\n### 2026-03-06 更新（最近報告一鍵修正）\n- 新增「套用最近報告修正狀態」按鈕，將最近批次報告一次套用到模型分類與狀態。\n- 依報告內容自動推斷 `display_status_override`（VLM/LLM/不可用）並同步更新 `is_working`、`notes`、`last_tested_at`。\n- 套用後即回寫 ai_model_evaluations，避免逐筆手動調整模型狀態。\n\n### 2026-03-06 更新（移除混亂控件）\n- 依使用者回饋移除右側設定區的雲端 Prompt 管理與進階設定區塊（含載入、版本命名、儲存版本、本機 Prompt、刪除與下載）。\n- 僅保留核心流程：上傳測試檔案、編輯全域評測 Prompt、開始全域評測、檢視最近報告、套用最近報告修正狀態。\n\n### 2026-04-09 更新\n- 將 `/superadmin/settings` 首頁入口與 `api_key_and_model_setting` 頁面的跳轉按鈕命名統一為「AI 模型全域評測」。\n- 將 `/superadmin/settings/evaluations-global-test` 頁內主標題與麵包屑同步調整為「AI 模型全域評測」。\n- 將 settings 相關使用者可見文案、元件註解與規劃文件同步收斂為「AI 模型全域評測」與「全域評測 Prompt」等一致說法。\n- 保持既有路由不變，只修正跨頁入口、頁內標題與說明文案命名一致性。\n\n### 2026-04-11 更新\n- BottomSheetTabs 在「OCR解析設定」左側新增「LLM Leader Board」分頁（`#llm-leaderboard`）。\n- 新增 `GET /api/artificial-analysis/llm-leaderboard`：伺服器端抓取 artificialanalysis.ai leaderboard SSR HTML 並解析表格列；前端 `LlmLeaderboardPanel` 以 EnhancedTable 呈現並每日自動同步、可手動刷新。\n\n### 2026-04-11 更新（Qwen 整合）\n- 新增 Qwen（Alibaba DashScope / 通義千問）為第 11 家 AI 供應商，API 金鑰導入、驗證、連線測試、OCR 謄本解析全流程打通。\n- `AIProvider` 型別擴充 `'qwen'`；`AI_PROVIDERS` 新增 Qwen 卡片，內含 qwen-max / qwen-plus / qwen-turbo / qwen-vl-max / qwen-vl-plus / qwq-32b-preview 六個模型與定價。\n- `/api/ai-settings/keys/validate`：新增 `validateQwen`，主打 DashScope 國際區 OpenAI-compatible `/models` 端點，404/403 時回退 `/chat/completions` 1-token 探針。\n- `/api/ai-settings/models/test`：新增 `testQwen`，支援 qwen-vl-* 模型以 image_url 內嵌圖片進行多模態測試。\n- `lib/utils/ai-api-callers.ts`：新增 `callQwen`，供 OCR 謄本解析（TRANSCRIPT_PARSE_PROMPT）與多模型共識使用，強制 JSON 輸出格式。\n- Migration `20260411120000_add_qwen_provider.sql`：將 `'qwen'` 加入 `ai_api_keys` / `ai_model_selections` / `ai_chat_logs` / `ai_model_evaluations` / `ai_key_validation_cache` 五張表的 provider CHECK constraint。\n- UI 細節：`ApiKeyManager` 自動從 `AI_PROVIDERS.map` 渲染出 Qwen 卡片，新增 Qwen 品牌紫色 `#615CED`；`ModelSettingsModal` 的 `PROVIDER_DOCS` 補上 Qwen API 參數連結。\n\n### 2026-04-17 更新（Kilo / OpenCode HTTP 驗證）\n- 新增 `lib/ai-key-validation/kilo-opencode-zen.ts`：Kilo Gateway（`https://api.kilo.ai/api/gateway`）與 OpenCode Zen（`GET /zen/v1/models`）真實 HTTP 驗證；Kilo 必要時以 `POST …/chat/completions` 1-token probe，probe 模型優先取 `/models` 列表第一筆。\n- `api/ai-settings/keys/validate`：`validateKilo` / `validateOpenCode` 改接上述驗證器並套用 `buildModelInfo`。\n- `api/ai-settings/models/test`：`testKilo` / `testOpenCode` 改為與其他 provider 相同之 OpenAI-compatible 連線測試。\n- Jest：`lib/ai-key-validation/__tests__/kilo-opencode-zen.test.ts`（6 tests，mock fetch）。\n- Migration `20260417113000_add_kilo_opencode_provider.sql`：擴充 `ai_api_keys` 等表之 provider CHECK，解決 `ai_api_keys_provider_check`。\n- `ai-providers.ts`：`kilo` / `opencode` 卡片 Base URL 對齊 Gateway / Zen。\n- 本機 `.env`：`DATABASE_URL` 對齊 Supabase local 埠 **54322**（避免誤用 5432）。\n- 詳細日誌：`/project-process/test-logs/test-ai-settings-adapter-config-2026-04-17.md` §7。\n\n### 2026-04-17 更新（Adapter Config 表格 UI）\n- 修復 Adapter Config「從 Prompt Management 選擇」下拉在橫向捲動表格內操作異常：於 `textarea`／`select`／「載入」鈕加上 `mousedown`／`pointerdown` 的 `stopPropagation()`；`select` 加 `relative z-10`；`setAdapterConfigDrafts` 以 `prev[item.id]` functional merge，避免 stale draft。\n- 移除執行控制列冗餘狀態文字（如「尚未開始」）及 `ADAPTER_RUN_STATUS_LABEL`／`createAdapterConfigColumns` 的 `runStatusLabel` 依賴。\n- 完整敘述、踩雷與明日排程見同檔 **§8**。\n- **Paperclip**：請於已配置環境透過 `POST /api/paperclip/issues` 或 Project Progress Prompt Engineer 建立 `[Row100][2026-04-17] AI Settings — Adapter Config UI` 議題，並通知 CEO Dashboard（`/VIS/agents/ceo/dashboard`）。",
     testProgress:
-      "TDD: 28/28 tests passing（含 統一/單一 prompt 測試功能完整測試）",
-    testCoverage: 15,
-    testScriptCount: 28,
-    testScriptPassedCount: 28,
-    lastModifiedBy: "Claude Opus 4.6",
-    lastModifiedDate: "2026/04/11",
+      "TDD: 40/40 tests passing（含 kilo-opencode-zen 6 tests + adapter fallback 6 + 既有 28）",
+    testCoverage: 24,
+    testScriptCount: 40,
+    testScriptPassedCount: 40,
+    lastModifiedBy: "Cursor Agent",
+    lastModifiedDate: "2026/04/17",
   },
 
   // === 2026-02-21 新增任務 ===
@@ -2511,9 +2512,106 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "- ✅ 文件更新：CLAUDE.md, AGENTS.md, dispatch-agents/SKILL.md\n" +
       "- 待完成：UI 驗證、Agent Tab adapter 切換 dropdown",
   },
+  // --- Row 142: Elastic Observability MVP ---
+  {
+    name: "Elastic Observability MVP（APM / PostgreSQL / Docker / Synthetics）",
+    category: "通用/系統 (General/System)",
+    percentage: 0,
+    phase: "development",
+    points: 8,
+    locatedPage: "start.sh + tools/observability + docs/operational-guides",
+    featureSpecDocPath:
+      "/project-process/features/elastic-observability-mvp-dev-spec-20260414.md",
+    tddSpecDocPath:
+      "/project-process/features/tdd-elastic-observability-mvp-20260414.md",
+    docPath:
+      "/project-process/test-logs/test-elastic-observability-mvp-2026-04-14.md",
+    testScriptPath: "apps/superadmin/unit_test/142",
+    acceptanceCriteria:
+      "1. 完成 Kibana/Fleet 套件來源連線治理（online 或自建 registry）並可安裝目標 integrations。\n" +
+      "2. 第一期整合至少包含 System、Docker、APM（Node.js / Python）、PostgreSQL、Synthetics。\n" +
+      "3. 建立 4 張 MVP dashboard（Platform Health、Journey Performance、OCR Pipeline、DB Reliability）。\n" +
+      "4. 設定 5 條核心告警（p95 latency、5xx ratio、OCR fail rate、DB connections、container restart）。\n" +
+      "5. 完成開發與測試文件、腳本與 roadmap 欄位更新，驗收可重現。",
+    developmentProgress:
+      "Task ID: ELASTIC-OBS-142。2026/04/14 已完成第一波落地：\n" +
+      "• start.sh 新增 observability 指令與選單入口（執行 Fleet registry + MVP smoke 檢查）。\n" +
+      "• 新增 tools/observability/check-fleet-registry.sh（EPR/Fleet 連線檢查，含容器視角）。\n" +
+      "• 新增 tools/observability/mvp-smoke.sh（ES/Kibana 可達、容器狀態、APM/System/Docker/PostgreSQL/Synthetics index 提示）。\n" +
+      "• 新增 docs/operational-guides/elastic-observability-mvp.md 與 elastic-alert-thresholds.md。\n" +
+      "• test-manifest 新增 id=142，納入 observability 工具腳本。\n" +
+      "待完成：實際 integrations 安裝、4 張 dashboard 建置、5 條告警建立與觸發驗證。",
+    testProgress:
+      "已完成腳本層驗證（語法/執行/manifest）；待完成 integrations 實裝後的 dashboard 與告警驗收。",
+    lastModifiedBy: "GPT-5.3-Codex",
+    lastModifiedDate: "2026/04/14",
+  },
+
+  // === 2026-04-17 新增 Row 143 ===
+  {
+    name: "Adapter CLI 文件自動更新流程（15 天排程）",
+    category: "專案管理與工具 (Project Management)",
+    percentage: 80,
+    phase: "development",
+    points: 3,
+    locatedPage: "docs/Adapter CLIs/",
+    featureSpecDocPath: "",
+    tddSpecDocPath: "",
+    docPath: "",
+    testScriptPath: "",
+    devLog:
+      "### 2026-04-17 完成項目\n" +
+      "- 建立 `scripts/collect-cli-help.sh`：自動對 6 個 CLI（claude/codex/cursor/opencode/gemini/kilo）執行 --help，收集原始輸出到 /tmp/cli-help-raw/，含子指令深層 help、版本偵測、缺少 CLI 清單\n" +
+      "- 建立 `.claude/commands/update-cli-docs.md`：Claude Command，讀取 help 輸出 + Context7 MCP 補齊未安裝 CLI，比對現有 7 份 Adapter CLI 文件並更新 6 欄表格，產生 changelog summary\n" +
+      "- 設計半自動流程：cron 定時收集 → 通知 → 手動 `/update-cli-docs` 觸發更新\n" +
+      "- 格式規範直接嵌入 Command（不額外建 Skill），避免過度設計\n" +
+      "### 待完成\n" +
+      "- 首次實際執行 collect-cli-help.sh 驗證輸出\n" +
+      "- 首次執行 /update-cli-docs 端到端驗證\n" +
+      "- 設定 cron 排程（15 天）",
+    developmentProgress:
+      "2026/04/17：完成核心 shell script 與 Claude Command。\n" +
+      "交付物：scripts/collect-cli-help.sh、.claude/commands/update-cli-docs.md\n" +
+      "架構決策：Command 為主（流程編排）、不建獨立 Skill（格式規範嵌入 Command）、半自動排程（cron 收集 + 手動觸發更新）。",
+    lastModifiedBy: "Claude Opus 4.6",
+    lastModifiedDate: "2026/04/17",
+  },
+  // --- Row 144: 尋人資料庫 — 樹狀資料來源管理 + 進階關聯分析 ---
+  {
+    name: "超級管理員-尋人資料庫：樹狀資料來源管理 + 進階關聯分析（ID 144）",
+    locatedPage: "superadmin/settings/people-database",
+    percentage: 97,
+    category: "超級管理員 (Super Admin)",
+    points: 13,
+    phase: "testing",
+    testStatus: "passed",
+    testCoverage: 92,
+    unitTestCoverage: 96,
+    e2eTestCoverage: 20,
+    defectCount: 0,
+    featureDescription:
+      "承接 Row 131 / 132，將平鋪 data_source 勾選升級為樹狀層級面板，支援資料夾層級 Import 與 dataset 元資料管理（重新命名、合併、啟停、收藏），並新增身分證反查房產、親友關係圖譜推論等進階功能，讓尋人資料庫能真正解決『找到正確且對的人』並交叉驗證。",
+    acceptanceCriteria:
+      "1. 搜尋頁左側顯示樹狀資料來源面板，節點可展開收合並顯示 count/last_imported_at/quality/大小警告。\n2. 預設 preset 為『最近使用』而非『全選』，可切換至『收藏』。\n3. 勾選父節點以 ES dataset_path prefix filter 涵蓋所有子節點。\n4. Dataset 管理頁可重新命名、合併、拆分、啟停、收藏；操作後 ES 與 Postgres 同步。\n5. Import 保留資料夾層級（dataset_root + dataset_subpath）。\n6. 單人詳情頁支援身分證反查 properties 與親友關係圖譜。\n7. 新 API 有整合測試，前端面板與管理頁有 E2E 覆蓋。",
+    featureSpecDocPath:
+      "/project-process/features/people-db-dataset-tree-dev-spec-20260417.md",
+    tddSpecDocPath:
+      "/project-process/features/tdd-people-db-dataset-tree-20260417.md",
+    docPath:
+      "/project-process/test-logs/test-people-db-dataset-tree-2026-04-17.md",
+    devLogDocPath:
+      "/project-process/dev-logs/dev-people-db-dataset-tree-2026-04-17.md",
+    testScriptPath: "apps/superadmin/unit_test/144",
+    developmentProgress:
+      "2026/04/17（設計階段）\n- 探勘 Row 131/132 既有實作：ES mapping、search/import 前端、FastAPI proxy 權限鏈\n- 掃描使用者實體資料夾 /Volumes/KLEVV-4T-2/台灣尋人資料庫（30+ 子目錄，有明顯階層）\n- 確認 Row 132 acceptance #5『預設全選』導致實質無 scope filter，應改為『最近使用』preset + scope hint\n- 完成 4 項核心設計變更：樹狀面板、Import 層級化、Dataset 管理頁、身分證反查\n- 建立 dev-spec / tdd-spec / dev-log / test-log 骨架與 unit_test/144、e2e/144 目錄\n\n2026/04/17（Sprint 1 實作 — Claude Opus 4.7）\n- 關鍵發現：backend/ocr_service FastAPI 已在 OpenClaw migration 被刪除。改為 Next.js route handler 直連本機 ES。\n- 交付：dataset-tree 純函式、es-gateway helper、/api/people-db/dataset-tree 路由、DatasetTreePanel 組件、搜尋頁 2-欄 grid + legacy fallback\n- 測試：jest 19/19 全綠；curl 307/401 正常\n\n2026/04/17 → 04/18（Sprint 2 實作 — Claude Opus 4.7）\n- ES mapping：新增 dataset_path/dataset_root/dataset_subpath keyword 欄位，`_update_by_query` backfill 5 docs 成功（tools/people-db/add-dataset-path-mapping.sh）\n- Supabase：20260417184500 migration 建 dataset_metadata 表 + 完整 RLS（super_admin CRUD）+ trigger + 部分索引\n- 純函式 search-strategy：classifyQuery、normalizePhone、buildSearchBody\n- 新 API：/search、/datasets、/stats、/datasets/metadata；/dataset-tree 合併 Supabase overrides\n- 前端：Dataset 管理頁 /sources + 匯入頁 inferDatasetPath + 首頁快捷鍵\n- 測試：jest 34/34 全綠\n\n2026/04/18（Sprint 3 實作 — Claude Opus 4.7）\n- 純函式：parseCsv（RFC 4180）、normalizeAddress（台灣縣市/區/路段切割 + 全形→半形）、mapRowsToDocuments + computeQuality\n- esBulkIndex helper 加到 es-gateway（分批 500 筆 + 失敗逐筆回報）\n- 新 API：POST /import/preview（CSV 解析 + sample）、POST /import/submit（stateless：file + mapping multipart，直接 bulk ES）、GET /related（依 record_id/address/phone/mobile/company 找關聯人）\n- 前端：匯入頁 submit 改為 multipart FormData（file + column_mapping JSON），新增 .txt 為支援格式\n- 格式策略：Sprint 3 只支 CSV/TXT，xlsx/pdf 回 415 + 明示 Sprint 4 支援（避免引入有 CVE 的 xlsx 套件）\n- 測試：jest 58/58（新增 csv-parse 10 + address-normalize 8 + import-mapper 6）全綠；curl smoke 9 routes 全部 401；tsc exit 0\n\n2026/04/18（Sprint 4 實作 — Claude Opus 4.7）\n- 範圍調整：聚焦『使用者價值最高、無新依賴』兩條路徑；Excel/PDF + 大檔背景任務 + E2E 推遲到 Sprint 5（避免 xlsx CVE 與 RFC 評估）\n- Phase A 親友圖譜 UI：RelatedPeoplePanel client 元件（4 群組折疊式 + scope hint + loading/empty/error）、GET /api/people-db/person/[recordId] 詳情 API、/superadmin/settings/people-database/person/[recordId] 詳情頁（左主檔 + 右側 sticky 親友面板）、搜尋結果姓名連結到詳情頁\n- Phase B Dataset 批次操作：POST /api/people-db/datasets/metadata/bulk（≤500 筆/次，只開放 favorited / enabled，避免誤覆蓋 display_name）、Sources 頁 multi-select + 浮動工具列（收藏/取消收藏/啟用/停用/清除選取）\n- 測試：jest 65/65（新增 RelatedPeoplePanel 7 cases）全綠；curl smoke /person/[recordId] 401、bulk 401、/person 詳情頁 307 OK\n- 下一步 Sprint 5：Excel/PDF 解析（評估 exceljs 或 OpenClaw queue）、>5MB 背景任務、跨頁 E2E\n\n2026/04/18（Sprint 5 實作 — Claude Opus 4.7）\n- Excel 解析：自寫 xlsx-parse 走 jszip + OOXML 直解（避免 xlsx/exceljs 的 CVE 與 500kB+ 增量）；支援共享字串、inline string、稀疏欄位（A/C 跳過 B）、col_N 空 header 替換；單測 8/8\n- PDF 解析：pdfjs-dist v4 legacy build + disableWorker 在 route handler 內解析；stitchTextItems 以 y-coordinate 斷行、parsePdfTabular 選 tab > 2+ spaces > single space delimiter；likelyScanned 只在 totalChars===0 觸發；單測 6/6\n- 統一派送層 parse-dispatch：preview 與 submit 共用單一副檔名政策（.csv/.txt/.xlsx/.pdf），刻意不支 .xls 舊 BIFF；單測 7/7\n- 背景任務佇列：migration 20260418120000 建 people_import_jobs 表（4 狀態）+ people-imports Storage bucket（super_admin+service_role RLS 雙軌）；新 API /api/people-db/import/jobs（enqueue/list）、/jobs/[id]（detail）、/jobs/[id]/process（worker）\n- 共用 lib/people-db/import-jobs.ts：buildStoragePath 以 YYYY/MM/DD/<jobId>/<file> 分桶；processImportJob 用 conditional update 做原子 claim（pending→processing）避免雙 worker 搶同一 row；單測 8/8\n- 匯入頁 UI：accept list 與派送層對齊；≥5MB 檔案自動改打 /jobs 再立刻 POST /process；Done state 分同步 batch_id 與非同步 job_id 兩欄呈現\n- E2E：e2e/144/search-to-related.spec.ts 驗證 search → detail → RelatedPeoplePanel → 跳下一人；test-manifest.json 加入 Row 144 項目（pr tier）\n- 測試：jest 78/78 全綠（Sprint 5 新增 29 cases：xlsx 8 + pdf 6 + parse-dispatch 7 + import-jobs 8）；tsc 無 people-db 錯誤；validate-test-manifest.sh 通過\n- Sprint 5b/6 待辦：背景任務 cron 排程、匯入記錄 UI、scanned PDF → OpenClaw OCR 對接",
+    testProgress:
+      "Sprint 1-5 jest 78/78 通過（dataset-tree 7 + DatasetTreePanel 11 + search-strategy 8 + csv-parse 10 + address-normalize 10 + import-mapper 10 + RelatedPeoplePanel 7 + xlsx-parse 8 + pdf-parse 6 + parse-dispatch 7 + import-jobs 8）。curl smoke：17 個 /api/people-db/* 路由（新增 preview/xlsx、jobs POST/GET、jobs/[id]、jobs/[id]/process 共 5 條）全部 401 guard 正確。E2E：e2e/144/search-to-related.spec.ts 已入 test-manifest（pr tier）。",
+    lastModifiedBy: "Claude Opus 4.7",
+    lastModifiedDate: "2026/04/18",
+  },
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/14",
+  lastUpdated: "2026/04/18 Sprint 5",
   features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
 };

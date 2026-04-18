@@ -2,6 +2,15 @@ export type CustomerStatus = 'potential' | 'negotiating' | 'closed' | 'lost'
 
 export type CustomerIntent = 'rent' | 'buy' | 'both' | 'undecided'
 
+/** 已成交客戶在房東端的角色標記（對應買家 / 簽約租客儀表板入口） */
+export type ClosedRoleTag = 'buyer' | 'signed_tenant'
+
+export type ClosedDealInfo = {
+  closedAt: string
+  propertyLabel: string
+  amountTwd: number | null
+}
+
 export type FollowUpEntry = {
   id: string
   content: string
@@ -23,12 +32,24 @@ export type CommunicationEntry = {
   channel: 'system' | 'note' | 'message'
 }
 
+export type TenantProfile = {
+  creditScore: number | null
+  monthlyIncome: number | null
+  occupationType: string | null
+}
+
 export type CustomerDetailsPayload = {
   summaryNote: string
   intent: CustomerIntent
   followUps: FollowUpEntry[]
   viewingRecords: ViewingRecord[]
   communicationLog: CommunicationEntry[]
+  tenantProfile?: TenantProfile
+  /** 已成交客戶封存後仍保留紀錄，預設自清單隱藏 */
+  archived: boolean
+  /** 已成交客戶標記為買家或已簽約租客，用於導向對應儀表板 */
+  closedRoleTag: ClosedRoleTag | null
+  closedDeal: ClosedDealInfo | null
 }
 
 const DEFAULT_DETAILS: CustomerDetailsPayload = {
@@ -37,6 +58,9 @@ const DEFAULT_DETAILS: CustomerDetailsPayload = {
   followUps: [],
   viewingRecords: [],
   communicationLog: [],
+  archived: false,
+  closedRoleTag: null,
+  closedDeal: null,
 }
 
 type PartialDetails = Partial<CustomerDetailsPayload>
@@ -86,6 +110,67 @@ function normalizeViewingRecords(value: unknown): ViewingRecord[] {
     .filter((item) => item.propertyLabel.length > 0)
 }
 
+function normalizeTenantProfile(value: unknown): TenantProfile | undefined {
+  if (!isObject(value)) {
+    return undefined
+  }
+
+  const creditRaw = value.creditScore
+  const incomeRaw = value.monthlyIncome
+  const occupationRaw = value.occupationType
+
+  const creditScore =
+    typeof creditRaw === 'number' && Number.isFinite(creditRaw)
+      ? creditRaw
+      : typeof creditRaw === 'string' && creditRaw.trim() !== '' && Number.isFinite(Number(creditRaw))
+        ? Number(creditRaw)
+        : null
+
+  const monthlyIncome =
+    typeof incomeRaw === 'number' && Number.isFinite(incomeRaw)
+      ? incomeRaw
+      : typeof incomeRaw === 'string' && incomeRaw.trim() !== '' && Number.isFinite(Number(incomeRaw))
+        ? Number(incomeRaw)
+        : null
+
+  const occupationType =
+    typeof occupationRaw === 'string' && occupationRaw.trim().length > 0 ? occupationRaw.trim() : null
+
+  if (creditScore === null && monthlyIncome === null && occupationType === null) {
+    return undefined
+  }
+
+  return { creditScore, monthlyIncome, occupationType }
+}
+
+function normalizeClosedRoleTag(value: unknown): ClosedRoleTag | null {
+  if (value === 'buyer' || value === 'signed_tenant') {
+    return value
+  }
+  return null
+}
+
+function normalizeClosedDeal(value: unknown): ClosedDealInfo | null {
+  if (!isObject(value)) {
+    return null
+  }
+  const closedAt = typeof value.closedAt === 'string' ? value.closedAt : ''
+  const propertyLabel = typeof value.propertyLabel === 'string' ? value.propertyLabel.trim() : ''
+  if (!closedAt || !propertyLabel) {
+    return null
+  }
+  let amountTwd: number | null = null
+  if (value.amountTwd === null || value.amountTwd === undefined || value.amountTwd === '') {
+    amountTwd = null
+  } else if (typeof value.amountTwd === 'number' && Number.isFinite(value.amountTwd)) {
+    amountTwd = value.amountTwd
+  } else if (typeof value.amountTwd === 'string') {
+    const n = Number(value.amountTwd.replace(/,/g, ''))
+    amountTwd = Number.isFinite(n) ? n : null
+  }
+  return { closedAt, propertyLabel, amountTwd }
+}
+
 function normalizeCommunicationLog(value: unknown): CommunicationEntry[] {
   if (!Array.isArray(value)) {
     return []
@@ -96,7 +181,8 @@ function normalizeCommunicationLog(value: unknown): CommunicationEntry[] {
     .map((item, index) => {
       const summary = typeof item.summary === 'string' ? item.summary.trim() : ''
       const createdAt = typeof item.createdAt === 'string' ? item.createdAt : new Date(0).toISOString()
-      const channel = item.channel === 'note' || item.channel === 'message' ? item.channel : 'system'
+      const channel: CommunicationEntry['channel'] =
+        item.channel === 'note' || item.channel === 'message' ? item.channel : 'system'
       const id = typeof item.id === 'string' && item.id.trim().length > 0 ? item.id : `communication-${index + 1}`
       return { id, summary, createdAt, channel }
     })
@@ -131,12 +217,19 @@ export function parseCustomerDetails(rawNotes: string | null | undefined): Custo
     }
 
     const summaryNote = typeof parsed.summaryNote === 'string' ? parsed.summaryNote : ''
+    const tenantProfile = normalizeTenantProfile(parsed.tenantProfile)
+    const archived = parsed.archived === true
     return {
       summaryNote,
       intent: normalizeIntent(parsed.intent),
       followUps: normalizeFollowUps(parsed.followUps),
       viewingRecords: normalizeViewingRecords(parsed.viewingRecords),
       communicationLog: normalizeCommunicationLog(parsed.communicationLog),
+      ...(tenantProfile ? { tenantProfile } : {}),
+      ...(tenantProfile ? { tenantProfile } : {}),
+      archived,
+      closedRoleTag: normalizeClosedRoleTag(parsed.closedRoleTag),
+      closedDeal: normalizeClosedDeal(parsed.closedDeal),
     }
   } catch {
     return {
@@ -230,4 +323,34 @@ export function getIntentLabel(intent: CustomerIntent): string {
     default:
       return '尚未確定'
   }
+}
+
+/** Relative label for last activity (shared by grid + list views). */
+export function formatCustomerLastContact(input: { created_at: string; updated_at?: string }): string {
+  const dateStr = input.updated_at ?? input.created_at
+  const diffDays = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000)
+  if (diffDays === 0) return '今日'
+  if (diffDays === 1) return '昨日'
+  if (diffDays < 7) return `${diffDays}天前`
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}週前`
+  return `${Math.floor(diffDays / 30)}個月前`
+}
+
+export function getClosedRoleTagLabel(tag: ClosedRoleTag): string {
+  switch (tag) {
+    case 'buyer':
+      return '買家'
+    case 'signed_tenant':
+      return '已簽約租客'
+    default:
+      return ''
+  }
+}
+
+/** 儀表板統計用：已成交且未封存的客戶 */
+export function isActiveClosedLandlordCustomer(row: {
+  status?: string | null
+  notes?: string | null
+}): boolean {
+  return normalizeCustomerStatus(row.status ?? undefined) === 'closed' && !parseCustomerDetails(row.notes).archived
 }

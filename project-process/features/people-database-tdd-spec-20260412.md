@@ -73,7 +73,7 @@ npm test -- --runInBand app/superadmin/tools/page.test.tsx
 
 ### 2.1 資料清洗工具函式
 
-**檔案**：`backend/ocr_service/src/utils/people_data_cleaner.py`
+**檔案**：`apps/superadmin/lib/people-db/utils/people_data_cleaner.ts`
 
 ```python
 # test_people_data_cleaner.py
@@ -113,7 +113,7 @@ def test_remove_duplicates_in_row():
 
 ### 2.2 欄位映射與提取
 
-**檔案**：`backend/ocr_service/src/utils/field_extractor.py`
+**檔案**：`apps/superadmin/lib/people-db/utils/field_extractor.ts`
 
 ```python
 # test_field_extractor.py
@@ -161,7 +161,7 @@ def test_validate_field_mapping():
 
 ### 2.3 資料品質評分
 
-**檔案**：`backend/ocr_service/src/utils/quality_scorer.py`
+**檔案**：`apps/superadmin/lib/people-db/utils/quality_scorer.ts`
 
 ```python
 # test_quality_scorer.py
@@ -209,7 +209,7 @@ def test_quality_grade_classification():
 
 ### 2.4 ElasticSearch 查詢構建
 
-**檔案**：`backend/ocr_service/src/utils/es_query_builder.py`
+**檔案**：`apps/superadmin/lib/people-db/utils/es_query_builder.ts`
 
 ```python
 # test_es_query_builder.py

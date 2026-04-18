@@ -1,156 +1,90 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-本檔只保留「模型不易自行推斷」的專案規則與踩坑紀錄。
-不要重複路由結構、目錄導覽、檔案清單或 package scripts。
-
-詳細規則在 `.claude/rules/`，有疑問先讀那裡。
+本檔只放「每個 session 都該知道、且沒別處可放」的規則。
+架構、Supabase client、Next.js 慣例、踩坑細節 → 見 `.claude/rules/`。
+進度資料 → `apps/superadmin/app/data/roadmap.ts` 或 `http://localhost:3001/superadmin/dashboard/project-progress`。
 
 ## 硬性規定
 
 - TypeScript strict，禁 `any`
-- SQL 只能放 `supabase/migrations/`，格式 `YYYYMMDDHHMMSS_描述.sql`
+- SQL 只能放 `supabase/migrations/`，檔名 `YYYYMMDDHHMMSS_描述.sql`
 - 文檔/臨時檔不能放根目錄，單檔不超過 500 行
+- **新規則優先加到 `.claude/rules/`**，本檔只放 pointer；細節放 rules/ 按需讀，不塞本檔。定期執行 `/rules-audit` 檢查重複。
 
-## 架構
+## Rules 索引（有疑問先讀）
 
-Monorepo（npm workspaces）：
+| 主題 | 檔案 |
+|---|---|
+| 命名、檔案組織、Git、進度更新 | `.claude/rules/general.md` |
+| Supabase 客戶端、RLS、已知陷阱 | `.claude/rules/backend/supabase.md` |
+| Next.js / React 慣例、Badge / Sidebar / 設計 token | `.claude/rules/frontend/react-next.md` |
+| 禁止降級的套件（React 19 / Next 16 等） | `.claude/rules/critical-deps.md` |
 
-- `apps/web`（3000）：Next.js 16 App Router，主站（房東/租客/買家等），含 PWA
-- `apps/web-au`（3002）：Next.js 16，澳洲區站
-- `apps/superadmin`（3001）：Next.js 16 超級管理員後台
-- `apps/mobile`：Expo / React Native
-- `backend/`：Python FastAPI OCR 服務（8819）
-- `supabase/`：本地 Supabase（**PostgreSQL 17** + Auth + Storage）
-- `packages/`：共用 types
-
-## 啟動與常用指令
+## 啟動
 
 ```bash
-# 先開 Docker Desktop，再執行：
 ./start.sh                # 互動式選單
-./start.sh all            # 一鍵啟動全部服務
-
-# 測試（需進入各 app 目錄）
-cd apps/web && npx jest                          # 全部單元測試
-cd apps/web && npx jest path/to/file.test.tsx    # 單一測試檔
-cd apps/web && npm run test:e2e                  # E2E (Playwright)
-cd apps/superadmin && npx jest
-
-# Lint
-npm run lint --workspace web
-npm run lint --workspace web-au
-npm run lint --workspace superadmin
-
-# Supabase
-supabase db reset                                                      # 重置本地資料庫
-supabase db diff                                                       # 查看 schema 變更
-supabase gen types typescript --local > packages/types/database.ts     # 型別生成
+./start.sh all            # 全部服務（含 Elasticsearch + Kibana）
+./stop.sh                 # 停止
 ```
-
-## Supabase 客戶端（⚠️ 挑錯 import 會踩 RLS 雷）
-
-`@/` 為**各 app 自己的** path alias。完整分 app 說明：`.claude/rules/backend/supabase.md`。
-
-| App | Server（RLS） | Client（RLS） | 繞過 RLS（僅伺服器、需理由） |
-| :-- | :------------ | :------------ | :--------------------------- |
-| `apps/superadmin` | `createClient` `@/utils/supabase/server` | `createClient` `@/utils/supabase/client` | `createAdminClient` `@/utils/supabase/admin` |
-| `apps/web-au` | `createClient` `@/utils/supabase/server` | `createClient` `@/utils/supabase/client` | — |
-| `apps/web` | 多數 `@/lib/supabase/server`，部分 `@/utils/supabase/server` | 多數 `@/lib/supabase/client`，少數 `@/utils/supabase/client` | `createAdminClient` `@/utils/supabase/admin` |
-| `apps/mobile` | — | `@supabase/supabase-js`（Expo）；敏感操作用後端 API | 勿在 app 內嵌 service_role |
-
-認證輔助（web / web-au）：`@/lib/supabase/auth`。**新檔請與同目錄鄰近檔案的 import 風格一致。**
-
-## Next.js Server vs Client
-
-- 預設 Server Component；僅在需要互動（onClick, useState, useEffect）時加 `'use client'`
-- Pure utils 放 `utils.ts`（可任意 import）；Server Actions 放 `actions.ts`（`'use server'`，不可在 Client Component 中當一般函數 import）
-
-## 已知陷阱
-
-- `supabase migration up` 若報「inserted before last migration」→ 加 `--include-all`。若舊 migration 有 policy 衝突，改用 `psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres"` 直接執行 SQL，再手動 INSERT 進 `supabase_migrations.schema_migrations`。
-- Storage bucket `property-documents` 是 **private**，取用需透過 signed URL。
-- Badge variants 有效值：`'default' | 'success' | 'warning' | 'error' | 'info'`（**無 `'danger'`**）。
-- 色彩用 CSS token（`text-text-primary`、`bg-bg-secondary`、`border-border-default`、`text-accent`），不用 Tailwind 直接色名。
-- Superadmin 新增頁面：記得在 `apps/superadmin/components/layout/Sidebar.tsx` 的 `navItems` 加入對應路徑與 lucide-react 圖示。
-
-## 進度更新
-
-每次完成工作後，更新 `apps/superadmin/app/data/roadmap.ts` 的 `RAW_FEATURES` 陣列。完整說明見 `docs/update-project-progress-guide.md`。
-
-也可使用 Custom Command：`/daily-report`（自動產生報告 + 更新 roadmap + 判斷是否建 VIS issue）。
 
 ## Paperclip VIS 派工
 
-使用 `/dispatch-agents` Skill 從 roadmap 挑選 feature 並指派給 Paperclip agent。
+使用 `/dispatch-agents` skill。
 
 **關鍵規則**：
 - 建立 issue **必須**透過 `POST localhost:3001/api/paperclip/issues`（superadmin API），不可直接打 Paperclip API（缺 worktree 會導致 agent 失敗）
 - Title 格式必須含 `[Row XXX]`，如 `[Row 031] 房東的客戶 Grid模式`
-- 切換 adapter 時**必須同時更新 `adapterConfig.model`**（見下方對照表）
-
-**Adapter / Model 對照**：
+- 切換 adapter 時**必須同時更新 `adapterConfig.model`**
 
 | Adapter | model 值 | 帳單 | CLI |
-|---------|---------|------|-----|
+|---|---|---|---|
 | `claude_local` | `sonnet` | Anthropic | `claude` |
 | `codex_local` | `gpt-5.3-codex` | OpenAI | `codex` |
 | `opencode_local` | `google/gemini-2.5-flash` | Google | `opencode` |
 | `cursor` | `auto` | Cursor | `agent` |
 
-完整流程與 troubleshooting 見 `.claude/skills/dispatch-agents/SKILL.md`。
+完整流程：`.claude/skills/dispatch-agents/SKILL.md`
 
-## 三層自動化（Agent 工作流）
+## 三層自動化
 
-| Layer | Skill / API | 用途 |
-|-------|------------|------|
-| **監控** | `GET /api/paperclip/work-summary` | 掃描 worktree branches，回報完成狀態與問題 |
-| **Review** | `/review-agent-work` | 檢查 agent 產出 → 修復問題 → 一鍵 merge → 更新 roadmap |
-| **派工** | `POST /api/paperclip/auto-dispatch` | 自動為 idle agents 從 roadmap 挑選並建立任務 |
-| **健康** | `GET /api/paperclip/agent-health` | 偵測 adapter 失敗並自動 fallback |
+| Layer | 端點 / Skill | 用途 |
+|---|---|---|
+| 監控 | `GET /api/paperclip/work-summary` | 掃描 worktree，回報完成狀態 |
+| Review | `/review-agent-work` | 檢查 → 修復 → merge → 更新 roadmap |
+| 派工 | `POST /api/paperclip/auto-dispatch` | 自動為 idle agents 派任務 |
+| 健康 | `GET /api/paperclip/agent-health` | 偵測 adapter 失敗並自動 fallback |
 
-**定時任務**（cron，本 session 內有效）：
-- 每 3 分鐘：agent-health（adapter fallback）
-- 每 5 分鐘：work-summary（通知有完成的工作）
-- 每 10 分鐘：auto-dispatch（自動派工，上限 2 個）
+**日常流程**：Agent 完成 → work-summary 通知 → `/review-agent-work` merge → auto-dispatch 派新任務。
 
-**日常工作流**：
-1. Agent 完成工作 → work-summary cron 通知
-2. 你執行 `/review-agent-work` → 檢查 + merge + 更新 roadmap
-3. Agent idle → auto-dispatch cron 自動派新任務
-4. Adapter 失敗 → agent-health cron 自動切換
+## 測試路徑規範
 
-## 省 Token 與工具使用
+- ID 專屬 unit：`apps/superadmin/unit_test/{ID}`（`testScriptPath` 只填這個）
+- ID 專屬 E2E：`apps/superadmin/e2e/{ID}/`
+- 跨功能共用 E2E：`apps/superadmin/e2e/common/{smoke,regression}/`
+- 跨 ID 可重用腳本：`tools/<domain>/`（不可當 `testScriptPath`）
+- 編排來源：`apps/superadmin/test-manifest.json`；`tier=nightly` 必填 `nightlyLayer` / `nightlyOrder`
+- 合併前執行：`tools/testing/validate-test-manifest.sh`
 
-完整指南見 `docs/operational-guides/token-saving-guide.md`，以下為摘要：
+## Hermes
 
-**Custom Commands（最省）**：`/daily-report`、`/commit-push-pr`、`/roadmap-update`、`/test-coverage`、`/dispatch-agents`、`/review-agent-work`
+僅 Docker runtime（無本機 CLI）：
 
-**瀏覽器工具優先序**：專用 MCP → Claude Preview → Playwright CLI → Playwright MCP → Chrome DevTools → Computer Use
+```bash
+cd tools/hermes-runtime && docker compose build --pull && docker compose up -d
+```
 
-- Playwright CLI（`bash tools/testing/playwright-cli.sh <cmd>`）批次執行，比 Playwright MCP 逐步 snapshot 省 3-5x token
-- 查 library 文件用 Context7 MCP，不用 Web Search
-- 讀檔用 `Read offset/limit` 指定範圍，搜尋用 `Grep`，找檔用 `Glob`
+細節：`HERMES.md`
 
-## 測試腳本與工具放置規範
+## 省 Token
 
-- `testScriptPath` 僅指向 ID 專屬測試目錄：`apps/superadmin/unit_test/{ID}`。
-- ID 專屬 E2E 放在：`apps/superadmin/e2e/{ID}/`。
-- 跨功能共用 E2E（不綁定單一 ID）放在：`apps/superadmin/e2e/common/`，不要散落在 `e2e` 根層。
-- `e2e/common` 需再分層為：`e2e/common/smoke`（快速）與 `e2e/common/regression`（完整）。
-- 跨 ID 可重用腳本一律放在：`tools/<domain>/`（例如 `tools/people-db/`）。
-- 若某 ID 會使用 `tools/...`，請在對應 `apps/superadmin/unit_test/{ID}/README.md` 註明呼叫方式。
-- 不要把 `tools/...` 路徑填到 `testScriptPath`。
-- 測試編排採機器可讀清單：`apps/superadmin/test-manifest.json`。
-- `test-manifest.json` 中 `tier=nightly` 的條目必填 `nightlyLayer`（`smoke` / `regression`）。
-- `test-manifest.json` 中 `tier=nightly` 的條目必填 `nightlyOrder`（非負整數，數字越小越先跑）。
-- 合併前先跑：`tools/testing/validate-test-manifest.sh`。
+- **Custom Commands**（最省）：`/daily-report`、`/commit-push-pr`、`/roadmap-update`、`/test-coverage`、`/dispatch-agents`、`/review-agent-work`
+- 瀏覽器優先序：專用 MCP → Preview → Playwright CLI → Playwright MCP → Chrome DevTools
+- Playwright CLI（`bash tools/testing/playwright-cli.sh <cmd>`）比 MCP 省 3-5x
+- library 文件用 Context7 MCP，不用 Web Search
+- 完整指南：`docs/operational-guides/token-saving-guide.md`
 
-## 角色目錄
+## 其他
 
-給人類查閱的角色 Prompt 目錄在 `docs/prompts/agent_roles_index.md`，不要與本檔混用。
-
-## 維護規則
-
-若本檔與 `AGENTS.md` 規則不一致，以「較精簡且較不易誤導模型」的版本為準，並盡快對齊兩份文件。
+- 角色 Prompt 目錄給人看：`docs/prompts/agent_roles_index.md`
+- 若本檔與 `AGENTS.md` 衝突，以較精簡且較不易誤導模型的版本為準，並盡快對齊

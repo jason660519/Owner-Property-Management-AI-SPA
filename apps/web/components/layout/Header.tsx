@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,6 +19,7 @@ const navLinks = [
 ];
 
 export function Header() {
+  const headerRef = useRef<HTMLElement>(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
@@ -72,8 +73,42 @@ export function Header() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  useLayoutEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const apply = () => {
+      document.documentElement.style.setProperty(
+        "--public-site-header-height",
+        `${el.offsetHeight}px`,
+      );
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      document.documentElement.style.removeProperty(
+        "--public-site-header-height",
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobileMenuOpen]);
+
   return (
-    <header className={`${styles.header} ${isScrolled ? styles.scrolled : ""}`}>
+    <header
+      ref={headerRef}
+      className={`${styles.header} ${isScrolled ? styles.scrolled : ""}`}
+    >
       {/* Top Banner */}
       <div className={styles.banner}>
         <div className={styles.bannerContent}>
@@ -135,7 +170,7 @@ export function Header() {
             ) : user ? (
               <>
                 <Link href={dashboardUrl}>
-                  <Button variant="ghost" size="md">
+                  <Button as="span" variant="ghost" size="md">
                     儀表板
                   </Button>
                 </Link>
@@ -181,6 +216,15 @@ export function Header() {
         </div>
       </nav>
 
+      {isMobileMenuOpen && (
+        <button
+          type="button"
+          className={styles.mobileMenuBackdrop}
+          aria-label="關閉選單"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Mobile Menu */}
       <div
         className={`${styles.mobileMenu} ${isMobileMenuOpen ? styles.open : ""}`}
@@ -203,7 +247,7 @@ export function Header() {
             {user ? (
               <>
                 <Link href={dashboardUrl} onClick={() => setIsMobileMenuOpen(false)}>
-                  <Button variant="ghost" fullWidth>
+                  <Button as="span" variant="ghost" fullWidth>
                     儀表板
                   </Button>
                 </Link>
@@ -214,12 +258,12 @@ export function Header() {
             ) : (
               <>
                 <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Button variant={loginVariant} fullWidth>
+                  <Button as="span" variant={loginVariant} fullWidth>
                     登入
                   </Button>
                 </Link>
                 <Link href="/register" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Button variant={registerVariant} fullWidth>
+                  <Button as="span" variant={registerVariant} fullWidth>
                     註冊
                   </Button>
                 </Link>

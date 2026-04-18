@@ -4,9 +4,16 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
-const OCR_SERVICE_URL = process.env.OCR_SERVICE_URL || 'http://localhost:8819';
+const OCR_SERVICE_URL = process.env.OCR_SERVICE_URL;
 
 export async function POST(request: NextRequest) {
+  if (!OCR_SERVICE_URL) {
+    return NextResponse.json(
+      { detail: 'OCR_SERVICE_URL is not configured' },
+      { status: 503 }
+    );
+  }
+
   try {
     // Get the original form data (multipart)
     const formData = await request.formData();
@@ -52,7 +59,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           detail:
-            'OCR 服務未啟動，請先執行 ./start.sh ocr 啟動後端 OCR 服務 (Port 8000)',
+            'OCR 服務未啟動或不可用，請確認 OCR_SERVICE_URL 指向可用服務',
         },
         { status: 503 }
       );

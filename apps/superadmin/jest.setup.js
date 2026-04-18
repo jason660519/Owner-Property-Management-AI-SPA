@@ -1,12 +1,19 @@
 import '@testing-library/jest-dom'
 import { TextEncoder, TextDecoder } from 'util'
 import { ReadableStream } from 'stream/web'
+import { MessagePort, MessageChannel } from 'worker_threads'
 
 // Polyfill for Next.js server components
 global.TextEncoder = TextEncoder
 global.TextDecoder = TextDecoder
 if (typeof global.ReadableStream === 'undefined') {
   global.ReadableStream = ReadableStream
+}
+if (typeof global.MessagePort === 'undefined') {
+  global.MessagePort = MessagePort
+}
+if (typeof global.MessageChannel === 'undefined') {
+  global.MessageChannel = MessageChannel
 }
 
 const { Headers, Request, Response } = require('undici')

@@ -7,6 +7,10 @@ import type { AIProvider } from '@/lib/ai-providers';
 import { decryptApiKey } from '@/lib/crypto';
 import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 import { pickRecommendedModelByProvider } from '@/lib/pick-latest-model';
+import {
+  validateKiloGatewayKey,
+  validateOpenCodeZenKey,
+} from '@/lib/ai-key-validation/kilo-opencode-zen';
 
 interface ValidationResult {
   valid: boolean;
@@ -422,6 +426,36 @@ async function validateQwen(apiKey: string): Promise<ValidationResult> {
   }
 }
 
+async function validateKilo(apiKey: string): Promise<ValidationResult> {
+  const r = await validateKiloGatewayKey(apiKey);
+  if (!r.valid) {
+    return { valid: false, provider: 'kilo', message: r.message };
+  }
+  const models = r.availableModels ?? [];
+  return {
+    valid: true,
+    provider: 'kilo',
+    message: r.message,
+    modelInfo: buildModelInfo('kilo', models) ?? r.modelInfo,
+    availableModels: models,
+  };
+}
+
+async function validateOpenCode(apiKey: string): Promise<ValidationResult> {
+  const r = await validateOpenCodeZenKey(apiKey);
+  if (!r.valid) {
+    return { valid: false, provider: 'opencode', message: r.message };
+  }
+  const models = r.availableModels ?? [];
+  return {
+    valid: true,
+    provider: 'opencode',
+    message: r.message,
+    modelInfo: buildModelInfo('opencode', models) ?? r.modelInfo,
+    availableModels: models,
+  };
+}
+
 const validators: Record<AIProvider, (key: string) => Promise<ValidationResult>> = {
   openai: validateOpenAI,
   anthropic: validateAnthropic,
@@ -434,6 +468,8 @@ const validators: Record<AIProvider, (key: string) => Promise<ValidationResult>>
   zhipu: validateZhipu,
   perplexity: validatePerplexity,
   qwen: validateQwen,
+  kilo: validateKilo,
+  opencode: validateOpenCode,
 };
 
 export async function POST(request: NextRequest) {

@@ -1,6 +1,7 @@
 import {
   appendFollowUp,
   getLatestCommunication,
+  isActiveClosedLandlordCustomer,
   normalizeCustomerStatus,
   parseCustomerDetails,
   serializeCustomerDetails,
@@ -12,6 +13,25 @@ describe('customer-details utility', () => {
     expect(details.summaryNote).toBe('一般備註內容')
     expect(details.followUps).toHaveLength(0)
     expect(details.communicationLog).toHaveLength(0)
+  })
+
+  it('parses tenantProfile when present', () => {
+    const raw = JSON.stringify({
+      summaryNote: '',
+      intent: 'undecided',
+      followUps: [],
+      viewingRecords: [],
+      communicationLog: [],
+      tenantProfile: {
+        creditScore: 720,
+        monthlyIncome: 90000,
+        occupationType: '工程師',
+      },
+    })
+    const details = parseCustomerDetails(raw)
+    expect(details.tenantProfile?.creditScore).toBe(720)
+    expect(details.tenantProfile?.monthlyIncome).toBe(90000)
+    expect(details.tenantProfile?.occupationType).toBe('工程師')
   })
 
   it('parses structured notes payload', () => {
@@ -104,5 +124,24 @@ describe('customer-details utility', () => {
     const reparsed = parseCustomerDetails(serialized)
     expect(reparsed.summaryNote).toBe('A')
     expect(reparsed.intent).toBe('rent')
+    expect(reparsed.archived).toBe(false)
+    expect(reparsed.closedRoleTag).toBeNull()
+    expect(reparsed.closedDeal).toBeNull()
+  })
+
+  it('counts active closed customers excluding archived', () => {
+    expect(
+      isActiveClosedLandlordCustomer({
+        status: 'closed',
+        notes: JSON.stringify({ archived: true }),
+      }),
+    ).toBe(false)
+    expect(
+      isActiveClosedLandlordCustomer({
+        status: 'closed',
+        notes: JSON.stringify({ archived: false }),
+      }),
+    ).toBe(true)
+    expect(isActiveClosedLandlordCustomer({ status: 'potential', notes: '{}' })).toBe(false)
   })
 })

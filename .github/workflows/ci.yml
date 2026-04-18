@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  critical-deps:
+    name: Critical dependency guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check critical deps
+        run: node scripts/check-critical-deps.js
+
+  # Typecheck is best-effort until we stabilise the install matrix on CI.
+  # Flip continue-on-error off once green for 5 consecutive runs.
+  typecheck-superadmin:
+    name: Typecheck (superadmin)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install
+        run: npm ci --legacy-peer-deps
+      - name: Typecheck
+        working-directory: apps/superadmin
+        run: npx tsc --noEmit
+
+  # TODO: eslint-config-next currently breaks on Next.js 16 (missing
+  # next/dist/compiled/babel/eslint-parser). Fix the config chain then
+  # flip continue-on-error off so lint becomes a hard gate.
+  lint-superadmin:
+    name: Lint (superadmin)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install
+        run: npm ci --legacy-peer-deps
+      - name: Lint
+        run: npm run lint --workspace superadmin

@@ -59,7 +59,7 @@ type UploadResponse = {
   document_id: string;
 };
 
-const OCR_SERVICE_URL = process.env.NEXT_PUBLIC_OCR_SERVICE_URL || 'http://localhost:8819';
+const OCR_SERVICE_URL = process.env.NEXT_PUBLIC_OCR_SERVICE_URL;
 const POLLING_INTERVAL = 2000; // 2 seconds
 const MAX_POLLING_ATTEMPTS = 60; // 2 minutes max
 
@@ -113,6 +113,12 @@ export function VLMDocumentUpload({ onComplete }: VLMDocumentUploadProps) {
    * Handle file upload
    */
   const handleFileUpload = async (file: File) => {
+    if (!OCR_SERVICE_URL) {
+      setError('未設定 OCR 服務位址（NEXT_PUBLIC_OCR_SERVICE_URL）');
+      setUploadState('failed');
+      return;
+    }
+
     if (!hasKey) {
       setShowKeyDrawer(true);
       return;
@@ -157,6 +163,12 @@ export function VLMDocumentUpload({ onComplete }: VLMDocumentUploadProps) {
    * Poll document parsing status
    */
   const pollDocumentStatus = async (docId: string, token: string) => {
+    if (!OCR_SERVICE_URL) {
+      setError('未設定 OCR 服務位址（NEXT_PUBLIC_OCR_SERVICE_URL）');
+      setUploadState('failed');
+      return;
+    }
+
     let attempts = 0;
 
     const poll = async () => {

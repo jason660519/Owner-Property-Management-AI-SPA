@@ -10,16 +10,7 @@ import { NextResponse } from 'next/server';
 import {
   isAdapterQuotaError,
 } from '@/lib/paperclip/adapter-fallback';
-
-// ── Adapter → Model mapping ──────────────────────────────────────────
-// Each adapter requires a specific model value. Using the wrong model
-// (e.g. "sonnet" on codex_local) causes "model does not exist" errors.
-const ADAPTER_MODEL_MAP: Record<string, string> = {
-  claude_local: 'sonnet',
-  codex_local: 'gpt-5.3-codex',
-  cursor: 'auto',
-  opencode_local: 'google/gemini-2.5-flash',
-};
+import { ADAPTER_MODEL_MAP } from '@/lib/paperclip/adapter-models';
 
 // Only adapters confirmed working in the Paperclip Docker container.
 // Order: cheapest/most-available first, Claude last (preserve token budget).
@@ -174,7 +165,7 @@ export async function GET() {
 
     // Paperclip agent API does not expose run error details.
     // We rely on agent status + heartbeat recency to decide.
-    const errorHint: string | null = null;
+    let errorHint: string | null = null;
 
     if (!shouldSwitchAdapter(agent.status, errorHint, agent.lastHeartbeatAt)) {
       // Agent in error but stale heartbeat — just reset, don't switch
@@ -205,17 +196,18 @@ export async function GET() {
     }
 
     const switched = await switchAgent(config.baseUrl, config.apiKey, agent.id, nextAdapter);
+    const errorMsg: string = errorHint ?? '';
     if (switched) {
       // eslint-disable-next-line no-console
       console.log(
-        `[agent-health] ${agent.name}: ${agent.adapterType} → ${nextAdapter} (quota error: ${errorHint?.slice(0, 80) ?? 'detected'})`,
+        `[agent-health] ${agent.name}: ${agent.adapterType} → ${nextAdapter} (quota error: ${errorMsg.slice(0, 80) || 'detected'})`,
       );
       results.push({
         agent,
         action: 'switched',
         switchedFrom: agent.adapterType,
         switchedTo: nextAdapter,
-        reason: errorHint?.slice(0, 200) ?? 'Quota/adapter error detected',
+        reason: errorMsg.slice(0, 200) || 'Quota/adapter error detected',
       });
       switchCount++;
     } else {

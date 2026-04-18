@@ -105,4 +105,8 @@ supabase db push                                                             # �
 supabase gen types typescript --local > packages/types/database.ts          # 型別生成
 ```
 
-`supabase migration` 若報「inserted before last migration」→ 加 `--include-all`；舊 migration policy 衝突時的處理見根目錄 `CLAUDE.md`。
+## 已知陷阱
+
+- `supabase migration up` 報「inserted before last migration」→ 加 `--include-all`
+- 舊 migration 有 policy 衝突 → 改用 `psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres"` 直接執行 SQL，再手動 `INSERT INTO supabase_migrations.schema_migrations`
+- Storage bucket `property-documents` 是 **private**，取用需透過 signed URL（Superadmin 操作一律用 `createAdminClient`）

@@ -4,7 +4,7 @@
 # Owner Property Management - 統一啟動腳本
 # ==========================================
 # 功能：整合開發環境啟動、服務管理、依賴檢查
-# 用法：./start.sh [all|web|web-au|admin|ocr|test|menu]
+# 用法：./start.sh [all|web|web-au|admin|elastic|observability|openclaw|test|menu]
 
 set -e
 
@@ -12,6 +12,9 @@ set -e
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$PROJECT_ROOT/logs/dev"
 ENV_FILE="$PROJECT_ROOT/.env"
+HERMES_RUNTIME_DIR="$PROJECT_ROOT/tools/hermes-runtime"
+HERMES_DASHBOARD_PORT="${HERMES_DASHBOARD_PORT:-9119}"
+ELASTIC_DIR="$PROJECT_ROOT/backend/elasticsearch"
 
 # --- 顏色定義 ---
 RED='\033[0;31m'
@@ -217,8 +220,99 @@ open_paperclip_dashboard() {
     echo -e "${YELLOW}⚠️  Paperclip 尚未完成啟動，未自動開啟 Dashboard。可手動開啟：${PAPERCLIP_DASHBOARD_URL}${NC}"
 }
 
+# Check if any Chrome tab with the OpenClaw base URL is already open.
+# If not, open with the tokenized URL (via openclaw dashboard --no-open) so
+# the user does not have to manually enter a token.
+open_openclaw_if_needed() {
+    if ! command -v open >/dev/null 2>&1 || ! command -v openclaw > /dev/null 2>&1; then
+        return 0
+    fi
+    local gw_port
+    gw_port="${OPENCLAW_GATEWAY_PORT:-$(openclaw config get gateway.port 2>/dev/null || echo 18789)}"
+    gw_port="${gw_port:-18789}"
+    local base_url="http://127.0.0.1:${gw_port}"
+    local found_tab="NOT_FOUND"
+    if pgrep -x "Google Chrome" >/dev/null 2>&1 && command -v osascript >/dev/null 2>&1; then
+        found_tab=$(osascript - "$base_url" <<'OSASCRIPT' 2>/dev/null || echo "NOT_FOUND"
+on run argv
+    set targetUrl to item 1 of argv
+    tell application "Google Chrome"
+        repeat with w in windows
+            repeat with t in tabs of w
+                if URL of t starts with targetUrl then
+                    return "FOUND"
+                end if
+            end repeat
+        end repeat
+    end tell
+    return "NOT_FOUND"
+end run
+OSASCRIPT
+)
+    fi
+    if [ "$found_tab" = "FOUND" ]; then
+        echo -e "${YELLOW}\u21aa OpenClaw \u5df2\u958b\u555f\uff0c\u8df3\u904e: ${base_url}${NC}"
+        return 0
+    fi
+    # Get tokenized URL without opening browser, then open in Chrome
+    local token_url
+    token_url=$(openclaw dashboard --no-open 2>/dev/null | grep -oE 'https?://[^[:space:]]+' | head -1)
+    if [[ "$token_url" == http* ]]; then
+        echo -e "${BLUE}\ud83c\udf10 \u958b\u555f OpenClaw\uff08\u542b token\uff09: ${token_url}${NC}"
+        open -a "Google Chrome" "$token_url" >/dev/null 2>&1 || true
+    else
+        # Fallback: let openclaw handle opening
+        openclaw dashboard >/dev/null 2>&1 || true
+    fi
+}
+
+open_all_service_pages() {
+    if ! command -v open >/dev/null 2>&1; then
+        return 0
+    fi
+
+    open_url_once_in_chrome() {
+        local url="$1"
+        local found_tab="NOT_FOUND"
+
+        if pgrep -x "Google Chrome" >/dev/null 2>&1 && command -v osascript >/dev/null 2>&1; then
+            found_tab=$(osascript - "$url" <<'EOF' 2>/dev/null || echo "NOT_FOUND"
+on run argv
+    set targetUrl to item 1 of argv
+    tell application "Google Chrome"
+        repeat with w in windows
+            repeat with t in tabs of w
+                set tabUrl to URL of t
+                if tabUrl starts with targetUrl then
+                    return "FOUND"
+                end if
+            end repeat
+        end repeat
+    end tell
+    return "NOT_FOUND"
+end run
+EOF
+)
+        fi
+
+        if [ "$found_tab" = "FOUND" ]; then
+            echo -e "${YELLOW}↪ 已開啟，跳過: ${url}${NC}"
+        else
+            open -a "Google Chrome" "$url" >/dev/null 2>&1 || true
+        fi
+    }
+
+    echo -e "${BLUE}\ud83c\udf10 \u4e00\u9375\u958b\u555f\u670d\u52d9\u9801\u9762...${NC}"
+    open_url_once_in_chrome "http://localhost:3001/superadmin"
+    open_openclaw_if_needed
+    open_url_once_in_chrome "http://localhost:5601/app/integrations/browse"
+    open_url_once_in_chrome "http://localhost:9119/"
+    open_url_once_in_chrome "http://localhost:54323/project/default"
+    open_url_once_in_chrome "http://localhost:54324/"
+}
+
 start_paperclip() {
-    echo -e "${BLUE}📎 啟動 Paperclip (Docker)...${NC}"
+    echo -e "${BLUE}📎 啟動 Paperclip (Docker-only)...${NC}"
     local compose_file="$PROJECT_ROOT/docker/paperclip/docker-compose.paperclip.yml"
     local env_file="$PROJECT_ROOT/docker/paperclip/.env.paperclip"
     local paperclip_container_id=""
@@ -261,7 +355,7 @@ start_paperclip() {
 }
 
 update_paperclip_image() {
-    echo -e "${BLUE}📦 更新 Paperclip 映像檔 (Docker)...${NC}"
+    echo -e "${BLUE}📦 更新 Paperclip 映像檔 (Docker-only)...${NC}"
     local compose_file="$PROJECT_ROOT/docker/paperclip/docker-compose.paperclip.yml"
     local env_file="$PROJECT_ROOT/docker/paperclip/.env.paperclip"
 
@@ -338,50 +432,213 @@ start_admin() {
     fi
 }
 
-start_ocr() {
-    echo -e "${BLUE}👁️  啟動 OCR/VLM 服務 (Port 8819)...${NC}"
-    local OCR_DIR="$PROJECT_ROOT/backend/ocr_service"
-    
-    if lsof -i :8819 > /dev/null 2>&1; then
-        echo -e "${YELLOW}⚠️  OCR 服務已在運行${NC}"
-    else
-        check_python_venv "$OCR_DIR"
-        
-        cd "$OCR_DIR"
-        source venv/bin/activate
-        
-        # 確保必要環境變數存在 (優先使用 .env 中的設定，若無則依賴外部環境或預設)
-        if [ -z "$VLM_MASTER_KEY" ]; then
-             echo -e "${YELLOW}⚠️  注意: 未偵測到 VLM_MASTER_KEY，請確認 .env 設定${NC}"
+start_hermes_dashboard() {
+    echo -e "${BLUE}🤖 啟動 Hermes Dashboard (Docker-only)...${NC}"
+
+    if [ ! -f "$HERMES_RUNTIME_DIR/docker-compose.yml" ]; then
+        echo -e "${RED}❌ 找不到 Hermes runtime 設定: $HERMES_RUNTIME_DIR/docker-compose.yml${NC}"
+        return 1
+    fi
+
+    local selected_port="$HERMES_DASHBOARD_PORT"
+    if lsof -i :"$selected_port" > /dev/null 2>&1; then
+        if docker ps --format '{{.Names}}' | grep -q '^hermes-dashboard$'; then
+            if curl -fsS "http://localhost:${selected_port}" >/dev/null 2>&1; then
+                echo -e "${GREEN}✅ Hermes Dashboard 已在運行: http://localhost:${selected_port}${NC}"
+                return 0
+            fi
+            echo -e "${YELLOW}⚠️  Hermes Dashboard 容器在運行但 HTTP 不可達，將嘗試重建${NC}"
+            (
+                cd "$HERMES_RUNTIME_DIR"
+                HERMES_HOME_DIR="$HOME/.hermes-opm" HERMES_DASHBOARD_PORT="$selected_port" docker compose up -d --force-recreate hermes-dashboard
+            ) >> "$LOG_DIR/hermes-runtime.log" 2>&1 || {
+                echo -e "${RED}❌ Hermes Dashboard 重建失敗，詳見: $LOG_DIR/hermes-runtime.log${NC}"
+                return 1
+            }
         fi
-        
-        # 啟動
-        ensure_log_dir
-        nohup python minimal_app.py > "$LOG_DIR/ocr_service.log" 2>&1 &
-        deactivate
-        cd "$PROJECT_ROOT"
-        echo -e "${GREEN}✅ OCR 服務啟動成功${NC}"
+        selected_port="9120"
+        if lsof -i :"$selected_port" > /dev/null 2>&1; then
+            echo -e "${RED}❌ Port 9119 / 9120 都被佔用，請先釋放 port 或手動指定 HERMES_DASHBOARD_PORT${NC}"
+            return 1
+        fi
+        echo -e "${YELLOW}⚠️  Port 9119 已被佔用，改用 Port ${selected_port}${NC}"
+    fi
+
+    ensure_log_dir
+    (
+        cd "$HERMES_RUNTIME_DIR"
+        HERMES_HOME_DIR="$HOME/.hermes-opm" HERMES_DASHBOARD_PORT="$selected_port" docker compose up -d hermes hermes-dashboard
+    ) > "$LOG_DIR/hermes-runtime.log" 2>&1 || {
+        echo -e "${RED}❌ Hermes Dashboard 啟動失敗，詳見: $LOG_DIR/hermes-runtime.log${NC}"
+        return 1
+    }
+
+    local state
+    state=$(docker inspect -f '{{.State.Status}}' hermes-dashboard 2>/dev/null || echo "missing")
+    if [ "$state" != "running" ]; then
+        echo -e "${RED}❌ Hermes Dashboard 容器未正常運行（state: $state），詳見: $LOG_DIR/hermes-runtime.log${NC}"
+        return 1
+    fi
+
+    local health_ok=0
+    for _ in $(seq 1 20); do
+        if curl -fsS "http://localhost:${selected_port}" >/dev/null 2>&1; then
+            health_ok=1
+            break
+        fi
+        sleep 1
+    done
+
+    if [ "$health_ok" -ne 1 ]; then
+        echo -e "${RED}❌ Hermes Dashboard 尚未可連線，詳見: $LOG_DIR/hermes-runtime.log${NC}"
+        return 1
+    fi
+
+    HERMES_DASHBOARD_PORT="$selected_port"
+    export HERMES_DASHBOARD_PORT
+    echo -e "${GREEN}✅ Hermes Dashboard 啟動成功: http://localhost:${HERMES_DASHBOARD_PORT}${NC}"
+}
+
+start_openclaw() {
+    echo -e "${BLUE}🕹️  啟動 OpenClaw...${NC}"
+    if ! command -v openclaw > /dev/null 2>&1; then
+        echo -e "${RED}❌ 找不到 openclaw 指令，請先安裝：npm install -g openclaw${NC}"
+        return 1
+    fi
+
+    local gateway_port
+    gateway_port="${OPENCLAW_GATEWAY_PORT:-$(openclaw config get gateway.port 2>/dev/null || echo 18789)}"
+    gateway_port="${gateway_port:-18789}"
+
+    if openclaw gateway start > /dev/null 2>&1; then
+        echo -e "${GREEN}✅ OpenClaw Gateway 啟動成功${NC}"
+        echo -e "   • OpenClaw Dashboard: http://localhost:${gateway_port}"
+        # Open with token so user is not asked to enter it manually.
+        open_openclaw_if_needed
+    else
+        echo -e "${RED}❌ OpenClaw 啟動失敗，請執行 openclaw gateway status 檢查${NC}"
+        return 1
+    fi
+}
+
+ELASTIC_WAIT_PID=""
+
+start_elasticsearch_stack() {
+    echo -e "${BLUE}🔎 啟動 Elasticsearch + Kibana (Docker)...${NC}"
+
+    local compose_file="$ELASTIC_DIR/docker-compose.yml"
+    local elastic_log="$LOG_DIR/elasticsearch-startup.log"
+    if [ ! -f "$compose_file" ]; then
+        echo -e "${RED}❌ 找不到 Elasticsearch compose 設定: $compose_file${NC}"
+        return 1
+    fi
+
+    ensure_log_dir
+    : > "$elastic_log"
+
+    # Fast path: if both are already healthy, skip all waits entirely.
+    # Use /api/status for Kibana: root URL returns 200 even when "server is not ready yet".
+    if curl -fsS "http://localhost:9200/_cluster/health" > /dev/null 2>&1 \
+       && curl -fsS "http://localhost:5601/api/status" > /dev/null 2>&1; then
+        echo -e "${GREEN}✅ Elasticsearch/Kibana 已在執行${NC}"
+        echo -e "   • Elasticsearch:  http://localhost:9200"
+        echo -e "   • Kibana:         http://localhost:5601"
+        return 0
+    fi
+
+    (
+        cd "$ELASTIC_DIR"
+        docker compose -f "$compose_file" up -d elasticsearch kibana
+    ) > "$elastic_log" 2>&1 || {
+        echo -e "${RED}❌ Elasticsearch/Kibana 啟動失敗${NC}"
+        echo -e "${YELLOW}ℹ️  詳細錯誤已寫入: $elastic_log${NC}"
+        tail -n 30 "$elastic_log" || true
+        return 1
+    }
+
+    # Background readiness wait: lets start_all continue with other services.
+    (
+        local es_ok=0 kb_ok=0
+        for _ in $(seq 1 60); do
+            if curl -fsS "http://localhost:9200/_cluster/health" > /dev/null 2>&1; then
+                es_ok=1
+                break
+            fi
+            sleep 1
+        done
+        for _ in $(seq 1 120); do
+            if curl -fsS "http://localhost:5601/api/status" > /dev/null 2>&1; then
+                kb_ok=1
+                break
+            fi
+            sleep 1
+        done
+        if [ "$es_ok" -eq 1 ] && [ "$kb_ok" -eq 1 ]; then
+            echo -e "${GREEN}✅ Elasticsearch/Kibana 就緒${NC}"
+        else
+            [ "$es_ok" -ne 1 ] && echo -e "${YELLOW}⚠️  Elasticsearch 尚未就緒 → http://localhost:9200${NC}"
+            [ "$kb_ok" -ne 1 ] && echo -e "${YELLOW}⚠️  Kibana 尚未就緒 → http://localhost:5601${NC}"
+        fi
+    ) &
+    ELASTIC_WAIT_PID=$!
+    echo -e "${BLUE}   ↳ 健康檢查已放到背景（PID ${ELASTIC_WAIT_PID}），繼續啟動其他服務${NC}"
+    return 0
+}
+
+run_observability_checks() {
+    echo -e "${BLUE}📊 執行 Elastic Observability MVP 檢查...${NC}"
+
+    local registry_script="$PROJECT_ROOT/tools/observability/check-fleet-registry.sh"
+    local smoke_script="$PROJECT_ROOT/tools/observability/mvp-smoke.sh"
+
+    if [ ! -x "$registry_script" ] || [ ! -x "$smoke_script" ]; then
+        echo -e "${RED}❌ 找不到可執行的 observability 腳本，請確認 tools/observability 目錄${NC}"
+        return 1
+    fi
+
+    if "$registry_script"; then
+        echo -e "${GREEN}✅ Fleet registry 檢查完成${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Fleet registry 檢查有警示，請參考 docs/operational-guides/elastic-observability-mvp.md${NC}"
+    fi
+
+    if "$smoke_script"; then
+        echo -e "${GREEN}✅ MVP smoke 檢查完成${NC}"
+    else
+        echo -e "${YELLOW}⚠️  MVP smoke 檢查有警示，請先完成 integrations 安裝${NC}"
     fi
 }
 
 start_all() {
     echo -e "${BLUE}🚀 正在啟動所有服務 (背景模式)...${NC}"
+    local openclaw_port
+    openclaw_port="${OPENCLAW_GATEWAY_PORT:-$(openclaw config get gateway.port 2>/dev/null || echo 18789)}"
+    openclaw_port="${openclaw_port:-18789}"
     check_dependencies
     ensure_log_dir
     ensure_supabase_running
+    start_elasticsearch_stack
     start_web "bg"
     start_web_au "bg"
     start_admin "bg"
-    start_ocr
     start_paperclip
+    start_hermes_dashboard
+    start_openclaw "bg"
+
+    if [ -n "$ELASTIC_WAIT_PID" ]; then
+        wait "$ELASTIC_WAIT_PID" 2>/dev/null || true
+    fi
 
     echo ""
     echo -e "${GREEN}🎉 所有服務啟動程序已完成${NC}"
     echo -e "   • Web App (TW):     http://localhost:3000"
     echo -e "   • Web App (AU):     http://localhost:3002"
     echo -e "   • Superadmin:       http://localhost:3001/superadmin/dashboard"
-    echo -e "   • OCR Service:      http://localhost:8819"
-    echo -e "   • Paperclip:        ${PAPERCLIP_PUBLIC_URL:-http://localhost:${PAPERCLIP_PORT:-3187}}"
+    echo -e "   • Elasticsearch:    http://localhost:9200"
+    echo -e "   • Kibana:           http://localhost:5601"
+    echo -e "   • Paperclip (Docker-only): ${PAPERCLIP_PUBLIC_URL:-http://localhost:${PAPERCLIP_PORT:-3187}}"
+    echo -e "   • Hermes Dashboard (Docker-only): http://localhost:${HERMES_DASHBOARD_PORT:-9119}"
+    echo -e "   • OpenClaw Dashboard: http://localhost:${openclaw_port}"
     echo -e "   • Supabase Studio:  http://localhost:54323"
     echo -e "   • Mailpit (Email):  http://localhost:54324"
     echo -e "   • Logs:             $LOG_DIR/"
@@ -390,6 +647,7 @@ start_all() {
     echo -e "   • 測試 Email:       a0426788981@gmail.com"
     echo -e "   • 統一密碼:         !qaz2wsX"
     echo -e "   • 詳細資訊:         docs/operational-guides/deployment-guides/TEST_ACCOUNTS_REFERENCE.md"
+    open_all_service_pages
 }
 
 clean_cache() {
@@ -448,12 +706,15 @@ show_menu() {
     echo "2) 🌐 啟動 Web App TW (Port 3000)"
     echo "3) 🦘 啟動 Web App AU (Port 3002)"
     echo "4) 🔐 啟動 Superadmin (Port 3001)"
-    echo "5) 👁️  啟動 OCR/VLM 後端"
-    echo "6) 🧪 執行 Superadmin 測試 (含截圖)"
-    echo "7) 🧹 清除快取 (TW + AU + Superadmin)"
-    echo "8) 📎 啟動 Paperclip (Docker)"
-    echo "9) 📦 更新 Paperclip 映像檔"
-    echo "10) 🛑 停止所有服務"
+    echo "5) 🧪 執行 Superadmin 測試 (含截圖)"
+    echo "6) 🧹 清除快取 (TW + AU + Superadmin)"
+    echo "7) 📎 啟動 Paperclip (Docker-only)"
+    echo "8) 📦 更新 Paperclip 映像檔 (Docker-only)"
+    echo "9) 🤖 啟動 Hermes Dashboard (Docker-only)"
+    echo "10) 🔎 啟動 Elasticsearch + Kibana (Docker)"
+    echo "11) 📊 執行 Observability MVP 檢查"
+    echo "12) 🕹️  啟動 OpenClaw"
+    echo "13) 🛑 停止所有服務"
     echo "0) 離開"
     echo ""
     read -p "請輸入選項: " choice
@@ -463,12 +724,15 @@ show_menu() {
         2) check_dependencies; ensure_supabase_running; start_web ;;
         3) check_dependencies; ensure_supabase_running; start_web_au ;;
         4) check_dependencies; ensure_supabase_running; start_admin ;;
-        5) check_dependencies; ensure_supabase_running; start_ocr ;;
-        6) run_tests ;;
-        7) clean_cache ;;
-        8) start_paperclip ;;
-        9) update_paperclip_image ;;
-        10) ./stop.sh ;;
+        5) run_tests ;;
+        6) clean_cache ;;
+        7) start_paperclip ;;
+        8) update_paperclip_image ;;
+        9) start_hermes_dashboard ;;
+        10) start_elasticsearch_stack ;;
+        11) run_observability_checks ;;
+        12) start_openclaw ;;
+        13) ./stop.sh ;;
         0) exit 0 ;;
         *) echo "無效選項"; sleep 1; show_menu ;;
     esac
@@ -480,11 +744,14 @@ case "${1:-menu}" in
     web)    check_dependencies; ensure_supabase_running; start_web ;;
     web-au) check_dependencies; ensure_supabase_running; start_web_au ;;
     admin)  check_dependencies; ensure_supabase_running; start_admin ;;
-    ocr)    check_dependencies; ensure_supabase_running; start_ocr ;;
+    elastic) check_dependencies; start_elasticsearch_stack ;;
+    observability) check_dependencies; run_observability_checks ;;
+    openclaw) start_openclaw ;;
     paperclip) check_dependencies; start_paperclip ;;
     paperclip-update) check_dependencies; update_paperclip_image ;;
+    hermes) check_dependencies; start_hermes_dashboard ;;
     test)   run_tests ;;
     clean)  clean_cache ;;
     menu)   show_menu ;;
-    *)      echo "用法: $0 [all|web|web-au|admin|ocr|paperclip|paperclip-update|test|clean|menu]" ;;
+    *)      echo "用法: $0 [all|web|web-au|admin|elastic|observability|openclaw|paperclip|paperclip-update|hermes|test|clean|menu]" ;;
 esac

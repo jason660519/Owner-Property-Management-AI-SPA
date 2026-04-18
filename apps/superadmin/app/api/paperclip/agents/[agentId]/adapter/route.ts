@@ -4,13 +4,7 @@
 // Used by the Agents tab in the Mission Control dashboard.
 
 import { NextRequest, NextResponse } from 'next/server';
-
-const ADAPTER_MODEL_MAP: Record<string, string> = {
-  claude_local: 'sonnet',
-  codex_local: 'gpt-5.3-codex',
-  cursor: 'auto',
-  opencode_local: 'google/gemini-2.5-flash',
-};
+import { ADAPTER_MODEL_MAP, isValidAdapter } from '@/lib/paperclip/adapter-models';
 
 function readConfig() {
   return {
@@ -41,7 +35,7 @@ export async function PATCH(
   }
 
   const adapterType = body.adapterType;
-  if (!adapterType || !ADAPTER_MODEL_MAP[adapterType]) {
+  if (!adapterType || !isValidAdapter(adapterType)) {
     return NextResponse.json(
       { ok: false, error: `Invalid adapter. Valid: ${Object.keys(ADAPTER_MODEL_MAP).join(', ')}` },
       { status: 400 },

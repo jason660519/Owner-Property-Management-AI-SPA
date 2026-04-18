@@ -7,6 +7,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'icon' | 'outline' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
+  as?: 'button' | 'span';
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   isLoading?: boolean;
@@ -18,6 +19,7 @@ export function Button({
   variant = 'primary',
   size = 'md',
   fullWidth = false,
+  as = 'button',
   leftIcon,
   rightIcon,
   isLoading = false,
@@ -38,12 +40,8 @@ export function Button({
     className,
   ].filter(Boolean).join(' ');
 
-  return (
-    <button
-      className={classes}
-      disabled={disabled || isLoadingState}
-      {...props}
-    >
+  const content = (
+    <>
       {isLoadingState && (
         <span className={styles.spinner}>
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -55,6 +53,24 @@ export function Button({
       {leftIcon && !isLoadingState && <span className={styles.iconLeft}>{leftIcon}</span>}
       {children && <span className={styles.text}>{children}</span>}
       {rightIcon && !isLoadingState && <span className={styles.iconRight}>{rightIcon}</span>}
+    </>
+  );
+
+  if (as === 'span') {
+    return (
+      <span className={classes} aria-disabled={disabled || isLoadingState}>
+        {content}
+      </span>
+    );
+  }
+
+  return (
+    <button
+      className={classes}
+      disabled={disabled || isLoadingState}
+      {...props}
+    >
+      {content}
     </button>
   );
 }

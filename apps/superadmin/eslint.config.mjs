@@ -5,6 +5,13 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    // Project policy: `any` is forbidden (see CLAUDE.md 硬性規定).
+    // Pre-commit hook scripts/check-staged-no-any.js blocks new `any`.
+    rules: {
+      "@typescript-eslint/no-explicit-any": "error",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

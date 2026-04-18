@@ -1,21 +1,34 @@
 #!/bin/bash
+#
+# Pre-commit guard chain. Each step blocks the commit on failure.
+# Keep individual checks fast — this runs on EVERY commit.
 
-# Git Pre-commit Hook: 自動清理 macOS 隱藏文件
-# 在每次 commit 前自動刪除 ._* 文件
+set -e
 
-# 查找並刪除 ._* 文件
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# 1. Clean macOS dotfiles (auto-fix, doesn't block).
 HIDDEN_FILES=$(git ls-files | grep '/\._' || true)
-
 if [ -n "$HIDDEN_FILES" ]; then
-    echo "🗑️  發現 macOS 隱藏文件，自動清理中..."
-    echo "$HIDDEN_FILES" | xargs git rm -f --cached
-    echo "✅ 已從 Git 暫存區移除 ._* 文件"
+  echo "🗑️  Removing macOS dotfiles from index..."
+  echo "$HIDDEN_FILES" | xargs git rm -f --cached
 fi
-
-# 清理工作目錄中的 ._* 文件
 find . -name "._*" -type f -delete 2>/dev/null || true
 
-# 執行 Lint-Staged
-# npx lint-staged
+# 2. Critical dependency guard — blocks downgrades of React/Next/etc.
+echo "🔒 Checking critical dependencies..."
+node scripts/check-critical-deps.js
 
+# 3. Block newly-introduced `any` types in staged TS/TSX files.
+echo "🚫 Checking for new \`any\` types in staged changes..."
+node scripts/check-staged-no-any.js
+
+# 4. Run lint-staged (prettier + eslint on touched files only).
+if git diff --cached --name-only --diff-filter=AM | grep -qE '\.(ts|tsx|js|jsx|json|md)$'; then
+  echo "✨ Running lint-staged on touched files..."
+  npx --no-install lint-staged
+fi
+
+echo "✅ Pre-commit checks passed."
 exit 0

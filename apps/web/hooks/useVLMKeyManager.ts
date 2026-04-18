@@ -36,7 +36,7 @@ interface UseVLMKeyManagerReturn {
   deleteKey: (provider: VLMProvider) => Promise<void>;
 }
 
-const OCR_SERVICE_URL = process.env.NEXT_PUBLIC_OCR_SERVICE_URL || 'http://localhost:8819';
+const OCR_SERVICE_URL = process.env.NEXT_PUBLIC_OCR_SERVICE_URL;
 
 /**
  * Hook for managing VLM API keys
@@ -111,6 +111,9 @@ export function useVLMKeyManager(): UseVLMKeyManagerReturn {
     setError(null);
 
     try {
+      if (!OCR_SERVICE_URL) {
+        throw new Error('未設定 OCR 服務位址（NEXT_PUBLIC_OCR_SERVICE_URL）');
+      }
       const token = await getAuthToken();
       const url = new URL(`${OCR_SERVICE_URL}/api/v1/integrations/vlm-key/status`);
       if (providerFilter) {
@@ -148,6 +151,9 @@ export function useVLMKeyManager(): UseVLMKeyManagerReturn {
     setError(null);
 
     try {
+      if (!OCR_SERVICE_URL) {
+        throw new Error('未設定 OCR 服務位址（NEXT_PUBLIC_OCR_SERVICE_URL）');
+      }
       const token = await getAuthToken();
 
       // Generate random salt
@@ -190,6 +196,9 @@ export function useVLMKeyManager(): UseVLMKeyManagerReturn {
     setError(null);
 
     try {
+      if (!OCR_SERVICE_URL) {
+        throw new Error('未設定 OCR 服務位址（NEXT_PUBLIC_OCR_SERVICE_URL）');
+      }
       const token = await getAuthToken();
 
       const response = await fetch(

@@ -419,22 +419,23 @@ export default function PropertiesClient({
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="mt-12 flex justify-center border-t border-border-default pt-8">
-          <div className="flex items-center gap-4 bg-bg-primary border border-border-default rounded-full px-4 py-2">
+          <div className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-full border border-border-default bg-bg-primary px-2 py-2 sm:gap-4 sm:px-4">
             <Button
               variant="ghost"
               size="sm"
+              className="min-h-11 min-w-11 shrink-0"
               disabled={safeCurrentPage <= 1}
               onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
             >
               &larr;
             </Button>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap justify-center gap-2">
               {getPageNumbers().map((page, index) => {
                 if (page === "ellipsis") {
                   return (
                     <span
                       key={`ellipsis-${index}`}
-                      className="text-text-muted flex items-end px-1"
+                      className="flex min-h-11 items-end px-1 text-text-muted"
                     >
                       ...
                     </span>
@@ -443,11 +444,12 @@ export default function PropertiesClient({
                 return (
                   <button
                     key={page}
+                    type="button"
                     onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition-colors ${
+                    className={`flex min-h-11 min-w-11 items-center justify-center rounded-full text-sm transition-colors ${
                       page === safeCurrentPage
-                        ? "bg-accent text-white font-bold"
-                        : "hover:bg-bg-tertiary text-text-secondary"
+                        ? "bg-accent font-bold text-white"
+                        : "text-text-secondary hover:bg-bg-tertiary"
                     }`}
                   >
                     {page}
@@ -458,6 +460,7 @@ export default function PropertiesClient({
             <Button
               variant="ghost"
               size="sm"
+              className="min-h-11 min-w-11 shrink-0"
               disabled={safeCurrentPage >= totalPages}
               onClick={() =>
                 setCurrentPage((prev) => Math.min(totalPages, prev + 1))

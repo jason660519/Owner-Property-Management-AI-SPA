@@ -139,7 +139,11 @@ async function callCliFileMode(
 async function callHttpService(
   documentId: string,
 ): Promise<{ data: Record<string, unknown>; error?: string; noTextLayer?: boolean; unavailable?: boolean }> {
-  const baseUrl = (process.env.OCR_HTTP_SERVICE_URL ?? 'http://localhost:8819').replace(/\/$/, '');
+  const configuredBaseUrl = process.env.OCR_HTTP_SERVICE_URL;
+  if (!configuredBaseUrl) {
+    return { data: {}, unavailable: true };
+  }
+  const baseUrl = configuredBaseUrl.replace(/\/$/, '');
 
   const downloaded = await downloadDocument(documentId);
   if (downloaded.error || !downloaded.fileBuffer) return { data: {}, error: downloaded.error || '無法下載文件內容' };

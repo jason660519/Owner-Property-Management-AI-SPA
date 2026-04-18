@@ -1,13 +1,21 @@
-'use server';
+"use server";
 
-import { createClient } from '@/utils/supabase/server';
-import { createAdminClient } from '@/utils/supabase/admin';
-import { revalidatePath } from 'next/cache';
-import { randomInt } from 'crypto';
+import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
+import { revalidatePath } from "next/cache";
+import { randomInt } from "crypto";
 
-import nodemailer from 'nodemailer';
+import nodemailer from "nodemailer";
 
-const BASE = '/superadmin/users';
+const BASE = "/superadmin/users";
+
+export type SocialContacts = {
+  lineId?: string | null;
+  wechatId?: string | null;
+  whatsapp?: string | null;
+  facebookUrl?: string | null;
+  instagramUrl?: string | null;
+};
 
 /**
  * Generate an 8-digit numeric invite code (10000000–99999999)
@@ -18,52 +26,57 @@ function generateInviteCode(): string {
 
 export async function inviteUser(formData: FormData) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Unauthorized' };
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Unauthorized" };
 
   const { data: profile } = await supabase
-    .from('users_profile')
-    .select('role')
-    .eq('id', user.id)
+    .from("users_profile")
+    .select("role")
+    .eq("id", user.id)
     .single();
 
   // Allow if role is super_admin OR if the profile doesn't exist but user has app_metadata.roles including super_admin
-  const hasSuperAdminRole = profile?.role === 'super_admin' || 
-    (user.app_metadata?.roles?.includes('super_admin')) ||
-    (user.user_metadata?.roles?.includes('super_admin'));
+  const hasSuperAdminRole =
+    profile?.role === "super_admin" ||
+    user.app_metadata?.roles?.includes("super_admin") ||
+    user.user_metadata?.roles?.includes("super_admin");
 
   if (!hasSuperAdminRole) {
-    console.error('Unauthorized invite attempt:', { 
-      userId: user.id, 
+    console.error("Unauthorized invite attempt:", {
+      userId: user.id,
       profileRole: profile?.role,
       appRoles: user.app_metadata?.roles,
-      userRoles: user.user_metadata?.roles 
+      userRoles: user.user_metadata?.roles,
     });
-    return { error: 'Unauthorized: Admin access required' };
+    return { error: "Unauthorized: Admin access required" };
   }
 
   const supabaseAdmin = createAdminClient();
-  const email = formData.get('email') as string;
-  const groupId = formData.get('groupId') as string;
-  const role = (formData.get('role') as string) || 'landlord';
-  if (!email) return { error: 'Email is required' };
+  const email = formData.get("email") as string;
+  const groupId = formData.get("groupId") as string;
+  const role = (formData.get("role") as string) || "landlord";
+  if (!email) return { error: "Email is required" };
 
   // Generate invite link via Supabase Admin API (creates the user in auth.users if new)
-  const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-    type: 'invite',
-    email: email,
-    options: {
-      redirectTo: 'http://localhost:3000/auth/callback',
-    }
-  });
+  const { data: linkData, error: linkError } =
+    await supabaseAdmin.auth.admin.generateLink({
+      type: "invite",
+      email: email,
+      options: {
+        redirectTo: "http://localhost:3000/auth/callback",
+      },
+    });
 
   if (linkError) {
-    console.error('Error generating invite link:', linkError);
+    console.error("Error generating invite link:", linkError);
     return { error: linkError.message };
   }
 
   const hashedToken = linkData.properties.hashed_token;
-  const supabaseToken = linkData.properties.email_otp || hashedToken || 'unknown-token';
+  const supabaseToken =
+    linkData.properties.email_otp || hashedToken || "unknown-token";
   const invitedUserId = linkData.user.id;
 
   // Generate our 8-digit invite code
@@ -71,36 +84,37 @@ export async function inviteUser(formData: FormData) {
 
   // Build the accept link that goes to the login page in invite mode
   // User will enter their email + 8-digit invite code on the login page
-  const siteUrl = process.env.NEXT_PUBLIC_MAIN_SITE_URL || 'http://localhost:3000';
+  const siteUrl =
+    process.env.NEXT_PUBLIC_MAIN_SITE_URL || "http://localhost:3000";
   const acceptLink = `${siteUrl}/login?mode=invite&email=${encodeURIComponent(email)}`;
 
   // Track the invitation in our custom table
   const { error: dbError } = await supabaseAdmin
-    .from('user_invitations')
+    .from("user_invitations")
     .insert({
       email: email,
       token: supabaseToken,
       invite_code: inviteCode,
       role: role,
       group_id: groupId || null,
-      status: 'pending',
+      status: "pending",
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
       metadata: {
         accept_link: acceptLink,
         invited_by: user.id,
         invited_user_id: invitedUserId,
-      }
+      },
     });
 
   if (dbError) {
-    console.error('Error storing invitation:', dbError);
-    return { error: 'Failed to store invitation record' };
+    console.error("Error storing invitation:", dbError);
+    return { error: "Failed to store invitation record" };
   }
 
   // Send Email using Nodemailer (to Inbucket in dev)
   const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'localhost',
-    port: parseInt(process.env.SMTP_PORT || '54325'),
+    host: process.env.SMTP_HOST || "localhost",
+    port: parseInt(process.env.SMTP_PORT || "54325"),
     secure: false,
     auth: undefined, // No auth for Inbucket
   });
@@ -109,7 +123,7 @@ export async function inviteUser(formData: FormData) {
     await transporter.sendMail({
       from: '"物業管理系統" <noreply@property-mgmt.com>',
       to: email,
-      subject: 'You have been invited',
+      subject: "You have been invited",
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #1a1a1a;">
           <div style="background-color: #2a2a2a; border-radius: 12px; padding: 40px; border: 1px solid #333;">
@@ -148,29 +162,32 @@ export async function inviteUser(formData: FormData) {
       `,
     });
   } catch (emailError: unknown) {
-    const msg = emailError instanceof Error ? emailError.message : String(emailError);
-    console.error('Error sending email:', emailError);
-    return { error: 'Failed to send email: ' + msg };
+    const msg =
+      emailError instanceof Error ? emailError.message : String(emailError);
+    console.error("Error sending email:", emailError);
+    return { error: "Failed to send email: " + msg };
   }
 
   // Handle Group Assignment (Optional)
   if (groupId && invitedUserId) {
     const { data: existingMembership } = await supabaseAdmin
-      .from('iam_group_members')
-      .select('id')
-      .eq('user_id', invitedUserId)
-      .eq('group_id', groupId)
+      .from("iam_group_members")
+      .select("id")
+      .eq("user_id", invitedUserId)
+      .eq("group_id", groupId)
       .single();
 
     if (!existingMembership) {
-        const { error: groupError } = await supabaseAdmin.from('iam_group_members').insert({
+      const { error: groupError } = await supabaseAdmin
+        .from("iam_group_members")
+        .insert({
           user_id: invitedUserId,
           group_id: groupId,
         });
-        if (groupError) {
-          console.error('Error adding user to group:', groupError);
-          // Don't fail the whole request, just warn
-        }
+      if (groupError) {
+        console.error("Error adding user to group:", groupError);
+        // Don't fail the whole request, just warn
+      }
     }
   }
 
@@ -191,24 +208,28 @@ export type IAMUser = {
   groups: string[];
   roles: string[];
   createdAt?: string;
+  updatedAt?: string;
 };
 
 export async function getUsers(): Promise<IAMUser[]> {
   const supabase = await createClient();
   const { data: users, error: userError } = await supabase
-    .from('iam_users_view')
-    .select('id, email, created_at')
-    .order('created_at', { ascending: false });
+    .from("iam_users_view")
+    .select("id, email, created_at")
+    .order("created_at", { ascending: false });
   if (userError) throw new Error(`Failed to fetch users: ${userError.message}`);
 
   const { data: memberships, error: memberError } = await supabase
-    .from('iam_group_members')
-    .select('user_id, group:iam_groups(name)');
-  if (memberError) throw new Error(`Failed to fetch memberships: ${memberError.message}`);
+    .from("iam_group_members")
+    .select("user_id, group:iam_groups(name)");
+  if (memberError)
+    throw new Error(`Failed to fetch memberships: ${memberError.message}`);
 
   const { data: profiles } = await supabase
-    .from('users_profile')
-    .select('id, roles, display_name, phone, line_id, wechat_id, whatsapp, facebook_url, instagram_url');
+    .from("users_profile")
+    .select(
+      "id, roles, display_name, phone, line_id, wechat_id, whatsapp, facebook_url, instagram_url",
+    );
 
   type ProfileRow = {
     id: string;
@@ -226,82 +247,151 @@ export async function getUsers(): Promise<IAMUser[]> {
   (profiles || []).forEach((p: ProfileRow) => profileMap.set(p.id, p));
 
   const userMap = new Map<string, IAMUser>();
-  users.forEach((u: { id: string; email: string | null; created_at?: string }) => {
-    const p = profileMap.get(u.id);
-    userMap.set(u.id, {
-      id: u.id,
-      email: u.email || 'No Email',
-      displayName: p?.display_name ?? null,
-      phone: p?.phone ?? null,
-      lineId: p?.line_id ?? null,
-      wechatId: p?.wechat_id ?? null,
-      whatsapp: p?.whatsapp ?? null,
-      facebookUrl: p?.facebook_url ?? null,
-      instagramUrl: p?.instagram_url ?? null,
-      groups: [],
-      roles: p?.roles || [],
-      createdAt: u.created_at,
-    });
-  });
-  memberships.forEach((m: { user_id: string; group?: { name: string } | { name: string }[] }) => {
-    const user = userMap.get(m.user_id);
-    const groupName = Array.isArray(m.group) ? m.group[0]?.name : m.group?.name;
-    if (user && groupName) user.groups.push(groupName);
-  });
+  users.forEach(
+    (u: { id: string; email: string | null; created_at?: string }) => {
+      const p = profileMap.get(u.id);
+      userMap.set(u.id, {
+        id: u.id,
+        email: u.email || "No Email",
+        displayName: p?.display_name ?? null,
+        phone: p?.phone ?? null,
+        lineId: p?.line_id ?? null,
+        wechatId: p?.wechat_id ?? null,
+        whatsapp: p?.whatsapp ?? null,
+        facebookUrl: p?.facebook_url ?? null,
+        instagramUrl: p?.instagram_url ?? null,
+        groups: [],
+        roles: p?.roles || [],
+        createdAt: u.created_at,
+      });
+    },
+  );
+  memberships.forEach(
+    (m: { user_id: string; group?: { name: string } | { name: string }[] }) => {
+      const user = userMap.get(m.user_id);
+      const groupName = Array.isArray(m.group)
+        ? m.group[0]?.name
+        : m.group?.name;
+      if (user && groupName) user.groups.push(groupName);
+    },
+  );
   return Array.from(userMap.values());
 }
 
 export async function getAllGroups() {
   const supabase = await createClient();
-  const { data } = await supabase.from('iam_groups').select('id, name').order('name');
+  const { data } = await supabase
+    .from("iam_groups")
+    .select("id, name")
+    .order("name");
   return data || [];
 }
 
 export async function addUserToGroup(userId: string, groupId: string) {
   const supabase = await createClient();
-  const { error } = await supabase.from('iam_group_members').insert({ user_id: userId, group_id: groupId });
+  const { error } = await supabase
+    .from("iam_group_members")
+    .insert({ user_id: userId, group_id: groupId });
   if (error) {
-    if (error.code === '23505') return { success: false, message: 'User is already in this group' };
+    if (error.code === "23505")
+      return { success: false, message: "User is already in this group" };
     return { success: false, message: error.message };
   }
   revalidatePath(BASE);
   return { success: true };
 }
 
-export async function getInvites(email: string) {
+export async function deleteUser(
+  userId: string,
+): Promise<{ success: boolean; message?: string }> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Unauthorized');
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: "Unauthorized" };
 
   const { data: profile } = await supabase
-    .from('users_profile')
-    .select('role')
-    .eq('id', user.id)
+    .from("users_profile")
+    .select("role")
+    .eq("id", user.id)
     .single();
 
-  const hasSuperAdminRole = profile?.role === 'super_admin' || 
-    (user.app_metadata?.roles?.includes('super_admin')) ||
-    (user.user_metadata?.roles?.includes('super_admin'));
+  const hasSuperAdminRole =
+    profile?.role === "super_admin" ||
+    user.app_metadata?.roles?.includes("super_admin") ||
+    user.user_metadata?.roles?.includes("super_admin");
 
-  if (!hasSuperAdminRole) throw new Error('Unauthorized: Admin access required');
+  if (!hasSuperAdminRole) {
+    return { success: false, message: "Unauthorized: Admin access required" };
+  }
+
+  const admin = createAdminClient();
+
+  // Delete from users_profile table first due to foreign key constraints
+  const { error: profileError } = await admin
+    .from("users_profile")
+    .delete()
+    .eq("id", userId);
+
+  if (profileError) {
+    console.error("Error deleting user profile:", profileError);
+    return { success: false, message: profileError.message };
+  }
+
+  // Then delete from auth.users
+  const { error: authError } = await admin.auth.admin.deleteUser(userId);
+
+  if (authError) {
+    console.error("Error deleting auth user:", authError);
+    return { success: false, message: authError.message };
+  }
+
+  revalidatePath(BASE);
+  return { success: true };
+}
+
+export async function getInvites(email: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const { data: profile } = await supabase
+    .from("users_profile")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  const hasSuperAdminRole =
+    profile?.role === "super_admin" ||
+    user.app_metadata?.roles?.includes("super_admin") ||
+    user.user_metadata?.roles?.includes("super_admin");
+
+  if (!hasSuperAdminRole)
+    throw new Error("Unauthorized: Admin access required");
 
   const supabaseAdmin = createAdminClient();
   const { data, error } = await supabaseAdmin
-    .from('user_invitations')
-    .select('*')
-    .eq('email', email)
-    .order('created_at', { ascending: false });
+    .from("user_invitations")
+    .select("*")
+    .eq("email", email)
+    .order("created_at", { ascending: false });
 
-  if (error) throw new Error('Failed to fetch invites: ' + error.message);
+  if (error) throw new Error("Failed to fetch invites: " + error.message);
   return data;
 }
 
 export async function removeUserFromGroup(userId: string, groupName: string) {
   const supabase = await createClient();
-  const { data: group } = await supabase.from('iam_groups').select('id').eq('name', groupName).single();
-  if (!group) return { success: false, message: 'Group not found' };
+  const { data: group } = await supabase
+    .from("iam_groups")
+    .select("id")
+    .eq("name", groupName)
+    .single();
+  if (!group) return { success: false, message: "Group not found" };
   const { error } = await supabase
-    .from('iam_group_members')
+    .from("iam_group_members")
     .delete()
     .match({ user_id: userId, group_id: group.id });
   if (error) return { success: false, message: error.message };
@@ -309,260 +399,182 @@ export async function removeUserFromGroup(userId: string, groupName: string) {
   return { success: true };
 }
 
-export async function addRoleToUser(userId: string, role: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { success: false, message: 'Unauthorized' };
-  }
-
-  const { data: profile } = await supabase
-    .from('users_profile')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  const hasSuperAdminRole =
-    profile?.role === 'super_admin' ||
-    user.app_metadata?.roles?.includes('super_admin') ||
-    user.user_metadata?.roles?.includes('super_admin');
-
-  if (!hasSuperAdminRole) {
-    return { success: false, message: 'Unauthorized: Admin access required' };
-  }
-
-  const { data: targetProfile, error: fetchError } = await supabase
-    .from('users_profile')
-    .select('roles')
-    .eq('id', userId)
-    .single();
-
-  if (fetchError) {
-    return { success: false, message: fetchError.message };
-  }
-
-  const currentRoles = (targetProfile?.roles as string[] | null) || [];
-  const trimmedRole = role.trim();
-  if (!trimmedRole) {
-    return { success: false, message: 'Role is required' };
-  }
-  if (currentRoles.includes(trimmedRole)) {
-    return { success: false, message: 'Role is already assigned to this user' };
-  }
-
-  const updatedRoles = [...currentRoles, trimmedRole];
-
-  const { error: updateError } = await supabase
-    .from('users_profile')
-    .update({ roles: updatedRoles })
-    .eq('id', userId);
-
-  if (updateError) {
-    return { success: false, message: updateError.message };
-  }
-
-  revalidatePath(BASE);
-  return { success: true };
-}
-
-/**
- * Update a user's display_name in both Auth user_metadata and users_profile.
- * Only super_admin can call this. Used from IAM User Management UI.
- */
-export async function updateUserDisplayName(
+export async function updateUser(
   userId: string,
-  displayName: string
+  updates: Partial<IAMUser>,
 ): Promise<{ success: boolean; message?: string }> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { success: false, message: 'Unauthorized' };
-  }
+  if (!user) return { success: false, message: "Unauthorized" };
 
   const { data: profile } = await supabase
-    .from('users_profile')
-    .select('role')
-    .eq('id', user.id)
+    .from("users_profile")
+    .select("role")
+    .eq("id", user.id)
     .single();
 
   const hasSuperAdminRole =
-    profile?.role === 'super_admin' ||
-    user.app_metadata?.roles?.includes('super_admin') ||
-    user.user_metadata?.roles?.includes('super_admin');
+    profile?.role === "super_admin" ||
+    user.app_metadata?.roles?.includes("super_admin") ||
+    user.user_metadata?.roles?.includes("super_admin");
 
   if (!hasSuperAdminRole) {
-    return { success: false, message: 'Unauthorized: Admin access required' };
-  }
-
-  const trimmed = displayName.trim();
-  if (!trimmed) {
-    return { success: false, message: 'Display name cannot be empty' };
+    return { success: false, message: "Unauthorized: Admin access required" };
   }
 
   const admin = createAdminClient();
-  const { data: authUser, error: fetchError } = await admin.auth.admin.getUserById(userId);
-  if (fetchError || !authUser?.user) {
-    return { success: false, message: fetchError?.message ?? 'User not found' };
+  const now = new Date().toISOString();
+  const updateErrors: string[] = [];
+
+  // Update auth.users if email or displayName is provided
+  if (updates.email || updates.displayName) {
+    const { data: authUser, error: fetchAuthError } =
+      await admin.auth.admin.getUserById(userId);
+    if (fetchAuthError || !authUser?.user) {
+      updateErrors.push(fetchAuthError?.message ?? "User not found in auth");
+    } else {
+      const authUpdate: { email?: string; user_metadata?: object } = {};
+      if (updates.email && updates.email.trim() !== authUser.user.email) {
+        if (!updates.email.trim().includes("@")) {
+          updateErrors.push("Invalid email address");
+        } else {
+          authUpdate.email = updates.email.trim();
+        }
+      }
+      if (
+        updates.displayName &&
+        updates.displayName.trim() !==
+          (authUser.user.user_metadata as { display_name?: string })
+            ?.display_name
+      ) {
+        authUpdate.user_metadata = {
+          ...authUser.user.user_metadata,
+          display_name: updates.displayName.trim(),
+        };
+      }
+
+      if (Object.keys(authUpdate).length > 0) {
+        const { error: updateAuthError } =
+          await admin.auth.admin.updateUserById(userId, authUpdate);
+        if (updateAuthError) {
+          updateErrors.push(updateAuthError.message);
+        }
+      }
+    }
   }
 
-  const existingMeta = authUser.user.user_metadata ?? {};
-  const { error: updateAuthError } = await admin.auth.admin.updateUserById(userId, {
-    user_metadata: { ...existingMeta, display_name: trimmed },
-  });
-  if (updateAuthError) {
-    return { success: false, message: updateAuthError.message };
-  }
+  // Update users_profile table
+  const profileUpdates: Record<string, string | string[] | null> = {
+    updated_at: now,
+  };
+  if (updates.displayName !== undefined)
+    profileUpdates.display_name = updates.displayName?.trim() || null;
+  if (updates.phone !== undefined)
+    profileUpdates.phone = updates.phone?.trim() || null;
+  if (updates.lineId !== undefined)
+    profileUpdates.line_id = updates.lineId?.trim() || null;
+  if (updates.wechatId !== undefined)
+    profileUpdates.wechat_id = updates.wechatId?.trim() || null;
+  if (updates.whatsapp !== undefined)
+    profileUpdates.whatsapp = updates.whatsapp?.trim() || null;
+  if (updates.facebookUrl !== undefined)
+    profileUpdates.facebook_url = updates.facebookUrl?.trim() || null;
+  if (updates.instagramUrl !== undefined)
+    profileUpdates.instagram_url = updates.instagramUrl?.trim() || null;
+  if (updates.roles !== undefined) profileUpdates.roles = updates.roles;
 
   const { error: updateProfileError } = await admin
-    .from('users_profile')
-    .update({ display_name: trimmed, updated_at: new Date().toISOString() })
-    .eq('id', userId);
+    .from("users_profile")
+    .update(profileUpdates)
+    .eq("id", userId);
+
   if (updateProfileError) {
-    return { success: false, message: updateProfileError.message };
+    updateErrors.push(updateProfileError.message);
+  }
+
+  if (updateErrors.length > 0) {
+    return { success: false, message: updateErrors.join("; ") };
   }
 
   revalidatePath(BASE);
   return { success: true };
 }
 
-export async function removeRoleFromUser(userId: string, role: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export async function addRoleToUser(
+  userId: string,
+  role: string,
+): Promise<{ success: boolean; message?: string }> {
+  const nextRole = role.trim();
+  if (!nextRole) return { success: false, message: "Role is required" };
 
-  if (!user) {
-    return { success: false, message: 'Unauthorized' };
-  }
-
-  const { data: profile } = await supabase
-    .from('users_profile')
-    .select('role')
-    .eq('id', user.id)
+  const admin = createAdminClient();
+  const { data: profile, error } = await admin
+    .from("users_profile")
+    .select("roles")
+    .eq("id", userId)
     .single();
 
-  const hasSuperAdminRole =
-    profile?.role === 'super_admin' ||
-    user.app_metadata?.roles?.includes('super_admin') ||
-    user.user_metadata?.roles?.includes('super_admin');
+  if (error) return { success: false, message: error.message };
 
-  if (!hasSuperAdminRole) {
-    return { success: false, message: 'Unauthorized: Admin access required' };
+  const currentRoles = (profile?.roles as string[] | null) ?? [];
+  if (currentRoles.includes(nextRole)) {
+    return { success: false, message: "Role already assigned" };
   }
 
-  const { data: targetProfile, error: fetchError } = await supabase
-    .from('users_profile')
-    .select('roles')
-    .eq('id', userId)
-    .single();
-
-  if (fetchError) {
-    return { success: false, message: fetchError.message };
-  }
-
-  const currentRoles = (targetProfile?.roles as string[] | null) || [];
-  const trimmedRole = role.trim();
-  const updatedRoles = currentRoles.filter((r) => r !== trimmedRole);
-
-  const { error: updateError } = await supabase
-    .from('users_profile')
-    .update({ roles: updatedRoles })
-    .eq('id', userId);
-
-  if (updateError) {
-    return { success: false, message: updateError.message };
-  }
-
-  revalidatePath(BASE);
-  return { success: true };
+  return updateUser(userId, { roles: [...currentRoles, nextRole] });
 }
 
-/**
- * Update a user's phone in users_profile.
- * Only super_admin can call this.
- */
+export async function removeRoleFromUser(
+  userId: string,
+  role: string,
+): Promise<{ success: boolean; message?: string }> {
+  const targetRole = role.trim();
+  if (!targetRole) return { success: false, message: "Role is required" };
+
+  const admin = createAdminClient();
+  const { data: profile, error } = await admin
+    .from("users_profile")
+    .select("roles")
+    .eq("id", userId)
+    .single();
+
+  if (error) return { success: false, message: error.message };
+
+  const currentRoles = (profile?.roles as string[] | null) ?? [];
+  if (!currentRoles.includes(targetRole)) {
+    return { success: false, message: "Role not assigned" };
+  }
+
+  const nextRoles = currentRoles.filter((r) => r !== targetRole);
+  return updateUser(userId, { roles: nextRoles });
+}
+
+export async function updateUserDisplayName(
+  userId: string,
+  displayName: string,
+): Promise<{ success: boolean; message?: string }> {
+  return updateUser(userId, { displayName });
+}
+
 export async function updateUserPhone(
   userId: string,
-  phone: string
+  phone: string,
 ): Promise<{ success: boolean; message?: string }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { success: false, message: 'Unauthorized' };
-
-  const { data: profile } = await supabase
-    .from('users_profile')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  const hasSuperAdminRole =
-    profile?.role === 'super_admin' ||
-    user.app_metadata?.roles?.includes('super_admin') ||
-    user.user_metadata?.roles?.includes('super_admin');
-
-  if (!hasSuperAdminRole) return { success: false, message: 'Unauthorized: Admin access required' };
-
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from('users_profile')
-    .update({ phone: phone.trim() || null, updated_at: new Date().toISOString() })
-    .eq('id', userId);
-
-  if (error) return { success: false, message: error.message };
-
-  revalidatePath(BASE);
-  return { success: true };
+  return updateUser(userId, { phone });
 }
 
-/**
- * Update a user's email in auth.users via admin API.
- * Only super_admin can call this. Changing auth email may require re-verification.
- */
 export async function updateUserEmail(
   userId: string,
-  email: string
+  email: string,
 ): Promise<{ success: boolean; message?: string }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { success: false, message: 'Unauthorized' };
-
-  const { data: profile } = await supabase
-    .from('users_profile')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  const hasSuperAdminRole =
-    profile?.role === 'super_admin' ||
-    user.app_metadata?.roles?.includes('super_admin') ||
-    user.user_metadata?.roles?.includes('super_admin');
-
-  if (!hasSuperAdminRole) return { success: false, message: 'Unauthorized: Admin access required' };
-
-  const trimmed = email.trim();
-  if (!trimmed || !trimmed.includes('@')) return { success: false, message: 'Invalid email address' };
-
-  const admin = createAdminClient();
-  const { error } = await admin.auth.admin.updateUserById(userId, { email: trimmed });
-  if (error) return { success: false, message: error.message };
-
-  revalidatePath(BASE);
-  return { success: true };
+  return updateUser(userId, { email });
 }
 
-export interface SocialContacts {
-  lineId?: string | null;
-  wechatId?: string | null;
-  whatsapp?: string | null;
-  facebookUrl?: string | null;
-  instagramUrl?: string | null;
-}
+
+
+
 
 /**
  * Update a user's social contact IDs/URLs in users_profile.
@@ -570,37 +582,40 @@ export interface SocialContacts {
  */
 export async function updateUserSocialContacts(
   userId: string,
-  contacts: SocialContacts
+  contacts: SocialContacts,
 ): Promise<{ success: boolean; message?: string }> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { success: false, message: 'Unauthorized' };
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: "Unauthorized" };
 
   const { data: profile } = await supabase
-    .from('users_profile')
-    .select('role')
-    .eq('id', user.id)
+    .from("users_profile")
+    .select("role")
+    .eq("id", user.id)
     .single();
 
   const hasSuperAdminRole =
-    profile?.role === 'super_admin' ||
-    user.app_metadata?.roles?.includes('super_admin') ||
-    user.user_metadata?.roles?.includes('super_admin');
+    profile?.role === "super_admin" ||
+    user.app_metadata?.roles?.includes("super_admin") ||
+    user.user_metadata?.roles?.includes("super_admin");
 
-  if (!hasSuperAdminRole) return { success: false, message: 'Unauthorized: Admin access required' };
+  if (!hasSuperAdminRole)
+    return { success: false, message: "Unauthorized: Admin access required" };
 
   const admin = createAdminClient();
   const { error } = await admin
-    .from('users_profile')
+    .from("users_profile")
     .update({
-      line_id:       contacts.lineId?.trim()       || null,
-      wechat_id:     contacts.wechatId?.trim()     || null,
-      whatsapp:      contacts.whatsapp?.trim()      || null,
-      facebook_url:  contacts.facebookUrl?.trim()  || null,
+      line_id: contacts.lineId?.trim() || null,
+      wechat_id: contacts.wechatId?.trim() || null,
+      whatsapp: contacts.whatsapp?.trim() || null,
+      facebook_url: contacts.facebookUrl?.trim() || null,
       instagram_url: contacts.instagramUrl?.trim() || null,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', userId);
+    .eq("id", userId);
 
   if (error) return { success: false, message: error.message };
 

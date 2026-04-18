@@ -54,3 +54,47 @@ export interface PaperclipRoleMapping {
   /** Partial map — unmapped roles submit with no assignee. */
   roleToAgentId: Partial<Record<PaperclipRoleId, string>>;
 }
+
+// ── Unified status model ─────────────────────────────────────────────
+
+/** Local task DB statuses (paperclip_tasks.status). */
+export type PaperclipLocalTaskStatus =
+  | 'submitted' | 'running' | 'succeeded' | 'failed' | 'cancelled' | 'tripped';
+
+/** Agent-level statuses reported by the Paperclip API. */
+export type PaperclipAgentStatus =
+  | 'idle' | 'running' | 'error' | 'paused';
+
+/** Event types recorded in paperclip_task_events for audit. */
+export type PaperclipTaskEventType =
+  | 'dispatched' | 'resumed' | 'paused' | 'heartbeat_run'
+  | 'cron_triggered' | 'adapter_switched' | 'status_changed'
+  | 'retry' | 'cancelled' | 'completed';
+
+/** Error categories for standardized UI messages. */
+export type PaperclipErrorCategory =
+  | 'quota_exceeded' | 'adapter_crash' | 'network' | 'auth' | 'task_error' | 'unknown';
+
+export function classifyError(message: string): PaperclipErrorCategory {
+  const lower = message.toLowerCase();
+  if (lower.includes('quota') || lower.includes('rate limit') || lower.includes('429') || lower.includes('billing'))
+    return 'quota_exceeded';
+  if (lower.includes('adapter_failed') || lower.includes('model does not exist'))
+    return 'adapter_crash';
+  if (lower.includes('network') || lower.includes('econnrefused') || lower.includes('timeout'))
+    return 'network';
+  if (lower.includes('401') || lower.includes('403') || lower.includes('unauthorized'))
+    return 'auth';
+  if (lower.includes('task') || lower.includes('issue'))
+    return 'task_error';
+  return 'unknown';
+}
+
+export const ERROR_CATEGORY_LABELS: Record<PaperclipErrorCategory, string> = {
+  quota_exceeded: 'API quota exceeded — consider switching adapter',
+  adapter_crash: 'Adapter failure — try a different adapter/model',
+  network: 'Network error — check Paperclip container',
+  auth: 'Authentication error — check API key',
+  task_error: 'Task-level error — review prompt/code',
+  unknown: 'Unknown error',
+};

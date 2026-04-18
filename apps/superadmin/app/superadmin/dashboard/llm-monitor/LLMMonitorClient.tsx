@@ -1,19 +1,48 @@
 'use client';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { Brain, Clock, DollarSign, Star, Layers, RefreshCw, Zap, Activity, FileText, BarChart3 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import {
+  Brain,
+  Clock,
+  DollarSign,
+  Star,
+  Layers,
+  RefreshCw,
+  Zap,
+  Activity,
+  FileText,
+  BarChart3,
+  TrendingUp,
+  Mic,
+  SlidersHorizontal,
+  Percent,
+} from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import EnhancedTable from '@/components/ui/EnhancedTable';
 import { BottomSheetTabs } from '@/components/ui/BottomSheetTabs';
 import type { SheetTabDef } from '@/components/ui/BottomSheetTabs';
 import type { ColumnDef } from '@tanstack/react-table';
-import type { AIUsageLog, LLMOverallStats, LLMAggregateStat } from './actions';
+import type {
+  AIUsageLog,
+  LLMOverallStats,
+  LLMAggregateStat,
+  DailyTokenPoint,
+  WeeklyTokenPoint,
+  VoiceQualityPoint,
+  LLMMonitorConfig,
+} from './actions';
+import LLMMonitorBudgetPanel from './LLMMonitorBudgetPanel';
 
 interface LLMMonitorClientPropsV2 {
   overallStats: LLMOverallStats;
   aggregateStats: LLMAggregateStat[];
   usageLogs: AIUsageLog[];
+  monitorConfig: LLMMonitorConfig;
+  dailyTokenSeries: DailyTokenPoint[];
+  weeklyTokenSeries: WeeklyTokenPoint[];
+  voiceQualitySeries: VoiceQualityPoint[];
 }
 
 interface StatCardProps {
@@ -25,9 +54,22 @@ interface StatCardProps {
   unit?: string;
 }
 
-type TabId = 'overall-stats' | 'ai-usage-logs' | 'model-comparison';
+type TabId =
+  | 'overall-stats'
+  | 'ai-usage-logs'
+  | 'model-comparison'
+  | 'token-trends'
+  | 'voice-quality'
+  | 'budget-keys';
 
-const TAB_IDS: TabId[] = ['overall-stats', 'ai-usage-logs', 'model-comparison'];
+const TAB_IDS: TabId[] = [
+  'overall-stats',
+  'ai-usage-logs',
+  'model-comparison',
+  'token-trends',
+  'voice-quality',
+  'budget-keys',
+];
 
 function isTabId(value: string): value is TabId {
   return TAB_IDS.includes(value as TabId);
@@ -58,6 +100,30 @@ const SHEET_TABS: SheetTabDef[] = [
     color: 'text-purple-500',
     activeColor: 'bg-purple-600 text-white',
   },
+  {
+    id: 'token-trends',
+    label: 'Tokens',
+    zhLabel: 'Token 趨勢',
+    icon: TrendingUp,
+    color: 'text-amber-500',
+    activeColor: 'bg-amber-600 text-white',
+  },
+  {
+    id: 'voice-quality',
+    label: 'Voice',
+    zhLabel: '語音品質',
+    icon: Mic,
+    color: 'text-pink-500',
+    activeColor: 'bg-pink-600 text-white',
+  },
+  {
+    id: 'budget-keys',
+    label: 'Budget',
+    zhLabel: '預算與密鑰',
+    icon: SlidersHorizontal,
+    color: 'text-cyan-500',
+    activeColor: 'bg-cyan-600 text-white',
+  },
 ];
 
 function StatCard({ title, value, icon: Icon, color, bgColor, unit }: StatCardProps) {
@@ -81,17 +147,56 @@ function StatCard({ title, value, icon: Icon, color, bgColor, unit }: StatCardPr
   );
 }
 
-// Cell renders the plain number; the "(ms)" unit lives in the column header
-// so TanStack can sort on the raw number.
 function getLatencyBadge(latency: number) {
   if (latency < 500) return <Badge variant="success">&lt;500</Badge>;
   if (latency < 1500) return <Badge variant="warning">{latency}</Badge>;
   return <Badge variant="error">{latency}</Badge>;
 }
 
-// ---------------------------------------------------------------------------
-// Column definitions
-// ---------------------------------------------------------------------------
+function formatPct01(n: number): string {
+  return `${(n * 100).toFixed(2)}%`;
+}
+
+function MiniBarChart({
+  title,
+  subtitle,
+  points,
+  valueLabel,
+}: {
+  title: string;
+  subtitle?: string;
+  points: { label: string; value: number }[];
+  valueLabel: (v: number) => string;
+}) {
+  const max = useMemo(() => Math.max(1, ...points.map((p) => p.value)), [points]);
+
+  return (
+    <div className="rounded-lg border border-[#333333] bg-[#2A2A2A] p-4">
+      <h3 className="text-sm font-semibold text-gray-200">{title}</h3>
+      {subtitle ? <p className="text-xs text-gray-500 mt-1 mb-3">{subtitle}</p> : <div className="mb-3" />}
+      <div className="space-y-2">
+        {points.length === 0 ? (
+          <p className="text-sm text-gray-500">尚無資料。</p>
+        ) : (
+          points.map((p) => (
+            <div key={p.label} className="flex items-center gap-2 text-xs">
+              <span className="w-24 shrink-0 text-gray-500 truncate" title={p.label}>
+                {p.label}
+              </span>
+              <div className="flex-1 h-6 bg-[#1A1A1A] rounded overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-indigo-600/80 to-purple-500/90"
+                  style={{ width: `${(p.value / max) * 100}%` }}
+                />
+              </div>
+              <span className="w-20 text-right font-mono text-gray-300">{valueLabel(p.value)}</span>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
 
 const usageLogColumns: ColumnDef<AIUsageLog, unknown>[] = [
   {
@@ -209,6 +314,15 @@ const usageLogColumns: ColumnDef<AIUsageLog, unknown>[] = [
 
 const modelComparisonColumns: ColumnDef<LLMAggregateStat, unknown>[] = [
   {
+    id: 'provider',
+    header: 'Provider',
+    meta: { headerEn: 'Provider' },
+    accessorKey: 'provider',
+    cell: ({ row }) => (
+      <span className="text-gray-300 text-xs">{row.original.provider}</span>
+    ),
+  },
+  {
     id: 'model_id',
     header: '模型 ID',
     meta: { headerEn: 'Model ID', headerZh: '模型 ID' },
@@ -228,6 +342,15 @@ const modelComparisonColumns: ColumnDef<LLMAggregateStat, unknown>[] = [
       <span className="text-gray-300">
         {row.original.total_requests.toLocaleString()}
       </span>
+    ),
+  },
+  {
+    id: 'error_rate',
+    header: '錯誤率',
+    meta: { headerEn: 'Error rate', headerZh: '錯誤率' },
+    accessorKey: 'error_rate',
+    cell: ({ row }) => (
+      <span className="text-rose-300 font-mono text-xs">{formatPct01(row.original.error_rate)}</span>
     ),
   },
   {
@@ -268,53 +391,47 @@ const modelComparisonColumns: ColumnDef<LLMAggregateStat, unknown>[] = [
       const v = row.original.total_cost;
       return (
         <span className="text-yellow-400 font-mono">
-          {typeof v === 'number' ? v.toFixed(4) : v ?? '—'}
+          {typeof v === 'number' ? v.toFixed(4) : String(v ?? '—')}
         </span>
       );
     },
   },
-  {
-    id: 'avg_feedback',
-    header: '平均評分',
-    meta: { headerEn: 'Avg Feedback', headerZh: '平均評分' },
-    accessorKey: 'avg_feedback',
-    cell: ({ row }) => {
-      const fb = row.original.avg_feedback;
-      if (fb > 0) {
-        return (
-          <span className="flex items-center justify-end gap-1 text-orange-400">
-            <Star className="w-3 h-3" />
-            {fb}
-          </span>
-        );
-      }
-      return <span className="text-gray-600">-</span>;
-    },
-  },
 ];
 
-// Column width percentages (must roughly sum to 100)
 const USAGE_LOG_WIDTHS = [13, 9, 14, 16, 8, 8, 8, 8, 16];
-const MODEL_COMPARISON_WIDTHS = [22, 12, 14, 14, 14, 12, 12];
+const MODEL_COMPARISON_WIDTHS = [12, 14, 10, 10, 12, 12, 12, 14];
 
 export default function LLMMonitorClient({
   overallStats,
   aggregateStats,
   usageLogs,
+  monitorConfig,
+  dailyTokenSeries,
+  weeklyTokenSeries,
+  voiceQualitySeries,
 }: LLMMonitorClientPropsV2) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     if (typeof window === 'undefined') return 'overall-stats';
     const hashTab = window.location.hash.replace('#', '');
     return isTabId(hashTab) ? hashTab : 'overall-stats';
   });
 
-  // Pre-sort model comparison data by total_requests desc
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'test') {
+      return;
+    }
+    const t = window.setInterval(() => {
+      router.refresh();
+    }, 60_000);
+    return () => window.clearInterval(t);
+  }, [router]);
+
   const sortedAggregateStats = useMemo(
     () => [...aggregateStats].sort((a, b) => b.total_requests - a.total_requests),
     [aggregateStats],
   );
 
-  // Sync hash to URL when tab changes
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -324,7 +441,6 @@ export default function LLMMonitorClient({
     }
   }, [activeTab]);
 
-  // Listen for browser back/forward hash changes
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -345,19 +461,64 @@ export default function LLMMonitorClient({
     }
   }, []);
 
-  // Badge counts for tabs
-  const tabsWithBadges: SheetTabDef[] = useMemo(() =>
-    SHEET_TABS.map(tab => {
-      if (tab.id === 'ai-usage-logs') return { ...tab, badge: usageLogs.length };
-      if (tab.id === 'model-comparison') return { ...tab, badge: aggregateStats.length };
-      return tab;
-    }),
-    [usageLogs.length, aggregateStats.length],
+  const dailyBars = useMemo(
+    () =>
+      dailyTokenSeries.map((d) => ({
+        label: d.bucket_date,
+        value: d.total_tokens,
+      })),
+    [dailyTokenSeries],
+  );
+
+  const weeklyBars = useMemo(
+    () =>
+      weeklyTokenSeries.map((w) => ({
+        label: w.week_start,
+        value: w.total_tokens,
+      })),
+    [weeklyTokenSeries],
+  );
+
+  const dailyCostBars = useMemo(
+    () =>
+      dailyTokenSeries.map((d) => ({
+        label: d.bucket_date,
+        value: d.total_cost_usd,
+      })),
+    [dailyTokenSeries],
+  );
+
+  const voiceLatencyBars = useMemo(
+    () =>
+      voiceQualitySeries.map((v) => ({
+        label: v.bucket_date,
+        value: v.avg_latency_ms,
+      })),
+    [voiceQualitySeries],
+  );
+
+  const voiceBreakBars = useMemo(
+    () =>
+      voiceQualitySeries.map((v) => ({
+        label: v.bucket_date,
+        value: v.break_proxy_rate,
+      })),
+    [voiceQualitySeries],
+  );
+
+  const tabsWithBadges: SheetTabDef[] = useMemo(
+    () =>
+      SHEET_TABS.map((tab) => {
+        if (tab.id === 'ai-usage-logs') return { ...tab, badge: usageLogs.length };
+        if (tab.id === 'model-comparison') return { ...tab, badge: aggregateStats.length };
+        if (tab.id === 'voice-quality') return { ...tab, badge: voiceQualitySeries.length };
+        return tab;
+      }),
+    [usageLogs.length, aggregateStats.length, voiceQualitySeries.length],
   );
 
   return (
     <div className="flex flex-col h-full bg-[#1A1A1A] text-white">
-      {/* Header — always visible */}
       <div className="flex-none p-6 pb-4 space-y-1">
         <div className="flex items-center justify-between">
           <div>
@@ -365,10 +526,13 @@ export default function LLMMonitorClient({
               <Brain className="h-7 w-7 text-purple-400" />
               AI LLM API 效能監控
             </h1>
-            <p className="text-gray-400 mt-1 text-sm">近 30 天 API 呼叫效能統計</p>
+            <p className="text-gray-400 mt-1 text-sm">
+              近 30 天 API 呼叫效能統計 · 每 60 秒自動刷新 · 本月 UTC 花費 ${overallStats.month_spend_usd.toFixed(4)}
+            </p>
           </div>
           <button
-            onClick={() => window.location.reload()}
+            type="button"
+            onClick={() => router.refresh()}
             className="flex items-center gap-2 px-3 py-2 rounded-md border border-[#333333] text-gray-400 hover:text-white text-sm transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
@@ -377,16 +541,15 @@ export default function LLMMonitorClient({
         </div>
       </div>
 
-      {/* Active tab content */}
       <div className="flex-1 overflow-y-auto px-6 pb-4">
         {activeTab === 'overall-stats' && (
           <div className="space-y-4 max-w-7xl mx-auto">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-200">總覽 KPI</h2>
-              <span className="text-xs text-gray-500">近 30 天</span>
+              <span className="text-xs text-gray-500">近 30 天（錯誤率含 error + timeout）</span>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <StatCard
                 title="總請求數"
                 value={overallStats.total_requests}
@@ -403,11 +566,25 @@ export default function LLMMonitorClient({
                 unit="ms"
               />
               <StatCard
-                title="總花費"
+                title="錯誤率"
+                value={formatPct01(overallStats.error_rate)}
+                icon={Percent}
+                color={overallStats.error_rate > 0.05 ? 'text-rose-400' : 'text-emerald-400'}
+                bgColor={overallStats.error_rate > 0.05 ? 'bg-rose-500/10' : 'bg-emerald-500/10'}
+              />
+              <StatCard
+                title="總花費 (30d)"
                 value={`$${overallStats.total_cost}`}
                 icon={DollarSign}
                 color="text-yellow-400"
                 bgColor="bg-yellow-500/10"
+              />
+              <StatCard
+                title="本月花費 (UTC)"
+                value={`$${overallStats.month_spend_usd.toFixed(4)}`}
+                icon={DollarSign}
+                color="text-amber-300"
+                bgColor="bg-amber-500/10"
               />
               <StatCard
                 title="平均評分"
@@ -470,14 +647,65 @@ export default function LLMMonitorClient({
               columns={modelComparisonColumns}
               data={sortedAggregateStats}
               initialWidths={MODEL_COMPARISON_WIDTHS}
-              minWidth={900}
-              getSearchValue={(row) => row.model_id}
+              minWidth={1100}
+              getSearchValue={(row) => `${row.provider} ${row.model_id} ${row.display_key}`}
             />
           </div>
         )}
+
+        {activeTab === 'token-trends' && (
+          <div className="space-y-4 max-w-7xl mx-auto">
+            <h2 className="text-sm font-semibold text-gray-200">每日 / 每週 Token 與費用</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <MiniBarChart
+                title="每日 Token（input+output）"
+                subtitle="過去 14 天"
+                points={dailyBars}
+                valueLabel={(v) => v.toLocaleString()}
+              />
+              <MiniBarChart
+                title="每日費用 (USD)"
+                subtitle="過去 14 天 · 估算自 usage logs"
+                points={dailyCostBars}
+                valueLabel={(v) => `$${v.toFixed(4)}`}
+              />
+              <MiniBarChart
+                title="每週 Token"
+                subtitle="過去 8 週"
+                points={weeklyBars}
+                valueLabel={(v) => v.toLocaleString()}
+              />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'voice-quality' && (
+          <div className="space-y-4 max-w-7xl mx-auto">
+            <h2 className="text-sm font-semibold text-gray-200">語音 / TTS 品質</h2>
+            <p className="text-xs text-gray-500 max-w-3xl">
+              篩選條件：<span className="font-mono">module_key</span> 為 voice_generation / 含 voice，或路徑含 voice、tts。
+              「斷句代理率」= 該日 (error+timeout) / 總請求；正式斷句率需由 TTS pipeline 寫入專用欄位後替換。
+            </p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <MiniBarChart
+                title="平均語音延遲 (ms)"
+                points={voiceLatencyBars}
+                valueLabel={(v) => `${Math.round(v)} ms`}
+              />
+              <MiniBarChart
+                title="斷句代理率（失敗+逾時）"
+                points={voiceBreakBars}
+                valueLabel={(v) => formatPct01(v)}
+              />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'budget-keys' && (
+          <LLMMonitorBudgetPanel initialConfig={monitorConfig} monthSpendUsd={overallStats.month_spend_usd} />
+        )}
       </div>
 
-      {/* Bottom sheet tabs */}
       <BottomSheetTabs
         tabs={tabsWithBadges}
         activeTab={activeTab}

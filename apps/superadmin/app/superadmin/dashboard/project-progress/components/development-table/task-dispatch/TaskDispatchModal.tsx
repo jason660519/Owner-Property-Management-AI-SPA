@@ -15,6 +15,7 @@ import { getPaperclipConfig } from '@/lib/paperclip/config';
 import type { CreateIssueResult, PaperclipIssueResource } from '@/lib/paperclip/client';
 import type { WorktreePaths } from '@/lib/paperclip/worktree';
 import { formatPaperclipErrorWithHint } from '@/lib/paperclip/api-error-meta';
+import { ADAPTER_OPTIONS, getModelForAdapter } from '@/lib/paperclip/adapter-models';
 import { WORK_CATEGORY_OPTIONS, getDefaultPrompt } from './prompt-templates';
 
 export interface TaskCreatedPayload {
@@ -37,6 +38,11 @@ export default function TaskDispatchModal({
   row, rowKey, userId, currentIDE, onIdeChange, onTaskCreated, onClose,
 }: TaskDispatchModalProps) {
   const [ide, setIde] = useState<IDEOption>(currentIDE);
+  const [adapterType, setAdapterType] = useState(() => {
+    const rt = RUNTIME_OPTIONS.find(o => o.id === currentIDE);
+    return rt?.adapterType ?? '';
+  });
+  const [model, setModel] = useState(() => adapterType ? getModelForAdapter(adapterType) : '');
   const [workCategory, setWorkCategory] = useState('');
   const [promptText, setPromptText] = useState(() =>
     getDefaultPrompt(buildPromptContext(row, row.__rowId, currentIDE)),
@@ -52,9 +58,14 @@ export default function TaskDispatchModal({
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  // IDE change — regenerate prompt
+  // IDE change — regenerate prompt + auto-set adapter
   const handleIDEChange = useCallback((newIDE: IDEOption) => {
     setIde(newIDE);
+    const rt = RUNTIME_OPTIONS.find(o => o.id === newIDE);
+    if (rt?.adapterType) {
+      setAdapterType(rt.adapterType);
+      setModel(getModelForAdapter(rt.adapterType));
+    }
     const ctx = buildPromptContext(row, row.__rowId, newIDE);
     if (workCategory) {
       const opt = WORK_CATEGORY_OPTIONS.find(o => o.id === workCategory);
@@ -104,7 +115,13 @@ export default function TaskDispatchModal({
       const res = await fetch('/api/paperclip/issues', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
-        body: JSON.stringify(preview.payload),
+        body: JSON.stringify({
+          ...preview.payload,
+          _taskMeta: {
+            adapter_type: adapterType || undefined,
+            model: model || undefined,
+          },
+        }),
       });
       const json = (await res.json()) as CreateIssueResult & { worktree?: WorktreePaths };
       if (json.ok) {
@@ -173,6 +190,39 @@ export default function TaskDispatchModal({
                 <option value="">（自動指派）</option>
                 {WORK_CATEGORY_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
               </select>
+            </div>
+          </div>
+
+          {/* Adapter / Model config */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-[11px] font-medium text-text-secondary" htmlFor="dispatch-adapter">Adapter</label>
+              <select
+                id="dispatch-adapter"
+                className="w-full rounded-md border border-border-default bg-bg-secondary px-2 py-1 text-xs text-text-primary focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                value={adapterType}
+                onChange={e => {
+                  const a = e.target.value;
+                  setAdapterType(a);
+                  setModel(a ? getModelForAdapter(a) : '');
+                }}
+              >
+                <option value="">（依執行環境自動）</option>
+                {ADAPTER_OPTIONS.map(opt => (
+                  <option key={opt.id} value={opt.id}>{opt.label} ({opt.billing})</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-medium text-text-secondary" htmlFor="dispatch-model">Model</label>
+              <input
+                id="dispatch-model"
+                type="text"
+                className="w-full rounded-md border border-border-default bg-bg-secondary px-2 py-1 text-xs font-mono text-text-primary focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                value={model}
+                onChange={e => setModel(e.target.value)}
+                placeholder="auto"
+              />
             </div>
           </div>
 

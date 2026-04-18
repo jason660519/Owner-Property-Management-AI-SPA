@@ -12,6 +12,7 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$PROJECT_ROOT/logs/dev"
 PAPERCLIP_ENV_FILE="$PROJECT_ROOT/docker/paperclip/.env.paperclip"
 PAPERCLIP_COMPOSE_FILE="$PROJECT_ROOT/docker/paperclip/docker-compose.paperclip.yml"
+ELASTIC_COMPOSE_FILE="$PROJECT_ROOT/backend/elasticsearch/docker-compose.yml"
 PAPERCLIP_PORT="3187"
 
 if [ -f "$PAPERCLIP_ENV_FILE" ]; then
@@ -46,8 +47,6 @@ echo -e "${BLUE}🛑 正在停止所有服務...${NC}"
 kill_port 3000 "Web App"
 kill_port 3002 "Web App AU"
 kill_port 3001 "Superadmin"
-kill_port 8819 "OCR Service"
-kill_port 8000 "OCR Service (Legacy Port)"
 kill_port 8081 "Expo/Metro"
 
 # 停止 Paperclip Docker 服務
@@ -62,24 +61,33 @@ elif docker ps -a --format '{{.Names}}' | grep -q '^paperclip-paperclip-1$'; the
 fi
 kill_port "$PAPERCLIP_PORT" "Paperclip"
 
-# 2. 停止 Python 殘留進程
-echo -e "${YELLOW}檢查殘留 Python 進程...${NC}"
-pkill -f "minimal_app.py" 2>/dev/null || true
-pkill -f "uvicorn" 2>/dev/null || true
+# 停止 Elasticsearch / Kibana Docker 服務
+if [ -f "$ELASTIC_COMPOSE_FILE" ]; then
+    echo -e "${YELLOW}Stopping Elasticsearch + Kibana (Docker)...${NC}"
+    (
+        cd "$PROJECT_ROOT/backend/elasticsearch"
+        docker compose -f "$ELASTIC_COMPOSE_FILE" down
+    ) > /dev/null 2>&1 || true
+    echo -e "${GREEN}✅ Elasticsearch + Kibana stopped${NC}"
+elif docker ps -a --format '{{.Names}}' | grep -Eq '^(elasticsearch|kibana)$'; then
+    echo -e "${YELLOW}Stopping Elasticsearch/Kibana containers directly...${NC}"
+    docker rm -f elasticsearch kibana > /dev/null 2>&1 || true
+    echo -e "${GREEN}✅ Elasticsearch + Kibana stopped${NC}"
+fi
+kill_port 9200 "Elasticsearch"
+kill_port 5601 "Kibana"
 
-# 3. 清理 Log (可選)
+# 2. 清理 Log (可選)
 rm -f \
     "$LOG_DIR/nextjs.log" \
     "$LOG_DIR/nextjs-au.log" \
     "$LOG_DIR/superadmin.log" \
-    "$LOG_DIR/ocr_service.log" \
     "$LOG_DIR/paperclip.log" \
     /tmp/nextjs.log \
     /tmp/nextjs-au.log \
-    /tmp/superadmin.log \
-    /tmp/ocr_service.log 2>/dev/null
+    /tmp/superadmin.log 2>/dev/null
 
-# 4. 詢問 Supabase
+# 3. 詢問 Supabase
 echo ""
 if command -v supabase &> /dev/null; then
     if docker ps --format '{{.Names}}' | grep -q "supabase_db_"; then

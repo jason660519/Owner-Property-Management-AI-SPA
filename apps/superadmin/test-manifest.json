@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-14-row-009-vis-96",
+  "updatedAt": "2026-04-14-row-142",
   "entries": [
     {
       "id": "common-smoke",
@@ -57,6 +57,17 @@
       "unitPaths": [
         "apps/superadmin/unit_test/002/anomaly-detection.test.ts",
         "apps/superadmin/unit_test/002/behavior-log-api.test.ts"
+      ],
+      "e2ePaths": [],
+      "linkedToolScripts": []
+    },
+    {
+      "id": "003",
+      "name": "RBAC CRUD / IAM roles matrix",
+      "tier": "pr",
+      "status": "active",
+      "unitPaths": [
+        "apps/superadmin/app/superadmin/dashboard/rbac_access_control/rbac-parent-validation.test.ts"
       ],
       "e2ePaths": [],
       "linkedToolScripts": []
@@ -133,9 +144,13 @@
       "tier": "pr",
       "status": "active",
       "unitPaths": [
-        "apps/web/app/(dashboard)/landlord/customers/__tests__/customer-details.test.ts"
+        "apps/web/app/(dashboard)/landlord/customers/__tests__/customer-details.test.ts",
+        "apps/web/app/(dashboard)/landlord/customers/__tests__/customer-types.test.ts",
+        "apps/web/app/(dashboard)/landlord/customers/__tests__/customer-duplicate.test.ts"
       ],
-      "e2ePaths": [],
+      "e2ePaths": [
+        "apps/web/e2e/flows/landlord/customers-add.spec.ts"
+      ],
       "linkedToolScripts": []
     },
     {
@@ -219,6 +234,40 @@
         "apps/superadmin/unit_test/135/status-styles.test.ts"
       ],
       "e2ePaths": [],
+      "linkedToolScripts": []
+    },
+    {
+      "id": "142",
+      "name": "Elastic Observability MVP",
+      "tier": "pr",
+      "status": "active",
+      "unitPaths": [],
+      "e2ePaths": [],
+      "linkedToolScripts": [
+        "tools/observability/check-fleet-registry.sh",
+        "tools/observability/mvp-smoke.sh"
+      ]
+    },
+    {
+      "id": "144",
+      "name": "People Database (Row 144) — parsers + async queue + cross-page flow",
+      "tier": "pr",
+      "status": "active",
+      "unitPaths": [
+        "apps/superadmin/lib/people-db/__tests__/csv-parse.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/xlsx-parse.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/pdf-parse.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/parse-dispatch.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/import-jobs.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/import-mapper.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/address-normalize.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/search-strategy.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/dataset-tree.test.ts",
+        "apps/superadmin/components/people-database/__tests__/RelatedPeoplePanel.test.tsx"
+      ],
+      "e2ePaths": [
+        "apps/superadmin/e2e/144/search-to-related.spec.ts"
+      ],
       "linkedToolScripts": []
     }
   ]

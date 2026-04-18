@@ -227,8 +227,8 @@
 #### 7. Memory（AI 專案記憶 / auto memory folder）
 ```bash
 # 專案內記憶檔位置：.claude/memory/
-# 檔案：MEMORY.md（索引）、architecture.md、features.md
-# AI 可讀取專案特定知識、慣例與進度，可隨 /memory 指令或規則引用
+# 檔案：MEMORY.md（指標檔，只放其他來源的路徑）
+# 架構與慣例 → CLAUDE.md / .claude/rules/；進度 → roadmap.ts / project-progress dashboard
 ```
 
 **專案記憶路徑**：`<專案根目錄>/.claude/memory/`（已納入版控，與規則同目錄）

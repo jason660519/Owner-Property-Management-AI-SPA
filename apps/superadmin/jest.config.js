@@ -12,6 +12,7 @@ const createJestConfig = nextJest({
 
 // Add any custom config to be passed to Jest
 const customJestConfig = {
+  setupFiles: ['<rootDir>/jest.pre-setup.cjs'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testEnvironment: 'jest-environment-jsdom',
   // Ignore ID-scoped unit_test folders except 009 (security dashboard TDD)

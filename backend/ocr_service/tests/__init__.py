@@ -1,3 +1,0 @@
-"""
-OCR Service Test Suite
-"""

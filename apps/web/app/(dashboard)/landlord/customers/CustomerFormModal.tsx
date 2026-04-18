@@ -29,6 +29,15 @@ function CustomerForm({
       email: initialData?.email || '',
       emergency_contact: initialData?.emergency_contact || '',
       notes: initialDetails.summaryNote,
+      credit_score:
+        initialDetails.tenantProfile?.creditScore != null && Number.isFinite(initialDetails.tenantProfile.creditScore)
+          ? String(initialDetails.tenantProfile.creditScore)
+          : '',
+      monthly_income:
+        initialDetails.tenantProfile?.monthlyIncome != null && Number.isFinite(initialDetails.tenantProfile.monthlyIncome)
+          ? String(initialDetails.tenantProfile.monthlyIncome)
+          : '',
+      occupation_type: initialDetails.tenantProfile?.occupationType || '',
     },
   })
 
@@ -81,6 +90,24 @@ function CustomerForm({
           className="flex min-h-[80px] w-full rounded-md border border-[#333333] bg-[#1A1A1A] px-3 py-2 text-sm text-white placeholder:text-[#666666]"
           placeholder="請輸入客戶摘要備註..."
         />
+      </div>
+
+      <div className="border border-[#333333] rounded-lg p-4 space-y-4 bg-[#141414]">
+        <p className="text-sm text-text-secondary">租客篩選資料（選填，供信用／收入／職業篩選與適合度評分）</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="credit_score" className="text-white">信用分數</Label>
+            <Input id="credit_score" type="number" inputMode="numeric" placeholder="例如 720" {...register('credit_score')} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="monthly_income" className="text-white">月收入（NT$）</Label>
+            <Input id="monthly_income" type="number" inputMode="numeric" placeholder="例如 85000" {...register('monthly_income')} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="occupation_type" className="text-white">職業類型</Label>
+            <Input id="occupation_type" placeholder="例如 工程師" {...register('occupation_type')} />
+          </div>
+        </div>
       </div>
 
       <div className="flex justify-end gap-3 pt-4">

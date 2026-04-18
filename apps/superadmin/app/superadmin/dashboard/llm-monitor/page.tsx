@@ -1,15 +1,35 @@
 import { Suspense } from 'react';
-import { getAIUsageLogs, getLLMOverallStats, getLLMAggregateStats } from './actions';
+import {
+  getAIUsageLogs,
+  getLLMOverallStats,
+  getLLMAggregateStats,
+  getLLMMonitorConfig,
+  getDailyTokenSeries,
+  getWeeklyTokenSeries,
+  getVoiceQualityDaily,
+} from './actions';
 import LLMMonitorClient from './LLMMonitorClient';
 import { Brain } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 export default async function LLMMonitorPage() {
-  const [overallStats, aggregateStats, usageLogs] = await Promise.all([
+  const [
+    overallStats,
+    aggregateStats,
+    usageLogs,
+    monitorConfig,
+    dailyTokenSeries,
+    weeklyTokenSeries,
+    voiceQualitySeries,
+  ] = await Promise.all([
     getLLMOverallStats(),
     getLLMAggregateStats(),
     getAIUsageLogs(100),
+    getLLMMonitorConfig(),
+    getDailyTokenSeries(14),
+    getWeeklyTokenSeries(8),
+    getVoiceQualityDaily(14),
   ]);
 
   return (
@@ -27,6 +47,10 @@ export default async function LLMMonitorPage() {
         overallStats={overallStats}
         aggregateStats={aggregateStats}
         usageLogs={usageLogs}
+        monitorConfig={monitorConfig}
+        dailyTokenSeries={dailyTokenSeries}
+        weeklyTokenSeries={weeklyTokenSeries}
+        voiceQualitySeries={voiceQualitySeries}
       />
     </Suspense>
   );

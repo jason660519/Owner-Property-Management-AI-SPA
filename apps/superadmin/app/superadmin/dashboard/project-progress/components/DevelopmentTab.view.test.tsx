@@ -3,6 +3,10 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { DevelopmentTab } from './DevelopmentTab';
 
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: jest.fn() }),
+}));
+
 // jsdom 沒有內建 ResizeObserver，測試中用簡單 mock 即可
 class ResizeObserverMock {
   callback: ResizeObserverCallback;

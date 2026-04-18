@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { RefreshCw, CheckCircle2, AlertTriangle, Loader2, GitMerge, Wrench } from 'lucide-react';
+import { RefreshCw, CheckCircle2, AlertTriangle, Loader2, GitMerge, Wrench, GitPullRequest, ExternalLink } from 'lucide-react';
 import clsx from 'clsx';
 
 interface BranchInfo {
@@ -28,12 +28,14 @@ interface Props {
 }
 
 type MergeRowState = Record<string, 'idle' | 'merging' | 'done' | 'error'>;
+type PRRowState = Record<string, { phase: 'idle' | 'creating' | 'done' | 'error'; prUrl?: string }>;
 
 export default function WorkSummaryTab({ onBadgeChange }: Props) {
   const [data, setData] = useState<SummaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [mergeState, setMergeState] = useState<MergeRowState>({});
+  const [prState, setPRState] = useState<PRRowState>({});
   const [fixingAll, setFixingAll] = useState(false);
 
   const fetchSummary = useCallback(async () => {
@@ -92,6 +94,31 @@ export default function WorkSummaryTab({ onBadgeChange }: Props) {
       alert('請在 Claude Code 中執行 /review-agent-work 來修復所有問題。');
     } finally {
       setFixingAll(false);
+    }
+  };
+
+  const handleCreatePR = async (b: BranchInfo) => {
+    setPRState(prev => ({ ...prev, [b.slug]: { phase: 'creating' } }));
+    try {
+      const res = await fetch(`/api/paperclip/worktrees/${b.slug}/pr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `[Paperclip] ${b.slug}: ${b.lastCommit?.subject ?? ''}`.slice(0, 100),
+          filesChanged: b.diffStat.filesChanged,
+          insertions: b.diffStat.insertions,
+          deletions: b.diffStat.deletions,
+          commitSubjects: b.lastCommit ? [b.lastCommit.subject] : [],
+        }),
+      });
+      const d = await res.json() as { ok: boolean; prUrl?: string; error?: string };
+      if (d.ok && d.prUrl) {
+        setPRState(prev => ({ ...prev, [b.slug]: { phase: 'done', prUrl: d.prUrl } }));
+      } else {
+        setPRState(prev => ({ ...prev, [b.slug]: { phase: 'error' } }));
+      }
+    } catch {
+      setPRState(prev => ({ ...prev, [b.slug]: { phase: 'error' } }));
     }
   };
 
@@ -208,20 +235,43 @@ export default function WorkSummaryTab({ onBadgeChange }: Props) {
                     )}
                   </td>
                   <td className="px-3 py-2 text-center">
-                    {ms === 'done' ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto" />
-                    ) : ms === 'merging' ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-sky-400 mx-auto" />
-                    ) : b.mergeReady ? (
-                      <button
-                        onClick={() => handleMerge(b.slug)}
-                        className="px-2 py-1 text-xs rounded bg-emerald-600 hover:bg-emerald-500 text-white"
-                      >
-                        Merge
-                      </button>
-                    ) : (
-                      <span className="text-text-muted text-xs">—</span>
-                    )}
+                    {(() => {
+                      const ps = prState[b.slug];
+                      if (ms === 'done') {
+                        return <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto" />;
+                      }
+                      if (ps?.phase === 'done' && ps.prUrl) {
+                        return (
+                          <a href={ps.prUrl} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-1 text-sky-400 hover:text-sky-300 text-xs">
+                            PR <ExternalLink className="w-3 h-3" />
+                          </a>
+                        );
+                      }
+                      if (ms === 'merging' || ps?.phase === 'creating') {
+                        return <Loader2 className="w-4 h-4 animate-spin text-sky-400 mx-auto" />;
+                      }
+                      if (b.mergeReady) {
+                        return (
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              onClick={() => handleMerge(b.slug)}
+                              className="px-2 py-1 text-xs rounded bg-emerald-600 hover:bg-emerald-500 text-white"
+                            >
+                              Merge
+                            </button>
+                            <button
+                              onClick={() => handleCreatePR(b)}
+                              className="px-2 py-1 text-xs rounded bg-sky-600 hover:bg-sky-500 text-white"
+                              title="Create GitHub PR"
+                            >
+                              <GitPullRequest className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        );
+                      }
+                      return <span className="text-text-muted text-xs">—</span>;
+                    })()}
                   </td>
                 </tr>
               );

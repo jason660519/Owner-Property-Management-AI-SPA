@@ -1,107 +1,174 @@
 'use client'
 
-import { use, useState } from 'react'
+import { use, useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import Image from 'next/image'
-import Link from 'next/link'
+import { PropertyImageCarousel } from '@/components/property/PropertyImageCarousel'
+import { PLACEHOLDER_IMAGE } from '@/lib/properties/constants'
+import {
+  getLandlordPropertyById,
+  getPropertyViewingAppointments,
+  type LandlordPropertyDetail,
+  type PropertyViewingAppointmentRow,
+} from '@/lib/actions/properties'
 
 interface PropertyDetailsProps {
   params: Promise<{ id: string }>
 }
 
-interface PropertyDetail {
-  id: string
-  title: string
-  address: string
-  type: 'rental' | 'sale'
-  status: 'available' | 'rented' | 'sold'
-  price: number
-  area: number
-  bedrooms: number
-  bathrooms: number
-  floor: number
-  totalFloors: number
-  description: string
-  images: string[]
-  ownerName: string
-  buildingNumber?: string
-  landNumber?: string
-  createdAt: string
+function statusBadgeClasses(status: string, listingType: 'rental' | 'sale') {
+  const sale: Record<string, string> = {
+    available: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25',
+    pending: 'bg-amber-500/10 text-amber-400 border-amber-500/25',
+    sold: 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-muted)] border-[var(--color-border-default)]',
+  }
+  const rental: Record<string, string> = {
+    vacant: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25',
+    occupied: 'bg-sky-500/10 text-sky-400 border-sky-500/25',
+    maintenance: 'bg-orange-500/10 text-orange-400 border-orange-500/25',
+    archived: 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-muted)] border-[var(--color-border-default)]',
+  }
+  const map = listingType === 'sale' ? sale : rental
+  const fallback = 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] border-[var(--color-border-default)]'
+  return map[status] ?? fallback
+}
+
+function statusLabel(status: string, listingType: 'rental' | 'sale') {
+  if (listingType === 'sale') {
+    const m: Record<string, string> = {
+      available: '待售',
+      pending: '交易中',
+      sold: '已售',
+    }
+    return m[status] ?? status
+  }
+  const m: Record<string, string> = {
+    vacant: '空置',
+    occupied: '出租中',
+    maintenance: '維護中',
+    archived: '已封存',
+  }
+  return m[status] ?? status
+}
+
+function viewingStatusLabel(status: string | null) {
+  const m: Record<string, string> = {
+    pending: '待確認',
+    confirmed: '已確認',
+    completed: '已完成',
+    cancelled: '已取消',
+  }
+  if (!status) return '—'
+  return m[status] ?? status
 }
 
 export default function PropertyDetailPage({ params }: PropertyDetailsProps) {
   const resolvedParams = use(params)
   const router = useRouter()
-  const [property] = useState<PropertyDetail>(() => ({
-    id: resolvedParams.id,
-    title: '台北市大安區精緻公寓',
-    address: '台北市大安區和平東路三段 123 號',
-    type: 'rental',
-    status: 'available',
-    price: 25000,
-    area: 25,
-    bedrooms: 2,
-    bathrooms: 1,
-    floor: 5,
-    totalFloors: 12,
-    description:
-      '位於大安區精華地段的優質公寓，鄰近捷運站僅需步行 5 分鐘，周邊生活機能完善，有全聯、家樂福等購物商場。\n\n房屋採光良好，南北通風，格局方正實用。社區管理完善，24小時保全服務，讓您住得安心。\n\n適合小家庭或上班族居住。',
-    images: [
-      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200',
-      'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1200',
-      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200',
-    ],
-    ownerName: '張先生',
-    buildingNumber: 'A12345678',
-    landNumber: 'L98765432',
-    createdAt: '2026-01-15',
-  }))
-  const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [property, setProperty] = useState<LandlordPropertyDetail | null>(null)
+  const [appointments, setAppointments] = useState<PropertyViewingAppointmentRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [qrOpen, setQrOpen] = useState(false)
 
-  const formatPrice = (price: number, type: string) => {
+  const shareUrl = useMemo(() => {
+    if (typeof window === 'undefined') return ''
+    return `${window.location.origin}/properties/${resolvedParams.id}`
+  }, [resolvedParams.id])
+
+  const qrImageSrc = useMemo(() => {
+    if (!shareUrl) return ''
+    return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=10&data=${encodeURIComponent(shareUrl)}`
+  }, [shareUrl])
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      setError(null)
+      const [propRes, aptRes] = await Promise.all([
+        getLandlordPropertyById(resolvedParams.id),
+        getPropertyViewingAppointments(resolvedParams.id, 10),
+      ])
+      if (cancelled) return
+      if (!propRes.success || !propRes.property) {
+        setError(propRes.error || '無法載入物件')
+        setProperty(null)
+      } else {
+        setProperty(propRes.property)
+      }
+      if (aptRes.success) {
+        setAppointments(aptRes.appointments)
+      }
+      setLoading(false)
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [resolvedParams.id])
+
+  const formatPrice = (price: number, type: 'rental' | 'sale') => {
     if (type === 'sale') {
       return `NT$ ${(price / 10000).toFixed(0)} 萬`
     }
     return `NT$ ${price.toLocaleString()} /月`
   }
 
-  const getStatusBadge = (status: string) => {
-    const badges = {
-      available: { text: '可出租', color: 'bg-green-500/10 text-green-500 border-green-500/20' },
-      rented: { text: '已出租', color: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
-      sold: { text: '已售出', color: 'bg-gray-500/10 text-gray-500 border-gray-500/20' },
+  const sqmToPing = (sqm: number) => (sqm * 0.3025).toFixed(1)
+
+  const copyShareLink = useCallback(async () => {
+    if (!shareUrl) return
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+    } catch {
+      /* ignore */
     }
-    const badge = badges[status as keyof typeof badges] || badges.available
+  }, [shareUrl])
+
+  if (loading) {
     return (
-      <span className={`px-3 py-1 text-sm font-medium rounded border ${badge.color}`}>
-        {badge.text}
-      </span>
+      <div className="flex min-h-[40vh] items-center justify-center text-[var(--color-text-secondary)]">
+        載入物件詳情…
+      </div>
     )
   }
 
+  if (error || !property) {
+    return (
+      <div className="space-y-4">
+        <p className="text-[var(--color-error)]">{error || '找不到物件'}</p>
+        <Link href="/landlord/properties">
+          <Button variant="outline">返回物件列表</Button>
+        </Link>
+      </div>
+    )
+  }
+
+  const displayImages = property.images.length > 0 ? property.images : [PLACEHOLDER_IMAGE]
+
   return (
     <div className="space-y-6">
-      {/* Breadcrumb & Actions */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2 text-sm">
-          <Link href="/landlord/properties" className="text-[#999999] hover:text-white">
+          <Link href="/landlord/properties" className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]">
             我的物件
           </Link>
-          <span className="text-[#666666]">/</span>
-          <span className="text-white">物件詳情</span>
+          <span className="text-[var(--color-text-muted)]">/</span>
+          <span className="text-[var(--color-text-primary)]">物件詳情</span>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => router.push(`/landlord/properties/${property.id}/edit`)}>
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
             編輯
           </Button>
           <Button variant="danger">
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
             刪除
@@ -109,175 +176,228 @@ export default function PropertyDetailPage({ params }: PropertyDetailsProps) {
         </div>
       </div>
 
-      {/* Image Gallery */}
       <Card padding="none">
-        <div className="relative h-96">
-          <Image
-            src={property.images[currentImageIndex]}
-            alt={property.title}
-            fill
-            className="object-cover rounded-t-xl"
-          />
-          
-          {/* Navigation Arrows */}
-          {property.images.length > 1 && (
-            <>
-              <button
-                onClick={() => setCurrentImageIndex((prev) => (prev === 0 ? property.images.length - 1 : prev - 1))}
-                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white backdrop-blur-sm transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <button
-                onClick={() => setCurrentImageIndex((prev) => (prev === property.images.length - 1 ? 0 : prev + 1))}
-                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white backdrop-blur-sm transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </>
-          )}
-
-          {/* Image Counter */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 bg-black/50 rounded-full text-white text-sm backdrop-blur-sm">
-            {currentImageIndex + 1} / {property.images.length}
-          </div>
-        </div>
-
-        {/* Thumbnails */}
-        <div className="p-4 flex gap-2 overflow-x-auto">
-          {property.images.map((image, index) => (
-            <button
-              key={index}
-              onClick={() => setCurrentImageIndex(index)}
-              className={`relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
-                currentImageIndex === index ? 'border-[#7C3AED]' : 'border-transparent'
-              }`}
-            >
-              <Image src={image} alt={`${property.title} ${index + 1}`} fill className="object-cover" />
-            </button>
-          ))}
-        </div>
+        <PropertyImageCarousel title={property.title} images={displayImages} placeholder={PLACEHOLDER_IMAGE} />
       </Card>
 
-      {/* Property Info Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Info */}
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="space-y-6 xl:col-span-2">
           <Card>
             <CardHeader>
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="text-2xl mb-2">{property.title}</CardTitle>
-                  <p className="text-[#999999] flex items-center gap-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <CardTitle className="mb-2 text-2xl">{property.title}</CardTitle>
+                  <p className="flex items-center gap-2 text-[var(--color-text-muted)]">
+                    <svg className="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    {property.address}
+                    <span className="break-words">{property.address}</span>
                   </p>
                 </div>
-                {getStatusBadge(property.status)}
+                <span
+                  className={`inline-flex flex-shrink-0 self-start rounded border px-3 py-1 text-sm font-medium ${statusBadgeClasses(property.status, property.type)}`}
+                >
+                  {statusLabel(property.status, property.type)}
+                </span>
               </div>
             </CardHeader>
 
             <CardContent className="space-y-6">
               <div>
-                <h3 className="text-4xl font-bold text-[#7C3AED] mb-2">
+                <h3 className="mb-2 text-4xl font-bold text-[var(--color-accent)]">
                   {formatPrice(property.price, property.type)}
                 </h3>
-                <p className="text-sm text-[#999999]">
+                <p className="text-sm text-[var(--color-text-muted)]">
                   {property.type === 'rental' ? '每月租金' : '售價'}
                 </p>
               </div>
 
-              <div className="grid grid-cols-4 gap-4">
-                <div className="text-center p-4 bg-[#2A2A2A] rounded-lg">
-                  <p className="text-2xl font-bold text-white mb-1">{property.area}</p>
-                  <p className="text-xs text-[#999999]">坪</p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="rounded-lg bg-[var(--color-bg-tertiary)] p-4 text-center">
+                  <p className="mb-1 text-2xl font-bold text-[var(--color-text-primary)]">{sqmToPing(property.areaSqm)}</p>
+                  <p className="text-xs text-[var(--color-text-muted)]">坪（約 {property.areaSqm} m²）</p>
                 </div>
-                <div className="text-center p-4 bg-[#2A2A2A] rounded-lg">
-                  <p className="text-2xl font-bold text-white mb-1">{property.bedrooms}</p>
-                  <p className="text-xs text-[#999999]">房</p>
+                <div className="rounded-lg bg-[var(--color-bg-tertiary)] p-4 text-center">
+                  <p className="mb-1 text-2xl font-bold text-[var(--color-text-primary)]">{property.bedrooms}</p>
+                  <p className="text-xs text-[var(--color-text-muted)]">房</p>
                 </div>
-                <div className="text-center p-4 bg-[#2A2A2A] rounded-lg">
-                  <p className="text-2xl font-bold text-white mb-1">{property.bathrooms}</p>
-                  <p className="text-xs text-[#999999]">衛</p>
+                <div className="rounded-lg bg-[var(--color-bg-tertiary)] p-4 text-center">
+                  <p className="mb-1 text-2xl font-bold text-[var(--color-text-primary)]">{property.bathrooms}</p>
+                  <p className="text-xs text-[var(--color-text-muted)]">衛</p>
                 </div>
-                <div className="text-center p-4 bg-[#2A2A2A] rounded-lg">
-                  <p className="text-2xl font-bold text-white mb-1">{property.floor}</p>
-                  <p className="text-xs text-[#999999]">樓層</p>
+                <div className="rounded-lg bg-[var(--color-bg-tertiary)] p-4 text-center">
+                  <p className="mb-1 text-2xl font-bold text-[var(--color-text-primary)]">
+                    {property.floor != null ? property.floor : '—'}
+                  </p>
+                  <p className="text-xs text-[var(--color-text-muted)]">
+                    樓層{property.totalFloors != null ? ` / 共 ${property.totalFloors} 樓` : ''}
+                  </p>
                 </div>
               </div>
 
               <div>
-                <h4 className="text-lg font-semibold text-white mb-3">物件描述</h4>
-                <p className="text-[#999999] whitespace-pre-line leading-relaxed">
-                  {property.description}
+                <h4 className="mb-3 text-lg font-semibold text-[var(--color-text-primary)]">物件描述</h4>
+                <p className="whitespace-pre-line leading-relaxed text-[var(--color-text-secondary)]">
+                  {property.description || '（尚無描述）'}
                 </p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Property Details */}
+          <Card>
+            <CardHeader>
+              <CardTitle>設備與附屬</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-[var(--color-text-secondary)]">
+              {property.commonAreaSqm != null && (
+                <p>
+                  <span className="text-[var(--color-text-muted)]">公設面積：</span>
+                  {property.commonAreaSqm} m²
+                </p>
+              )}
+              {property.auxiliaryBuildings && property.auxiliaryBuildings.length > 0 && (
+                <div>
+                  <p className="mb-2 font-medium text-[var(--color-text-primary)]">附屬建物</p>
+                  <ul className="list-inside list-disc space-y-1 text-sm">
+                    {property.auxiliaryBuildings.map((b) => (
+                      <li key={b.id}>
+                        {b.name} · {b.area_sqm} m² · {b.location}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {property.parkingSpaces && property.parkingSpaces.length > 0 && (
+                <div>
+                  <p className="mb-2 font-medium text-[var(--color-text-primary)]">停車位</p>
+                  <ul className="list-inside list-disc space-y-1 text-sm">
+                    {property.parkingSpaces.map((p) => (
+                      <li key={p.id}>
+                        {p.category} #{p.number} · {p.area_sqm} m² · {p.location}（
+                        {p.type === 'independent' ? '獨立' : '共用'}）
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {!property.commonAreaSqm &&
+                (!property.auxiliaryBuildings || property.auxiliaryBuildings.length === 0) &&
+                (!property.parkingSpaces || property.parkingSpaces.length === 0) && (
+                  <p className="text-[var(--color-text-muted)]">尚無附屬建物或停車位資料</p>
+                )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>物件詳細資訊</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <p className="text-sm text-[#999999] mb-1">物件類型</p>
-                  <p className="text-white">{property.type === 'rental' ? '出租' : '出售'}</p>
+                  <p className="mb-1 text-sm text-[var(--color-text-muted)]">物件類型</p>
+                  <p className="text-[var(--color-text-primary)]">{property.type === 'rental' ? '出租' : '出售'}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-[#999999] mb-1">所在樓層</p>
-                  <p className="text-white">{property.floor} 樓 / 共 {property.totalFloors} 樓</p>
+                  <p className="mb-1 text-sm text-[var(--color-text-muted)]">所在樓層</p>
+                  <p className="text-[var(--color-text-primary)]">
+                    {property.floor != null ? `${property.floor} 樓` : '—'}
+                    {property.totalFloors != null ? ` / 共 ${property.totalFloors} 樓` : ''}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-sm text-[#999999] mb-1">建號</p>
-                  <p className="text-white">{property.buildingNumber || '-'}</p>
+                  <p className="mb-1 text-sm text-[var(--color-text-muted)]">建號</p>
+                  <p className="text-[var(--color-text-primary)]">{property.buildingNumber || '—'}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-[#999999] mb-1">地號</p>
-                  <p className="text-white">{property.landNumber || '-'}</p>
+                  <p className="mb-1 text-sm text-[var(--color-text-muted)]">地號</p>
+                  <p className="text-[var(--color-text-primary)]">{property.landNumber || '—'}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-[#999999] mb-1">所有權人</p>
-                  <p className="text-white">{property.ownerName}</p>
+                  <p className="mb-1 text-sm text-[var(--color-text-muted)]">所有權人</p>
+                  <p className="text-[var(--color-text-primary)]">{property.ownerName}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-[#999999] mb-1">發布日期</p>
-                  <p className="text-white">{new Date(property.createdAt).toLocaleDateString('zh-TW')}</p>
+                  <p className="mb-1 text-sm text-[var(--color-text-muted)]">發布日期</p>
+                  <p className="text-[var(--color-text-primary)]">
+                    {new Date(property.createdAt).toLocaleDateString('zh-TW')}
+                  </p>
                 </div>
               </div>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>看房預約（最近 10 筆）</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {appointments.length === 0 ? (
+                <p className="text-[var(--color-text-muted)]">目前沒有預約紀錄</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[520px] text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-[var(--color-border-default)] text-[var(--color-text-muted)]">
+                        <th className="pb-2 pr-2 font-medium">訪客</th>
+                        <th className="pb-2 pr-2 font-medium">電話</th>
+                        <th className="pb-2 pr-2 font-medium">日期</th>
+                        <th className="pb-2 pr-2 font-medium">時段</th>
+                        <th className="pb-2 font-medium">狀態</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-[var(--color-text-primary)]">
+                      {appointments.map((a) => (
+                        <tr key={`${a.source}-${a.id}`} className="border-b border-[var(--color-border-light)]/30">
+                          <td className="py-2 pr-2">{a.visitorName}</td>
+                          <td className="py-2 pr-2">{a.visitorPhone}</td>
+                          <td className="py-2 pr-2">{a.preferredDate}</td>
+                          <td className="py-2 pr-2">{a.preferredTime}</td>
+                          <td className="py-2">{viewingStatusLabel(a.status)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>快速操作</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button fullWidth variant="primary">
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              <Button fullWidth variant="primary" onClick={() => setQrOpen(true)}>
+                <svg className="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0H9m3 0h3M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                分享物件
+                QR Code 分享
               </Button>
-              <Button fullWidth variant="outline">
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <Button
+                fullWidth
+                variant="outline"
+                onClick={() => {
+                  if (shareUrl) window.open(shareUrl, '_blank', 'noopener,noreferrer')
+                }}
+              >
+                <svg className="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
-                預覽頁面
+                預覽公開頁
               </Button>
+              <Link href={`/blog?propertyId=${encodeURIComponent(property.id)}`} className="block">
+                <Button fullWidth variant="outline">
+                  <svg className="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                  </svg>
+                  生成銷售部落格
+                </Button>
+              </Link>
             </CardContent>
           </Card>
 
@@ -287,21 +407,50 @@ export default function PropertyDetailPage({ params }: PropertyDetailsProps) {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-[#999999]">瀏覽次數</span>
-                <span className="text-white font-semibold">156</span>
+                <span className="text-[var(--color-text-muted)]">瀏覽次數</span>
+                <span className="font-semibold text-[var(--color-text-primary)]">—</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[#999999]">收藏次數</span>
-                <span className="text-white font-semibold">23</span>
+                <span className="text-[var(--color-text-muted)]">收藏次數</span>
+                <span className="font-semibold text-[var(--color-text-primary)]">—</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[#999999]">詢問次數</span>
-                <span className="text-white font-semibold">8</span>
+                <span className="text-[var(--color-text-muted)]">詢問次數</span>
+                <span className="font-semibold text-[var(--color-text-primary)]">—</span>
               </div>
+              <p className="text-xs text-[var(--color-text-muted)]">統計將於後端串接後顯示</p>
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {qrOpen && (
+        <div
+          className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/70 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="qr-dialog-title"
+        >
+          <div className="w-full max-w-sm rounded-xl bg-[var(--color-bg-secondary)] p-6 shadow-xl">
+            <h2 id="qr-dialog-title" className="mb-4 text-lg font-semibold text-[var(--color-text-primary)]">
+              分享此物件（公開頁）
+            </h2>
+            {qrImageSrc ? (
+              // eslint-disable-next-line @next/next/no-img-element -- external QR API; avoid next/image remote config
+              <img src={qrImageSrc} alt="物件頁面 QR Code" className="mx-auto h-[220px] w-[220px] rounded-lg bg-white p-2" />
+            ) : null}
+            <p className="mt-3 break-all text-center text-xs text-[var(--color-text-muted)]">{shareUrl}</p>
+            <div className="mt-4 flex gap-2">
+              <Button fullWidth variant="primary" onClick={copyShareLink}>
+                複製連結
+              </Button>
+              <Button fullWidth variant="outline" onClick={() => setQrOpen(false)}>
+                關閉
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
