@@ -12,7 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { createIssue } from '@/lib/paperclip/client';
+import { getAgentRuntime } from '@/lib/agent-runtime';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { loadCreditGuardConfig, type CreditGuardReader } from '@/lib/ai/anthropic-credit-guard';
 import type { PaperclipIssuePayload, PaperclipRoleId } from '@/lib/paperclip/types';
@@ -155,24 +155,22 @@ export async function prepareWorktreeForTask(
 export async function POST(request: NextRequest) {
   const config = readPaperclipConfig();
 
-  if (!config.baseUrl || !config.companyId) {
-    return NextResponse.json(
-      {
-        ok: false,
-        status: 500,
-        error:
-          'Paperclip client env not configured. Set NEXT_PUBLIC_PAPERCLIP_BASE_URL and NEXT_PUBLIC_PAPERCLIP_COMPANY_ID.',
-      },
-      { status: 500 },
-    );
+  // Factory validates baseUrl + apiKey (required by every runtime method).
+  const runtimeResult = getAgentRuntime();
+  if (!runtimeResult.ok) {
+    return NextResponse.json(runtimeResult, { status: runtimeResult.status });
   }
-  if (!config.apiKey) {
+
+  // companyId is only consumed by createIssue, so the factory treats it as
+  // optional. We still fail early here — creating a worktree just to fail on
+  // the dispatch is wasteful and leaves orphaned branches behind.
+  if (!config.companyId) {
     return NextResponse.json(
       {
         ok: false,
         status: 500,
         error:
-          'PAPERCLIP_API_KEY not set. Generate an agent API key in Paperclip and add PAPERCLIP_API_KEY=<key> to apps/superadmin/.env.local.',
+          'NEXT_PUBLIC_PAPERCLIP_COMPANY_ID not set. Set it in apps/superadmin/.env.local.',
       },
       { status: 500 },
     );
@@ -270,10 +268,7 @@ export async function POST(request: NextRequest) {
         : {}),
   };
 
-  const result = await createIssue({
-    baseUrl: config.baseUrl,
-    companyId: config.companyId,
-    apiKey: config.apiKey,
+  const result = await runtimeResult.runtime.createIssue({
     payload: enrichedPayload,
   });
 

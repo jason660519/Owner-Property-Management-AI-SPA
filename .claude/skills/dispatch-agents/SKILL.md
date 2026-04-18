@@ -26,12 +26,24 @@ description: '從 roadmap 挑選待做 feature，透過 superadmin API 建立 Pa
 ```
 roadmap.ts (feature list)
     ↓ 挑選 feature
+superadmin API: GET  /api/roadmap/context/[rowId]    ← Phase 0 新增
+    ↓ 回傳 devLog 最後段 + 失敗訊號 + 規格路徑
+buildContextAwareDispatchPrompt(snapshot, ideLabel)   ← 產生交接 prompt
+    ↓
 superadmin API: POST /api/paperclip/issues
-    ↓ 自動建立 git worktree + 注入 description prefix
+    ↓ 自動建 git worktree + 注入 worktree prefix
+AgentRuntime (getAgentRuntime())                      ← Phase 0 抽象層
+    ↓ 預設 paperclip，AGENT_RUNTIME=local 保留給 Phase 1
 Paperclip VIS (localhost:3187)
     ↓ agent heartbeat 自動 pickup
 Agent 執行（claude CLI in Docker container）
 ```
+
+**Phase 0（runtime abstraction）重點**：
+- `apps/superadmin/lib/agent-runtime/` 是新的抽象層
+- 8 個 `/api/paperclip/*` route 已改成走 `getAgentRuntime()`，
+  不再直接 import `lib/paperclip/client`
+- 未來替換到 LocalRuntime（Supabase + spawn）只需加一個實作檔
 
 ---
 
@@ -124,6 +136,31 @@ curl -s -H "Authorization: Bearer $PAPERCLIP_API_KEY" \
 | 其他（fullstack 功能開發） | Fullstack |
 
 **向使用者確認分配方案後再執行。**
+
+### Step 3.5: 取得 Row 交接 Context（新流程，Phase 0 起）
+
+建 issue 前，先呼叫 superadmin 的 context API 拿到該 row 的完整交接 snapshot：
+
+```bash
+curl -s "http://localhost:3001/api/roadmap/context/031"
+```
+
+回傳的 `RoadmapContextSnapshot` 包含：
+- `latestDevLogSegment`（devLog 最後時間戳段，真正的「當前狀態」）
+- `devLogDocContent`（完整日誌 MD 內容）
+- `developmentProgress`（當下快照）
+- `testLog` / `testLogDocPath`（測試階段交接）
+- `featureSpecDocPath` / `tddSpecDocPath`
+- `unitFolder` / `e2eFolder`
+- `lastRunFailure`（**僅當上次 Paperclip run 失敗時才存在**，含 stderr 尾段）
+
+**這是為什麼不該把 prompt 寫死成 gstack sprint 流程的原因**：每個 row 的起跑
+點不同，agent 必須先讀 context 判斷「下一步是什麼」，而不是盲跑 office-hours →
+autoplan → ship。
+
+拿到 snapshot 後，呼叫 `buildContextAwareDispatchPrompt(snapshot, ideLabel)`
+（在 `apps/superadmin/.../task-dispatch/prompt-templates.ts`）產生可以直接
+塞進 issue `description` 的 prompt 字串。
 
 ### Step 4: 建立 Issue（⚠️ 最關鍵步驟）
 

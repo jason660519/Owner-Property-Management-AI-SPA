@@ -5,7 +5,7 @@
 // is working — the badge polls status, this route polls the actual log.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchIssueRunLog } from '@/lib/paperclip/client';
+import { getAgentRuntime } from '@/lib/agent-runtime';
 
 export async function GET(
   _request: NextRequest,
@@ -20,19 +20,9 @@ export async function GET(
     );
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_PAPERCLIP_BASE_URL;
-  const apiKey = process.env.PAPERCLIP_API_KEY;
-  if (!baseUrl) {
-    return NextResponse.json(
-      { ok: false, status: 500, error: 'NEXT_PUBLIC_PAPERCLIP_BASE_URL not set.' },
-      { status: 500 },
-    );
-  }
-  if (!apiKey) {
-    return NextResponse.json(
-      { ok: false, status: 500, error: 'PAPERCLIP_API_KEY not set.' },
-      { status: 500 },
-    );
+  const runtimeResult = getAgentRuntime();
+  if (!runtimeResult.ok) {
+    return NextResponse.json(runtimeResult, { status: runtimeResult.status });
   }
 
   // If the caller already knows the runId (cached from a previous poll that
@@ -40,7 +30,10 @@ export async function GET(
   // the issue-discovery hop and go straight to the run endpoint.
   const runIdParam = _request.nextUrl.searchParams.get('runId') || undefined;
 
-  const result = await fetchIssueRunLog({ baseUrl, apiKey, issueId, runId: runIdParam });
+  const result = await runtimeResult.runtime.fetchIssueRunLog({
+    issueId,
+    runId: runIdParam,
+  });
   const httpStatus = result.ok ? 200 : result.status || 502;
   return NextResponse.json(result, { status: httpStatus });
 }

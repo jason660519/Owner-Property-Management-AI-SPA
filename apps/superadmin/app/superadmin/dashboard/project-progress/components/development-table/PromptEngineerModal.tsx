@@ -12,14 +12,14 @@ import { getPaperclipConfig } from '@/lib/paperclip/config';
 // extends it with optional autoRoute info.
 import type {
   CreateIssueResult,
-  PaperclipIssueResource,
+  IssueResource as PaperclipIssueResource,
   FetchIssueStatusResult,
-  PaperclipIssueStatusSnapshot,
+  IssueStatusSnapshot as PaperclipIssueStatusSnapshot,
   FetchIssueCostResult,
-  PaperclipIssueCostSnapshot,
+  IssueCostSnapshot as PaperclipIssueCostSnapshot,
   FetchIssueRunLogResult,
-  PaperclipIssueRunLogSnapshot,
-} from '@/lib/paperclip/client';
+  IssueRunLogSnapshot as PaperclipIssueRunLogSnapshot,
+} from '@/lib/agent-runtime';
 import type { WorktreePaths } from '@/lib/paperclip/worktree';
 import type { PaperclipIssueStatus } from '@/lib/paperclip/types';
 import { getPaperclipIssuePollDelayMs, POLL_CONSECUTIVE_ERROR_LIMIT, type IssuePollDelayArgs } from '@/lib/paperclip/polling';

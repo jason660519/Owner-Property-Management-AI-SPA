@@ -5,7 +5,7 @@
 // PAPERCLIP_API_KEY server-side.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchIssueStatus } from '@/lib/paperclip/client';
+import { getAgentRuntime } from '@/lib/agent-runtime';
 
 export async function GET(
   _request: NextRequest,
@@ -20,26 +20,12 @@ export async function GET(
     );
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_PAPERCLIP_BASE_URL;
-  const apiKey = process.env.PAPERCLIP_API_KEY;
-  if (!baseUrl) {
-    return NextResponse.json(
-      {
-        ok: false,
-        status: 500,
-        error: 'NEXT_PUBLIC_PAPERCLIP_BASE_URL not set.',
-      },
-      { status: 500 },
-    );
-  }
-  if (!apiKey) {
-    return NextResponse.json(
-      { ok: false, status: 500, error: 'PAPERCLIP_API_KEY not set.' },
-      { status: 500 },
-    );
+  const runtimeResult = getAgentRuntime();
+  if (!runtimeResult.ok) {
+    return NextResponse.json(runtimeResult, { status: runtimeResult.status });
   }
 
-  const result = await fetchIssueStatus({ baseUrl, apiKey, issueId });
+  const result = await runtimeResult.runtime.fetchIssueStatus({ issueId });
   const httpStatus = result.ok ? 200 : result.status || 502;
   return NextResponse.json(result, { status: httpStatus });
 }

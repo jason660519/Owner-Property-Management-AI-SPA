@@ -9,7 +9,7 @@
 
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { fetchIssueStatus, fetchIssueCost } from '@/lib/paperclip/client';
+import { getAgentRuntime } from '@/lib/agent-runtime';
 import {
   getNextAdapter,
   switchAgentAdapter,
@@ -17,6 +17,8 @@ import {
 } from '@/lib/paperclip/adapter-fallback';
 import { runCreditGuardCycle, type CreditGuardReader } from '@/lib/ai/anthropic-credit-guard';
 
+// adapter-fallback + credit-guard modules still take explicit baseUrl/apiKey
+// arguments (Phase 1 will fold them into runtime). For now read directly.
 const PAPERCLIP_BASE_URL =
   process.env.NEXT_PUBLIC_PAPERCLIP_BASE_URL ?? 'http://localhost:3187';
 const PAPERCLIP_API_KEY = process.env.PAPERCLIP_API_KEY ?? '';
@@ -61,12 +63,11 @@ async function getAgentAdapter(agentId: string): Promise<string | null> {
 }
 
 export async function GET() {
-  if (!PAPERCLIP_API_KEY) {
-    return NextResponse.json(
-      { ok: false, error: 'Paperclip env not configured for server-side poll' },
-      { status: 500 },
-    );
+  const runtimeResult = getAgentRuntime();
+  if (!runtimeResult.ok) {
+    return NextResponse.json(runtimeResult, { status: runtimeResult.status });
   }
+  const runtime = runtimeResult.runtime;
 
   const supabase = createAdminClient();
 
@@ -98,9 +99,7 @@ export async function GET() {
     };
 
     try {
-      const statusResult = await fetchIssueStatus({
-        baseUrl: PAPERCLIP_BASE_URL,
-        apiKey: PAPERCLIP_API_KEY,
+      const statusResult = await runtime.fetchIssueStatus({
         issueId: task.issue_id,
       });
 
@@ -185,9 +184,7 @@ export async function GET() {
       let costUsd = task.cost_usd;
       if (snapshot.terminal && !costUsd) {
         try {
-          const costResult = await fetchIssueCost({
-            baseUrl: PAPERCLIP_BASE_URL,
-            apiKey: PAPERCLIP_API_KEY,
+          const costResult = await runtime.fetchIssueCost({
             issueId: task.issue_id,
           });
           if (costResult.ok && costResult.snapshot.costUsd !== undefined) {

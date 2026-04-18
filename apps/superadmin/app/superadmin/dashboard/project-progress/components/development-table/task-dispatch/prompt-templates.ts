@@ -2,6 +2,7 @@
 // No React dependencies — safe to import from any context.
 
 import type { PromptContext } from '../types';
+import type { RoadmapContextSnapshot } from '@/app/api/roadmap/context/[rowId]/route';
 
 // -- Shared tail lines appended to every category prompt --
 const COST_AND_API_DISCIPLINE = [
@@ -87,5 +88,165 @@ export function getDefaultPrompt(ctx: PromptContext): string {
     '', '【完成條件】',
     '確認 TDD Progress Report (.md) 已完成、所有測試通過後，請 git commit 並 push 至 GitHub repo。',
     COST_AND_API_DISCIPLINE,
+  ].join('\n');
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Row-context-aware dispatch prompt
+// ─────────────────────────────────────────────────────────────────────────
+//
+// Builds a handoff-optimized prompt from RoadmapContextSnapshot (returned by
+// /api/roadmap/context/[rowId]). Designed around Jason's observation that
+// `phase` and `percentage` are lossy — the real state of the world is in
+// devLog's last timestamped segment, with failed-run stderr as a safety net.
+//
+// Why not replace getDefaultPrompt?
+//   - Existing callers (TaskDispatchModal, task/[rowId] page) construct
+//     PromptContext synchronously from a ProgressRow. They have no snapshot.
+//   - This builder assumes you already fetched the snapshot server-side.
+//     Use it in new dispatch flows; leave the legacy builder for compat.
+
+function formatHeaderSection(snap: RoadmapContextSnapshot, ideLabel: string): string {
+  const lines = [
+    '# Row 資訊',
+    `- ID: [Row ${snap.rowId}] ${snap.name}`,
+    `- 類別: ${snap.category}`,
+  ];
+  if (snap.locatedPage) lines.push(`- 所屬頁面: ${snap.locatedPage}`);
+  lines.push(
+    `- 整體百分比: ${snap.percentage}%（粗估，以 devLog 為準）`,
+    `- 生命週期: ${snap.phase}（粗分類，以 devLog 為準）`,
+    `- 執行環境 (IDE/Agent): ${ideLabel || '（尚未選擇）'}`,
+  );
+  if (snap.acceptanceCriteria) {
+    lines.push('', '## 驗收條件', snap.acceptanceCriteria);
+  }
+  return lines.join('\n');
+}
+
+function formatHandoffSection(snap: RoadmapContextSnapshot): string {
+  const blocks: string[] = ['# 📖 任務交接（請依序讀完再動作）'];
+
+  // 1. Latest dev-log segment — the single most important signal.
+  blocks.push('', '## 1. 最新狀態（先讀，真相之源）');
+  if (snap.latestDevLogSegment) {
+    blocks.push(snap.latestDevLogSegment);
+  } else {
+    blocks.push('（devLog 尚無時間戳段落）');
+  }
+  if (snap.devLogDocPath) {
+    blocks.push('', `完整日誌: ${snap.devLogDocPath}`);
+  }
+
+  // 2. Failure handoff — attached only when last run actually failed.
+  if (snap.lastRunFailure) {
+    const f = snap.lastRunFailure;
+    blocks.push(
+      '',
+      '## 2. ⚠️ 上次執行失敗訊號',
+      `狀態: ${f.runStatus}`
+      + (f.exitCode !== undefined ? ` (exit code ${f.exitCode})` : '')
+      + (f.finishedAt ? ` · ${f.finishedAt}` : ''),
+    );
+    if (f.stderrTail) {
+      blocks.push('stderr 尾段:', '```', f.stderrTail, '```');
+    }
+    blocks.push('→ 優先排除上次失敗原因，不要盲目重試相同路徑。');
+  }
+
+  // 3. developmentProgress (snapshot paragraph)
+  if (snap.developmentProgress) {
+    blocks.push('', '## 3. 當下快照', snap.developmentProgress);
+  }
+
+  // 4. testing phase handoff
+  if (snap.testLog || snap.testLogDocPath) {
+    blocks.push('', '## 4. 測試狀態');
+    if (snap.testLog) blocks.push(snap.testLog);
+    if (snap.testLogDocPath) blocks.push(`完整測試日誌: ${snap.testLogDocPath}`);
+  }
+
+  // 5. Spec docs — design-era, referenced on demand.
+  const hasSpec = snap.featureSpecDocPath || snap.tddSpecDocPath;
+  if (hasSpec) {
+    blocks.push('', '## 5. 規格文件（僅於 1-4 不足時參考）');
+    if (snap.featureSpecDocPath) blocks.push(`- Feature Spec: ${snap.featureSpecDocPath}`);
+    if (snap.tddSpecDocPath) blocks.push(`- TDD Spec: ${snap.tddSpecDocPath}`);
+  }
+
+  return blocks.join('\n');
+}
+
+const PROJECT_HARD_RULES = [
+  '# 🔧 專案硬規則（必讀後再動作）',
+  '- `.claude/rules/general.md`',
+  '- `.claude/rules/critical-deps.md` (禁止降 React 19 / Next 16 / TS 5)',
+  '- `.claude/rules/backend/supabase.md`（若涉及後端）',
+  '- `.claude/rules/frontend/react-next.md`（若涉及前端）',
+].join('\n');
+
+const PROJECT_SKILLS = [
+  '# 🧰 專案 skills（自選最小組合）',
+  '- `/review-agent-work` — review agent 交付物',
+  '- `/test-coverage` — 為指定檔案/元件產生測試',
+  '- `/commit-push-pr` — 依現有 diff 建立 commit + push + PR',
+  '- `/roadmap-update` — 更新 roadmap.ts (必呼叫於完成時)',
+  '- `/playwright-cli` — 瀏覽器自動化（E2E）',
+  '- `/create-tanstack-table` — 遷移或新建 TanStack 表格',
+].join('\n');
+
+function formatTaskFlow(snap: RoadmapContextSnapshot): string {
+  const agentName = '<你的名字/adapter>';
+  const today = new Date().toISOString().slice(0, 10).replace(/-/g, '/');
+  const visRef = snap.visIssueId ? `, ${snap.visIssueId}` : '';
+  return [
+    '# 🎯 任務流程（三步硬性要求）',
+    '步驟 1. 讀完 📖 任務交接，**重述當前狀態**（格式：',
+    `         "上一次 agent 在 {date} 完成了 X，遺留 Y，已驗收 Z。`,
+    `          下一步應做 W。"）`,
+    '步驟 2. 執行 W（最小可交付步驟，**不要重啟已完成工作**）。',
+    '步驟 3. 完成後 `/roadmap-update`，**追加**新的 devLog 時間戳段：',
+    `         \`[${today}] (${agentName}${visRef})\``,
+    '         • bullet 描述本次產出',
+    '         並更新 `percentage` / `phase` / `testCoverage` 等相關欄位。',
+    '         **devLog 必須 append 不可 overwrite**（多位 agent 的交接歷史）',
+  ].join('\n');
+}
+
+const EXEC_HYGIENE = [
+  '# 執行紀律',
+  '• 優先最小可驗證變更；避免一次改動過大上下文。',
+  '• 測試先跑本次改動相關子集（`--testPathPattern`），通過後再跑較大套件。',
+  '• 若任務可分段，在交付說明中標註階段與完成定義。',
+].join('\n');
+
+/**
+ * Build the row-context-aware dispatch prompt from a server-fetched snapshot.
+ *
+ * Callers typically:
+ *   1. GET /api/roadmap/context/[rowId] → RoadmapContextSnapshot
+ *   2. buildContextAwareDispatchPrompt(snapshot, ideLabel) → string
+ *   3. POST /api/paperclip/issues with { description: <that string> }
+ */
+export function buildContextAwareDispatchPrompt(
+  snap: RoadmapContextSnapshot,
+  ideLabel: string,
+): string {
+  return [
+    formatHeaderSection(snap, ideLabel),
+    '',
+    formatHandoffSection(snap),
+    '',
+    PROJECT_HARD_RULES,
+    '',
+    PROJECT_SKILLS,
+    '',
+    formatTaskFlow(snap),
+    '',
+    EXEC_HYGIENE,
+    '',
+    `# 測試路徑`,
+    `- 單元與整合: ${snap.unitFolder}`,
+    `- E2E: ${snap.e2eFolder}`,
   ].join('\n');
 }

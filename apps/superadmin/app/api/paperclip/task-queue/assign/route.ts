@@ -4,11 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { updateIssue } from '@/lib/paperclip/client';
-
-const PAPERCLIP_BASE_URL =
-  process.env.NEXT_PUBLIC_PAPERCLIP_BASE_URL ?? 'http://localhost:3187';
-const PAPERCLIP_API_KEY = process.env.PAPERCLIP_API_KEY ?? '';
+import { getAgentRuntime } from '@/lib/agent-runtime';
 
 interface AssignBody {
   rowId: string;
@@ -83,16 +79,21 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Best-effort: sync assignee to Paperclip (fire-and-forget)
-  if (task.issue_id && task.assigned_agent && PAPERCLIP_API_KEY) {
-    updateIssue({
-      baseUrl: PAPERCLIP_BASE_URL,
-      apiKey: PAPERCLIP_API_KEY,
-      issueId: task.issue_id,
-      payload: { assigneeAgentId: task.assigned_agent },
-    }).catch(() => {
-      // Paperclip sync is best-effort — don't block the assign response
-    });
+  // Best-effort: sync assignee to Paperclip (fire-and-forget).
+  // If runtime is misconfigured we skip the sync silently — the assign itself
+  // has already succeeded in Supabase.
+  if (task.issue_id && task.assigned_agent) {
+    const runtimeResult = getAgentRuntime();
+    if (runtimeResult.ok) {
+      runtimeResult.runtime
+        .updateIssue({
+          issueId: task.issue_id,
+          payload: { assigneeAgentId: task.assigned_agent },
+        })
+        .catch(() => {
+          // Paperclip sync is best-effort — don't block the assign response
+        });
+    }
   }
 
   return NextResponse.json({ ok: true, task: updated });

@@ -4,12 +4,8 @@
 // Accepts partial update fields (status, assigneeAgentId).
 
 import { NextRequest, NextResponse } from 'next/server';
-import { updateIssue } from '@/lib/paperclip/client';
+import { getAgentRuntime } from '@/lib/agent-runtime';
 import type { PaperclipIssueStatus } from '@/lib/paperclip/types';
-
-const PAPERCLIP_BASE_URL =
-  process.env.NEXT_PUBLIC_PAPERCLIP_BASE_URL ?? 'http://localhost:3187';
-const PAPERCLIP_API_KEY = process.env.PAPERCLIP_API_KEY ?? '';
 
 const ALL_PAPERCLIP_STATUSES: readonly PaperclipIssueStatus[] = [
   'todo',
@@ -39,11 +35,10 @@ export async function POST(
   if (!issueId || issueId.trim() === '') {
     return NextResponse.json({ ok: false, error: 'issueId is required' }, { status: 400 });
   }
-  if (!PAPERCLIP_API_KEY) {
-    return NextResponse.json(
-      { ok: false, error: 'Paperclip API key not configured' },
-      { status: 500 },
-    );
+
+  const runtimeResult = getAgentRuntime();
+  if (!runtimeResult.ok) {
+    return NextResponse.json(runtimeResult, { status: runtimeResult.status });
   }
 
   let raw: UpdateBodyRaw;
@@ -73,9 +68,7 @@ export async function POST(
     return NextResponse.json({ ok: false, error: 'No update fields provided' }, { status: 400 });
   }
 
-  const result = await updateIssue({
-    baseUrl: PAPERCLIP_BASE_URL,
-    apiKey: PAPERCLIP_API_KEY,
+  const result = await runtimeResult.runtime.updateIssue({
     issueId,
     payload,
   });
