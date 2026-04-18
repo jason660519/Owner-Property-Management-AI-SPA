@@ -33,6 +33,12 @@ import {
   UnsupportedParserError,
   type ParseResult,
 } from '../../apps/superadmin/lib/people-db/parsers';
+import { dispatchOcr } from '../../apps/superadmin/lib/people-db/ocr/dispatch';
+import {
+  getOcrClient,
+  parseProviderFromEnv,
+} from '../../apps/superadmin/lib/people-db/ocr/client-factory';
+import type { OcrClient } from '../../apps/superadmin/lib/people-db/ocr/types';
 
 // ---------------------------------------------------------------------------
 // CLI args
@@ -71,6 +77,16 @@ if (!SERVICE_KEY && !dryRun) {
 const db: SupabaseClient | null = SERVICE_KEY
   ? createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
   : null;
+
+// OCR client: lazily instantiated the first time a scanned PDF appears.
+// Sprint 3 default = mock; override with PEOPLE_DB_OCR_PROVIDER=openclaw
+// once the real client ships.
+const ocrProvider = parseProviderFromEnv(process.env.PEOPLE_DB_OCR_PROVIDER);
+let ocrClient: OcrClient | null = null;
+function requireOcrClient(): OcrClient {
+  if (!ocrClient) ocrClient = getOcrClient(ocrProvider);
+  return ocrClient;
+}
 
 // ---------------------------------------------------------------------------
 // Counters
@@ -130,22 +146,31 @@ async function markParsing(row: PendingRow): Promise<void> {
 
 async function markResult(row: PendingRow, result: ParseResult): Promise<void> {
   if (!db || dryRun) return;
-  // Scanned PDFs get queued for OCR rather than marked parsed; the next
-  // sprint wires the real OCR client and a callback handler will flip these
-  // to parsed once OpenClaw returns text.
-  const status = result.likelyScanned ? 'ocr_queued' : 'parsed';
+
+  if (result.likelyScanned) {
+    // Route scanned PDFs to the OCR queue. dispatchOcr enqueues with the
+    // client and sets status='ocr_queued' + ocr_job_id on the row. The
+    // callback webhook (Sprint 3 Task C) later flips status → 'parsed'
+    // when the provider returns OCR text.
+    const client = requireOcrClient();
+    await dispatchOcr(db, { id: row.id, sha256: row.sha256, source_path: row.source_path }, client);
+    // parser + row_count are intentionally left null here; OCR fills them
+    // in via the callback handler once text is extracted.
+    counters.ocrQueued += 1;
+    return;
+  }
+
   const { error } = await db
     .from('people_db_files')
     .update({
-      status,
+      status: 'parsed',
       parser: result.parser,
       row_count: result.row_count,
       error_msg: null,
     })
     .eq('id', row.id);
   if (error) throw error;
-  if (status === 'ocr_queued') counters.ocrQueued += 1;
-  else counters.parsed += 1;
+  counters.parsed += 1;
 }
 
 async function markFailed(row: PendingRow, message: string): Promise<void> {
