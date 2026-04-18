@@ -116,6 +116,6 @@ describe('dispatchParse', () => {
 
   it('throws UnsupportedFormatError for unknown extensions', async () => {
     const file = toFile('irrelevant', 'weird.doc');
-    await expect(dispatchParse(file)).rejects.toBeInstanceOf(UnsupportedFormatError);
+    await expect(dispatchParse(file as unknown as File)).rejects.toBeInstanceOf(UnsupportedFormatError);
   });
 });

@@ -72,7 +72,11 @@ export async function GET(req: NextRequest) {
     company: company ?? seed?.company ?? null,
   };
 
-  const groups: Record<string, Array<{ record_id: string; source: RelatedSource; score: number }>> = {
+  // Narrow the key union so `targets[key]` lines up with the literal keys
+  // we declared above; `Record<string, …>` would widen keyof to `string` and
+  // break the index access.
+  type RelatedGroupKey = 'address' | 'phone' | 'mobile' | 'company';
+  const groups: Record<RelatedGroupKey, Array<{ record_id: string; source: RelatedSource; score: number }>> = {
     address: [],
     phone: [],
     mobile: [],
@@ -82,7 +86,7 @@ export async function GET(req: NextRequest) {
   const seedRecordId = recordId ?? seed?.record_id ?? null;
 
   await Promise.all(
-    (Object.keys(groups) as Array<keyof typeof groups>).map(async (key) => {
+    (Object.keys(groups) as RelatedGroupKey[]).map(async (key) => {
       const value = targets[key];
       if (!value) return;
       const field = key === 'address' ? 'address_normalized' : key;

@@ -104,11 +104,13 @@ function stitchTextItems(items: PdfTextItem[]): string {
 }
 
 function toUint8Array(buffer: ArrayBuffer | Uint8Array | Buffer): Uint8Array {
-  if (buffer instanceof Uint8Array) return buffer;
-  if (typeof Buffer !== 'undefined' && buffer instanceof Buffer) {
+  // Buffer extends Uint8Array, so the Uint8Array branch already covers it —
+  // we just make sure we return a view into the same bytes rather than the
+  // Buffer subclass, since pdfjs-dist sometimes rejects non-plain typed arrays.
+  if (buffer instanceof Uint8Array) {
     return new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
   }
-  return new Uint8Array(buffer as ArrayBuffer);
+  return new Uint8Array(buffer);
 }
 
 // ---------------------------------------------------------------------------
