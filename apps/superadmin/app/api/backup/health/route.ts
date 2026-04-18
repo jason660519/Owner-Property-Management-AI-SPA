@@ -1,14 +1,24 @@
 // filepath: apps/superadmin/app/api/backup/health/route.ts
 // GET /api/backup/health → storage integrity check
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/backup/health',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+
   const adminClient = createAdminClient();
 
   const [

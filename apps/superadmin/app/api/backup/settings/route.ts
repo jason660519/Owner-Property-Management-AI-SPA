@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 import {
   BACKUP_SETTINGS_KEY,
   backupSettingsDefaults,
@@ -11,7 +12,16 @@ import {
   type BackupSettings,
 } from '@/lib/backup/settings';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/backup/settings',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+
   const adminClient = createAdminClient();
   const { data } = await adminClient
     .from('system_settings')
@@ -22,6 +32,15 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request: req,
+    allowHeaderFallback: false,
+    routeLabel: 'api/backup/settings',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+
   const body = (await req.json()) as Partial<BackupSettings>;
   const adminClient = createAdminClient();
 

@@ -1,12 +1,22 @@
 // GET /api/backup/run-logs — recent backup execution audit rows (superadmin)
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/backup/run-logs',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+
   const admin = createAdminClient();
   const { data, error } = await admin
     .from('backup_run_logs')
