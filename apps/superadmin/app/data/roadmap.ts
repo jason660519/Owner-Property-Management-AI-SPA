@@ -2609,9 +2609,28 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedBy: "Claude Opus 4.7",
     lastModifiedDate: "2026/04/18",
   },
+  // --- Row 145: 尋人資料庫 — 大規模批次 Ingestion Pipeline (RFC 決議版) ---
+  {
+    name: "超級管理員-尋人資料庫：大規模批次 Ingestion Pipeline（ID 145）",
+    locatedPage: "superadmin/settings/people-database/ingest",
+    percentage: 14,
+    category: "超級管理員 (Super Admin)",
+    points: 44,
+    phase: "development",
+    featureDescription:
+      "承接 Row 131 / 132 / 144，為 /Volumes/KLEVV-4T-2/台灣尋人資料庫（實測 474 GB / 30+ 子資料夾 / 混合 mdb/dbf/xls/xlsx/csv/txt/pdf/掃描 PDF）建立可重跑、可去重、可觀測的批次入庫管線。包含：檔案清冊與 sha256 去重、副檔名 router 補齊（mdb/accdb/dbf/xls/轉置 PDF/掃描 PDF → OpenClaw）、Entity Resolution（身分證 exact 自動 + 模糊配對半自動）、ES 升級為 IK 中文分詞器（blue/green reindex）、監控 UI 與 dead-letter 重試；硬碟存取抽象為 PEOPLE_DB_SOURCE_ROOT env，便於未來從本機遷至 NAS。",
+    acceptanceCriteria:
+      "1. 遞迴掃描 $PEOPLE_DB_SOURCE_ROOT 後 people_db_files 筆數與實際檔案數一致，重跑新增數為 0（冪等）；刪檔變 status=missing。\n2. Router 支援 .mdb / .accdb / .dbf / .xls / .xlsx / .csv / .txt / .pdf；失敗檔案進 dead-letter 不阻塞其他檔案。\n3. 里長 PDF（轉置表）解析後 闕貴卿 對到南港路 212 號 2 樓而非江輝吉的地址。\n4. 掃描 PDF（totalChars===0）自動送 OcrClient queue（Sprint 3 為 mock），callback 後寫回 ES；真 OpenClaw 上線後僅替換 client 實作。\n5. Entity Resolution：身分證 exact 自動合併進 people_db_persons；name+phone / name+addr 產候選寫 people_db_merge_candidates，admin 在 merge-candidates 頁 confirm/reject，reject 進 blacklist。\n6. 搜尋結果預設依 person 聚合，可切換 record 展開。\n7. ES 套用 ik_max_word + ik_smart，_analyze 驗證中文人名/地址不是逐字拆 token；blue/green reindex 切 alias 不中斷搜尋。\n8. 監控頁顯示各 stage 檔案數、最近 10 次 run、dead-letter 可單檔 retry。\n9. 所有新表啟用 RLS，super_admin 才能 CRUD；worker 走 service_role。\n10. NAS 就緒後（Sprint 7）僅改 env 即可遷移，sha256 為主鍵不丟失處理進度。",
+    featureSpecDocPath:
+      "/project-process/features/people-db-bulk-ingestion-dev-spec-20260418.md",
+    developmentProgress:
+      "2026/04/18（RFC 決議版 — Claude Opus 4.7 × Jason 拍板）\n- 實測硬碟規模：/Volumes/KLEVV-4T-2/台灣尋人資料庫 474 GB / 30+ 子目錄\n- 檔案類型盤點：.mdb/.accdb/.dbf/.xls（結構化未支援）、.xlsx/.csv/.txt（Row 144 已支援）、.pdf（有文字層但轉置表會錯位）、掃描 PDF（需 OCR）\n- Row 131–144 遺留限制 5 項：無檔案清冊（重複入庫）、副檔名 router 殘缺、無 Entity Resolution、ES 無中文分詞器、PDF 啟發式對轉置表崩潰（實測：闕貴卿→江輝吉地址）\n\n決議（Jason 2026/04/18）：\n1. ER 保守路線：只對身分證 exact 自動合併；name+phone / name+addr 走半自動 admin 確認（新增 merge_candidates / blacklist 表 + 前端頁）\n2. Sprint 2 與 Sprint 5 並行（IK Analyzer 與結構化 parser 無 code 依賴），關鍵路徑從 15 天壓到約 11 工作天\n3. OpenClaw mock 先行：Sprint 3 定義 OcrClient interface + MockOcrClient，feature/openclaw-migration 合併後替換\n4. 硬碟存取抽象為 PEOPLE_DB_SOURCE_ROOT env（預設本機）；家中 NAS 尚未 setup，NAS 就緒前不做正式入庫；Sprint 7 做遷移腳本\n\n- Sprint 拆解 7 個（1–6 共 41 points 約 11 工作天關鍵路徑 + 7 NAS 遷移 3 points，合計 44 points）\n- 建立 dev-spec：/project-process/features/people-db-bulk-ingestion-dev-spec-20260418.md（v1.0 決議版 23 KB）\n- 建立 tdd-spec：/project-process/features/people-db-bulk-ingestion-tdd-spec-20260418.md\n\n2026/04/19（Sprint 1 實作 — Claude Opus 4.7）\n- Migration 20260419100000_create_people_db_files.sql：sha256 UNIQUE 主鍵、status 11 態 CHECK、dataset_root/subpath、updated_at trigger、RLS 四政策（super_admin + service_role 雙軌）\n- 純函式 apps/superadmin/lib/people-db/inventory.ts：computeSha256Stream（streaming 避免 OOM）、deriveDatasetRoot（trailing slash 正規化）、detectMimeByExt（case-insensitive）、shouldReparse（sha256 為主；size mismatch 只 warn 不重跑）、classifyStatus（9 種支援副檔名：pdf/xlsx/xls/mdb/accdb/dbf/csv/txt/fp）、reclassifyIfStale（只讓 skipped_unsupported→pending，保護 in-flight/terminal 狀態不被降級）\n- CLI tools/people-db/scan.ts：遞迴 walk（跳過 .* 與 __MACOSX）、逐檔 hash + upsert、content_changed 重置為 pending、sha256 未見者標 missing、啟用新副檔名時自動回補舊 skipped_unsupported 列；支援 --dry-run / --limit / --root / $PEOPLE_DB_SOURCE_ROOT\n- API GET /api/people-db/ingest/files：requireSuperAdmin + createAdminClient，支援 status/dataset_root/page/page_size 過濾，回 total+items\n- 測試 __tests__/inventory.test.ts：6 個 describe 組共 20 cases 全綠（sha256 × 3 含 512 MB 記憶體 bound、deriveDatasetRoot × 5、detectMimeByExt × 2、shouldReparse × 3、classifyStatus × 3、reclassifyIfStale × 4）；superadmin tsc --noEmit 0 errors；scan.ts dry-run smoke test OK\n- 下一步 Sprint 2：副檔名 Router（mdb/accdb via mdb-tools、dbf via dbf-parser、xls via node-binary-parsers 或 SheetJS BIFF fallback、.fp FileMaker Pro 匯出為 CSV 後走既有 CSV 流程）、ES mapping + IK Analyzer blue/green reindex 計畫",
+    lastModifiedBy: "Claude Opus 4.7",
+    lastModifiedDate: "2026/04/19",
+  },
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/19 Sprint 5",
+  lastUpdated: "2026/04/19 Row 145 Sprint 1",
   features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
 };
