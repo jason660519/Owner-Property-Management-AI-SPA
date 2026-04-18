@@ -7,6 +7,10 @@ export type SignInResult =
   | { success: true; userId: string }
   | { success: false; error: string };
 
+function normalizeSignInEmail(raw: string): string {
+  return raw.replace(/\u00a0/g, ' ').trim().toLowerCase();
+}
+
 /**
  * 管理員登入：以 email/密碼設定 session cookie，與 middleware 共用同一 cookie。
  */
@@ -16,7 +20,11 @@ export async function signInWithPasswordAction(
 ): Promise<SignInResult> {
   try {
     const supabase = await createClient();
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const normalizedEmail = normalizeSignInEmail(email);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password,
+    });
 
     if (error) {
       const isDev = process.env.NODE_ENV === 'development';
@@ -44,7 +52,7 @@ export async function signInWithPasswordFormAction(
   _prevState: LoginFormState,
   formData: FormData,
 ): Promise<LoginFormState> {
-  const email = String(formData.get('email') ?? '').trim();
+  const email = normalizeSignInEmail(String(formData.get('email') ?? ''));
   const password = String(formData.get('password') ?? '');
   const returnUrl = String(formData.get('returnUrl') ?? '/superadmin');
 

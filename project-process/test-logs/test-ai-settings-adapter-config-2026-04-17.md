@@ -334,5 +334,57 @@
 
 ---
 
-**文件結尾**：本日工作進度已依 `docs/update-project-progress-guide.md` 之「測試報告／TDD Progress Report」路徑寫入 `project-process/test-logs/`，並同步摘要至 `roadmap.ts` 對應功能之 `devLog`。
+## 9) 本日第四階段：測試評價自動化（REVIEW 測試ＯＫ → 測試評價）
+
+> **對應 roadmap**：`超級管理員-AI 服務設定（API 金鑰與模型費用）` — **Row ID `100`**。  
+> **Development Log Summary**：`/project-process/dev-logs/dev-ai-settings-adapter-config-2026-04-17.md`  
+> **本章目的**：將原「人為點選測試 OK」改為「系統規則判定」。
+
+### 9.1 本日完成之任務清單（交付物與完成度）
+
+| # | 任務 | 交付物 | 完成度 |
+| :--: | :--- | :--- | :--: |
+| 1 | 欄位命名改版：`測試ＯＫ` → `測試評價` | `adapter-config-columns.tsx` | 100% |
+| 2 | 新增評價純函式（fail/warning/pending/pass） | `adapter-evaluation.ts` | 100% |
+| 3 | 移除手動 toggle 與舊 review 資料流 | `page.tsx` + `adapter-config-columns.tsx` | 100% |
+| 4 | 補單元測試（含 pending edge case） | `adapter-evaluation.test.ts`（5 tests） | 100% |
+
+### 9.2 技術困難（現象 → 排查 → 根因 → 最終解法）
+
+#### 困難 A：`effectiveModel` 尚未回傳時被誤判為 fallback
+- **問題現象**：`renderedOutput` 已有內容，但評價顯示「模型不正確，暫時回退到 未知模型」。
+- **排查過程**：對照 run/poll 更新順序，確認 `effectiveModel` 可能晚於 render 到達。
+- **根因分析**：判斷順序缺少資料未就緒分支。
+- **最終解法**：新增 `pending` 判斷：`待判定（尚未取得實際模型）`。
+
+#### 困難 B：功能已改自動化，仍保留 legacy `reviewStatus`
+- **問題現象**：UI 已無手動 review，但 local/cloud snapshot 仍持久化 `reviewStatus`。
+- **排查過程**：全文搜尋 `reviewStatus` 與 storage keys，逐段清點初始化/寫入/回填。
+- **根因分析**：改版時未同步收斂資料模型。
+- **最終解法**：刪除 `reviewStatus` 相關型別與 snapshot 欄位，避免死資料持續累積。
+
+### 9.3 本日踩雷事件與事前可預防指標
+
+| 踩雷 | 影響 | 可預防指標 |
+| :--- | :--- | :--- |
+| 先改顯示文案、後補完整狀態機 | 造成一次回修與測試補寫 | 規則型欄位改版需先定義狀態圖（pass/fail/warning/pending）再進 UI |
+| 刪除 UI 但未同步刪持久化欄位 | 產生 dead state | PR checklist 強制檢查 `type + storage + hydration` 三層同步 |
+
+### 9.4 下次避免措施（流程 / 工具 / 自動化）
+
+1. **流程**：建立「規則判斷欄位改版模板」，至少包含判斷優先序、資料不足策略、降級文案。  
+2. **工具**：新增 snapshot schema 測試，禁止未使用欄位持續寫入 storage。  
+3. **自動化腳本需求**：在 CI 加入靜態檢查，若某欄位僅寫不讀（orphaned persisted state）即 warning。
+
+### 9.5 明日優先工作（工時 / 相依 / 風險）
+
+| 優先序 | 項目 | 預估工時 | 相依性 | 風險 |
+| :--: | :--- | :--: | :--- | :--- |
+| P0 | 可配置化「render 過短門檻」與文案 | 1.5h | PM 對門檻定義 | 門檻設定不當造成誤判率 |
+| P1 | E2E 驗證 `測試評價` badge（四種狀態） | 2.5h | 測試帳號與 API 回應穩定 | 外部 provider 波動導致 flaky |
+| P2 | 將評價結果匯出至報表欄位 | 2h | 現有 export 流程 | 需避免破壞既有匯出格式相容性 |
+
+---
+
+**文件結尾**：本日工作進度已依 `docs/update-project-progress-guide.md` 寫入 `project-process/test-logs/`（本檔 §9）與 `project-process/dev-logs/`（Development Log Summary 主檔），並更新 `roadmap.ts` 對應列之 `devLogDocPath`。
 

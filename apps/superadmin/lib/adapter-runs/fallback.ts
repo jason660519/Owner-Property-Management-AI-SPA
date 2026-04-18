@@ -8,7 +8,7 @@ export function shouldUseAnthropicApiFallback(provider: string, lines: string[])
 
 function hasCliErrorSignals(lines: string[]): boolean {
   return lines.some((line) =>
-    /requested entity was not found|error:|status:\s*404|tool debug/i.test(line)
+    /requested entity was not found|model .* does not exist|invalid model|providermodelnotfounderror|error:|status:\s*404/i.test(line)
   );
 }
 

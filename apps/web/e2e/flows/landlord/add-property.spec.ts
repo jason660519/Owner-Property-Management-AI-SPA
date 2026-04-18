@@ -11,11 +11,6 @@
 
 import { test, expect } from '@playwright/test'
 
-const TEST_USER = {
-  email: 'a0405142777@gmail.com',
-  password: 'NewPassword123!',
-}
-
 const TEST_PROPERTY = {
   // Step 1: 基本資料
   title: '台北市大安區精緻公寓',
@@ -44,12 +39,16 @@ const TEST_PROPERTY = {
 
 test.describe('新增物件 - 完整流程', () => {
   test.beforeEach(async ({ page }) => {
+    const email = process.env.E2E_TEST_EMAIL
+    const password = process.env.E2E_TEST_PASSWORD
+    test.skip(!email || !password, 'Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD in apps/web/.env.local')
+
     // 前往登入頁面
     await page.goto('http://localhost:3000/auth/signin')
     
     // 登入
-    await page.fill('input[name="email"]', TEST_USER.email)
-    await page.fill('input[name="password"]', TEST_USER.password)
+    await page.fill('input[name="email"]', email)
+    await page.fill('input[name="password"]', password)
     await page.click('button[type="submit"]')
     
     // 等待導向到儀表板
@@ -208,9 +207,13 @@ test.describe('新增物件 - 完整流程', () => {
 
 test.describe('新增物件 - 表單驗證', () => {
   test.beforeEach(async ({ page }) => {
+    const email = process.env.E2E_TEST_EMAIL
+    const password = process.env.E2E_TEST_PASSWORD
+    test.skip(!email || !password, 'Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD in apps/web/.env.local')
+
     await page.goto('http://localhost:3000/auth/signin')
-    await page.fill('input[name="email"]', TEST_USER.email)
-    await page.fill('input[name="password"]', TEST_USER.password)
+    await page.fill('input[name="email"]', email)
+    await page.fill('input[name="password"]', password)
     await page.click('button[type="submit"]')
     await page.waitForURL(/\/landlord\/dashboard/, { timeout: 10000 })
     await page.goto('http://localhost:3000/landlord/properties/add')

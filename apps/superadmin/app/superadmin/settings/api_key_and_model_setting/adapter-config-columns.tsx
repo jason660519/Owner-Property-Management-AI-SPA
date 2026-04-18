@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
-import { Play, Pause, Square, Upload } from 'lucide-react';
+import { Loader2, Play, Pause, Square, Upload } from 'lucide-react';
 import type { AdapterConfigItem } from '@/lib/adapter-config';
+import { evaluateAdapterRun } from './adapter-evaluation';
 
 /** Row model for Adapter Config EnhancedTable */
 export type AdapterConfigTableRow = {
@@ -19,6 +20,8 @@ export type AdapterConfigDraftCell = {
   selectedPromptId: string;
   testFileName: string;
   testFile: File | null;
+  /** 本輪測試開始時間（ms）；用於顯示經過秒數 */
+  runStartedAtMs: number | null;
   runStatus: 'idle' | 'running' | 'paused' | 'stopped';
   outputLines: string[];
   runCount: number;
@@ -26,8 +29,9 @@ export type AdapterConfigDraftCell = {
   pid: number | null;
   commandPreview: string;
   renderedOutput: string;
-  resolvedModel: string;
-  reviewStatus: 'planned' | 'ok';
+  requestedModel: string;
+  effectiveModel: string;
+  modelSource: string;
 };
 
 export type AdapterPromptOptionCell = { id: string; label: string; content: string };
@@ -41,7 +45,6 @@ export function formatAdapterSerial(n: number): string {
 
 export interface CreateAdapterConfigColumnsDeps {
   providerLabel: Record<string, string>;
-  reviewLabel: Record<'planned' | 'ok', string>;
   promptOptions: AdapterPromptOptionCell[];
   adapterFileInputRefs: React.MutableRefObject<Record<string, HTMLInputElement | null>>;
   setAdapterConfigDrafts: React.Dispatch<
@@ -56,6 +59,44 @@ export interface CreateAdapterConfigColumnsDeps {
 
 const col = createColumnHelper<AdapterConfigTableRow>();
 
+/** 執行中顯示轉圈與經過時間（小數點 1 位）；暫停時凍結秒數 */
+function AdapterRunElapsedLabel({
+  runStatus,
+  runStartedAtMs,
+}: {
+  runStatus: AdapterConfigDraftCell['runStatus'];
+  runStartedAtMs: number | null;
+}) {
+  const [elapsedSec, setElapsedSec] = useState(0);
+
+  useEffect(() => {
+    if (runStatus !== 'running' || runStartedAtMs == null) {
+      return;
+    }
+    const tick = () => setElapsedSec((Date.now() - runStartedAtMs) / 1000);
+    tick();
+    const id = setInterval(tick, 100);
+    return () => clearInterval(id);
+  }, [runStatus, runStartedAtMs]);
+
+  if (runStartedAtMs == null) return null;
+  if (runStatus === 'idle' || runStatus === 'stopped') return null;
+
+  const isPaused = runStatus === 'paused';
+
+  return (
+    <div
+      className={`mt-1 flex min-h-[18px] items-center gap-1 text-[11px] ${isPaused ? 'text-amber-800' : 'text-emerald-800'}`}
+      aria-live={isPaused ? 'off' : 'polite'}
+    >
+      {!isPaused && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-emerald-600" aria-hidden />}
+      {isPaused && <span className="shrink-0 font-medium">已暫停</span>}
+      <span className="tabular-nums font-mono font-semibold">{elapsedSec.toFixed(1)}</span>
+      <span className="text-text-muted">秒</span>
+    </div>
+  );
+}
+
 function meta(en: string, zh: string) {
   return { headerEn: en, headerZh: zh };
 }
@@ -65,7 +106,6 @@ export function createAdapterConfigColumns(
 ): ColumnDef<AdapterConfigTableRow, unknown>[] {
   const {
     providerLabel,
-    reviewLabel,
     promptOptions,
     adapterFileInputRefs,
     setAdapterConfigDrafts,
@@ -227,6 +267,7 @@ export function createAdapterConfigColumns(
                     : 'text-emerald-600 hover:bg-emerald-50'
                 }`}
                 title="開始執行"
+                aria-busy={draft.runStatus === 'running'}
               >
                 <Play size={13} />
               </button>
@@ -266,6 +307,7 @@ export function createAdapterConfigColumns(
                 <Square size={12} />
               </button>
             </div>
+            <AdapterRunElapsedLabel runStatus={draft.runStatus} runStartedAtMs={draft.runStartedAtMs} />
             <p className="mt-1 text-[11px] text-text-muted">已執行輪次：{draft.runCount}</p>
             {draft.pid != null && <p className="text-[11px] text-text-muted">PID：{draft.pid}</p>}
           </>
@@ -275,24 +317,25 @@ export function createAdapterConfigColumns(
 
     col.display({
       id: 'col-resolved',
-      meta: meta('Reported model', '執行回報型號'),
+      meta: meta('Requested / Effective', '指定 / 實際型號'),
       enableSorting: false,
       cell: ({ row }) => {
         const { item, draft } = row.original;
-        const reported = draft.resolvedModel?.trim() ?? '';
-        const display = reported || item.model;
-        const isPresetOnly = !reported;
+        const requested = (draft.requestedModel?.trim() || item.model).trim();
+        const effective = (draft.effectiveModel?.trim() || '').trim();
+        const source = (draft.modelSource?.trim() || '').trim();
         return (
-          <p
-            className={`break-all font-mono text-xs ${isPresetOnly ? 'text-text-muted' : 'text-text-primary'}`}
-            title={
-              isPresetOnly
-                ? '尚未收到本次執行的回報：先顯示設定中的 CLI 型號。執行後若有回報會改為回報值（可能與行銷用 Adapter 名稱不同）。'
-                : '本次執行由 CLI／API 回報的型號。'
-            }
-          >
-            {display}
-          </p>
+          <div className="space-y-1">
+            <p className="break-all font-mono text-[11px] text-text-secondary" title="你指定要執行的模型">
+              requested: {requested}
+            </p>
+            <p className="break-all font-mono text-[11px] text-text-primary" title="實際執行模型（可能因 fallback 不同）">
+              effective: {effective || '尚未產生'}
+            </p>
+            <p className="break-all font-mono text-[11px] text-text-muted" title="模型來源">
+              source: {source || 'requested'}
+            </p>
+          </div>
         );
       },
     }) as ColumnDef<AdapterConfigTableRow, unknown>,
@@ -349,31 +392,53 @@ export function createAdapterConfigColumns(
 
     col.display({
       id: 'col-review',
-      meta: meta('Review', '測試ＯＫ'),
+      meta: meta('Evaluation', '測試評價'),
       enableSorting: false,
       cell: ({ row }) => {
         const { item, draft } = row.original;
+        /** 執行中／暫停時輪詢仍可能沿用上一輪的 render，不可顯示舊的及格／不及格以免誤導 */
+        if (draft.runStatus === 'running') {
+          return (
+            <div
+              className="inline-flex min-h-8 items-center rounded-md border border-sky-300 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-900"
+              title="測試執行中，程序結束後會依輸出更新評價"
+            >
+              模型測試中
+            </div>
+          );
+        }
+        if (draft.runStatus === 'paused') {
+          return (
+            <div
+              className="inline-flex min-h-8 items-center rounded-md border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900"
+              title="已暫停；恢復並完成後才會更新最終評價"
+            >
+              測試已暫停
+            </div>
+          );
+        }
+        const requested = (draft.requestedModel?.trim() || item.model).trim();
+        const effective = (draft.effectiveModel?.trim() || '').trim();
+        const evaluation = evaluateAdapterRun({
+          requestedModel: requested,
+          effectiveModel: effective,
+          renderedOutput: draft.renderedOutput,
+          outputLines: draft.outputLines,
+        });
+        const badgeClass = {
+          pass: 'border-emerald-300 bg-emerald-100 text-emerald-800',
+          warning: 'border-amber-300 bg-amber-100 text-amber-800',
+          fail: 'border-rose-300 bg-rose-100 text-rose-800',
+          pending: 'border-slate-300 bg-slate-100 text-slate-700',
+        }[evaluation.level];
+
         return (
-          <button
-            type="button"
-            onClick={() => {
-              setAdapterConfigDrafts((prev) => ({
-                ...prev,
-                [item.id]: {
-                  ...draft,
-                  reviewStatus: draft.reviewStatus === 'ok' ? 'planned' : 'ok',
-                },
-              }));
-            }}
-            className={`inline-flex h-8 items-center rounded-md border px-3 text-xs font-semibold transition ${
-              draft.reviewStatus === 'ok'
-                ? 'border-emerald-300 bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                : 'border-amber-300 bg-amber-100 text-amber-800 hover:bg-amber-200'
-            }`}
-            title="切換測試審核狀態"
+          <div
+            className={`inline-flex min-h-8 items-center rounded-md border px-3 py-1 text-xs font-semibold ${badgeClass}`}
+            title={evaluation.message}
           >
-            {reviewLabel[draft.reviewStatus]}
-          </button>
+            {evaluation.message}
+          </div>
         );
       },
     }) as ColumnDef<AdapterConfigTableRow, unknown>,

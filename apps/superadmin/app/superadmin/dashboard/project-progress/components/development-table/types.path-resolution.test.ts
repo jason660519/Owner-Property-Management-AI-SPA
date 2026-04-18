@@ -1,5 +1,10 @@
 import type { RoadmapFeature } from '@/app/data/roadmap';
-import { resolveUnitTestFolder } from './types';
+import {
+  buildFallbackDevLogDocPath,
+  resolveConfiguredDevLogDocPath,
+  resolveDevLogDocPath,
+  resolveUnitTestFolder,
+} from './types';
 
 function makeFeature(testScriptPath?: string): RoadmapFeature {
   return {
@@ -60,6 +65,80 @@ describe('resolveUnitTestFolder', () => {
 
     expect(resolveUnitTestFolder(makeFeature('https://example.com/131'), '131')).toBe(
       'apps/superadmin/unit_test/131',
+    );
+  });
+});
+
+describe('resolveDevLogDocPath', () => {
+  it('uses configured markdown path when it is safe', () => {
+    const feature: RoadmapFeature = {
+      name: 'Test feature',
+      category: '測試',
+      percentage: 10,
+      devLogDocPath: '/project-process/dev-logs/test-feature-dev-log-2026-04-17.md',
+    };
+
+    expect(resolveConfiguredDevLogDocPath(feature)).toBe(
+      'project-process/dev-logs/test-feature-dev-log-2026-04-17.md',
+    );
+    expect(resolveDevLogDocPath(feature, '131')).toBe(
+      'project-process/dev-logs/test-feature-dev-log-2026-04-17.md',
+    );
+  });
+
+  it('accepts docs markdown paths for existing roadmap rows', () => {
+    const feature: RoadmapFeature = {
+      name: 'Test feature',
+      category: '測試',
+      percentage: 10,
+      devLogDocPath: '/docs/operational-guides/transcript-parsing-guide.md',
+    };
+
+    expect(resolveConfiguredDevLogDocPath(feature)).toBe(
+      'docs/operational-guides/transcript-parsing-guide.md',
+    );
+  });
+
+  it('falls back when devLogDocPath is missing or invalid', () => {
+    expect(
+      resolveDevLogDocPath(
+        {
+          name: 'Missing path',
+          category: '測試',
+          percentage: 0,
+        },
+        '131',
+      ),
+    ).toBe(buildFallbackDevLogDocPath('131'));
+
+    expect(
+      resolveDevLogDocPath(
+        {
+          name: 'Invalid path',
+          category: '測試',
+          percentage: 0,
+          devLogDocPath: '/project-process/dev-logs/not-markdown.txt',
+        },
+        '132',
+      ),
+    ).toBe(buildFallbackDevLogDocPath('132'));
+
+    expect(
+      resolveDevLogDocPath(
+        {
+          name: 'Traversal attempt',
+          category: '測試',
+          percentage: 0,
+          devLogDocPath: '/project-process/../secret.md',
+        },
+        '133',
+      ),
+    ).toBe(buildFallbackDevLogDocPath('133'));
+  });
+
+  it('sanitizes non-numeric row IDs when building fallback paths', () => {
+    expect(buildFallbackDevLogDocPath('custom row/../133')).toBe(
+      'project-process/dev-logs/custom-row-133-development-log-summary.md',
     );
   });
 });

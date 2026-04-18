@@ -14,7 +14,8 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "playwright test --debug",
-    "test:e2e:report": "playwright show-report"
+    "test:e2e:report": "playwright show-report",
+    "ensure-dev-admin": "node ./scripts/ensure-dev-admin-user.mjs"
   },
   "dependencies": {
     "@casl/ability": "^6.8.0",

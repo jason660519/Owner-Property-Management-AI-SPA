@@ -23,7 +23,6 @@ import {
 } from '@/components/ai-settings';
 import { OcrSystemPromptPanel } from '@/components/ai-settings/OcrSystemPromptPanel';
 import { LlmLeaderboardPanel } from '@/components/ai-settings/LlmLeaderboardPanel';
-import { AgentModelAssignmentPanel } from '@/components/ai-settings/AgentModelAssignmentPanel';
 import { useAISettings, type KeyValidationResult } from '@/lib/hooks/useAISettings';
 import { listSavedPrompts } from '@/app/superadmin/settings/evaluations-global-test/promptActions';
 import {
@@ -35,11 +34,12 @@ import { getProviderById, AI_PROVIDERS } from '@/lib/ai-providers';
 import { getModelDisplayName } from '@/components/ai-settings/model-evaluator/utils';
 import { SUPPORTED_AI_ENV_KEY_NAMES } from '@/lib/parse-env-keys';
 import { ADAPTER_CONFIG_ITEMS, DEFAULT_ADAPTER_TEST_PROMPT } from '@/lib/adapter-config';
+import { evaluateAdapterRun } from './adapter-evaluation';
 
 
-type SettingsTab = 'keys' | 'llm-leaderboard' | 'adapter-config' | 'agent-config' | 'ocr';
+type SettingsTab = 'keys' | 'llm-leaderboard' | 'adapter-config' | 'ocr';
 
-const TAB_IDS: SettingsTab[] = ['keys', 'llm-leaderboard', 'adapter-config', 'agent-config', 'ocr'];
+const TAB_IDS: SettingsTab[] = ['keys', 'llm-leaderboard', 'adapter-config', 'ocr'];
 
 const LS_GLOBAL_PROMPT = 'ai-settings:globalTestPrompt';
 const LS_SAVED_PROMPTS = 'ai-settings:savedPrompts';
@@ -163,12 +163,6 @@ const TABS: { id: SettingsTab; label: string; icon: React.ElementType; descripti
     icon: Bot,
     description: '設定 Adapter 的模型映射、調適策略與可用性',
   },
-  {
-    id: 'agent-config',
-    label: '模型選擇與設定',
-    icon: Bot,
-    description: '為每個 AI Agent 指派 Primary 模型與 Fallback 策略（全平台共用）',
-  },
   { id: 'ocr', label: 'OCR解析設定', icon: ScanText, description: '設定 OCR 解析模型與參數' },
 ];
 
@@ -208,14 +202,6 @@ const SHEET_TABS: SheetTabDef[] = [
     color: 'text-teal-600',
     activeColor: 'bg-teal-600 text-white',
   },
-  {
-    id: 'agent-config',
-    label: 'Agent Config',
-    zhLabel: '模型選擇與設定',
-    icon: Bot,
-    color: 'text-emerald-600',
-    activeColor: 'bg-emerald-600 text-white',
-  },
   { id: 'ocr', label: 'OCR', zhLabel: 'OCR解析設定', icon: ScanText, color: 'text-blue-600', activeColor: 'bg-blue-600 text-white' },
 ];
 
@@ -228,13 +214,14 @@ const ADAPTER_PROVIDER_LABEL: Record<string, string> = {
 };
 
 type AdapterRunStatus = 'idle' | 'running' | 'paused' | 'stopped';
-type AdapterReviewStatus = 'planned' | 'ok';
 
 type AdapterConfigDraft = {
   promptText: string;
   selectedPromptId: string;
   testFileName: string;
   testFile: File | null;
+  /** 本輪測試開始時間（ms），供 UI 顯示經過秒數 */
+  runStartedAtMs: number | null;
   runStatus: AdapterRunStatus;
   outputLines: string[];
   runCount: number;
@@ -242,12 +229,12 @@ type AdapterConfigDraft = {
   pid: number | null;
   commandPreview: string;
   renderedOutput: string;
-  resolvedModel: string;
-  reviewStatus: AdapterReviewStatus;
+  requestedModel: string;
+  effectiveModel: string;
+  modelSource: string;
 };
 type AdapterPromptOption = { id: string; label: string; content: string };
 
-const LS_ADAPTER_REVIEW_STATUS = 'ai-settings:adapter-review-status';
 const LS_ADAPTER_RUN_SNAPSHOT = 'ai-settings:adapter-run-snapshot';
 const ADAPTER_RESULTS_MODULE_KEY = 'adapter_config_test_results';
 
@@ -257,18 +244,55 @@ const ADAPTER_CONFIG_TABLE_INITIAL_WIDTHS = [4, 7, 10, 14, 8, 10, 8, 14, 13, 12]
 /** 固定表格寬（搭配 stretchToContainer={false}），常見視窗寬度下才會出現底部橫向捲軸 */
 const ADAPTER_CONFIG_TABLE_MIN_WIDTH_PX = 2400;
 
-const ADAPTER_REVIEW_LABEL: Record<AdapterReviewStatus, string> = {
-  planned: '規劃中',
-  ok: '測試OK',
+const MAX_ADAPTER_RUN_NOTICES = 40;
+
+type AdapterRunNoticeEntry = {
+  id: string;
+  at: string;
+  severity: 'error' | 'warn';
+  adapterLabel: string;
+  message: string;
 };
 
 type AdapterRunSnapshot = Record<
   string,
-  Pick<AdapterConfigDraft, 'outputLines' | 'renderedOutput' | 'resolvedModel' | 'reviewStatus' | 'commandPreview' | 'runCount'>
+  Pick<
+    AdapterConfigDraft,
+    'outputLines' | 'renderedOutput' | 'requestedModel' | 'effectiveModel' | 'modelSource' | 'commandPreview' | 'runCount'
+  >
 >;
+
+function formatAdapterNoticeTime(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString('zh-TW', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
 
 function quoteCliArg(value: string): string {
   return `"${value.replace(/"/g, '\\"')}"`;
+}
+
+/** 全測批次進行中：顯示經過秒數（小數點 1 位） */
+function BulkRunElapsed({ startMs }: { startMs: number }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 100);
+    return () => clearInterval(id);
+  }, [startMs]);
+  return (
+    <span className="tabular-nums font-mono text-xs font-semibold" aria-live="polite">
+      {((Date.now() - startMs) / 1000).toFixed(1)}s
+    </span>
+  );
 }
 
 function buildAdapterCommand(
@@ -365,9 +389,10 @@ export default function AIServiceSettingsPage() {
   const [exportingSettings, setExportingSettings] = useState(false);
   const [importingSettings, setImportingSettings] = useState(false);
   const [bulkStarting, setBulkStarting] = useState(false);
+  const [bulkRunStartedAtMs, setBulkRunStartedAtMs] = useState<number | null>(null);
+  const [adapterRunNotices, setAdapterRunNotices] = useState<AdapterRunNoticeEntry[]>([]);
   const [adapterConfigDrafts, setAdapterConfigDrafts] = useState<Record<string, AdapterConfigDraft>>(() =>
     {
-      const persistedStatus = readLocalStorage<Record<string, AdapterReviewStatus>>(LS_ADAPTER_REVIEW_STATUS, {});
       const persistedSnapshot = readLocalStorage<AdapterRunSnapshot>(LS_ADAPTER_RUN_SNAPSHOT, {});
       return Object.fromEntries(
         ADAPTER_CONFIG_ITEMS.map((item) => [
@@ -377,13 +402,15 @@ export default function AIServiceSettingsPage() {
             selectedPromptId: '',
             testFileName: '',
             testFile: null,
+            runStartedAtMs: null,
             runStatus: 'idle' as AdapterRunStatus,
             logCursor: 0,
             pid: null,
             commandPreview: persistedSnapshot[item.id]?.commandPreview ?? '',
             renderedOutput: persistedSnapshot[item.id]?.renderedOutput ?? '',
-            resolvedModel: persistedSnapshot[item.id]?.resolvedModel ?? '',
-            reviewStatus: persistedSnapshot[item.id]?.reviewStatus ?? persistedStatus[item.id] ?? 'planned',
+            requestedModel: persistedSnapshot[item.id]?.requestedModel ?? item.model,
+            effectiveModel: persistedSnapshot[item.id]?.effectiveModel ?? '',
+            modelSource: persistedSnapshot[item.id]?.modelSource ?? '',
             outputLines: persistedSnapshot[item.id]?.outputLines ?? [],
             runCount: persistedSnapshot[item.id]?.runCount ?? 0,
           },
@@ -395,7 +422,19 @@ export default function AIServiceSettingsPage() {
   const adapterPollIntervalRefs = useRef<Record<string, ReturnType<typeof setInterval> | null>>({});
   const adapterFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const adapterDraftsRef = useRef(adapterConfigDrafts);
+  const prevAdapterRunStatusRef = useRef<Record<string, AdapterRunStatus>>({});
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const appendAdapterRunNotice = useCallback((entry: Omit<AdapterRunNoticeEntry, 'id' | 'at'>) => {
+    setAdapterRunNotices((prev) => {
+      const row: AdapterRunNoticeEntry = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        at: new Date().toISOString(),
+        ...entry,
+      };
+      return [row, ...prev].slice(0, MAX_ADAPTER_RUN_NOTICES);
+    });
+  }, []);
   const adapterConfigGroups = useMemo(() => {
     const grouped = new Map<string, typeof ADAPTER_CONFIG_ITEMS>();
     for (const item of ADAPTER_CONFIG_ITEMS) {
@@ -420,6 +459,7 @@ export default function AIServiceSettingsPage() {
             selectedPromptId: '',
             testFileName: '',
             testFile: null,
+            runStartedAtMs: null,
             runStatus: 'idle',
             outputLines: [],
             runCount: 0,
@@ -427,8 +467,9 @@ export default function AIServiceSettingsPage() {
             pid: null,
             commandPreview: '',
             renderedOutput: '',
-            resolvedModel: '',
-            reviewStatus: 'planned',
+            requestedModel: item.model,
+            effectiveModel: '',
+            modelSource: '',
           };
         }
       }
@@ -437,18 +478,15 @@ export default function AIServiceSettingsPage() {
   }, []);
 
   useEffect(() => {
-    const persisted = Object.fromEntries(
-      Object.entries(adapterConfigDrafts).map(([adapterId, draft]) => [adapterId, draft.reviewStatus])
-    );
-    writeLocalStorage(LS_ADAPTER_REVIEW_STATUS, persisted);
     const snapshot = Object.fromEntries(
       Object.entries(adapterConfigDrafts).map(([adapterId, draft]) => [
         adapterId,
         {
           outputLines: draft.outputLines,
           renderedOutput: draft.renderedOutput,
-          resolvedModel: draft.resolvedModel,
-          reviewStatus: draft.reviewStatus,
+          requestedModel: draft.requestedModel,
+          effectiveModel: draft.effectiveModel,
+          modelSource: draft.modelSource,
           commandPreview: draft.commandPreview,
           runCount: draft.runCount,
         },
@@ -472,10 +510,12 @@ export default function AIServiceSettingsPage() {
           ...current,
           outputLines: Array.isArray(snap.outputLines) ? snap.outputLines.slice(-120) : current.outputLines,
           renderedOutput: typeof snap.renderedOutput === 'string' ? snap.renderedOutput : current.renderedOutput,
-          resolvedModel: typeof snap.resolvedModel === 'string' ? snap.resolvedModel : current.resolvedModel,
-          reviewStatus: snap.reviewStatus === 'ok' ? 'ok' : 'planned',
+          requestedModel: typeof snap.requestedModel === 'string' ? snap.requestedModel : current.requestedModel,
+          effectiveModel: typeof snap.effectiveModel === 'string' ? snap.effectiveModel : current.effectiveModel,
+          modelSource: typeof snap.modelSource === 'string' ? snap.modelSource : current.modelSource,
           commandPreview: typeof snap.commandPreview === 'string' ? snap.commandPreview : current.commandPreview,
           runCount: typeof snap.runCount === 'number' ? snap.runCount : current.runCount,
+          runStartedAtMs: null,
           runStatus: 'stopped',
           pid: null,
           logCursor: 0,
@@ -495,8 +535,9 @@ export default function AIServiceSettingsPage() {
           {
             outputLines: draft.outputLines.slice(-120),
             renderedOutput: draft.renderedOutput,
-            resolvedModel: draft.resolvedModel,
-            reviewStatus: draft.reviewStatus,
+            requestedModel: draft.requestedModel,
+            effectiveModel: draft.effectiveModel,
+            modelSource: draft.modelSource,
             commandPreview: draft.commandPreview,
             runCount: draft.runCount,
           },
@@ -576,7 +617,9 @@ export default function AIServiceSettingsPage() {
       command: string;
       pid: number | null;
       resultText: string;
-      resolvedModel: string;
+      requestedModel: string;
+      effectiveModel: string;
+      modelSource: string;
     };
     if (!data.success) return;
     setAdapterConfigDrafts((prev) => {
@@ -586,17 +629,26 @@ export default function AIServiceSettingsPage() {
       if (nextStatus === 'idle' || nextStatus === 'stopped') {
         stopAdapterPolling(adapterId);
       }
+      let runStartedAtMs = current.runStartedAtMs;
+      if (nextStatus === 'running') {
+        runStartedAtMs = runStartedAtMs ?? Date.now();
+      } else if (nextStatus === 'idle' || nextStatus === 'stopped') {
+        runStartedAtMs = null;
+      }
       return {
         ...prev,
         [adapterId]: {
           ...current,
           runStatus: nextStatus,
+          runStartedAtMs,
           commandPreview: data.command || current.commandPreview,
           pid: data.pid ?? null,
           logCursor: data.cursor,
           outputLines: [...current.outputLines, ...data.logs].slice(-120),
           renderedOutput: data.resultText || current.renderedOutput,
-          resolvedModel: data.resolvedModel || current.resolvedModel,
+          requestedModel: data.requestedModel || current.requestedModel,
+          effectiveModel: data.effectiveModel || current.effectiveModel,
+          modelSource: data.modelSource || current.modelSource,
         },
       };
     });
@@ -621,7 +673,7 @@ export default function AIServiceSettingsPage() {
       method: 'POST',
       body: form,
     });
-    const data = await res.json() as {
+    let data: {
       success: boolean;
       message?: string;
       status: AdapterRunStatus;
@@ -630,28 +682,50 @@ export default function AIServiceSettingsPage() {
       command: string;
       pid: number | null;
       resultText: string;
-      resolvedModel: string;
+      requestedModel: string;
+      effectiveModel: string;
+      modelSource: string;
     };
-    if (!res.ok || !data.success) {
-      if (typeof window !== 'undefined') window.alert(data.message ?? '啟動失敗');
+    try {
+      data = await res.json() as typeof data;
+    } catch {
+      appendAdapterRunNotice({
+        severity: 'error',
+        adapterLabel: item.optionLabel,
+        message: res.ok ? '啟動失敗（回應無法解析）' : `啟動失敗（HTTP ${res.status}）`,
+      });
       return;
     }
+    if (!res.ok || !data.success) {
+      appendAdapterRunNotice({
+        severity: 'error',
+        adapterLabel: item.optionLabel,
+        message: typeof data.message === 'string' && data.message.trim()
+          ? data.message
+          : `啟動失敗${!res.ok ? `（HTTP ${res.status}）` : ''}`,
+      });
+      return;
+    }
+    const running = data.status === 'running';
     setAdapterConfigDrafts((prev) => ({
       ...prev,
       [item.id]: {
         ...prev[item.id],
         runStatus: data.status,
+        runStartedAtMs: running ? Date.now() : null,
         runCount: (prev[item.id]?.runCount ?? 0) + 1,
         outputLines: data.logs ?? [],
         logCursor: data.cursor ?? 0,
         commandPreview: data.command ?? '',
         pid: data.pid ?? null,
         renderedOutput: data.resultText ?? '',
-        resolvedModel: data.resolvedModel ?? item.model,
+        requestedModel: data.requestedModel ?? item.model,
+        effectiveModel: data.effectiveModel ?? '',
+        modelSource: data.modelSource ?? '',
       },
     }));
     startAdapterPolling(item.id);
-  }, [startAdapterPolling]);
+  }, [appendAdapterRunNotice, startAdapterPolling]);
 
   const controlAdapterRun = useCallback(async (adapterId: string, action: 'pause' | 'resume' | 'stop') => {
     const res = await fetch('/api/ai-settings/adapter-runs', {
@@ -659,7 +733,7 @@ export default function AIServiceSettingsPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ adapterId, action }),
     });
-    const data = await res.json() as {
+    let data: {
       success: boolean;
       message?: string;
       status: AdapterRunStatus;
@@ -668,26 +742,56 @@ export default function AIServiceSettingsPage() {
       command: string;
       pid: number | null;
       resultText: string;
-      resolvedModel: string;
+      requestedModel: string;
+      effectiveModel: string;
+      modelSource: string;
     };
+    try {
+      data = await res.json() as typeof data;
+    } catch {
+      const item = ADAPTER_CONFIG_ITEMS.find((i) => i.id === adapterId);
+      appendAdapterRunNotice({
+        severity: 'error',
+        adapterLabel: item?.optionLabel ?? adapterId,
+        message: res.ok ? '操作失敗（回應無法解析）' : `操作失敗（HTTP ${res.status}）`,
+      });
+      return;
+    }
     if (!res.ok || !data.success) {
-      if (typeof window !== 'undefined') window.alert(data.message ?? '操作失敗');
+      const item = ADAPTER_CONFIG_ITEMS.find((i) => i.id === adapterId);
+      appendAdapterRunNotice({
+        severity: 'error',
+        adapterLabel: item?.optionLabel ?? adapterId,
+        message: typeof data.message === 'string' && data.message.trim()
+          ? data.message
+          : `操作失敗${!res.ok ? `（HTTP ${res.status}）` : ''}`,
+      });
       return;
     }
     setAdapterConfigDrafts((prev) => {
       const current = prev[adapterId];
       if (!current) return prev;
+      const nextStatus = data.status;
+      let runStartedAtMs = current.runStartedAtMs;
+      if (nextStatus === 'running') {
+        runStartedAtMs = runStartedAtMs ?? Date.now();
+      } else if (nextStatus === 'idle' || nextStatus === 'stopped') {
+        runStartedAtMs = null;
+      }
       return {
         ...prev,
         [adapterId]: {
           ...current,
-          runStatus: data.status,
+          runStatus: nextStatus,
+          runStartedAtMs,
           outputLines: data.logs ?? current.outputLines,
           logCursor: data.cursor ?? current.logCursor,
           commandPreview: data.command ?? current.commandPreview,
           pid: data.pid ?? current.pid,
           renderedOutput: data.resultText || current.renderedOutput,
-          resolvedModel: data.resolvedModel || current.resolvedModel,
+          requestedModel: data.requestedModel || current.requestedModel,
+          effectiveModel: data.effectiveModel || current.effectiveModel,
+          modelSource: data.modelSource || current.modelSource,
         },
       };
     });
@@ -696,11 +800,43 @@ export default function AIServiceSettingsPage() {
     } else {
       startAdapterPolling(adapterId);
     }
-  }, [startAdapterPolling, stopAdapterPolling]);
+  }, [appendAdapterRunNotice, startAdapterPolling, stopAdapterPolling]);
+
+  useEffect(() => {
+    for (const item of ADAPTER_CONFIG_ITEMS) {
+      const draft = adapterConfigDrafts[item.id];
+      if (!draft) continue;
+      const cur = draft.runStatus;
+      const prev = prevAdapterRunStatusRef.current[item.id];
+      if (
+        prev !== undefined &&
+        prev === 'running' &&
+        (cur === 'stopped' || cur === 'idle')
+      ) {
+        const requested = (draft.requestedModel?.trim() || item.model).trim();
+        const effective = (draft.effectiveModel?.trim() || '').trim();
+        const evaluation = evaluateAdapterRun({
+          requestedModel: requested,
+          effectiveModel: effective,
+          renderedOutput: draft.renderedOutput,
+          outputLines: draft.outputLines,
+        });
+        if (evaluation.level === 'fail' || evaluation.level === 'warning') {
+          appendAdapterRunNotice({
+            severity: evaluation.level === 'fail' ? 'error' : 'warn',
+            adapterLabel: item.optionLabel,
+            message: evaluation.message,
+          });
+        }
+      }
+      prevAdapterRunStatusRef.current[item.id] = cur;
+    }
+  }, [adapterConfigDrafts, appendAdapterRunNotice]);
 
   const runAllAdapters = useCallback(async () => {
     if (bulkStarting) return;
     setBulkStarting(true);
+    setBulkRunStartedAtMs(Date.now());
     try {
       const drafts = adapterDraftsRef.current;
       const tasks = ADAPTER_CONFIG_ITEMS.map(async (item) => {
@@ -712,6 +848,7 @@ export default function AIServiceSettingsPage() {
       await Promise.allSettled(tasks);
     } finally {
       setBulkStarting(false);
+      setBulkRunStartedAtMs(null);
     }
   }, [bulkStarting, startAdapterRun]);
 
@@ -1029,6 +1166,7 @@ export default function AIServiceSettingsPage() {
             selectedPromptId: '',
             testFileName: '',
             testFile: null,
+            runStartedAtMs: null,
             runStatus: 'idle' as AdapterRunStatus,
             outputLines: [],
             runCount: 0,
@@ -1036,8 +1174,9 @@ export default function AIServiceSettingsPage() {
             pid: null,
             commandPreview: '',
             renderedOutput: '',
-            resolvedModel: '',
-            reviewStatus: 'planned',
+            requestedModel: item.model,
+            effectiveModel: '',
+            modelSource: '',
           };
         rows.push({
           serialNo: serial,
@@ -1055,7 +1194,6 @@ export default function AIServiceSettingsPage() {
     () =>
       createAdapterConfigColumns({
         providerLabel: ADAPTER_PROVIDER_LABEL,
-        reviewLabel: ADAPTER_REVIEW_LABEL,
         promptOptions,
         adapterFileInputRefs,
         setAdapterConfigDrafts,
@@ -1076,7 +1214,9 @@ export default function AIServiceSettingsPage() {
       item.id,
       draft.promptText,
       draft.renderedOutput,
-      draft.resolvedModel,
+      draft.requestedModel,
+      draft.effectiveModel,
+      draft.modelSource,
       ...draft.outputLines.slice(-40),
     ].join(' ');
   }, []);
@@ -1140,11 +1280,48 @@ export default function AIServiceSettingsPage() {
     if (activeTab === 'adapter-config') {
       return (
         <div className="space-y-4">
-          <div className="rounded-base border border-dashed border-border-default bg-bg-secondary p-4">
-            <p className="text-xs font-semibold text-text-primary">Adapter Config 規劃中</p>
-            <p className="mt-1 text-xs text-text-muted">
-              可針對每家 Adapter 設定測試 Prompt、上傳測試文件並控制執行；Prompt 可自行編輯或從 Prompt Management 載入。
-            </p>
+          <div className="flex flex-col gap-4 rounded-base border border-dashed border-border-default bg-bg-secondary p-4 lg:flex-row lg:items-stretch">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-text-primary">Adapter Config 規劃中</p>
+              <p className="mt-1 text-xs text-text-muted">
+                可針對每家 Adapter 設定測試 Prompt、上傳測試文件並控制執行；Prompt 可自行編輯或從 Prompt Management 載入。
+              </p>
+            </div>
+            <div className="min-w-0 flex-1 border-t border-border-default pt-4 lg:max-w-md lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-xs font-semibold text-text-primary">最近測試錯誤／警告</p>
+                <button
+                  type="button"
+                  onClick={() => setAdapterRunNotices([])}
+                  disabled={adapterRunNotices.length === 0}
+                  className="shrink-0 rounded px-2 py-0.5 text-[11px] font-medium text-text-muted transition hover:bg-bg-tertiary hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  清除
+                </button>
+              </div>
+              {adapterRunNotices.length === 0 ? (
+                <p className="mt-2 text-[11px] leading-relaxed text-text-muted">
+                  尚無紀錄。啟動失敗、遠端操作失敗，或單次執行結束後評價為「不及格／模型不正確」時會列在此，方便對照（關閉彈窗後仍可回看）。
+                </p>
+              ) : (
+                <ul className="mt-2 max-h-36 space-y-2 overflow-y-auto pr-0.5">
+                  {adapterRunNotices.map((n) => (
+                    <li
+                      key={n.id}
+                      className={`rounded-md border px-2.5 py-1.5 text-[11px] leading-snug ${
+                        n.severity === 'error'
+                          ? 'border-rose-200 bg-rose-50/80 text-rose-900'
+                          : 'border-amber-200 bg-amber-50/80 text-amber-950'
+                      }`}
+                    >
+                      <span className="font-medium text-text-secondary">{formatAdapterNoticeTime(n.at)}</span>
+                      <span className="text-text-muted"> · {n.adapterLabel}</span>
+                      <p className="mt-0.5 break-words">{n.message}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
 
           <EnhancedTable<AdapterConfigTableRow>
@@ -1163,26 +1340,30 @@ export default function AIServiceSettingsPage() {
                   void runAllAdapters();
                 }}
                 disabled={bulkStarting}
-                className="inline-flex h-8 items-center gap-1 rounded-md bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                title="一鍵啟動全部 Adapter 測試"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                title={
+                  bulkStarting
+                    ? '一鍵啟動全部 Adapter 測試（進行中）'
+                    : '一鍵啟動全部 Adapter 測試'
+                }
+                aria-busy={bulkStarting}
               >
-                <Play size={14} />
-                全測
+                {bulkStarting && bulkRunStartedAtMs != null ? (
+                  <>
+                    <Loader2 size={14} className="shrink-0 animate-spin" aria-hidden />
+                    <BulkRunElapsed startMs={bulkRunStartedAtMs} />
+                    <span>全測中</span>
+                  </>
+                ) : (
+                  <>
+                    <Play size={14} aria-hidden />
+                    全測
+                  </>
+                )}
               </button>
             }
           />
         </div>
-      );
-    }
-
-    if (activeTab === 'agent-config') {
-      return (
-        <AgentModelAssignmentPanel
-          savedKeys={settings.keys}
-          validateAllResultsByKeyId={validateAllResultsByKeyId}
-          evaluations={settings.evaluations}
-          userId={settings.userId}
-        />
       );
     }
 
@@ -1429,7 +1610,7 @@ export default function AIServiceSettingsPage() {
                 )}
               </div>
             )}
-            {activeTab !== 'llm-leaderboard' && activeTab !== 'agent-config' && activeTab !== 'adapter-config' && (
+            {activeTab !== 'llm-leaderboard' && activeTab !== 'adapter-config' && (
             <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"

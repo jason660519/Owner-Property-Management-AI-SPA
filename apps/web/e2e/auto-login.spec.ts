@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 test('Auto Login and Keep Open', async ({ page, context }) => {
-  const email = 'a0405142777@gmail.com';
-  const password = '!qaz2wsX';
+  const email = process.env.E2E_TEST_EMAIL;
+  const password = process.env.E2E_TEST_PASSWORD;
+  test.skip(!email || !password, 'Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD in apps/web/.env.local');
 
   // 1. Perform login
   await page.goto('http://localhost:3000/login');

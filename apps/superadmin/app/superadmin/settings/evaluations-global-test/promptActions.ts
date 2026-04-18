@@ -5,6 +5,7 @@
 
 import { createAdminClient } from '@/utils/supabase/admin';
 import { createClient } from '@/utils/supabase/server';
+import { seedDefaultPromptsDirect } from '@/lib/ai/ensure-seeded';
 
 export interface SavedPrompt {
   id: string;
@@ -20,6 +21,92 @@ export interface SavedPrompt {
 export interface SavePromptOpts {
   tags?: string[];
   description?: string;
+}
+
+type LegacySystemPromptRow = {
+  module_key: string | null;
+  prompt_name: string | null;
+  prompt_content: string | null;
+  version: number | null;
+};
+
+function inferLegacyTags(moduleKey: string | null): string[] {
+  if (!moduleKey) return ['系統預設', 'legacy'];
+  if (moduleKey.startsWith('transcript')) return ['系統預設', '謄本解析', 'legacy'];
+  if (moduleKey.startsWith('property')) return ['系統預設', '文案撰寫', 'legacy'];
+  return ['系統預設', 'legacy'];
+}
+
+async function backfillLegacySystemPromptsToSavedPrompts(
+  userId: string,
+): Promise<{ created: number; error?: string }> {
+  const admin = createAdminClient();
+
+  const { data: existingRows, error: existingErr } = await admin
+    .from('saved_prompts')
+    .select('name, content, module_key');
+  if (existingErr) return { created: 0, error: existingErr.message };
+
+  const existingModuleKeys = new Set(
+    (existingRows ?? [])
+      .map((r) => r.module_key as string | null)
+      .filter((k): k is string => !!k),
+  );
+  const existingNameContent = new Set(
+    (existingRows ?? []).map((r) => `${String(r.name)}::${String(r.content)}`),
+  );
+
+  const { data: legacyRows, error: legacyErr } = await admin
+    .from('ai_system_prompts')
+    .select('module_key, prompt_name, prompt_content, version')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .order('version', { ascending: false });
+  if (legacyErr) return { created: 0, error: legacyErr.message };
+
+  const rows = (legacyRows ?? []) as LegacySystemPromptRow[];
+  const seenModule = new Set<string>();
+  const toInsert: Array<{
+    name: string;
+    content: string;
+    tags: string[];
+    description: string;
+    module_key: string | null;
+    created_by: string;
+  }> = [];
+
+  for (const row of rows) {
+    const moduleKey = row.module_key?.trim() || null;
+    if (moduleKey && seenModule.has(moduleKey)) continue;
+    if (moduleKey) seenModule.add(moduleKey);
+
+    const content = row.prompt_content?.trim() ?? '';
+    if (!content) continue;
+    const name = row.prompt_name?.trim() || `legacy-${moduleKey ?? 'prompt'}`;
+
+    if (moduleKey && existingModuleKeys.has(moduleKey)) continue;
+    const dedupeKey = `${name}::${content}`;
+    if (existingNameContent.has(dedupeKey)) continue;
+
+    toInsert.push({
+      name,
+      content,
+      tags: inferLegacyTags(moduleKey),
+      description: 'Legacy backfill from ai_system_prompts (auto-recovered)',
+      module_key: moduleKey,
+      created_by: userId,
+    });
+    existingNameContent.add(dedupeKey);
+    if (moduleKey) existingModuleKeys.add(moduleKey);
+  }
+
+  if (!toInsert.length) return { created: 0 };
+
+  const { error: insertErr } = await admin
+    .from('saved_prompts')
+    .insert(toInsert);
+  if (insertErr) return { created: 0, error: insertErr.message };
+  return { created: toInsert.length };
 }
 
 /** Verify the calling user is a super_admin. Returns their user id on success. */
@@ -52,6 +139,17 @@ export async function listSavedPrompts(): Promise<{
   if (auth.error) return { error: auth.error };
 
   const admin = createAdminClient();
+  // Safety net for SSoT migration: if legacy prompts still live in
+  // ai_system_prompts, backfill them into saved_prompts so Prompt 管理不會「看起來消失」。
+  const backfillResult = await backfillLegacySystemPromptsToSavedPrompts(auth.userId!);
+  if (backfillResult.error) {
+    return { error: `Legacy prompt backfill failed: ${backfillResult.error}` };
+  }
+  const seedResult = await seedDefaultPromptsDirect(admin);
+  if (seedResult.errors.length) {
+    console.warn('[prompt-management] default prompt seed warning:', seedResult.errors);
+  }
+
   const { data, error } = await admin
     .from('saved_prompts')
     .select('id, name, content, tags, description, is_favorite, created_at, updated_at')
