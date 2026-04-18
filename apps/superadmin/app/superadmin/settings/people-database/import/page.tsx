@@ -476,7 +476,7 @@ export function PeopleDatabaseImportWorkspace() {
             })
               .then(async (processRes) => {
                 if (!processRes.ok) {
-                  // eslint-disable-next-line no-console
+                   
                   console.warn(
                     `[import] /process kickoff failed (${processRes.status}) for job ${data.job_id}`,
                     await processRes.text().catch(() => ''),
@@ -484,7 +484,7 @@ export function PeopleDatabaseImportWorkspace() {
                 }
               })
               .catch((err: unknown) => {
-                // eslint-disable-next-line no-console
+                 
                 console.warn(`[import] /process kickoff threw for job ${data.job_id}`, err);
               });
           }

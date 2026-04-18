@@ -237,7 +237,7 @@ export default function PromptEngineerModal({
       });
       if (!res.ok) {
         const text = await res.text();
-        console.error('Failed to create dev task', text); // eslint-disable-line no-console
+        console.error('Failed to create dev task', text);  
         setPromptError(`建立開發任務失敗：${res.status} ${res.statusText}`);
         return;
       }

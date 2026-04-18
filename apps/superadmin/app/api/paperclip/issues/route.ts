@@ -134,7 +134,7 @@ export async function prepareWorktreeForTask(
   try {
     await installAllPaperclipGitHooks(repoRoot, fs);
   } catch (err) {
-    // eslint-disable-next-line no-console
+     
     console.warn(
       '[paperclip] git hook install failed:',
       err instanceof Error ? err.message : err,
@@ -248,7 +248,7 @@ export async function POST(request: NextRequest) {
     const routeResult = autoRouteRole(body.title);
     const agentMap = readRoleAgentMapping();
     autoRoutedAgentId = agentMap[routeResult.role];
-    // eslint-disable-next-line no-console
+     
     console.log(
       `[paperclip] auto-route: ${formatAutoRouteTag(routeResult)} → agent ${autoRoutedAgentId ?? '(unmapped)'}`,
     );
@@ -303,7 +303,7 @@ export async function POST(request: NextRequest) {
         // In test doubles or edge cases where the worktree path isn't mounted yet,
         // skip metadata persistence without noisy warnings.
       } else {
-      // eslint-disable-next-line no-console
+       
       console.warn(
         '[paperclip] failed to persist worktree issue metadata:',
         err instanceof Error ? err.message : err,
@@ -357,7 +357,7 @@ export async function POST(request: NextRequest) {
       }
     } catch (err) {
       // Best effort — task queue insert failure should not block issue creation
-      // eslint-disable-next-line no-console
+       
       console.warn(
         '[paperclip] failed to insert into paperclip_tasks:',
         err instanceof Error ? err.message : err,

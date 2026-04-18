@@ -20,6 +20,7 @@ Dependencies:
 """
 
 import argparse
+import json
 import re
 import struct
 import sys
@@ -500,6 +501,38 @@ def write_markdown(texts: list[str], input_path: Path, output_dir: Path) -> Path
 
 
 # ---------------------------------------------------------------------------
+# JSON writer — structured output for downstream consumers (e.g. people-db
+# ingestion pipeline). Shape:
+#   { "source_file": str, "header": [str, ...],
+#     "sections": [{"name": str, "fields": [{"label": str, "value": str}, ...]}] }
+# Emitted either to disk (--output dir) or to stdout when input is a single
+# file and --output is literally "-".
+# ---------------------------------------------------------------------------
+
+def build_json(filename: str, texts: list[str]) -> dict:
+    doc = _parse_doc_structure(texts)
+    header = [t for t in doc['header_tokens'] if t.strip('　 ') and '＊' not in t]
+    return {
+        'source_file': filename,
+        'header': header,
+        'sections': [
+            {
+                'name': sec['name'],
+                'fields': [{'label': lbl, 'value': val} for lbl, val in sec['fields']],
+            }
+            for sec in doc['sections']
+        ],
+    }
+
+
+def write_json(texts: list[str], input_path: Path, output_dir: Path) -> Path:
+    payload = build_json(input_path.name, texts)
+    out_path = output_dir / (input_path.stem + '.json')
+    out_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
+    return out_path
+
+
+# ---------------------------------------------------------------------------
 # HTML builder — table-based 謄本 form layout
 # ---------------------------------------------------------------------------
 
@@ -853,9 +886,9 @@ def main() -> None:
     )
     parser.add_argument(
         '--format', '-f',
-        choices=['md', 'html', 'pdf', 'all'],
+        choices=['md', 'html', 'pdf', 'json', 'all'],
         default='html',
-        help='Output format: html (default/recommended), md, pdf, or all',
+        help='Output format: html (default/recommended), md, pdf, json, or all',
     )
     parser.add_argument('--verbose', '-v', action='store_true')
     args = parser.parse_args()
@@ -904,6 +937,9 @@ def main() -> None:
 
             if fmt in ('pdf', 'all'):
                 outputs.append(write_pdf(texts, fp_file, output_dir))
+
+            if fmt in ('json', 'all'):
+                outputs.append(write_json(texts, fp_file, output_dir))
 
             out_names = ', '.join(p.name for p in outputs)
             print(f'  ✓  {fp_file.name}  →  {out_names}')

@@ -293,7 +293,7 @@ export function BuildingTranscriptForm({
     } finally {
       onTranscribeApplied?.();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [fillFromParsedTranscript, onTranscribeApplied]);
 
   function uh<K extends keyof TranscriptHeader>(key: K, val: TranscriptHeader[K]) {

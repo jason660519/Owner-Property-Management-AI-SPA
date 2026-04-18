@@ -37,6 +37,14 @@ interface SpawnResult {
  * spawn failure (e.g. ENOENT). Non-zero exit codes resolve so the caller can
  * surface stderr in the error message.
  */
+// V8 has a ~512 MB hard cap on string length; unbounded concat of stdout/
+// stderr on a corrupt mdb (mdb-tools spams "Page X is not a ..." per block)
+// can blow past it and take the whole worker down with a RangeError. Cap
+// both streams well below that — we only ever read the tail for error
+// messages and the head/first-few-tables' worth for CSV.
+const STDOUT_CAP_BYTES = 256 * 1024 * 1024; // 256 MB — fits the biggest legit mdb we've seen (~380k rows)
+const STDERR_CAP_BYTES = 2 * 1024 * 1024; // 2 MB — error text; anything beyond is just noise
+
 function runCommand(
   cmd: string,
   args: string[],
@@ -44,9 +52,14 @@ function runCommand(
 ): Promise<SpawnResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-    let stdout = '';
-    let stderr = '';
+    const stdoutChunks: string[] = [];
+    const stderrChunks: string[] = [];
+    let stdoutLen = 0;
+    let stderrLen = 0;
+    let stdoutOverflow = false;
+    let stderrOverflow = false;
     let killedByTimeout = false;
+    let killedByOverflow = false;
 
     const timer = setTimeout(() => {
       killedByTimeout = true;
@@ -56,10 +69,26 @@ function runCommand(
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
     child.stdout.on('data', (chunk: string) => {
-      stdout += chunk;
+      if (stdoutOverflow) return;
+      if (stdoutLen + chunk.length > STDOUT_CAP_BYTES) {
+        stdoutOverflow = true;
+        killedByOverflow = true;
+        child.kill('SIGKILL');
+        return;
+      }
+      stdoutChunks.push(chunk);
+      stdoutLen += chunk.length;
     });
     child.stderr.on('data', (chunk: string) => {
-      stderr += chunk;
+      if (stderrOverflow) return;
+      if (stderrLen + chunk.length > STDERR_CAP_BYTES) {
+        stderrOverflow = true;
+        // Stderr alone shouldn't kill the process — mdb-tools keeps writing
+        // to stdout even when stderr is noisy. We just stop collecting.
+        return;
+      }
+      stderrChunks.push(chunk);
+      stderrLen += chunk.length;
     });
 
     child.on('error', (err) => {
@@ -72,6 +101,17 @@ function runCommand(
         reject(new Error(`${cmd} timed out after ${SUBPROCESS_TIMEOUT_MS}ms`));
         return;
       }
+      if (killedByOverflow) {
+        reject(
+          new Error(
+            `${cmd} produced > ${STDOUT_CAP_BYTES >> 20} MB of output — aborted to avoid OOM`,
+          ),
+        );
+        return;
+      }
+      const stdout = stdoutChunks.join('');
+      let stderr = stderrChunks.join('');
+      if (stderrOverflow) stderr += `\n...[stderr truncated at ${STDERR_CAP_BYTES} bytes]`;
       resolve({ stdout, stderr, code: code ?? -1 });
     });
   });

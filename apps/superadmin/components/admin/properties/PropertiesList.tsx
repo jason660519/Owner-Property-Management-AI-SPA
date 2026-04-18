@@ -836,7 +836,7 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
         );
       },
     },
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   ], [deletingId, handleDelete, statusFilter, cityFilter, districtFilter, streetFilter, districtOptions, streetOptions, propertyTypeFilter, propertyTypeDropdownOpen, investigationMap, recalcPropertyTypeDropdownPos]);
 
   const [columnResizeMode] = useState<ColumnResizeMode>('onChange');

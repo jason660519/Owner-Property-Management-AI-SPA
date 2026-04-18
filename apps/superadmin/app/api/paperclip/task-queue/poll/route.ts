@@ -166,7 +166,7 @@ export async function GET() {
             });
             if (switchResult.ok) {
               result.adapterSwitch = { from: currentAdapter, to: nextAdapter };
-              // eslint-disable-next-line no-console
+               
               console.log(
                 `[task-queue/poll] Switched agent ${task.assigned_agent} from ${currentAdapter} → ${nextAdapter} (quota error)`,
               );

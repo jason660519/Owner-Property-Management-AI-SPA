@@ -386,14 +386,16 @@ start_web() {
         echo -e "${YELLOW}⚠️  Web App 已在運行${NC}"
     else
         cd "$PROJECT_ROOT/apps/web"
-        # 判斷是否為背景模式
-        if [ "$1" == "bg" ]; then
-            ensure_log_dir
-            nohup npm run dev > "$LOG_DIR/nextjs.log" 2>&1 &
-            echo -e "${GREEN}✅ Web App (Background) 啟動成功${NC}"
-        else
+        # Default: background (survives terminal close / macOS sleep).
+        # Pass "terminal" to open a visible Terminal tab instead.
+        if [ "$1" == "terminal" ]; then
             osascript -e "tell application \"Terminal\" to do script \"cd '$PROJECT_ROOT/apps/web' && npm run dev\"" >/dev/null 2>&1 &
             echo -e "${GREEN}✅ Web App (Terminal) 啟動成功${NC}"
+        else
+            ensure_log_dir
+            nohup npm run dev > "$LOG_DIR/nextjs.log" 2>&1 &
+            disown
+            echo -e "${GREEN}✅ Web App (Background) 啟動成功,log: $LOG_DIR/nextjs.log${NC}"
         fi
     fi
 }
@@ -404,13 +406,14 @@ start_web_au() {
         echo -e "${YELLOW}⚠️  Web App AU 已在運行${NC}"
     else
         cd "$PROJECT_ROOT/apps/web-au"
-        if [ "$1" == "bg" ]; then
-            ensure_log_dir
-            nohup npm run dev > "$LOG_DIR/nextjs-au.log" 2>&1 &
-            echo -e "${GREEN}✅ Web App AU (Background) 啟動成功${NC}"
-        else
+        if [ "$1" == "terminal" ]; then
             osascript -e "tell application \"Terminal\" to do script \"cd '$PROJECT_ROOT/apps/web-au' && npm run dev\"" >/dev/null 2>&1 &
             echo -e "${GREEN}✅ Web App AU (Terminal) 啟動成功${NC}"
+        else
+            ensure_log_dir
+            nohup npm run dev > "$LOG_DIR/nextjs-au.log" 2>&1 &
+            disown
+            echo -e "${GREEN}✅ Web App AU (Background) 啟動成功,log: $LOG_DIR/nextjs-au.log${NC}"
         fi
     fi
 }
@@ -421,13 +424,14 @@ start_admin() {
         echo -e "${YELLOW}⚠️  Superadmin 已在運行${NC}"
     else
         cd "$PROJECT_ROOT/apps/superadmin"
-        if [ "$1" == "bg" ]; then
-            ensure_log_dir
-            nohup npm run dev > "$LOG_DIR/superadmin.log" 2>&1 &
-            echo -e "${GREEN}✅ Superadmin (Background) 啟動成功${NC}"
-        else
+        if [ "$1" == "terminal" ]; then
             osascript -e "tell application \"Terminal\" to do script \"cd '$PROJECT_ROOT/apps/superadmin' && npm run dev\"" >/dev/null 2>&1 &
             echo -e "${GREEN}✅ Superadmin (Terminal) 啟動成功${NC}"
+        else
+            ensure_log_dir
+            nohup npm run dev > "$LOG_DIR/superadmin.log" 2>&1 &
+            disown
+            echo -e "${GREEN}✅ Superadmin (Background) 啟動成功,log: $LOG_DIR/superadmin.log${NC}"
         fi
     fi
 }
