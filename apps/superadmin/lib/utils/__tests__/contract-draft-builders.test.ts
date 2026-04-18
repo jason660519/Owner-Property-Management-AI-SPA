@@ -34,6 +34,9 @@ function createBuildingTranscript(): BuildingTranscriptData {
       totalArea: '99.17',
       floorLevel: '三層',
       floorArea: '33.05',
+      // BuildingDescription added `mainBuildings: MainBuildingEntry[]` to
+      // support 樓中樓 cases. Empty array keeps this fixture minimal.
+      mainBuildings: [],
       completionDate: '民國99年12月31日',
       annexedBuildings: [],
       commonAreas: [],

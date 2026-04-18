@@ -11,6 +11,7 @@ import {
   readStoredAutoPolicy,
   writeStoredExecutionMode,
   writeStoredAutoPolicy,
+  type AutoRunState,
 } from './prompt-auto-loop';
 
 describe('prompt-auto-loop', () => {
@@ -95,9 +96,9 @@ describe('prompt-auto-loop', () => {
   });
 
   it('resets execution state for manual mode', () => {
-    const state = {
+    const state: AutoRunState = {
       ...buildInitialAutoRunState(),
-      phase: 'running' as const,
+      phase: 'running',
       attemptCount: 2,
       consecutiveFailures: 1,
       lastRunId: 'run-99',

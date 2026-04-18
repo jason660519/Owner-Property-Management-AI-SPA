@@ -456,6 +456,10 @@ describe('contract-document-renderer', () => {
   });
 
   it('replaces key official sale template payment paragraphs inline when anchors exist', async () => {
+    // Cast rather than `satisfies ContractDraft`: the return of
+    // createSaleDraft() is widened to the ContractDraft union, so spreading
+    // it then adding sale-branch-only fields (ownershipTransferDate etc.)
+    // trips an excess-property check against the lease branch.
     const saleDraft = {
       ...createSaleDraft(),
       contractDate: '2026-03-20',
@@ -467,7 +471,7 @@ describe('contract-document-renderer', () => {
         { label: '完稅款', amount: 7000000, dueDate: '2026-05-01' },
         { label: '交屋款', amount: 12800000, dueDate: '2026-06-30' },
       ],
-    } satisfies ContractDraft;
+    } as ContractDraft;
     const templateDocxBytes = await createOfficialSaleTemplateDocx();
     const buffer = await renderContractDocumentDocx(saleDraft, { templateDocxBytes });
     const zip = await JSZip.loadAsync(buffer);

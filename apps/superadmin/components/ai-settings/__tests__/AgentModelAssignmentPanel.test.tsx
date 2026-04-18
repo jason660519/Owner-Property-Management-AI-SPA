@@ -125,7 +125,6 @@ function installFetchMock(responses: Response[]) {
     const r = responses[call++] ?? jsonResponse({});
     return Promise.resolve(r);
   });
-  // @ts-expect-error — override global fetch
   global.fetch = fetchMock;
   return fetchMock;
 }
