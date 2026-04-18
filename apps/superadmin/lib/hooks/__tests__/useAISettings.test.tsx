@@ -40,7 +40,6 @@ describe('useAISettings', () => {
       .mockResolvedValueOnce(jsonResponse({ cache: {} }))
       // validateKey call
       .mockResolvedValueOnce(jsonResponse({ valid: true, message: 'ok', availableModels: [] }));
-    // @ts-expect-error jest replaces global fetch in tests
     global.fetch = fetchMock;
 
     const { result } = renderHook(() => useAISettings());

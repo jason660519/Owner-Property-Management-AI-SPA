@@ -47,6 +47,7 @@ function makeBlog(overrides: Partial<BlogPost> = {}): BlogPost {
     blogTargetPlatform: 'google_blogger',
     referenceUrl: null,
     referenceUrlNormalized: null,
+    generationContext: null,
     ...overrides,
   };
 }

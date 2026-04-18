@@ -49,7 +49,6 @@ describe('useAgentAssignments', () => {
       if (r instanceof Error) return Promise.reject(r);
       return Promise.resolve(r);
     });
-    // @ts-expect-error — override global fetch
     global.fetch = fetchMock;
     return fetchMock;
   }

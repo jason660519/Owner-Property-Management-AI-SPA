@@ -43,6 +43,7 @@ const OCR_MODULE = buildOcrParseModule([
 const baseReturn = {
   userId: 'test-user-id',
   modules: [OCR_MODULE] as SavedModule[],
+  prompts: [],
   keys: [],
   models: [],
   evaluations: [],
@@ -53,6 +54,7 @@ const baseReturn = {
   saveKey: jest.fn(),
   deleteKey: jest.fn(),
   validateKey: jest.fn(),
+  revealKey: jest.fn().mockResolvedValue({ plaintext: '', ttlSeconds: 0 }),
   saveModels: jest.fn(),
   saveModule: jest.fn(),
   savePrompt: jest.fn(),

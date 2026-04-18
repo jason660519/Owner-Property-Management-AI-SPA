@@ -1,9 +1,16 @@
 import { resolveParsePromptScenario } from '../transcript-parse-scenario-prompts';
+import type {
+  IndependentTitleSaleMode,
+  ParkingTitleRight,
+} from '@/lib/types/properties';
 
 describe('resolveParsePromptScenario', () => {
+  // Using `as const` on the arrays made them readonly tuples; the callee
+  // expects mutable arrays. Use explicit mutable types instead so the fixture
+  // matches the parameter shape.
   const base = {
-    independentTitleSaleModes: ['building_only'] as const,
-    parkingTitleRights: [] as const,
+    independentTitleSaleModes: ['building_only'] as IndependentTitleSaleMode[],
+    parkingTitleRights: [] as ParkingTitleRight[],
     independentBuildingNumberCount: 1,
   };
 

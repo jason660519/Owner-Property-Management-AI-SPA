@@ -129,7 +129,7 @@ describe('PropertyBlogGenerator', () => {
     mockGeneratePropertyBlog.mockResolvedValue({
       success: true,
       message: 'ok',
-      blog: null,
+      blog: undefined,
       generationContext: {
         selectedSectionIds: ['basic-info', 'description', 'photos'],
       },
@@ -448,7 +448,7 @@ describe('PropertyBlogGenerator', () => {
     const input = screen.getByPlaceholderText('https://a0405142777.wixsite.com/108-en-lease1');
     await user.clear(input);
     await user.type(input, 'https://example.com/persist-me');
-    await user.click(screen.getByRole('button', { name: '套用', exact: true }));
+    await user.click(screen.getByRole('button', { name: '套用' }));
     await user.click(screen.getByRole('checkbox', { name: '謄本連結' }));
 
     jest.advanceTimersByTime(1000);
@@ -550,7 +550,7 @@ describe('PropertyBlogGenerator', () => {
     const input = screen.getByPlaceholderText('https://a0405142777.wixsite.com/108-en-lease1');
     await user.clear(input);
     await user.type(input, 'https://example.com/ref-style');
-    await user.click(screen.getByRole('button', { name: '套用', exact: true }));
+    await user.click(screen.getByRole('button', { name: '套用' }));
 
     await user.click(screen.getByRole('button', { name: '生成廣告草稿' }));
 

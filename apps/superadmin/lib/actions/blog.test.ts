@@ -178,7 +178,9 @@ describe('generatePropertyBlog', () => {
     photosQuery.select.mockReturnValue(photosQuery);
     photosQuery.eq.mockReturnValue(photosQuery);
     photosQuery.order.mockReturnValue(photosQuery);
-    photosQuery.then = undefined;
+    // The previous `photosQuery.then = undefined;` line was a no-op (then
+    // isn't a declared field on photosQuery) and failed strict typecheck —
+    // defineProperty below sets up the thenable behaviour anyway.
     Object.defineProperty(photosQuery, 'then', {
       value: (resolve: (value: unknown) => void) => resolve({
         data: [

@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { spawn, type ChildProcessByStdio } from 'node:child_process';
+import type { Readable } from 'node:stream';
+
+/**
+ * The exact subprocess shape produced by `spawn(..., { stdio: ['ignore', 'pipe', 'pipe'] })`:
+ * stdin is null (ignored), stdout and stderr are readable streams. Using
+ * ChildProcessWithoutNullStreams here would falsely claim stdin is also
+ * writable and causes TS2322 on assignment.
+ */
+type AdapterChildProcess = ChildProcessByStdio<null, Readable, Readable>;
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -22,7 +31,7 @@ type ActiveRun = {
   adapterId: string;
   provider: AdapterProvider;
   status: RunStatus;
-  process: ChildProcessWithoutNullStreams;
+  process: AdapterChildProcess;
   command: string;
   logs: string[];
   resultText: string;

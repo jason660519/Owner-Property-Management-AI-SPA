@@ -65,7 +65,10 @@ describe('validateKiloGatewayKey', () => {
     const r = await validateKiloGatewayKey('bad-token', fetchMock);
     expect(r.valid).toBe(false);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toBe(`${KILO_GATEWAY_BASE}/models`);
+    // Cast via unknown: jest.fn() with no type arg infers `.mock.calls` as
+    // never[][], which blocks tuple indexing even with a direct cast.
+    const firstCallArgs = fetchMock.mock.calls[0] as unknown as [string, RequestInit?];
+    expect(firstCallArgs[0]).toBe(`${KILO_GATEWAY_BASE}/models`);
   });
 
   it('should call chat probe after GET /models 200 and return valid on probe 200', async () => {

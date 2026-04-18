@@ -2,7 +2,11 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import JSZip from 'jszip';
 import { ContractDraftPreviewSection } from '../ContractDraftPreviewSection';
-import type { PropertyItem } from '@/lib/types/properties';
+import type {
+  PropertyItem,
+  BuildingTranscriptData,
+  LandTranscriptData,
+} from '@/lib/types/properties';
 
 type MockCloudDraft = {
   id: string;
@@ -61,8 +65,26 @@ async function createMockTemplateDocx() {
   return zip.generateAsync({ type: 'arraybuffer' });
 }
 
+// TranscriptHeader picked up extra metadata fields (checkNumber / documentNumber /
+// dataJurisdiction / issuingAuthority / transcriptNotes). Empty strings are fine
+// here — these tests exercise draft preview rendering, not header content.
+const MOCK_HEADER_EXTRAS = {
+  checkNumber: '',
+  documentNumber: '',
+  dataJurisdiction: '',
+  issuingAuthority: '',
+  transcriptNotes: '',
+};
+
 const MOCK_BUILDING_TRANSCRIPT = {
-  header: { transcriptType: '建物', documentTitle: '大安區仁愛段二小段 01659-000建號', printTime: '2026-03-20', pageInfo: '第1頁', printer: '測試' },
+  header: {
+    transcriptType: '建物',
+    documentTitle: '大安區仁愛段二小段 01659-000建號',
+    printTime: '2026-03-20',
+    pageInfo: '第1頁',
+    printer: '測試',
+    ...MOCK_HEADER_EXTRAS,
+  },
   description: {
     buildingNumber: '01659-000', regDate: '2026-03-20', regReason: '第一次登記', doorAddress: '臺北市大安區仁愛路四段295號3樓',
     landParcelNumber: '100', mainUse: '住家用', mainMaterial: '鋼筋混凝土', totalFloors: '14', totalArea: '99.16',
@@ -73,7 +95,14 @@ const MOCK_BUILDING_TRANSCRIPT = {
 };
 
 const MOCK_LAND_TRANSCRIPT = {
-  header: { transcriptType: '土地', documentTitle: '大安區仁愛段二小段 100地號', printTime: '2026-03-20', pageInfo: '第1頁', printer: '測試' },
+  header: {
+    transcriptType: '土地',
+    documentTitle: '大安區仁愛段二小段 100地號',
+    printTime: '2026-03-20',
+    pageInfo: '第1頁',
+    printer: '測試',
+    ...MOCK_HEADER_EXTRAS,
+  },
   description: {
     landNumber: '0100-000', regDate: '2026-03-20', regReason: '第一次登記', landCategory: '建', grade: '', area: '328.00',
     useZone: '住宅區', useCategory: '住三', announcedValueYear: '2026', announcedValuePerSqm: '300000', notes: '',
@@ -107,8 +136,13 @@ function createProperty(type: 'sale' | 'rental' = 'rental'): PropertyItem {
     livingRooms: 1,
     parkingSpaces: 1,
     createdAt: '2026-03-20T00:00:00.000Z',
-    buildingTranscript: type === 'sale' ? MOCK_BUILDING_TRANSCRIPT : null,
-    landTranscript: type === 'sale' ? MOCK_LAND_TRANSCRIPT : null,
+    updatedAt: '2026-03-20T00:00:00.000Z',
+    // Mock transcripts are intentionally minimal — these tests drive the
+    // contract draft preview UI, not transcript schema coverage. Cast once
+    // to keep the fixtures readable rather than filling every optional
+    // field that the BuildingDescription / OwnershipRecord types accrued.
+    buildingTranscript: type === 'sale' ? (MOCK_BUILDING_TRANSCRIPT as unknown as BuildingTranscriptData) : null,
+    landTranscript: type === 'sale' ? (MOCK_LAND_TRANSCRIPT as unknown as LandTranscriptData) : null,
   };
 }
 
