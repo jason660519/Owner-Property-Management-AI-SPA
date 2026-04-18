@@ -47,6 +47,7 @@ export const navItems: NavItem[] = [
   { name: 'Project Files', href: '/superadmin/project-file', icon: BookOpen },
   { name: '尋人資料庫 — 搜尋', href: '/superadmin/settings/people-database/search', icon: Users },
   { name: '尋人資料庫 — 合併候選', href: '/superadmin/settings/people-database/merge-candidates', icon: GitMerge },
+  { name: '尋人資料庫 — Ingestion 監控', href: '/superadmin/settings/people-database/ingest', icon: Activity },
   { name: 'AI 服務 / API KEY', href: '/superadmin/settings/api_key_and_model_setting', icon: Key },
   { name: 'Prompt 管理', href: '/superadmin/settings/prompt-management', icon: BookMarked },
   { name: 'Tools', href: '/superadmin/tools', icon: Wrench },
