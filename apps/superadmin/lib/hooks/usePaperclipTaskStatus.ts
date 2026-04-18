@@ -6,12 +6,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   FetchIssueStatusResult,
-  PaperclipIssueStatusSnapshot,
+  IssueStatusSnapshot as PaperclipIssueStatusSnapshot,
   FetchIssueCostResult,
-  PaperclipIssueCostSnapshot,
+  IssueCostSnapshot as PaperclipIssueCostSnapshot,
   FetchIssueRunLogResult,
-  PaperclipIssueRunLogSnapshot,
-} from '@/lib/paperclip/client';
+  IssueRunLogSnapshot as PaperclipIssueRunLogSnapshot,
+} from '@/lib/agent-runtime';
 import type { PaperclipIssueStatus } from '@/lib/paperclip/types';
 import { getPaperclipIssuePollDelayMs, POLL_CONSECUTIVE_ERROR_LIMIT, type IssuePollDelayArgs } from '@/lib/paperclip/polling';
 

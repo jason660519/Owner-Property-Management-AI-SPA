@@ -12,7 +12,10 @@ import { RUNTIME_OPTIONS, buildPromptContext } from '../types';
 import { buildIssuePayload, isValidPaperclipRole } from '@/lib/paperclip/buildIssuePayload';
 import type { BuildIssuePayloadResult } from '@/lib/paperclip/buildIssuePayload';
 import { getPaperclipConfig } from '@/lib/paperclip/config';
-import type { CreateIssueResult, PaperclipIssueResource } from '@/lib/paperclip/client';
+import type {
+  CreateIssueResult,
+  IssueResource as PaperclipIssueResource,
+} from '@/lib/agent-runtime';
 import type { WorktreePaths } from '@/lib/paperclip/worktree';
 import { formatPaperclipErrorWithHint } from '@/lib/paperclip/api-error-meta';
 import { ADAPTER_OPTIONS, getModelForAdapter } from '@/lib/paperclip/adapter-models';

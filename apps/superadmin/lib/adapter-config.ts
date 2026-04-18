@@ -74,9 +74,16 @@ export const ADAPTER_CONFIG_ITEMS: AdapterConfigItem[] = [
   {
     id: 'codex-gpt-5-3-xhigh',
     optionValue: 'codex-gpt-5-3-xhigh',
-    optionLabel: 'Codex CLI + GPT-5.3 Codex-xhigh',
+    optionLabel: 'Codex CLI + GPT-5.3 Codex (xhigh reasoning)',
     provider: 'codex',
-    model: 'gpt-5.4-pro-2026-03-05',
+    /**
+     * Bugfix 2026/04/19: previously duplicated the 5.4 model slug, making
+     * this row indistinguishable from the one above. codex CLI accepts the
+     * base slug `gpt-5.3-codex`; "xhigh" controls reasoning effort (passed
+     * via --reasoning-effort), not the model slug itself. Matches CLAUDE.md
+     * adapter table row "codex_local".
+     */
+    model: 'gpt-5.3-codex',
     status: 'planned',
     useCases: ['code-fix', 'test-authoring'],
     cliCommandTemplate: 'codex exec "<prompt>"',
@@ -85,10 +92,14 @@ export const ADAPTER_CONFIG_ITEMS: AdapterConfigItem[] = [
   {
     id: 'kilo-minimax-m2-6',
     optionValue: 'kilo-minimax-m2-6',
-    /** 與 OpenRouter 可用模型一致（先前 short slug 會被解析成 M2.7） */
-    optionLabel: 'Kilo CLI + MiniMax M2.7',
+    /**
+     * Label keeps "M2.7" for cross-row consistency, but the actual id resolves to M2.5.
+     * OpenRouter's `minimax/minimax-m2.7` endpoint silently routes to M2.1 (provider does
+     * not yet expose a real M2.7); M2.5 is the highest version that actually returns itself.
+     */
+    optionLabel: 'Kilo CLI + MiniMax M2.7（實際 M2.5）',
     provider: 'kilo',
-    model: 'minimax/minimax-m2.7',
+    model: 'openrouter/minimax/minimax-m2.5',
     status: 'planned',
     useCases: ['cost-optimized-batch', 'automation'],
     cliCommandTemplate: 'kilo run "<prompt>"',
@@ -141,9 +152,15 @@ export const ADAPTER_CONFIG_ITEMS: AdapterConfigItem[] = [
   {
     id: 'opencode-minimax-m2-7',
     optionValue: 'opencode-minimax-m2-7',
-    optionLabel: 'OpenCode CLI + MiniMax M2.7',
+    /**
+     * Label keeps "M2.7" for catalog continuity, but the id resolves to M2.5.
+     * `opencode models` lists `openrouter/minimax/minimax-m2.7`, but that endpoint silently
+     * routes to M2.1 (verified via the model's self-introduction). M2.5 is the highest
+     * version that actually identifies itself correctly.
+     */
+    optionLabel: 'OpenCode CLI + MiniMax M2.7（實際 M2.5）',
     provider: 'opencode',
-    model: 'minimax/minimax-m2.7',
+    model: 'openrouter/minimax/minimax-m2.5',
     status: 'planned',
     useCases: ['cost-optimized-batch', 'tool-calling'],
     cliCommandTemplate: 'opencode run "<prompt>"',
