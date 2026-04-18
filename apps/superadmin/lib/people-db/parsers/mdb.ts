@@ -107,9 +107,11 @@ async function listTables(filePath: string): Promise<string[]> {
 async function exportTable(filePath: string, table: string): Promise<string> {
   // -d , : comma delimiter
   // -q " : quote char (so embedded commas survive CSV reparse)
-  // -H   : include header row (default, but explicit in case mdbtools changes)
-  // -R "" : no record terminator (default \n is fine)
-  const result = await runCommand('mdb-export', ['-d', ',', '-q', '"', '-H', filePath, table]);
+  //
+  // NOTE: mdbtools' `-H` flag is **suppress** header, not include. We want
+  // the header row so parseCsv can name the columns correctly; default
+  // behavior (no flag) includes it.
+  const result = await runCommand('mdb-export', ['-d', ',', '-q', '"', filePath, table]);
   if (result.code !== 0) {
     throw new ParserFailureError(
       'mdb',

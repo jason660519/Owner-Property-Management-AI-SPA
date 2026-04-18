@@ -121,6 +121,21 @@ describe('parseMdb', () => {
     expect(result.warnings).toEqual(['mdb file contains no user tables']);
   });
 
+  // Regression guard: mdbtools' `-H` flag means **suppress** header, not
+  // include. Earlier code incorrectly passed `-H`, causing the first data row
+  // to be treated as the CSV header. The parser must NOT pass `-H`.
+  it('regression: never passes -H to mdb-export (that flag suppresses header)', async () => {
+    spawnMock
+      .mockImplementationOnce(() => makeFakeChild({ stdout: 'T\n' }))
+      .mockImplementationOnce(() => makeFakeChild({ stdout: 'col1,col2\nv1,v2\n' }));
+    await parseMdb('/fake/file.mdb');
+    // Second call is the mdb-export invocation
+    const exportCall = spawnMock.mock.calls[1];
+    const exportArgs = exportCall[1] as string[];
+    expect(exportArgs).not.toContain('-H');
+    expect(exportArgs).not.toContain('--no-header');
+  });
+
   it('warns when a table is empty (header but no rows)', async () => {
     spawnMock
       .mockImplementationOnce(() => makeFakeChild({ stdout: 'empty\n' }))

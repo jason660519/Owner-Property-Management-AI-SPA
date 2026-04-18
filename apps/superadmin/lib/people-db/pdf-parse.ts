@@ -33,10 +33,23 @@ async function loadPdfLib(): Promise<PdfLib> {
   if (cachedPdfLib) return cachedPdfLib;
   // Use the legacy build so this works in Node without bundler magic.
   const mod = (await import('pdfjs-dist/legacy/build/pdf.mjs')) as unknown as PdfLib;
-  // Disable worker spawning entirely - all parsing happens on the main thread
-  // inside the route handler. This avoids needing a worker entry file shipped
-  // with the Next.js server bundle.
-  if (mod.GlobalWorkerOptions) mod.GlobalWorkerOptions.workerSrc = '';
+  // Disable worker spawning entirely — all parsing happens on the main thread.
+  // pdfjs-dist v4 still validates that GlobalWorkerOptions.workerSrc is a
+  // truthy string even when getDocument({ disableWorker: true }) is passed;
+  // an empty string triggers "No 'GlobalWorkerOptions.workerSrc' specified"
+  // on the first call in batch / CLI contexts. Pointing it at the shipped
+  // worker file (which we never actually spawn) satisfies the check.
+  if (mod.GlobalWorkerOptions) {
+    try {
+      const { createRequire } = await import('node:module');
+      const req = createRequire(import.meta.url);
+      mod.GlobalWorkerOptions.workerSrc = req.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs');
+    } catch {
+      // Non-Node environment (e.g. edge runtime) — fall back to a sentinel
+      // string so the internal check passes without resolving a real file.
+      mod.GlobalWorkerOptions.workerSrc = 'data:,';
+    }
+  }
   cachedPdfLib = mod;
   return mod;
 }
