@@ -106,3 +106,9 @@
 ### 常用分類
 
 `超級管理員 (Super Admin)` / `通用/系統 (General/System)` / `專案管理與工具 (Project Management)` / `房東 (Landlord)` / `租客 (Tenant)` / `買家 (Buyer)` / `測試與品質保證 (Testing & QA)`
+
+---
+
+## 除錯備註
+
+- 本機服務連不上（瀏覽器 vs macOS vs server 分層 triage）→ `docs/operational-guides/localhost-debug-triage.md`
