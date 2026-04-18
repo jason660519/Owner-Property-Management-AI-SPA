@@ -3,22 +3,22 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { resolveUserId } from '@/lib/resolve-ai-settings-user';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
-// GET: Export all AI settings as JSON (keys 為加密形式，與 keys/models 使用同一 resolveUserId)
+// GET: Export all AI settings as JSON (keys 為加密形式；用 session-authenticated user)
 export async function GET(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/export',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
-    const requestedUserId = request.headers.get('x-user-id');
-
-    if (!requestedUserId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ version: '1.0', exportedAt: new Date().toISOString(), keys: [], models: [], modules: [], prompts: [] });
-    }
 
     const [keysRes, modelsRes, modulesRes, promptsRes] = await Promise.all([
       supabase.from('ai_api_keys').select('provider, api_key_encrypted, iv, is_valid, last_validated_at').eq('user_id', userId).eq('is_active', true),
@@ -51,17 +51,22 @@ export async function GET(request: NextRequest) {
 
 // POST: Import AI settings from JSON (keys 為加密形式還原；可選 api_keys_env 由前端解析後逐筆 POST keys)
 export async function POST(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/export',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
-    const { userId: requestedUserId, data: importData } = await request.json();
+    const { data: importData } = await request.json();
 
-    if (!requestedUserId || !importData) {
+    if (!importData) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ error: '找不到可用的使用者' }, { status: 401 });
     }
 
     const results = { keys: 0, models: 0, modules: 0, prompts: 0 };

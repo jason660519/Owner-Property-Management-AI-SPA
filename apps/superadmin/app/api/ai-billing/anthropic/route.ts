@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 import {
   loadCreditGuardConfig,
   getPaperclipSpendUsd,
@@ -14,7 +15,16 @@ import {
   type CreditGuardReader,
 } from '@/lib/ai/anthropic-credit-guard';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-billing/anthropic',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+
   const supabase = createAdminClient() as unknown as CreditGuardReader;
 
   const config = await loadCreditGuardConfig(supabase);
@@ -49,6 +59,15 @@ interface ConfigureBody {
 }
 
 export async function POST(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-billing/anthropic',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+
   const adminClient = createAdminClient();
   const supabase = adminClient as unknown as CreditGuardReader;
 

@@ -3,22 +3,22 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { resolveUserId } from '@/lib/resolve-ai-settings-user';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
-// GET: Fetch system prompts（使用 resolveUserId 與 keys 一致）
+// GET: Fetch system prompts（session-authenticated user scope）
 export async function GET(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/prompts',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
-    const requestedUserId = request.headers.get('x-user-id');
-
-    if (!requestedUserId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ prompts: [] });
-    }
 
     const { data, error } = await supabase
       .from('ai_system_prompts')
@@ -39,11 +39,21 @@ export async function GET(request: NextRequest) {
 
 // POST: Save or update a system prompt
 export async function POST(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/prompts',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
-    const { userId, moduleKey, provider, promptName, promptContent } = await request.json();
+    const { moduleKey, provider, promptName, promptContent } = await request.json();
 
-    if (!userId || !moduleKey || !provider) {
+    if (!moduleKey || !provider) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
     const effectiveName = promptName || 'default';
@@ -97,10 +107,20 @@ export async function POST(request: NextRequest) {
 
 // DELETE: Soft-delete (deactivate) a specific prompt by id
 export async function DELETE(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/prompts',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
-    const { userId, promptId } = await request.json();
-    if (!userId || !promptId) {
+    const { promptId } = await request.json();
+    if (!promptId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
     const { error } = await supabase

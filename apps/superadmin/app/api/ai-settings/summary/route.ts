@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { resolveUserId } from '@/lib/resolve-ai-settings-user';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,19 +15,18 @@ export interface ValidationSummary {
 
 // GET: Return last validate-all result for current user
 export async function GET(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/summary',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
-    const requestedUserId = request.headers.get('x-user-id');
-    if (!requestedUserId) {
-      return NextResponse.json({ error: '未授權存取' }, { status: 401 });
-    }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({
-        summary: { validatedCount: 0, totalModels: 0, updatedAt: null } as ValidationSummary,
-      });
-    }
 
     const { data, error } = await supabase
       .from('ai_settings_validation_summary')
@@ -54,19 +53,20 @@ export async function GET(request: NextRequest) {
 
 // POST: Upsert validation summary (called after 全部驗證). Use select-then-update-or-insert to avoid upsert quirks on repeated calls.
 export async function POST(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/summary',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
     const body = await request.json().catch(() => ({}));
     const { validatedCount, totalModels } = body as { validatedCount?: number; totalModels?: number };
-    const requestedUserId = request.headers.get('x-user-id');
-    if (!requestedUserId) {
-      return NextResponse.json({ error: '未授權存取' }, { status: 401 });
-    }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ error: '找不到可用的使用者' }, { status: 401 });
-    }
 
     const vCount = typeof validatedCount === 'number' ? validatedCount : 0;
     const tModels = typeof totalModels === 'number' ? totalModels : 0;

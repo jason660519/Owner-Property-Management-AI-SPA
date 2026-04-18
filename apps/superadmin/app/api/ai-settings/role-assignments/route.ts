@@ -1,21 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { resolveUserId } from '@/lib/resolve-ai-settings-user';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 // GET: Fetch all role assignments for a user
 export async function GET(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/role-assignments',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
-    const requestedUserId = request.headers.get('x-user-id');
-
-    if (!requestedUserId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ assignments: [] });
-    }
 
     const { data, error } = await supabase
       .from('ai_model_role_assignments')
@@ -48,25 +48,29 @@ const VALID_SOURCES = new Set(['ai_online', 'ai_offline', 'manual']);
 
 // POST: Batch upsert role assignments
 export async function POST(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/role-assignments',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
     const body = (await request.json()) as {
-      userId: string;
       assignments: AssignmentPayload[];
     };
 
-    const { userId: requestedUserId, assignments } = body;
+    const { assignments } = body;
 
-    if (!requestedUserId || !Array.isArray(assignments) || assignments.length === 0) {
+    if (!Array.isArray(assignments) || assignments.length === 0) {
       return NextResponse.json(
-        { error: 'userId and non-empty assignments array required' },
+        { error: 'non-empty assignments array required' },
         { status: 400 },
       );
-    }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ error: 'User not found' }, { status: 401 });
     }
 
     const rows = assignments
@@ -107,25 +111,29 @@ export async function POST(request: NextRequest) {
 
 // DELETE: Remove specific assignments
 export async function DELETE(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/role-assignments',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
     const body = (await request.json()) as {
-      userId: string;
       items: Array<{ provider: string; model_id: string; tag_key: string }>;
     };
 
-    const { userId: requestedUserId, items } = body;
+    const { items } = body;
 
-    if (!requestedUserId || !Array.isArray(items) || items.length === 0) {
+    if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
-        { error: 'userId and non-empty items array required' },
+        { error: 'non-empty items array required' },
         { status: 400 },
       );
-    }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ error: 'User not found' }, { status: 401 });
     }
 
     // Delete one by one (small set expected)

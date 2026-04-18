@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { resolveUserId } from '@/lib/resolve-ai-settings-user';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 const VALID_DISPLAY_STATUS_OVERRIDE = [
   'vlm_ok', 'llm_ok', 'working', 'not_working', 'untested',
@@ -19,18 +19,18 @@ interface EvaluationPayload {
 }
 
 export async function GET(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/model-evaluations',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
-    const requestedUserId = request.headers.get('x-user-id');
-
-    if (!requestedUserId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ evaluations: [] });
-    }
 
     const { data, error } = await supabase
       .from('ai_model_evaluations')
@@ -49,21 +49,25 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/model-evaluations',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
     const body = await request.json();
-    const { userId: requestedUserId, evaluations } = body as {
-      userId: string;
+    const { evaluations } = body as {
       evaluations: EvaluationPayload[];
     };
 
-    if (!requestedUserId || !Array.isArray(evaluations)) {
+    if (!Array.isArray(evaluations)) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ error: '找不到可用的使用者' }, { status: 401 });
     }
 
     const VALID_SPECIALTIES = [
