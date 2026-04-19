@@ -1,4 +1,4 @@
-#!/usr/bin/env -S npx tsx
+#!/usr/bin/env node
 // Row 145 Sprint 6 — Ingestion orchestrator CLI.
 //
 // One entry point to the four stage CLIs. Inserts one row into
@@ -29,6 +29,7 @@ import {
   runOrchestrator,
   type IngestStage,
   type OrchestratorOpts,
+  type SpawnLike,
 } from '../../apps/superadmin/lib/people-db/ingest-orchestrator';
 
 // ---------------------------------------------------------------------------
@@ -111,7 +112,10 @@ async function main(): Promise<void> {
   const outcomes = await runOrchestrator(
     {
       supabase,
-      spawn,
+      // Cast: node:child_process `spawn` has many overloads; TypeScript picks
+      // the args-less signature when the function is passed by reference, which
+      // conflicts with the stricter `SpawnLike` signature the orchestrator expects.
+      spawn: spawn as SpawnLike,
       scriptDir,
       signal: ac.signal,
     },

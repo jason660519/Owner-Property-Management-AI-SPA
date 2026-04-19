@@ -1,4 +1,4 @@
-#!/usr/bin/env -S npx tsx
+#!/usr/bin/env node
 // Row 145 Sprint 1 — File Inventory scanner CLI.
 //
 // Recursively walks $PEOPLE_DB_SOURCE_ROOT (or --root <path>), computes sha256

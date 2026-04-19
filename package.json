@@ -19,6 +19,7 @@
     "file-manager:apply": "npm run file-manager:apply --workspace superadmin",
     "file-manager:rollback": "npm run file-manager:rollback --workspace superadmin",
     "file-manager:cleanup": "npm run file-manager:cleanup --workspace superadmin",
+    "build:tools": "tsc --project tools/people-db/tsconfig.cli.json",
     "test:manifest:superadmin": "bash tools/testing/validate-test-manifest.sh",
     "test:nightly:superadmin": "bash tools/testing/run-superadmin-nightly.sh",
     "pwcli:version": "bash tools/testing/playwright-cli.sh --version",

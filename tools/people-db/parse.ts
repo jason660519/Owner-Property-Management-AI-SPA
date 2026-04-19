@@ -1,4 +1,4 @@
-#!/usr/bin/env -S npx tsx
+#!/usr/bin/env node
 // Row 145 Sprint 2 — Parser CLI worker.
 //
 // Picks rows from public.people_db_files where status='pending', runs the

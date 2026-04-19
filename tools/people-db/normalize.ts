@@ -1,4 +1,4 @@
-#!/usr/bin/env -S npx tsx
+#!/usr/bin/env node
 // Row 145 Sprint 4a Phase 1 — normalize worker CLI.
 //
 // Finds staging rows where `normalized IS NULL`, runs normalizeRecord on
