@@ -8,7 +8,6 @@ import { Save, RotateCcw, Play, Copy, Check, History } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { FEATURE_MODULES, AI_PROVIDERS, type FeatureModule } from '@/lib/ai-providers';
 import type { SavedPrompt, SavedKey } from '@/lib/hooks/useAISettings';
-import { SystemPromptFileUpload } from './SystemPromptFileUpload';
 
 interface SystemPromptEditorProps {
   savedPrompts: SavedPrompt[];
@@ -172,11 +171,6 @@ export function SystemPromptEditor({ savedPrompts, savedKeys, onSave }: SystemPr
           {testResult}
         </div>
       )}
-
-      {/* File Upload Test Section */}
-      <div className="border-t border-border-default pt-4">
-        <SystemPromptFileUpload />
-      </div>
     </div>
   );
 }
