@@ -1,34 +1,51 @@
-// Issue #34 PR G — /api/dev-tasks/[id] PATCH + POST are dual-track:
-// superadmin session OR INTERNAL_API_KEY bearer (called by local-agent
-// tooling at tools/local-agent/dev-tasks-agent.ts).
-//
-// GET handler migration to session-only is tracked in PR D (separate PR),
-// so this test file does not cover GET.
+// Issue #34 PR D + PR G — /api/dev-tasks/[id]
+// - GET handler (PR D): session-only via `requireSuperadmin`.
+// - PATCH + POST handlers (PR G): dual-track via `requireSuperadminOrInternal`
+//   because they're called by local-agent tooling at
+//   tools/local-agent/dev-tasks-agent.ts, which has no session cookie.
 
 import { NextRequest } from 'next/server';
 
-interface AuthState {
+interface SessionAuthState {
+  ok: boolean;
+  status?: 401 | 403;
+  userId?: string;
+}
+const sessionAuthState: SessionAuthState = { ok: true, userId: 'admin-1' };
+
+interface DualTrackAuthState {
   ok: boolean;
   status?: 401 | 403;
   source?: 'session' | 'internal';
   userId?: string | null;
 }
-const authState: AuthState = { ok: true, source: 'session', userId: 'admin-1' };
+const dualTrackAuthState: DualTrackAuthState = { ok: true, source: 'session', userId: 'admin-1' };
 
-jest.mock('@/lib/auth/require-superadmin-or-internal', () => ({
-  requireSuperadminOrInternal: jest.fn(async () => {
-    if (authState.ok) {
-      return { ok: true, source: authState.source ?? 'session', userId: authState.userId ?? null };
+jest.mock('@/lib/auth/require-superadmin', () => ({
+  requireSuperadmin: jest.fn(async () => {
+    if (sessionAuthState.ok) {
+      return {
+        ok: true,
+        userId: sessionAuthState.userId ?? 'admin-1',
+        source: 'session' as const,
+        viaSession: true,
+      };
     }
-    return { ok: false, status: authState.status ?? 401, message: 'denied' };
+    return { ok: false, status: sessionAuthState.status ?? 401, message: 'denied' };
   }),
 }));
 
-// The GET handler still reads the legacy x-user-id / resolveUserId pair on
-// this branch (PR G's sibling PR D migrates it). Mock resolveUserId so the
-// GET default import does not blow up when the module evaluates.
-jest.mock('@/lib/resolve-ai-settings-user', () => ({
-  resolveUserId: jest.fn(async (_admin: unknown, uid: string) => uid),
+jest.mock('@/lib/auth/require-superadmin-or-internal', () => ({
+  requireSuperadminOrInternal: jest.fn(async () => {
+    if (dualTrackAuthState.ok) {
+      return {
+        ok: true,
+        source: dualTrackAuthState.source ?? 'session',
+        userId: dualTrackAuthState.userId ?? null,
+      };
+    }
+    return { ok: false, status: dualTrackAuthState.status ?? 401, message: 'denied' };
+  }),
 }));
 
 const fromSpy = jest.fn();
@@ -37,18 +54,30 @@ jest.mock('@/utils/supabase/admin', () => ({
   createAdminClient: () => ({
     from: (table: string) => {
       fromSpy(table);
-      const maybeSingle = () => Promise.resolve({ data: { logs: ['old log'] }, error: null });
+      const maybeSingle = () =>
+        Promise.resolve({
+          data: { id: 'task-1', status: 'queued', logs: ['old log'] },
+          error: null,
+        });
       const update = () => ({ eq: () => Promise.resolve({ error: null }) });
       return {
-        select: () => ({ eq: () => ({ maybeSingle }) }),
+        select: () => ({
+          eq: () => ({
+            eq: () => ({ maybeSingle }),
+            maybeSingle,
+          }),
+        }),
         update,
       };
     },
   }),
 }));
 
-import { PATCH, POST } from '../route';
+import { GET, PATCH, POST } from '../route';
 
+function getReq(): NextRequest {
+  return new NextRequest('http://localhost:3001/api/dev-tasks/task-1', { method: 'GET' });
+}
 function patchReq(body: unknown): NextRequest {
   return new NextRequest('http://localhost:3001/api/dev-tasks/task-1', {
     method: 'PATCH',
@@ -66,16 +95,43 @@ function postReq(body: unknown): NextRequest {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  authState.ok = true;
-  authState.status = undefined;
-  authState.source = 'session';
-  authState.userId = 'admin-1';
+  sessionAuthState.ok = true;
+  sessionAuthState.status = undefined;
+  sessionAuthState.userId = 'admin-1';
+  dualTrackAuthState.ok = true;
+  dualTrackAuthState.status = undefined;
+  dualTrackAuthState.source = 'session';
+  dualTrackAuthState.userId = 'admin-1';
 });
 
-describe('PATCH /api/dev-tasks/[id]', () => {
+describe('GET /api/dev-tasks/[id] (session-only)', () => {
+  it('returns 401 when auth fails', async () => {
+    sessionAuthState.ok = false;
+    sessionAuthState.status = 401;
+    const res = await GET(getReq(), { params: Promise.resolve({ id: 'task-1' }) });
+    expect(res.status).toBe(401);
+    expect(fromSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when auth fails with 403', async () => {
+    sessionAuthState.ok = false;
+    sessionAuthState.status = 403;
+    const res = await GET(getReq(), { params: Promise.resolve({ id: 'task-1' }) });
+    expect(res.status).toBe(403);
+    expect(fromSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns 200 with task for super_admin', async () => {
+    const res = await GET(getReq(), { params: Promise.resolve({ id: 'task-1' }) });
+    expect(res.status).toBe(200);
+    expect(fromSpy).toHaveBeenCalledWith('dev_tasks');
+  });
+});
+
+describe('PATCH /api/dev-tasks/[id] (dual-track)', () => {
   it('returns 401 when neither session nor internal key is valid', async () => {
-    authState.ok = false;
-    authState.status = 401;
+    dualTrackAuthState.ok = false;
+    dualTrackAuthState.status = 401;
     const res = await PATCH(patchReq({ logs: ['new log'] }), {
       params: Promise.resolve({ id: 'task-1' }),
     });
@@ -84,8 +140,8 @@ describe('PATCH /api/dev-tasks/[id]', () => {
   });
 
   it('accepts internal-key caller (local-agent path)', async () => {
-    authState.source = 'internal';
-    authState.userId = null;
+    dualTrackAuthState.source = 'internal';
+    dualTrackAuthState.userId = null;
     const res = await PATCH(patchReq({ logs: ['new log'] }), {
       params: Promise.resolve({ id: 'task-1' }),
     });
@@ -108,10 +164,10 @@ describe('PATCH /api/dev-tasks/[id]', () => {
   });
 });
 
-describe('POST /api/dev-tasks/[id]', () => {
+describe('POST /api/dev-tasks/[id] (dual-track)', () => {
   it('returns 401 when neither session nor internal key is valid', async () => {
-    authState.ok = false;
-    authState.status = 401;
+    dualTrackAuthState.ok = false;
+    dualTrackAuthState.status = 401;
     const res = await POST(postReq({ status: 'succeeded' }), {
       params: Promise.resolve({ id: 'task-1' }),
     });
@@ -120,8 +176,8 @@ describe('POST /api/dev-tasks/[id]', () => {
   });
 
   it('accepts internal-key caller and marks the task complete', async () => {
-    authState.source = 'internal';
-    authState.userId = null;
+    dualTrackAuthState.source = 'internal';
+    dualTrackAuthState.userId = null;
     const res = await POST(
       postReq({ status: 'succeeded', resultSummary: { ok: true } }),
       { params: Promise.resolve({ id: 'task-1' }) },

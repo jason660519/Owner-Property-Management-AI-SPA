@@ -1,16 +1,26 @@
 // filepath: apps/superadmin/app/api/transcript-parse/jobs/[id]/route.ts
 // Poll job status + progress for UI (service_role read).
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(
-  _request: Request,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/transcript-parse/jobs/[id]',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+
   const { id } = await context.params;
   if (!id) {
     return NextResponse.json({ error: 'Missing id' }, { status: 400 });
