@@ -7,8 +7,9 @@
 // automatically switches the agent to the next adapter in the fallback
 // chain (claude_local → codex_local → gemini_local) via PATCH /api/agents/:id.
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { requireSuperadminOrInternal } from '@/lib/auth/require-superadmin-or-internal';
 import { getAgentRuntime } from '@/lib/agent-runtime';
 import {
   getNextAdapter,
@@ -62,7 +63,15 @@ async function getAgentAdapter(agentId: string): Promise<string | null> {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authResult = await requireSuperadminOrInternal({
+    request,
+    routeLabel: 'api/paperclip/task-queue/poll',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ ok: false, error: authResult.message }, { status: authResult.status });
+  }
+
   const runtimeResult = getAgentRuntime();
   if (!runtimeResult.ok) {
     return NextResponse.json(runtimeResult, { status: runtimeResult.status });

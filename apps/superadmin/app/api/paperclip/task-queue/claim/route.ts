@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { requireSuperadminOrInternal } from '@/lib/auth/require-superadmin-or-internal';
 import { getAgentRuntime } from '@/lib/agent-runtime';
 
 interface ClaimBody {
@@ -12,13 +13,17 @@ interface ClaimBody {
 }
 
 export async function POST(request: NextRequest) {
-  const userId = request.headers.get('x-user-id');
-  if (!userId) {
-    return NextResponse.json(
-      { ok: false, error: 'Missing x-user-id header' },
-      { status: 401 },
-    );
+  // Claim writes the caller's userId to `claimed_by`, so we MUST have a real
+  // human identity — internal-key callers are not allowed here.
+  const authResult = await requireSuperadminOrInternal({
+    request,
+    routeLabel: 'api/paperclip/task-queue/claim',
+    allowInternalKey: false,
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ ok: false, error: authResult.message }, { status: authResult.status });
   }
+  const userId = authResult.userId;
 
   let body: ClaimBody;
   try {

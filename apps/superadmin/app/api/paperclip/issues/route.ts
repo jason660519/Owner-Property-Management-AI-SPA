@@ -14,6 +14,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { getAgentRuntime } from '@/lib/agent-runtime';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { requireSuperadminOrInternal } from '@/lib/auth/require-superadmin-or-internal';
 import { loadCreditGuardConfig, type CreditGuardReader } from '@/lib/ai/anthropic-credit-guard';
 import type { PaperclipIssuePayload, PaperclipRoleId } from '@/lib/paperclip/types';
 import type { WorktreePaths } from '@/lib/paperclip/worktree';
@@ -153,6 +154,17 @@ export async function prepareWorktreeForTask(
 }
 
 export async function POST(request: NextRequest) {
+  const authResult = await requireSuperadminOrInternal({
+    request,
+    routeLabel: 'api/paperclip/issues',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json(
+      { ok: false, status: authResult.status, error: authResult.message },
+      { status: authResult.status },
+    );
+  }
+
   const config = readPaperclipConfig();
 
   // Factory validates baseUrl + apiKey (required by every runtime method).
@@ -314,7 +326,8 @@ export async function POST(request: NextRequest) {
 
   // ── Persist to paperclip_tasks for server-side tracking ──────────────
   if (result.ok) {
-    const userId = request.headers.get('x-user-id') ?? undefined;
+    // Internal-key callers (skills, cron) have no session userId — record null.
+    const userId = authResult.userId ?? undefined;
     // Extract rowId from title format "[Row 042] Feature Name"
     const rowIdMatch = body.title.match(/\[Row\s+(\S+?)\]/i);
     const rowId = rowIdMatch?.[1] ?? body.title;

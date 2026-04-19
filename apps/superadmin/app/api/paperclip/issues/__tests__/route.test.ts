@@ -6,6 +6,24 @@
 
 import { NextRequest } from 'next/server';
 
+// ── Auth mock (Issue #34 PR C) ───────────────────────────────────────────
+interface AuthState {
+  ok: boolean;
+  status?: 401 | 403;
+  source?: 'session' | 'internal';
+  userId?: string | null;
+}
+const authState: AuthState = { ok: true, source: 'session', userId: 'admin-1' };
+
+jest.mock('@/lib/auth/require-superadmin-or-internal', () => ({
+  requireSuperadminOrInternal: jest.fn(async () => {
+    if (authState.ok) {
+      return { ok: true, source: authState.source ?? 'session', userId: authState.userId ?? null };
+    }
+    return { ok: false, status: authState.status ?? 401, message: 'denied' };
+  }),
+}));
+
 jest.mock('@/lib/paperclip/client', () => ({
   createIssue: jest.fn(),
 }));
@@ -55,6 +73,20 @@ const ORIGINAL_ENV = process.env;
 
 beforeEach(() => {
   jest.resetAllMocks();
+  // Reset auth state and re-arm the mock implementation (resetAllMocks wiped it).
+  authState.ok = true;
+  authState.status = undefined;
+  authState.source = 'session';
+  authState.userId = 'admin-1';
+  const authMod = jest.requireMock('@/lib/auth/require-superadmin-or-internal') as {
+    requireSuperadminOrInternal: jest.Mock;
+  };
+  authMod.requireSuperadminOrInternal.mockImplementation(async () => {
+    if (authState.ok) {
+      return { ok: true, source: authState.source ?? 'session', userId: authState.userId ?? null };
+    }
+    return { ok: false, status: authState.status ?? 401, message: 'denied' };
+  });
   process.env = {
     ...ORIGINAL_ENV,
     NEXT_PUBLIC_PAPERCLIP_BASE_URL: 'http://localhost:3187',
@@ -338,5 +370,40 @@ describe('POST /api/paperclip/issues', () => {
     const dispatched = createIssueMock.mock.calls[0][0].payload;
     // Client-supplied agent takes priority — server must NOT overwrite.
     expect(dispatched.assigneeAgentId).toBe('agent-fs-explicit');
+  });
+
+  // ── Issue #34 PR C: dual-track auth ────────────────────────────────────
+
+  it('returns 401 when neither session nor internal key is valid', async () => {
+    authState.ok = false;
+    authState.status = 401;
+    const res = await POST(makeReq(validPayload));
+    expect(res.status).toBe(401);
+    // Regression guard: no downstream side effects before auth.
+    expect(findRepoRootMock).not.toHaveBeenCalled();
+    expect(createWorktreeMock).not.toHaveBeenCalled();
+    expect(createIssueMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when session user lacks super_admin role', async () => {
+    authState.ok = false;
+    authState.status = 403;
+    const res = await POST(makeReq(validPayload));
+    expect(res.status).toBe(403);
+    expect(createWorktreeMock).not.toHaveBeenCalled();
+    expect(createIssueMock).not.toHaveBeenCalled();
+  });
+
+  it('allows the request through when caller presents a valid INTERNAL_API_KEY (skill path)', async () => {
+    authState.source = 'internal';
+    authState.userId = null;
+    createIssueMock.mockResolvedValue({
+      ok: true,
+      issue: { id: 'uuid-internal' },
+      issueUrl: 'http://localhost:3187/VIS/issues/uuid-internal',
+    });
+    const res = await POST(makeReq(validPayload));
+    expect(res.status).toBe(200);
+    expect(createIssueMock).toHaveBeenCalledTimes(1);
   });
 });

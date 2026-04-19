@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { requireSuperadminOrInternal } from '@/lib/auth/require-superadmin-or-internal';
 import { getAgentRuntime } from '@/lib/agent-runtime';
 
 interface AssignBody {
@@ -12,12 +13,12 @@ interface AssignBody {
 }
 
 export async function POST(request: NextRequest) {
-  const userId = request.headers.get('x-user-id');
-  if (!userId) {
-    return NextResponse.json(
-      { ok: false, error: 'Missing x-user-id header' },
-      { status: 401 },
-    );
+  const authResult = await requireSuperadminOrInternal({
+    request,
+    routeLabel: 'api/paperclip/task-queue/assign',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ ok: false, error: authResult.message }, { status: authResult.status });
   }
 
   let body: AssignBody;
