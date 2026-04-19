@@ -1,23 +1,30 @@
-import { GET } from './route';
-import { createClient } from '@/utils/supabase/server';
-import { createAdminClient } from '@/utils/supabase/admin';
-import { resolveUserId } from '@/lib/resolve-ai-settings-user';
+// Issue #34 PR D — /api/property-description/prompt-config (GET) must require
+// a super_admin session. Prior to PR D this route used its own
+// `resolveEffectiveUserId` helper that did session lookup + resolveUserId
+// fallback; both are replaced with requireSuperadmin({ allowHeaderFallback: false }).
 
-jest.mock('@/utils/supabase/server', () => ({
-  createClient: jest.fn(),
+import { NextRequest } from 'next/server';
+
+interface AuthState {
+  ok: boolean;
+  status?: 401 | 403;
+  userId?: string;
+}
+const authState: AuthState = { ok: true, userId: 'admin-1' };
+
+jest.mock('@/lib/auth/require-superadmin', () => ({
+  requireSuperadmin: jest.fn(async () => {
+    if (authState.ok) {
+      return {
+        ok: true,
+        userId: authState.userId ?? 'admin-1',
+        source: 'session' as const,
+        viaSession: true,
+      };
+    }
+    return { ok: false, status: authState.status ?? 401, message: 'denied' };
+  }),
 }));
-
-jest.mock('@/utils/supabase/admin', () => ({
-  createAdminClient: jest.fn(),
-}));
-
-jest.mock('@/lib/resolve-ai-settings-user', () => ({
-  resolveUserId: jest.fn(),
-}));
-
-const mockCreateClient = createClient as jest.MockedFunction<typeof createClient>;
-const mockCreateAdminClient = createAdminClient as jest.MockedFunction<typeof createAdminClient>;
-const mockResolveUserId = resolveUserId as jest.MockedFunction<typeof resolveUserId>;
 
 function createAdminMock(options: {
   modulePrompt?: { prompt_content: string; version?: number } | null;
@@ -46,37 +53,62 @@ function createAdminMock(options: {
   };
 }
 
-describe('GET /api/property-description/prompt-config', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+const adminState: {
+  modulePrompt?: { prompt_content: string; version?: number } | null;
+  savedPrompt?: { content: string } | null;
+} = {};
+
+jest.mock('@/utils/supabase/admin', () => ({
+  createAdminClient: () => createAdminMock(adminState),
+}));
+
+import { GET } from './route';
+
+function req(): NextRequest {
+  return new NextRequest('http://localhost:3001/api/property-description/prompt-config', {
+    method: 'GET',
   });
+}
 
-  it('returns 401 when unauthenticated', async () => {
-    mockCreateClient.mockResolvedValue({
-      auth: { getUser: jest.fn().mockResolvedValue({ data: { user: null } }) },
-    } as unknown as Awaited<ReturnType<typeof createClient>>);
-    mockCreateAdminClient.mockReturnValue(createAdminMock({}) as unknown as ReturnType<typeof createAdminClient>);
+beforeEach(() => {
+  jest.clearAllMocks();
+  authState.ok = true;
+  authState.status = undefined;
+  authState.userId = 'admin-1';
+  adminState.modulePrompt = null;
+  adminState.savedPrompt = null;
+});
 
-    const response = await GET();
+describe('GET /api/property-description/prompt-config', () => {
+  it('returns 401 when auth fails with 401', async () => {
+    authState.ok = false;
+    authState.status = 401;
+    const response = await GET(req());
     expect(response.status).toBe(401);
   });
 
-  it('prefers ai_system_prompt over saved/default', async () => {
-    mockCreateClient.mockResolvedValue({
-      auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'auth-user' } } }) },
-    } as unknown as Awaited<ReturnType<typeof createClient>>);
-    mockResolveUserId.mockResolvedValue('effective-user');
-    mockCreateAdminClient.mockReturnValue(
-      createAdminMock({
-        modulePrompt: { prompt_content: 'module prompt', version: 5 },
-        savedPrompt: { content: 'saved prompt' },
-      }) as unknown as ReturnType<typeof createAdminClient>,
-    );
+  it('returns 403 when auth fails with 403', async () => {
+    authState.ok = false;
+    authState.status = 403;
+    const response = await GET(req());
+    expect(response.status).toBe(403);
+  });
 
-    const response = await GET();
+  it('prefers ai_system_prompt over saved/default', async () => {
+    adminState.modulePrompt = { prompt_content: 'module prompt', version: 5 };
+    adminState.savedPrompt = { content: 'saved prompt' };
+    const response = await GET(req());
     const payload = (await response.json()) as Record<string, unknown>;
+    expect(response.status).toBe(200);
     expect(payload.source).toBe('ai_system_prompt');
     expect(payload.moduleKey).toBe('property_description');
     expect(payload.version).toBe(5);
+  });
+
+  it('falls back to default when neither ai_system_prompt nor saved_prompt exists', async () => {
+    const response = await GET(req());
+    const payload = (await response.json()) as Record<string, unknown>;
+    expect(response.status).toBe(200);
+    expect(payload.source).toBe('default');
   });
 });

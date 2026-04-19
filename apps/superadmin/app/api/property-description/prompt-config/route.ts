@@ -1,7 +1,6 @@
-import { NextResponse } from 'next/server';
-import { resolveUserId } from '@/lib/resolve-ai-settings-user';
+import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { createClient } from '@/utils/supabase/server';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 import { DEFAULT_PROMPT, PROMPT_NAME, truncate } from '../stream/utils';
 
 type PromptSource = 'ai_system_prompt' | 'saved_prompt' | 'default';
@@ -20,23 +19,6 @@ async function getCustomPromptTemplate(
       .eq('name', PROMPT_NAME)
       .maybeSingle();
     return data?.content ?? null;
-  } catch {
-    return null;
-  }
-}
-
-async function resolveEffectiveUserId(): Promise<string | null> {
-  try {
-    const sessionClient = await createClient();
-    const {
-      data: { user },
-    } = await sessionClient.auth.getUser();
-    if (!user?.id) {
-      return null;
-    }
-
-    const adminClient = createAdminClient();
-    return await resolveUserId(adminClient, user.id);
   } catch {
     return null;
   }
@@ -67,13 +49,19 @@ async function fetchModulePrompt(
   return { template: null, moduleKey: null, version: null };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/property-description/prompt-config',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const adminClient = createAdminClient();
-    const userId = await resolveEffectiveUserId();
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     const modulePrompt = await fetchModulePrompt(adminClient, userId);
     if (modulePrompt.template) {

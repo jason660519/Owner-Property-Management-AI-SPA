@@ -18,6 +18,7 @@ import fs from 'fs';
 import os from 'os';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 export const runtime = 'nodejs';
 
@@ -192,6 +193,15 @@ async function callHttpService(
 // ---------------------------------------------------------------------------
 
 export async function POST(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/transcript-parse/local',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+
   let body: { documentId?: string };
   try {
     body = (await request.json()) as { documentId?: string };

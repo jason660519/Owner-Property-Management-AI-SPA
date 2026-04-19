@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import os from 'node:os';
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 const execAsync = promisify(exec);
 
@@ -305,7 +306,16 @@ async function getDevServicesStatus(): Promise<DevServiceStatus[]> {
   return results;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/system-health',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+
   try {
     const [database, disk, allDisks, devServices] = await Promise.all([
       checkDatabase(),

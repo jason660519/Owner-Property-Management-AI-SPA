@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { resolveUserId } from '@/lib/resolve-ai-settings-user';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 type IDEType = 'Cursor' | 'VSCode' | 'Antigravity' | 'Claude CLI' | 'TRAE';
 
@@ -28,18 +28,18 @@ interface DevTaskResponse {
 }
 
 export async function POST(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/dev-tasks',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
-
-    const requestedUserId = request.headers.get('x-user-id');
-    if (!requestedUserId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ error: '找不到可用的使用者' }, { status: 401 });
-    }
 
     const body = (await request.json()) as unknown;
 
@@ -106,18 +106,18 @@ export async function POST(request: NextRequest) {
 
 // Optional: list tasks for current user (e.g. by rowId) for history view.
 export async function GET(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/dev-tasks',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
-
-    const requestedUserId = request.headers.get('x-user-id');
-    if (!requestedUserId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ tasks: [] });
-    }
 
     const url = request.nextUrl;
     const rowId = url.searchParams.get('rowId');
