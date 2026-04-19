@@ -18,15 +18,25 @@ jest.mock('@/components/dashboard', () => ({
   ),
 }));
 
-describe('ToolsPage', () => {
-  it('keeps people-db as a single integrated entry', () => {
+describe('ToolsPage (Row 146 — people-db moved out)', () => {
+  it('does NOT render the people-db card (Sidebar provides direct entry now)', () => {
+    render(<ToolsPage />);
+    expect(screen.queryByText('尋人資料庫工具')).not.toBeInTheDocument();
+  });
+
+  it('still renders the FP-to-PDF and File Manager cards', () => {
     render(<ToolsPage />);
 
-    const peopleDbCardTitle = screen.getByText('尋人資料庫工具');
-    const peopleDbLink = peopleDbCardTitle.closest('a');
+    const fpTitle = screen.getByText('FP 轉 PDF 功能');
+    expect(fpTitle.closest('a')).toHaveAttribute(
+      'href',
+      '/superadmin/settings/fp-converter',
+    );
 
-    expect(peopleDbLink).toHaveAttribute('href', '/superadmin/settings/people-database');
-    expect(screen.queryByText('people-db 匯入資料')).not.toBeInTheDocument();
-    expect(screen.queryByText('people-db 搜尋介面')).not.toBeInTheDocument();
+    const fmTitle = screen.getByText('檔案整理與歸檔系統');
+    expect(fmTitle.closest('a')).toHaveAttribute(
+      'href',
+      '/superadmin/tools/file-manager',
+    );
   });
 });

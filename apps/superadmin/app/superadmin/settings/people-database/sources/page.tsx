@@ -53,7 +53,9 @@ function flattenTree(nodes: DatasetTreeNode[], depth = 0): FlatDatasetRow[] {
   return rows;
 }
 
-export default function PeopleDatabaseSourcesPage() {
+// Workspace body without DashboardLayout — exported so the consolidated
+// /superadmin/settings/people-database tab page (Row 146) can mount it directly.
+export function SourcesWorkspace() {
   const [treeRows, setTreeRows] = useState<FlatDatasetRow[]>([]);
   const [metadataByPath, setMetadataByPath] = useState<Record<string, MetadataRow>>({});
   const [editingPath, setEditingPath] = useState<string | null>(null);
@@ -230,23 +232,13 @@ export default function PeopleDatabaseSourcesPage() {
   };
 
   return (
-    <DashboardLayout
-      currentRole="superadmin"
-      pageTitle="尋人資料庫 — 資料來源管理"
-      breadcrumbs={[
-        { label: '首頁', href: '/' },
-        { label: '超級管理員專區', href: '/superadmin' },
-        { label: '尋人資料庫', href: '/superadmin/settings/people-database' },
-        { label: '資料來源管理' },
-      ]}
-    >
-      <div className="max-w-5xl mx-auto space-y-4">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">資料來源管理</h1>
-          <p className="text-text-secondary mt-1">
-            重新命名、收藏、啟用或停用資料來源。變更會立即反映在搜尋頁的樹狀面板。
-          </p>
-        </div>
+    <div className="max-w-5xl mx-auto space-y-4">
+      <div>
+        <h1 className="text-2xl font-bold text-text-primary">資料來源管理</h1>
+        <p className="text-text-secondary mt-1">
+          重新命名、收藏、啟用或停用資料來源。變更會立即反映在搜尋頁的樹狀面板。
+        </p>
+      </div>
 
         <Card>
           <CardHeader className="pb-3">
@@ -461,7 +453,25 @@ export default function PeopleDatabaseSourcesPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
+    </div>
+  );
+}
+
+// Standalone route — kept so old bookmarks (/superadmin/settings/people-database/sources) keep working.
+// New consolidated entry is /superadmin/settings/people-database?tab=sources (Row 146).
+export default function PeopleDatabaseSourcesPage() {
+  return (
+    <DashboardLayout
+      currentRole="superadmin"
+      pageTitle="尋人資料庫 — 資料來源管理"
+      breadcrumbs={[
+        { label: '首頁', href: '/' },
+        { label: '超級管理員專區', href: '/superadmin' },
+        { label: '尋人資料庫', href: '/superadmin/settings/people-database' },
+        { label: '資料來源管理' },
+      ]}
+    >
+      <SourcesWorkspace />
     </DashboardLayout>
   );
 }
