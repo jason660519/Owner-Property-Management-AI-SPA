@@ -2640,7 +2640,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員-尋人資料庫：5-tab 工作區整合 + 強制 dataset + Scope 顏色標記（ID 146）",
     locatedPage: "superadmin/settings/people-database",
-    percentage: 5,
+    percentage: 75,
     category: "超級管理員 (Super Admin)",
     points: 8,
     phase: "development",
@@ -2654,9 +2654,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/dev-logs/dev-people-db-workspace-consolidation-2026-04-19.md",
     testScriptPath: "apps/superadmin/unit_test/146",
     developmentProgress:
-      "2026/04/19（規劃 + Step 1 啟動 — Claude Sonnet 4.5）\n- 與 Jason 對齊四項決議：單頁 5-tab、Tools hub 保留並移除 people-db 卡片、Sidebar 合併、強制 dataset、預設 scope=全部 + 顏色標記\n- 探勘 4 個既有頁面：merge-candidates 已 export MergeCandidatesWorkspace、ingest 已 export IngestDashboardWorkspace、import 已 export PeopleDatabaseImportWorkspace、search 已 export PeopleDatabaseSearchWorkspace；只有 sources 尚未抽出 workspace\n- 確認 dataset 機制 DB 層已完整（dataset_path / dataset-tree API / sources 頁的 favorite/enable/notes），本 row 只動 UI 層 + 強制必填 + 顏色 util，不改 schema\n- 拆 4 commits：Step 1 重構 / Step 2 hub+sidebar / Step 3 強制 dataset / Step 4 scope+顏色，每個 commit 可獨立 deploy + rollback\n- dev-log: /project-process/dev-logs/dev-people-db-workspace-consolidation-2026-04-19.md",
+      "2026/04/19（規劃 + Step 1+2+3 完成 — Claude Sonnet 4.5）\n- 與 Jason 對齊四項決議：單頁 5-tab、Tools hub 保留並移除 people-db 卡片、Sidebar 合併、強制 dataset、預設 scope=全部 + 顏色標記\n- 探勘 4 個既有頁面：merge-candidates / ingest / import / search 都已 export workspace，sources 尚未抽出\n- 確認 dataset 機制 DB 層已完整（dataset_path / dataset-tree API / sources 頁的 favorite/enable/notes），本 row 只動 UI 層 + 強制必填 + 顏色 util，不改 schema\n- 拆 4 commits：Step 1+2 一個 PR / Step 3 一個 PR / Step 4 一個 PR\n\nStep 1 (5-tab 整合) ✅ — PR #42\n- /superadmin/settings/people-database 改為 5-tab dispatcher，?tab=xxx URL 同步\n- 5 個 workspace 用 next/dynamic({ssr:false}) lazy load，預設只 mount active tab\n- 從 sources/page.tsx 抽出 SourcesWorkspace；舊 route 仍可用做向後相容\n- page.test.tsx rewrite 6 cases 全綠\n\nStep 2 (Sidebar + Tools hub 清理) ✅ — PR #42\n- nav-items.ts：3 個 people-db entries → 1 個（指向 ?tab=search），移除孤立 GitMerge import\n- tools/page.tsx：移除「尋人資料庫工具」卡片 + 孤立 Users import\n- tools/page.test.tsx 改寫斷言\n\nStep 3 (強制 dataset_root) ✅ — feature/row-146-step-3-force-dataset\n- API: submit + jobs 加 dataset_root 必填驗證，缺值回 400 with 'Row 146' 提示；移除 'uncategorized' fallback\n- UI: 加「沿用既有 / 新建」radio；existing 模式從 /api/people-db/dataset-tree 拉 top-level roots → <select>；new 模式維持文字輸入\n- 缺 dataset_root 時：input 紅框 + submit button disabled + 紅字 helper「必填 — 缺值時無法提交」\n- 自動 flip：roots 載入後若有資料自動切到 existing 模式；roots 為空時 existing radio disabled\n- 11 cases pass（API submit ×3 + API jobs ×3 + UI ×5）；全 people-db 測試 247/247 + tsc clean\n- dev-log: /project-process/dev-logs/dev-people-db-workspace-consolidation-2026-04-19.md",
     testProgress:
-      "規劃中：unit 預計 3 cases（tabs URL sync / import dataset required / dataset color hash）+ e2e 1 case（consolidated flow），完成 Step 1 後補測試骨架。",
+      "Step 1+2+3 共 19 cases pass：page.test.tsx ×6（tab dispatcher）+ tools/page.test.tsx ×2 + import/__tests__/dataset-root-required.test.tsx ×5（UI 必填）+ submit/__tests__/dataset-root-required.test.ts ×3（API 400）+ jobs/__tests__/dataset-root-required.test.ts ×3（API 400 + 202 happy path）。整個 people-db 套件 247/247 全綠。Step 4 + e2e 待後續 PR。",
     lastModifiedBy: "Claude Sonnet 4.5",
     lastModifiedDate: "2026/04/19",
   },

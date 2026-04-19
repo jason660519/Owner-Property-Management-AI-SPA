@@ -49,10 +49,11 @@ Row 131–145 一路堆疊出 5 個獨立 sub-route：
 - [ ] `app/superadmin/tools/page.tsx` 移除「尋人資料庫工具」卡片
 - [ ] `components/layout/nav-items.ts` 將 3 個 people-db entry 合併成單一「尋人資料庫」（指向預設 `?tab=search`）
 
-### Step 3（強制 dataset）
-- [ ] Import workspace：`dataset_root` 必填（紅星 + disable 提交）
-- [ ] 加「新建資料集 / 沿用既有」radio + 既有 dataset dropdown
-- [ ] API `POST /api/people-db/import/*`：schema validation 強制 `dataset_root: z.string().min(1)`
+### Step 3（強制 dataset）✅
+- [x] Import workspace：`dataset_root` 必填（紅星 `*` + 缺值時 `disabled` + helper 紅字「必填 — 缺值時無法提交」）
+- [x] 加「新建資料集 / 沿用既有」radio：`existing` 模式從 `/api/people-db/dataset-tree` fetch top-level roots → `<select>` dropdown；`new` 模式維持自由文字輸入；roots 載入後自動 flip 為 `existing`，roots 為空時 `existing` radio disabled
+- [x] API enforcement：`POST /api/people-db/import/submit` 與 `/import/jobs` 在 column_mapping 檢查後加 `dataset_root` 必填，缺值回 400 帶明確 `Row 146` 提示；移除 `'uncategorized'` fallback dead code
+- [x] 11 cases pass（API submit ×3 / API jobs ×3 / UI ×5）；tsc clean
 
 ### Step 4（scope picker + 顏色標記）
 - [ ] 新增 `lib/people-db/dataset-color.ts`：純函式 `datasetColor(path: string)` HSL hash
