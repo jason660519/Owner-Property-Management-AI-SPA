@@ -270,11 +270,48 @@ export function PeopleDatabaseImportWorkspace() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [selectionNotice, setSelectionNotice] = useState<string | null>(null);
 
+  // Row 146: dataset_root is mandatory. Offer two modes — 沿用既有 (pick from
+  // existing top-level dataset roots) and 新建 (free-text input). Default to
+  // 'new' until we know there's at least one existing root, then auto-flip.
+  const [datasetMode, setDatasetMode] = useState<'new' | 'existing'>('new');
+  const [existingRoots, setExistingRoots] = useState<string[]>([]);
+  const [rootsLoading, setRootsLoading] = useState(false);
+
   useEffect(() => {
     if (folderInputRef.current) {
       folderInputRef.current.setAttribute('webkitdirectory', '');
       folderInputRef.current.setAttribute('directory', '');
     }
+  }, []);
+
+  // Fetch the top-level dataset roots once so the user can pick from a list
+  // instead of re-typing the same root every import.
+  useEffect(() => {
+    let cancelled = false;
+    setRootsLoading(true);
+    fetch('/api/people-db/dataset-tree')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((data: { tree?: Array<{ label: string; path: string }> }) => {
+        if (cancelled) return;
+        const roots = (data.tree ?? [])
+          .map((n) => n.label?.trim() || n.path?.trim() || '')
+          .filter((s): s is string => !!s);
+        // Stable de-dup, preserve API ordering.
+        const seen = new Set<string>();
+        const unique = roots.filter((r) => (seen.has(r) ? false : (seen.add(r), true)));
+        setExistingRoots(unique);
+        // Auto-flip default to 'existing' once we know at least one root exists.
+        if (unique.length > 0) setDatasetMode('existing');
+      })
+      .catch(() => {
+        // Soft-fail: user can still type a new root.
+      })
+      .finally(() => {
+        if (!cancelled) setRootsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const isSupportedFile = (selectedFile: File) =>
@@ -797,15 +834,73 @@ export function PeopleDatabaseImportWorkspace() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-sm text-text-secondary">資料來源主分類 *</label>
-                  <Input
-                    placeholder="例：企業名錄 / 北市稅籍 / 台北市里長"
-                    value={datasetRoot}
-                    onChange={(e) => setDatasetRoot(e.target.value)}
-                  />
+                <div className="space-y-1 sm:col-span-2" data-testid="dataset-root-field">
+                  <label className="text-sm text-text-primary font-medium">
+                    資料集根目錄 <span className="text-red-500">*</span>
+                  </label>
+                  <div
+                    className="flex flex-wrap gap-3 text-xs text-text-secondary"
+                    role="radiogroup"
+                    aria-label="資料集模式"
+                  >
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="dataset-mode"
+                        value="existing"
+                        checked={datasetMode === 'existing'}
+                        onChange={() => {
+                          setDatasetMode('existing');
+                          // Reset to first existing root if current value isn't one of them.
+                          if (datasetRoot && !existingRoots.includes(datasetRoot)) {
+                            setDatasetRoot(existingRoots[0] ?? '');
+                          }
+                        }}
+                        disabled={existingRoots.length === 0}
+                      />
+                      沿用既有
+                      {rootsLoading && <span className="text-text-secondary/60">（載入中…）</span>}
+                      {!rootsLoading && existingRoots.length === 0 && (
+                        <span className="text-text-secondary/60">（尚無資料集）</span>
+                      )}
+                    </label>
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="dataset-mode"
+                        value="new"
+                        checked={datasetMode === 'new'}
+                        onChange={() => setDatasetMode('new')}
+                      />
+                      新建資料集
+                    </label>
+                  </div>
+                  {datasetMode === 'existing' && existingRoots.length > 0 ? (
+                    <select
+                      value={datasetRoot}
+                      onChange={(e) => setDatasetRoot(e.target.value)}
+                      className="w-full rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary"
+                      data-testid="dataset-root-select"
+                    >
+                      <option value="">— 請選擇 —</option>
+                      {existingRoots.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <Input
+                      placeholder="例：企業名錄 / 北市稅籍 / 台北市里長"
+                      value={datasetRoot}
+                      onChange={(e) => setDatasetRoot(e.target.value)}
+                      data-testid="dataset-root-input"
+                      className={!datasetRoot.trim() ? 'border-red-500/60' : ''}
+                    />
+                  )}
                   <p className="text-[11px] text-text-secondary/80">
                     選擇資料夾時會自動帶入頂層資料夾名。
+                    <span className="ml-1 text-red-500/80">必填 — 缺值時無法提交。</span>
                   </p>
                 </div>
                 <div className="space-y-1">
@@ -845,7 +940,19 @@ export function PeopleDatabaseImportWorkspace() {
               </Button>
               <Button
                 onClick={handleSubmit}
-                disabled={status === 'submitting' || !mapping['full_name']}
+                disabled={
+                  status === 'submitting' ||
+                  !mapping['full_name'] ||
+                  !datasetRoot.trim()
+                }
+                data-testid="import-submit-button"
+                title={
+                  !datasetRoot.trim()
+                    ? '請先指定資料集根目錄（必填）'
+                    : !mapping['full_name']
+                    ? '請先映射姓名欄位'
+                    : undefined
+                }
               >
                 {status === 'submitting' ? (
                   <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />提交中…</>

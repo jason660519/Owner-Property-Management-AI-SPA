@@ -84,14 +84,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const datasetRoot = stringField(form, 'dataset_root') || null;
+  // Row 146: dataset_root is mandatory; see submit/route.ts for rationale.
+  const datasetRoot = stringField(form, 'dataset_root');
+  if (!datasetRoot) {
+    return NextResponse.json(
+      { detail: 'dataset_root is required (Row 146: 匯入時必須指定資料集根目錄)' },
+      { status: 400 },
+    );
+  }
   const datasetSubpath = stringField(form, 'dataset_subpath') || null;
   const explicitPath = stringField(form, 'dataset_path');
   const datasetPath =
     explicitPath ||
-    [datasetRoot, datasetSubpath].filter(Boolean).join('/') ||
-    stringField(form, 'data_source') ||
-    'uncategorized';
+    [datasetRoot, datasetSubpath].filter(Boolean).join('/');
 
   try {
     const job = await enqueueImportJob({

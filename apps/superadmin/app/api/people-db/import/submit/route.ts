@@ -80,14 +80,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Row 146: dataset_root is now mandatory so every imported record can be
+  // traced back to a named dataset. The legacy data_source / 'uncategorized'
+  // fallbacks are intentionally removed — callers that hit this 400 should
+  // surface the dataset picker on the client (see ImportWorkspace).
   const datasetRoot = stringField(form, 'dataset_root');
+  if (!datasetRoot) {
+    return NextResponse.json(
+      { detail: 'dataset_root is required (Row 146: 匯入時必須指定資料集根目錄)' },
+      { status: 400 },
+    );
+  }
   const datasetSubpath = stringField(form, 'dataset_subpath');
   const explicitPath = stringField(form, 'dataset_path');
   const datasetPath =
     explicitPath ||
-    [datasetRoot, datasetSubpath].filter(Boolean).join('/') ||
-    stringField(form, 'data_source') ||
-    'uncategorized';
+    [datasetRoot, datasetSubpath].filter(Boolean).join('/');
 
   const batchId = randomUUID();
 
