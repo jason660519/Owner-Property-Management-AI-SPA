@@ -2,6 +2,7 @@
   "name": "owner-property-management-ai-spa",
   "private": true,
   "scripts": {
+    "postinstall": "patch-package",
     "build": "npm run build --workspaces",
     "dev": "./start.sh menu",
     "dev:web": "npm run dev --workspace web",
@@ -27,6 +28,7 @@
     "pwcli:onboarding:check": "bash tools/testing/check-playwright-cli-onboarding.sh"
   },
   "devDependencies": {
+    "patch-package": "^8.0.1",
     "lint-staged": "^16.2.7",
     "next": "16.1.6",
     "prettier": "^3.0.0"

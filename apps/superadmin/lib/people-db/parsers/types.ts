@@ -46,6 +46,51 @@ export interface ParseResult {
 }
 
 /**
+ * Streaming parser output for very large sources (multi‑GB DBF, huge XLSX).
+ *
+ * Use **`ParseResult`** when the full dataset fits comfortably in memory
+ * (typical CSV, small spreadsheets, PDF tables). The worker materializes
+ * `rows` before persisting.
+ *
+ * Use **`StreamingParseResult`** when holding all rows in a JS array would
+ * OOM: consume `rowsIter` in batches, persist each batch (e.g. Postgres
+ * `COPY`), then call `finalize()` once the async iterator is exhausted to
+ * obtain authoritative `row_count` and any deferred warnings.
+ *
+ * Cancellation: pass `AbortSignal` via parser options where supported; the
+ * iterator should stop yielding and `finalize()` may reject if aborted.
+ */
+export interface StreamingParseResult {
+  parser: ParserName;
+  /**
+   * Column order when known up front (DBF). For streaming XLSX, may be empty
+   * until the first data row is produced — infer keys from each batch row.
+   */
+  columns: string[];
+  /**
+   * Yields batches of normalized string records (default batch size is parser-specific).
+   * Do not collect all batches into one array — persist per batch.
+   */
+  rowsIter: AsyncIterable<Record<string, string>[]>;
+  /**
+   * Call after `rowsIter` is fully consumed. Resolves totals and warnings
+   * that are only known after a full pass (e.g. empty-file warnings).
+   */
+  finalize: () => Promise<{
+    row_count: number;
+    warnings: string[];
+    likelyScanned?: boolean;
+  }>;
+}
+
+/** Narrowing helper for `dispatchByPath` union results. */
+export function isStreamingParseResult(
+  r: ParseResult | StreamingParseResult,
+): r is StreamingParseResult {
+  return typeof (r as StreamingParseResult).finalize === 'function' && 'rowsIter' in r;
+}
+
+/**
  * Thrown when a file's extension has no registered parser. The worker maps
  * this to `status='skipped_unsupported'` (not `failed`) so the row can be
  * resurrected later via the inventory `reclassifyIfStale` flow.

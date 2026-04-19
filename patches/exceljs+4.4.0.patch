@@ -1,0 +1,25 @@
+diff --git a/node_modules/exceljs/lib/stream/xlsx/workbook-reader.js b/node_modules/exceljs/lib/stream/xlsx/workbook-reader.js
+index 0d3afd6..bf9c6ae 100644
+--- a/node_modules/exceljs/lib/stream/xlsx/workbook-reader.js
++++ b/node_modules/exceljs/lib/stream/xlsx/workbook-reader.js
+@@ -107,7 +107,7 @@ class WorkbookReader extends EventEmitter {
+           if (entry.path.match(/xl\/worksheets\/sheet\d+[.]xml/)) {
+             match = entry.path.match(/xl\/worksheets\/sheet(\d+)[.]xml/);
+             sheetNo = match[1];
+-            if (this.sharedStrings && this.workbookRels) {
++            if (this.sharedStrings && this.workbookRels && this.model) {
+               yield* this._parseWorksheet(iterateStream(entry), sheetNo);
+             } else {
+               // create temp file for each worksheet
+@@ -300,7 +300,10 @@ class WorkbookReader extends EventEmitter {
+     });
+ 
+     const matchingRel = (this.workbookRels || []).find(rel => rel.Target === `worksheets/sheet${sheetNo}.xml`);
+-    const matchingSheet = matchingRel && (this.model.sheets || []).find(sheet => sheet.rId === matchingRel.Id);
++    const matchingSheet =
++      matchingRel &&
++      this.model &&
++      (this.model.sheets || []).find(sheet => sheet.rId === matchingRel.Id);
+     if (matchingSheet) {
+       worksheetReader.id = matchingSheet.id;
+       worksheetReader.name = matchingSheet.name;

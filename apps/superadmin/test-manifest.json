@@ -285,7 +285,7 @@
     },
     {
       "id": "145",
-      "name": "People Database (Row 145) — bulk ingestion pipeline (Sprint 1\u20136)",
+      "name": "People Database (Row 145) — bulk ingestion pipeline (Sprint 1\u20136 + 2b streaming)",
       "tier": "pr",
       "status": "active",
       "unitPaths": [
@@ -294,9 +294,13 @@
         "apps/superadmin/lib/people-db/__tests__/ocr-pipeline.test.ts",
         "apps/superadmin/lib/people-db/__tests__/normalize.test.ts",
         "apps/superadmin/lib/people-db/__tests__/staging.test.ts",
+        "apps/superadmin/lib/people-db/__tests__/staging-copy.test.ts",
         "apps/superadmin/lib/people-db/__tests__/entity-resolution.test.ts",
         "apps/superadmin/lib/people-db/__tests__/merge-candidates.test.ts",
         "apps/superadmin/lib/people-db/__tests__/search-person-aggregate.test.ts",
+        "apps/superadmin/lib/people-db/parsers/__tests__/dbf-stream.test.ts",
+        "apps/superadmin/lib/people-db/parsers/__tests__/xlsx-stream.test.ts",
+        "apps/superadmin/lib/people-db/parsers/__tests__/streaming-types.test.ts",
         "apps/superadmin/lib/people-db/__tests__/ingest-orchestrator.test.ts",
         "apps/superadmin/app/api/people-db/merge-candidates/__tests__/route.test.ts",
         "apps/superadmin/app/api/people-db/search/__tests__/route-group-by.test.ts",

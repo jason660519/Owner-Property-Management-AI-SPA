@@ -29,10 +29,16 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import {
   dispatchByPath,
+  isStreamingParseResult,
   ParserFailureError,
   UnsupportedParserError,
   type ParseResult,
+  type StreamingParseResult,
 } from '../../apps/superadmin/lib/people-db/parsers';
+import {
+  copyStagingFromStreamingBatches,
+  createStagingPool,
+} from '../../apps/superadmin/lib/people-db/staging-copy';
 import { dispatchOcr } from '../../apps/superadmin/lib/people-db/ocr/dispatch';
 import {
   getOcrClient,
@@ -43,6 +49,16 @@ import {
   insertStagingRecords,
   parsedRowsToStaging,
 } from '../../apps/superadmin/lib/people-db/staging';
+
+import type { Pool } from 'pg';
+
+let stagingPool: Pool | null = null;
+function getStagingPool(): Pool {
+  if (!stagingPool) {
+    stagingPool = createStagingPool();
+  }
+  return stagingPool;
+}
 
 // ---------------------------------------------------------------------------
 // CLI args
@@ -159,8 +175,34 @@ async function markParsing(row: PendingRow): Promise<void> {
   if (error) throw error;
 }
 
-async function markResult(row: PendingRow, result: ParseResult): Promise<void> {
+async function markResult(row: PendingRow, result: ParseResult | StreamingParseResult): Promise<void> {
   if (!db || dryRun) return;
+
+  if (isStreamingParseResult(result)) {
+    const pool = getStagingPool();
+    await copyStagingFromStreamingBatches(pool, row.id, result.rowsIter);
+    const fin = await result.finalize();
+
+    if (fin.likelyScanned) {
+      const client = requireOcrClient();
+      await dispatchOcr(db, { id: row.id, sha256: row.sha256, source_path: row.source_path }, client);
+      counters.ocrQueued += 1;
+      return;
+    }
+
+    const { error } = await db
+      .from('people_db_files')
+      .update({
+        status: 'parsed',
+        parser: result.parser,
+        row_count: fin.row_count,
+        error_msg: null,
+      })
+      .eq('id', row.id);
+    if (error) throw error;
+    counters.parsed += 1;
+    return;
+  }
 
   if (result.likelyScanned) {
     // Route scanned PDFs to the OCR queue. dispatchOcr enqueues with the
@@ -228,7 +270,7 @@ async function processRow(row: PendingRow): Promise<void> {
 
   await markParsing(row);
 
-  let result: ParseResult;
+  let result: ParseResult | StreamingParseResult;
   try {
     result = await dispatchByPath(row.source_path, row.ext);
   } catch (err) {
@@ -249,8 +291,11 @@ async function processRow(row: PendingRow): Promise<void> {
     return;
   }
 
+  const rowCountLabel = isStreamingParseResult(result) ? '(streaming)' : String(result.row_count);
+  const warnCount = isStreamingParseResult(result) ? 0 : result.warnings.length;
+  const likely = !isStreamingParseResult(result) && result.likelyScanned;
   console.log(
-    `  ↳ ${result.parser} ${result.row_count} rows${result.warnings.length ? ` (${result.warnings.length} warnings)` : ''}${result.likelyScanned ? ' [scanned → ocr_queued]' : ''}`,
+    `  ↳ ${result.parser} ${rowCountLabel} rows${warnCount ? ` (${warnCount} warnings)` : ''}${likely ? ' [scanned → ocr_queued]' : ''}`,
   );
   await markResult(row, result);
 }
