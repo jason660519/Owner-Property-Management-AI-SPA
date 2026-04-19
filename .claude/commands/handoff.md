@@ -78,6 +78,24 @@
 
 > 為什麼要落地？Chat 輸出會隨 session 結束消失；檔案進 git 後永久可追溯，且儀表板（dashboard）能 cross-link、Search 可索引。
 
+## Full-Auto 最小必要輸出模式（給 `/commit-push-pr --full-auto`）
+
+當此 command 是被 `--full-auto` 串接呼叫時，允許使用「最小必要模式」，以縮短收尾時間，但仍必須滿足可接手性：
+
+1. 仍需完成「雙軌輸出」（chat fenced code block + handoff 檔案落地）
+2. 可將內容精簡為以下 6 段（其餘段落可省略）：
+   - 身分與硬性規範（繁中、註解英文、TS strict 禁 any、SQL migration 規則）
+   - 本次產出摘要（commit hash、PR URL、merge 結果、cleanup 結果）
+   - 當前 repo 狀態（`git status --short` 關鍵結果）
+   - 阻塞與風險（若 auto-merge 被擋，列明原因）
+   - 下一步待辦（可直接執行的 3-5 條）
+   - 動工前確認指令（`git status`、`git log --oneline -5`）
+3. 若 `--full-auto` 流程中任何步驟失敗，handoff 必須明確標註：
+   - 失敗步驟
+   - 失敗訊息摘要
+   - 建議人工處理指令
+4. 最小必要模式不得省略檔案路徑與 commit/PR 證據連結
+
 ### 內含以下段落（依序）：
 
 1. **身分與慣例**
