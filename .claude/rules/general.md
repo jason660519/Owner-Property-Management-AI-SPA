@@ -109,6 +109,36 @@
 
 ---
 
+## Session 結束規範（強制 handoff 落地）
+
+Session 收尾時，**若本 session 有以下任一交付**，**必須**呼叫 `/handoff` skill 產出接手紀錄，不得以「在 chat 訊息裡手寫 markdown」替代：
+
+- 有 PR 被 merged（特別是 Sprint 推進或功能落地的 PR）
+- 新增 `project-process/features/`、`project-process/dev-logs/`、`supabase/migrations/` 等結構性檔案
+- Roadmap `percentage` 推進或 Sprint 完成
+- 有明確的「下一步任務」尚未動工（下個 session 需要接手）
+
+### 判斷流程
+
+1. Session 內有上述任一項 ✓ → **走 `/handoff` skill**（詳見 `.claude/commands/handoff.md` 的「觸發條件」與「完成檢查清單」）
+2. 使用者已用自然語言暗示（「收尾」「handoff」「寫接手 prompt」「給下個 session 的指引」「選項 X = 收尾」）→ **走 `/handoff` skill**（不得視為普通請求在 chat 裡手寫）
+3. 僅修小 bug、純 docs typo、單一 refactor 且沒「下一步」→ 可略過（留 commit message 就夠）
+
+### 落地驗證
+
+`/handoff` skill 會要求：
+- Chat 輸出 fenced markdown block（給 user 複製）
+- **同時** `Write` tool 落地到 `project-process/handoffs/handoff-{topic}-{YYYYMMDD}.md`
+- `ls project-process/handoffs/` 確認檔案存在
+
+**兩件事都要做，缺一不可**（命名 pattern + 檔案結構見 handoff.md）。
+
+### 為什麼強制
+
+Chat 輸出會隨 session 結束消失。只口頭 handoff → 下次開新 session 時 user 找不到、要重新挖 session log → context 斷層 → 新 AI 接手效率大跌。檔案進 git 後永久可追溯、儀表板可 cross-link、search 可索引。
+
+---
+
 ## 除錯備註
 
 - 本機服務連不上（瀏覽器 vs macOS vs server 分層 triage）→ `docs/operational-guides/localhost-debug-triage.md`
