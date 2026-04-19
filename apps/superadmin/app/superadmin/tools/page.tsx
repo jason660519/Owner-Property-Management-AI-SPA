@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { FileCog, FileText, Users } from 'lucide-react';
+import { FileCog, FileText } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 
@@ -40,19 +40,8 @@ export default function ToolsPage() {
             </Card>
           </Link>
 
-          <Link href="/superadmin/settings/people-database" className="block">
-            <Card variant="outlined" padding="lg" hoverable>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users size={16} />
-                  尋人資料庫工具
-                </CardTitle>
-                <CardDescription>
-                  以單一入口整合 people-db 全流程：可先用 tools/people-db 轉換來源資料，再於同頁完成匯入、搜尋與品質監控。
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          </Link>
+          {/* Row 146: 尋人資料庫卡片移至 Sidebar 直連入口（避免雙跳）。
+              新入口：/superadmin/settings/people-database?tab=search */}
 
           <Link href="/superadmin/tools/file-manager" className="block">
             <Card variant="outlined" padding="lg" hoverable>

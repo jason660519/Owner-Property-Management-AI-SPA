@@ -19,7 +19,6 @@ import {
   Wrench,
   ShieldAlert,
   Users,
-  GitMerge,
 } from 'lucide-react';
 import type { ElementType } from 'react';
 
@@ -45,9 +44,9 @@ export const navItems: NavItem[] = [
   { name: 'Paperclip Worktrees', href: '/superadmin/dashboard/paperclip-worktrees', icon: GitBranch },
   { name: 'Project Docs', href: '/superadmin/docs', icon: BookOpen },
   { name: 'Project Files', href: '/superadmin/project-file', icon: BookOpen },
-  { name: '尋人資料庫 — 搜尋', href: '/superadmin/settings/people-database/search', icon: Users },
-  { name: '尋人資料庫 — 合併候選', href: '/superadmin/settings/people-database/merge-candidates', icon: GitMerge },
-  { name: '尋人資料庫 — Ingestion 監控', href: '/superadmin/settings/people-database/ingest', icon: Activity },
+  // Row 146: collapsed three people-database entries into a single hub.
+  // Sub-features (search / import / merge / ingest / sources) live as tabs on the consolidated page.
+  { name: '尋人資料庫', href: '/superadmin/settings/people-database?tab=search', icon: Users },
   { name: 'AI 服務 / API KEY', href: '/superadmin/settings/api_key_and_model_setting', icon: Key },
   { name: 'Prompt 管理', href: '/superadmin/settings/prompt-management', icon: BookMarked },
   { name: 'Tools', href: '/superadmin/tools', icon: Wrench },
