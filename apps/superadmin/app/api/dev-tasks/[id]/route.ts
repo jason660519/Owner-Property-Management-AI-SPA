@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { resolveUserId } from '@/lib/resolve-ai-settings-user';
+import { requireSuperadminOrInternal } from '@/lib/auth/require-superadmin-or-internal';
 
 type DevTaskStatus = 'queued' | 'running' | 'succeeded' | 'failed';
 
@@ -54,10 +55,19 @@ export async function GET(
 }
 
 // Local agents can append logs for a task.
+// Dual-track auth: superadmin session OR INTERNAL_API_KEY (Issue #34 PR G).
 export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
+  const authResult = await requireSuperadminOrInternal({
+    request,
+    routeLabel: 'api/dev-tasks/[id]',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+
   try {
     const supabase = createAdminClient();
     const { id: taskId } = await context.params;
@@ -108,10 +118,19 @@ export async function PATCH(
 }
 
 // Local agents mark task complete with final status and summary.
+// Dual-track auth: superadmin session OR INTERNAL_API_KEY (Issue #34 PR G).
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
+  const authResult = await requireSuperadminOrInternal({
+    request,
+    routeLabel: 'api/dev-tasks/[id]',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+
   try {
     const supabase = createAdminClient();
     const { id: taskId } = await context.params;

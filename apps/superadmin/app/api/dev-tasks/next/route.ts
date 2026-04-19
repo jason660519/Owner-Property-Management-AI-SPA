@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { requireSuperadminOrInternal } from '@/lib/auth/require-superadmin-or-internal';
 
 type IDEType = 'Cursor' | 'VSCode' | 'Antigravity' | 'Claude CLI' | 'TRAE';
 
+// Local agents poll this endpoint to claim the next queued dev task.
+// Dual-track auth: superadmin session OR INTERNAL_API_KEY (Issue #34 PR G).
 export async function GET(request: NextRequest) {
+  const authResult = await requireSuperadminOrInternal({
+    request,
+    routeLabel: 'api/dev-tasks/next',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+
   try {
     const supabase = createAdminClient();
 
