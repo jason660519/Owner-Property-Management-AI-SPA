@@ -87,22 +87,6 @@
       "linkedToolScripts": []
     },
     {
-      "id": "007",
-      "name": "Elasticsearch dashboard",
-      "tier": "nightly",
-      "nightlyLayer": "regression",
-      "nightlyOrder": 20,
-      "status": "active",
-      "unitPaths": [],
-      "e2ePaths": [
-        "apps/superadmin/e2e/007/elasticsearch-dashboard.spec.ts"
-      ],
-      "linkedToolScripts": [
-        "tools/people-db/check-es.sh",
-        "tools/people-db/seed-es-sample.sh"
-      ]
-    },
-    {
       "id": "009",
       "name": "Superadmin security and privacy audit dashboard",
       "tier": "pr",

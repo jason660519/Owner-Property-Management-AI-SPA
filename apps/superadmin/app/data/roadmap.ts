@@ -221,29 +221,20 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "靜態 mock 改為連接真實資料：admin client 查詢各資料表記錄數（Promise.allSettled 並發）、連線健康度檢測、RLs 政策（透過 rpc）；SupabaseDashboardClient + Supabase Dashboard 快速連結；頁面採 Server Component + Suspense 架構。\n\n### 2026-04-09 維護\n- 清理不符合專案 SQL 管理規則的 `supabase/seed.sql`。\n- 同步將 `supabase/config.toml` 的 `db.seed` 關閉，避免 `supabase db reset` 再引用空的 seed 檔。\n- 保持 migration 流程不變；本地 reset 仍會正常執行 migrations，只是不再額外執行空白 seed 步驟。",
   },
   {
-    name: "超級管理員-資料庫Elastic Search管理功能",
+    name: "超級管理員-資料庫Elastic Search管理功能（已移除）",
     locatedPage: "superadmin/dashboard/elasticsearch",
-    percentage: 80,
-    phase: "testing",
+    percentage: 0,
+    phase: "development",
     acceptanceCriteria:
-      "1. 顯示 Elasticsearch 叢集狀態（健康度、索引數量、文件總數）。\n2. 可執行搜尋查詢並預覽結果（最多100筆）。\n3. 支援手動重建索引（Reindex）操作。\n4. 顯示各索引的磁碟使用量。\n5. 異常狀態（Yellow/Red）需自動警報管理員。",
+      "（2026/04/20 已移除）原管理頁是為舊 Python OCR 服務（backend/ocr_service/）的 property_owners index 而建。feature/openclaw-migration 合併後 OCR 服務刪除、OCR_SERVICE_URL env 失效，管理頁與其代理 API 都成為殭屍程式碼。\n\nES 叢集本身仍在（backend/elasticsearch/Dockerfile），並由 Row 145 people-db ingestion 使用——透過 apps/superadmin/lib/people-db/es-gateway.ts 直連，不經本管理頁。",
     docPath: "",
-    featureSpecDocPath: "/project-process/features/elasticsearch-management.md",
-    tddSpecDocPath:
-      "/project-process/features/tdd-superadmin-platform-20260221.md",
-    testLogDocPath:
-      "/project-process/test-logs/test-elasticsearch-management-2026-04-12.md",
     category: "超級管理員 (Super Admin)",
-    points: 5,
-    testStatus: "in_progress",
-    testCoverage: 75,
-    unitTestCoverage: 80,
-    e2eTestCoverage: 70,
+    points: 0,
     defectCount: 0,
-    lastModifiedBy: "Claude",
-    lastModifiedDate: "2026/04/12",
+    lastModifiedBy: "Claude Opus 4.7",
+    lastModifiedDate: "2026/04/20",
     developmentProgress:
-      "2026-04-12: 建立 /api/elasticsearch Next.js API 代理路由（health / stats / search / reindex）；修正 dashboard page 的 TypeScript 型別問題（移除 any）及 XSS 安全問題（stripHtml 防護）；改用內部 API proxy；新增 Elasticsearch 側邊欄導覽；完成單元測試 20 個案例 + E2E 測試 8 個案例。",
+      "2026-04-12：建立 /api/elasticsearch 代理路由與 dashboard page。\n2026-04-20：移除本功能。\n- 刪除 apps/superadmin/app/api/elasticsearch/（route + tests）\n- 刪除 apps/superadmin/app/superadmin/dashboard/elasticsearch/（page + tests）\n- 刪除 apps/superadmin/e2e/007/\n- 移除 nav-items.ts 內 'Elasticsearch' 側邊欄項目\n- 移除 test-manifest.json id='007' 條目\n- 後續如需 ES 運維視圖，建議整合為 people-database workspace 的『系統』tab，並直接走 es-gateway 而非舊 OCR service。",
   },
   {
     name: "超級管理員AI LLM API效能監控－AI語音回應可靠度監控功能",
