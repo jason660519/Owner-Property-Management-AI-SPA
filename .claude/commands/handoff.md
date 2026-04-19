@@ -1,6 +1,27 @@
 根據本次對話已完成的工作，寫一份**自包含**的接手 prompt 給下一個 AI session 使用。
 使用者會開新 session 把你的輸出整份貼進去，新 AI 必須**從零**就能理解並直接動工。
 
+## 觸發條件（以下表達都必須呼叫本 skill，不得 ad-hoc 手寫）
+
+凡看到以下任一表達，**都是本 skill 的觸發訊號**，必須用 Skill tool 呼叫 `handoff`（或視為此 command 已被呼叫），不得略過：
+
+- 直接輸入 `/handoff`
+- 「寫 handoff」「handoff prompt」「寫接手 prompt」「接手 prompt」
+- 「給下一個 session / AI 的指引 / 交接 / 接手」「留訊息給下個 session」
+- 使用者在 session 尾端要求「收尾」「結束前交代一下」「handoff 一下」
+- 使用者已同意「選項 X = 做收尾 / 寫 handoff」等複合指令中含 handoff 語意
+- 你自己判斷 session 即將結束且本 session 有重大交付（PR merged、新檔落地、Sprint 推進）未落地
+
+**絕對禁止**以下反模式：
+
+- ❌ 在 chat 訊息裡自己手寫一份 markdown 當成 handoff，卻沒實際呼叫本 skill
+- ❌ 只產 chat fenced block、略過「B. 同時存成檔案」部分
+- ❌ 用「建議你存檔到 `/tmp/xxx.md`」這種口頭引導取代實際 `Write` 工具落地
+
+違反任一條 → handoff 只存在對話 log，session 結束即消失 → 等於沒寫，下一個 AI 無法接手。
+
+**AI 工程師自檢**：如果你正打算「自己在訊息裡寫 handoff 內容」而沒呼叫此 skill 或動 `Write` 工具 → **立即停手** → 改用 Skill tool 呼叫 `handoff`，或至少把本檔規則全部跑一次（尤其「完成檢查清單」最末段）。
+
 ## 動筆前必做的現場偵察
 
 這些是**必跑**，不是可選：
