@@ -55,10 +55,15 @@ Row 131–145 一路堆疊出 5 個獨立 sub-route：
 - [x] API enforcement：`POST /api/people-db/import/submit` 與 `/import/jobs` 在 column_mapping 檢查後加 `dataset_root` 必填，缺值回 400 帶明確 `Row 146` 提示；移除 `'uncategorized'` fallback dead code
 - [x] 11 cases pass（API submit ×3 / API jobs ×3 / UI ×5）；tsc clean
 
-### Step 4（scope picker + 顏色標記）
-- [ ] 新增 `lib/people-db/dataset-color.ts`：純函式 `datasetColor(path: string)` HSL hash
-- [ ] Search workspace：頂部 scope picker（全部 / 多選 dataset chip）
-- [ ] 結果 row、merge-candidates、ingest 監控的 dataset 欄位都套上 badge
+### Step 4（scope picker + 顏色標記）✅
+- [x] `lib/people-db/dataset-color.ts`：純函式 `datasetColor(path)` 用 FNV-1a 32-bit hash → HSL hue（0-360 穩定 + bg/fg/border 三色），`datasetColorStyle()` 包成 React inline style；7 cases 通過（穩定性、bound、distinct hash、null/empty fallback、HSL 格式）
+- [x] `components/people-database/DatasetBadge.tsx`：通用 badge component，自動套色，empty path 顯示 「—」 灰色
+- [x] Search workspace：
+  - 行為改動：移除「empty selection → empty results」guard，改為 empty = 搜尋全部 dataset（Jason 拍板的「預設全部」語意）
+  - 新增 scope banner：「目前範圍：全部資料集（預設）」/ 「目前範圍：N 個資料集 [清除選取]」+ 右側提示「結果列上的顏色 badge 標示來源 dataset」
+  - 三處 dataset_source 顯示改用 `<DatasetBadge>`：result row 的 source 欄、person-mode 展開的 sources 列、最近匯入批次面板
+- [x] Merge-candidates / Ingest：本 PR 不動（merge-candidates 沒直接 render dataset path、ingest 的 source_path 內含 dataset root 但需要 API plumbing）— 留待後續 PR
+- [x] 4 cases 新增 `search/__tests__/scope-and-color.test.tsx`：banner 預設「全部」/ 選 dataset 後顯示 N 個 / 清除回到「全部」/ DatasetBadge mounted 在 batch list；全 people-db 套件 295/295 全綠
 
 ## 4. 風險
 
