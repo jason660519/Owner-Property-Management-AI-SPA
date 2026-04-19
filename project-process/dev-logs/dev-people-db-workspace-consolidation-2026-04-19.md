@@ -71,6 +71,11 @@ Row 131–145 一路堆疊出 5 個獨立 sub-route：
 - [x] Ingest UI：`FailedFile` interface 加 `dataset_root?` / `dataset_subpath?`；failed file 卡片在 ext badge 後插入 `<DatasetBadge>`，僅當 `dataset_root` 存在
 - [x] 7 cases 新增（API embed=file ×3、merge card UI ×2、ingest list UI ×2）；全 people-db 套件 302/302 + tsc clean
 
+### Step 7（e2e spec）✅
+- [x] `apps/superadmin/e2e/146/consolidated-flow.spec.ts`：6 Playwright cases（default landing on search tab / `?tab=ingest` deep link / 點 tab 觸發 `?tab=merge` URL 更新 / Sidebar 只有 1 個 people-db entry 指向 `?tab=search` / Tools hub 不再有 people-db 卡片 / Import tab boot 可達）
+- [x] 登記到 `apps/superadmin/test-manifest.json` Row 146 entry（tier=pr，7 unitPaths + 1 e2ePath），`validate-test-manifest.sh` 通過（22 entries）
+- [x] 真實 orchestrator / 資料集 seed 留給 Row 145 Sprint 7 配合 NAS 完成 — 本 spec 僅負責 route + URL + 導覽 contract 的 smoke 覆蓋
+
 ## 4. 風險
 
 | 風險 | 緩解 |

@@ -310,6 +310,25 @@
         "apps/superadmin/e2e/145/ingest-dashboard-flow.spec.ts"
       ],
       "linkedToolScripts": []
+    },
+    {
+      "id": "146",
+      "name": "People Database (Row 146) — 5-tab workspace + forced dataset + scope color badges",
+      "tier": "pr",
+      "status": "active",
+      "unitPaths": [
+        "apps/superadmin/app/superadmin/settings/people-database/page.test.tsx",
+        "apps/superadmin/app/superadmin/tools/page.test.tsx",
+        "apps/superadmin/app/api/people-db/import/submit/__tests__/dataset-root-required.test.ts",
+        "apps/superadmin/app/api/people-db/import/jobs/__tests__/dataset-root-required.test.ts",
+        "apps/superadmin/app/superadmin/settings/people-database/import/__tests__/dataset-root-required.test.tsx",
+        "apps/superadmin/lib/people-db/__tests__/dataset-color.test.ts",
+        "apps/superadmin/app/superadmin/settings/people-database/search/__tests__/scope-and-color.test.tsx"
+      ],
+      "e2ePaths": [
+        "apps/superadmin/e2e/146/consolidated-flow.spec.ts"
+      ],
+      "linkedToolScripts": []
     }
   ]
 }
