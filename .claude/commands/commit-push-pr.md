@@ -1,3 +1,5 @@
+# Commit Push PR
+
 根據目前的 git diff 與 untracked files，執行以下整合流程（commit → PR → merge/cleanup → handoff）：
 
 ## 步驟一：Commit & Push
@@ -8,7 +10,7 @@
 4. 產生 commit message，格式：`<type>: <繁體中文描述>`
    - type: feat / fix / docs / refactor / style / test / chore
    - 若使用者提供 `$ARGUMENTS`，以此作為 commit message 或補充說明
-5. 執行 commit（結尾加 `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`）
+5. 執行 commit
 6. Push 到當前分支的 remote（若無 upstream，用 `-u` 設定）
 
 ## 步驟二：建立 Pull Request（可選）
@@ -19,7 +21,8 @@
 2. 用 `gh pr create` 建立 PR：
    - Title: 簡短描述（< 70 字元）
    - Body 格式：
-     ```
+
+   ```markdown
      ## Summary
      - <變更摘要>
 
@@ -28,6 +31,7 @@
 
      🤖 Generated with [Claude Code](https://claude.com/claude-code)
      ```
+
 3. 回傳 PR URL
 
 如果沒有 `--pr` 參數，只執行步驟一。
