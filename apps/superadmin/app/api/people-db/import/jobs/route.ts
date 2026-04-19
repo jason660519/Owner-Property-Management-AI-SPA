@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireSuperAdmin } from '@/lib/people-db/es-gateway';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 import {
   enqueueImportJob,
   ASYNC_THRESHOLD_BYTES,
@@ -18,8 +18,14 @@ import { createAdminClient } from '@/utils/supabase/admin';
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return auth.response;
+  const auth = await requireSuperadmin({
+    request: req,
+    allowHeaderFallback: false,
+    routeLabel: 'api/people-db/import/jobs',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ detail: auth.message }, { status: auth.status });
+  }
 
   const form = await req.formData();
   const file = form.get('file');
@@ -89,7 +95,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const job = await enqueueImportJob({
-      userId: auth.user.userId,
+      userId: auth.userId,
       file,
       columnMapping,
       datasetRoot,
@@ -117,8 +123,14 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return auth.response;
+  const auth = await requireSuperadmin({
+    request: req,
+    allowHeaderFallback: false,
+    routeLabel: 'api/people-db/import/jobs',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ detail: auth.message }, { status: auth.status });
+  }
 
   const { searchParams } = new URL(req.url);
   const status = searchParams.get('status');

@@ -7,9 +7,9 @@
 // counts (one per known status). N=11 is small and every call uses
 // the status b-tree index, so this stays cheap even at M-row scale.
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-import { requireSuperAdmin } from '@/lib/people-db/es-gateway';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 import { createAdminClient } from '@/utils/supabase/admin';
 
 const STATUSES = [
@@ -28,9 +28,15 @@ const STATUSES = [
 
 type StatusKey = (typeof STATUSES)[number];
 
-export async function GET(): Promise<NextResponse> {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return auth.response;
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const auth = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/people-db/ingest/stage-counts',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ detail: auth.message }, { status: auth.status });
+  }
 
   const db = createAdminClient();
 

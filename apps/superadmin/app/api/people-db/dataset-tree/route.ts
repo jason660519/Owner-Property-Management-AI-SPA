@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import {
   buildDatasetTree,
   type DatasetBucket,
   type DatasetMetadataOverride,
 } from '@/lib/people-db/dataset-tree';
-import { esSearch, requireSuperAdmin } from '@/lib/people-db/es-gateway';
+import { esSearch } from '@/lib/people-db/es-gateway';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 import { createClient } from '@/utils/supabase/server';
 
 interface EsTermsAggregationResponse {
@@ -21,9 +22,15 @@ interface EsTermsAggregationResponse {
   hits?: { total?: { value?: number } };
 }
 
-export async function GET() {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return auth.response;
+export async function GET(request: NextRequest) {
+  const auth = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/people-db/dataset-tree',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ detail: auth.message }, { status: auth.status });
+  }
 
   try {
     const response = await esSearch<EsTermsAggregationResponse>({

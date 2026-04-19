@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
-import { requireSuperAdmin, esBulkIndex } from '@/lib/people-db/es-gateway';
+import { esBulkIndex } from '@/lib/people-db/es-gateway';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 import { mapRowsToDocuments } from '@/lib/people-db/import-mapper';
 import {
   dispatchParse,
@@ -21,8 +22,14 @@ const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const BULK_CHUNK_SIZE = 500;
 
 export async function POST(req: NextRequest) {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return auth.response;
+  const auth = await requireSuperadmin({
+    request: req,
+    allowHeaderFallback: false,
+    routeLabel: 'api/people-db/import/submit',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ detail: auth.message }, { status: auth.status });
+  }
 
   const form = await req.formData();
   const file = form.get('file');

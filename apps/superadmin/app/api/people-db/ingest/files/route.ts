@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
-import { requireSuperAdmin } from '@/lib/people-db/es-gateway';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 import { createAdminClient } from '@/utils/supabase/admin';
 
 const ALLOWED_STATUSES = new Set([
@@ -32,8 +32,14 @@ const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
 
 export async function GET(req: NextRequest) {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return auth.response;
+  const auth = await requireSuperadmin({
+    request: req,
+    allowHeaderFallback: false,
+    routeLabel: 'api/people-db/ingest/files',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ detail: auth.message }, { status: auth.status });
+  }
 
   const url = new URL(req.url);
   const status = url.searchParams.get('status');

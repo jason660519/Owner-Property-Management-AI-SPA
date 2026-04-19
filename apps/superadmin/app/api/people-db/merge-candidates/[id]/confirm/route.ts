@@ -6,18 +6,24 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { requireSuperAdmin } from '@/lib/people-db/es-gateway';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 import {
   confirmCandidate,
   CandidateStateError,
 } from '@/lib/people-db/merge-candidates';
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return auth.response;
+  const auth = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/people-db/merge-candidates/[id]/confirm',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ detail: auth.message }, { status: auth.status });
+  }
 
   const { id } = await params;
   if (!id) {
@@ -26,7 +32,7 @@ export async function POST(
 
   const supabase = createAdminClient();
   try {
-    await confirmCandidate(supabase, id, auth.user.userId);
+    await confirmCandidate(supabase, id, auth.userId);
   } catch (err) {
     if (err instanceof CandidateStateError) {
       return NextResponse.json({ ok: false, error: err.message }, { status: 409 });

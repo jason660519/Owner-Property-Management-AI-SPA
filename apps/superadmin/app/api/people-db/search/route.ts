@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { buildSearchBody } from '@/lib/people-db/search-strategy';
-import { esSearch, requireSuperAdmin } from '@/lib/people-db/es-gateway';
+import { esSearch } from '@/lib/people-db/es-gateway';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 import { createAdminClient } from '@/utils/supabase/admin';
 import {
   aggregateByPerson,
@@ -43,8 +44,14 @@ const VALID_QUALITY = new Set(['all', 'high', 'medium', 'low']);
 const VALID_GROUP_BY = new Set(['record', 'person']);
 
 export async function GET(req: NextRequest) {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return auth.response;
+  const auth = await requireSuperadmin({
+    request: req,
+    allowHeaderFallback: false,
+    routeLabel: 'api/people-db/search',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ detail: auth.message }, { status: auth.status });
+  }
 
   const { searchParams } = req.nextUrl;
   const q = searchParams.get('q') ?? '';

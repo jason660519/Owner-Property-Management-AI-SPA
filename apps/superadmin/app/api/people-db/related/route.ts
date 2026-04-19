@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { esSearch, requireSuperAdmin } from '@/lib/people-db/es-gateway';
+import { esSearch } from '@/lib/people-db/es-gateway';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 // Finds people linked to the given record by shared address / phone / company.
 // Used by the person-detail page's "親友關係圖譜" feature. The query pivots on
@@ -32,8 +33,14 @@ interface EsSearchResponse<T> {
 const DEFAULT_SIZE = 50;
 
 export async function GET(req: NextRequest) {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return auth.response;
+  const auth = await requireSuperadmin({
+    request: req,
+    allowHeaderFallback: false,
+    routeLabel: 'api/people-db/related',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ detail: auth.message }, { status: auth.status });
+  }
 
   const params = req.nextUrl.searchParams;
   const recordId = params.get('record_id');
