@@ -17,9 +17,15 @@ function getConnectionString(): string {
   );
 }
 
-/** One CSV line for COPY (file_id uuid, integer, jsonb as quoted JSON text). */
+/** One CSV line for COPY (file_id uuid, integer, jsonb as quoted JSON text).
+ *
+ * Strips `\\u0000` (NUL) escape sequences because Postgres JSONB rejects them
+ * with SQLSTATE 22P05 "unsupported Unicode escape sequence". NULs commonly
+ * appear in DBF source files where fixed-width fields are padded with 0x00.
+ */
 function copyCsvLine(fileId: string, recordIndex: number, raw: Record<string, unknown>): string {
-  const json = JSON.stringify(raw);
+  // JSON.stringify encodes literal NUL as the 6-char escape \u0000; strip those.
+  const json = JSON.stringify(raw).replace(/\\u0000/g, '');
   return `${fileId},${recordIndex},"${json.replace(/"/g, '""')}"\n`;
 }
 
