@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { esSearch, requireSuperAdmin } from '@/lib/people-db/es-gateway';
+import { esSearch } from '@/lib/people-db/es-gateway';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 // Fetches a single people-database record by record_id. Used by the person
 // detail page to render the master profile before delegating relationship
@@ -39,11 +40,17 @@ interface EsResponse {
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ recordId: string }> },
 ) {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return auth.response;
+  const auth = await requireSuperadmin({
+    request: req,
+    allowHeaderFallback: false,
+    routeLabel: 'api/people-db/person/[recordId]',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ detail: auth.message }, { status: auth.status });
+  }
 
   const { recordId } = await params;
   if (!recordId) {

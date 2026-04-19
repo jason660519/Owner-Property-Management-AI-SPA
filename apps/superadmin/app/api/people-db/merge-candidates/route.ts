@@ -4,13 +4,13 @@
 // newest-first; supports ?status= + pagination + ?embed=person,staging for
 // the admin UI's left/right comparison cards (Sprint 4b).
 //
-// super_admin only — guarded by requireSuperAdmin. Reads via createAdminClient
+// super_admin only — guarded by requireSuperadmin. Reads via createAdminClient
 // so the route works even if a super_admin's session RLS evaluation is slow
 // (consistent with Row 144 convention).
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { requireSuperAdmin } from '@/lib/people-db/es-gateway';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 const PAGE_SIZE_DEFAULT = 20;
 const PAGE_SIZE_MAX = 100;
@@ -49,8 +49,14 @@ function parseEmbed(raw: string | null): Set<EmbedToken> {
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return auth.response;
+  const auth = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/people-db/merge-candidates',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ detail: auth.message }, { status: auth.status });
+  }
 
   const url = new URL(request.url);
   const statusRaw = url.searchParams.get('status') ?? 'pending';

@@ -5,20 +5,31 @@
 // post-ES aggregation via aggregateByPerson after joining the hit list
 // with people_db_person_sources + people_db_persons from Supabase.
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 // --- Mocks -----------------------------------------------------------------
 
 const authState = { ok: true };
 
-jest.mock('@/lib/people-db/es-gateway', () => ({
-  requireSuperAdmin: async () => {
-    if (authState.ok) return { ok: true, user: { userId: 'admin-1' } };
+jest.mock('@/lib/auth/require-superadmin', () => ({
+  requireSuperadmin: async () => {
+    if (authState.ok) {
+      return {
+        ok: true,
+        userId: 'admin-1',
+        source: 'session' as const,
+        viaSession: true,
+      };
+    }
     return {
       ok: false,
-      response: NextResponse.json({ detail: 'Unauthorized' }, { status: 401 }),
+      status: 401 as const,
+      message: 'Unauthorized',
     };
   },
+}));
+
+jest.mock('@/lib/people-db/es-gateway', () => ({
   esSearch: jest.fn(),
 }));
 

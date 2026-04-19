@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { requireSuperAdmin } from '@/lib/people-db/es-gateway';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 // CRUD endpoint for dataset display overrides (rename / favorite / enable).
 // The canonical key is dataset_path — same shape as ES's keyword field so the
@@ -15,9 +15,15 @@ interface UpsertPayload {
   notes?: string | null;
 }
 
-export async function GET() {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return auth.response;
+export async function GET(request: NextRequest) {
+  const auth = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/people-db/datasets/metadata',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ detail: auth.message }, { status: auth.status });
+  }
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -33,8 +39,14 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return auth.response;
+  const auth = await requireSuperadmin({
+    request: req,
+    allowHeaderFallback: false,
+    routeLabel: 'api/people-db/datasets/metadata',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ detail: auth.message }, { status: auth.status });
+  }
 
   let payload: UpsertPayload;
   try {
@@ -70,8 +82,14 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return auth.response;
+  const auth = await requireSuperadmin({
+    request: req,
+    allowHeaderFallback: false,
+    routeLabel: 'api/people-db/datasets/metadata',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ detail: auth.message }, { status: auth.status });
+  }
 
   const datasetPath = req.nextUrl.searchParams.get('dataset_path');
   if (!datasetPath) {

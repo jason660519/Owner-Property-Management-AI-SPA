@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
-import { esSearch, requireSuperAdmin } from '@/lib/people-db/es-gateway';
+import { NextRequest, NextResponse } from 'next/server';
+import { esSearch } from '@/lib/people-db/es-gateway';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 // Legacy flat facet endpoint. Kept for backward compatibility with UI surfaces
 // that haven't adopted the hierarchical /dataset-tree endpoint yet.
@@ -12,9 +13,15 @@ interface FacetResponse {
   };
 }
 
-export async function GET() {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return auth.response;
+export async function GET(request: NextRequest) {
+  const auth = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/people-db/datasets',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ detail: auth.message }, { status: auth.status });
+  }
 
   try {
     const response = await esSearch<FacetResponse>({

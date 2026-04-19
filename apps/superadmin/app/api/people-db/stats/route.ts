@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
-import { esSearch, requireSuperAdmin } from '@/lib/people-db/es-gateway';
+import { NextRequest, NextResponse } from 'next/server';
+import { esSearch } from '@/lib/people-db/es-gateway';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 interface StatsResponse {
   hits?: { total?: { value?: number } | number };
@@ -10,9 +11,15 @@ interface StatsResponse {
   };
 }
 
-export async function GET() {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return auth.response;
+export async function GET(request: NextRequest) {
+  const auth = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/people-db/stats',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ detail: auth.message }, { status: auth.status });
+  }
 
   try {
     const response = await esSearch<StatsResponse>({

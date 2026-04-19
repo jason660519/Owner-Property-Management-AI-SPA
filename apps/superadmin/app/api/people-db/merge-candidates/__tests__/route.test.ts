@@ -2,7 +2,6 @@
 // Covers the three endpoints: GET list / POST confirm / POST reject.
 
 import { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
 
 // --- Mocks -----------------------------------------------------------------
 
@@ -14,17 +13,20 @@ interface AuthState {
 
 const authState: AuthState = { ok: true, userId: 'admin-1' };
 
-jest.mock('@/lib/people-db/es-gateway', () => ({
-  requireSuperAdmin: async () => {
+jest.mock('@/lib/auth/require-superadmin', () => ({
+  requireSuperadmin: async () => {
     if (authState.ok) {
-      return { ok: true, user: { userId: authState.userId ?? 'admin-1' } };
+      return {
+        ok: true,
+        userId: authState.userId ?? 'admin-1',
+        source: 'session' as const,
+        viaSession: true,
+      };
     }
     return {
       ok: false,
-      response: NextResponse.json(
-        { detail: authState.responseStatus === 403 ? 'Forbidden' : 'Unauthorized' },
-        { status: authState.responseStatus ?? 401 },
-      ),
+      status: (authState.responseStatus ?? 401) as 401 | 403,
+      message: authState.responseStatus === 403 ? 'Forbidden' : 'Unauthorized',
     };
   },
 }));

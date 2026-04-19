@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { requireSuperAdmin } from '@/lib/people-db/es-gateway';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 // Bulk upsert for dataset_metadata. Accepts a list of dataset_paths and a
 // shared patch (favorited / enabled). Used by the sources management page to
@@ -27,8 +27,14 @@ interface MetadataRow {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return auth.response;
+  const auth = await requireSuperadmin({
+    request: req,
+    allowHeaderFallback: false,
+    routeLabel: 'api/people-db/datasets/metadata/bulk',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ detail: auth.message }, { status: auth.status });
+  }
 
   let payload: BulkPatchPayload;
   try {

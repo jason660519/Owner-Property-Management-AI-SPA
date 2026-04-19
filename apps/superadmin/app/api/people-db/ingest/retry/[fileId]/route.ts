@@ -8,16 +8,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { createAdminClient } from '@/utils/supabase/admin';
-import { requireSuperAdmin } from '@/lib/people-db/es-gateway';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 const RETRIABLE_STATUSES: ReadonlySet<string> = new Set(['failed']);
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ fileId: string }> },
 ): Promise<NextResponse> {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return auth.response;
+  const auth = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/people-db/ingest/retry/[fileId]',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ detail: auth.message }, { status: auth.status });
+  }
 
   const { fileId } = await params;
   if (!fileId) {
