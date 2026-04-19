@@ -187,4 +187,42 @@ describe('MergeCandidatesWorkspace', () => {
     );
     expect(screen.queryByTestId('merge-candidate-card')).not.toBeInTheDocument();
   });
+
+  // Row 146 Step 5 — file embed surfaces dataset for the colored badge.
+  // makeItem doesn't propagate arbitrary keys, so we attach `file` post-hoc.
+  it('renders DatasetBadge with the dataset_root label when file embed is present', async () => {
+    const items = [
+      {
+        ...makeItem({ id: 'c1' }),
+        file: {
+          id: 'file-1',
+          dataset_root: '企業名錄',
+          dataset_subpath: '2012/三萬企業',
+        },
+      },
+    ];
+    const f = installFetch();
+    f.mockResolvedValueOnce(jsonResponse(fixture(items)));
+
+    render(<MergeCandidatesWorkspace />);
+    await waitFor(() => expect(screen.getByTestId('merge-candidate-card')).toBeInTheDocument());
+
+    const badge = screen.getByTestId('dataset-badge');
+    expect(badge).toBeInTheDocument();
+    // Badge label uses the root only (concise chip), but data attribute
+    // carries the full path so the hash includes subpath context.
+    expect(badge.textContent).toBe('企業名錄');
+    expect(badge.getAttribute('data-dataset-path')).toBe('企業名錄/2012/三萬企業');
+  });
+
+  it('omits DatasetBadge when file embed is absent or null', async () => {
+    const items = [{ ...makeItem({ id: 'c1' }), file: null }];
+    const f = installFetch();
+    f.mockResolvedValueOnce(jsonResponse(fixture(items)));
+
+    render(<MergeCandidatesWorkspace />);
+    await waitFor(() => expect(screen.getByTestId('merge-candidate-card')).toBeInTheDocument());
+
+    expect(screen.queryByTestId('dataset-badge')).not.toBeInTheDocument();
+  });
 });

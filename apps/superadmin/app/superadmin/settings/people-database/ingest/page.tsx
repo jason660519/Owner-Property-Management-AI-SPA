@@ -19,6 +19,7 @@ import { DashboardLayout } from '@/components/dashboard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import DatasetBadge from '@/components/people-database/DatasetBadge';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -47,6 +48,11 @@ interface StageCountsResponse {
 interface FailedFile {
   id: string;
   source_path: string;
+  // Row 146 Step 6: dataset_root / subpath are already returned by
+  // /api/people-db/ingest/files; surfacing them here lets us render a
+  // colored DatasetBadge so admins can see which dataset is failing at a glance.
+  dataset_root?: string | null;
+  dataset_subpath?: string | null;
   ext: string;
   status: string;
   attempts: number;
@@ -278,9 +284,19 @@ export function IngestDashboardWorkspace() {
                     <div className="text-sm font-medium text-text-primary truncate">
                       {f.source_path}
                     </div>
-                    <div className="text-xs text-text-secondary mt-0.5">
+                    <div className="text-xs text-text-secondary mt-0.5 flex flex-wrap items-center gap-2">
                       <Badge variant="default">{f.ext}</Badge>
-                      <span className="ml-2">嘗試次數：{f.attempts}</span>
+                      {f.dataset_root && (
+                        <DatasetBadge
+                          path={
+                            f.dataset_subpath
+                              ? `${f.dataset_root}/${f.dataset_subpath}`
+                              : f.dataset_root
+                          }
+                          label={f.dataset_root}
+                        />
+                      )}
+                      <span>嘗試次數：{f.attempts}</span>
                     </div>
                     {f.error_msg && (
                       <div className="text-xs text-text-secondary mt-1 break-all">

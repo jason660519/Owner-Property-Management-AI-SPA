@@ -43,9 +43,10 @@ interface EmbedResult {
   error: null | { message: string };
 }
 // Fixtures consulted when the list route performs an embed follow-up
-// (?embed=person / ?embed=staging). Reset in beforeEach.
+// (?embed=person / ?embed=staging / ?embed=file). Reset in beforeEach.
 const personsResult: EmbedResult = { data: [], error: null };
 const stagingResult: EmbedResult = { data: [], error: null };
+const filesResult: EmbedResult = { data: [], error: null };
 
 jest.mock('@/utils/supabase/admin', () => ({
   createAdminClient: () => ({
@@ -66,6 +67,16 @@ jest.mock('@/utils/supabase/admin', () => ({
             in: async (_col: string, _ids: unknown[]) => ({
               data: stagingResult.data,
               error: stagingResult.error,
+            }),
+          }),
+        };
+      }
+      if (table === 'people_db_files') {
+        return {
+          select: (_c?: string) => ({
+            in: async (_col: string, _ids: unknown[]) => ({
+              data: filesResult.data,
+              error: filesResult.error,
             }),
           }),
         };
@@ -137,6 +148,8 @@ beforeEach(() => {
   personsResult.error = null;
   stagingResult.data = [];
   stagingResult.error = null;
+  filesResult.data = [];
+  filesResult.error = null;
 });
 
 // ---------------------------------------------------------------------------
@@ -274,6 +287,65 @@ describe('GET /api/people-db/merge-candidates (embed)', () => {
     const body = await res.json();
     expect(body.items[0].person.person_id).toBe('p1');
     expect(body.items[0].staging.id).toBe('s1');
+  });
+
+  // Row 146 Step 5 — file embed surfaces dataset_root for the colored badge.
+  it('attaches file fixture (dataset_root/subpath) when ?embed=staging,file', async () => {
+    listResult.data = [...candidates];
+    listResult.count = 2;
+    stagingResult.data = [
+      { ...staging[0], file_id: 'file-1' },
+      { ...staging[1], file_id: 'file-2' },
+    ];
+    filesResult.data = [
+      { id: 'file-1', dataset_root: '企業名錄', dataset_subpath: '2012/三萬企業' },
+      { id: 'file-2', dataset_root: '北市稅籍', dataset_subpath: null },
+    ];
+
+    const res = await GET_list(
+      req('http://localhost/api/people-db/merge-candidates?embed=staging,file'),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.items[0].file).toMatchObject({
+      id: 'file-1',
+      dataset_root: '企業名錄',
+      dataset_subpath: '2012/三萬企業',
+    });
+    expect(body.items[1].file).toMatchObject({
+      id: 'file-2',
+      dataset_root: '北市稅籍',
+      dataset_subpath: null,
+    });
+  });
+
+  it('returns file=null when staging row exists but file_id is missing', async () => {
+    listResult.data = [candidates[0]];
+    listResult.count = 1;
+    stagingResult.data = [{ ...staging[0], file_id: null }];
+    filesResult.data = [];
+
+    const res = await GET_list(
+      req('http://localhost/api/people-db/merge-candidates?embed=staging,file'),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.items[0].file).toBeNull();
+  });
+
+  it('skips file lookup entirely when ?embed=file is requested without staging', async () => {
+    // file lookup walks staging.file_id, so without staging there's nothing
+    // to look up — the route should return file=null silently rather than
+    // 500.
+    listResult.data = [candidates[0]];
+    listResult.count = 1;
+
+    const res = await GET_list(
+      req('http://localhost/api/people-db/merge-candidates?embed=file'),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.items[0].file).toBeNull();
   });
 
   it('ignores unknown embed tokens without failing', async () => {
