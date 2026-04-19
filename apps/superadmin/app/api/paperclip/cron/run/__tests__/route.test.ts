@@ -74,8 +74,8 @@ describe('POST /api/paperclip/cron/run', () => {
     const res = await POST(postReq({ job_type: 'agent_health' }));
     expect(res.status).toBe(200);
     expect(fetchSpy).toHaveBeenCalled();
-    const fetchCall = fetchSpy.mock.calls[0];
-    const init = fetchCall[1] as { headers?: Record<string, string> };
+    const fetchCall = fetchSpy.mock.calls[0] as unknown as [string, { headers?: Record<string, string> }];
+    const init = fetchCall[1];
     expect(init?.headers?.Authorization).toBe('Bearer test-key');
   });
 

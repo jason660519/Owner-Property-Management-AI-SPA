@@ -361,11 +361,24 @@ const ADAPTERS: IDEAdapter[] = [
 
 // --- HTTP helpers ---
 
+/**
+ * Authorization headers sent on every superadmin API call. Issue #34 PR G
+ * gated /api/dev-tasks/next, PATCH /api/dev-tasks/[id], and POST
+ * /api/dev-tasks/[id] behind `requireSuperadminOrInternal`, so the local
+ * agent must present `Authorization: Bearer $INTERNAL_API_KEY` to reach them.
+ * The key is loaded from env (exported by run-cursor.sh / run-claude.sh)
+ * — if missing, calls will 401 with a helpful hint from the route handler.
+ */
+function authHeaders(): Record<string, string> {
+  const key = process.env.INTERNAL_API_KEY ?? '';
+  return key ? { Authorization: `Bearer ${key}` } : {};
+}
+
 async function fetchNextTask(baseUrl: string, ide: IDEType, agentId: string): Promise<DevTask | null> {
   const url = new URL('/api/dev-tasks/next', baseUrl);
   url.searchParams.set('ideType', ide);
   url.searchParams.set('agentId', agentId);
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), { headers: authHeaders() });
   if (!res.ok) { console.error('[LocalAgent] fetchNextTask error:', res.status); return null; }
   return ((await res.json()) as NextTaskResponse).task ?? null;
 }
@@ -373,7 +386,7 @@ async function fetchNextTask(baseUrl: string, ide: IDEType, agentId: string): Pr
 async function appendLogs(baseUrl: string, taskId: string, logs: string[]): Promise<void> {
   const res = await fetch(new URL(`/api/dev-tasks/${taskId}`, baseUrl).toString(), {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ logs }),
   });
   if (!res.ok) console.error('[LocalAgent] appendLogs error:', res.status, await res.text());
@@ -384,7 +397,7 @@ async function completeTask(
 ): Promise<void> {
   const res = await fetch(new URL(`/api/dev-tasks/${taskId}`, baseUrl).toString(), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ status, resultSummary }),
   });
   if (!res.ok) console.error('[LocalAgent] completeTask error:', res.status, await res.text());
