@@ -3,6 +3,15 @@ import { createClient } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { createSupabaseRedirectCookieBridge } from '@/lib/middleware/supabase-redirect-cookies';
+import {
+  hasValidInternalKey,
+  isPublicApiPath,
+} from '@/lib/middleware/api-auth-matcher';
+
+/** JSON 401/403 body shape for API callers (Issue #34 PR F). */
+function jsonAuthError(status: 401 | 403, message: string): NextResponse {
+  return NextResponse.json({ error: message }, { status });
+}
 
 /** 從 request 取得客戶端 IP（支援 proxy 的 x-forwarded-for / x-real-ip） */
 function getClientIp(request: NextRequest): string {
@@ -20,6 +29,22 @@ export async function middleware(request: NextRequest) {
   }
 
   const isSuperadminRoute = request.nextUrl.pathname.startsWith('/superadmin');
+  const isApiRoute =
+    request.nextUrl.pathname.startsWith('/api/') &&
+    !isPublicApiPath(request.nextUrl.pathname);
+
+  // ── /api/* defense-in-depth fast path (Issue #34 PR F) ──────────────────
+  // Server-to-server callers (skills, scheduled-tasks MCP, internal cron)
+  // present `Authorization: Bearer <INTERNAL_API_KEY>`. Let them through
+  // here so the route-level `requireSuperadminOrInternal` can do the
+  // authoritative constant-time key check on the node runtime.
+  if (isApiRoute) {
+    const authHeader = request.headers.get('authorization');
+    const internalKey = process.env.INTERNAL_API_KEY;
+    if (hasValidInternalKey(authHeader, internalKey)) {
+      return NextResponse.next({ request });
+    }
+  }
 
   // IP 白名單 + 黑名單檢查：superadmin 路由先檢查 IP / User-Agent
   // 白名單非空時：不在白名單內的 IP 直接拒絕（優先）
@@ -99,16 +124,23 @@ export async function middleware(request: NextRequest) {
     return redirectResponse;
   };
 
-  // 1. 未登入：重導向至本機登入頁（同 port 3001），避免依賴 3000 主站
-  if (isSuperadminRoute && !user) {
-    const loginUrl = new URL('/login', request.url);
-    const returnUrl = request.nextUrl.pathname + request.nextUrl.search;
-    if (returnUrl && returnUrl !== '/login') loginUrl.searchParams.set('returnUrl', returnUrl);
-    return redirectWithCookies(loginUrl);
+  // 1. 未登入
+  if (!user) {
+    // API callers get JSON 401 — they can't follow a redirect to /login.
+    if (isApiRoute) {
+      return jsonAuthError(401, 'Unauthorized: missing or invalid session');
+    }
+    // Superadmin UI callers redirect to login with returnUrl preserved.
+    if (isSuperadminRoute) {
+      const loginUrl = new URL('/login', request.url);
+      const returnUrl = request.nextUrl.pathname + request.nextUrl.search;
+      if (returnUrl && returnUrl !== '/login') loginUrl.searchParams.set('returnUrl', returnUrl);
+      return redirectWithCookies(loginUrl);
+    }
   }
 
   // 2. 已登入：以 IAM 為準判斷是否為 Super Admin（與主站 Portal 一致）
-  if (isSuperadminRoute && user) {
+  if ((isSuperadminRoute || isApiRoute) && user) {
     const { data: roleRows } = await supabase.rpc('get_user_roles', {
       lookup_user_id: user.id,
     });
@@ -119,6 +151,9 @@ export async function middleware(request: NextRequest) {
       roles.includes('super_admin') ||
       user.user_metadata?.role === 'super_admin';
     if (!isSuperAdmin) {
+      if (isApiRoute) {
+        return jsonAuthError(403, 'Forbidden: super_admin role required');
+      }
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('reason', 'insufficient_role');
       return redirectWithCookies(loginUrl);
@@ -129,5 +164,17 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/docs', '/superadmin/:path*'],
+  matcher: [
+    '/docs',
+    '/superadmin/:path*',
+    // /api/* defense-in-depth (Issue #34 PR F). Negative lookahead excludes
+    // the three public-path families handled explicitly by their routes:
+    //   - /api/auth/         — OAuth callbacks
+    //   - /api/webhooks/     — HMAC-signed inbound webhooks
+    //   - /api/people-db/ingest/ocr/callback — HMAC OCR callback
+    // Keep this regex and PUBLIC_API_PATHS in lib/middleware/api-auth-matcher
+    // in sync — the lib list is the source of truth for documentation but the
+    // matcher needs the regex form for Next.js.
+    '/api/((?!auth/|webhooks/|people-db/ingest/ocr/callback$).+)',
+  ],
 };
