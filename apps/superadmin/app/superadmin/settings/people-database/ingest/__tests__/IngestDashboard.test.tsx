@@ -172,3 +172,81 @@ describe('IngestDashboardWorkspace — runs timeline', () => {
     expect(within(succeededRow).getByText('scan')).toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+
+describe('IngestDashboardWorkspace — dataset color badge (Row 146 Step 6)', () => {
+  it('renders DatasetBadge on each failed file when API returns dataset_root', async () => {
+    installFetchRouter({
+      '/api/people-db/ingest/stage-counts': () =>
+        jsonResponse({ counts: { failed: 2 }, total: 2 }),
+      '/api/people-db/ingest/files': () =>
+        jsonResponse({
+          items: [
+            {
+              id: 'file-a',
+              source_path: '/nas/企業名錄/2012/三萬企業/foo.dbf',
+              dataset_root: '企業名錄',
+              dataset_subpath: '2012/三萬企業',
+              ext: '.dbf',
+              status: 'failed',
+              attempts: 3,
+              error_msg: 'parse failed',
+            },
+            {
+              id: 'file-b',
+              source_path: '/nas/北市稅籍/bar.csv',
+              dataset_root: '北市稅籍',
+              dataset_subpath: null,
+              ext: '.csv',
+              status: 'failed',
+              attempts: 1,
+              error_msg: null,
+            },
+          ],
+        }),
+      '/api/people-db/ingest/runs': () => jsonResponse(EMPTY_RUNS),
+    });
+
+    render(<IngestDashboardWorkspace />);
+
+    await waitFor(() => {
+      const badges = screen.getAllByTestId('dataset-badge');
+      expect(badges).toHaveLength(2);
+    });
+    const badges = screen.getAllByTestId('dataset-badge');
+    const labels = badges.map((b) => b.textContent);
+    expect(labels).toEqual(['企業名錄', '北市稅籍']);
+    // Full path stored on the data attribute so the same hash includes subpath.
+    const paths = badges.map((b) => b.getAttribute('data-dataset-path'));
+    expect(paths).toEqual(['企業名錄/2012/三萬企業', '北市稅籍']);
+  });
+
+  it('omits DatasetBadge when API does not include dataset_root', async () => {
+    installFetchRouter({
+      '/api/people-db/ingest/stage-counts': () =>
+        jsonResponse({ counts: { failed: 1 }, total: 1 }),
+      '/api/people-db/ingest/files': () =>
+        jsonResponse({
+          items: [
+            {
+              id: 'file-c',
+              source_path: '/nas/legacy/old.csv',
+              ext: '.csv',
+              status: 'failed',
+              attempts: 1,
+              error_msg: null,
+            },
+          ],
+        }),
+      '/api/people-db/ingest/runs': () => jsonResponse(EMPTY_RUNS),
+    });
+
+    render(<IngestDashboardWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByText('/nas/legacy/old.csv')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('dataset-badge')).not.toBeInTheDocument();
+  });
+});

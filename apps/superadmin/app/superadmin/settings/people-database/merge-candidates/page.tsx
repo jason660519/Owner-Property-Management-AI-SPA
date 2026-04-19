@@ -6,6 +6,7 @@ import { DashboardLayout } from '@/components/dashboard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import DatasetBadge from '@/components/people-database/DatasetBadge';
 
 // ---------------------------------------------------------------------------
 // Types — mirror the shape returned by
@@ -36,6 +37,14 @@ interface EmbeddedStaging {
   created_at?: string | null;
 }
 
+// Row 146 Step 5: file embed surfaces dataset_root / subpath so the card
+// can render a DatasetBadge tracing the candidate back to its source.
+interface EmbeddedFile {
+  id: string;
+  dataset_root: string | null;
+  dataset_subpath: string | null;
+}
+
 interface Candidate {
   id: string;
   person_a_id: string;
@@ -48,6 +57,7 @@ interface Candidate {
   created_at?: string;
   person?: EmbeddedPerson | null;
   staging?: EmbeddedStaging | null;
+  file?: EmbeddedFile | null;
 }
 
 interface ListResponse {
@@ -80,9 +90,10 @@ export function MergeCandidatesWorkspace() {
     setLoading(true);
     setListError(null);
     try {
+      // Row 146 Step 5: include file embed for dataset color badges.
       const url =
         `/api/people-db/merge-candidates?status=pending` +
-        `&embed=person,staging&page=${nextPage}&page_size=${PAGE_SIZE}`;
+        `&embed=person,staging,file&page=${nextPage}&page_size=${PAGE_SIZE}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const body = (await res.json()) as ListResponse;
@@ -243,10 +254,19 @@ function CandidateCard({
   onConfirm: () => void;
   onReject: () => void;
 }) {
-  const { person, staging, match_reason, confidence } = candidate;
+  const { person, staging, file, match_reason, confidence } = candidate;
   const stagingName = staging?.normalized?.name ?? '—';
   const stagingPhones = staging?.normalized?.phones ?? [];
   const stagingAddress = staging?.normalized?.address?.raw ?? '—';
+  // Compose dataset path for the badge: prefer subpath when present so two
+  // batches under the same root still show as the same color (root drives
+  // the hash) but the chip label conveys the full path. Falls back to root
+  // alone, then null (renders neutral grey).
+  const datasetPath = file?.dataset_root
+    ? file.dataset_subpath
+      ? `${file.dataset_root}/${file.dataset_subpath}`
+      : file.dataset_root
+    : null;
 
   // Card does not forward arbitrary props, so wrap it to expose a testid
   // hook for the admin-page test suite.
@@ -258,6 +278,9 @@ function CandidateCard({
           <CardTitle className="text-base">候選 {candidate.id}</CardTitle>
           <Badge variant="info">{match_reason}</Badge>
           <Badge variant="default">confidence {confidence}</Badge>
+          {datasetPath && (
+            <DatasetBadge path={datasetPath} label={file?.dataset_root ?? datasetPath} />
+          )}
         </div>
       </CardHeader>
       <CardContent className="pt-0 space-y-3">

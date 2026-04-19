@@ -62,8 +62,14 @@ Row 131–145 一路堆疊出 5 個獨立 sub-route：
   - 行為改動：移除「empty selection → empty results」guard，改為 empty = 搜尋全部 dataset（Jason 拍板的「預設全部」語意）
   - 新增 scope banner：「目前範圍：全部資料集（預設）」/ 「目前範圍：N 個資料集 [清除選取]」+ 右側提示「結果列上的顏色 badge 標示來源 dataset」
   - 三處 dataset_source 顯示改用 `<DatasetBadge>`：result row 的 source 欄、person-mode 展開的 sources 列、最近匯入批次面板
-- [x] Merge-candidates / Ingest：本 PR 不動（merge-candidates 沒直接 render dataset path、ingest 的 source_path 內含 dataset root 但需要 API plumbing）— 留待後續 PR
 - [x] 4 cases 新增 `search/__tests__/scope-and-color.test.tsx`：banner 預設「全部」/ 選 dataset 後顯示 N 個 / 清除回到「全部」/ DatasetBadge mounted 在 batch list；全 people-db 套件 295/295 全綠
+
+### Step 5+6（merge-candidates + ingest 顏色 badge）✅
+- [x] Merge-candidates API：`/api/people-db/merge-candidates` `VALID_EMBEDS` 加 `'file'`；當 `embed=staging,file` 時走 `staging.file_id` IN-lookup `people_db_files` 拿 `dataset_root` / `dataset_subpath`，attach 為 `item.file = { id, dataset_root, dataset_subpath } | null`
+- [x] Merge-candidates UI：`/superadmin/settings/people-database/merge-candidates` 改 fetch 加 `&embed=...,file`；卡片 header 多一個 `<DatasetBadge>` chip（path 用 `dataset_root/subpath` 完整路徑作 hash，label 顯示 root only 保持簡潔）
+- [x] Ingest API：本來 `/api/people-db/ingest/files` 就回 `dataset_root` / `dataset_subpath`，本 PR 不需改 API
+- [x] Ingest UI：`FailedFile` interface 加 `dataset_root?` / `dataset_subpath?`；failed file 卡片在 ext badge 後插入 `<DatasetBadge>`，僅當 `dataset_root` 存在
+- [x] 7 cases 新增（API embed=file ×3、merge card UI ×2、ingest list UI ×2）；全 people-db 套件 302/302 + tsc clean
 
 ## 4. 風險
 

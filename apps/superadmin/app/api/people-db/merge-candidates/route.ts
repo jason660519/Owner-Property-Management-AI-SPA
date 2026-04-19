@@ -16,7 +16,10 @@ const PAGE_SIZE_DEFAULT = 20;
 const PAGE_SIZE_MAX = 100;
 const VALID_STATUSES = ['pending', 'confirmed', 'rejected', 'all'] as const;
 type StatusFilter = (typeof VALID_STATUSES)[number];
-const VALID_EMBEDS = ['person', 'staging'] as const;
+// Row 146 Step 5: 'file' embeds dataset_root / dataset_subpath from
+// people_db_files so the admin UI can render a colored DatasetBadge per
+// candidate. Requires 'staging' to also be embedded (file_id lives there).
+const VALID_EMBEDS = ['person', 'staging', 'file'] as const;
 type EmbedToken = (typeof VALID_EMBEDS)[number];
 
 interface CandidateRow {
@@ -36,7 +39,14 @@ interface PersonFixture {
 
 interface StagingFixture {
   id: string;
+  file_id?: string | null;
   [key: string]: unknown;
+}
+
+interface FileFixture {
+  id: string;
+  dataset_root: string | null;
+  dataset_subpath: string | null;
 }
 
 function parseEmbed(raw: string | null): Set<EmbedToken> {
@@ -145,6 +155,35 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       stagingMap.set(s.id, s);
     }
 
+    // Row 146 Step 5: optional second-pass file lookup for dataset color
+    // badges. Skipped silently when 'file' wasn't requested or when staging
+    // produced no file_ids — keeps the worst-case round-trip count predictable.
+    const fileMap = new Map<string, FileFixture>();
+    if (embed.has('file') && stagingMap.size > 0) {
+      const fileIds = Array.from(
+        new Set(
+          Array.from(stagingMap.values())
+            .map((s) => s.file_id)
+            .filter((v): v is string => typeof v === 'string' && v.length > 0),
+        ),
+      );
+      if (fileIds.length > 0) {
+        const filesRes = await supabase
+          .from('people_db_files')
+          .select('id, dataset_root, dataset_subpath')
+          .in('id', fileIds);
+        if (filesRes.error) {
+          return NextResponse.json(
+            { ok: false, error: 'Embed lookup failed (files)', detail: filesRes.error.message },
+            { status: 500 },
+          );
+        }
+        for (const f of (filesRes.data ?? []) as FileFixture[]) {
+          fileMap.set(f.id, f);
+        }
+      }
+    }
+
     enrichedItems = items.map((item) => {
       const next: CandidateRow = { ...item };
       if (embed.has('person')) {
@@ -152,6 +191,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }
       if (embed.has('staging')) {
         next.staging = stagingMap.get(item.record_b_id) ?? null;
+      }
+      if (embed.has('file')) {
+        const staging = stagingMap.get(item.record_b_id);
+        const file = staging?.file_id ? fileMap.get(staging.file_id) ?? null : null;
+        next.file = file;
       }
       return next;
     });
