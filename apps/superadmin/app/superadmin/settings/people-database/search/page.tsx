@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import EnhancedTable from '@/components/ui/EnhancedTable';
 import DatasetTreePanel from '@/components/people-database/DatasetTreePanel';
+import DatasetBadge from '@/components/people-database/DatasetBadge';
 import {
   buildDatasetTree,
   flattenSelectedPaths,
@@ -206,8 +207,8 @@ const columns: ColumnDef<PeopleRecord, unknown>[] = [
     id: 'source',
     header: '資料來源 / 原始檔',
     cell: ({ row }) => (
-      <div className="space-y-0.5">
-        <span className="block text-text-secondary">{row.original.data_source ?? '—'}</span>
+      <div className="space-y-1">
+        <DatasetBadge path={row.original.data_source} />
         <span className="block text-[11px] text-text-secondary/80 truncate max-w-[220px]">
           {sourceFileName(row.original.source_file_path)}
         </span>
@@ -352,13 +353,10 @@ export function PeopleDatabaseSearchWorkspace() {
 
   const doSearch = useCallback(
     async (currentPage = 1) => {
-      if (datasets.length > 0 && selectedSources.length === 0) {
-        setHasSearched(true);
-        setResults([]);
-        setTotal(0);
-        setPage(1);
-        return;
-      }
+      // Row 146: empty selection now means "search all datasets" (the default
+      // user expectation). Previously this returned empty results as a guard
+      // against accidental cross-dataset searches; isolation is now signalled
+      // by the colored DatasetBadge in each result row instead.
 
       setLoading(true);
       setHasSearched(true);
@@ -432,6 +430,33 @@ export function PeopleDatabaseSearchWorkspace() {
         <div>
           <h1 className="text-2xl font-bold text-text-primary">搜尋人員資料庫</h1>
           <p className="text-text-secondary mt-1">支援電話/身分證精準查詢，並可追溯每筆資料來源與匯入批次。</p>
+        </div>
+
+        {/* Row 146: scope hint — empty selection means search-all. */}
+        <div
+          className="flex flex-wrap items-center gap-2 rounded border border-border-default bg-bg-secondary px-3 py-2 text-xs text-text-secondary"
+          data-testid="scope-banner"
+        >
+          <span>目前範圍：</span>
+          {selectedSources.length === 0 ? (
+            <span className="font-medium text-text-primary">全部資料集（預設）</span>
+          ) : (
+            <>
+              <span className="font-medium text-text-primary">
+                {selectedSources.length} 個資料集
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedSources([])}
+                className="text-accent hover:underline"
+              >
+                清除選取（改回搜全部）
+              </button>
+            </>
+          )}
+          <span className="ml-auto text-text-secondary/70">
+            結果列上的顏色 badge 標示來源 dataset
+          </span>
         </div>
 
         {/* ---- Group-by toggle (person aggregate vs. flat records) ---- */}
@@ -520,7 +545,7 @@ export function PeopleDatabaseSearchWorkspace() {
                 <div key={batch.batch_id} className="flex flex-wrap items-center gap-2 rounded border border-border-default p-2 text-xs">
                   <Badge variant={batchStatusVariant(batch.status)}>{batch.status ?? 'unknown'}</Badge>
                   <span className="text-text-primary">{batch.label ?? batch.batch_id}</span>
-                  <span className="text-text-secondary">{batch.data_source ?? '—'}</span>
+                  <DatasetBadge path={batch.data_source} />
                   <span className="text-text-secondary">
                     {batch.processed_records}/{batch.total_records}
                   </span>
@@ -603,10 +628,10 @@ export function PeopleDatabaseSearchWorkspace() {
                           {isExpanded && (
                             <ul className="pl-3 space-y-1 text-xs text-text-secondary">
                               {p.sources.map((s) => (
-                                <li key={s.record_id} className="flex flex-wrap gap-2">
+                                <li key={s.record_id} className="flex flex-wrap items-center gap-2">
                                   <span className="font-mono">{s.record_id}</span>
                                   <span>{s.full_name ?? s.name ?? ''}</span>
-                                  <span>{s.data_source ?? ''}</span>
+                                  <DatasetBadge path={s.data_source} />
                                   <span className="truncate">
                                     {s.source_file_path ?? ''}
                                   </span>
