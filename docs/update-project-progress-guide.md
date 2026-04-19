@@ -37,24 +37,24 @@ http://localhost:3001/superadmin/dashboard/project-progress#testing
 
 ## 🎯 Development Tab 欄位（共 14 欄）
 
-| 欄 | 表頭 (EN / ZH)                                         | 資料來源                               | 說明                                                                                                                    |
-| :-: | :----------------------------------------------------- | :------------------------------------- | :---------------------------------------------------------------------------------------------------------------------- |
-| 1 | **ID / 編碼**                                    | 自動產生                               | Row 順序，格式 `001`, `002`…                                                                                       |
-| 2 | **Role/General / 按Role或通用分類**              | `category`                           | 按 Role 或通用分類（見常用分類），以 pill badge 顯示                                                                    |
-| 3 | **Located Page / 按所屬頁面分類**                | `locatedPage`                        | 功能所屬頁面路徑（可不填，顯示 `—`）                                                                                 |
-| 4 | **Feature / 按功能需求分類**                     | `name`                               | 功能需求名稱                                                                                                            |
-| 5 | **DEV-SPEC (.md) / 功能規格 .md**                | `featureSpecDocPath`                 | Dev-Spec (.md) 連結，顯示為 `001-Dev-Spec.md`                                                                         |
-| 6 | **TDD Spec (.md) / TDD 規格說明書 .md**          | `tddSpecDocPath`                     | TDD Spec (.md) 連結，顯示為 `001-TDD-Spec.md`                                                                         |
-| 7 | **TDD Progress Report (.md) / TDD 進度報告 .md** | `docPath`                            | TDD Progress Report (.md) 連結，顯示為 `001-TDD-Report.md`                                                            |
-| 8 | **Unit and Integration Test Script Folder Name** | 自動產生                               | 固定路徑 `apps/superadmin/unit_test/{ID}`（依 Row ID）                                                                |
-| 9 | **E2E Acceptance Test Script Folder Name**       | 自動產生                               | 固定路徑 `apps/superadmin/e2e/{ID}`（依 Row ID）                                                                      |
-| 10 | **TDD Progress / TDD進度**                       | `percentage`                         | 進度條，顯示 `feature.percentage %`                                                                                   |
-| 11 | **E2E Test Progress / E2E測試進度**              | `e2eTestCoverage` / `testCoverage` | 進度條，優先用 `e2eTestCoverage`，fallback `testCoverage`                                                           |
-| 12 | **Prompt and IDE Setting / Prompt 與 IDE 設定**  | UI 操作按鈕                            | 點擊開啟「設定 Prompt / 執行」Modal，在 Modal 內選擇 IDE、今日工作類別並編輯 Prompt（**不存入** roadmap.ts）      |
-| 13 | **Development Log Summary / 開發日誌匯總**      | `devLogDocPath` / fallback 路徑       | 開啟任務 ID 專屬頁面 `/superadmin/dashboard/project-progress/task/{ID}/dev-log`；頁面優先讀 `devLogDocPath`，若未設定則 fallback 到 `/project-process/dev-logs/{ID}-development-log-summary.md` |
-| 14 | **Notes / 備註**                                 | —                                     | 備註欄（目前顯示 `—`，預留擴充）                                                                                     |
+| 欄 | 表頭 (EN / ZH)                                         | 資料來源                               | 說明                                                                                                                                                                                                  |
+| :-: | :----------------------------------------------------- | :------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 | **ID / 編碼**                                    | 自動產生                               | Row 順序，格式 `001`, `002`…                                                                                                                                                                     |
+| 2 | **Role/General / 按Role或通用分類**              | `category`                           | 按 Role 或通用分類（見常用分類），以 pill badge 顯示                                                                                                                                                  |
+| 3 | **Located Page / 按所屬頁面分類**                | `locatedPage`                        | 功能所屬頁面路徑（可不填，顯示 `—`）                                                                                                                                                               |
+| 4 | **Feature / 按功能需求分類**                     | `name`                               | 功能需求名稱                                                                                                                                                                                          |
+| 5 | **DEV-SPEC (.md) / 功能規格 .md**                | `featureSpecDocPath`                 | Dev-Spec (.md) 連結，顯示為 `001-Dev-Spec.md`                                                                                                                                                       |
+| 6 | **TDD Spec (.md) / TDD 規格說明書 .md**          | `tddSpecDocPath`                     | TDD Spec (.md) 連結，顯示為 `001-TDD-Spec.md`                                                                                                                                                       |
+| 7 | **TDD Progress Report (.md) / TDD 進度報告 .md** | `docPath`                            | TDD Progress Report (.md) 連結，顯示為 `001-TDD-Report.md`                                                                                                                                          |
+| 8 | **Unit and Integration Test Script Folder Name** | 自動產生                               | 固定路徑 `apps/superadmin/unit_test/{ID}`（依 Row ID）                                                                                                                                              |
+| 9 | **E2E Acceptance Test Script Folder Name**       | 自動產生                               | 固定路徑 `apps/superadmin/e2e/{ID}`（依 Row ID）                                                                                                                                                    |
+| 10 | **TDD Progress / TDD進度**                       | `percentage`                         | 進度條，顯示 `feature.percentage %`                                                                                                                                                                 |
+| 11 | **E2E Test Progress / E2E測試進度**              | `e2eTestCoverage` / `testCoverage` | 進度條，優先用 `e2eTestCoverage`，fallback `testCoverage`                                                                                                                                         |
+| 12 | **Prompt and IDE Setting / Prompt 與 IDE 設定**  | UI 操作按鈕                            | 點擊開啟「設定 Prompt / 執行」Modal，在 Modal 內選擇 IDE、今日工作類別並編輯 Prompt（**不存入** roadmap.ts）                                                                                    |
+| 13 | **Development Log Summary / 開發日誌匯總**       | `devLogDocPath` / fallback 路徑      | 開啟任務 ID 專屬頁面 `/superadmin/dashboard/project-progress/task/{ID}/dev-log`；頁面優先讀 `devLogDocPath`，若未設定則 fallback 到 `/project-process/dev-logs/{ID}-development-log-summary.md` |
+| 14 | **Notes / 備註**                                 | —                                     | 備註欄（目前顯示 `—`，預留擴充）                                                                                                                                                                   |
 
-> ⚠️ **測試腳本目錄注意**：欄8 的自動產生路徑為 `apps/superadmin/unit_test/{ID}/`（**非** `unit_and_integration_test`）。實際目前已有資料的子目錄為 `unit_test/002/` 和 `unit_test/004/`。
+> ⚠️ **測試腳本目錄注意**：欄8 的自動產生路徑為 `apps/superadmin/unit_test/{ID}/`（**非** `unit_and_integration_test`）。
 
 ### 欄位與 roadmap.ts 對應摘要
 
@@ -68,23 +68,8 @@ http://localhost:3001/superadmin/dashboard/project-progress#testing
 | `docPath`                               | 欄7：TDD Progress Report (.md) 連結（顯示為 `001-TDD-Report.md`） |
 | `percentage`                            | 欄10：TDD 進度條（同時供統計卡片使用）                              |
 | `e2eTestCoverage` / `testCoverage`    | 欄11：E2E 進度條                                                    |
-| `devLogDocPath`                        | 欄13：開發日誌匯總頁的 md 主來源                                    |
+| `devLogDocPath`                         | 欄13：開發日誌匯總頁的 md 主來源                                    |
 | `lastModifiedBy` / `lastModifiedDate` | 不在 Development Tab 顯示（仍建議填寫）                             |
-
-### 送出 Prompt 與本地 Agent 流程（全自動化到 TDD + 測試 + git push）
-
-1. **送出 Prompt**：在 Development Tab 點「設定 Prompt / 執行」→ 選擇 IDE（如 Cursor）、今日工作類別（可選）、編輯 Prompt → 按「送出 Prompt」。會建立一筆 `dev_tasks` 任務（狀態 `queued`）。
-2. **本地 Agent 領取**：在專案根目錄執行 `cd tools/local-agent && npm run cursor`（需先 `npm run build`）。Agent 會輪詢 `GET /api/dev-tasks/next?ideType=Cursor`，領取後任務變為 `running`，並寫入 `.cursor/dev-tasks/task-<id>.md`、複製 Prompt 到剪貼簿、開啟 Cursor 並注入 Composer（Cmd+I → Cmd+V）。
-3. **完成工作**：依 Prompt 完成 TDD、更新 TDD Progress Report、測試腳本全部通過、`git commit and push`。
-4. **標記完成**：在專案根目錄執行
-   `./scripts/complete-dev-task.sh <taskId> succeeded`
-   任務會更新為 `succeeded`，儀表板 Modal 的輪詢會顯示最新狀態。
-
-- 任務 ID 可在 Modal 下方「任務 ID」取得；若關閉 Modal，可從 `.cursor/dev-tasks/task-<id>.md` 檔名取得。
-- `SUPERADMIN_BASE_URL` 預設為 `http://localhost:3001`，可設環境變數覆寫。
-- Claude CLI 版本：`cd tools/local-agent && npm run claude`，使用 `tools/local-agent/run-claude.sh`。
-
----
 
 ## 🧪 Testing Tab 專屬欄位
 
@@ -140,19 +125,9 @@ http://localhost:3001/superadmin/dashboard/project-progress#testing
 
 ---
 
-## 📄 文件格式：Markdown
+🔗 文件路徑規則
 
-本專案依 **docs-as-code** 做法，規格與報告類文件一律使用 **Markdown（.md）** 作為單一真相來源：
-
-- **Feature Spec**、**TDD Spec**、**TDD Progress Report** 皆以 `.md` 撰寫與存放，路徑在 `roadmap.ts` 的 `featureSpecDocPath`、`tddSpecDocPath`、`docPath` 中填寫為 **以 `/` 開頭的 .md 路徑**（例如 `/project-process/features/admin-dashboard-20260206.md`）。
-- **優點**：AI 讀取時 token 較少、語意集中；版本控制與 diff 友善；必要時可由 Superadmin 文件檢視器即時渲染為 HTML，無需維護兩份格式。
-- **歷史**：原 `project-process/features/*.html` 已於 2026-02-25 全數轉為對應 `.md`，`roadmap.ts` 已更新為指向 `.md`。舊 `.html` 檔仍保留於 repo 作為存檔，新文件請一律新增 `.md`。
-
----
-
-## 🔗 文件路徑規則
-
-路徑以**專案根目錄**為準，**一律以 `/` 開頭**，寫入 `docPath` / `featureSpecDocPath` / `tddSpecDocPath`。**一律使用 .md 副檔名**（見「文件格式：Markdown 優先」）：
+路徑以**專案根目錄**為準，**一律以 `/` 開頭**，寫入 `docPath` / `featureSpecDocPath` / `tddSpecDocPath`。**一律使用 .md 副檔名**
 
 - `docs/` 底下：`/docs/子路徑/檔名.md`
 - `project-process/` 底下：`/project-process/dev-logs/dev-xxx-2026-03-07.md`、`/project-process/features/xxx-spec-20260307.md`
@@ -174,11 +149,11 @@ http://localhost:3001/superadmin/dashboard/project-progress#testing
 
 為避免把通用工具誤放到單一 ID 的測試資料夾，請遵循以下規範：
 
-| 類型 | 放置路徑 | 範例 |
-| :--- | :--- | :--- |
+| 類型                                         | 放置路徑                                                             | 範例                                                                      |
+| :------------------------------------------- | :------------------------------------------------------------------- | :------------------------------------------------------------------------ |
 | **單一 ID 驗收腳本**（只服務某個 Row） | `apps/superadmin/unit_test/{ID}/` 或 `apps/superadmin/e2e/{ID}/` | `apps/superadmin/e2e/131/people-database-single-page-workspace.spec.ts` |
-| **跨功能共用 E2E（非特定 ID）** | `apps/superadmin/e2e/common/` | `apps/superadmin/e2e/common/smoke/login-redirect.spec.ts` |
-| **跨 ID 可重用工具**（多個功能會用） | `tools/<domain>/` | `tools/people-db/check-es.sh`, `tools/people-db/seed-es-sample.sh` |
+| **跨功能共用 E2E（非特定 ID）**        | `apps/superadmin/e2e/common/`                                      | `apps/superadmin/e2e/common/smoke/login-redirect.spec.ts`               |
+| **跨 ID 可重用工具**（多個功能會用）   | `tools/<domain>/`                                                  | `tools/people-db/check-es.sh`, `tools/people-db/seed-es-sample.sh`    |
 
 **硬性規則**：
 
@@ -215,21 +190,24 @@ http://localhost:3001/superadmin/dashboard/project-progress#testing
 
    根據 Row ID（如 `027`），檢查並建立以下檔案與目錄：
 
-   | 項目 | 路徑 | roadmap.ts 欄位 | 說明 |
-   | :--- | :--- | :--- | :--- |
-   | Dev Spec | `project-process/features/{功能名}-dev-spec-{YYYYMMDD}.md` | `featureSpecDocPath` | 功能規格說明書，含架構、API、檔案清單、擴充指南 |
-   | TDD Spec | `project-process/features/tdd-{功能名}-{YYYYMMDD}.md` | `tddSpecDocPath` | 測試規格，含單元/整合/E2E 測試案例、Mock 策略 |
-   | TDD Progress Report | `project-process/test-logs/test-{功能名}-{YYYY-MM-DD}.md` | `docPath` | 測試進度報告，含覆蓋率、手動驗證紀錄、待辦 |
-   | Unit Test 目錄 | `apps/superadmin/unit_test/{Row-ID}/` | `testScriptPath` | 單元與整合測試腳本存放處 |
-   | E2E Test 目錄 | `apps/superadmin/e2e/{Row-ID}/` | — | E2E 驗收測試腳本存放處 |
+   | 項目                | 路徑                                                         | roadmap.ts 欄位        | 說明                                            |
+   | :------------------ | :----------------------------------------------------------- | :--------------------- | :---------------------------------------------- |
+   | Dev Spec            | `project-process/features/{功能名}-dev-spec-{YYYYMMDD}.md` | `featureSpecDocPath` | 功能規格說明書，含架構、API、檔案清單、擴充指南 |
+   | TDD Spec            | `project-process/features/tdd-{功能名}-{YYYYMMDD}.md`      | `tddSpecDocPath`     | 測試規格，含單元/整合/E2E 測試案例、Mock 策略   |
+   | TDD Progress Report | `project-process/test-logs/test-{功能名}-{YYYY-MM-DD}.md`  | `docPath`            | 測試進度報告，含覆蓋率、手動驗證紀錄、待辦      |
+   | Unit Test 目錄      | `apps/superadmin/unit_test/{Row-ID}/`                      | `testScriptPath`     | 單元與整合測試腳本存放處                        |
+   | E2E Test 目錄       | `apps/superadmin/e2e/{Row-ID}/`                            | —                     | E2E 驗收測試腳本存放處                          |
 
    **流程**：
+
+
    1. 確認 Row ID（如 `027`）
    2. 建立上述 3 個 `.md` 文件（若已存在則更新內容）
    3. 建立 `unit_test/{Row-ID}/` 和 `e2e/{Row-ID}/` 目錄（若已存在則跳過）
    4. 在 roadmap.ts 中填入 `featureSpecDocPath`、`tddSpecDocPath`、`docPath`、`testScriptPath`
 
    **範例**（Row ID = 027，備份系統）：
+
    ```
    project-process/features/backup-system-dev-spec-20260406.md
    project-process/features/tdd-backup-system-20260406.md
@@ -344,17 +322,17 @@ apps/superadmin/
 
 以下欄位為 `roadmap.ts` 中定義但指南未充分說明的欄位：
 
-| 欄位                                            | 說明                                                 |
-| :---------------------------------------------- | :--------------------------------------------------- |
-| `devCompletedCount` / `devTodoCount`        | 開發任務完成數/總數，顯示為「完成數/TODO數」         |
-| `testScriptCount` / `testScriptPassedCount` | 測試腳本總數 / 已通過數（顯示通過率）                |
-| `testScriptPath`                              | 測試腳本實際目錄路徑（相對專案根）                   |
+| 欄位                                            | 說明                                                          |
+| :---------------------------------------------- | :------------------------------------------------------------ |
+| `devCompletedCount` / `devTodoCount`        | 開發任務完成數/總數，顯示為「完成數/TODO數」                  |
+| `testScriptCount` / `testScriptPassedCount` | 測試腳本總數 / 已通過數（顯示通過率）                         |
+| `testScriptPath`                              | 測試腳本實際目錄路徑（相對專案根）                            |
 | `devLogDocPath`                               | 開發日誌文件路徑；欄13 會開啟任務 ID 專屬頁並以此 md 為主來源 |
-| `developmentProgress`                         | 開發進度的文字描述（非百分比，供摘要說明）           |
-| `workCategory`                                | 工作類別（如「重構/優化」「維運」「文件撰寫」）      |
-| `points`                                      | Story Points，工作量估算                             |
-| `mode`                                        | AI 模式（如 `'agent'`、`'chat'`）                |
-| `model`                                       | 使用的 AI 模型名稱（如 `'claude-sonnet-4-6'`）     |
+| `developmentProgress`                         | 開發進度的文字描述（非百分比，供摘要說明）                    |
+| `workCategory`                                | 工作類別（如「重構/優化」「維運」「文件撰寫」）               |
+| `points`                                      | Story Points，工作量估算                                      |
+| `mode`                                        | AI 模式（如 `'agent'`、`'chat'`）                         |
+| `model`                                       | 使用的 AI 模型名稱（如 `'claude-sonnet-4-6'`）              |
 
 ---
 
@@ -378,16 +356,17 @@ apps/superadmin/
 為支援「1 人 + 多 AI worker（Paperclip/Hermes/Cursor Agent）」並行開發，採用下列最小治理組件：
 
 1. **機器可讀測試清單**
+
    - 檔案：`apps/superadmin/test-manifest.json`
    - 目的：定義每個 ID / common 的 unit 與 e2e 測試路徑、執行層級（`pr` / `nightly`）、狀態（`active` / `quarantine`）。
    - `tier=nightly` 時需標示 `nightlyLayer`：`smoke` 或 `regression`。
    - `tier=nightly` 時需標示 `nightlyOrder`（非負整數），供同層執行排序（數字越小越先執行）。
-
 2. **一致性驗證腳本**
+
    - 檔案：`tools/testing/validate-test-manifest.sh`
    - 目的：在本地或 CI 驗證 manifest 結構、路徑存在性、tier/status 合法值。
-
 3. **Nightly 回歸腳本**
+
    - 檔案：`tools/testing/run-superadmin-nightly.sh`
    - 目的：每日/排程執行 active 測試並輸出 log；先跑 manifest 驗證，再依 `nightlyLayer` 順序執行（先 smoke，後 regression）。
 

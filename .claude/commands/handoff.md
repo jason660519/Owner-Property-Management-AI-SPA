@@ -13,9 +13,51 @@
 6. **驗證你要在 prompt 中提及的每個技術斷言** — 任何「專案使用 X 套件」、「已有 Y provider / helper」、「在 Z 路徑」的陳述，**都要在寫下前用 grep/Glob/Read 驗證**；沒驗證就不准寫。常見翻車題見下方「常見臆測陷阱」。
 7. **API shape 確認** — 若下一任務需要某 API 回特定欄位，必須**實際 Read 那支 route.ts** 確認現況是否已支援；若不支援，在 prompt 中**明確標註「需擴充 X API，補 Y 欄位」**，不得假設它已能回。
 
-## 輸出格式
+## 輸出格式（**雙軌**：chat 顯示 + 檔案落地）
 
-用一個 markdown fenced code block 包住**整份 prompt**，讓 Jason 一鍵複製。內含以下段落（依序）：
+**必須兩件事都做**，缺一不可：
+
+### A. Chat 輸出
+用一個 markdown fenced code block 包住**整份 prompt**，讓 Jason 一鍵複製貼到下個 session。
+
+### B. 同時存成檔案
+
+存到 **`project-process/handoffs/handoff-{topic}-{YYYYMMDD}.md`**：
+
+| 欄位 | 規則 |
+|:--|:--|
+| `topic` | kebab-case，含 row 編號與 sprint，例：`row-145-sprint-2b`、`auth-audit-pr-h` |
+| `YYYYMMDD` | 產出當日（用 8 位數字、無連字號） |
+
+**檔案結構**：
+
+```markdown
+# Handoff — {主題}
+
+> **產出時間**：YYYY/MM/DD
+> **產出者**：Claude {model}（與 {使用者} 對話）
+> **接手對象**：下一個 Claude session
+> **承接內容**：（一句話為什麼需要這份 handoff）
+> **如何使用**：複製下方 fenced code block 整段，貼到新 session 的第一則 prompt
+
+---
+
+```markdown
+（chat 裡那份 fenced 內容原樣再貼一次，作為主體）
+```
+
+---
+
+## 使用方式
+（簡短複製步驟）
+
+## 相關文件
+（cross-link 到 dev-spec、tdd-spec、dev-log、test-log、roadmap.ts entry）
+```
+
+> 為什麼要落地？Chat 輸出會隨 session 結束消失；檔案進 git 後永久可追溯，且儀表板（dashboard）能 cross-link、Search 可索引。
+
+### 內含以下段落（依序）：
 
 1. **身分與慣例**
 
@@ -73,6 +115,14 @@
 | Migration 已存在某表 | `ls supabase/migrations | grep <keyword>` | 沒有就標註為「需新 migration」|
 
 違反任何一條寫出錯誤斷言 → 接手 AI 會照錯誤描述動工，浪費時間排雷。
+
+## 完成檢查清單（落地前自我驗證）
+
+- [ ] Chat 已輸出 fenced code block
+- [ ] 已建立 `project-process/handoffs/handoff-{topic}-{YYYYMMDD}.md` 檔案（用 Write tool）
+- [ ] 檔案內含「使用方式」與「相關文件」cross-link
+- [ ] 跑 `ls project-process/handoffs/` 確認檔案存在
+- [ ] 在 chat 結尾告知使用者**兩個位置**：「複製下方 / 或日後從 `project-process/handoffs/...` 取回」
 
 ## 特別強調
 

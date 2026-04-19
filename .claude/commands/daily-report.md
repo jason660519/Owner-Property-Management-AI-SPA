@@ -3,10 +3,12 @@
 ## 完整流程（依序執行）
 
 ### 步驟一：掃描今日工作內容
+
 - 回顧本次對話中所有已完成的任務（程式碼修改、bug 修復、功能開發、文件撰寫等）
 - 彙整每項任務的交付物與完成度百分比
 
 ### 步驟二：撰寫 Dev Log Markdown
+
 - 依照 `docs/update-project-progress-guide.md` 的格式撰寫完整報告
 - 報告內容必須包含：
   1. **本日完成任務清單**（條列式，含交付物與完成度 %）
@@ -17,6 +19,7 @@
 - 檔案存放至：`project-process/dev-logs/dev-{功能描述}-{YYYY-MM-DD}.md`
 
 ### 步驟三：更新 roadmap.ts
+
 - 讀取 `apps/superadmin/app/data/roadmap.ts` 的 `RAW_FEATURES` 陣列
 - 找到對應的 Row，更新以下欄位：
   - `percentage`（進度百分比）
@@ -27,24 +30,29 @@
 - 若為全新功能，在陣列末尾新增條目（含必填欄位 name/category/percentage）
 
 ### 步驟四：判斷是否需要建立 VIS Paperclip Issue
+
 根據以下規則自主判斷：
 
 **必須建 issue 的情況：**
+
 - 修復了 bug（尤其是影響用戶體驗的）
 - 完成了新功能或重要重構
 - 發現了需要後續跟進的技術債
 - 有 blocked 或需要其他人介入的事項
 
 **不需建 issue 的情況：**
+
 - 純文件更新（README、註解）
 - 微小的 style/typo 修正
 - 尚未完成的半成品（下次再報）
 
 **判斷後的行為：**
+
 - 若判斷「需要建 issue」→ 執行步驟五
 - 若判斷「不需要」→ 跳過步驟五，直接輸出完成摘要
 
 ### 步驟五：在 VIS Paperclip 建立 Issue
+
 - 使用 Playwright CLI 或 Playwright MCP 開啟 `http://localhost:3187/VIS/agents/ceo/dashboard`
 - 點擊「New Issue」
 - 自動填入：
@@ -59,7 +67,9 @@
 - **送出前詢問用戶確認**（因為是不可逆操作）
 
 ### 步驟六：輸出完成摘要
+
 格式：
+
 ```
 ✅ 已完成每日進度報告
 
@@ -69,11 +79,13 @@
 ```
 
 ## 瀏覽器工具優先序
+
 1. Playwright CLI（`bash tools/testing/playwright-cli.sh`）— 最省 token
 2. Playwright MCP — 備選
 3. 其他瀏覽器工具 — 最後手段
 
 ## 注意事項
+
 - 回覆用繁體中文，程式碼註解用英文
 - 若今日無實質工作（純討論/規劃），告知用戶「今日無需產生報告」
 - 若涉及多個 Row，每個都要更新
