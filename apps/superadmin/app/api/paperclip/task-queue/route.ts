@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { requireSuperadminOrInternal } from '@/lib/auth/require-superadmin-or-internal';
 
 export interface PaperclipTaskRow {
   id: string;
@@ -31,6 +32,14 @@ export interface PaperclipTaskRow {
 }
 
 export async function GET(request: NextRequest) {
+  const authResult = await requireSuperadminOrInternal({
+    request,
+    routeLabel: 'api/paperclip/task-queue',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ ok: false, error: authResult.message }, { status: authResult.status });
+  }
+
   const supabase = createAdminClient();
   const rowId = request.nextUrl.searchParams.get('rowId');
   const activeOnly = request.nextUrl.searchParams.get('active') !== 'false';
@@ -78,6 +87,14 @@ interface CreateTaskBody {
 }
 
 export async function POST(request: NextRequest) {
+  const authResult = await requireSuperadminOrInternal({
+    request,
+    routeLabel: 'api/paperclip/task-queue',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ ok: false, error: authResult.message }, { status: authResult.status });
+  }
+
   let body: CreateTaskBody;
   try {
     body = (await request.json()) as CreateTaskBody;

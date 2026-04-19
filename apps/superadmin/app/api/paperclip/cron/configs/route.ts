@@ -4,11 +4,20 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { requireSuperadminOrInternal } from '@/lib/auth/require-superadmin-or-internal';
 import type { CronJobType } from '@/lib/paperclip/adapter-models';
 
 const VALID_JOB_TYPES: CronJobType[] = ['agent_health', 'work_summary', 'auto_dispatch'];
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authResult = await requireSuperadminOrInternal({
+    request,
+    routeLabel: 'api/paperclip/cron/configs',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('paperclip_cron_configs')
@@ -23,6 +32,14 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
+  const authResult = await requireSuperadminOrInternal({
+    request,
+    routeLabel: 'api/paperclip/cron/configs',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ ok: false, error: authResult.message }, { status: authResult.status });
+  }
+
   let body: {
     job_type: CronJobType;
     enabled?: boolean;
@@ -49,11 +66,10 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  const userId = request.headers.get('x-user-id');
   const updates: Record<string, unknown> = {};
   if (body.enabled !== undefined) updates.enabled = body.enabled;
   if (body.interval_seconds !== undefined) updates.interval_seconds = body.interval_seconds;
-  if (userId) updates.updated_by = userId;
+  if (authResult.userId) updates.updated_by = authResult.userId;
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ ok: false, error: 'No fields to update.' }, { status: 400 });

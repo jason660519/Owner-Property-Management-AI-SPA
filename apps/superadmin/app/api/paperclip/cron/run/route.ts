@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { requireSuperadminOrInternal } from '@/lib/auth/require-superadmin-or-internal';
 import type { CronJobType } from '@/lib/paperclip/adapter-models';
 
 const VALID_JOB_TYPES: CronJobType[] = ['agent_health', 'work_summary', 'auto_dispatch'];
@@ -20,6 +21,14 @@ function getInternalUrl(jobType: CronJobType): string {
 }
 
 export async function POST(request: NextRequest) {
+  const authResult = await requireSuperadminOrInternal({
+    request,
+    routeLabel: 'api/paperclip/cron/run',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ ok: false, error: authResult.message }, { status: authResult.status });
+  }
+
   let body: { job_type: CronJobType };
   try {
     body = await request.json();
@@ -34,16 +43,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const userId = request.headers.get('x-user-id');
+  const userId = authResult.userId;
   const url = getInternalUrl(body.job_type);
   const method = body.job_type === 'auto_dispatch' ? 'POST' : 'GET';
+  // Forward INTERNAL_API_KEY so downstream routes (which will also be guarded
+  // by requireSuperadminOrInternal) accept the server-to-server call regardless
+  // of whether the outer caller had a session or the internal key.
+  const internalKey = process.env.INTERNAL_API_KEY ?? '';
 
   try {
     const res = await fetch(url, {
       method,
       headers: {
         'Content-Type': 'application/json',
-        ...(userId ? { 'x-user-id': userId } : {}),
+        ...(internalKey ? { Authorization: `Bearer ${internalKey}` } : {}),
       },
       ...(method === 'POST' ? { body: JSON.stringify({ dryRun: false, limit: 2 }) } : {}),
     });

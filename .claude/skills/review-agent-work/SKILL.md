@@ -20,8 +20,11 @@ description: '檢查 Paperclip agent 的工作成果，自動修復常見問題�
 
 ### Step 1: 取得工作摘要
 
+**Issue #34 PR C 起**：superadmin `/api/paperclip/*` 端點需要認證。用 `tools/paperclip/auth-header.sh` 產生 `Authorization: Bearer $INTERNAL_API_KEY` header。
+
 ```bash
-curl -s "http://localhost:3001/api/paperclip/work-summary"
+curl -s "http://localhost:3001/api/paperclip/work-summary" \
+  -H "$(bash tools/paperclip/auth-header.sh)"
 ```
 
 回傳 `readyToMerge`、`hasIssues`、每個 branch 的 diff stat 和 issues。
@@ -67,6 +70,7 @@ docker exec $CONTAINER sh -c "
 
 ```bash
 curl -s -X POST "http://localhost:3001/api/paperclip/worktrees/{slug}/merge" \
+  -H "$(bash tools/paperclip/auth-header.sh)" \
   -H "Content-Type: application/json" \
   -d '{"cleanup": true}'
 ```

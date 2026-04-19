@@ -166,8 +166,11 @@ autoplan → ship。
 
 #### ✅ 正確做法：透過 Superadmin API
 
+**Issue #34 PR C 起**：superadmin `/api/paperclip/*` 端點需要認證。shell caller（包含本 skill）必須帶 `Authorization: Bearer $INTERNAL_API_KEY`。用 `tools/paperclip/auth-header.sh` 產生 header（會從 `apps/superadmin/.env.local` 讀 `INTERNAL_API_KEY`）。
+
 ```bash
 curl -s -X POST "http://localhost:3001/api/paperclip/issues" \
+  -H "$(bash tools/paperclip/auth-header.sh)" \
   -H "Content-Type: application/json" \
   -d '{
     "title": "[Row 031] 房東的客戶 Grid模式",
@@ -325,10 +328,14 @@ curl -X PATCH -H "$AUTH" -H "Content-Type: application/json" \
 ```bash
 # 取消
 curl -s -X POST "http://localhost:3001/api/paperclip/issues/{issueId}/update" \
+  -H "$(bash tools/paperclip/auth-header.sh)" \
   -H "Content-Type: application/json" -d '{"status":"cancelled"}'
 
-# 重新建立（透過 superadmin）
-curl -s -X POST "http://localhost:3001/api/paperclip/issues" ...
+# 重新建立（透過 superadmin）— 每一支 localhost:3001/api/paperclip/* 呼叫都要加
+# -H "$(bash tools/paperclip/auth-header.sh)"
+curl -s -X POST "http://localhost:3001/api/paperclip/issues" \
+  -H "$(bash tools/paperclip/auth-header.sh)" \
+  -H "Content-Type: application/json" -d '{ ... }'
 ```
 
 ### Paperclip 容器 crash（exit code 137 = OOM）
@@ -348,13 +355,15 @@ docker compose -f docker/paperclip/docker-compose.paperclip.yml \
 
 ```bash
 curl -s -X POST "http://localhost:3001/api/paperclip/worktrees/cleanup" \
+  -H "$(bash tools/paperclip/auth-header.sh)" \
   -H "Content-Type: application/json"
 ```
 
 ### 查詢現有 worktrees
 
 ```bash
-curl -s "http://localhost:3001/api/paperclip/worktrees"
+curl -s "http://localhost:3001/api/paperclip/worktrees" \
+  -H "$(bash tools/paperclip/auth-header.sh)"
 ```
 
 ---
@@ -365,10 +374,12 @@ curl -s "http://localhost:3001/api/paperclip/worktrees"
 
 ```bash
 # Dry-run：只看計畫不執行
-curl -s -X POST "http://localhost:3001/api/paperclip/auto-dispatch?dryRun=true&limit=5"
+curl -s -X POST "http://localhost:3001/api/paperclip/auto-dispatch?dryRun=true&limit=5" \
+  -H "$(bash tools/paperclip/auth-header.sh)"
 
 # 實際執行：最多派 2 個任務
-curl -s -X POST "http://localhost:3001/api/paperclip/auto-dispatch?limit=2"
+curl -s -X POST "http://localhost:3001/api/paperclip/auto-dispatch?limit=2" \
+  -H "$(bash tools/paperclip/auth-header.sh)"
 ```
 
 Auto-dispatch 已設定 cron 每 10 分鐘執行（上限 2 個任務）。
