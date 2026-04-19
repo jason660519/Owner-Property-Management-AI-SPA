@@ -1,0 +1,59 @@
+{
+  // Row 145 Sprint 7 — CLI build config.
+  //
+  // Compiles tools/people-db/*.ts (5 CLI workers) + apps/superadmin/lib/people-db/**/*.ts
+  // (their lib dependencies) to plain .js under dist/, so CLIs can run on plain
+  // `node` instead of `tsx`. This avoids the tsx + Node 25 + barrel import +
+  // supabase-js module-load crash hit during Sprint 2b Task F (see
+  // .claude/rules/critical-deps.md § Node 25 + tsx 已知陷阱).
+  //
+  // Output layout (rootDir preserves repo-relative structure under outDir):
+  //   dist/tools/people-db/scan.js
+  //   dist/apps/superadmin/lib/people-db/inventory.js
+  // Relative import "../../apps/superadmin/lib/people-db/inventory" from
+  // dist/tools/people-db/ resolves to dist/apps/superadmin/lib/people-db/inventory.js
+  // correctly because rootDir + outDir preserve the two-level climb.
+  //
+  // Kept to `commonjs` + `moduleResolution: node` to avoid forcing .js extensions
+  // on every relative import (matches tools/local-agent/tsconfig.json).
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": false,
+    "sourceMap": true,
+    "noEmitOnError": true,
+    "rootDir": "../..",
+    "outDir": "../../dist"
+  },
+  "include": [
+    "../../tools/people-db/scan.ts",
+    "../../tools/people-db/parse.ts",
+    "../../tools/people-db/normalize.ts",
+    "../../tools/people-db/resolve.ts",
+    "../../tools/people-db/ingest.ts",
+    "../../tools/people-db/reindex.ts",
+    "../../apps/superadmin/lib/people-db/**/*.ts",
+    // Ambient declarations for pg-copy-streams (used by staging-copy.ts).
+    "../../apps/superadmin/types/**/*.d.ts"
+  ],
+  // Exclude globs are relative to this tsconfig's directory (tools/people-db/).
+  // Explicit "../../" prefix is required to match files brought in via include.
+  "exclude": [
+    "**/node_modules/**",
+    "../../apps/superadmin/lib/people-db/__tests__/**",
+    "../../apps/superadmin/lib/people-db/**/*.test.ts",
+    "../../apps/superadmin/lib/people-db/**/*.test.tsx",
+    // import-jobs.ts uses Next.js "@/" path alias which is not resolvable outside
+    // the Next.js build; it isn't imported by any of the 5 CLI workers, so safe to skip.
+    "../../apps/superadmin/lib/people-db/import-jobs.ts",
+    // sprint-2b-validate.ts is a one-off standalone CLI that intentionally keeps its
+    // own tsx-based shebang and bypasses the barrel; don't let tsc compile it.
+    "../../tools/people-db/sprint-2b-validate.ts"
+  ]
+}

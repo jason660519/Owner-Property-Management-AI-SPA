@@ -48,9 +48,16 @@ async function loadPdfLib(): Promise<PdfLib> {
   // worker file (which we never actually spawn) satisfies the check.
   if (mod.GlobalWorkerOptions) {
     try {
-      const { createRequire } = await import('node:module');
-      const req = createRequire(import.meta.url);
-      mod.GlobalWorkerOptions.workerSrc = req.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs');
+      // Use Node's synchronous `require.resolve` directly. Works under both:
+      //   (a) Next.js Webpack/Turbopack (injects a `require` runtime helper)
+      //   (b) Plain Node commonjs CLI workers built via tools/people-db/tsconfig.cli.json
+      // The earlier `createRequire(import.meta.url)` form broke the CLI build
+      // because `import.meta` is only valid under ESM tsconfig module targets.
+      // See .claude/rules/critical-deps.md § Node 25 + tsx 已知陷阱.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      mod.GlobalWorkerOptions.workerSrc = require.resolve(
+        'pdfjs-dist/legacy/build/pdf.worker.mjs',
+      );
     } catch {
       // Non-Node environment (e.g. edge runtime) — fall back to a sentinel
       // string so the internal check passes without resolving a real file.

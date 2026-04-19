@@ -1,4 +1,4 @@
-#!/usr/bin/env -S npx tsx
+#!/usr/bin/env node
 // Row 145 Sprint 5 — Blue/green reindex from people_database (v1) to
 // people_database_v2 (IK-tuned mapping).
 //

@@ -1,4 +1,4 @@
-#!/usr/bin/env -S npx tsx
+#!/usr/bin/env node
 // Row 145 Sprint 4a Phase 2 — ER resolve worker CLI.
 //
 // For each staging row where `normalized IS NOT NULL AND resolved_at IS NULL`:
