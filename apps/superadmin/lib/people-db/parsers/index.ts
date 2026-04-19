@@ -5,24 +5,30 @@
 // processing where the worker walks $PEOPLE_DB_SOURCE_ROOT and feeds
 // absolute filesystem paths to the right parser.
 //
-// All parsers return the unified `ParseResult` shape so `tools/people-db/
-// parse.ts` can persist results without per-format branching.
+// Most parsers return `ParseResult`; `.dbf` / `.xlsx` return
+// `StreamingParseResult` so `tools/people-db/parse.ts` can COPY batches.
 
 import { readFile } from 'node:fs/promises';
 import { extname } from 'node:path';
 
 import { parseCsv } from '../csv-parse';
 import { parsePdfTabular } from '../pdf-parse';
-import { parseXlsx } from '../xlsx-parse';
 
-import { parseDbf } from './dbf';
+import { parseDbfStreaming } from './dbf-stream';
 import { parseFp } from './fp';
 import { parseMdb } from './mdb';
 import { parseXls } from './xls';
-import { ParserFailureError, UnsupportedParserError, type ParseResult } from './types';
+import { parseXlsxStreaming } from './xlsx-stream';
+import {
+  ParserFailureError,
+  UnsupportedParserError,
+  type ParseResult,
+  type StreamingParseResult,
+} from './types';
 
+export { isStreamingParseResult } from './types';
 export { ParserFailureError, UnsupportedParserError } from './types';
-export type { ParseResult, ParserName } from './types';
+export type { ParseResult, ParserName, StreamingParseResult } from './types';
 
 const TEXT_EXTS = new Set(['.csv', '.txt']);
 
@@ -39,7 +45,7 @@ const TEXT_EXTS = new Set(['.csv', '.txt']);
 export async function dispatchByPath(
   filePath: string,
   ext?: string,
-): Promise<ParseResult> {
+): Promise<ParseResult | StreamingParseResult> {
   const lowerExt = (ext ?? extname(filePath)).toLowerCase();
 
   if (TEXT_EXTS.has(lowerExt)) {
@@ -58,15 +64,7 @@ export async function dispatchByPath(
   }
 
   if (lowerExt === '.xlsx') {
-    const buffer = await readFile(filePath);
-    const parsed = await parseXlsx(buffer);
-    return {
-      rows: parsed.rows,
-      row_count: parsed.rows.length,
-      parser: 'xlsx',
-      warnings: [],
-      columns: parsed.columns,
-    };
+    return parseXlsxStreaming(filePath);
   }
 
   if (lowerExt === '.xls') {
@@ -78,7 +76,7 @@ export async function dispatchByPath(
   }
 
   if (lowerExt === '.dbf') {
-    return parseDbf(filePath);
+    return parseDbfStreaming(filePath);
   }
 
   if (lowerExt === '.pdf') {

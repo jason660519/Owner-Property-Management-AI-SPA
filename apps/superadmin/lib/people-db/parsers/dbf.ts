@@ -43,7 +43,7 @@ export async function parseDbf(filePath: string): Promise<ParseResult> {
       const batch = await dbf.readRecords(PAGE_SIZE);
       if (batch.length === 0) break;
       for (const record of batch) {
-        rows.push(coerceRecord(record, columns));
+        rows.push(coerceDbfRecord(record, columns));
       }
       if (batch.length < PAGE_SIZE) break;
     }
@@ -77,8 +77,9 @@ export async function parseDbf(filePath: string): Promise<ParseResult> {
  * Coerces a dbffile record (mixed Date / number / boolean / string) to a flat
  * Record<string, string>. Trims trailing spaces (DBF pads CHAR fields with
  * 0x20) and converts Date to ISO so downstream serialization is stable.
+ * Exported for `dbf-stream.ts` batch coercion (same shape as in-memory parse).
  */
-function coerceRecord(
+export function coerceDbfRecord(
   record: Record<string, unknown>,
   columns: string[],
 ): Record<string, string> {
