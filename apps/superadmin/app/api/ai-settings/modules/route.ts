@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { resolveUserId } from '@/lib/resolve-ai-settings-user';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 function getErrorMessage(err: unknown): string {
   if (err instanceof Error && err.message) return err.message;
@@ -14,20 +14,20 @@ function getErrorMessage(err: unknown): string {
   return 'Failed to save module';
 }
 
-// GET: Fetch all feature module configs（使用 resolveUserId 與 keys 一致）
+// GET: Fetch all feature module configs（session-authenticated user scope）
 export async function GET(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/modules',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
-    const requestedUserId = request.headers.get('x-user-id');
-
-    if (!requestedUserId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ modules: [] });
-    }
 
     const { data, error } = await supabase
       .from('ai_modules_assigned_function')
@@ -46,11 +46,20 @@ export async function GET(request: NextRequest) {
 
 // POST: Save or update a feature module config
 export async function POST(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/modules',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const effectiveUserId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
     const body = await request.json();
     const {
-      userId,
       moduleKey,
       isEnabled,
       assignedProvider,
@@ -58,7 +67,6 @@ export async function POST(request: NextRequest) {
       assignedModels,
       config,
     } = body as {
-      userId?: string;
       moduleKey?: string;
       isEnabled?: boolean;
       assignedProvider?: string;
@@ -67,14 +75,8 @@ export async function POST(request: NextRequest) {
       config?: unknown;
     };
 
-    if (!userId || !moduleKey) {
+    if (!moduleKey) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-
-    // Normalize to the same effective user used by GET / modules & transcript parsing.
-    const effectiveUserId = await resolveUserId(supabase, userId);
-    if (!effectiveUserId) {
-      return NextResponse.json({ error: 'Unable to resolve user' }, { status: 400 });
     }
 
     // assignedModels: [{ provider, model }, ...] — primary; fallback to single for backward compat

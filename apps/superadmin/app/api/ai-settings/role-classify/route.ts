@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { resolveUserId } from '@/lib/resolve-ai-settings-user';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 import { decryptApiKey } from '@/lib/crypto';
 import { CALLERS } from '@/lib/utils/ai-api-callers';
 import { extractJsonFromOutput } from '@/lib/utils/ai-api-callers';
@@ -8,7 +8,6 @@ import type { AIProvider } from '@/lib/ai-providers';
 import type { ClassifyLLMResultItem } from '@/lib/types/model-role-catalog';
 
 interface ClassifyBody {
-  userId: string;
   mode: 'online' | 'offline';
   classifierProvider: string;
   classifierModelId: string;
@@ -16,25 +15,30 @@ interface ClassifyBody {
 
 // POST: Run AI classification on all models
 export async function POST(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/role-classify',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
     const body = (await request.json()) as ClassifyBody;
-    const { userId: requestedUserId, mode, classifierProvider, classifierModelId } = body;
+    const { mode, classifierProvider, classifierModelId } = body;
 
-    if (!requestedUserId || !mode || !classifierProvider || !classifierModelId) {
+    if (!mode || !classifierProvider || !classifierModelId) {
       return NextResponse.json(
-        { error: 'userId, mode, classifierProvider, classifierModelId are all required' },
+        { error: 'mode, classifierProvider, classifierModelId are all required' },
         { status: 400 },
       );
     }
 
     if (mode !== 'online' && mode !== 'offline') {
       return NextResponse.json({ error: 'mode must be "online" or "offline"' }, { status: 400 });
-    }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ error: 'User not found' }, { status: 401 });
     }
 
     // 1. Resolve API key for classifier

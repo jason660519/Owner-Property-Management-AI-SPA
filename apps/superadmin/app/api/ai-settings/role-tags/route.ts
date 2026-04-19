@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 // GET: Fetch all role tags ordered by sort_order
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/role-tags',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+
   try {
     const supabase = createAdminClient();
     const { data, error } = await supabase
@@ -23,6 +33,15 @@ export async function GET() {
 
 // POST: Create a custom role tag (is_system = false)
 export async function POST(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/role-tags',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+
   try {
     const supabase = createAdminClient();
     const body = (await request.json()) as {

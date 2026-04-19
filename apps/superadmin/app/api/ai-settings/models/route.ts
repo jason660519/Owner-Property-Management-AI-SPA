@@ -3,22 +3,22 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { resolveUserId } from '@/lib/resolve-ai-settings-user';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
-// GET: Fetch selected models（使用 resolveUserId 與 keys 一致，側欄「已選模型」數量才會正確）
+// GET: Fetch selected models（session-authenticated user scope）
 export async function GET(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/models',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
-    const requestedUserId = request.headers.get('x-user-id');
-
-    if (!requestedUserId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ models: [] });
-    }
 
     const { data, error } = await supabase
       .from('ai_model_selections')
@@ -39,17 +39,22 @@ export async function GET(request: NextRequest) {
 
 // POST: Save model selections (replaces all for a provider)
 export async function POST(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/models',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
-    const { userId: requestedUserId, provider, selections } = await request.json();
+    const { provider, selections } = await request.json();
 
-    if (!requestedUserId || !provider || !Array.isArray(selections)) {
+    if (!provider || !Array.isArray(selections)) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ error: '找不到可用的使用者' }, { status: 401 });
     }
 
     // Deactivate existing selections for this provider

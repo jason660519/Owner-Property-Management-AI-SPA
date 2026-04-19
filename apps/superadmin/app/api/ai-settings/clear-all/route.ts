@@ -3,21 +3,21 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { resolveUserId } from '@/lib/resolve-ai-settings-user';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 export async function POST(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/clear-all',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
-    const requestedUserId = request.headers.get('x-user-id');
-
-    if (!requestedUserId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ error: '找不到可用的使用者' }, { status: 401 });
-    }
 
     await Promise.all([
       supabase.from('ai_api_keys').update({ is_active: false }).eq('user_id', userId),

@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { decryptApiKey } from '@/lib/crypto';
-import { resolveUserId } from '@/lib/resolve-ai-settings-user';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 type ResearchStatus = 'pending' | 'researching' | 'done' | 'failed';
 
@@ -17,7 +17,6 @@ interface GenerateTarget {
 }
 
 interface GenerateRequestBody {
-  userId: string;
   targets: GenerateTarget[];
   evaluatorModel?: string;
   evaluatorProvider?: string;
@@ -374,23 +373,28 @@ function buildMockResult(target: GenerateTarget): { text: string; urls: string[]
 }
 
 export async function POST(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/model-research/generate',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   const { searchParams } = new URL(request.url);
   const isMock = searchParams.get('mock') === '1';
 
   try {
     const supabase = createAdminClient();
     const body = (await request.json()) as GenerateRequestBody;
-    const { userId: requestedUserId, targets } = body;
+    const { targets } = body;
     const evaluatorModel = body.evaluatorModel ?? DEFAULT_EVALUATOR_MODEL;
     const evaluatorProvider = body.evaluatorProvider ?? DEFAULT_EVALUATOR_PROVIDER;
 
-    if (!requestedUserId || !Array.isArray(targets) || targets.length === 0) {
+    if (!Array.isArray(targets) || targets.length === 0) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ error: '找不到可用的使用者' }, { status: 401 });
     }
 
     // Pick the evaluator caller for the chosen provider

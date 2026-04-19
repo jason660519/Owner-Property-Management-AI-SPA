@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { resolveUserId } from '@/lib/resolve-ai-settings-user';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 
 const VALID_STATUSES = ['pending', 'researching', 'done', 'failed'] as const;
 type ResearchStatus = (typeof VALID_STATUSES)[number];
@@ -28,18 +28,18 @@ interface ResearchReportPayload {
 }
 
 export async function GET(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/model-research',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
-    const requestedUserId = request.headers.get('x-user-id');
-
-    if (!requestedUserId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ reports: [] });
-    }
 
     const { data, error } = await supabase
       .from('ai_model_research_reports')
@@ -58,21 +58,25 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/model-research',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
     const body = await request.json();
-    const { userId: requestedUserId, reports } = body as {
-      userId: string;
+    const { reports } = body as {
       reports: ResearchReportPayload[];
     };
 
-    if (!requestedUserId || !Array.isArray(reports) || reports.length === 0) {
+    if (!Array.isArray(reports) || reports.length === 0) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ error: '找不到可用的使用者' }, { status: 401 });
     }
 
     const rows = reports.map((r) => {
@@ -116,20 +120,24 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/model-research',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
-    const requestedUserId = request.headers.get('x-user-id');
     const { searchParams } = new URL(request.url);
     const provider = searchParams.get('provider');
     const modelId = searchParams.get('model_id');
 
-    if (!requestedUserId || !provider || !modelId) {
+    if (!provider || !modelId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ error: '找不到可用的使用者' }, { status: 401 });
     }
 
     const { error } = await supabase

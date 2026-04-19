@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { resolveUserId } from '@/lib/resolve-ai-settings-user';
+import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 import { VALID_AGENT_KEYS } from '@/lib/ai/agent-registry';
 import type {
   AgentAssignment,
@@ -117,9 +117,18 @@ function rowToAssignment(row: RawRow): AgentAssignment {
 }
 
 // ---------------------------------------------------------------------------
-// GET: list all agent assignments (global config; authenticated users read)
+// GET: list all agent assignments (global config; superadmin-only)
 // ---------------------------------------------------------------------------
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/agent-assignments',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+
   try {
     const supabase = createAdminClient();
     const { data, error } = await supabase
@@ -145,20 +154,18 @@ export async function GET() {
 // PUT: upsert a single assignment by agent_key
 // ---------------------------------------------------------------------------
 export async function PUT(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/agent-assignments',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  const userId = authResult.userId;
+
   try {
     const supabase = createAdminClient();
-    const requestedUserId = request.headers.get('x-user-id');
-    if (!requestedUserId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Resolve updated_by via the same helper other ai-settings routes use.
-    // Superadmin access is enforced at the Next.js middleware + Sidebar layer,
-    // so we don't double-check role here — matching project convention.
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ error: 'User not found' }, { status: 401 });
-    }
 
     const body = (await request.json()) as Partial<AgentAssignmentPatch>;
     const agentKey = body.agent_key;
@@ -237,16 +244,19 @@ export async function PUT(request: NextRequest) {
 // DELETE: reset an assignment (remove the row; UI treats missing = unset)
 // ---------------------------------------------------------------------------
 export async function DELETE(request: NextRequest) {
+  const authResult = await requireSuperadmin({
+    request,
+    allowHeaderFallback: false,
+    routeLabel: 'api/ai-settings/agent-assignments',
+  });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.message }, { status: authResult.status });
+  }
+  // userId not needed for delete (admin action, scoped by agent_key only)
+  void authResult.userId;
+
   try {
     const supabase = createAdminClient();
-    const requestedUserId = request.headers.get('x-user-id');
-    if (!requestedUserId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const userId = await resolveUserId(supabase, requestedUserId);
-    if (!userId) {
-      return NextResponse.json({ error: 'User not found' }, { status: 401 });
-    }
 
     const url = new URL(request.url);
     const agentKey = url.searchParams.get('agent_key');
