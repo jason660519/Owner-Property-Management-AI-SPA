@@ -27,9 +27,10 @@
    - 無 `CHANGES_REQUESTED`
 9. 條件符合時執行：`gh pr merge --squash --delete-branch=false`；若因權限或 repo 設定無法自動合併，明確提示 reviewer 使用 Squash and merge 手動合併。
 10. PR 確認已 merge 後執行 cleanup：
-    - 切回 `main` 並同步
+    - 切回 `main` 並同步（`git checkout main && git pull --ff-only`）
     - 刪除遠端分支：`git push origin --delete <branch>`
     - 刪除本地分支：`git branch -d <branch>`
+      - **Squash merge 後常態**：若 PR 採 `Squash and merge`，本地 branch 的 commit SHA 與 main 上 squash 後的新 SHA 不同，`git branch -d` 會回 `not fully merged` 警告。此時改用 `git branch -D <branch>` 強制刪除即可（commits 已以新 SHA 在 main，安全）。
 11. 產出 handoff：
     - 檔案：`project-process/handoffs/handoff-{topic}-{YYYYMMDD}.md`
     - 內容至少包含：變更摘要、測試結果、阻塞與下一步
