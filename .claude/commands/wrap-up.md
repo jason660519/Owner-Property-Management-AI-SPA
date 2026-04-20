@@ -63,7 +63,7 @@ git diff --stat
 
 ### 步驟 3 — Commit / Push / PR / Merge / Cleanup
 
-**呼叫子流程**：依 `.claude/commands/commit-push-pr-merge-clanup-handoff.md` 執行（步驟 1–10）。
+**呼叫子流程**：依 `.claude/commands/commit-push-pr-merge-cleanup-handoff.md` 執行（步驟 1–10）。
 
 預設行為：
 - 逐檔 `git add`（含步驟 1 產的 dev-log 與 roadmap.ts 變更）
@@ -134,7 +134,7 @@ handoff 內容必須包含：
 | :-- | :-- |
 | 一鍵收尾全部做完 | **`/wrap-up`**（本檔） |
 | 只想 commit + PR，不 merge 不 handoff | `/commit-push-pr` |
-| 已經 commit 了，只想跑 merge + cleanup + handoff | `/commit-push-pr-merge-clanup-handoff --no-commit`（需要時加旗標） |
+| 已經 commit 了，只想跑 merge + cleanup + handoff | `/commit-push-pr-merge-cleanup-handoff --no-commit`（需要時加旗標） |
 | 只想寫 dev log + 更新 roadmap | `/daily-report` |
 | 只想更新 roadmap | `/roadmap-update` |
 | 只想寫 handoff 不動 git | `/handoff` |

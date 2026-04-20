@@ -24,7 +24,7 @@
 ## 與其他命令的分工
 
 - 本命令只處理 commit、push、PR 建立。
-- merge、cleanup、handoff 由 `/commit-push-pr-merge-clanup-handoff` 負責。
+- merge、cleanup、handoff 由 `/commit-push-pr-merge-cleanup-handoff` 負責。
 
 ## 注意事項
 

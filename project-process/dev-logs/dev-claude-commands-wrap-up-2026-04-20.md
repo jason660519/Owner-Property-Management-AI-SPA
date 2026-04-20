@@ -27,7 +27,7 @@
 - `daily-report` — 寫 dev log + 更新 roadmap + 建 VIS issue
 - `roadmap-update` — 只更新 roadmap
 - `commit-push-pr` — commit / push / 開 PR
-- `commit-push-pr-merge-clanup-handoff` — commit → PR → merge → cleanup → handoff
+- `commit-push-pr-merge-cleanup-handoff` — commit → PR → merge → cleanup → handoff
 - `handoff` — 寫接手 prompt + 落檔
 
 每次收尾要記得依序呼叫哪幾個、用什麼順序，使用者本人都會忘。
@@ -37,7 +37,7 @@
 1. **逐檔閱讀 5 個 command** — 釐清每個的實際職責邊界
 2. **找出隱性重疊**：
    - `daily-report` 步驟三**已經會更新 roadmap.ts**（覆蓋 `roadmap-update`）
-   - `commit-push-pr-merge-clanup-handoff` 步驟 11 **已經會產 handoff**（覆蓋 `handoff`）
+   - `commit-push-pr-merge-cleanup-handoff` 步驟 11 **已經會產 handoff**（覆蓋 `handoff`）
 3. **找出隱性衝突**：
    - `daily-report` 步驟五會開 Playwright 建 VIS issue 且**送出前要 user 確認** → 與「全自動」衝突
 4. **評估兩種整合方案**：
@@ -48,9 +48,9 @@
 
 **為何 5 個 command 自然演化出重疊**：
 
-- 早期需求逐步加入：先有 `commit-push-pr` → 加 `handoff` → 為了 full-auto 整合成 `commit-push-pr-merge-clanup-handoff` → 為了寫日誌另外做 `daily-report`
+- 早期需求逐步加入：先有 `commit-push-pr` → 加 `handoff` → 為了 full-auto 整合成 `commit-push-pr-merge-cleanup-handoff` → 為了寫日誌另外做 `daily-report`
 - 沒有「session 收尾」這個明確抽象層，導致每個 command 都嘗試「順手做完」周邊事項，職責邊界滲漏
-- 命名沒有反映層級（`commit-push-pr-merge-clanup-handoff` 名稱已經暴露 ad-hoc 演化痕跡）
+- 命名沒有反映層級（`commit-push-pr-merge-cleanup-handoff` 名稱已經暴露 ad-hoc 演化痕跡）
 
 ### 解決方案：薄編排器模式
 
@@ -59,7 +59,7 @@
 **4 步流程**：
 1. 步驟 1 — 呼叫 `/daily-report --no-vis`（產 dev-log + 更新 roadmap）
 2. 步驟 2 — Sanity check（`git status` + 檢查 secrets / 大改動）
-3. 步驟 3 — 呼叫 `/commit-push-pr-merge-clanup-handoff`（commit → PR → merge → cleanup）
+3. 步驟 3 — 呼叫 `/commit-push-pr-merge-cleanup-handoff`（commit → PR → merge → cleanup）
 4. 步驟 4 — 呼叫 `/handoff` Full-Auto 最小必要模式
 
 **旗標系統**（保留局部執行能力）：
@@ -80,7 +80,7 @@
 
 ### 踩雷 A — 子 command 命名拼字錯（`clanup`）
 
-`commit-push-pr-merge-clanup-handoff.md` 的 `clanup` 應為 `cleanup`。
+`commit-push-pr-merge-cleanup-handoff.md` 的 `clanup` 應為 `cleanup`。
 
 **為何沒立刻改**：
 - 改檔名等同改 slash command 觸發詞，可能影響使用者肌肉記憶
@@ -94,7 +94,7 @@
 
 **事前可預防指標**：
 - 任何專案的 `.claude/commands/` 達到 5 個以上時，應檢查是否需要編排器層
-- 任何 command 的名字超過 4 個 dash-segment（例：`commit-push-pr-merge-clanup-handoff`）通常是「應該抽編排器」的訊號
+- 任何 command 的名字超過 4 個 dash-segment（例：`commit-push-pr-merge-cleanup-handoff`）通常是「應該抽編排器」的訊號
 
 ---
 
@@ -122,6 +122,6 @@
 - 補強：[.claude/commands/daily-report.md](../../.claude/commands/daily-report.md)
 - 子 command 群：
   - [.claude/commands/commit-push-pr.md](../../.claude/commands/commit-push-pr.md)
-  - [.claude/commands/commit-push-pr-merge-clanup-handoff.md](../../.claude/commands/commit-push-pr-merge-clanup-handoff.md)
+  - [.claude/commands/commit-push-pr-merge-cleanup-handoff.md](../../.claude/commands/commit-push-pr-merge-cleanup-handoff.md)
   - [.claude/commands/handoff.md](../../.claude/commands/handoff.md)
   - [.claude/commands/roadmap-update.md](../../.claude/commands/roadmap-update.md)
