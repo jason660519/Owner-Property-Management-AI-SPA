@@ -36,5 +36,9 @@ if git diff --cached --name-only --diff-filter=AM | grep -qE '\.(ts|tsx|js|jsx|j
   npx --no-install lint-staged
 fi
 
+# 6. Secret scanner — blocks .env files and real-looking API keys / PEM keys.
+echo "🔐 Scanning staged content for secrets..."
+bash tools/security/check-staged-secrets.sh
+
 echo "✅ Pre-commit checks passed."
 exit 0
