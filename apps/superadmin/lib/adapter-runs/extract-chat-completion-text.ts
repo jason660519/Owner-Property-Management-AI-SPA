@@ -47,6 +47,10 @@ export function extractChatCompletionAssistantText(data: unknown): string {
     const t = msg.reasoning.trim();
     if (t) return t;
   }
+  if (msg.reasoning && typeof msg.reasoning === 'object' && !Array.isArray(msg.reasoning)) {
+    const r = msg.reasoning as Record<string, unknown>;
+    if (typeof r.text === 'string' && r.text.trim()) return r.text.trim();
+  }
 
   if (typeof msg.refusal === 'string') {
     const t = msg.refusal.trim();

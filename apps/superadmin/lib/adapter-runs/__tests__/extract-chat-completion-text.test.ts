@@ -24,6 +24,21 @@ describe('extractChatCompletionAssistantText', () => {
     ).toBe('我是由 Moonshot 開發的 Kimi 模型。');
   });
 
+  it('returns message.reasoning.text when reasoning is an object', () => {
+    expect(
+      extractChatCompletionAssistantText({
+        choices: [
+          {
+            message: {
+              content: null,
+              reasoning: { text: 'nested reasoning body' },
+            },
+          },
+        ],
+      })
+    ).toBe('nested reasoning body');
+  });
+
   it('prefers content over reasoning when both exist', () => {
     expect(
       extractChatCompletionAssistantText({

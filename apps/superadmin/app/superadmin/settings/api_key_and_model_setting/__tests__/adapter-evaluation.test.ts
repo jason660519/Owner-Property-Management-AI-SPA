@@ -136,6 +136,61 @@ describe('evaluateAdapterRun', () => {
     expect(isExplicitEmptyOrErrorOutcome('這是一段正常的模型回答內容')).toBe(false);
   });
 
+  it('isExplicitEmptyOrErrorOutcome matches HTTP adapter log lines from route.ts', () => {
+    expect(isExplicitEmptyOrErrorOutcome('HTTP 失敗：This operation was aborted')).toBe(true);
+    expect(isExplicitEmptyOrErrorOutcome('HTTP 回應成功，但無輸出')).toBe(true);
+  });
+
+  it('fails when errorType is set (HTTP empty_output)', () => {
+    expect(
+      evaluateAdapterRun({
+        requestedModel: 'gpt-5.3-codex',
+        effectiveModel: 'gpt-5.3-codex',
+        renderedOutput: '',
+        outputLines: ['[06:47:35] 啟動命令：HTTP codex gpt-5.3-codex', '[06:47:35] HTTP 回應成功，但無輸出'],
+        errorType: 'empty_output',
+        httpStatus: 200,
+      }),
+    ).toEqual({
+      level: 'fail',
+      message: '不及格（HTTP 無可讀模型輸出）',
+    });
+  });
+
+  it('fails when errorType is runtime_error (e.g. abort)', () => {
+    expect(evaluateAdapterRun({
+      requestedModel: 'gpt-5.4-pro',
+      effectiveModel: 'gpt-5.4-pro',
+      renderedOutput: '',
+      outputLines: ['x'],
+      errorType: 'runtime_error',
+    }).level).toBe('fail');
+  });
+
+  it('fails when httpStatus is non-2xx', () => {
+    expect(
+      evaluateAdapterRun({
+        requestedModel: 'gpt-4.1',
+        effectiveModel: 'gpt-4.1',
+        renderedOutput: 'ignored',
+        outputLines: ['ok'],
+        errorType: '',
+        httpStatus: 401,
+      }).message,
+    ).toBe('不及格（HTTP 401）');
+  });
+
+  it('fails when render is HTTP success-but-empty line without errorType (log-derived)', () => {
+    expect(
+      evaluateAdapterRun({
+        requestedModel: 'gpt-5.3-codex',
+        effectiveModel: 'gpt-5.3-codex',
+        renderedOutput: 'HTTP 回應成功，但無輸出',
+        outputLines: ['[log] enough characters here to pass raw length'],
+      }).level,
+    ).toBe('fail');
+  });
+
   it('passes when render is short but raw log has enough text (deriveResultFromLogs edge case)', () => {
     const longRaw = '這是一段足夠長的 CLI 輸出內容用於測試';
     const result = evaluateAdapterRun({
@@ -146,6 +201,23 @@ describe('evaluateAdapterRun', () => {
     });
 
     expect(result.level).toBe('pass');
+  });
+
+  it('fails when raw is only adapter bookkeeping (no model reply)', () => {
+    const result = evaluateAdapterRun({
+      requestedModel: 'openrouter/qwen/qwen3.6-plus',
+      effectiveModel: 'openrouter/qwen/qwen3.6-plus',
+      renderedOutput: '',
+      outputLines: [
+        '[07:42:40] 啟動命令：opencode -m openrouter/qwen/qwen3.6-plus run 你好',
+        '[07:42:40] API Key 來源：ANTHROPIC_API_KEY:supabase, OPENROUTER_API_KEY:supabase',
+        '[07:42:40] 選定模型：openrouter/qwen/qwen3.6-plus',
+        '[07:42:40] Fallback 模型解析：openrouter/qwen/qwen3.6-plus（requested）',
+      ],
+    });
+
+    expect(result.level).toBe('fail');
+    expect(result.message).toMatch(/render 與 raw 皆過短或空白/);
   });
 
   it('still warns when different model versions (e.g. minimax m2.6 vs m2.7)', () => {
@@ -176,6 +248,17 @@ describe('evaluateAdapterRun', () => {
     expect(result.message).toMatch(/m2\.1/i);
   });
 
+  it('warns when minimax m2.5 is requested but reply self-reports M2.1 (OpenRouter upstream)', () => {
+    const result = evaluateAdapterRun({
+      requestedModel: 'openrouter/minimax/minimax-m2.5',
+      effectiveModel: 'openrouter/minimax/minimax-m2.5',
+      renderedOutput: '你好！我是 **MiniMax-M2.1**，由 **MiniMax** 公司构建的AI助手。',
+      outputLines: ['ok'],
+    });
+    expect(result.level).toBe('warning');
+    expect(result.message).toMatch(/minimax-m2\.5/);
+  });
+
   it('passes when self-reported version matches requested (m2.5 == m2.5, real OpenCode case)', () => {
     const result = evaluateAdapterRun({
       requestedModel: 'openrouter/minimax/minimax-m2.5',
@@ -196,6 +279,29 @@ describe('evaluateAdapterRun', () => {
     });
 
     expect(result.level).toBe('pass');
+  });
+
+  it('warns when gpt-5 is requested but reply only cites GPT-4 line (marketing copy)', () => {
+    const result = evaluateAdapterRun({
+      requestedModel: 'gpt-5.3-codex',
+      effectiveModel: 'gpt-5.3-codex',
+      renderedOutput:
+        '我是 OpenAI 的模型，透過 API 提供服務。我是「ChatGPT (GPT-4 系列能力)」的助理。',
+      outputLines: ['ok'],
+    });
+    expect(result.level).toBe('warning');
+    expect(result.message).toMatch(/gpt-5/);
+  });
+
+  it('still passes gpt-5 request when reply also mentions gpt-5', () => {
+    expect(
+      evaluateAdapterRun({
+        requestedModel: 'gpt-5.3-codex',
+        effectiveModel: 'gpt-5.3-codex',
+        renderedOutput: '我是基於 gpt-5.3-codex 的助理，與舊版 GPT-4 不同。',
+        outputLines: ['ok'],
+      }).level,
+    ).toBe('pass');
   });
 
   it('passes when self-report cites a different family entirely (conservative — could be analogy)', () => {

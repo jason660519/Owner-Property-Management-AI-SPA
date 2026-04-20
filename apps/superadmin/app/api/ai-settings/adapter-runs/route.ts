@@ -17,9 +17,23 @@ import { createAdminClient } from '@/utils/supabase/admin';
 import { decryptApiKey } from '@/lib/crypto';
 import { AI_PROVIDERS, type AIProvider } from '@/lib/ai-providers';
 import { shouldUseApiFallback } from '@/lib/adapter-runs/fallback';
+import { isAdapterRunMetaContent } from '@/lib/adapter-runs/adapter-run-meta-lines';
 import { extractChatCompletionAssistantText } from '@/lib/adapter-runs/extract-chat-completion-text';
+import { extractOpenAiResponsesOutputText } from '@/lib/adapter-runs/extract-openai-responses-text';
 import { ADAPTER_CONFIG_ITEMS, DEFAULT_ADAPTER_TEST_PROMPT } from '@/lib/adapter-config';
+import {
+  KILO_GATEWAY_BASE,
+  OPENCODE_ZEN_CHAT_COMPLETIONS_URL,
+  openCodeZenChatModelId,
+} from '@/lib/ai-key-validation/kilo-opencode-zen';
 import { pickRecommendedModelByProvider } from '@/lib/pick-latest-model';
+
+/**
+ * Chained fallback design (2026-04-21): CLI mode only retries through more CLI attempts,
+ * HTTP mode only retries through more HTTP attempts. Cross-path fallback (CLI→HTTP) is
+ * removed so the CLI-vs-HTTP speed/stability comparison on the settings page stays honest.
+ * Each adapter row supplies its downgrade chain via `fallbackModels` in adapter-config.ts.
+ */
 
 export const runtime = 'nodejs';
 
@@ -31,13 +45,21 @@ type ActiveRun = {
   adapterId: string;
   provider: AdapterProvider;
   status: RunStatus;
-  process: AdapterChildProcess;
+  mode: 'cli' | 'http';
+  process: AdapterChildProcess | null;
   command: string;
   logs: string[];
   resultText: string;
   requestedModel: string;
   effectiveModel: string;
   modelSource: string;
+  ttftMs: number | null;
+  e2eLatencyMs: number | null;
+  tokensPerSec: number | null;
+  httpStatus: number | null;
+  retryCount: number;
+  errorType: string;
+  successRateRecent: number | null;
   createdAt: number;
   updatedAt: number;
   tempDir?: string;
@@ -45,7 +67,9 @@ type ActiveRun = {
 };
 
 const activeRuns = new Map<string, ActiveRun>();
+const runHistoryByAdapter = new Map<string, boolean[]>();
 const MAX_LOG_LINES = 300;
+const HISTORY_WINDOW = 10;
 const PROVIDER_ENV_KEY = Object.fromEntries(
   AI_PROVIDERS.map((p) => [p.id, p.envKey])
 ) as Record<AIProvider, string>;
@@ -61,8 +85,35 @@ function pushLog(run: ActiveRun, line: string): void {
   run.updatedAt = Date.now();
 }
 
+function getSuccessRateRecent(runKey: string): number | null {
+  const arr = runHistoryByAdapter.get(runKey) ?? [];
+  if (arr.length === 0) return null;
+  const successCount = arr.filter(Boolean).length;
+  return successCount / arr.length;
+}
+
+function pushRunHistory(runKey: string, success: boolean): number | null {
+  const arr = runHistoryByAdapter.get(runKey) ?? [];
+  arr.push(success);
+  if (arr.length > HISTORY_WINDOW) arr.splice(0, arr.length - HISTORY_WINDOW);
+  runHistoryByAdapter.set(runKey, arr);
+  return getSuccessRateRecent(runKey);
+}
+
 function stripAnsi(raw: string): string {
   return raw.replace(/\u001b\[[0-9;]*m/g, '');
+}
+
+/** `adapter-config` 用 `openrouter/<vendor>/<id>`；OpenRouter HTTP API 的 `model` 須為 `<vendor>/<id>`。 */
+function openRouterModelForApiRequest(model: string): string {
+  return model.startsWith('openrouter/') ? model.slice('openrouter/'.length) : model;
+}
+
+/** Kilo Gateway / OpenCode Zen `chat/completions`：剝除 aggregator 前綴，避免重複前綴或格式不符。 */
+function aggregatorModelForOpenAiChat(model: string): string {
+  if (model.startsWith('openrouter/')) return model.slice('openrouter/'.length);
+  if (model.startsWith('opencode/')) return model.slice('opencode/'.length);
+  return model;
 }
 
 function deriveResultFromLogs(lines: string[]): string {
@@ -85,6 +136,7 @@ function deriveResultFromLogs(lines: string[]): string {
     .map((line) => line.replace(/^\[\d{2}:\d{2}:\d{2}\]\s*/, '').trim())
     .map((line) => line.replace(/^\[stderr\]\s*/i, '').trim())
     .filter(Boolean)
+    .filter((line) => !isAdapterRunMetaContent(line))
     .filter((line) => !ignored.some((p) => p.test(line)));
   if (!cleaned.length) return '';
   return cleaned[cleaned.length - 1] ?? '';
@@ -149,172 +201,292 @@ async function cleanupTemp(run: ActiveRun): Promise<void> {
   }
 }
 
-async function runAnthropicApiFallback(prompt: string, anthropicApiKey?: string): Promise<string> {
-  if (!anthropicApiKey) return '無可用 ANTHROPIC_API_KEY，無法執行 API fallback。';
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': anthropicApiKey,
-      'anthropic-version': '2023-06-01',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 120,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const msg = (data as { error?: { message?: string } }).error?.message ?? `HTTP ${response.status}`;
-    return `Anthropic API fallback 失敗：${msg}`;
-  }
-  const text = (data as { content?: Array<{ text?: string }> }).content?.[0]?.text?.trim();
-  return text ? `Anthropic API fallback 成功：${text}` : 'Anthropic API fallback 成功，但無文字輸出。';
+function classifyHttpError(status: number | null, message: string): string {
+  if (/timeout/i.test(message)) return 'timeout';
+  if (status === 429) return '429';
+  if (status != null && status >= 500) return '5xx';
+  if (status != null && status >= 400) return '4xx';
+  if (/schema/i.test(message)) return 'schema';
+  if (/empty output|無輸出/i.test(message)) return 'empty_output';
+  return message ? 'runtime_error' : '';
 }
 
-async function runOpenAiCompatFallback(
-  prompt: string,
-  endpoint: string,
-  model: string,
-  apiKey?: string
-): Promise<string> {
-  if (!apiKey) return '缺少 API key，無法執行 fallback。';
-  const useResponsesApi = /\/v1\/chat\/completions$/.test(endpoint) && /^gpt-5/i.test(model);
-  const finalEndpoint = useResponsesApi
-    ? endpoint.replace(/\/v1\/chat\/completions$/, '/v1/responses')
-    : endpoint;
-  const body = useResponsesApi
-    ? {
-        model,
-        input: prompt,
-        max_output_tokens: 120,
-      }
-    : {
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        // OpenRouter 推理模型可能先耗用 token 在 reasoning；120 易導致 content 與 reasoning 皆空
-        max_tokens: /openrouter\.ai/i.test(endpoint) ? 1024 : 120,
-      };
-  const response = await fetch(finalEndpoint, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const msg = (data as { error?: { message?: string } }).error?.message ?? `HTTP ${response.status}`;
-    return `OpenAI-compatible fallback 失敗：${msg}`;
-  }
-  const text = useResponsesApi
-    ? ((data as { output_text?: string }).output_text?.trim() ||
-      (Array.isArray((data as { output?: Array<{ content?: Array<{ text?: string }> }> }).output)
-        ? ((data as { output: Array<{ content?: Array<{ text?: string }> }> }).output
-            .flatMap((o) => o.content ?? [])
-            .map((c) => c.text ?? '')
-            .join('')
-            .trim())
-        : ''))
-    : extractChatCompletionAssistantText(data);
-  return text ? `API fallback 成功：${text}` : 'API fallback 成功，但無文字輸出。';
-}
-
-async function runGeminiFallback(prompt: string, geminiApiKey?: string): Promise<string> {
-  if (!geminiApiKey) return '缺少 GEMINI_API_KEY，無法執行 fallback。';
-  return runGeminiFallbackWithModel(prompt, 'gemini-2.0-flash', geminiApiKey);
-}
-
-async function runGeminiFallbackWithModel(prompt: string, model: string, geminiApiKey?: string): Promise<string> {
-  if (!geminiApiKey) return '缺少 GEMINI_API_KEY，無法執行 fallback。';
-  const modelName = model.startsWith('models/') ? model : `models/${model}`;
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${geminiApiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 120 },
-      }),
-    }
-  );
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const msg = (data as { error?: { message?: string } }).error?.message ?? `HTTP ${response.status}`;
-    return `Gemini API fallback 失敗：${msg}`;
-  }
-  const text = (data as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
-    .candidates?.[0]?.content?.parts
-    ?.map((p) => (typeof p.text === 'string' ? p.text : ''))
-    .join('')
-    .trim();
-  if (text) return `Gemini API fallback 成功：${text}`;
-
-  const blockReason = (data as { promptFeedback?: { blockReason?: string } }).promptFeedback?.blockReason;
-  if (blockReason) {
-    return `Gemini API fallback 無輸出：prompt 被阻擋（${blockReason}）`;
-  }
-  const finishReason = (data as { candidates?: Array<{ finishReason?: string }> })
-    .candidates?.[0]?.finishReason;
-  if (finishReason) {
-    return `Gemini API fallback 無輸出：finishReason=${finishReason}`;
-  }
-  return 'Gemini API fallback 無輸出：回應成功但未取得可讀文字。';
-}
-
-async function runProviderFallback(
-  provider: AdapterProvider,
+/**
+ * Single HTTP attempt for `model`. Mutates `run` in place with latest attempt's metrics
+ * (httpStatus, ttftMs, tokensPerSec, resultText, errorType). Wall time is not tracked here;
+ * the enclosing {@link runHttpChain} accumulates cumulative e2e across attempts.
+ */
+async function runHttpAttempt(
+  run: ActiveRun,
   prompt: string,
   env: Record<string, string>,
-  fallbackModel: string
-): Promise<string> {
-  if (provider === 'claude') {
-    // Anthropic messages API model comes from fallbackModel when resolved.
-    if (!env.ANTHROPIC_API_KEY) return '缺少 ANTHROPIC_API_KEY，無法執行 fallback。';
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: fallbackModel,
-        max_tokens: 120,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const msg = (data as { error?: { message?: string } }).error?.message ?? `HTTP ${response.status}`;
-      return `Anthropic API fallback 失敗：${msg}`;
+  model: string
+): Promise<void> {
+  const startedAt = Date.now();
+  /** gpt-5 系推理較慢；25s 易 AbortError，與 max_output 一併放寬 */
+  const timeoutMs = run.provider === 'codex' && /^gpt-5/i.test(model) ? 120_000 : 25_000;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let text = '';
+  let statusCode: number | null = null;
+  try {
+    pushLog(run, `HTTP 執行中：provider=${run.provider}, model=${model}`);
+    if (run.provider === 'claude') {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': env.ANTHROPIC_API_KEY ?? '',
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 320,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+        signal: controller.signal,
+      });
+      statusCode = res.status;
+      const data = await res.json().catch(() => ({}));
+      text = (data as { content?: Array<{ text?: string }> }).content?.[0]?.text?.trim() ?? '';
+      if (!res.ok) {
+        const msg = (data as { error?: { message?: string } }).error?.message ?? `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
+    } else if (run.provider === 'gemini') {
+      const modelName = model.startsWith('models/') ? model : `models/${model}`;
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${env.GEMINI_API_KEY ?? ''}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { maxOutputTokens: 320 },
+          }),
+          signal: controller.signal,
+        }
+      );
+      statusCode = res.status;
+      const data = await res.json().catch(() => ({}));
+      text = (data as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
+        .candidates?.[0]?.content?.parts
+        ?.map((p) => p.text ?? '')
+        .join('')
+        .trim() ?? '';
+      if (!res.ok) {
+        const msg = (data as { error?: { message?: string } }).error?.message ?? `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
+    } else {
+      let endpoint: string;
+      let apiKey: string | undefined;
+      switch (run.provider) {
+        case 'codex':
+          endpoint = 'https://api.openai.com/v1/chat/completions';
+          apiKey = env.OPENAI_API_KEY;
+          break;
+        case 'kilo':
+          endpoint = `${KILO_GATEWAY_BASE}/chat/completions`;
+          apiKey = env.KILO_API_KEY;
+          break;
+        case 'opencode':
+          endpoint = OPENCODE_ZEN_CHAT_COMPLETIONS_URL;
+          apiKey = env.OPENCODE_API_KEY;
+          break;
+      }
+      const useResponsesApi = run.provider === 'codex' && /^gpt-5/i.test(model);
+      const finalEndpoint = useResponsesApi ? 'https://api.openai.com/v1/responses' : endpoint;
+      const hitsOpenRouter = finalEndpoint.includes('openrouter.ai');
+      const hitsOpenCodeZen = finalEndpoint.includes('opencode.ai');
+      const apiModel = hitsOpenRouter
+        ? openRouterModelForApiRequest(model)
+        : hitsOpenCodeZen
+          ? openCodeZenChatModelId(model)
+          : aggregatorModelForOpenAiChat(model);
+      const chatMaxTokens = run.provider === 'codex' && !useResponsesApi ? 320 : 2048;
+      const body = useResponsesApi
+        ? { model: apiModel, input: prompt, max_output_tokens: 2048 }
+        : {
+            model: apiModel,
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: chatMaxTokens,
+          };
+      const res = await fetch(finalEndpoint, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey ?? ''}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      statusCode = res.status;
+      const data = await res.json().catch(() => ({}));
+      text = useResponsesApi
+        ? extractOpenAiResponsesOutputText(data)
+        : extractChatCompletionAssistantText(data);
+      if (!res.ok) {
+        const msg = (data as { error?: { message?: string } }).error?.message ?? `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
     }
-    const text = (data as { content?: Array<{ text?: string }> }).content?.[0]?.text?.trim();
-    return text ? `Anthropic API fallback 成功：${text}` : 'Anthropic API fallback 成功，但無文字輸出。';
+    const attemptMs = Date.now() - startedAt;
+    run.httpStatus = statusCode;
+    run.ttftMs = attemptMs;
+    run.tokensPerSec = text ? Math.max(text.length / Math.max(1, attemptMs / 1000), 0) : null;
+    run.resultText = text;
+    run.errorType = text ? '' : 'empty_output';
+    pushLog(run, text ? `HTTP 回應成功（${text.length} chars）` : 'HTTP 回應成功，但無輸出');
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'HTTP run failed';
+    run.httpStatus = statusCode;
+    run.ttftMs = null;
+    run.tokensPerSec = null;
+    run.resultText = '';
+    run.errorType = classifyHttpError(statusCode, message);
+    pushLog(run, `HTTP 失敗：${message}`);
+  } finally {
+    clearTimeout(timeout);
   }
-  if (provider === 'gemini') {
-    return runGeminiFallbackWithModel(prompt, fallbackModel || 'gemini-2.0-flash', env.GEMINI_API_KEY);
+}
+
+/**
+ * Run HTTP attempts down the fallback chain until one succeeds or the chain exhausts.
+ * CLI-mode uses its own chain ({@link runCliChain}); no cross-path fallback.
+ */
+async function runHttpChain(
+  run: ActiveRun,
+  prompt: string,
+  env: Record<string, string>,
+  models: string[]
+): Promise<void> {
+  const chainStartedAt = Date.now();
+  for (let i = 0; i < models.length; i++) {
+    if (run.status === 'stopped') {
+      run.e2eLatencyMs = Date.now() - chainStartedAt;
+      return;
+    }
+    const model = models[i];
+    if (i > 0) {
+      pushLog(run, `降級到 ${model}（第 ${i} 層）`);
+    }
+    await runHttpAttempt(run, prompt, env, model);
+    run.e2eLatencyMs = Date.now() - chainStartedAt;
+    if (!run.errorType && run.resultText) {
+      run.effectiveModel = model;
+      run.modelSource = i === 0 ? 'requested' : `fallback-http:${i}`;
+      run.retryCount = i;
+      pushLog(run, i === 0 ? 'HTTP primary 成功' : `HTTP 降級成功（第 ${i} 層 / ${model}）`);
+      return;
+    }
+    run.retryCount = i + 1;
   }
-  if (provider === 'codex') {
-    return runOpenAiCompatFallback(
+  pushLog(run, 'HTTP 降級鏈已耗盡');
+}
+
+/**
+ * Single CLI attempt. Spawns the configured binary for `model`, streams stdout/stderr to
+ * `run.logs`, and resolves once the process closes. Returns whether this attempt yielded
+ * usable model output so the chain can decide to move on.
+ */
+async function runCliAttempt(
+  run: ActiveRun,
+  provider: AdapterProvider,
+  prompt: string,
+  tempFilePath: string | undefined,
+  env: Record<string, string>,
+  model: string
+): Promise<{ success: boolean; derivedText: string; signal: NodeJS.Signals | null }> {
+  const cli = getCommand(provider, prompt, tempFilePath, model);
+  const commandPreview = [cli.command, ...cli.args].join(' ');
+  run.command = commandPreview;
+  pushLog(run, `CLI 啟動：${commandPreview}`);
+  const attemptStartIdx = run.logs.length;
+  return new Promise((resolve) => {
+    const child = spawn(cli.command, cli.args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        ...env,
+      },
+    });
+    run.process = child;
+    child.stdout.on('data', (chunk: Buffer | string) => {
+      String(chunk)
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .forEach((line) => pushLog(run, line));
+    });
+    child.stderr.on('data', (chunk: Buffer | string) => {
+      String(chunk)
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .forEach((line) => pushLog(run, `[stderr] ${line}`));
+    });
+    child.on('error', (err) => {
+      pushLog(run, `程序錯誤：${err.message}`);
+      resolve({ success: false, derivedText: '', signal: null });
+    });
+    child.on('close', (code, signal) => {
+      pushLog(run, `程序已結束 (code=${code ?? 'null'}, signal=${signal ?? 'null'})`);
+      const attemptLogs = run.logs.slice(attemptStartIdx);
+      const failed = shouldUseApiFallback(provider, code, signal, attemptLogs);
+      const derivedText = deriveResultFromLogs(attemptLogs);
+      const success = !failed && Boolean(derivedText);
+      resolve({ success, derivedText, signal });
+    });
+  });
+}
+
+/**
+ * Run CLI attempts down the fallback chain. Each attempt spawns the same binary with the
+ * next model in the chain — no cross-path HTTP fallback.
+ */
+async function runCliChain(
+  run: ActiveRun,
+  provider: AdapterProvider,
+  prompt: string,
+  tempFilePath: string | undefined,
+  env: Record<string, string>,
+  models: string[]
+): Promise<void> {
+  const chainStartedAt = Date.now();
+  for (let i = 0; i < models.length; i++) {
+    if (run.status === 'stopped') {
+      run.e2eLatencyMs = Date.now() - chainStartedAt;
+      return;
+    }
+    const model = models[i];
+    if (i > 0) {
+      pushLog(run, `降級到 ${model}（第 ${i} 層）`);
+    }
+    const { success, derivedText, signal } = await runCliAttempt(
+      run,
+      provider,
       prompt,
-      'https://api.openai.com/v1/chat/completions',
-      fallbackModel || 'gpt-4o-mini',
-      env.OPENAI_API_KEY
+      tempFilePath,
+      env,
+      model,
     );
+    run.e2eLatencyMs = Date.now() - chainStartedAt;
+    // User-initiated stop: bail out, don't advance chain.
+    if (signal === 'SIGTERM' || signal === 'SIGKILL' || signal === 'SIGINT') {
+      return;
+    }
+    if (success) {
+      run.effectiveModel = model;
+      run.modelSource = i === 0 ? 'requested' : `fallback-cli:${i}`;
+      run.resultText = derivedText;
+      run.retryCount = i;
+      pushLog(run, i === 0 ? 'CLI primary 成功' : `CLI 降級成功（第 ${i} 層 / ${model}）`);
+      return;
+    }
+    run.retryCount = i + 1;
   }
-  if (provider === 'kilo' || provider === 'opencode') {
-    return runOpenAiCompatFallback(
-      prompt,
-      'https://openrouter.ai/api/v1/chat/completions',
-      fallbackModel || 'openai/gpt-4o-mini',
-      env.OPENROUTER_API_KEY
-    );
-  }
-  return '不支援的 provider fallback。';
+  pushLog(run, 'CLI 降級鏈已耗盡');
 }
 
 async function loadUserApiKeyEnv(userId: string): Promise<{
@@ -374,53 +546,6 @@ async function loadUserApiKeyEnv(userId: string): Promise<{
   return { env, sourceByEnvKey, availableModelsByProvider };
 }
 
-function resolveFallbackModel(
-  provider: AdapterProvider,
-  requestedModel: string,
-  availableModelsByProvider: Partial<Record<AIProvider, string[]>>
-): { model: string; source: 'requested' | 'validated-cache' | 'default' } {
-  const mapping: Record<AdapterProvider, { targetProvider: AIProvider; defaultModel: string }> = {
-    claude: { targetProvider: 'anthropic', defaultModel: 'claude-sonnet-4-20250514' },
-    gemini: { targetProvider: 'gemini', defaultModel: 'gemini-2.0-flash' },
-    codex: { targetProvider: 'openai', defaultModel: 'gpt-4o-mini' },
-    kilo: { targetProvider: 'openrouter', defaultModel: 'openrouter/auto' },
-    opencode: { targetProvider: 'openrouter', defaultModel: 'openrouter/auto' },
-  };
-  const target = mapping[provider];
-  const available = availableModelsByProvider[target.targetProvider] ?? [];
-  const req = requestedModel.toLowerCase();
-  if (requestedModel && available.includes(requestedModel)) {
-    return { model: requestedModel, source: 'requested' };
-  }
-  // For OpenRouter-backed adapters, preserve model-family intent first.
-  if ((provider === 'kilo' || provider === 'opencode') && req) {
-    const familyHints: Array<{ family: string; aliases: string[] }> = [
-      { family: 'kimi', aliases: ['kimi', 'moonshot'] },
-      { family: 'glm', aliases: ['glm', 'zhipu'] },
-      { family: 'minimax', aliases: ['minimax'] },
-      { family: 'qwen', aliases: ['qwen'] },
-      { family: 'gpt', aliases: ['gpt', 'openai'] },
-      { family: 'claude', aliases: ['claude', 'anthropic'] },
-      { family: 'gemini', aliases: ['gemini', 'google'] },
-    ];
-    const hint = familyHints.find((h) => h.aliases.some((a) => req.includes(a)));
-    if (hint) {
-      const matched = available.find((m) => {
-        const s = m.toLowerCase();
-        return hint.aliases.some((a) => s.includes(a));
-      });
-      if (matched) {
-        return { model: matched, source: 'validated-cache' };
-      }
-    }
-  }
-  const recommended = pickRecommendedModelByProvider(target.targetProvider, available);
-  if (recommended) {
-    return { model: recommended, source: 'validated-cache' };
-  }
-  return { model: target.defaultModel, source: 'default' };
-}
-
 function preflightStrictModelCheck(
   provider: AdapterProvider,
   requestedModel: string,
@@ -464,6 +589,7 @@ export async function POST(request: NextRequest) {
   const form = await request.formData();
   const adapterId = String(form.get('adapterId') || '').trim();
   const provider = String(form.get('provider') || '').trim() as AdapterProvider;
+  const mode = String(form.get('mode') || 'cli').trim() === 'http' ? 'http' : 'cli';
   const requestedModel = String(form.get('model') || '').trim();
   const prompt = String(form.get('prompt') || '').trim();
   const file = form.get('file');
@@ -482,40 +608,44 @@ export async function POST(request: NextRequest) {
 
   const { tempDir, tempFilePath } = await writeTempFileIfNeeded(file instanceof File ? file : null);
   const safePrompt = prompt || DEFAULT_ADAPTER_TEST_PROMPT;
-  const cli = getCommand(provider, safePrompt, tempFilePath, resolvedModel);
   const keyEnv = await loadUserApiKeyEnv(auth.userId);
   const preflight = preflightStrictModelCheck(provider, resolvedModel, keyEnv.availableModelsByProvider);
   if (!preflight.ok) {
     return NextResponse.json({ success: false, message: preflight.message }, { status: 400 });
   }
-  const fallbackResolved = resolveFallbackModel(provider, resolvedModel, keyEnv.availableModelsByProvider);
-  const child = spawn(cli.command, cli.args, {
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env: {
-      ...process.env,
-      ...keyEnv.env,
-    },
-  });
-  const commandPreview = [cli.command, ...cli.args].join(' ');
+  /** Build the chain: primary first, then configured fallback slugs. Same-path only. */
+  const chainModels = resolvedModel
+    ? [resolvedModel, ...(adapter?.fallbackModels ?? [])]
+    : (adapter?.fallbackModels ?? []);
+  const previewCli = getCommand(provider, safePrompt, tempFilePath, resolvedModel);
+  const commandPreview = [previewCli.command, ...previewCli.args].join(' ');
   const run: ActiveRun = {
     userId: auth.userId,
     adapterId,
     provider,
+    mode,
     status: 'running',
-    process: child,
-    command: commandPreview,
+    process: null,
+    command: mode === 'http' ? `HTTP ${provider} ${resolvedModel}` : commandPreview,
     logs: [],
     resultText: '',
     requestedModel: resolvedModel,
     effectiveModel: resolvedModel,
     modelSource: 'requested',
+    ttftMs: null,
+    e2eLatencyMs: null,
+    tokensPerSec: null,
+    httpStatus: null,
+    retryCount: 0,
+    errorType: '',
+    successRateRecent: null,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     tempDir,
     tempFilePath,
   };
   activeRuns.set(runKey, run);
-  pushLog(run, `啟動命令：${commandPreview}`);
+  pushLog(run, `啟動命令：${run.command}`);
   const sourceSummary = Object.entries(keyEnv.sourceByEnvKey)
     .map(([k, source]) => `${k}:${source}`)
     .join(', ');
@@ -527,43 +657,38 @@ export async function POST(request: NextRequest) {
   if (resolvedModel) {
     pushLog(run, `選定模型：${resolvedModel}`);
   }
-  pushLog(run, `Fallback 模型解析：${fallbackResolved.model}（${fallbackResolved.source}）`);
+  if (chainModels.length > 1) {
+    pushLog(run, `降級鏈（${mode}）：${chainModels.slice(1).join(' → ')}`);
+  }
   if (tempFilePath) pushLog(run, `掛載測試檔：${tempFilePath}`);
 
-  child.stdout.on('data', (chunk: Buffer | string) => {
-    String(chunk)
-      .split(/\r?\n/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .forEach((line) => pushLog(run, line));
-  });
-  child.stderr.on('data', (chunk: Buffer | string) => {
-    String(chunk)
-      .split(/\r?\n/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .forEach((line) => pushLog(run, `[stderr] ${line}`));
-  });
-  child.on('error', (err) => {
-    pushLog(run, `程序錯誤：${err.message}`);
+  if (chainModels.length === 0) {
     run.status = 'stopped';
-  });
-  child.on('close', async (code, signal) => {
-    pushLog(run, `程序已結束 (code=${code ?? 'null'}, signal=${signal ?? 'null'})`);
-    const shouldFallback = shouldUseApiFallback(provider, code, signal, run.logs);
-    if (shouldFallback) {
-      run.status = 'running';
-      pushLog(run, `偵測到 ${provider} CLI 失敗，切換到 API fallback...`);
-      const fallbackMsg = await runProviderFallback(provider, safePrompt, keyEnv.env, fallbackResolved.model);
-      pushLog(run, fallbackMsg);
-      run.resultText = stripAnsi(fallbackMsg.replace(/^.*fallback 成功：/, '').trim());
-      run.effectiveModel = fallbackResolved.model;
-      run.modelSource = `fallback:${fallbackResolved.source}`;
-    }
+    pushLog(run, '無可執行模型（primary 與 fallback 均為空）');
+    await cleanupTemp(run);
+    return NextResponse.json({
+      success: false,
+      message: '無可執行模型',
+      status: run.status,
+      logs: run.logs,
+      cursor: run.logs.length,
+    }, { status: 400 });
+  }
+
+  const chainPromise =
+    mode === 'http'
+      ? runHttpChain(run, safePrompt, keyEnv.env, chainModels)
+      : runCliChain(run, provider, safePrompt, tempFilePath, keyEnv.env, chainModels);
+
+  void chainPromise.finally(async () => {
     if (!run.resultText) {
       run.resultText = deriveResultFromLogs(run.logs);
     }
-    run.status = 'stopped';
+    const success = Boolean(run.resultText) && !run.errorType;
+    run.successRateRecent = pushRunHistory(runKey, success);
+    if (run.status !== 'stopped') {
+      run.status = 'stopped';
+    }
     await cleanupTemp(run);
   });
 
@@ -571,12 +696,19 @@ export async function POST(request: NextRequest) {
     success: true,
     status: run.status,
     command: run.command,
-    pid: child.pid ?? null,
+    pid: run.process?.pid ?? null,
     logs: run.logs,
     resultText: run.resultText,
     requestedModel: run.requestedModel,
     effectiveModel: run.effectiveModel,
     modelSource: run.modelSource,
+    ttftMs: run.ttftMs,
+    e2eLatencyMs: run.e2eLatencyMs,
+    tokensPerSec: run.tokensPerSec,
+    httpStatus: run.httpStatus,
+    retryCount: run.retryCount,
+    errorType: run.errorType,
+    successRateRecent: run.successRateRecent,
     cursor: run.logs.length,
   });
 }
@@ -592,9 +724,10 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ success: false, message: auth.message }, { status: auth.status });
   }
 
-  const body = await request.json() as { adapterId?: string; action?: 'pause' | 'resume' | 'stop' };
+  const body = await request.json() as { adapterId?: string; action?: 'pause' | 'resume' | 'stop'; mode?: 'cli' | 'http' };
   const adapterId = body.adapterId?.trim();
   const action = body.action;
+  const mode = body.mode === 'http' ? 'http' : 'cli';
   if (!adapterId || !action) {
     return NextResponse.json({ success: false, message: '缺少 adapterId 或 action' }, { status: 400 });
   }
@@ -604,20 +737,28 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ success: false, message: '找不到執行中的 adapter' }, { status: 404 });
   }
 
+  if (run.mode !== mode) {
+    return NextResponse.json({ success: false, message: 'run mode 不一致' }, { status: 409 });
+  }
+
+  if (run.mode === 'http' && action !== 'stop') {
+    return NextResponse.json({ success: false, message: 'HTTP 模式不支援 pause/resume' }, { status: 400 });
+  }
+
   if (action === 'pause') {
     if (run.status === 'running') {
-      run.process.kill('SIGSTOP');
+      run.process?.kill('SIGSTOP');
       run.status = 'paused';
       pushLog(run, '已暫停執行（SIGSTOP）');
     }
   } else if (action === 'resume') {
     if (run.status === 'paused') {
-      run.process.kill('SIGCONT');
+      run.process?.kill('SIGCONT');
       run.status = 'running';
       pushLog(run, '已恢復執行（SIGCONT）');
     }
   } else if (action === 'stop') {
-    run.process.kill('SIGTERM');
+    run.process?.kill('SIGTERM');
     run.status = 'stopped';
     pushLog(run, '已發送停止訊號（SIGTERM）');
   }
@@ -626,12 +767,19 @@ export async function PATCH(request: NextRequest) {
     success: true,
     status: run.status,
     command: run.command,
-    pid: run.process.pid ?? null,
+    pid: run.process?.pid ?? null,
     logs: run.logs,
     resultText: run.resultText,
     requestedModel: run.requestedModel,
     effectiveModel: run.effectiveModel,
     modelSource: run.modelSource,
+    ttftMs: run.ttftMs,
+    e2eLatencyMs: run.e2eLatencyMs,
+    tokensPerSec: run.tokensPerSec,
+    httpStatus: run.httpStatus,
+    retryCount: run.retryCount,
+    errorType: run.errorType,
+    successRateRecent: run.successRateRecent,
     cursor: run.logs.length,
   });
 }
@@ -648,6 +796,7 @@ export async function GET(request: NextRequest) {
   }
 
   const adapterId = request.nextUrl.searchParams.get('adapterId')?.trim();
+  const mode = request.nextUrl.searchParams.get('mode') === 'http' ? 'http' : 'cli';
   const cursorRaw = request.nextUrl.searchParams.get('cursor');
   const cursor = Number.isFinite(Number(cursorRaw)) ? Number(cursorRaw) : 0;
   if (!adapterId) {
@@ -666,6 +815,34 @@ export async function GET(request: NextRequest) {
       requestedModel: '',
       effectiveModel: '',
       modelSource: '',
+      ttftMs: null,
+      e2eLatencyMs: null,
+      tokensPerSec: null,
+      httpStatus: null,
+      retryCount: 0,
+      errorType: '',
+      successRateRecent: null,
+      cursor: 0,
+    });
+  }
+  if (run.mode !== mode) {
+    return NextResponse.json({
+      success: true,
+      status: 'idle' satisfies RunStatus,
+      command: '',
+      pid: null,
+      logs: [],
+      resultText: '',
+      requestedModel: '',
+      effectiveModel: '',
+      modelSource: '',
+      ttftMs: null,
+      e2eLatencyMs: null,
+      tokensPerSec: null,
+      httpStatus: null,
+      retryCount: 0,
+      errorType: '',
+      successRateRecent: null,
       cursor: 0,
     });
   }
@@ -674,12 +851,19 @@ export async function GET(request: NextRequest) {
     success: true,
     status: run.status,
     command: run.command,
-    pid: run.process.pid ?? null,
+    pid: run.process?.pid ?? null,
     logs: run.logs.slice(Math.max(0, cursor)),
     resultText: run.resultText,
     requestedModel: run.requestedModel,
     effectiveModel: run.effectiveModel,
     modelSource: run.modelSource,
+    ttftMs: run.ttftMs,
+    e2eLatencyMs: run.e2eLatencyMs,
+    tokensPerSec: run.tokensPerSec,
+    httpStatus: run.httpStatus,
+    retryCount: run.retryCount,
+    errorType: run.errorType,
+    successRateRecent: run.successRateRecent,
     cursor: run.logs.length,
   });
 }

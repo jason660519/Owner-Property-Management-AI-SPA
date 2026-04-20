@@ -8,6 +8,13 @@ export type AdapterConfigItem = {
   optionLabel: string;
   provider: AdapterProvider;
   model: string;
+  /**
+   * Ordered downgrade chain tried on primary-model failure. Each fallback is attempted
+   * via the same path (CLI → CLI, HTTP → HTTP) so speed/stability comparisons stay honest.
+   * Values must appear in the provider's validated model list (ai_key_validation_cache) —
+   * enforced offline by unit test `adapter-config-fallback-models.test.ts`.
+   */
+  fallbackModels: string[];
   status: AdapterLifecycleStatus;
   useCases: string[];
   cliCommandTemplate: string;
@@ -21,6 +28,16 @@ export const ADAPTER_CONFIG_ITEMS: AdapterConfigItem[] = [
     optionLabel: 'Claude CLI + Opus 4.7',
     provider: 'claude',
     model: 'claude-opus-4-7',
+    fallbackModels: [
+      'claude-sonnet-4-6',
+      'claude-opus-4-6',
+      'claude-opus-4-5-20251101',
+      'claude-haiku-4-5-20251001',
+      'claude-sonnet-4-5-20250929',
+      'claude-opus-4-1-20250805',
+      'claude-opus-4-20250514',
+      'claude-sonnet-4-20250514',
+    ],
     status: 'planned',
     useCases: ['complex-architecture', 'deep-review'],
     cliCommandTemplate: 'claude -p "<prompt>"',
@@ -32,6 +49,15 @@ export const ADAPTER_CONFIG_ITEMS: AdapterConfigItem[] = [
     optionLabel: 'Claude CLI + Sonnet 4.6',
     provider: 'claude',
     model: 'claude-sonnet-4-6',
+    fallbackModels: [
+      'claude-opus-4-6',
+      'claude-opus-4-5-20251101',
+      'claude-haiku-4-5-20251001',
+      'claude-sonnet-4-5-20250929',
+      'claude-opus-4-1-20250805',
+      'claude-opus-4-20250514',
+      'claude-sonnet-4-20250514',
+    ],
     status: 'planned',
     useCases: ['general-dev', 'reasoning', 'spec-writing'],
     cliCommandTemplate: 'claude -p "<prompt>"',
@@ -43,6 +69,14 @@ export const ADAPTER_CONFIG_ITEMS: AdapterConfigItem[] = [
     optionLabel: 'Claude CLI + Opus 4.6',
     provider: 'claude',
     model: 'claude-opus-4-6',
+    fallbackModels: [
+      'claude-opus-4-5-20251101',
+      'claude-haiku-4-5-20251001',
+      'claude-sonnet-4-5-20250929',
+      'claude-opus-4-1-20250805',
+      'claude-opus-4-20250514',
+      'claude-sonnet-4-20250514',
+    ],
     status: 'planned',
     useCases: ['complex-architecture', 'deep-review'],
     cliCommandTemplate: 'claude -p "<prompt>"',
@@ -54,6 +88,12 @@ export const ADAPTER_CONFIG_ITEMS: AdapterConfigItem[] = [
     optionLabel: 'Gemini CLI + Gemini 3.1 Pro Preview',
     provider: 'gemini',
     model: 'gemini-3.1-pro-preview',
+    fallbackModels: [
+      'gemini-3-pro-preview',
+      'gemini-3-flash-preview',
+      'gemini-2.5-pro',
+      'gemini-2.5-flash',
+    ],
     status: 'planned',
     useCases: ['multimodal', 'large-context'],
     cliCommandTemplate: 'agent -p "<prompt>"',
@@ -66,6 +106,14 @@ export const ADAPTER_CONFIG_ITEMS: AdapterConfigItem[] = [
     provider: 'codex',
     /** OpenAI 帳號可用模型須與驗證快取一致；codex CLI 不支援舊版 xhigh slug */
     model: 'gpt-5.4-pro-2026-03-05',
+    fallbackModels: [
+      'gpt-5.4',
+      'gpt-5.4-mini',
+      'gpt-5.3-codex',
+      'gpt-5.2-codex',
+      'gpt-5.1-codex',
+      'gpt-5-codex',
+    ],
     status: 'planned',
     useCases: ['code-generation', 'large-refactor'],
     cliCommandTemplate: 'codex exec "<prompt>"',
@@ -84,6 +132,12 @@ export const ADAPTER_CONFIG_ITEMS: AdapterConfigItem[] = [
      * adapter table row "codex_local".
      */
     model: 'gpt-5.3-codex',
+    fallbackModels: [
+      'gpt-5.2-codex',
+      'gpt-5.1-codex',
+      'gpt-5-codex',
+      'gpt-4o-mini',
+    ],
     status: 'planned',
     useCases: ['code-fix', 'test-authoring'],
     cliCommandTemplate: 'codex exec "<prompt>"',
@@ -100,19 +154,13 @@ export const ADAPTER_CONFIG_ITEMS: AdapterConfigItem[] = [
     optionLabel: 'Kilo CLI + MiniMax M2.7（實際 M2.5）',
     provider: 'kilo',
     model: 'openrouter/minimax/minimax-m2.5',
+    fallbackModels: [
+      'openrouter/minimax/minimax-m2.1',
+      'openrouter/minimax/minimax-m2',
+      'openrouter/minimax/minimax-m1',
+    ],
     status: 'planned',
     useCases: ['cost-optimized-batch', 'automation'],
-    cliCommandTemplate: 'kilo run "<prompt>"',
-    docsPath: 'docs/Adapter CLIs/Kilo_CLI.md',
-  },
-  {
-    id: 'kilo-dola-seed-2-0-pro',
-    optionValue: 'kilo-dola-seed-2-0-pro',
-    optionLabel: 'Kilo CLI + Dola Seed 2.0 Pro',
-    provider: 'kilo',
-    model: 'dola-seed-2.0-pro',
-    status: 'planned',
-    useCases: ['analysis', 'batch-planning'],
     cliCommandTemplate: 'kilo run "<prompt>"',
     docsPath: 'docs/Adapter CLIs/Kilo_CLI.md',
   },
@@ -121,7 +169,13 @@ export const ADAPTER_CONFIG_ITEMS: AdapterConfigItem[] = [
     optionValue: 'kilo-qwen-3-6-plus',
     optionLabel: 'Kilo CLI + Qwen 3.6 Plus',
     provider: 'kilo',
-    model: 'qwen/qwen3.6-plus',
+    /** 見 .claude/rules/backend/ai-adapter.md：kilo 須 `openrouter/` 前綴 */
+    model: 'openrouter/qwen/qwen3.6-plus',
+    fallbackModels: [
+      'openrouter/qwen/qwen3.5-plus-02-15',
+      'openrouter/qwen/qwen3-max',
+      'openrouter/qwen/qwen-plus',
+    ],
     status: 'planned',
     useCases: ['chinese-content', 'cost-balanced'],
     cliCommandTemplate: 'kilo run "<prompt>"',
@@ -132,7 +186,12 @@ export const ADAPTER_CONFIG_ITEMS: AdapterConfigItem[] = [
     optionValue: 'opencode-kimi-k2-5',
     optionLabel: 'OpenCode CLI + Kimi K2.5',
     provider: 'opencode',
-    model: 'moonshotai/kimi-k2.5',
+    /** OpenRouter id `moonshotai/kimi-k2.5`；HTTP 會剝除 `openrouter/` 再呼叫 API */
+    model: 'openrouter/moonshotai/kimi-k2.5',
+    fallbackModels: [
+      'openrouter/moonshotai/kimi-k2-thinking',
+      'openrouter/moonshotai/kimi-k2',
+    ],
     status: 'planned',
     useCases: ['long-context', 'code-assistant'],
     cliCommandTemplate: 'opencode run "<prompt>"',
@@ -144,6 +203,11 @@ export const ADAPTER_CONFIG_ITEMS: AdapterConfigItem[] = [
     optionLabel: 'OpenCode CLI + GLM 5.1',
     provider: 'opencode',
     model: 'z-ai/glm-5.1',
+    fallbackModels: [
+      'z-ai/glm-5',
+      'z-ai/glm-4.7',
+      'z-ai/glm-4.6',
+    ],
     status: 'planned',
     useCases: ['multilingual', 'code-assistant'],
     cliCommandTemplate: 'opencode run "<prompt>"',
@@ -161,6 +225,9 @@ export const ADAPTER_CONFIG_ITEMS: AdapterConfigItem[] = [
     optionLabel: 'OpenCode CLI + MiniMax M2.7（實際 M2.5）',
     provider: 'opencode',
     model: 'openrouter/minimax/minimax-m2.5',
+    fallbackModels: [
+      'openrouter/minimax/minimax-m2.1',
+    ],
     status: 'planned',
     useCases: ['cost-optimized-batch', 'tool-calling'],
     cliCommandTemplate: 'opencode run "<prompt>"',
@@ -171,7 +238,10 @@ export const ADAPTER_CONFIG_ITEMS: AdapterConfigItem[] = [
     optionValue: 'opencode-qwen-3-6-plus',
     optionLabel: 'OpenCode CLI + Qwen 3.6 Plus',
     provider: 'opencode',
-    model: 'qwen/qwen3.6-plus',
+    model: 'openrouter/qwen/qwen3.6-plus',
+    fallbackModels: [
+      'openrouter/qwen/qwen3.5-plus',
+    ],
     status: 'planned',
     useCases: ['chinese-content', 'code-assistant'],
     cliCommandTemplate: 'opencode run "<prompt>"',
