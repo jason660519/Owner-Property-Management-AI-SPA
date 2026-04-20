@@ -39,7 +39,7 @@
 **必須兩件事都做**，缺一不可：
 
 ### A. Chat 輸出
-用一個 markdown fenced code block 包住**整份 prompt**，讓 Jason 一鍵複製貼到下個 session。
+用一個 markdown fenced code block 包住**整份 prompt**，讓 user可以 一鍵複製貼到下個 session。
 
 ### B. 同時存成檔案
 
