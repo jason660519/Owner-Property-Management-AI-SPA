@@ -32,6 +32,13 @@ export type AdapterConfigDraftCell = {
   requestedModel: string;
   effectiveModel: string;
   modelSource: string;
+  ttftMs?: number | null;
+  e2eLatencyMs?: number | null;
+  tokensPerSec?: number | null;
+  httpStatus?: number | null;
+  retryCount?: number;
+  errorType?: string;
+  successRateRecent?: number | null;
 };
 
 export type AdapterPromptOptionCell = { id: string; label: string; content: string };
@@ -55,6 +62,7 @@ export interface CreateAdapterConfigColumnsDeps {
     adapterId: string,
     action: 'pause' | 'resume' | 'stop',
   ) => void | Promise<void>;
+  showHttpMetrics?: boolean;
 }
 
 const col = createColumnHelper<AdapterConfigTableRow>();
@@ -111,9 +119,10 @@ export function createAdapterConfigColumns(
     setAdapterConfigDrafts,
     startAdapterRun,
     controlAdapterRun,
+    showHttpMetrics = false,
   } = deps;
 
-  return [
+  const columns: ColumnDef<AdapterConfigTableRow, unknown>[] = [
     col.accessor('serialNo', {
       id: 'col-serial',
       meta: meta('No.', '編號'),
@@ -341,6 +350,31 @@ export function createAdapterConfigColumns(
     }) as ColumnDef<AdapterConfigTableRow, unknown>,
 
     col.display({
+      id: 'col-fallback-chain',
+      meta: meta('Fallback chain', '降級鏈'),
+      enableSorting: false,
+      cell: ({ row }) => {
+        const { item } = row.original;
+        const chain = item.fallbackModels ?? [];
+        if (chain.length === 0) {
+          return <span className="text-[11px] text-text-muted">—</span>;
+        }
+        return (
+          <ol
+            className="list-decimal space-y-0.5 pl-4 font-mono text-[11px] text-text-secondary"
+            title="primary 失敗時依序降級；CLI/HTTP 各自只走同一路徑"
+          >
+            {chain.map((m) => (
+              <li key={m} className="break-all">
+                {m}
+              </li>
+            ))}
+          </ol>
+        );
+      },
+    }) as ColumnDef<AdapterConfigTableRow, unknown>,
+
+    col.display({
       id: 'col-raw-output',
       meta: meta('Raw output', '輸出 output'),
       enableSorting: false,
@@ -424,6 +458,8 @@ export function createAdapterConfigColumns(
           effectiveModel: effective,
           renderedOutput: draft.renderedOutput,
           outputLines: draft.outputLines,
+          errorType: draft.errorType,
+          httpStatus: draft.httpStatus,
         });
         const badgeClass = {
           pass: 'border-emerald-300 bg-emerald-100 text-emerald-800',
@@ -443,4 +479,72 @@ export function createAdapterConfigColumns(
       },
     }) as ColumnDef<AdapterConfigTableRow, unknown>,
   ];
+
+  if (showHttpMetrics) {
+    columns.push(
+      col.display({
+        id: 'col-ttft',
+        meta: meta('TTFT (ms)', '首 token 延遲(ms)'),
+        enableSorting: false,
+        cell: ({ row }) => {
+          const ttft = row.original.draft.ttftMs;
+          return <span className="font-mono text-xs text-text-secondary">{ttft != null ? Math.round(ttft) : '—'}</span>;
+        },
+      }) as ColumnDef<AdapterConfigTableRow, unknown>,
+      col.display({
+        id: 'col-e2e',
+        meta: meta('E2E (ms)', '完成時間(ms)'),
+        enableSorting: false,
+        cell: ({ row }) => {
+          const e2e = row.original.draft.e2eLatencyMs;
+          return <span className="font-mono text-xs text-text-secondary">{e2e != null ? Math.round(e2e) : '—'}</span>;
+        },
+      }) as ColumnDef<AdapterConfigTableRow, unknown>,
+      col.display({
+        id: 'col-tps',
+        meta: meta('Throughput', '吞吐(tokens/s)'),
+        enableSorting: false,
+        cell: ({ row }) => {
+          const tps = row.original.draft.tokensPerSec;
+          return <span className="font-mono text-xs text-text-secondary">{tps != null ? tps.toFixed(2) : '—'}</span>;
+        },
+      }) as ColumnDef<AdapterConfigTableRow, unknown>,
+      col.display({
+        id: 'col-http-status',
+        meta: meta('HTTP', 'HTTP 狀態碼'),
+        enableSorting: false,
+        cell: ({ row }) => {
+          const status = row.original.draft.httpStatus;
+          return <span className="font-mono text-xs text-text-secondary">{status ?? '—'}</span>;
+        },
+      }) as ColumnDef<AdapterConfigTableRow, unknown>,
+      col.display({
+        id: 'col-retry',
+        meta: meta('Retry', '重試次數'),
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span className="font-mono text-xs text-text-secondary">{row.original.draft.retryCount ?? 0}</span>
+        ),
+      }) as ColumnDef<AdapterConfigTableRow, unknown>,
+      col.display({
+        id: 'col-error-type',
+        meta: meta('Error Type', '錯誤類型'),
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span className="font-mono text-[11px] text-text-secondary">{row.original.draft.errorType || '—'}</span>
+        ),
+      }) as ColumnDef<AdapterConfigTableRow, unknown>,
+      col.display({
+        id: 'col-success-rate',
+        meta: meta('Success(N)', '成功率(最近N次)'),
+        enableSorting: false,
+        cell: ({ row }) => {
+          const rate = row.original.draft.successRateRecent;
+          return <span className="font-mono text-xs text-text-secondary">{rate != null ? `${Math.round(rate * 100)}%` : '—'}</span>;
+        },
+      }) as ColumnDef<AdapterConfigTableRow, unknown>,
+    );
+  }
+
+  return columns;
 }

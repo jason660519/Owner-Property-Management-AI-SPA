@@ -1,9 +1,29 @@
 import {
   KILO_GATEWAY_BASE,
   OPENCODE_ZEN_MODELS_URL,
+  openCodeZenChatModelId,
   validateKiloGatewayKey,
   validateOpenCodeZenKey,
 } from '@/lib/ai-key-validation/kilo-opencode-zen';
+
+describe('openCodeZenChatModelId', () => {
+  it('maps OpenRouter Qwen 3.6 Plus to Zen catalog id', () => {
+    expect(openCodeZenChatModelId('openrouter/qwen/qwen3.6-plus')).toBe('qwen3.6-plus');
+    expect(openCodeZenChatModelId('qwen/qwen3.6-plus')).toBe('qwen3.6-plus');
+  });
+
+  it('maps Kimi / MiniMax / GLM OpenRouter ids to Zen slugs', () => {
+    expect(openCodeZenChatModelId('openrouter/moonshotai/kimi-k2.5')).toBe('kimi-k2.5');
+    expect(openCodeZenChatModelId('openrouter/minimax/minimax-m2.5')).toBe('minimax-m2.5');
+    expect(openCodeZenChatModelId('openrouter/minimax/minimax-m2.7')).toBe('minimax-m2.5');
+    expect(openCodeZenChatModelId('z-ai/glm-5.1')).toBe('glm-5.1');
+  });
+
+  it('passes through Zen-native ids unchanged', () => {
+    expect(openCodeZenChatModelId('qwen3.6-plus')).toBe('qwen3.6-plus');
+    expect(openCodeZenChatModelId('kimi-k2.5')).toBe('kimi-k2.5');
+  });
+});
 
 describe('validateOpenCodeZenKey', () => {
   it('should return invalid when API key is empty', async () => {

@@ -9,6 +9,43 @@ export const OPENCODE_ZEN_BASE = 'https://opencode.ai/zen/v1';
 export const OPENCODE_ZEN_MODELS_URL = `${OPENCODE_ZEN_BASE}/models`;
 export const OPENCODE_ZEN_CHAT_COMPLETIONS_URL = `${OPENCODE_ZEN_BASE}/chat/completions`;
 
+/**
+ * OpenCode Zen `POST /chat/completions` uses short catalog ids (`qwen3.6-plus`, `kimi-k2.5`),
+ * not OpenRouter-style `vendor/model` strings. Adapter rows store `openrouter/...` for CLI;
+ * map those here before calling Zen.
+ *
+ * @see https://opencode.ai/zen/v1/models (public list; ids are Zen-native)
+ */
+export function openCodeZenChatModelId(model: string): string {
+  const raw = model.trim();
+  if (!raw) return raw;
+  const lower = raw.toLowerCase();
+  const sansOpenrouter = lower.startsWith('openrouter/') ? lower.slice('openrouter/'.length) : lower;
+
+  const table: Record<string, string> = {
+    'qwen/qwen3.6-plus': 'qwen3.6-plus',
+    'qwen/qwen3.6-plus:free': 'qwen3.6-plus',
+    'qwen/qwen3.5-plus': 'qwen3.5-plus',
+    'moonshotai/kimi-k2.5': 'kimi-k2.5',
+    'moonshotai/kimi-k2-thinking': 'kimi-k2-thinking',
+    'moonshotai/kimi-k2': 'kimi-k2',
+    'minimax/minimax-m2.5': 'minimax-m2.5',
+    'minimax/minimax-m2.7': 'minimax-m2.5',
+    'minimax/minimax-m2.1': 'minimax-m2.1',
+    'z-ai/glm-5.1': 'glm-5.1',
+    'z-ai/glm-5': 'glm-5',
+    'z-ai/glm-4.7': 'glm-4.7',
+    'z-ai/glm-4.6': 'glm-4.6',
+  };
+
+  if (table[lower]) return table[lower];
+  if (table[sansOpenrouter]) return table[sansOpenrouter];
+
+  if (!sansOpenrouter.includes('/')) return raw;
+
+  return sansOpenrouter;
+}
+
 /** Default model for a minimal chat probe when /models does not reject bad keys. */
 const KILO_PROBE_MODEL = 'openai/gpt-4o-mini';
 

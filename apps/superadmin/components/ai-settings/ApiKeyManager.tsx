@@ -9,12 +9,10 @@ import { Button } from '@/components/ui/Button';
 import { AI_PROVIDERS, type AIProvider, type AIProviderInfo } from '@/lib/ai-providers';
 import { maskApiKey } from '@/lib/crypto';
 import { parseEnvForAIKeys, SUPPORTED_AI_ENV_KEY_NAMES } from '@/lib/parse-env-keys';
-import type { SavedKey, SavedModel, KeyValidationResult } from '@/lib/hooks/useAISettings';
+import type { SavedKey, KeyValidationResult } from '@/lib/hooks/useAISettings';
 
 interface ApiKeyManagerProps {
   savedKeys: SavedKey[];
-  /** 來自「模型費用說明」的已選模型，用於在未驗證時顯示已選模型（系統有持久化） */
-  savedModels?: SavedModel[];
   /** 全部驗證完成後各 key 的結果，供每張 card 直接顯示 Available models */
   validateAllResultsByKeyId?: Record<string, KeyValidationResult>;
   /** options.skipRefresh: 批量導入時傳 true，由呼叫端在全部完成後自行重整，避免畫面閃爍 */
@@ -37,8 +35,6 @@ export interface ApiKeyManagerHandle {
 interface ProviderKeyRowProps {
   provider: AIProviderInfo;
   savedKey?: SavedKey;
-  /** 該 provider 在 DB 的已選模型（唯讀顯示；實際選擇請至「AI 模型全域評測」頁） */
-  providerSavedModels?: SavedModel[];
   /** 全部驗證完成後傳入的該 key 結果，用於直接顯示 Available models 無需再按「驗證金鑰」 */
   validationResultFromValidateAll?: KeyValidationResult;
   onSave: (provider: AIProvider, rawKey: string) => Promise<void>;
@@ -47,7 +43,7 @@ interface ProviderKeyRowProps {
   onRevealKey: (keyId: string) => Promise<{ plaintext: string; ttlSeconds: number }>;
 }
 
-function ProviderKeyRow({ provider, savedKey, providerSavedModels = [], validationResultFromValidateAll, onSave, onDelete, onValidate, onRevealKey }: ProviderKeyRowProps) {
+function ProviderKeyRow({ provider, savedKey, validationResultFromValidateAll, onSave, onDelete, onValidate, onRevealKey }: ProviderKeyRowProps) {
   const [inputValue, setInputValue] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -378,28 +374,6 @@ function ProviderKeyRow({ provider, savedKey, providerSavedModels = [], validati
         <span>Base URL: <code className="text-text-secondary">{provider.baseUrl}</code></span>
       </div>
 
-      {/* 已選模型（唯讀；選擇/變更請至「AI 模型全域評測」頁） */}
-      {savedKey && providerSavedModels.length > 0 && (
-        <div className="mt-2 space-y-0.5 text-[11px] text-text-muted">
-          <div className="flex items-center gap-2">
-            <span className="shrink-0 font-medium text-text-secondary">已選模型：</span>
-            <span className="font-mono text-[10px] text-text-primary">
-              {providerSavedModels.map(m => m.model_id).join('、')}
-            </span>
-          </div>
-          <p className="text-[10px] text-text-muted">
-            選擇或變更模型請至「AI 模型全域評測」頁。
-          </p>
-        </div>
-      )}
-      {savedKey && providerSavedModels.length === 0 && (
-        <div className="mt-2 space-y-0.5 text-[11px] text-text-muted">
-          <p className="text-[10px] text-text-muted">
-            尚未選擇模型 — 前往「AI 模型全域評測」頁選擇。
-          </p>
-        </div>
-      )}
-
       {/* 驗證後可用模型清單（顯示 API 回傳的完整模型列表） */}
       {displayResult?.valid && Array.isArray(displayResult.availableModels) && displayResult.availableModels.length > 0 && (
         <div className="mt-2 text-[11px] text-text-muted">
@@ -442,7 +416,6 @@ function ProviderKeyRow({ provider, savedKey, providerSavedModels = [], validati
 
 const ApiKeyManagerInner = ({
   savedKeys,
-  savedModels = [],
   validateAllResultsByKeyId,
   onSave,
   onDelete,
@@ -587,13 +560,11 @@ ref: React.Ref<ApiKeyManagerHandle>) => {
       <div className="space-y-3">
         {AI_PROVIDERS.map(provider => {
           const savedKey = savedKeys.find(k => k.provider === provider.id);
-          const providerSavedModels = savedModels.filter(m => m.provider === provider.id);
           return (
             <ProviderKeyRow
               key={provider.id}
               provider={provider}
               savedKey={savedKey}
-              providerSavedModels={providerSavedModels}
               validationResultFromValidateAll={savedKey ? validateAllResultsByKeyId?.[savedKey.id] : undefined}
               onSave={onSave}
               onDelete={onDelete}

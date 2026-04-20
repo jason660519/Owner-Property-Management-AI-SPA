@@ -3,16 +3,29 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Key, FlaskConical, ScanText, BookMarked, Trophy, Bot,
-  Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download, Play, Pause, Square,
+  Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download, Play, Pause, Square, Route,
+  Eye, ExternalLink,
 } from 'lucide-react';
+import {
+  PromptManagerModal,
+  PROMPT_LOAD_MESSAGE_TYPE,
+} from '@/components/ai-settings/PromptManagerModal';
 
 import { BottomSheetTabs, type SheetTabDef } from '@/components/ui/BottomSheetTabs';
 import EnhancedTable from '@/components/ui/EnhancedTable';
 import {
   createAdapterConfigColumns,
   formatAdapterSerial,
+  type AdapterConfigDraftCell,
   type AdapterConfigTableRow,
 } from './adapter-config-columns';
+import {
+  createModelRouterColumns,
+  MODEL_ROUTER_ROWS,
+  MODEL_ROUTER_TABLE_INITIAL_WIDTHS,
+  MODEL_ROUTER_TABLE_MIN_WIDTH_PX,
+  type ModelRouterRow,
+} from './model-router-columns';
 import { readLocalStorage, writeLocalStorage } from '@/lib/utils/storage-state';
 import { DashboardLayout } from '@/components/dashboard';
 import { Button } from '@/components/ui/Button';
@@ -37,9 +50,24 @@ import { ADAPTER_CONFIG_ITEMS, DEFAULT_ADAPTER_TEST_PROMPT } from '@/lib/adapter
 import { evaluateAdapterRun } from './adapter-evaluation';
 
 
-type SettingsTab = 'keys' | 'llm-leaderboard' | 'adapter-config' | 'ocr';
+type SettingsTab =
+  | 'keys'
+  | 'llm-leaderboard'
+  | 'evaluations-global'
+  | 'adapter-config'
+  | 'http-adapter-config'
+  | 'model-router'
+  | 'ocr';
 
-const TAB_IDS: SettingsTab[] = ['keys', 'llm-leaderboard', 'adapter-config', 'ocr'];
+const TAB_IDS: SettingsTab[] = [
+  'keys',
+  'llm-leaderboard',
+  'evaluations-global',
+  'adapter-config',
+  'http-adapter-config',
+  'model-router',
+  'ocr',
+];
 
 const LS_GLOBAL_PROMPT = 'ai-settings:globalTestPrompt';
 const LS_SAVED_PROMPTS = 'ai-settings:savedPrompts';
@@ -158,10 +186,28 @@ const TABS: { id: SettingsTab; label: string; icon: React.ElementType; descripti
     description: 'Artificial Analysis LLM 排行榜（每日同步）',
   },
   {
+    id: 'evaluations-global',
+    label: 'AI 模型全域評測',
+    icon: FlaskConical,
+    description: '上傳測試檔、設定全域 Prompt，並對已選模型執行批次評測（與專案進度表相同風格之工作表版面）',
+  },
+  {
     id: 'adapter-config',
     label: 'Adapter調適與設定',
     icon: Bot,
     description: '設定 Adapter 的模型映射、調適策略與可用性',
+  },
+  {
+    id: 'http-adapter-config',
+    label: 'HTTP Adapter調適',
+    icon: Bot,
+    description: '透過 HTTP API 直接比較速度與穩定度（對照 CLI）',
+  },
+  {
+    id: 'model-router',
+    label: 'Model Router',
+    icon: Route,
+    description: '規劃各 AI 助手模型路由、切換條件與 fallback 策略',
   },
   { id: 'ocr', label: 'OCR解析設定', icon: ScanText, description: '設定 OCR 解析模型與參數' },
 ];
@@ -169,6 +215,19 @@ const TABS: { id: SettingsTab; label: string; icon: React.ElementType; descripti
 const ENV_IMPORT_TOOLTIP = `從 .env 或 JSON 導入\n支援兩種格式：\n• .env：KEY=value 或 export KEY=value\n• JSON：{"OPENAI_API_KEY":"sk-..."} 等頂層 key\n變數名大小寫不拘、拼寫需正確；僅下列金鑰會被辨識：${SUPPORTED_AI_ENV_KEY_NAMES.join('、')}`;
 
 const OCR_HIDDEN_MODULE_KEYS = [
+  'web_assistant',
+  'contract_assistant',
+  'blog_generator',
+  'property_description',
+  'ad_generator',
+  'software_dev_engineer',
+  'ttd_engineer',
+];
+
+/** 與 `evaluations-global-test` 獨立頁相同的隱藏模組（全域評測不顯示 OCR／部落格等欄） */
+const EVALUATIONS_GLOBAL_HIDDEN_MODULE_KEYS = [
+  'online_ocr_parse',
+  'online_ocr_judge',
   'web_assistant',
   'contract_assistant',
   'blog_generator',
@@ -195,12 +254,36 @@ const SHEET_TABS: SheetTabDef[] = [
     activeColor: 'bg-violet-600 text-white',
   },
   {
+    id: 'evaluations-global',
+    label: '',
+    zhLabel: 'AI 模型全域評測',
+    icon: FlaskConical,
+    color: 'text-emerald-600',
+    activeColor: 'bg-emerald-600 text-white',
+  },
+  {
     id: 'adapter-config',
-    label: 'Adapter Config',
-    zhLabel: 'Adapter調適與設定',
+    label: '',
+    zhLabel: 'LLM CLI Adapter調適',
     icon: Bot,
     color: 'text-teal-600',
     activeColor: 'bg-teal-600 text-white',
+  },
+  {
+    id: 'http-adapter-config',
+    label: '',
+    zhLabel: 'LLM Http Adapter調適',
+    icon: Bot,
+    color: 'text-indigo-600',
+    activeColor: 'bg-indigo-600 text-white',
+  },
+  {
+    id: 'model-router',
+    label: 'Model Router',
+    zhLabel: '模型路由策略',
+    icon: Route,
+    color: 'text-cyan-600',
+    activeColor: 'bg-cyan-600 text-white',
   },
   { id: 'ocr', label: 'OCR', zhLabel: 'OCR解析設定', icon: ScanText, color: 'text-blue-600', activeColor: 'bg-blue-600 text-white' },
 ];
@@ -215,27 +298,11 @@ const ADAPTER_PROVIDER_LABEL: Record<string, string> = {
 
 type AdapterRunStatus = 'idle' | 'running' | 'paused' | 'stopped';
 
-type AdapterConfigDraft = {
-  promptText: string;
-  selectedPromptId: string;
-  testFileName: string;
-  testFile: File | null;
-  /** 本輪測試開始時間（ms），供 UI 顯示經過秒數 */
-  runStartedAtMs: number | null;
-  runStatus: AdapterRunStatus;
-  outputLines: string[];
-  runCount: number;
-  logCursor: number;
-  pid: number | null;
-  commandPreview: string;
-  renderedOutput: string;
-  requestedModel: string;
-  effectiveModel: string;
-  modelSource: string;
-};
+type AdapterConfigDraft = AdapterConfigDraftCell;
 type AdapterPromptOption = { id: string; label: string; content: string };
 
 const LS_ADAPTER_RUN_SNAPSHOT = 'ai-settings:adapter-run-snapshot';
+const LS_HTTP_ADAPTER_RUN_SNAPSHOT = 'ai-settings:http-adapter-run-snapshot';
 const ADAPTER_RESULTS_MODULE_KEY = 'adapter_config_test_results';
 
 /** EnhancedTable：欄寬加總 100%，對應「編號 + 公司名稱 + …」共 10 欄 */
@@ -243,6 +310,9 @@ const ADAPTER_CONFIG_TABLE_ID = 'ai-settings-adapter-config-v1';
 const ADAPTER_CONFIG_TABLE_INITIAL_WIDTHS = [4, 7, 10, 14, 8, 10, 8, 14, 13, 12];
 /** 固定表格寬（搭配 stretchToContainer={false}），常見視窗寬度下才會出現底部橫向捲軸 */
 const ADAPTER_CONFIG_TABLE_MIN_WIDTH_PX = 2400;
+const HTTP_ADAPTER_CONFIG_TABLE_ID = 'ai-settings-http-adapter-config-v1';
+const HTTP_ADAPTER_CONFIG_TABLE_INITIAL_WIDTHS = [4, 7, 10, 14, 8, 10, 8, 14, 13, 12, 6, 6, 6, 6, 5, 8, 7];
+const HTTP_ADAPTER_CONFIG_TABLE_MIN_WIDTH_PX = 3200;
 
 const MAX_ADAPTER_RUN_NOTICES = 40;
 
@@ -261,6 +331,36 @@ type AdapterRunSnapshot = Record<
     'outputLines' | 'renderedOutput' | 'requestedModel' | 'effectiveModel' | 'modelSource' | 'commandPreview' | 'runCount'
   >
 >;
+
+function createDefaultAdapterDraft(
+  model: string,
+  snapshot?: Partial<AdapterRunSnapshot[string]>
+): AdapterConfigDraft {
+  return {
+    promptText: DEFAULT_ADAPTER_TEST_PROMPT,
+    selectedPromptId: '',
+    testFileName: '',
+    testFile: null,
+    runStartedAtMs: null,
+    runStatus: 'idle',
+    logCursor: 0,
+    pid: null,
+    commandPreview: snapshot?.commandPreview ?? '',
+    renderedOutput: snapshot?.renderedOutput ?? '',
+    requestedModel: snapshot?.requestedModel ?? model,
+    effectiveModel: snapshot?.effectiveModel ?? '',
+    modelSource: snapshot?.modelSource ?? '',
+    outputLines: snapshot?.outputLines ?? [],
+    runCount: snapshot?.runCount ?? 0,
+    ttftMs: null,
+    e2eLatencyMs: null,
+    tokensPerSec: null,
+    httpStatus: null,
+    retryCount: 0,
+    errorType: '',
+    successRateRecent: null,
+  };
+}
 
 function formatAdapterNoticeTime(iso: string): string {
   try {
@@ -293,6 +393,34 @@ function BulkRunElapsed({ startMs }: { startMs: number }) {
       {((Date.now() - startMs) / 1000).toFixed(1)}s
     </span>
   );
+}
+
+function isAdapterRunActive(status: AdapterRunStatus | undefined): boolean {
+  return status === 'running' || status === 'paused';
+}
+
+/**
+ * 全測：等所有列都不再進行中（非 running / 非 paused）後才 resolve。
+ * startAdapterRun 只等「啟動」完成，故批次必須額外等待各輪詢直到 idle/stopped。
+ */
+function waitForAllAdapterRunsSettled(
+  getDrafts: () => Record<string, AdapterConfigDraft>,
+  pollMs = 400
+): Promise<void> {
+  return new Promise((resolve) => {
+    const step = () => {
+      const drafts = getDrafts();
+      const anyActive = ADAPTER_CONFIG_ITEMS.some((item) =>
+        isAdapterRunActive(drafts[item.id]?.runStatus)
+      );
+      if (!anyActive) {
+        resolve();
+        return;
+      }
+      setTimeout(step, pollMs);
+    };
+    step();
+  });
 }
 
 function buildAdapterCommand(
@@ -350,11 +478,23 @@ export default function AIServiceSettingsPage() {
     tooltip: string;
     batchProgress: { tested: number; total: number; succeeded: number; failed: number } | null;
     testableCount: number;
+    batchTestableCount?: number;
     selectedCount: number;
     totalCount: number;
     filteredTotal: number;
     filteredSelectedCount: number;
+    lastBatchTestSummary?: {
+      selectedBeforeTest: number;
+      total: number;
+      succeeded: number;
+      failed: number;
+    } | null;
+    hasRecentBatchReport?: boolean;
+    openRecentBatchReport?: () => void;
+    applyRecentBatchReport?: () => Promise<void>;
+    applyingRecentBatchReport?: boolean;
   } | null>(null);
+  const [showPromptManager, setShowPromptManager] = useState(false);
   useEffect(() => {
     keysRef.current = settings.keys;
   }, [settings.keys]);
@@ -378,6 +518,15 @@ export default function AIServiceSettingsPage() {
     writeLocalStorage(LS_GLOBAL_PROMPT, globalTestPrompt);
   }, [globalTestPrompt]);
   useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (typeof window === 'undefined' || event.origin !== window.location.origin) return;
+      if (event.data?.type !== PROMPT_LOAD_MESSAGE_TYPE || !event.data?.content) return;
+      setGlobalTestPrompt(event.data.content);
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, []);
+  useEffect(() => {
     writeLocalStorage<SavedPrompt[]>(LS_SAVED_PROMPTS, savedPrompts);
   }, [savedPrompts]);
   useEffect(() => {
@@ -390,6 +539,10 @@ export default function AIServiceSettingsPage() {
   const [importingSettings, setImportingSettings] = useState(false);
   const [bulkStarting, setBulkStarting] = useState(false);
   const [bulkRunStartedAtMs, setBulkRunStartedAtMs] = useState<number | null>(null);
+  const [httpBulkStarting, setHttpBulkStarting] = useState(false);
+  const [httpBulkRunStartedAtMs, setHttpBulkRunStartedAtMs] = useState<number | null>(null);
+  const [httpBulkToast, setHttpBulkToast] = useState<string | null>(null);
+  const httpBulkToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [adapterRunNotices, setAdapterRunNotices] = useState<AdapterRunNoticeEntry[]>([]);
   const [adapterConfigDrafts, setAdapterConfigDrafts] = useState<Record<string, AdapterConfigDraft>>(() =>
     {
@@ -397,33 +550,37 @@ export default function AIServiceSettingsPage() {
       return Object.fromEntries(
         ADAPTER_CONFIG_ITEMS.map((item) => [
           item.id,
-          {
-            promptText: DEFAULT_ADAPTER_TEST_PROMPT,
-            selectedPromptId: '',
-            testFileName: '',
-            testFile: null,
-            runStartedAtMs: null,
-            runStatus: 'idle' as AdapterRunStatus,
-            logCursor: 0,
-            pid: null,
-            commandPreview: persistedSnapshot[item.id]?.commandPreview ?? '',
-            renderedOutput: persistedSnapshot[item.id]?.renderedOutput ?? '',
-            requestedModel: persistedSnapshot[item.id]?.requestedModel ?? item.model,
-            effectiveModel: persistedSnapshot[item.id]?.effectiveModel ?? '',
-            modelSource: persistedSnapshot[item.id]?.modelSource ?? '',
-            outputLines: persistedSnapshot[item.id]?.outputLines ?? [],
-            runCount: persistedSnapshot[item.id]?.runCount ?? 0,
-          },
+          createDefaultAdapterDraft(item.model, persistedSnapshot[item.id]),
+        ])
+      );
+    }
+  );
+  const [httpAdapterConfigDrafts, setHttpAdapterConfigDrafts] = useState<Record<string, AdapterConfigDraft>>(() =>
+    {
+      const persistedSnapshot = readLocalStorage<AdapterRunSnapshot>(LS_HTTP_ADAPTER_RUN_SNAPSHOT, {});
+      return Object.fromEntries(
+        ADAPTER_CONFIG_ITEMS.map((item) => [
+          item.id,
+          createDefaultAdapterDraft(item.model, persistedSnapshot[item.id]),
         ])
       );
     }
   );
   const [adapterPromptOptions, setAdapterPromptOptions] = useState<AdapterPromptOption[]>([]);
   const adapterPollIntervalRefs = useRef<Record<string, ReturnType<typeof setInterval> | null>>({});
+  const httpAdapterPollIntervalRefs = useRef<Record<string, ReturnType<typeof setInterval> | null>>({});
   const adapterFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const httpAdapterFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const adapterDraftsRef = useRef(adapterConfigDrafts);
+  const httpAdapterDraftsRef = useRef(httpAdapterConfigDrafts);
   const prevAdapterRunStatusRef = useRef<Record<string, AdapterRunStatus>>({});
+  const prevHttpAdapterRunStatusRef = useRef<Record<string, AdapterRunStatus>>({});
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (httpBulkToastTimerRef.current) clearTimeout(httpBulkToastTimerRef.current);
+    };
+  }, []);
 
   const appendAdapterRunNotice = useCallback((entry: Omit<AdapterRunNoticeEntry, 'id' | 'at'>) => {
     setAdapterRunNotices((prev) => {
@@ -447,6 +604,9 @@ export default function AIServiceSettingsPage() {
   useEffect(() => {
     adapterDraftsRef.current = adapterConfigDrafts;
   }, [adapterConfigDrafts]);
+  useEffect(() => {
+    httpAdapterDraftsRef.current = httpAdapterConfigDrafts;
+  }, [httpAdapterConfigDrafts]);
   const promptOptions = adapterPromptOptions;
 
   useEffect(() => {
@@ -454,23 +614,16 @@ export default function AIServiceSettingsPage() {
       const next = { ...prev };
       for (const item of ADAPTER_CONFIG_ITEMS) {
         if (!next[item.id]) {
-          next[item.id] = {
-            promptText: DEFAULT_ADAPTER_TEST_PROMPT,
-            selectedPromptId: '',
-            testFileName: '',
-            testFile: null,
-            runStartedAtMs: null,
-            runStatus: 'idle',
-            outputLines: [],
-            runCount: 0,
-            logCursor: 0,
-            pid: null,
-            commandPreview: '',
-            renderedOutput: '',
-            requestedModel: item.model,
-            effectiveModel: '',
-            modelSource: '',
-          };
+          next[item.id] = createDefaultAdapterDraft(item.model);
+        }
+      }
+      return next;
+    });
+    setHttpAdapterConfigDrafts((prev) => {
+      const next = { ...prev };
+      for (const item of ADAPTER_CONFIG_ITEMS) {
+        if (!next[item.id]) {
+          next[item.id] = createDefaultAdapterDraft(item.model);
         }
       }
       return next;
@@ -494,15 +647,59 @@ export default function AIServiceSettingsPage() {
     ) as AdapterRunSnapshot;
     writeLocalStorage(LS_ADAPTER_RUN_SNAPSHOT, snapshot);
   }, [adapterConfigDrafts]);
+  useEffect(() => {
+    const snapshot = Object.fromEntries(
+      Object.entries(httpAdapterConfigDrafts).map(([adapterId, draft]) => [
+        adapterId,
+        {
+          outputLines: draft.outputLines,
+          renderedOutput: draft.renderedOutput,
+          requestedModel: draft.requestedModel,
+          effectiveModel: draft.effectiveModel,
+          modelSource: draft.modelSource,
+          commandPreview: draft.commandPreview,
+          runCount: draft.runCount,
+        },
+      ])
+    ) as AdapterRunSnapshot;
+    writeLocalStorage(LS_HTTP_ADAPTER_RUN_SNAPSHOT, snapshot);
+  }, [httpAdapterConfigDrafts]);
 
   useEffect(() => {
     const cloudModule = settings.modules.find((m) => m.module_key === ADAPTER_RESULTS_MODULE_KEY);
     const cloudSnapshot = (cloudModule?.config?.adapterSnapshots ?? null) as AdapterRunSnapshot | null;
-    if (!cloudSnapshot || typeof cloudSnapshot !== 'object') return;
-    setAdapterConfigDrafts((prev) => {
+    const cloudHttpSnapshot = (cloudModule?.config?.httpAdapterSnapshots ?? null) as AdapterRunSnapshot | null;
+    if (cloudSnapshot && typeof cloudSnapshot === 'object') {
+      setAdapterConfigDrafts((prev) => {
+        const next = { ...prev };
+        for (const item of ADAPTER_CONFIG_ITEMS) {
+          const snap = cloudSnapshot[item.id];
+          if (!snap) continue;
+          const current = next[item.id];
+          if (!current) continue;
+          next[item.id] = {
+            ...current,
+            outputLines: Array.isArray(snap.outputLines) ? snap.outputLines.slice(-120) : current.outputLines,
+            renderedOutput: typeof snap.renderedOutput === 'string' ? snap.renderedOutput : current.renderedOutput,
+            requestedModel: typeof snap.requestedModel === 'string' ? snap.requestedModel : current.requestedModel,
+            effectiveModel: typeof snap.effectiveModel === 'string' ? snap.effectiveModel : current.effectiveModel,
+            modelSource: typeof snap.modelSource === 'string' ? snap.modelSource : current.modelSource,
+            commandPreview: typeof snap.commandPreview === 'string' ? snap.commandPreview : current.commandPreview,
+            runCount: typeof snap.runCount === 'number' ? snap.runCount : current.runCount,
+            runStartedAtMs: null,
+            runStatus: 'stopped',
+            pid: null,
+            logCursor: 0,
+          };
+        }
+        return next;
+      });
+    }
+    if (!cloudHttpSnapshot || typeof cloudHttpSnapshot !== 'object') return;
+    setHttpAdapterConfigDrafts((prev) => {
       const next = { ...prev };
       for (const item of ADAPTER_CONFIG_ITEMS) {
-        const snap = cloudSnapshot[item.id];
+        const snap = cloudHttpSnapshot[item.id];
         if (!snap) continue;
         const current = next[item.id];
         if (!current) continue;
@@ -543,6 +740,20 @@ export default function AIServiceSettingsPage() {
           },
         ])
       ) as AdapterRunSnapshot;
+      const httpSnapshot = Object.fromEntries(
+        Object.entries(httpAdapterDraftsRef.current).map(([adapterId, draft]) => [
+          adapterId,
+          {
+            outputLines: draft.outputLines.slice(-120),
+            renderedOutput: draft.renderedOutput,
+            requestedModel: draft.requestedModel,
+            effectiveModel: draft.effectiveModel,
+            modelSource: draft.modelSource,
+            commandPreview: draft.commandPreview,
+            runCount: draft.runCount,
+          },
+        ])
+      ) as AdapterRunSnapshot;
       try {
         await settings.saveModule(
           ADAPTER_RESULTS_MODULE_KEY,
@@ -551,6 +762,7 @@ export default function AIServiceSettingsPage() {
           undefined,
           {
             adapterSnapshots: snapshot,
+            httpAdapterSnapshots: httpSnapshot,
             updatedAt: new Date().toISOString(),
           }
         );
@@ -561,7 +773,7 @@ export default function AIServiceSettingsPage() {
     return () => {
       if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
     };
-  }, [adapterConfigDrafts, settings.userId, settings.saveModule]);
+  }, [adapterConfigDrafts, httpAdapterConfigDrafts, settings.userId, settings.saveModule]);
 
   useEffect(() => {
     let mounted = true;
@@ -594,40 +806,59 @@ export default function AIServiceSettingsPage() {
           clearInterval(timer);
         }
       }
+      for (const key of Object.keys(httpAdapterPollIntervalRefs.current)) {
+        const timer = httpAdapterPollIntervalRefs.current[key];
+        if (timer) {
+          clearInterval(timer);
+        }
+      }
     };
   }, []);
 
-  const stopAdapterPolling = useCallback((adapterId: string) => {
-    const timer = adapterPollIntervalRefs.current[adapterId];
+  type AdapterRunApiResponse = {
+    success: boolean;
+    message?: string;
+    status: AdapterRunStatus;
+    logs: string[];
+    cursor: number;
+    command: string;
+    pid: number | null;
+    resultText: string;
+    requestedModel: string;
+    effectiveModel: string;
+    modelSource: string;
+    ttftMs?: number | null;
+    e2eLatencyMs?: number | null;
+    tokensPerSec?: number | null;
+    httpStatus?: number | null;
+    retryCount?: number;
+    errorType?: string;
+    successRateRecent?: number | null;
+  };
+
+  const stopAdapterPolling = useCallback((adapterId: string, mode: 'cli' | 'http' = 'cli') => {
+    const ref = mode === 'http' ? httpAdapterPollIntervalRefs.current : adapterPollIntervalRefs.current;
+    const timer = ref[adapterId];
     if (timer) {
       clearInterval(timer);
-      adapterPollIntervalRefs.current[adapterId] = null;
+      ref[adapterId] = null;
     }
   }, []);
 
-  const pollAdapterRun = useCallback(async (adapterId: string) => {
-    const draft = adapterDraftsRef.current[adapterId];
+  const pollAdapterRun = useCallback(async (adapterId: string, mode: 'cli' | 'http' = 'cli') => {
+    const draftsRef = mode === 'http' ? httpAdapterDraftsRef : adapterDraftsRef;
+    const setDrafts = mode === 'http' ? setHttpAdapterConfigDrafts : setAdapterConfigDrafts;
+    const draft = draftsRef.current[adapterId];
     if (!draft) return;
-    const res = await fetch(`/api/ai-settings/adapter-runs?adapterId=${encodeURIComponent(adapterId)}&cursor=${draft.logCursor}`);
-    const data = await res.json() as {
-      success: boolean;
-      status: AdapterRunStatus;
-      logs: string[];
-      cursor: number;
-      command: string;
-      pid: number | null;
-      resultText: string;
-      requestedModel: string;
-      effectiveModel: string;
-      modelSource: string;
-    };
+    const res = await fetch(`/api/ai-settings/adapter-runs?adapterId=${encodeURIComponent(adapterId)}&cursor=${draft.logCursor}&mode=${mode}`);
+    const data = await res.json() as AdapterRunApiResponse;
     if (!data.success) return;
-    setAdapterConfigDrafts((prev) => {
+    setDrafts((prev) => {
       const current = prev[adapterId];
       if (!current) return prev;
       const nextStatus = data.status;
       if (nextStatus === 'idle' || nextStatus === 'stopped') {
-        stopAdapterPolling(adapterId);
+        stopAdapterPolling(adapterId, mode);
       }
       let runStartedAtMs = current.runStartedAtMs;
       if (nextStatus === 'running') {
@@ -649,43 +880,48 @@ export default function AIServiceSettingsPage() {
           requestedModel: data.requestedModel || current.requestedModel,
           effectiveModel: data.effectiveModel || current.effectiveModel,
           modelSource: data.modelSource || current.modelSource,
+          ttftMs: data.ttftMs ?? current.ttftMs,
+          e2eLatencyMs: data.e2eLatencyMs ?? current.e2eLatencyMs,
+          tokensPerSec: data.tokensPerSec ?? current.tokensPerSec,
+          httpStatus: data.httpStatus ?? current.httpStatus,
+          retryCount: data.retryCount ?? current.retryCount,
+          errorType: data.errorType ?? current.errorType,
+          successRateRecent: data.successRateRecent ?? current.successRateRecent,
         },
       };
     });
   }, [stopAdapterPolling]);
 
-  const startAdapterPolling = useCallback((adapterId: string) => {
-    stopAdapterPolling(adapterId);
+  const startAdapterPolling = useCallback((adapterId: string, mode: 'cli' | 'http' = 'cli') => {
+    stopAdapterPolling(adapterId, mode);
     const timer = setInterval(() => {
-      void pollAdapterRun(adapterId);
+      void pollAdapterRun(adapterId, mode);
     }, 1500);
+    if (mode === 'http') {
+      httpAdapterPollIntervalRefs.current[adapterId] = timer;
+      return;
+    }
     adapterPollIntervalRefs.current[adapterId] = timer;
   }, [pollAdapterRun, stopAdapterPolling]);
 
-  const startAdapterRun = useCallback(async (item: (typeof ADAPTER_CONFIG_ITEMS)[number], draft: AdapterConfigDraft) => {
+  const startAdapterRun = useCallback(async (
+    item: (typeof ADAPTER_CONFIG_ITEMS)[number],
+    draft: AdapterConfigDraft,
+    mode: 'cli' | 'http' = 'cli'
+  ) => {
+    const setDrafts = mode === 'http' ? setHttpAdapterConfigDrafts : setAdapterConfigDrafts;
     const form = new FormData();
     form.append('adapterId', item.id);
     form.append('provider', item.provider);
     form.append('model', item.model);
+    form.append('mode', mode);
     form.append('prompt', draft.promptText.trim() || DEFAULT_ADAPTER_TEST_PROMPT);
     if (draft.testFile) form.append('file', draft.testFile);
     const res = await fetch('/api/ai-settings/adapter-runs', {
       method: 'POST',
       body: form,
     });
-    let data: {
-      success: boolean;
-      message?: string;
-      status: AdapterRunStatus;
-      logs: string[];
-      cursor: number;
-      command: string;
-      pid: number | null;
-      resultText: string;
-      requestedModel: string;
-      effectiveModel: string;
-      modelSource: string;
-    };
+    let data: AdapterRunApiResponse;
     try {
       data = await res.json() as typeof data;
     } catch {
@@ -707,7 +943,7 @@ export default function AIServiceSettingsPage() {
       return;
     }
     const running = data.status === 'running';
-    setAdapterConfigDrafts((prev) => ({
+    setDrafts((prev) => ({
       ...prev,
       [item.id]: {
         ...prev[item.id],
@@ -722,30 +958,30 @@ export default function AIServiceSettingsPage() {
         requestedModel: data.requestedModel ?? item.model,
         effectiveModel: data.effectiveModel ?? '',
         modelSource: data.modelSource ?? '',
+        ttftMs: data.ttftMs ?? null,
+        e2eLatencyMs: data.e2eLatencyMs ?? null,
+        tokensPerSec: data.tokensPerSec ?? null,
+        httpStatus: data.httpStatus ?? null,
+        retryCount: data.retryCount ?? 0,
+        errorType: data.errorType ?? '',
+        successRateRecent: data.successRateRecent ?? null,
       },
     }));
-    startAdapterPolling(item.id);
+    startAdapterPolling(item.id, mode);
   }, [appendAdapterRunNotice, startAdapterPolling]);
 
-  const controlAdapterRun = useCallback(async (adapterId: string, action: 'pause' | 'resume' | 'stop') => {
+  const controlAdapterRun = useCallback(async (
+    adapterId: string,
+    action: 'pause' | 'resume' | 'stop',
+    mode: 'cli' | 'http' = 'cli'
+  ) => {
+    const setDrafts = mode === 'http' ? setHttpAdapterConfigDrafts : setAdapterConfigDrafts;
     const res = await fetch('/api/ai-settings/adapter-runs', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adapterId, action }),
+      body: JSON.stringify({ adapterId, action, mode }),
     });
-    let data: {
-      success: boolean;
-      message?: string;
-      status: AdapterRunStatus;
-      logs: string[];
-      cursor: number;
-      command: string;
-      pid: number | null;
-      resultText: string;
-      requestedModel: string;
-      effectiveModel: string;
-      modelSource: string;
-    };
+    let data: AdapterRunApiResponse;
     try {
       data = await res.json() as typeof data;
     } catch {
@@ -768,7 +1004,7 @@ export default function AIServiceSettingsPage() {
       });
       return;
     }
-    setAdapterConfigDrafts((prev) => {
+    setDrafts((prev) => {
       const current = prev[adapterId];
       if (!current) return prev;
       const nextStatus = data.status;
@@ -792,13 +1028,20 @@ export default function AIServiceSettingsPage() {
           requestedModel: data.requestedModel || current.requestedModel,
           effectiveModel: data.effectiveModel || current.effectiveModel,
           modelSource: data.modelSource || current.modelSource,
+          ttftMs: data.ttftMs ?? current.ttftMs,
+          e2eLatencyMs: data.e2eLatencyMs ?? current.e2eLatencyMs,
+          tokensPerSec: data.tokensPerSec ?? current.tokensPerSec,
+          httpStatus: data.httpStatus ?? current.httpStatus,
+          retryCount: data.retryCount ?? current.retryCount,
+          errorType: data.errorType ?? current.errorType,
+          successRateRecent: data.successRateRecent ?? current.successRateRecent,
         },
       };
     });
     if (action === 'stop') {
-      stopAdapterPolling(adapterId);
+      stopAdapterPolling(adapterId, mode);
     } else {
-      startAdapterPolling(adapterId);
+      startAdapterPolling(adapterId, mode);
     }
   }, [appendAdapterRunNotice, startAdapterPolling, stopAdapterPolling]);
 
@@ -820,6 +1063,8 @@ export default function AIServiceSettingsPage() {
           effectiveModel: effective,
           renderedOutput: draft.renderedOutput,
           outputLines: draft.outputLines,
+          errorType: draft.errorType,
+          httpStatus: draft.httpStatus,
         });
         if (evaluation.level === 'fail' || evaluation.level === 'warning') {
           appendAdapterRunNotice({
@@ -833,6 +1078,39 @@ export default function AIServiceSettingsPage() {
     }
   }, [adapterConfigDrafts, appendAdapterRunNotice]);
 
+  useEffect(() => {
+    for (const item of ADAPTER_CONFIG_ITEMS) {
+      const draft = httpAdapterConfigDrafts[item.id];
+      if (!draft) continue;
+      const cur = draft.runStatus;
+      const prev = prevHttpAdapterRunStatusRef.current[item.id];
+      if (
+        prev !== undefined &&
+        prev === 'running' &&
+        (cur === 'stopped' || cur === 'idle')
+      ) {
+        const requested = (draft.requestedModel?.trim() || item.model).trim();
+        const effective = (draft.effectiveModel?.trim() || '').trim();
+        const evaluation = evaluateAdapterRun({
+          requestedModel: requested,
+          effectiveModel: effective,
+          renderedOutput: draft.renderedOutput,
+          outputLines: draft.outputLines,
+          errorType: draft.errorType,
+          httpStatus: draft.httpStatus,
+        });
+        if (evaluation.level === 'fail' || evaluation.level === 'warning') {
+          appendAdapterRunNotice({
+            severity: evaluation.level === 'fail' ? 'error' : 'warn',
+            adapterLabel: `${item.optionLabel}（HTTP）`,
+            message: evaluation.message,
+          });
+        }
+      }
+      prevHttpAdapterRunStatusRef.current[item.id] = cur;
+    }
+  }, [httpAdapterConfigDrafts, appendAdapterRunNotice]);
+
   const runAllAdapters = useCallback(async () => {
     if (bulkStarting) return;
     setBulkStarting(true);
@@ -843,14 +1121,59 @@ export default function AIServiceSettingsPage() {
         const draft = drafts[item.id];
         if (!draft) return;
         if (draft.runStatus === 'running') return;
-        await startAdapterRun(item, draft);
+        await startAdapterRun(item, draft, 'cli');
       });
       await Promise.allSettled(tasks);
+      await new Promise((r) => setTimeout(r, 0));
+      await waitForAllAdapterRunsSettled(() => adapterDraftsRef.current);
     } finally {
       setBulkStarting(false);
       setBulkRunStartedAtMs(null);
     }
   }, [bulkStarting, startAdapterRun]);
+  const runAllHttpAdapters = useCallback(async () => {
+    if (httpBulkStarting) return;
+    setHttpBulkStarting(true);
+    setHttpBulkRunStartedAtMs(Date.now());
+    const beforeRunCountById = Object.fromEntries(
+      ADAPTER_CONFIG_ITEMS.map((item) => [item.id, httpAdapterDraftsRef.current[item.id]?.runCount ?? 0])
+    ) as Record<string, number>;
+    const draftsAtBatchStart = httpAdapterDraftsRef.current;
+    try {
+      const drafts = draftsAtBatchStart;
+      const tasks = ADAPTER_CONFIG_ITEMS.map(async (item) => {
+        const draft = drafts[item.id];
+        if (!draft) return;
+        if (draft.runStatus === 'running') return;
+        await startAdapterRun(item, draft, 'http');
+      });
+      await Promise.allSettled(tasks);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await waitForAllAdapterRunsSettled(() => httpAdapterDraftsRef.current);
+      const attempted = ADAPTER_CONFIG_ITEMS.filter((item) => {
+        const d = draftsAtBatchStart[item.id];
+        if (!d) return false;
+        if (d.runStatus === 'running') return false;
+        return true;
+      }).length;
+      const started = ADAPTER_CONFIG_ITEMS.filter((item) => {
+        const before = beforeRunCountById[item.id] ?? 0;
+        const after = httpAdapterDraftsRef.current[item.id]?.runCount ?? before;
+        return after > before;
+      }).length;
+      const failed = Math.max(0, attempted - started);
+      const message = `HTTP 全測完成｜嘗試 ${attempted} 家、成功 ${started} 家、失敗 ${failed} 家`;
+      setHttpBulkToast(message);
+      if (httpBulkToastTimerRef.current) clearTimeout(httpBulkToastTimerRef.current);
+      httpBulkToastTimerRef.current = setTimeout(() => {
+        setHttpBulkToast(null);
+        httpBulkToastTimerRef.current = null;
+      }, 3500);
+    } finally {
+      setHttpBulkStarting(false);
+      setHttpBulkRunStartedAtMs(null);
+    }
+  }, [httpBulkStarting, startAdapterRun]);
 
   const handleExportSettings = useCallback(async () => {
     setExportingSettings(true);
@@ -926,6 +1249,7 @@ export default function AIServiceSettingsPage() {
         return 'ocr';
       case 'keys':
       case 'llm-leaderboard':
+      case 'evaluations-global':
       default:
         return 'general';
     }
@@ -1027,6 +1351,7 @@ export default function AIServiceSettingsPage() {
         return 'eval_ocr_global_prompt';
       case 'keys':
       case 'llm-leaderboard':
+      case 'evaluations-global':
       default:
         return 'eval_general_global_prompt';
     }
@@ -1161,23 +1486,7 @@ export default function AIServiceSettingsPage() {
       for (const item of items) {
         serial += 1;
         const draft =
-          adapterConfigDrafts[item.id] ?? {
-            promptText: DEFAULT_ADAPTER_TEST_PROMPT,
-            selectedPromptId: '',
-            testFileName: '',
-            testFile: null,
-            runStartedAtMs: null,
-            runStatus: 'idle' as AdapterRunStatus,
-            outputLines: [],
-            runCount: 0,
-            logCursor: 0,
-            pid: null,
-            commandPreview: '',
-            renderedOutput: '',
-            requestedModel: item.model,
-            effectiveModel: '',
-            modelSource: '',
-          };
+          adapterConfigDrafts[item.id] ?? createDefaultAdapterDraft(item.model);
         rows.push({
           serialNo: serial,
           provider,
@@ -1189,6 +1498,24 @@ export default function AIServiceSettingsPage() {
     }
     return rows;
   }, [adapterConfigGroups, adapterConfigDrafts]);
+  const httpAdapterTableRows = useMemo((): AdapterConfigTableRow[] => {
+    let serial = 0;
+    const rows: AdapterConfigTableRow[] = [];
+    for (const [provider, items] of adapterConfigGroups) {
+      for (const item of items) {
+        serial += 1;
+        const draft = httpAdapterConfigDrafts[item.id] ?? createDefaultAdapterDraft(item.model);
+        rows.push({
+          serialNo: serial,
+          provider,
+          item,
+          draft,
+          commandPreview: `HTTP ${item.provider} ${item.model}`,
+        });
+      }
+    }
+    return rows;
+  }, [adapterConfigGroups, httpAdapterConfigDrafts]);
 
   const adapterConfigTableColumns = useMemo(
     () =>
@@ -1202,6 +1529,20 @@ export default function AIServiceSettingsPage() {
       }),
     [promptOptions, startAdapterRun, controlAdapterRun],
   );
+  const httpAdapterConfigTableColumns = useMemo(
+    () =>
+      createAdapterConfigColumns({
+        providerLabel: ADAPTER_PROVIDER_LABEL,
+        promptOptions,
+        adapterFileInputRefs: httpAdapterFileInputRefs,
+        setAdapterConfigDrafts: setHttpAdapterConfigDrafts,
+        startAdapterRun: (item, draft) => startAdapterRun(item, draft, 'http'),
+        controlAdapterRun: (adapterId, action) => controlAdapterRun(adapterId, action, 'http'),
+        showHttpMetrics: true,
+      }),
+    [promptOptions, startAdapterRun, controlAdapterRun],
+  );
+  const modelRouterColumns = useMemo(() => createModelRouterColumns(), []);
 
   const getAdapterConfigSearchValue = useCallback((row: AdapterConfigTableRow) => {
     const { item, draft, provider, serialNo } = row;
@@ -1224,6 +1565,92 @@ export default function AIServiceSettingsPage() {
   const getAdapterConfigCategoryValue = useCallback(
     (row: AdapterConfigTableRow) => ADAPTER_PROVIDER_LABEL[row.provider] ?? row.provider,
     [],
+  );
+  const getModelRouterSearchValue = useCallback((row: ModelRouterRow) => {
+    return [
+      row.id,
+      row.scenario,
+      row.owner,
+      row.primaryModel,
+      row.fallbackChain,
+      row.triggerRule,
+      row.status,
+      row.notes,
+    ].join(' ');
+  }, []);
+  const getModelRouterCategoryValue = useCallback((row: ModelRouterRow) => row.status, []);
+  const adapterCompareSummary = useMemo(() => {
+    const collect = (drafts: Record<string, AdapterConfigDraft>) => {
+      const all = Object.values(drafts);
+      const measured = all.filter((d) => d.e2eLatencyMs != null);
+      const latency = measured
+        .map((d) => d.e2eLatencyMs as number)
+        .sort((a, b) => a - b);
+      const ttft = measured
+        .map((d) => d.ttftMs)
+        .filter((v): v is number => typeof v === 'number')
+        .sort((a, b) => a - b);
+      const p = (arr: number[], ratio: number) =>
+        arr.length ? arr[Math.min(arr.length - 1, Math.floor((arr.length - 1) * ratio))] : null;
+      const successCount = all.filter((d) => !!d.renderedOutput && !d.errorType).length;
+      const timeoutCount = all.filter((d) => d.errorType === 'timeout').length;
+      const serverErrCount = all.filter((d) => (d.httpStatus ?? 0) >= 500).length;
+      const avgRetry = all.length
+        ? all.reduce((sum, d) => sum + (d.retryCount ?? 0), 0) / all.length
+        : 0;
+      return {
+        total: all.length,
+        p50Latency: p(latency, 0.5),
+        p95Latency: p(latency, 0.95),
+        p50Ttft: p(ttft, 0.5),
+        successRate: all.length ? successCount / all.length : 0,
+        timeoutRate: all.length ? timeoutCount / all.length : 0,
+        serverErrRate: all.length ? serverErrCount / all.length : 0,
+        avgRetry,
+      };
+    };
+    return {
+      cli: collect(adapterConfigDrafts),
+      http: collect(httpAdapterConfigDrafts),
+    };
+  }, [adapterConfigDrafts, httpAdapterConfigDrafts]);
+
+  const renderAdapterRunNoticesColumn = () => (
+    <div className="min-w-0 flex-1 border-t border-border-default pt-4 lg:max-w-md lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs font-semibold text-text-primary">最近測試錯誤／警告</p>
+        <button
+          type="button"
+          onClick={() => setAdapterRunNotices([])}
+          disabled={adapterRunNotices.length === 0}
+          className="shrink-0 rounded px-2 py-0.5 text-[11px] font-medium text-text-muted transition hover:bg-bg-tertiary hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          清除
+        </button>
+      </div>
+      {adapterRunNotices.length === 0 ? (
+        <p className="mt-2 text-[11px] leading-relaxed text-text-muted">
+          尚無紀錄。啟動失敗、遠端操作失敗，或單次執行結束後評價為「不及格／模型不正確」時會列在此，方便對照（關閉彈窗後仍可回看）。
+        </p>
+      ) : (
+        <ul className="mt-2 max-h-36 space-y-2 overflow-y-auto pr-0.5">
+          {adapterRunNotices.map((n) => (
+            <li
+              key={n.id}
+              className={`rounded-md border px-2.5 py-1.5 text-[11px] leading-snug ${
+                n.severity === 'error'
+                  ? 'border-rose-200 bg-rose-50/80 text-rose-900'
+                  : 'border-amber-200 bg-amber-50/80 text-amber-950'
+              }`}
+            >
+              <span className="font-medium text-text-secondary">{formatAdapterNoticeTime(n.at)}</span>
+              <span className="text-text-muted"> · {n.adapterLabel}</span>
+              <p className="mt-0.5 break-words">{n.message}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 
   const renderContent = () => {
@@ -1253,7 +1680,6 @@ export default function AIServiceSettingsPage() {
         <ApiKeyManager
           ref={apiKeyManagerRef}
           savedKeys={settings.keys}
-          savedModels={settings.models}
           validateAllResultsByKeyId={validateAllResultsByKeyId}
           onSave={settings.saveKey}
           onDelete={settings.deleteKey}
@@ -1277,6 +1703,286 @@ export default function AIServiceSettingsPage() {
       return <LlmLeaderboardPanel />;
     }
 
+    if (activeTab === 'evaluations-global') {
+      const handleSaveModels = async (
+        providerId: string,
+        selections: { modelId: string; modelName: string; isPrimary: boolean }[],
+      ) => {
+        await settings.saveModels(
+          providerId as Parameters<typeof settings.saveModels>[0],
+          selections,
+        );
+      };
+      const handleSaveModule = async (
+        moduleKey: string,
+        isEnabled: boolean,
+        assignedModels: import('@/lib/hooks/useAISettings').AssignedModel[],
+        config?: Record<string, unknown>,
+      ) => {
+        await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
+      };
+
+      return (
+        <div className="min-h-0 min-w-0 flex flex-col gap-3">
+          <p className="text-xs text-text-muted">
+            與專案進度 Development 表相同的邊框與標題列樣式；流程集中於下方單一工作表。
+          </p>
+          <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-base border border-border-default bg-bg-primary shadow-sm">
+            <table className="w-full border-collapse text-xs text-text-primary">
+              <thead>
+                <tr className="sticky top-0 z-[1] bg-bg-tertiary">
+                  <th
+                    scope="col"
+                    className="border border-border-default px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-text-muted w-[200px]"
+                  >
+                    步驟
+                  </th>
+                  <th
+                    scope="col"
+                    className="border border-border-default px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-text-muted"
+                  >
+                    說明與操作
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th
+                    scope="row"
+                    className="border border-border-default bg-bg-secondary/60 px-3 py-3 align-top text-left font-semibold text-text-secondary whitespace-nowrap"
+                  >
+                    ① 模型清單
+                  </th>
+                  <td className="border border-border-default p-0 align-top">
+                    <div className="min-h-[320px] max-h-[min(62vh,720px)] overflow-auto p-3 sm:p-4">
+                      <ModelEvaluator
+                        savedKeys={settings.keys}
+                        savedModels={settings.models}
+                        savedEvaluations={settings.evaluations}
+                        validateAllResultsByKeyId={validateAllResultsByKeyId}
+                        currentKeys={memoizedCurrentKeys}
+                        onSave={settings.saveEvaluations}
+                        onTestModel={settings.testModel}
+                        onSaveModels={handleSaveModels}
+                        savedModules={settings.modules}
+                        hiddenModuleKeys={EVALUATIONS_GLOBAL_HIDDEN_MODULE_KEYS}
+                        onSaveModule={handleSaveModule}
+                        summarySelectedCount={selectedModelCount}
+                        summaryTotalCount={totalAvailableModels}
+                        promptVariableLabel={
+                          currentCloudPromptName ? `{${currentCloudPromptName}}` : undefined
+                        }
+                        globalTestPrompt={globalTestPrompt}
+                        onChangeGlobalTestPrompt={setGlobalTestPrompt}
+                        uploadedFile={uploadedFile}
+                        onChangeUploadedFile={setUploadedFile}
+                        headerActionsRef={setModelEvaluatorHeaderActions}
+                      />
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <th
+                    scope="row"
+                    className="border border-border-default bg-bg-secondary/60 px-3 py-3 align-top text-left font-semibold text-text-secondary"
+                  >
+                    ② 測試檔
+                  </th>
+                  <td className="border border-border-default px-3 py-3 sm:px-4 align-top">
+                    <div className="flex flex-wrap items-start gap-3">
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer text-sm text-text-secondary hover:text-text-primary rounded border border-border-subtle bg-bg-primary px-3 py-2 shrink-0">
+                        <FlaskConical size={16} className="shrink-0" />
+                        <span>上傳測試檔案</span>
+                        <input
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.txt,.md"
+                          className="sr-only"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0] ?? null;
+                            setUploadedFile(f);
+                            if (e.target) (e.target as HTMLInputElement).value = '';
+                          }}
+                          title="上傳 PDF、圖片或文字檔"
+                        />
+                      </label>
+                      {uploadedFile && (
+                        <span
+                          className="text-sm text-text-muted truncate max-w-[280px] py-2"
+                          title={uploadedFile.name}
+                        >
+                          {uploadedFile.name}
+                        </span>
+                      )}
+                      <div className="flex items-center gap-1.5 text-xs text-text-secondary py-2 shrink-0">
+                        <FlaskConical size={13} className="text-text-muted shrink-0" />
+                        <span>
+                          已選／可選{' '}
+                          <span className="font-semibold text-text-primary tabular-nums">
+                            {modelEvaluatorHeaderActions?.selectedCount ?? selectedModelCount}/
+                            {modelEvaluatorHeaderActions?.totalCount ?? totalAvailableModels}
+                          </span>
+                        </span>
+                        {modelEvaluatorHeaderActions != null && (
+                          <span
+                            className={`font-medium tabular-nums ${
+                              modelEvaluatorHeaderActions.testableCount > 0
+                                ? 'text-accent'
+                                : 'text-amber-500'
+                            }`}
+                          >
+                            · 可測試 {modelEvaluatorHeaderActions.testableCount}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <th
+                    scope="row"
+                    className="border border-border-default bg-bg-secondary/60 px-3 py-3 align-top text-left font-semibold text-text-secondary"
+                  >
+                    ③ 全域 Prompt
+                  </th>
+                  <td className="border border-border-default px-3 py-3 sm:px-4 align-top">
+                    <textarea
+                      value={globalTestPrompt}
+                      onChange={(e) => setGlobalTestPrompt(e.target.value)}
+                      placeholder="全域評測 Prompt；每列可留空或填 {預設prompt} 使用此內容"
+                      rows={10}
+                      className="w-full rounded border border-border-subtle bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent resize-y min-h-[200px]"
+                    />
+                    <div className="mt-2 flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowPromptManager(true)}
+                        className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary rounded border border-border-subtle bg-bg-primary px-3 py-2 shrink-0 transition-colors"
+                        title="開啟 Prompt 管理，可載入至此欄位"
+                      >
+                        <BookMarked size={14} className="shrink-0" />
+                        <span>Prompt 管理</span>
+                      </button>
+                      <a
+                        href="/superadmin/settings/prompt-management?source=evaluations"
+                        target="_blank"
+                        rel="opener"
+                        className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary rounded border border-border-subtle bg-bg-primary px-3 py-2 shrink-0 transition-colors"
+                        title="在新分頁開啟 Prompt 管理，載入的 Prompt 會自動填到此欄位"
+                      >
+                        <ExternalLink size={14} className="shrink-0" />
+                        <span>在新分頁開啟</span>
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <th
+                    scope="row"
+                    className="border border-border-default bg-bg-secondary/60 px-3 py-3 align-top text-left font-semibold text-text-secondary"
+                  >
+                    ④ 執行／報告
+                  </th>
+                  <td className="border border-border-default px-3 py-3 sm:px-4 align-top">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => modelEvaluatorHeaderActions?.runBatchTest()}
+                        isLoading={modelEvaluatorHeaderActions?.batchTesting}
+                        disabled={
+                          !modelEvaluatorHeaderActions?.canBatchTest ||
+                          !!modelEvaluatorHeaderActions?.batchTesting
+                        }
+                        title={
+                          modelEvaluatorHeaderActions?.tooltip ??
+                          '對目前已選且具金鑰的模型並行測試'
+                        }
+                        className="shrink-0"
+                      >
+                        {modelEvaluatorHeaderActions?.batchTesting ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <FlaskConical size={14} />
+                        )}
+                        <span className="ml-1.5 whitespace-nowrap">開始全域評測</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => modelEvaluatorHeaderActions?.abortBatchTest?.()}
+                        disabled={!modelEvaluatorHeaderActions?.batchTesting}
+                        title="中斷或暫停目前正在執行的評測（當前批次完成後停止）"
+                        className="shrink-0"
+                      >
+                        <Pause size={14} />
+                        <span className="ml-1.5 whitespace-nowrap">暫停測試</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => modelEvaluatorHeaderActions?.openRecentBatchReport?.()}
+                        disabled={
+                          !modelEvaluatorHeaderActions?.hasRecentBatchReport ||
+                          !!modelEvaluatorHeaderActions?.batchTesting
+                        }
+                        title={
+                          modelEvaluatorHeaderActions?.hasRecentBatchReport
+                            ? '檢視最近一次批次測試報告'
+                            : '目前尚無可檢視的最近報告'
+                        }
+                        className="shrink-0"
+                      >
+                        <Eye size={14} />
+                        <span className="ml-1.5 whitespace-nowrap">檢視最近報告</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          void modelEvaluatorHeaderActions?.applyRecentBatchReport?.();
+                        }}
+                        isLoading={modelEvaluatorHeaderActions?.applyingRecentBatchReport}
+                        disabled={
+                          !modelEvaluatorHeaderActions?.hasRecentBatchReport ||
+                          !!modelEvaluatorHeaderActions?.batchTesting ||
+                          !!modelEvaluatorHeaderActions?.applyingRecentBatchReport
+                        }
+                        title={
+                          modelEvaluatorHeaderActions?.hasRecentBatchReport
+                            ? '依最近報告自動修正模型分類與狀態'
+                            : '目前尚無可套用的最近報告'
+                        }
+                        className="shrink-0"
+                      >
+                        <span className="ml-1.5 whitespace-nowrap">套用最近報告修正狀態</span>
+                      </Button>
+                      {modelEvaluatorHeaderActions?.batchProgress && (
+                        <span className="text-xs text-text-secondary tabular-nums">
+                          {modelEvaluatorHeaderActions.batchProgress.tested}/
+                          {modelEvaluatorHeaderActions.batchProgress.total}{' '}
+                          <span className="text-green-500">
+                            {modelEvaluatorHeaderActions.batchProgress.succeeded} 成功
+                          </span>
+                          {modelEvaluatorHeaderActions.batchProgress.failed > 0 && (
+                            <>
+                              {' '}
+                              <span className="text-red-400">
+                                {modelEvaluatorHeaderActions.batchProgress.failed} 失敗
+                              </span>
+                            </>
+                          )}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
     if (activeTab === 'adapter-config') {
       return (
         <div className="space-y-4">
@@ -1287,41 +1993,7 @@ export default function AIServiceSettingsPage() {
                 可針對每家 Adapter 設定測試 Prompt、上傳測試文件並控制執行；Prompt 可自行編輯或從 Prompt Management 載入。
               </p>
             </div>
-            <div className="min-w-0 flex-1 border-t border-border-default pt-4 lg:max-w-md lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-xs font-semibold text-text-primary">最近測試錯誤／警告</p>
-                <button
-                  type="button"
-                  onClick={() => setAdapterRunNotices([])}
-                  disabled={adapterRunNotices.length === 0}
-                  className="shrink-0 rounded px-2 py-0.5 text-[11px] font-medium text-text-muted transition hover:bg-bg-tertiary hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  清除
-                </button>
-              </div>
-              {adapterRunNotices.length === 0 ? (
-                <p className="mt-2 text-[11px] leading-relaxed text-text-muted">
-                  尚無紀錄。啟動失敗、遠端操作失敗，或單次執行結束後評價為「不及格／模型不正確」時會列在此，方便對照（關閉彈窗後仍可回看）。
-                </p>
-              ) : (
-                <ul className="mt-2 max-h-36 space-y-2 overflow-y-auto pr-0.5">
-                  {adapterRunNotices.map((n) => (
-                    <li
-                      key={n.id}
-                      className={`rounded-md border px-2.5 py-1.5 text-[11px] leading-snug ${
-                        n.severity === 'error'
-                          ? 'border-rose-200 bg-rose-50/80 text-rose-900'
-                          : 'border-amber-200 bg-amber-50/80 text-amber-950'
-                      }`}
-                    >
-                      <span className="font-medium text-text-secondary">{formatAdapterNoticeTime(n.at)}</span>
-                      <span className="text-text-muted"> · {n.adapterLabel}</span>
-                      <p className="mt-0.5 break-words">{n.message}</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            {renderAdapterRunNoticesColumn()}
           </div>
 
           <EnhancedTable<AdapterConfigTableRow>
@@ -1362,6 +2034,95 @@ export default function AIServiceSettingsPage() {
                 )}
               </button>
             }
+          />
+        </div>
+      );
+    }
+    if (activeTab === 'http-adapter-config') {
+      const { cli, http } = adapterCompareSummary;
+      return (
+        <div className="space-y-4">
+          <div className="flex flex-col gap-4 rounded-base border border-dashed border-border-default bg-bg-secondary p-4 lg:flex-row lg:items-stretch">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-text-primary">CLI vs HTTP 比較摘要（最近一輪）</p>
+              <div className="mt-3 grid gap-2 text-[11px] text-text-secondary sm:grid-cols-2 lg:grid-cols-4">
+                <p>CLI P50/P95: <span className="font-mono">{Math.round(cli.p50Latency ?? 0)}/{Math.round(cli.p95Latency ?? 0)} ms</span></p>
+                <p>HTTP P50/P95: <span className="font-mono">{Math.round(http.p50Latency ?? 0)}/{Math.round(http.p95Latency ?? 0)} ms</span></p>
+                <p>CLI 成功率: <span className="font-mono">{Math.round(cli.successRate * 100)}%</span></p>
+                <p>HTTP 成功率: <span className="font-mono">{Math.round(http.successRate * 100)}%</span></p>
+                <p>CLI Timeout: <span className="font-mono">{Math.round(cli.timeoutRate * 100)}%</span></p>
+                <p>HTTP Timeout: <span className="font-mono">{Math.round(http.timeoutRate * 100)}%</span></p>
+                <p>CLI 5xx: <span className="font-mono">{Math.round(cli.serverErrRate * 100)}%</span></p>
+                <p>HTTP 5xx: <span className="font-mono">{Math.round(http.serverErrRate * 100)}%</span></p>
+                <p>CLI 平均重試: <span className="font-mono">{cli.avgRetry.toFixed(2)}</span></p>
+                <p>HTTP 平均重試: <span className="font-mono">{http.avgRetry.toFixed(2)}</span></p>
+                <p>CLI P50 TTFT: <span className="font-mono">{Math.round(cli.p50Ttft ?? 0)} ms</span></p>
+                <p>HTTP P50 TTFT: <span className="font-mono">{Math.round(http.p50Ttft ?? 0)} ms</span></p>
+              </div>
+            </div>
+            {renderAdapterRunNoticesColumn()}
+          </div>
+          <EnhancedTable<AdapterConfigTableRow>
+            tableId={HTTP_ADAPTER_CONFIG_TABLE_ID}
+            columns={httpAdapterConfigTableColumns}
+            data={httpAdapterTableRows}
+            initialWidths={[...HTTP_ADAPTER_CONFIG_TABLE_INITIAL_WIDTHS]}
+            minWidth={HTTP_ADAPTER_CONFIG_TABLE_MIN_WIDTH_PX}
+            stretchToContainer={false}
+            getSearchValue={getAdapterConfigSearchValue}
+            getCategoryValue={getAdapterConfigCategoryValue}
+            extraToolbar={
+              <button
+                type="button"
+                onClick={() => {
+                  void runAllHttpAdapters();
+                }}
+                disabled={httpBulkStarting}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                title={
+                  httpBulkStarting
+                    ? '一鍵啟動全部 HTTP Adapter 測試（進行中）'
+                    : '一鍵啟動全部 HTTP Adapter 測試'
+                }
+                aria-busy={httpBulkStarting}
+              >
+                {httpBulkStarting && httpBulkRunStartedAtMs != null ? (
+                  <>
+                    <Loader2 size={14} className="shrink-0 animate-spin" aria-hidden />
+                    <BulkRunElapsed startMs={httpBulkRunStartedAtMs} />
+                    <span>全測中</span>
+                  </>
+                ) : (
+                  <>
+                    <Play size={14} aria-hidden />
+                    全測
+                  </>
+                )}
+              </button>
+            }
+          />
+        </div>
+      );
+    }
+
+    if (activeTab === 'model-router') {
+      return (
+        <div className="space-y-4">
+          <div className="rounded-base border border-dashed border-border-default bg-bg-secondary p-4">
+            <p className="text-xs font-semibold text-text-primary">Model Router 規劃表</p>
+            <p className="mt-1 text-xs text-text-muted">
+              用於整理前面 Adapter 的模型路由策略，包含主模型、fallback chain、觸發條件與狀態，便於規劃像「謄本解析 AI 助手」這類實戰路由方案。
+            </p>
+          </div>
+          <EnhancedTable<ModelRouterRow>
+            tableId="ai-settings-model-router-v1"
+            columns={modelRouterColumns}
+            data={MODEL_ROUTER_ROWS}
+            initialWidths={[...MODEL_ROUTER_TABLE_INITIAL_WIDTHS]}
+            minWidth={MODEL_ROUTER_TABLE_MIN_WIDTH_PX}
+            stretchToContainer={false}
+            getSearchValue={getModelRouterSearchValue}
+            getCategoryValue={getModelRouterCategoryValue}
           />
         </div>
       );
@@ -1602,7 +2363,7 @@ export default function AIServiceSettingsPage() {
         <div className="flex items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2 gap-y-1 min-w-0">
             {React.createElement(currentTab.icon, { size: 18, className: 'text-accent shrink-0' })}
-            {activeTab !== 'adapter-config' && (
+            {activeTab !== 'adapter-config' && activeTab !== 'http-adapter-config' && (
               <div className="min-w-0">
                 <h2 className="text-sm font-semibold text-text-primary">{currentTab.label}</h2>
                 {currentTab.description && (
@@ -1610,7 +2371,11 @@ export default function AIServiceSettingsPage() {
                 )}
               </div>
             )}
-            {activeTab !== 'llm-leaderboard' && activeTab !== 'adapter-config' && (
+            {activeTab !== 'llm-leaderboard' &&
+            activeTab !== 'evaluations-global' &&
+            activeTab !== 'adapter-config' &&
+            activeTab !== 'http-adapter-config' &&
+            activeTab !== 'model-router' && (
             <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
@@ -1623,18 +2388,6 @@ export default function AIServiceSettingsPage() {
               >
                 <BookMarked size={14} className="text-text-muted" />
                 <span>Prompt 管理</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (typeof window === 'undefined') return;
-                  window.open('/superadmin/settings/evaluations-global-test', '_blank', 'noopener,noreferrer');
-                }}
-                className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 bg-bg-secondary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary border border-border-subtle"
-                title="另開分頁開啟 AI 模型全域評測頁面"
-              >
-                <FlaskConical size={14} className="text-text-muted" />
-                <span>AI 模型全域評測</span>
               </button>
               {activeTab !== 'keys' && (
                 <>
@@ -1834,6 +2587,11 @@ export default function AIServiceSettingsPage() {
       fixedContent={fixedBlock}
       contentFullHeight
     >
+      {httpBulkToast && (
+        <div className="fixed right-6 top-24 z-[120] max-w-[520px] rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-900 shadow-lg">
+          {httpBulkToast}
+        </div>
+      )}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div className="min-w-0 w-full flex-1 overflow-y-auto overflow-x-hidden px-2 py-3 sm:px-4 lg:px-6 lg:py-4">
         <section className="min-w-0 space-y-4">
@@ -1861,7 +2619,7 @@ export default function AIServiceSettingsPage() {
               </p>
               <ol className="list-decimal list-inside space-y-1 text-xs text-text-secondary">
                 <li>在「API 金鑰管理」新增各提供商的 API 金鑰；可用「驗證金鑰」確認可用性並取得可選模型清單。</li>
-                <li>前往「AI 模型全域評測」頁勾選要納入候選的模型（可測試連線）。</li>
+                <li>切換底部分頁「AI 模型全域評測」，於工作表中勾選要納入候選的模型（可測試連線）。</li>
               </ol>
             </div>
           </div>
@@ -1874,6 +2632,15 @@ export default function AIServiceSettingsPage() {
           onTabChange={handleSheetTabChange}
         />
       </div>
+      {showPromptManager && (
+        <PromptManagerModal
+          onClose={() => setShowPromptManager(false)}
+          onLoad={(content) => {
+            setGlobalTestPrompt(content);
+            setShowPromptManager(false);
+          }}
+        />
+      )}
     </DashboardLayout>
   );
 }

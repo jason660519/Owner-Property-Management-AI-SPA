@@ -1,3 +1,5 @@
+import { isAdapterRunMetaLine } from '@/lib/adapter-runs/adapter-run-meta-lines';
+
 export type AdapterEvaluationLevel = 'pass' | 'warning' | 'fail' | 'pending';
 
 export interface AdapterEvaluationResult {
@@ -10,6 +12,10 @@ export interface EvaluateAdapterRunInput {
   effectiveModel: string;
   renderedOutput: string;
   outputLines: string[];
+  /** 來自 adapter-runs HTTP 模式 classifyHttpError；非空表示本次請求未成功取得模型輸出 */
+  errorType?: string;
+  /** HTTP 回應狀態碼；與 errorType 一併用於判定 */
+  httpStatus?: number | null;
 }
 
 const MIN_MEANINGFUL_OUTPUT_CHARS = 8;
@@ -39,13 +45,16 @@ function hasRenderableOutput(renderedOutput: string): boolean {
 }
 
 function hasRawOutput(outputLines: string[]): boolean {
-  return outputLines.some((line) => meaningfulCharCount(line) > 0);
+  return outputLines.some(
+    (line) => !isAdapterRunMetaLine(line) && meaningfulCharCount(line) > 0,
+  );
 }
 
 /** CLI 有完整 log，但 deriveResultFromLogs 只取最後一行時，render 可能過短；此時仍以 raw 整段為準。 */
 function hasMeaningfulAdapterOutput(renderedOutput: string, outputLines: string[]): boolean {
   if (hasRenderableOutput(renderedOutput)) return true;
-  const joined = outputLines.join('\n');
+  const substantive = outputLines.filter((line) => !isAdapterRunMetaLine(line));
+  const joined = substantive.join('\n');
   return meaningfulCharCount(joined) >= MIN_MEANINGFUL_OUTPUT_CHARS;
 }
 
@@ -67,14 +76,60 @@ export function isExplicitEmptyOrErrorOutcome(text: string): boolean {
   return (
     /無文字輸出/.test(t) ||
     /無輸出[：:]/.test(t) ||
+    /成功，但無輸出/.test(t) ||
     /未取得可讀文字/.test(t) ||
     /無法執行\s*(API\s*)?fallback/i.test(t) ||
     /fallback\s*失敗/i.test(t) ||
     /無可用\s+\w+\s*API/i.test(t) ||
     /缺少\s+API\s*key/i.test(t) ||
     /不支援的\s+provider\s+fallback/i.test(t) ||
-    /no text output/i.test(t)
+    /no text output/i.test(t) ||
+    /HTTP\s*失敗/i.test(t) ||
+    /operation was aborted/i.test(t)
   );
+}
+
+function humanizeAdapterErrorType(errorType: string): string {
+  switch (errorType) {
+    case 'empty_output':
+      return 'HTTP 無可讀模型輸出';
+    case 'timeout':
+      return '請求逾時或逾時中止';
+    case '429':
+      return '速率限制（429）';
+    case '5xx':
+      return '伺服器錯誤（5xx）';
+    case '4xx':
+      return '請求錯誤（4xx）';
+    case 'schema':
+      return '回應格式異常';
+    case 'runtime_error':
+      return '執行錯誤';
+    default:
+      return errorType;
+  }
+}
+
+function httpStatusIndicatesFailure(status: number): boolean {
+  return status < 200 || status > 299;
+}
+
+/**
+ * 請求 id 為 gpt-5 系，但模型回答只自稱 GPT-4 系列（常見於 OpenAI 行銷用語／舊版文案）。
+ * 與 {@link compareSelfReportToRequested} 的「缺版本則放行」不同，這裡顯式提醒使用者勿把「及格」當成實際代號一致。
+ */
+function isGpt5RequestedButReplyClaimsGpt4Line(requestedModel: string, renderedOutput: string): boolean {
+  const req = requestedModel.trim();
+  if (!/^gpt-5/i.test(req)) return false;
+  const t = renderedOutput;
+  if (/\bgpt-5|GPT-5|gpt5\b/i.test(t)) return false;
+  return /GPT[-\s]?4|gpt[-\s]?4/i.test(t);
+}
+
+/** OpenRouter 對 minimax 路由有時仍回 M2.1 自介；請求 m2.5 時不應當成「設定錯誤」硬判不及格。 */
+function isMinimaxM25RequestButM21SelfReport(requestedModel: string, renderedOutput: string): boolean {
+  if (!/minimax-m2\.5|minimax\/minimax-m2\.5/i.test(requestedModel)) return false;
+  return /MiniMax-M2\.1|minimax-m2\.1|\bM2\.1\b/i.test(renderedOutput);
 }
 
 function hasNoActualModelReply(renderedOutput: string, outputLines: string[]): boolean {
@@ -196,6 +251,20 @@ export function evaluateAdapterRun(input: EvaluateAdapterRunInput): AdapterEvalu
   const requestedModel = input.requestedModel.trim();
   const effectiveModel = input.effectiveModel.trim();
   const renderedOutput = input.renderedOutput.trim();
+  const errType = (input.errorType ?? '').trim();
+  if (errType) {
+    return {
+      level: 'fail',
+      message: `不及格（${humanizeAdapterErrorType(errType)}）`,
+    };
+  }
+  const httpSt = input.httpStatus;
+  if (httpSt != null && httpStatusIndicatesFailure(httpSt)) {
+    return {
+      level: 'fail',
+      message: `不及格（HTTP ${httpSt}）`,
+    };
+  }
   const modelMatched = !!requestedModel && modelsMatchForEvaluation(requestedModel, effectiveModel);
   const rawOk = hasRawOutput(input.outputLines);
   const outputMeaningfulEnough = hasMeaningfulAdapterOutput(renderedOutput, input.outputLines);
@@ -227,9 +296,24 @@ export function evaluateAdapterRun(input: EvaluateAdapterRunInput): AdapterEvalu
   const selfReported = parseSelfReportedModel(renderedOutput);
   const comparison = compareSelfReportToRequested(selfReported, requestedModel);
   if (comparison === 'version-mismatch') {
+    if (isMinimaxM25RequestButM21SelfReport(requestedModel, renderedOutput)) {
+      return {
+        level: 'warning',
+        message:
+          '注意：請求為 minimax-m2.5，但自介為 M2.1；OpenRouter 對 minimax 路由有時仍會落到 M2.1（與 M2.7→M2.1 類似）。此非設定表錯誤。',
+      };
+    }
     return {
       level: 'fail',
       message: `不及格（模型自報為 ${selfReported.raw ?? selfReported.family}，與請求的 ${requestedModel} 不一致，provider 可能未誠實回傳實際版本）`,
+    };
+  }
+
+  if (isGpt5RequestedButReplyClaimsGpt4Line(requestedModel, renderedOutput)) {
+    return {
+      level: 'warning',
+      message:
+        '注意：請求為 gpt-5 系，但回覆文字自稱 GPT-4 系列；可能是官方顯示用語，實際後端仍為你請求的模型，請勿僅依自介判斷代號。',
     };
   }
 

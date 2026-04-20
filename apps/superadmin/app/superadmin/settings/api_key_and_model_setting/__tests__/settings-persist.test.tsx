@@ -96,6 +96,11 @@ jest.mock('@/lib/parse-env-keys', () => ({
   SUPPORTED_AI_ENV_KEY_NAMES: [],
 }));
 
+jest.mock('@/components/ai-settings/PromptManagerModal', () => ({
+  PROMPT_LOAD_MESSAGE_TYPE: 'PROMPT_LOAD',
+  PromptManagerModal: () => null,
+}));
+
 // ── Import page after mocks ────────────────────────────────────────────────
 import AIServiceSettingsPage from '../page';
 

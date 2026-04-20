@@ -52,13 +52,9 @@
 
 `lint-adapter-model-ids.sh` 內含 `LEGACY_EXEMPTIONS` Set，列出**預存**於 lint 出現前的違規 row，允許短期豁免（印 warning 但不 fail）。
 
-當前豁免清單（截至 2026-04-19）：
+當前豁免清單（截至 2026-04-21）：
 
-- `kilo-dola-seed-2-0-pro`
-- `kilo-qwen-3-6-plus`
-- `opencode-kimi-k2-5`
 - `opencode-glm-5-1`
-- `opencode-qwen-3-6-plus`
 
 **處理流程**：Row 100 P1 baseline self-report 盤點會逐一確認模型真實 id，修正後於**同一個 PR**中：
 

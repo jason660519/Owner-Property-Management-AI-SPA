@@ -105,11 +105,7 @@ const ALLOWED_PREFIXES = ['opencode/', 'openrouter/'];
 // DO NOT add new entries here without explicit approval — the point of
 // this lint is to stop new rows from landing without a prefix.
 const LEGACY_EXEMPTIONS = new Set([
-  'kilo-dola-seed-2-0-pro',
-  'kilo-qwen-3-6-plus',
-  'opencode-kimi-k2-5',
   'opencode-glm-5-1',
-  'opencode-qwen-3-6-plus',
 ]);
 
 const violations = [];

@@ -21,6 +21,7 @@ import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 import {
   KILO_GATEWAY_BASE,
   OPENCODE_ZEN_CHAT_COMPLETIONS_URL,
+  openCodeZenChatModelId,
 } from '@/lib/ai-key-validation/kilo-opencode-zen';
 
 const DEFAULT_TEST_PROMPT = '請用一句話回覆：你好，我是{你的模型名稱與型號}，可以正常接收並回應。';
@@ -540,7 +541,7 @@ async function testOpenCode(
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: modelId,
+        model: openCodeZenChatModelId(modelId),
         messages: [{ role: 'user', content }],
         max_tokens,
       }),
