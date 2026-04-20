@@ -29,7 +29,7 @@
 
 **新增檔案**：
 - `.claude/commands/wrap-up.md` — 薄編排器（~120 行）
-- `.claude/commands/commit-push-pr-merge-clanup-handoff.md` — full-auto 全鏈路子命令
+- `.claude/commands/commit-push-pr-merge-cleanup-handoff.md` — full-auto 全鏈路子命令
 - `project-process/dev-logs/dev-claude-commands-wrap-up-2026-04-20.md` — 本次開發日誌
 
 **修改檔案**：
@@ -78,7 +78,7 @@ Ahead of origin/main: 3 commits (0b9e9f0, 0b6cadf, ccb1333)
    ```markdown
    ## Summary
    - 新增 `/wrap-up` 薄編排器，整合 session 收尾全流程（daily-report → sanity check → commit-push-pr-merge-cleanup-handoff → handoff）
-   - 拆出 `/commit-push-pr-merge-clanup-handoff` 作為 full-auto 子命令；`/commit-push-pr` 縮回前段
+   - 拆出 `/commit-push-pr-merge-cleanup-handoff` 作為 full-auto 子命令；`/commit-push-pr` 縮回前段
    - 補強 `/daily-report` 加 `--no-vis` 旗標供編排器跳過 Playwright 互動
 
    ## Test plan
@@ -125,7 +125,7 @@ gh auth status
 - 主檔案：[.claude/commands/wrap-up.md](../../.claude/commands/wrap-up.md)
 - 子命令群：
   - [.claude/commands/commit-push-pr.md](../../.claude/commands/commit-push-pr.md)
-  - [.claude/commands/commit-push-pr-merge-clanup-handoff.md](../../.claude/commands/commit-push-pr-merge-clanup-handoff.md)
+  - [.claude/commands/commit-push-pr-merge-cleanup-handoff.md](../../.claude/commands/commit-push-pr-merge-cleanup-handoff.md)
   - [.claude/commands/daily-report.md](../../.claude/commands/daily-report.md)
   - [.claude/commands/handoff.md](../../.claude/commands/handoff.md)
 - 前次 handoff：[handoff-row-145-sprint-7-step3-20260420.md](./handoff-row-145-sprint-7-step3-20260420.md)
