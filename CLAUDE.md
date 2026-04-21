@@ -67,16 +67,6 @@
 - 編排來源：`apps/superadmin/test-manifest.json`；`tier=nightly` 必填 `nightlyLayer` / `nightlyOrder`
 - 合併前執行：`tools/testing/validate-test-manifest.sh`
 
-## Hermes
-
-僅 Docker runtime（無本機 CLI）：
-
-```bash
-cd tools/hermes-runtime && docker compose build --pull && docker compose up -d
-```
-
-細節：`HERMES.md`
-
 ## 省 Token
 
 - **Custom Commands**（最省）：`/daily-report`、`/commit-push-pr`、`/roadmap-update`、`/test-coverage`、`/dispatch-agents`、`/review-agent-work`

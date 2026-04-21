@@ -8,8 +8,7 @@ describe('getNextAdapter', () => {
   it('follows the full fallback chain in order', () => {
     expect(getNextAdapter('claude_local')).toBe('codex_local');
     expect(getNextAdapter('codex_local')).toBe('cursor');
-    expect(getNextAdapter('cursor')).toBe('hermes_local');
-    expect(getNextAdapter('hermes_local')).toBe('opencode_local');
+    expect(getNextAdapter('cursor')).toBe('opencode_local');
     expect(getNextAdapter('opencode_local')).toBe('pi_local');
     expect(getNextAdapter('pi_local')).toBeNull();
   });
@@ -18,8 +17,8 @@ describe('getNextAdapter', () => {
     expect(getNextAdapter('unknown_adapter')).toBe('claude_local');
   });
 
-  it('chain has 6 adapters', () => {
-    expect(ADAPTER_FALLBACK_CHAIN.length).toBe(6);
+  it('chain has 5 adapters', () => {
+    expect(ADAPTER_FALLBACK_CHAIN.length).toBe(5);
   });
 });
 

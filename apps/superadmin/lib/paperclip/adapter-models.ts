@@ -6,7 +6,6 @@ export const ADAPTER_MODEL_MAP: Record<string, string> = {
   codex_local: 'gpt-5.3-codex',
   cursor: 'auto',
   opencode_local: 'google/gemini-2.5-flash',
-  hermes_local: 'auto',
   pi_local: 'auto',
 } as const;
 
@@ -24,7 +23,6 @@ export const ADAPTER_OPTIONS: AdapterOption[] = [
   { id: 'codex_local',    label: 'Codex (OpenAI)',         model: 'gpt-5.3-codex',       billing: 'OpenAI' },
   { id: 'cursor',         label: 'Cursor (Agent)',         model: 'auto',                billing: 'Cursor' },
   { id: 'opencode_local', label: 'OpenCode (Google)',      model: 'google/gemini-2.5-flash', billing: 'Google' },
-  { id: 'hermes_local',   label: 'Hermes (Multi-provider)', model: 'auto',               billing: 'Multi' },
   { id: 'pi_local',       label: 'Pi (Multi-provider)',    model: 'auto',                billing: 'Multi' },
 ];
 

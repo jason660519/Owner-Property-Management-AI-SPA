@@ -18,7 +18,6 @@ package-lock.json                    @jason660519
 # Project rules and Claude/agent configuration.
 CLAUDE.md                            @jason660519
 AGENTS.md                            @jason660519
-HERMES.md                            @jason660519
 .claude/rules/**                     @jason660519
 .claude/skills/**                    @jason660519
 
@@ -38,4 +37,3 @@ apps/superadmin/app/data/roadmap.ts  @jason660519
 # Docker / infra.
 docker/**                            @jason660519
 docker-compose*.yml                  @jason660519
-tools/hermes-runtime/**              @jason660519

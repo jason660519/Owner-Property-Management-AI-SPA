@@ -355,7 +355,7 @@ CREATE TABLE people_db_ingest_runs (
 **目標**：ES 升級支援中文分詞，舊索引不中斷搜尋。
 
 **交付**：
-- [ ] `tools/hermes-runtime/` Dockerfile 或 ES image 安裝 `analysis-ik`（版本對齊 ES）
+- [ ] `backend/elasticsearch/` Dockerfile 或 ES image 安裝 `analysis-ik`（版本對齊 ES）
 - [ ] ES mapping `tools/people-db/es-mappings/people_v2.json`：人名 = `name (ik_smart)` + `name.keyword`；地址 = `address (ik_max_word)` + `address_normalized`
 - [ ] `tools/people-db/reindex.ts`：`_reindex` API + `requests_per_second` 節流
 - [ ] `tools/people-db/swap-alias.sh`：`people` alias v1 → v2，驗證後移除 v1
@@ -366,7 +366,7 @@ CREATE TABLE people_db_ingest_runs (
 - `GET /people_v2/_analyze` 對中文人名/地址不是逐字切
 - 切 alias 後前端搜尋無感知
 
-**風險**：IK 版本必須嚴格對齊 ES；先查 `tools/hermes-runtime/docker-compose.yml` 的 ES 版本。
+**風險**：IK 版本必須嚴格對齊 ES；先查 `backend/elasticsearch/docker-compose.yml` 的 ES 版本。
 
 **預估**：5 points / 2 天 **（與 Sprint 2 並行）**
 
@@ -433,7 +433,7 @@ CREATE TABLE people_db_ingest_runs (
 ## 八、依賴與前置條件
 
 - **OpenClaw**：Sprint 3 先 mock；`feature/openclaw-migration` 合併後替換真 client。
-- **ES 版本**：Sprint 5 需先查 `tools/hermes-runtime/docker-compose.yml` 鎖定 IK 版本。
+- **ES 版本**：Sprint 5 需先查 `backend/elasticsearch/docker-compose.yml` 鎖定 IK 版本。
 - **mdbtools**：Sprint 2 CI image `apt-get install mdbtools`；本機 `brew install mdbtools`。
 - **硬碟存取**：Sprint 1–6 走本機 `/Volumes/KLEVV-4T-2/`；NAS 待 Sprint 7。
 

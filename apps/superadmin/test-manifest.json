@@ -172,9 +172,7 @@
       "e2ePaths": [
         "apps/superadmin/e2e/130/paperclip-development-loop.spec.ts"
       ],
-      "linkedToolScripts": [
-        "tools/hermes-runtime/start-hermes.sh"
-      ]
+      "linkedToolScripts": []
     },
     {
       "id": "131",

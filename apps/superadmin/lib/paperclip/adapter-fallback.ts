@@ -10,15 +10,13 @@
  *    1. claude_local   — Best coding quality, subscription-based (no extra API cost)
  *    2. codex_local    — GPT-5.3 Codex, strong coding
  *    3. cursor         — Cursor Agent, multi-model via CURSOR_API_KEY
- *    4. hermes_local   — 8 providers, 30+ tools, persistent memory, skills
- *    5. opencode_local — Multi-provider (93 models: OpenAI + Google)
- *    6. pi_local       — Multi-provider (68 models: OpenAI + Google), needs model config
+ *    4. opencode_local — Multi-provider (93 models: OpenAI + Google)
+ *    5. pi_local       — Multi-provider (68 models: OpenAI + Google), needs model config
  */
 export const ADAPTER_FALLBACK_CHAIN = [
   'claude_local',
   'codex_local',
   'cursor',
-  'hermes_local',
   'opencode_local',
   'pi_local',
 ] as const;

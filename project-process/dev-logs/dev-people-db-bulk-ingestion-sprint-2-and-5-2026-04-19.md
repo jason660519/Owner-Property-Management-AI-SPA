@@ -84,7 +84,7 @@ npm install --workspace apps/superadmin --legacy-peer-deps dbffile@^1.12.0 xlsx@
 
 ### 3.1 重大發現：Plugin 已內建
 
-原 dev-spec 假設要 `tools/hermes-runtime/` 安裝 plugin，但實際盤點：
+原 dev-spec 假設要在獨立 runtime 安裝 plugin，但實際盤點：
 
 - **ES image**：`backend/elasticsearch/Dockerfile` 已 `RUN bin/elasticsearch-plugin install ... analysis-ik` + `analysis-stconvert`（ES 8.12.0 對齊）
 - **既有 mapping**：`people_database` index 的 `name` / `address` 欄位已用 `ik_max_word_analyzer` + `ik_smart_analyzer`

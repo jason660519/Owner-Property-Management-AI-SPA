@@ -120,6 +120,7 @@ resources/
 plane/
 plane-selfhost/
 tools/hermes-agent/
+hermes-agent/
 
 # ============================================
 # Database

@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { clsx } from 'clsx';
-import { Code2, FlaskConical, Rocket, Activity, Workflow, Monitor } from 'lucide-react';
+import { Code2, FlaskConical, Rocket, Activity, Workflow } from 'lucide-react';
 import type { PhaseType } from '@/app/data/roadmap';
 
 interface SheetTab {
@@ -61,8 +61,7 @@ interface SheetTabsProps {
 }
 
 export function SheetTabs({ activePhase, onPhaseChange, phaseCounts }: SheetTabsProps) {
-  const hermesWebUiUrl = process.env.NEXT_PUBLIC_HERMES_WEB_UI_URL?.trim() || 'http://localhost:9119';
-  const [activeShortcut, setActiveShortcut] = useState<'paperclip' | 'hermes' | null>(null);
+  const [activeShortcut, setActiveShortcut] = useState<'paperclip' | null>(null);
 
   return (
     <div className="flex items-end gap-0 border-t border-border-default bg-bg-secondary/50 rounded-b-lg overflow-x-auto flex-none">
@@ -120,24 +119,6 @@ export function SheetTabs({ activePhase, onPhaseChange, phaseCounts }: SheetTabs
         <span>paperclip dashboard</span>
         {activeShortcut === 'paperclip' && <span className="absolute top-0 left-0 right-0 h-0.5 bg-white/50" />}
       </Link>
-      <a
-        href={hermesWebUiUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Open Hermes Web UI (opens in new tab)"
-        onClick={() => setActiveShortcut('hermes')}
-        className={clsx(
-          'relative flex items-center gap-2 px-5 py-2.5 text-sm font-medium transition-all border-r border-border-default whitespace-nowrap',
-          activeShortcut === 'hermes'
-            ? 'bg-cyan-600 text-white shadow-sm'
-            : 'text-text-secondary hover:text-text-primary hover:bg-bg-secondary',
-        )}
-        title="Open Hermes Web UI"
-      >
-        <Monitor className={clsx('w-4 h-4', activeShortcut === 'hermes' ? 'text-current' : 'text-cyan-600')} />
-        <span>hermes web-ui</span>
-        {activeShortcut === 'hermes' && <span className="absolute top-0 left-0 right-0 h-0.5 bg-white/50" />}
-      </a>
       {/* Fill remaining space */}
       <div className="flex-1 min-w-[20px]" />
     </div>

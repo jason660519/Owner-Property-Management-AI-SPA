@@ -12,8 +12,6 @@ set -e
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$PROJECT_ROOT/logs/dev"
 ENV_FILE="$PROJECT_ROOT/.env"
-HERMES_RUNTIME_DIR="$PROJECT_ROOT/tools/hermes-runtime"
-HERMES_DASHBOARD_PORT="${HERMES_DASHBOARD_PORT:-9119}"
 ELASTIC_DIR="$PROJECT_ROOT/backend/elasticsearch"
 
 # --- 顏色定義 ---
@@ -306,7 +304,6 @@ EOF
     open_url_once_in_chrome "http://localhost:3001/superadmin"
     open_openclaw_if_needed
     open_url_once_in_chrome "http://localhost:5601/app/integrations/browse"
-    open_url_once_in_chrome "http://localhost:9119/"
     open_url_once_in_chrome "http://localhost:54323/project/default"
     open_url_once_in_chrome "http://localhost:54324/"
 }
@@ -436,73 +433,6 @@ start_admin() {
     fi
 }
 
-start_hermes_dashboard() {
-    echo -e "${BLUE}🤖 啟動 Hermes Dashboard (Docker-only)...${NC}"
-
-    if [ ! -f "$HERMES_RUNTIME_DIR/docker-compose.yml" ]; then
-        echo -e "${RED}❌ 找不到 Hermes runtime 設定: $HERMES_RUNTIME_DIR/docker-compose.yml${NC}"
-        return 1
-    fi
-
-    local selected_port="$HERMES_DASHBOARD_PORT"
-    if lsof -i :"$selected_port" > /dev/null 2>&1; then
-        if docker ps --format '{{.Names}}' | grep -q '^hermes-dashboard$'; then
-            if curl -fsS "http://localhost:${selected_port}" >/dev/null 2>&1; then
-                echo -e "${GREEN}✅ Hermes Dashboard 已在運行: http://localhost:${selected_port}${NC}"
-                return 0
-            fi
-            echo -e "${YELLOW}⚠️  Hermes Dashboard 容器在運行但 HTTP 不可達，將嘗試重建${NC}"
-            (
-                cd "$HERMES_RUNTIME_DIR"
-                HERMES_HOME_DIR="$HOME/.hermes-opm" HERMES_DASHBOARD_PORT="$selected_port" docker compose up -d --force-recreate hermes-dashboard
-            ) >> "$LOG_DIR/hermes-runtime.log" 2>&1 || {
-                echo -e "${RED}❌ Hermes Dashboard 重建失敗，詳見: $LOG_DIR/hermes-runtime.log${NC}"
-                return 1
-            }
-        fi
-        selected_port="9120"
-        if lsof -i :"$selected_port" > /dev/null 2>&1; then
-            echo -e "${RED}❌ Port 9119 / 9120 都被佔用，請先釋放 port 或手動指定 HERMES_DASHBOARD_PORT${NC}"
-            return 1
-        fi
-        echo -e "${YELLOW}⚠️  Port 9119 已被佔用，改用 Port ${selected_port}${NC}"
-    fi
-
-    ensure_log_dir
-    (
-        cd "$HERMES_RUNTIME_DIR"
-        HERMES_HOME_DIR="$HOME/.hermes-opm" HERMES_DASHBOARD_PORT="$selected_port" docker compose up -d hermes hermes-dashboard
-    ) > "$LOG_DIR/hermes-runtime.log" 2>&1 || {
-        echo -e "${RED}❌ Hermes Dashboard 啟動失敗，詳見: $LOG_DIR/hermes-runtime.log${NC}"
-        return 1
-    }
-
-    local state
-    state=$(docker inspect -f '{{.State.Status}}' hermes-dashboard 2>/dev/null || echo "missing")
-    if [ "$state" != "running" ]; then
-        echo -e "${RED}❌ Hermes Dashboard 容器未正常運行（state: $state），詳見: $LOG_DIR/hermes-runtime.log${NC}"
-        return 1
-    fi
-
-    local health_ok=0
-    for _ in $(seq 1 20); do
-        if curl -fsS "http://localhost:${selected_port}" >/dev/null 2>&1; then
-            health_ok=1
-            break
-        fi
-        sleep 1
-    done
-
-    if [ "$health_ok" -ne 1 ]; then
-        echo -e "${RED}❌ Hermes Dashboard 尚未可連線，詳見: $LOG_DIR/hermes-runtime.log${NC}"
-        return 1
-    fi
-
-    HERMES_DASHBOARD_PORT="$selected_port"
-    export HERMES_DASHBOARD_PORT
-    echo -e "${GREEN}✅ Hermes Dashboard 啟動成功: http://localhost:${HERMES_DASHBOARD_PORT}${NC}"
-}
-
 start_openclaw() {
     echo -e "${BLUE}🕹️  啟動 OpenClaw...${NC}"
     if ! command -v openclaw > /dev/null 2>&1; then
@@ -626,7 +556,6 @@ start_all() {
     start_web_au "bg"
     start_admin "bg"
     start_paperclip
-    start_hermes_dashboard
     start_openclaw "bg"
 
     if [ -n "$ELASTIC_WAIT_PID" ]; then
@@ -641,7 +570,6 @@ start_all() {
     echo -e "   • Elasticsearch:    http://localhost:9200"
     echo -e "   • Kibana:           http://localhost:5601"
     echo -e "   • Paperclip (Docker-only): ${PAPERCLIP_PUBLIC_URL:-http://localhost:${PAPERCLIP_PORT:-3187}}"
-    echo -e "   • Hermes Dashboard (Docker-only): http://localhost:${HERMES_DASHBOARD_PORT:-9119}"
     echo -e "   • OpenClaw Dashboard: http://localhost:${openclaw_port}"
     echo -e "   • Supabase Studio:  http://localhost:54323"
     echo -e "   • Mailpit (Email):  http://localhost:54324"
@@ -714,11 +642,10 @@ show_menu() {
     echo "6) 🧹 清除快取 (TW + AU + Superadmin)"
     echo "7) 📎 啟動 Paperclip (Docker-only)"
     echo "8) 📦 更新 Paperclip 映像檔 (Docker-only)"
-    echo "9) 🤖 啟動 Hermes Dashboard (Docker-only)"
-    echo "10) 🔎 啟動 Elasticsearch + Kibana (Docker)"
-    echo "11) 📊 執行 Observability MVP 檢查"
-    echo "12) 🕹️  啟動 OpenClaw"
-    echo "13) 🛑 停止所有服務"
+    echo "9) 🔎 啟動 Elasticsearch + Kibana (Docker)"
+    echo "10) 📊 執行 Observability MVP 檢查"
+    echo "11) 🕹️  啟動 OpenClaw"
+    echo "12) 🛑 停止所有服務"
     echo "0) 離開"
     echo ""
     read -p "請輸入選項: " choice
@@ -732,11 +659,10 @@ show_menu() {
         6) clean_cache ;;
         7) start_paperclip ;;
         8) update_paperclip_image ;;
-        9) start_hermes_dashboard ;;
-        10) start_elasticsearch_stack ;;
-        11) run_observability_checks ;;
-        12) start_openclaw ;;
-        13) ./stop.sh ;;
+        9) start_elasticsearch_stack ;;
+        10) run_observability_checks ;;
+        11) start_openclaw ;;
+        12) ./stop.sh ;;
         0) exit 0 ;;
         *) echo "無效選項"; sleep 1; show_menu ;;
     esac
@@ -753,9 +679,8 @@ case "${1:-menu}" in
     openclaw) start_openclaw ;;
     paperclip) check_dependencies; start_paperclip ;;
     paperclip-update) check_dependencies; update_paperclip_image ;;
-    hermes) check_dependencies; start_hermes_dashboard ;;
     test)   run_tests ;;
     clean)  clean_cache ;;
     menu)   show_menu ;;
-    *)      echo "用法: $0 [all|web|web-au|admin|elastic|observability|openclaw|paperclip|paperclip-update|hermes|test|clean|menu]" ;;
+    *)      echo "用法: $0 [all|web|web-au|admin|elastic|observability|openclaw|paperclip|paperclip-update|test|clean|menu]" ;;
 esac

@@ -37,7 +37,6 @@ export type IDEOption =
   // AI Coding Agents
   | 'Claude Code'
   | 'Codex'
-  | 'Hermes Agent'
   | 'OpenCode'
   | 'Pi';
 
@@ -55,7 +54,6 @@ export const RUNTIME_OPTIONS: RuntimeOptionMeta[] = [
   { id: 'Claude Code',   label: 'Claude Code (Agent)',   group: 'agent', adapterType: 'claude_local' },
   { id: 'Codex',         label: 'Codex (Agent)',         group: 'agent', adapterType: 'codex_local' },
   { id: 'Cursor',        label: 'Cursor (IDE + Agent)',  group: 'agent', adapterType: 'cursor' },
-  { id: 'Hermes Agent',  label: 'Hermes Agent',          group: 'agent', adapterType: 'hermes_local' },
   { id: 'OpenCode',      label: 'OpenCode (Agent)',      group: 'agent', adapterType: 'opencode_local' },
   { id: 'Pi',            label: 'Pi (Agent)',            group: 'agent', adapterType: 'pi_local' },
   // Human IDEs (manual mode only)
