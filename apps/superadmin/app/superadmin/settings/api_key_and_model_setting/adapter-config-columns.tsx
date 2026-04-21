@@ -20,7 +20,7 @@ export type AdapterConfigDraftCell = {
   selectedPromptId: string;
   testFileName: string;
   testFile: File | null;
-  /** 本輪測試開始時間（ms）；用於顯示經過秒數 */
+  /** Start time (ms) of the current run; used to display elapsed seconds */
   runStartedAtMs: number | null;
   runStatus: 'idle' | 'running' | 'paused' | 'stopped';
   outputLines: string[];
@@ -43,7 +43,7 @@ export type AdapterConfigDraftCell = {
 
 export type AdapterPromptOptionCell = { id: string; label: string; content: string };
 
-/** 001–999 三位數；超過 999 顯示實際整數避免重複編號 */
+/** 3-digit 001–999; for > 999, show the full integer to avoid collisions */
 export function formatAdapterSerial(n: number): string {
   if (!Number.isFinite(n) || n < 1) return '001';
   if (n <= 999) return String(n).padStart(3, '0');
@@ -67,13 +67,16 @@ export interface CreateAdapterConfigColumnsDeps {
 
 const col = createColumnHelper<AdapterConfigTableRow>();
 
-/** 執行中顯示轉圈與經過時間（小數點 1 位）；暫停時凍結秒數 */
-function AdapterRunElapsedLabel({
+/** While running, show a spinner + elapsed time (1 decimal); freeze while paused */
+export function AdapterRunElapsedLabel({
   runStatus,
   runStartedAtMs,
+  showLeadingSpinner = true,
 }: {
   runStatus: AdapterConfigDraftCell['runStatus'];
   runStartedAtMs: number | null;
+  /** If the parent already shows a busy icon (e.g. a Loader inside a button), set false to only show the timer */
+  showLeadingSpinner?: boolean;
 }) {
   const [elapsedSec, setElapsedSec] = useState(0);
 
@@ -97,7 +100,9 @@ function AdapterRunElapsedLabel({
       className={`mt-1 flex min-h-[18px] items-center gap-1 text-[11px] ${isPaused ? 'text-amber-800' : 'text-emerald-800'}`}
       aria-live={isPaused ? 'off' : 'polite'}
     >
-      {!isPaused && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-emerald-600" aria-hidden />}
+      {showLeadingSpinner && !isPaused && (
+        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-emerald-600" aria-hidden />
+      )}
       {isPaused && <span className="shrink-0 font-medium">已暫停</span>}
       <span className="tabular-nums font-mono font-semibold">{elapsedSec.toFixed(1)}</span>
       <span className="text-text-muted">秒</span>
@@ -430,7 +435,7 @@ export function createAdapterConfigColumns(
       enableSorting: false,
       cell: ({ row }) => {
         const { item, draft } = row.original;
-        /** 執行中／暫停時輪詢仍可能沿用上一輪的 render，不可顯示舊的及格／不及格以免誤導 */
+        /** While running/paused, polling may still reuse the previous render; don't show stale pass/fail to avoid misleading users */
         if (draft.runStatus === 'running') {
           return (
             <div

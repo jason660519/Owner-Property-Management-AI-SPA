@@ -118,6 +118,35 @@ const minPct = (40 / containerWidth) * 100;
 
 **Fix**: Use a globally unique `tableId` (e.g. `iam_overview_audit_log`, not just `audit_log`).
 
+### 10. Double Vertical Scrollbars (nested `overflow-y-auto`)
+
+**Symptom**: Two scrollbars on the same page — e.g. one on the shell `<main>` and one on an inner “content” div wrapping settings + tables.
+
+**Cause**: Stacking scrollable ancestors (`overflow-y-auto` / `overflow-auto`) on the same vertical axis so both try to own scroll.
+
+**Fix**: Pick **one** primary scroll owner. Typical pattern for long settings pages inside a layout that already scrolls:
+
+- On the **middle shell** between layout and page body: `overflow-hidden flex flex-col min-h-0` (or equivalent) so you do **not** add a second full-column `overflow-y-auto` unless that shell is intentionally the only scroll region.
+- Use **`flex-1 min-h-0`** on flex children that should shrink so inner regions don’t force overflow on the wrong ancestor.
+
+If the table itself must scroll vertically inside a fixed viewport, isolate that to the table card — but then the outer page usually should **not** also scroll the same content.
+
+### 11. Confusing or Duplicate Horizontal Scrollbars
+
+**Symptom A**: Two horizontal bars (native under the grid + a custom strip) — looks broken.
+
+**Symptom B**: A “global” horizontal bar docked at the viewport bottom, disconnected from the table card or sitting above `BottomSheetTabs`.
+
+**Cause A**: `persistentHorizontalScrollbar` adds a synced strip; the native horizontal scrollbar on the same scrollport was still visible.
+
+**Fix A**: Rely on `EnhancedTable`’s scrollport class `enhanced-table-scrollport--hide-native-h-scrollbar` (see `apps/superadmin/app/globals.css`). That hides the **native horizontal** track on **WebKit/Chromium**. Firefox may still show a thin native bar depending on OS settings — acceptable tradeoff unless you add Firefox-specific CSS.
+
+**Cause B**: Custom `createPortal` / “dock” pattern for the sync bar.
+
+**Fix B**: **Do not portal** the horizontal strip. `EnhancedTable` places the synced strip **inside the table card**, **below the grid scrollport**, **above pagination**. That keeps the affordance visually tied to the grid and avoids fighting bottom tab chrome.
+
+**Related**: Wide toolbars — ensure outer wrappers use **`min-w-0`** / **`w-full`** so flex layout does not block horizontal overflow from reaching the table’s scrollport (see main skill “Toolbar + wide rows”).
+
 ## Design Decisions
 
 ### Why CSS Grid instead of `<table>`?

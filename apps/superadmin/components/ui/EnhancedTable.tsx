@@ -24,7 +24,7 @@ import {
   ChevronDown,
   ChevronUp,
   RotateCcw,
-  Save,
+  SlidersHorizontal,
   AlignLeft,
   Eye,
   Plus,
@@ -100,13 +100,18 @@ export interface EnhancedTableProps<T> {
    */
   stretchToContainer?: boolean;
   /**
-   * Show a persistent horizontal scrollbar right below toolbar and keep it synced
-   * with the real table scroll. Useful for long tables so users don't need to
-   * scroll to the very bottom before they can drag horizontally.
+   * Renders a dedicated horizontal scrollbar strip **below the table grid** (inside the
+   * table card), synced with the table scrollport. Hides the duplicate native horizontal
+   * bar on Chromium/WebKit via `enhanced-table-scrollport--hide-native-h-scrollbar`.
    */
   persistentHorizontalScrollbar?: boolean;
   /** Extra toolbar content (rendered after standard buttons) */
   extraToolbar?: React.ReactNode;
+  /**
+   * After user overwrites an existing width preset ("Save" on a saved preset row):
+   * shows a short success toast, then invokes this callback (e.g. switch tab / hash).
+   */
+  onAfterWidthPresetOverwrite?: (info: { presetName: string }) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -152,6 +157,7 @@ export default function EnhancedTable<T>({
   stretchToContainer = true,
   persistentHorizontalScrollbar = false,
   extraToolbar,
+  onAfterWidthPresetOverwrite,
 }: EnhancedTableProps<T>) {
   // --- Persisted preferences ---
   const defaultSettings: TableSettings = {
@@ -334,19 +340,43 @@ export default function EnhancedTable<T>({
     return () => document.removeEventListener('mousedown', onClick);
   }, [viewOpen]);
 
-  // --- Save widths dropdown ---
-  const [saveOpen, setSaveOpen] = useState(false);
+  // --- Width settings (presets + reset) dropdown ---
+  const [widthSettingsOpen, setWidthSettingsOpen] = useState(false);
   const [presetName, setPresetName] = useState('');
-  const saveRef = useRef<HTMLDivElement>(null);
+  const widthSettingsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!saveOpen) return;
+    if (!widthSettingsOpen) return;
     const onClick = (e: MouseEvent) => {
-      if (saveRef.current && !saveRef.current.contains(e.target as Node)) setSaveOpen(false);
+      if (widthSettingsRef.current && !widthSettingsRef.current.contains(e.target as Node)) {
+        setWidthSettingsOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setWidthSettingsOpen(false);
     };
     document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
-  }, [saveOpen]);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [widthSettingsOpen]);
+
+  const WIDTH_PRESET_OVERWRITE_TOAST_MS = 1400;
+  const [widthPresetOverwriteFeedback, setWidthPresetOverwriteFeedback] = useState<string | null>(null);
+  const presetOverwriteNavTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onAfterWidthPresetOverwriteRef = useRef(onAfterWidthPresetOverwrite);
+  onAfterWidthPresetOverwriteRef.current = onAfterWidthPresetOverwrite;
+
+  useEffect(() => {
+    return () => {
+      if (presetOverwriteNavTimerRef.current) {
+        clearTimeout(presetOverwriteNavTimerRef.current);
+        presetOverwriteNavTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // --- Column resize ---
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -451,8 +481,34 @@ export default function EnhancedTable<T>({
   const colCount = columns.length;
   const { frozenDataColCount, freezeRowCount } = prefs;
 
+  const columnLabel = (col: ColumnDef<T, unknown>, i: number) => {
+    const meta = col.meta as { headerEn?: string } | undefined;
+    if (meta?.headerEn) return meta.headerEn;
+    if (typeof col.header === 'string') return col.header;
+    return `Col ${i + 1}`;
+  };
+
+  const widthSumPct = useMemo(
+    () => colWidths.reduce((a, b) => a + b, 0),
+    [colWidths],
+  );
+
   return (
-    <div className="min-w-0 space-y-3">
+    <div
+      className={clsx(
+        'min-w-0 w-full max-w-full',
+        persistentHorizontalScrollbar ? 'flex min-h-0 flex-1 flex-col gap-3' : 'space-y-3',
+      )}
+    >
+      {widthPresetOverwriteFeedback && (
+        <div
+          className="fixed right-6 top-24 z-[130] max-w-[min(100vw-3rem,24rem)] rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-900 shadow-lg dark:border-emerald-700 dark:bg-emerald-950/90 dark:text-emerald-100"
+          role="status"
+          aria-live="polite"
+        >
+          {widthPresetOverwriteFeedback}
+        </div>
+      )}
       {/* Batch actions */}
       {renderBatchActions && Object.keys(rowSelection).length > 0 && (
         <div className="bg-bg-primary p-3 rounded-lg border border-border-default">
@@ -463,8 +519,8 @@ export default function EnhancedTable<T>({
         </div>
       )}
 
-      {/* Toolbar */}
-      <div className="bg-bg-primary p-4 rounded-lg border border-border-default shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+      {/* Toolbar — min-w-0 so wide control rows don’t expand past viewport and swallow table-level horizontal scroll */}
+      <div className="min-w-0 w-full max-w-full bg-bg-primary p-4 rounded-lg border border-border-default shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
           {/* Search */}
           <div className="relative w-full sm:w-64">
@@ -581,52 +637,119 @@ export default function EnhancedTable<T>({
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Save Widths */}
-          <div className="relative" ref={saveRef}>
-            <button type="button" onClick={() => setSaveOpen(o => !o)}
+          <div className="relative" ref={widthSettingsRef}>
+            <button type="button" onClick={() => setWidthSettingsOpen(o => !o)}
               className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-text-secondary bg-bg-primary border border-border-default rounded-md hover:bg-bg-secondary hover:text-text-primary whitespace-nowrap">
-              <Save className="w-3.5 h-3.5" />Save Widths
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              Width settings
             </button>
-            {saveOpen && (
-              <div className="absolute right-0 top-full mt-1 z-50 w-72 bg-bg-primary border border-border-default rounded-lg shadow-lg p-3">
+            {widthSettingsOpen && (
+              <div className="absolute right-0 top-full mt-1 z-50 w-[min(100vw-1.5rem,22rem)] sm:w-96 max-h-[min(85vh,32rem)] overflow-y-auto bg-bg-primary border border-border-default rounded-lg shadow-lg p-3">
                 <div className="space-y-3">
                   <div>
-                    <label htmlFor={`preset-${tableId}`} className="block text-xs font-medium text-text-secondary mb-1">Save current layout as</label>
+                    <p className="text-xs font-semibold text-text-primary">目前各欄寬度</p>
+                    <p className="text-[10px] text-text-muted mt-0.5">百分比為版面比例；px 依目前表格寬度換算，方便對照調整。</p>
+                    <ul className="mt-2 space-y-1 max-h-48 overflow-y-auto rounded-md border border-border-default divide-y divide-border-default">
+                      {columns.map((col, i) => (
+                        <li key={col.id ?? i} className="flex items-start justify-between gap-2 px-2 py-1.5 bg-bg-secondary/40 text-xs">
+                          <span className="text-text-primary font-medium break-words min-w-0 flex-1">{columnLabel(col, i)}</span>
+                          <span className="text-text-secondary tabular-nums flex-shrink-0 text-right">
+                            <span className="text-emerald-700 dark:text-emerald-400">{colWidths[i]?.toFixed(1) ?? '—'}%</span>
+                            <span className="text-text-muted mx-1">/</span>
+                            <span>{Math.round(colPxWidths[i] ?? 0)}px</span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-[10px] text-text-muted mt-1.5 tabular-nums">
+                      欄寬比例加總：<span className="font-medium text-text-secondary">{widthSumPct.toFixed(1)}%</span>
+                    </p>
+                  </div>
+
+                  <div className="border-t border-border-default pt-3">
+                    <label htmlFor={`preset-${tableId}`} className="block text-xs font-medium text-text-secondary mb-1">另存為預設集</label>
                     <div className="flex gap-2">
-                      <input id={`preset-${tableId}`} type="text" value={presetName} onChange={e => setPresetName(e.target.value)} placeholder="e.g. macOS Chrome"
+                      <input id={`preset-${tableId}`} type="text" value={presetName} onChange={e => setPresetName(e.target.value)} placeholder="例如：寬螢幕、簡報用"
                         className="flex-1 min-w-0 bg-bg-secondary border border-border-default rounded-md px-2 py-1.5 text-sm text-text-primary placeholder-text-muted focus:ring-2 focus:ring-emerald-500/20 outline-none"
-                        onKeyDown={e => { if (e.key === 'Enter' && presetName.trim()) { patch({ widthPresets: [...prefs.widthPresets, { id: crypto.randomUUID(), name: presetName.trim(), widths: [...colWidths] }] }); setPresetName(''); } }} />
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && presetName.trim()) {
+                            patch({
+                              widthPresets: [
+                                ...prefs.widthPresets,
+                                { id: crypto.randomUUID(), name: presetName.trim(), widths: [...colWidths] },
+                              ],
+                            });
+                            setPresetName('');
+                          }
+                        }} />
                       <button type="button" disabled={!presetName.trim()}
-                        onClick={() => { patch({ widthPresets: [...prefs.widthPresets, { id: crypto.randomUUID(), name: presetName.trim(), widths: [...colWidths] }] }); setPresetName(''); }}
-                        className="px-2 py-1.5 text-xs font-medium rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">Save</button>
+                        onClick={() => {
+                          patch({
+                            widthPresets: [
+                              ...prefs.widthPresets,
+                              { id: crypto.randomUUID(), name: presetName.trim(), widths: [...colWidths] },
+                            ],
+                          });
+                          setPresetName('');
+                        }}
+                        className="px-2 py-1.5 text-xs font-medium rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 shrink-0">
+                        儲存
+                      </button>
                     </div>
                   </div>
+
                   {prefs.widthPresets.length > 0 && (
                     <div>
-                      <p className="text-xs font-medium text-text-secondary mb-2">Saved presets</p>
-                      <ul className="space-y-1 max-h-40 overflow-y-auto">
+                      <p className="text-xs font-medium text-text-secondary mb-2">已儲存的預設集</p>
+                      <ul className="space-y-1 max-h-36 overflow-y-auto">
                         {prefs.widthPresets.map(p => (
                           <li key={p.id} className="flex items-center justify-between gap-2 py-1.5 px-2 rounded bg-bg-secondary/50 hover:bg-bg-secondary">
-                            <span className="text-sm text-text-primary truncate">{p.name}</span>
+                            <span className="text-sm text-text-primary truncate min-w-0">{p.name}</span>
                             <span className="flex gap-1 flex-shrink-0">
-                              <button type="button" onClick={() => { patch({ colWidths: p.widths }); setSaveOpen(false); }} className="text-xs text-emerald-600 hover:text-emerald-500">Load</button>
-                              <button type="button" onClick={() => patch({ widthPresets: prefs.widthPresets.filter(x => x.id !== p.id) })} className="text-xs text-text-muted hover:text-red-500">Delete</button>
+                              <button type="button" onClick={() => { patch({ colWidths: p.widths }); setWidthSettingsOpen(false); }} className="text-xs text-emerald-600 hover:text-emerald-500">載入</button>
+                              <button
+                                type="button"
+                                title="以目前欄寬覆寫此預設集"
+                                onClick={() => {
+                                  patch({
+                                    widthPresets: prefs.widthPresets.map(x =>
+                                      x.id === p.id ? { ...x, widths: [...colWidths] } : x
+                                    ),
+                                  });
+                                  setWidthSettingsOpen(false);
+                                  setWidthPresetOverwriteFeedback(`「${p.name}」預設集儲存成功`);
+                                  if (presetOverwriteNavTimerRef.current) {
+                                    clearTimeout(presetOverwriteNavTimerRef.current);
+                                  }
+                                  presetOverwriteNavTimerRef.current = setTimeout(() => {
+                                    presetOverwriteNavTimerRef.current = null;
+                                    setWidthPresetOverwriteFeedback(null);
+                                    onAfterWidthPresetOverwriteRef.current?.({ presetName: p.name });
+                                  }, WIDTH_PRESET_OVERWRITE_TOAST_MS);
+                                }}
+                                className="text-xs text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
+                              >
+                                儲存
+                              </button>
+                              <button type="button" onClick={() => patch({ widthPresets: prefs.widthPresets.filter(x => x.id !== p.id) })} className="text-xs text-text-muted hover:text-red-500">刪除</button>
                             </span>
                           </li>
                         ))}
                       </ul>
                     </div>
                   )}
+
+                  <div className="border-t border-border-default pt-2">
+                    <button type="button" onClick={() => { patch({ colWidths: initialWidths }); }}
+                      className="flex w-full items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-text-secondary bg-bg-secondary border border-border-default rounded-md hover:bg-bg-primary hover:text-text-primary">
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      還原為預設欄寬
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
           </div>
-
-          {/* Reset */}
-          <button type="button" onClick={() => patch({ colWidths: initialWidths })}
-            className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-text-secondary bg-bg-primary border border-border-default rounded-md hover:bg-bg-secondary hover:text-text-primary whitespace-nowrap">
-            <RotateCcw className="w-3.5 h-3.5" />Reset Widths
-          </button>
 
           {/* Add row */}
           {onAddRow && (
@@ -641,11 +764,24 @@ export default function EnhancedTable<T>({
       </div>
 
       {/* Table */}
-      <div className="min-w-0 overflow-hidden rounded-lg border border-border-default bg-bg-primary shadow-sm">
+      <div
+        className={clsx(
+          'min-w-0 w-full max-w-full overflow-hidden rounded-lg border border-border-default bg-bg-primary shadow-sm',
+          persistentHorizontalScrollbar && 'flex min-h-0 flex-1 flex-col',
+        )}
+      >
         <div
           className={clsx(
-            'min-w-0',
-            stretchToContainer ? 'overflow-auto' : 'overflow-y-auto overflow-x-scroll',
+            'min-w-0 w-full max-w-full',
+            stretchToContainer
+              ? 'overflow-auto'
+              : clsx(
+                  'overflow-y-auto',
+                  persistentHorizontalScrollbar
+                    ? 'overflow-x-auto enhanced-table-scrollport--hide-native-h-scrollbar'
+                    : 'overflow-x-scroll',
+                  persistentHorizontalScrollbar && 'min-h-0 flex-1',
+                ),
           )}
           onScroll={persistentHorizontalScrollbar ? syncExternalScrollbarFromTable : undefined}
           ref={tableContainerRef}
@@ -727,12 +863,12 @@ export default function EnhancedTable<T>({
         </div>
 
         {persistentHorizontalScrollbar && (
-          <div className="border-t border-border-default bg-bg-secondary/60 px-2 py-1">
+          <div className="shrink-0 border-t border-border-default bg-bg-secondary/60 px-2 py-1.5">
             <div
               ref={externalScrollbarRef}
               onScroll={syncTableFromExternalScrollbar}
-              className="h-3 overflow-x-auto overflow-y-hidden"
-              aria-label="表格水平捲軸"
+              className="h-4 min-h-[1rem] overflow-x-auto overflow-y-hidden [scrollbar-width:thin]"
+              aria-label="表格水平捲軸（與上方表格同步）"
             >
               <div style={{ width: tableScrollContentWidth, height: 1 }} />
             </div>

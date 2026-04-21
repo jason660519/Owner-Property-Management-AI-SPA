@@ -1104,6 +1104,9 @@ export function ModelEvaluator({
   /** 表格內出現的公司清單（用於篩選下拉） */
   const providersInTable = useMemo(() => {
     const seen = new Map<string, string>();
+    for (const p of AI_PROVIDERS) {
+      seen.set(p.id, p.name);
+    }
     for (const r of allRows) {
       if (!seen.has(r.providerId)) seen.set(r.providerId, r.providerName);
     }

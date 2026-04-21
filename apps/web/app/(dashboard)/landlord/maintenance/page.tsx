@@ -166,14 +166,6 @@ function DispatchFields({
   const [assignedToId, setAssignedToId] = useState<string>(request.assignedToId ?? '')
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    setNotesInput(request.notes ?? '')
-    setEstimatedCost(request.estimatedCost != null ? String(request.estimatedCost) : '')
-    setActualCost(request.actualCost != null ? String(request.actualCost) : '')
-    setScheduledLocal(toLocalDatetimeInput(request.scheduledDate))
-    setAssignedToId(request.assignedToId ?? '')
-  }, [request])
-
   const fieldClass =
     'w-full rounded-md border border-border-default bg-bg-tertiary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent'
 
@@ -430,6 +422,7 @@ function RequestCard({
               <p className="text-sm text-text-secondary">{request.description}</p>
             </div>
             <DispatchFields
+              key={request.id}
               request={request}
               assigneeOptions={assigneeOptions}
               onPersist={(patch) => onPersist(request.id, patch)}
@@ -521,6 +514,7 @@ function DesktopTable({
                 <tr className="border-b border-border-default bg-bg-primary">
                   <td colSpan={9} className="px-4 py-4">
                     <DispatchFields
+                      key={r.id}
                       request={r}
                       assigneeOptions={assigneeOptions}
                       onPersist={(patch) => onPersist(r.id, patch)}

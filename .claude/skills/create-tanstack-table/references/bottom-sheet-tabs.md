@@ -106,6 +106,7 @@ export default function MyPage() {
 2. **Content area** must have `flex-1 min-h-0 flex flex-col` — this makes it fill remaining space
 3. **BottomSheetTabs** renders as `flex-none` — it stays at the bottom
 4. Each tab content should be a self-contained component (its own EnhancedTable with independent `tableId`)
+5. **Horizontal scroll for wide tables** — use `EnhancedTable`’s `persistentHorizontalScrollbar` if needed; the synced strip lives **inside the table card**, not fixed over the tab bar. See `troubleshooting.md` #11.
 
 ## Hash Navigation
 

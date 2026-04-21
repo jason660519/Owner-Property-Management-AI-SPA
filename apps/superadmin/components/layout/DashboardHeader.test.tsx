@@ -40,6 +40,7 @@ jest.mock('next-themes', () => ({
     else document.documentElement.classList.remove('dark');
     return {
       theme: currentTheme,
+      resolvedTheme: currentTheme,
       setTheme: setThemeMock,
     };
   },
@@ -143,20 +144,22 @@ describe('DashboardHeader', () => {
   });
 
   it('toggles theme between light and dark', async () => {
-    render(<DashboardHeader />);
+    const { rerender } = render(<DashboardHeader />);
     
     // Initial state: Light (default mock is light)
     await waitFor(() => {
         expect(document.documentElement.classList.contains('dark')).toBe(false);
     });
     
-    const darkModeButtons = await screen.findAllByTitle('Dark Mode');
+    const darkModeButtons = await screen.findAllByTitle('切換至暗模式');
     fireEvent.click(darkModeButtons[0]);
     expect(document.documentElement.classList.contains('dark')).toBe(true);
     expect(localStorage.getItem('theme')).toBe('dark');
+
+    rerender(<DashboardHeader />);
     
     // Click again
-    const lightModeButtons = await screen.findAllByTitle('Light Mode');
+    const lightModeButtons = await screen.findAllByTitle('切換至亮模式');
     fireEvent.click(lightModeButtons[0]);
     expect(document.documentElement.classList.contains('dark')).toBe(false);
     expect(localStorage.getItem('theme')).toBe('light');

@@ -415,3 +415,18 @@ html, body, .main-container, .content-wrapper, .inner-page {
   0% { background-position: 1rem 0; }
   100% { background-position: 0 0; }
 }
+
+/**
+ * EnhancedTable + persistentHorizontalScrollbar:
+ * Hide the *native* horizontal scrollbar on the main table scrollport (WebKit/Blink)
+ * so only the dedicated sync bar is visible — avoids double horizontal bars.
+ * Vertical scrollbar unchanged. Trackpad / Shift+wheel horizontal scroll still works.
+ */
+@layer utilities {
+  .enhanced-table-scrollport--hide-native-h-scrollbar::-webkit-scrollbar:horizontal {
+    height: 0;
+  }
+  .enhanced-table-scrollport--hide-native-h-scrollbar::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}

@@ -19,7 +19,16 @@ interface EnhancedTableProps<T> {
   onAddRow?: () => void;              // Shows "新增 Row" button
   pageSizes?: number[];               // Enables pagination (e.g. [20, 50, 100])
   minWidth?: number;                  // Enables horizontal scroll (px)
+  /** Default true: grid minWidth uses max(100%, minWidth). Set false for dense tables. */
+  stretchToContainer?: boolean;
+  /**
+   * Synced horizontal scrollbar strip under the grid (inside card, above pagination).
+   * Native horizontal bar hidden on WebKit via globals.css — see troubleshooting #11.
+   */
+  persistentHorizontalScrollbar?: boolean;
   extraToolbar?: React.ReactNode;     // Extra buttons after standard toolbar
+  /** After user overwrites a saved width preset: toast then this callback (tab/hash UX). */
+  onAfterWidthPresetOverwrite?: (info: { presetName: string }) => void;
 }
 ```
 
@@ -178,6 +187,26 @@ const [showAddModal, setShowAddModal] = useState(false);
   onAddRow={() => setShowAddModal(true)}
 />
 {showAddModal && <AddRowModal onClose={() => setShowAddModal(false)} onAdd={handleAdd} />}
+```
+
+## `persistentHorizontalScrollbar` (when and how)
+
+- **When**: Wide tables on long pages where users miss the native horizontal bar, or when sticky headers/toolbars obscure it.
+- **Behavior**: A dedicated `<div>` with `overflow-x-auto` mirrors scroll position of the main table scrollport; stays **inside the bordered card**, **between grid and pagination**.
+- **Do not**: Portal a second bar to `document.body`, dock it above bottom tabs, or stack a third custom bar — use this prop only (see `troubleshooting.md` #11).
+
+## `onAfterWidthPresetOverwrite`
+
+Fires after the user saves widths **onto an existing preset name** (overwrite). Built-in UI shows a short success toast; use the callback for navigation side effects:
+
+```tsx
+<EnhancedTable<MyRow>
+  ...
+  onAfterWidthPresetOverwrite={() => {
+    focusMyTab();
+    window.location.hash = 'my-tab-id';
+  }}
+/>
 ```
 
 ## Import

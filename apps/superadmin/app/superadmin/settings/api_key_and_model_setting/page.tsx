@@ -3,8 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Key, FlaskConical, ScanText, BookMarked, Trophy, Bot,
-  Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download, Play, Pause, Square, Route,
-  Eye, ExternalLink,
+  Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download, Play, Route,
 } from 'lucide-react';
 import {
   PromptManagerModal,
@@ -36,6 +35,9 @@ import {
 } from '@/components/ai-settings';
 import { OcrSystemPromptPanel } from '@/components/ai-settings/OcrSystemPromptPanel';
 import { LlmLeaderboardPanel } from '@/components/ai-settings/LlmLeaderboardPanel';
+import { EvaluationsGlobalPanel } from './EvaluationsGlobalPanel';
+import { buildEvaluationsGlobalRowsFromAdapterTables } from './evaluations-global-from-adapters';
+import type { EvaluationsGlobalTableRow } from './evaluations-global-columns';
 import { useAISettings, type KeyValidationResult } from '@/lib/hooks/useAISettings';
 import { listSavedPrompts } from '@/app/superadmin/settings/evaluations-global-test/promptActions';
 import {
@@ -189,7 +191,8 @@ const TABS: { id: SettingsTab; label: string; icon: React.ElementType; descripti
     id: 'evaluations-global',
     label: 'AI 模型全域評測',
     icon: FlaskConical,
-    description: '上傳測試檔、設定全域 Prompt，並對已選模型執行批次評測（與專案進度表相同風格之工作表版面）',
+    description:
+      '16 欄工作表；自動匯入 CLI／HTTP Adapter 分頁中「已結束且評測及格（pass）」的列，可再檢視輸出與指標',
   },
   {
     id: 'adapter-config',
@@ -215,19 +218,6 @@ const TABS: { id: SettingsTab; label: string; icon: React.ElementType; descripti
 const ENV_IMPORT_TOOLTIP = `從 .env 或 JSON 導入\n支援兩種格式：\n• .env：KEY=value 或 export KEY=value\n• JSON：{"OPENAI_API_KEY":"sk-..."} 等頂層 key\n變數名大小寫不拘、拼寫需正確；僅下列金鑰會被辨識：${SUPPORTED_AI_ENV_KEY_NAMES.join('、')}`;
 
 const OCR_HIDDEN_MODULE_KEYS = [
-  'web_assistant',
-  'contract_assistant',
-  'blog_generator',
-  'property_description',
-  'ad_generator',
-  'software_dev_engineer',
-  'ttd_engineer',
-];
-
-/** 與 `evaluations-global-test` 獨立頁相同的隱藏模組（全域評測不顯示 OCR／部落格等欄） */
-const EVALUATIONS_GLOBAL_HIDDEN_MODULE_KEYS = [
-  'online_ocr_parse',
-  'online_ocr_judge',
   'web_assistant',
   'contract_assistant',
   'blog_generator',
@@ -305,10 +295,10 @@ const LS_ADAPTER_RUN_SNAPSHOT = 'ai-settings:adapter-run-snapshot';
 const LS_HTTP_ADAPTER_RUN_SNAPSHOT = 'ai-settings:http-adapter-run-snapshot';
 const ADAPTER_RESULTS_MODULE_KEY = 'adapter_config_test_results';
 
-/** EnhancedTable：欄寬加總 100%，對應「編號 + 公司名稱 + …」共 10 欄 */
+/** EnhancedTable: column widths sum to 100% (10 columns: serial + company + ...) */
 const ADAPTER_CONFIG_TABLE_ID = 'ai-settings-adapter-config-v1';
 const ADAPTER_CONFIG_TABLE_INITIAL_WIDTHS = [4, 7, 10, 14, 8, 10, 8, 14, 13, 12];
-/** 固定表格寬（搭配 stretchToContainer={false}），常見視窗寬度下才會出現底部橫向捲軸 */
+/** Fixed table width (with stretchToContainer={false}) so common viewport sizes show the bottom horizontal scrollbar */
 const ADAPTER_CONFIG_TABLE_MIN_WIDTH_PX = 2400;
 const HTTP_ADAPTER_CONFIG_TABLE_ID = 'ai-settings-http-adapter-config-v1';
 const HTTP_ADAPTER_CONFIG_TABLE_INITIAL_WIDTHS = [4, 7, 10, 14, 8, 10, 8, 14, 13, 12, 6, 6, 6, 6, 5, 8, 7];
@@ -381,7 +371,7 @@ function quoteCliArg(value: string): string {
   return `"${value.replace(/"/g, '\\"')}"`;
 }
 
-/** 全測批次進行中：顯示經過秒數（小數點 1 位） */
+/** While a bulk run is active: show elapsed seconds (1 decimal) */
 function BulkRunElapsed({ startMs }: { startMs: number }) {
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -400,8 +390,8 @@ function isAdapterRunActive(status: AdapterRunStatus | undefined): boolean {
 }
 
 /**
- * 全測：等所有列都不再進行中（非 running / 非 paused）後才 resolve。
- * startAdapterRun 只等「啟動」完成，故批次必須額外等待各輪詢直到 idle/stopped。
+ * Bulk run: only resolves after all rows are no longer active (not running / not paused).
+ * startAdapterRun only waits for "start" to complete, so the batch must additionally poll until idle/stopped.
  */
 function waitForAllAdapterRunsSettled(
   getDrafts: () => Record<string, AdapterConfigDraft>,
@@ -467,7 +457,7 @@ export default function AIServiceSettingsPage() {
   const apiKeyHeaderActionsRef = useRef<{ setEnvImportOpen: (v: boolean) => void } | null>(null);
   const apiKeyManagerRef = useRef<ApiKeyManagerHandle | null>(null);
   const [validateAllLoading, setValidateAllLoading] = useState(false);
-  /** 全部驗證完成後各 key 的結果，供每張 card 直接顯示 Available models，無需再按「驗證金鑰」 */
+  /** Per-key results after "validate all", so each card can show available models without re-validating */
   const [validateAllResultsByKeyId, setValidateAllResultsByKeyId] = useState<Record<string, KeyValidationResult>>({});
   const keysRef = useRef(settings.keys);
   const [modelEvaluatorHeaderActions, setModelEvaluatorHeaderActions] = useState<{
@@ -533,7 +523,7 @@ export default function AIServiceSettingsPage() {
     writeLocalStorage<LastPromptNameByModule>(LS_LAST_PROMPT_NAME_BY_MODULE, lastPromptNameByModule);
   }, [lastPromptNameByModule]);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  /** ref to the hidden file-input used by "載入設定" button */
+  /** Ref to the hidden file-input used by the "Import settings" button */
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
   const [exportingSettings, setExportingSettings] = useState(false);
   const [importingSettings, setImportingSettings] = useState(false);
@@ -541,6 +531,9 @@ export default function AIServiceSettingsPage() {
   const [bulkRunStartedAtMs, setBulkRunStartedAtMs] = useState<number | null>(null);
   const [httpBulkStarting, setHttpBulkStarting] = useState(false);
   const [httpBulkRunStartedAtMs, setHttpBulkRunStartedAtMs] = useState<number | null>(null);
+  /** Evaluations Global bulk-run: run CLI bulk-run first, then HTTP bulk-run (same engine as both Adapter tables) */
+  const [evalGlobalBulkStarting, setEvalGlobalBulkStarting] = useState(false);
+  const [evalGlobalBulkRunStartedAtMs, setEvalGlobalBulkRunStartedAtMs] = useState<number | null>(null);
   const [httpBulkToast, setHttpBulkToast] = useState<string | null>(null);
   const httpBulkToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [adapterRunNotices, setAdapterRunNotices] = useState<AdapterRunNoticeEntry[]>([]);
@@ -1175,6 +1168,67 @@ export default function AIServiceSettingsPage() {
     }
   }, [httpBulkStarting, startAdapterRun]);
 
+  const runCliThenHttpForEvaluationsGlobal = useCallback(async () => {
+    if (evalGlobalBulkStarting || bulkStarting || httpBulkStarting) return;
+    setEvalGlobalBulkStarting(true);
+    setEvalGlobalBulkRunStartedAtMs(Date.now());
+    try {
+      await runAllAdapters();
+      await runAllHttpAdapters();
+    } finally {
+      setEvalGlobalBulkStarting(false);
+      setEvalGlobalBulkRunStartedAtMs(null);
+    }
+  }, [
+    evalGlobalBulkStarting,
+    bulkStarting,
+    httpBulkStarting,
+    runAllAdapters,
+    runAllHttpAdapters,
+  ]);
+
+  /** Parse row ids like `${channel}-adapter-pass-${itemId}` and return the channel + adapter item id */
+  const parseEvalGlobalRowId = useCallback(
+    (id: string): { channel: 'cli' | 'http'; itemId: string } | null => {
+      const CLI_PREFIX = 'cli-adapter-pass-';
+      const HTTP_PREFIX = 'http-adapter-pass-';
+      if (id.startsWith(CLI_PREFIX)) return { channel: 'cli', itemId: id.slice(CLI_PREFIX.length) };
+      if (id.startsWith(HTTP_PREFIX)) return { channel: 'http', itemId: id.slice(HTTP_PREFIX.length) };
+      return null;
+    },
+    [],
+  );
+
+  /** Evaluations Global: single-row "Run/Resume" dispatched to the underlying adapter run engine */
+  const handleEvalGlobalRunRow = useCallback(
+    async (row: EvaluationsGlobalTableRow) => {
+      const parsed =
+        row.adapterChannel && row.adapterItemId
+          ? { channel: row.adapterChannel, itemId: row.adapterItemId }
+          : parseEvalGlobalRowId(row.id);
+      if (!parsed) return;
+      const item = ADAPTER_CONFIG_ITEMS.find((i) => i.id === parsed.itemId);
+      if (!item) return;
+      const draftsMap = parsed.channel === 'http' ? httpAdapterConfigDrafts : adapterConfigDrafts;
+      const draft = draftsMap[item.id] ?? createDefaultAdapterDraft(item.model);
+      await startAdapterRun(item, draft, parsed.channel);
+    },
+    [adapterConfigDrafts, httpAdapterConfigDrafts, parseEvalGlobalRowId, startAdapterRun],
+  );
+
+  /** Evaluations Global: single-row "Pause/Resume/Stop" dispatched to the underlying adapter run engine */
+  const handleEvalGlobalControlRow = useCallback(
+    async (row: EvaluationsGlobalTableRow, action: 'pause' | 'resume' | 'stop') => {
+      const parsed =
+        row.adapterChannel && row.adapterItemId
+          ? { channel: row.adapterChannel, itemId: row.adapterItemId }
+          : parseEvalGlobalRowId(row.id);
+      if (!parsed) return;
+      await controlAdapterRun(parsed.itemId, action, parsed.channel);
+    },
+    [controlAdapterRun, parseEvalGlobalRowId],
+  );
+
   const handleExportSettings = useCallback(async () => {
     setExportingSettings(true);
     try {
@@ -1220,7 +1274,7 @@ export default function AIServiceSettingsPage() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  // 只合併「目前仍存在的 key」的驗證快取，刪除金鑰後不會帶入已刪 key 的 cache
+  // Only merge validation cache for keys that still exist; deleting keys will not keep stale cache entries.
   useEffect(() => {
     const cache = settings.validationCacheByKeyId;
     const currentKeyIds = new Set(settings.keys.map((k) => k.id));
@@ -1517,6 +1571,16 @@ export default function AIServiceSettingsPage() {
     return rows;
   }, [adapterConfigGroups, httpAdapterConfigDrafts]);
 
+  const evaluationsGlobalImportedRows = useMemo(
+    () =>
+      buildEvaluationsGlobalRowsFromAdapterTables(
+        adapterTableRows,
+        httpAdapterTableRows,
+        ADAPTER_PROVIDER_LABEL,
+      ),
+    [adapterTableRows, httpAdapterTableRows],
+  );
+
   const adapterConfigTableColumns = useMemo(
     () =>
       createAdapterConfigColumns({
@@ -1704,282 +1768,18 @@ export default function AIServiceSettingsPage() {
     }
 
     if (activeTab === 'evaluations-global') {
-      const handleSaveModels = async (
-        providerId: string,
-        selections: { modelId: string; modelName: string; isPrimary: boolean }[],
-      ) => {
-        await settings.saveModels(
-          providerId as Parameters<typeof settings.saveModels>[0],
-          selections,
-        );
-      };
-      const handleSaveModule = async (
-        moduleKey: string,
-        isEnabled: boolean,
-        assignedModels: import('@/lib/hooks/useAISettings').AssignedModel[],
-        config?: Record<string, unknown>,
-      ) => {
-        await settings.saveModule(moduleKey, isEnabled, assignedModels, undefined, config);
-      };
-
       return (
-        <div className="min-h-0 min-w-0 flex flex-col gap-3">
-          <p className="text-xs text-text-muted">
-            與專案進度 Development 表相同的邊框與標題列樣式；流程集中於下方單一工作表。
-          </p>
-          <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-base border border-border-default bg-bg-primary shadow-sm">
-            <table className="w-full border-collapse text-xs text-text-primary">
-              <thead>
-                <tr className="sticky top-0 z-[1] bg-bg-tertiary">
-                  <th
-                    scope="col"
-                    className="border border-border-default px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-text-muted w-[200px]"
-                  >
-                    步驟
-                  </th>
-                  <th
-                    scope="col"
-                    className="border border-border-default px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-text-muted"
-                  >
-                    說明與操作
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th
-                    scope="row"
-                    className="border border-border-default bg-bg-secondary/60 px-3 py-3 align-top text-left font-semibold text-text-secondary whitespace-nowrap"
-                  >
-                    ① 模型清單
-                  </th>
-                  <td className="border border-border-default p-0 align-top">
-                    <div className="min-h-[320px] max-h-[min(62vh,720px)] overflow-auto p-3 sm:p-4">
-                      <ModelEvaluator
-                        savedKeys={settings.keys}
-                        savedModels={settings.models}
-                        savedEvaluations={settings.evaluations}
-                        validateAllResultsByKeyId={validateAllResultsByKeyId}
-                        currentKeys={memoizedCurrentKeys}
-                        onSave={settings.saveEvaluations}
-                        onTestModel={settings.testModel}
-                        onSaveModels={handleSaveModels}
-                        savedModules={settings.modules}
-                        hiddenModuleKeys={EVALUATIONS_GLOBAL_HIDDEN_MODULE_KEYS}
-                        onSaveModule={handleSaveModule}
-                        summarySelectedCount={selectedModelCount}
-                        summaryTotalCount={totalAvailableModels}
-                        promptVariableLabel={
-                          currentCloudPromptName ? `{${currentCloudPromptName}}` : undefined
-                        }
-                        globalTestPrompt={globalTestPrompt}
-                        onChangeGlobalTestPrompt={setGlobalTestPrompt}
-                        uploadedFile={uploadedFile}
-                        onChangeUploadedFile={setUploadedFile}
-                        headerActionsRef={setModelEvaluatorHeaderActions}
-                      />
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <th
-                    scope="row"
-                    className="border border-border-default bg-bg-secondary/60 px-3 py-3 align-top text-left font-semibold text-text-secondary"
-                  >
-                    ② 測試檔
-                  </th>
-                  <td className="border border-border-default px-3 py-3 sm:px-4 align-top">
-                    <div className="flex flex-wrap items-start gap-3">
-                      <label className="inline-flex items-center gap-1.5 cursor-pointer text-sm text-text-secondary hover:text-text-primary rounded border border-border-subtle bg-bg-primary px-3 py-2 shrink-0">
-                        <FlaskConical size={16} className="shrink-0" />
-                        <span>上傳測試檔案</span>
-                        <input
-                          type="file"
-                          accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.txt,.md"
-                          className="sr-only"
-                          onChange={(e) => {
-                            const f = e.target.files?.[0] ?? null;
-                            setUploadedFile(f);
-                            if (e.target) (e.target as HTMLInputElement).value = '';
-                          }}
-                          title="上傳 PDF、圖片或文字檔"
-                        />
-                      </label>
-                      {uploadedFile && (
-                        <span
-                          className="text-sm text-text-muted truncate max-w-[280px] py-2"
-                          title={uploadedFile.name}
-                        >
-                          {uploadedFile.name}
-                        </span>
-                      )}
-                      <div className="flex items-center gap-1.5 text-xs text-text-secondary py-2 shrink-0">
-                        <FlaskConical size={13} className="text-text-muted shrink-0" />
-                        <span>
-                          已選／可選{' '}
-                          <span className="font-semibold text-text-primary tabular-nums">
-                            {modelEvaluatorHeaderActions?.selectedCount ?? selectedModelCount}/
-                            {modelEvaluatorHeaderActions?.totalCount ?? totalAvailableModels}
-                          </span>
-                        </span>
-                        {modelEvaluatorHeaderActions != null && (
-                          <span
-                            className={`font-medium tabular-nums ${
-                              modelEvaluatorHeaderActions.testableCount > 0
-                                ? 'text-accent'
-                                : 'text-amber-500'
-                            }`}
-                          >
-                            · 可測試 {modelEvaluatorHeaderActions.testableCount}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <th
-                    scope="row"
-                    className="border border-border-default bg-bg-secondary/60 px-3 py-3 align-top text-left font-semibold text-text-secondary"
-                  >
-                    ③ 全域 Prompt
-                  </th>
-                  <td className="border border-border-default px-3 py-3 sm:px-4 align-top">
-                    <textarea
-                      value={globalTestPrompt}
-                      onChange={(e) => setGlobalTestPrompt(e.target.value)}
-                      placeholder="全域評測 Prompt；每列可留空或填 {預設prompt} 使用此內容"
-                      rows={10}
-                      className="w-full rounded border border-border-subtle bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent resize-y min-h-[200px]"
-                    />
-                    <div className="mt-2 flex justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowPromptManager(true)}
-                        className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary rounded border border-border-subtle bg-bg-primary px-3 py-2 shrink-0 transition-colors"
-                        title="開啟 Prompt 管理，可載入至此欄位"
-                      >
-                        <BookMarked size={14} className="shrink-0" />
-                        <span>Prompt 管理</span>
-                      </button>
-                      <a
-                        href="/superadmin/settings/prompt-management?source=evaluations"
-                        target="_blank"
-                        rel="opener"
-                        className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary rounded border border-border-subtle bg-bg-primary px-3 py-2 shrink-0 transition-colors"
-                        title="在新分頁開啟 Prompt 管理，載入的 Prompt 會自動填到此欄位"
-                      >
-                        <ExternalLink size={14} className="shrink-0" />
-                        <span>在新分頁開啟</span>
-                      </a>
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <th
-                    scope="row"
-                    className="border border-border-default bg-bg-secondary/60 px-3 py-3 align-top text-left font-semibold text-text-secondary"
-                  >
-                    ④ 執行／報告
-                  </th>
-                  <td className="border border-border-default px-3 py-3 sm:px-4 align-top">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => modelEvaluatorHeaderActions?.runBatchTest()}
-                        isLoading={modelEvaluatorHeaderActions?.batchTesting}
-                        disabled={
-                          !modelEvaluatorHeaderActions?.canBatchTest ||
-                          !!modelEvaluatorHeaderActions?.batchTesting
-                        }
-                        title={
-                          modelEvaluatorHeaderActions?.tooltip ??
-                          '對目前已選且具金鑰的模型並行測試'
-                        }
-                        className="shrink-0"
-                      >
-                        {modelEvaluatorHeaderActions?.batchTesting ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : (
-                          <FlaskConical size={14} />
-                        )}
-                        <span className="ml-1.5 whitespace-nowrap">開始全域評測</span>
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => modelEvaluatorHeaderActions?.abortBatchTest?.()}
-                        disabled={!modelEvaluatorHeaderActions?.batchTesting}
-                        title="中斷或暫停目前正在執行的評測（當前批次完成後停止）"
-                        className="shrink-0"
-                      >
-                        <Pause size={14} />
-                        <span className="ml-1.5 whitespace-nowrap">暫停測試</span>
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => modelEvaluatorHeaderActions?.openRecentBatchReport?.()}
-                        disabled={
-                          !modelEvaluatorHeaderActions?.hasRecentBatchReport ||
-                          !!modelEvaluatorHeaderActions?.batchTesting
-                        }
-                        title={
-                          modelEvaluatorHeaderActions?.hasRecentBatchReport
-                            ? '檢視最近一次批次測試報告'
-                            : '目前尚無可檢視的最近報告'
-                        }
-                        className="shrink-0"
-                      >
-                        <Eye size={14} />
-                        <span className="ml-1.5 whitespace-nowrap">檢視最近報告</span>
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          void modelEvaluatorHeaderActions?.applyRecentBatchReport?.();
-                        }}
-                        isLoading={modelEvaluatorHeaderActions?.applyingRecentBatchReport}
-                        disabled={
-                          !modelEvaluatorHeaderActions?.hasRecentBatchReport ||
-                          !!modelEvaluatorHeaderActions?.batchTesting ||
-                          !!modelEvaluatorHeaderActions?.applyingRecentBatchReport
-                        }
-                        title={
-                          modelEvaluatorHeaderActions?.hasRecentBatchReport
-                            ? '依最近報告自動修正模型分類與狀態'
-                            : '目前尚無可套用的最近報告'
-                        }
-                        className="shrink-0"
-                      >
-                        <span className="ml-1.5 whitespace-nowrap">套用最近報告修正狀態</span>
-                      </Button>
-                      {modelEvaluatorHeaderActions?.batchProgress && (
-                        <span className="text-xs text-text-secondary tabular-nums">
-                          {modelEvaluatorHeaderActions.batchProgress.tested}/
-                          {modelEvaluatorHeaderActions.batchProgress.total}{' '}
-                          <span className="text-green-500">
-                            {modelEvaluatorHeaderActions.batchProgress.succeeded} 成功
-                          </span>
-                          {modelEvaluatorHeaderActions.batchProgress.failed > 0 && (
-                            <>
-                              {' '}
-                              <span className="text-red-400">
-                                {modelEvaluatorHeaderActions.batchProgress.failed} 失敗
-                              </span>
-                            </>
-                          )}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <EvaluationsGlobalPanel
+          importedRows={evaluationsGlobalImportedRows}
+          onBulkRunAllAdapters={() => {
+            void runCliThenHttpForEvaluationsGlobal();
+          }}
+          bulkRunAllBusy={evalGlobalBulkStarting || bulkStarting || httpBulkStarting}
+          bulkRunAllStartedAtMs={evalGlobalBulkStarting ? evalGlobalBulkRunStartedAtMs : null}
+          onRunRow={handleEvalGlobalRunRow}
+          onControlRow={handleEvalGlobalControlRow}
+          onWidthPresetOverwriteSaved={focusEvaluationsGlobalTab}
+        />
       );
     }
 
@@ -2003,6 +1803,7 @@ export default function AIServiceSettingsPage() {
             initialWidths={[...ADAPTER_CONFIG_TABLE_INITIAL_WIDTHS]}
             minWidth={ADAPTER_CONFIG_TABLE_MIN_WIDTH_PX}
             stretchToContainer={false}
+            persistentHorizontalScrollbar
             getSearchValue={getAdapterConfigSearchValue}
             getCategoryValue={getAdapterConfigCategoryValue}
             extraToolbar={
@@ -2069,6 +1870,7 @@ export default function AIServiceSettingsPage() {
             initialWidths={[...HTTP_ADAPTER_CONFIG_TABLE_INITIAL_WIDTHS]}
             minWidth={HTTP_ADAPTER_CONFIG_TABLE_MIN_WIDTH_PX}
             stretchToContainer={false}
+            persistentHorizontalScrollbar
             getSearchValue={getAdapterConfigSearchValue}
             getCategoryValue={getAdapterConfigCategoryValue}
             extraToolbar={
@@ -2121,6 +1923,7 @@ export default function AIServiceSettingsPage() {
             initialWidths={[...MODEL_ROUTER_TABLE_INITIAL_WIDTHS]}
             minWidth={MODEL_ROUTER_TABLE_MIN_WIDTH_PX}
             stretchToContainer={false}
+            persistentHorizontalScrollbar
             getSearchValue={getModelRouterSearchValue}
             getCategoryValue={getModelRouterCategoryValue}
           />
@@ -2201,7 +2004,7 @@ export default function AIServiceSettingsPage() {
     }
   }, [activeTab, currentTab.label, lastPromptNameByModule]);
 
-  // 初次載入時，若雲端已有對應模組的 Prompt，帶入最近一次以本功能儲存的名稱內容
+  // On first load, if the cloud has a matching module prompt, restore the last saved prompt name/content from this page.
   const [initialCloudPromptLoaded, setInitialCloudPromptLoaded] = useState(false);
   useEffect(() => {
     if (initialCloudPromptLoaded) return;
@@ -2220,7 +2023,7 @@ export default function AIServiceSettingsPage() {
     setInitialCloudPromptLoaded(true);
   }, [activeTab, lastPromptNameByModule, settings.prompts, initialCloudPromptLoaded]);
 
-  /** 可選 models 總數：只計入「目前仍存在的 key」的驗證結果，刪除金鑰後即時減少 */
+  /** Total available models: only counts validation results for keys that still exist; deleting keys reduces immediately */
   const computedFromValidation = getTotalAvailableModels(
     validateAllResultsByKeyId,
     memoizedCurrentKeys
@@ -2233,8 +2036,8 @@ export default function AIServiceSettingsPage() {
         : settings.validationSummary.totalModels;
 
   /**
-   * 單一事實來源：已選數量一律來自 Supabase ai_model_selections（settings.models）。
-   * 與 API 金鑰管理、已選/可選模型評估 等分頁顯示一致。
+   * SSOT: the selected count always comes from Supabase ai_model_selections (settings.models).
+   * Keeps numbers consistent across tabs (API keys, model evaluation, etc.).
    */
   const currentKeysForUtil = memoizedCurrentKeys;
   const selectedInAvailable = getSelectedCountInAvailable(
@@ -2357,6 +2160,14 @@ export default function AIServiceSettingsPage() {
     }
   }, []);
 
+  /** Evaluations Global: after overwriting a width preset, switch back to the tab and sync the URL hash */
+  const focusEvaluationsGlobalTab = useCallback(() => {
+    setActiveTab('evaluations-global');
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', '#evaluations-global');
+    }
+  }, []);
+
   const fixedBlock = (
     <div className="w-full px-4 lg:px-6 py-3 bg-bg-secondary border-b border-border-subtle">
       <div className="w-full">
@@ -2468,14 +2279,6 @@ export default function AIServiceSettingsPage() {
                           </span>
                         </>
                       )}
-                      ，已選模型數：
-                      <span className="font-medium text-text-primary">
-                        {modelEvaluatorHeaderActions != null
-                          ? modelEvaluatorHeaderActions.filteredTotal !== modelEvaluatorHeaderActions.totalCount
-                            ? modelEvaluatorHeaderActions.filteredSelectedCount
-                            : modelEvaluatorHeaderActions.selectedCount
-                          : selectedModelCount}
-                      </span>
                     </span>
                   </div>
                 )}
@@ -2593,16 +2396,17 @@ export default function AIServiceSettingsPage() {
         </div>
       )}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="min-w-0 w-full flex-1 overflow-y-auto overflow-x-hidden px-2 py-3 sm:px-4 lg:px-6 lg:py-4">
-        <section className="min-w-0 space-y-4">
-          <div className="bg-bg-secondary border border-border-default rounded-base p-4 sm:p-5 shadow-sm min-w-0">
+        {/* Avoid overflow-y-auto here + layout main both scrolling (double vertical bars). */}
+        <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden overflow-x-hidden px-2 py-3 sm:px-4 lg:px-6 lg:py-4">
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-base border border-border-default bg-bg-secondary p-4 shadow-sm sm:p-5">
             {renderContent()}
           </div>
         </section>
 
         {/* Security reminder — only shown on keys tab */}
         {activeTab === 'keys' && (
-          <div className="mt-8 space-y-4">
+          <div className="mt-8 shrink-0 space-y-4">
             <div className="rounded-base border border-amber-300/40 bg-amber-50/80 p-4 space-y-2">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
                 安全提醒
