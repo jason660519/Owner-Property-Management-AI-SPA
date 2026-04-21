@@ -37,6 +37,8 @@ import { OcrSystemPromptPanel } from '@/components/ai-settings/OcrSystemPromptPa
 import { LlmLeaderboardPanel } from '@/components/ai-settings/LlmLeaderboardPanel';
 import { EvaluationsGlobalPanel } from './EvaluationsGlobalPanel';
 import { buildEvaluationsGlobalRowsFromAdapterTables } from './evaluations-global-from-adapters';
+import { mergeEvaluationsGlobalDbHistory } from './evaluations-global-merge-db';
+import type { AdapterEvaluationGroupSummaryDto } from './adapter-evaluation-runs-types';
 import type { EvaluationsGlobalTableRow } from './evaluations-global-columns';
 import { useAISettings, type KeyValidationResult } from '@/lib/hooks/useAISettings';
 import { listSavedPrompts } from '@/app/superadmin/settings/evaluations-global-test/promptActions';
@@ -191,26 +193,25 @@ const TABS: { id: SettingsTab; label: string; icon: React.ElementType; descripti
     id: 'evaluations-global',
     label: 'AI 模型全域評測',
     icon: FlaskConical,
-    description:
-      '16 欄工作表；自動匯入 CLI／HTTP Adapter 分頁中「已結束且評測及格（pass）」的列，可再檢視輸出與指標',
+    description: '',
   },
   {
     id: 'adapter-config',
     label: 'Adapter調適與設定',
     icon: Bot,
-    description: '設定 Adapter 的模型映射、調適策略與可用性',
+    description: '',
   },
   {
     id: 'http-adapter-config',
     label: 'HTTP Adapter調適',
     icon: Bot,
-    description: '透過 HTTP API 直接比較速度與穩定度（對照 CLI）',
+    description: '',
   },
   {
     id: 'model-router',
     label: 'Model Router',
     icon: Route,
-    description: '規劃各 AI 助手模型路由、切換條件與 fallback 策略',
+    description: '',
   },
   { id: 'ocr', label: 'OCR解析設定', icon: ScanText, description: '設定 OCR 解析模型與參數' },
 ];
@@ -534,6 +535,8 @@ export default function AIServiceSettingsPage() {
   /** Evaluations Global bulk-run: run CLI bulk-run first, then HTTP bulk-run (same engine as both Adapter tables) */
   const [evalGlobalBulkStarting, setEvalGlobalBulkStarting] = useState(false);
   const [evalGlobalBulkRunStartedAtMs, setEvalGlobalBulkRunStartedAtMs] = useState<number | null>(null);
+  /** Per-user adapter test history from `adapter_evaluation_runs` (merged into Evaluations Global rows) */
+  const [evalGlobalDbSummaries, setEvalGlobalDbSummaries] = useState<AdapterEvaluationGroupSummaryDto[] | null>(null);
   const [httpBulkToast, setHttpBulkToast] = useState<string | null>(null);
   const httpBulkToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [adapterRunNotices, setAdapterRunNotices] = useState<AdapterRunNoticeEntry[]>([]);
@@ -1581,6 +1584,29 @@ export default function AIServiceSettingsPage() {
     [adapterTableRows, httpAdapterTableRows],
   );
 
+  const refreshEvalGlobalDbSummaries = useCallback(async () => {
+    try {
+      const res = await fetch('/api/ai-settings/adapter-evaluation-runs?summary=1');
+      if (!res.ok) return;
+      const data = (await res.json()) as { summaries?: AdapterEvaluationGroupSummaryDto[] };
+      setEvalGlobalDbSummaries(data.summaries ?? []);
+    } catch {
+      // ignore network errors
+    }
+  }, []);
+
+  const evaluationsGlobalDisplayRows = useMemo(
+    () => mergeEvaluationsGlobalDbHistory(evaluationsGlobalImportedRows, evalGlobalDbSummaries),
+    [evaluationsGlobalImportedRows, evalGlobalDbSummaries],
+  );
+
+  useEffect(() => {
+    if (activeTab !== 'evaluations-global') return;
+    void refreshEvalGlobalDbSummaries();
+    const id = setInterval(() => void refreshEvalGlobalDbSummaries(), 12000);
+    return () => clearInterval(id);
+  }, [activeTab, refreshEvalGlobalDbSummaries]);
+
   const adapterConfigTableColumns = useMemo(
     () =>
       createAdapterConfigColumns({
@@ -1755,9 +1781,14 @@ export default function AIServiceSettingsPage() {
           onRevealKey={settings.revealKey}
           headerActionsRef={apiKeyHeaderActionsRef}
           onBatchImportComplete={async (importedCount) => {
-            await settings.refreshSilent();
-            await new Promise((r) => setTimeout(r, 0));
-            await runValidateAllKeys(keysRef.current, importedCount);
+            // Use keys returned by refreshSilent directly. Relying on
+            // keysRef.current was racy: the ref is synced to settings.keys
+            // via useEffect after React re-renders, which hadn't flushed
+            // when we fired validate-all — so validation hit the now-
+            // deactivated previous rows (keyId-matched, no is_active filter)
+            // and the freshly-inserted active rows stayed is_valid=NULL.
+            const freshKeys = await settings.refreshSilent();
+            await runValidateAllKeys(freshKeys, importedCount);
           }}
         />
       );
@@ -1770,7 +1801,7 @@ export default function AIServiceSettingsPage() {
     if (activeTab === 'evaluations-global') {
       return (
         <EvaluationsGlobalPanel
-          importedRows={evaluationsGlobalImportedRows}
+          importedRows={evaluationsGlobalDisplayRows}
           onBulkRunAllAdapters={() => {
             void runCliThenHttpForEvaluationsGlobal();
           }}
@@ -1785,8 +1816,8 @@ export default function AIServiceSettingsPage() {
 
     if (activeTab === 'adapter-config') {
       return (
-        <div className="space-y-4">
-          <div className="flex flex-col gap-4 rounded-base border border-dashed border-border-default bg-bg-secondary p-4 lg:flex-row lg:items-stretch">
+        <div className="flex min-h-0 flex-1 flex-col gap-3">
+          <div className="shrink-0 flex flex-col gap-3 rounded-base border border-dashed border-border-default bg-bg-secondary p-3 sm:p-4 lg:flex-row lg:items-stretch">
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-text-primary">Adapter Config 規劃中</p>
               <p className="mt-1 text-xs text-text-muted">
@@ -1795,55 +1826,56 @@ export default function AIServiceSettingsPage() {
             </div>
             {renderAdapterRunNoticesColumn()}
           </div>
-
-          <EnhancedTable<AdapterConfigTableRow>
-            tableId={ADAPTER_CONFIG_TABLE_ID}
-            columns={adapterConfigTableColumns}
-            data={adapterTableRows}
-            initialWidths={[...ADAPTER_CONFIG_TABLE_INITIAL_WIDTHS]}
-            minWidth={ADAPTER_CONFIG_TABLE_MIN_WIDTH_PX}
-            stretchToContainer={false}
-            persistentHorizontalScrollbar
-            getSearchValue={getAdapterConfigSearchValue}
-            getCategoryValue={getAdapterConfigCategoryValue}
-            extraToolbar={
-              <button
-                type="button"
-                onClick={() => {
-                  void runAllAdapters();
-                }}
-                disabled={bulkStarting}
-                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                title={
-                  bulkStarting
-                    ? '一鍵啟動全部 Adapter 測試（進行中）'
-                    : '一鍵啟動全部 Adapter 測試'
-                }
-                aria-busy={bulkStarting}
-              >
-                {bulkStarting && bulkRunStartedAtMs != null ? (
-                  <>
-                    <Loader2 size={14} className="shrink-0 animate-spin" aria-hidden />
-                    <BulkRunElapsed startMs={bulkRunStartedAtMs} />
-                    <span>全測中</span>
-                  </>
-                ) : (
-                  <>
-                    <Play size={14} aria-hidden />
-                    全測
-                  </>
-                )}
-              </button>
-            }
-          />
+          <div className="min-h-0 flex-1">
+            <EnhancedTable<AdapterConfigTableRow>
+              tableId={ADAPTER_CONFIG_TABLE_ID}
+              columns={adapterConfigTableColumns}
+              data={adapterTableRows}
+              initialWidths={[...ADAPTER_CONFIG_TABLE_INITIAL_WIDTHS]}
+              minWidth={ADAPTER_CONFIG_TABLE_MIN_WIDTH_PX}
+              stretchToContainer={false}
+              persistentHorizontalScrollbar
+              getSearchValue={getAdapterConfigSearchValue}
+              getCategoryValue={getAdapterConfigCategoryValue}
+              extraToolbar={
+                <button
+                  type="button"
+                  onClick={() => {
+                    void runAllAdapters();
+                  }}
+                  disabled={bulkStarting}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  title={
+                    bulkStarting
+                      ? '一鍵啟動全部 Adapter 測試（進行中）'
+                      : '一鍵啟動全部 Adapter 測試'
+                  }
+                  aria-busy={bulkStarting}
+                >
+                  {bulkStarting && bulkRunStartedAtMs != null ? (
+                    <>
+                      <Loader2 size={14} className="shrink-0 animate-spin" aria-hidden />
+                      <BulkRunElapsed startMs={bulkRunStartedAtMs} />
+                      <span>全測中</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play size={14} aria-hidden />
+                      全測
+                    </>
+                  )}
+                </button>
+              }
+            />
+          </div>
         </div>
       );
     }
     if (activeTab === 'http-adapter-config') {
       const { cli, http } = adapterCompareSummary;
       return (
-        <div className="space-y-4">
-          <div className="flex flex-col gap-4 rounded-base border border-dashed border-border-default bg-bg-secondary p-4 lg:flex-row lg:items-stretch">
+        <div className="flex min-h-0 flex-1 flex-col gap-3">
+          <div className="shrink-0 flex flex-col gap-3 rounded-base border border-dashed border-border-default bg-bg-secondary p-3 sm:p-4 lg:flex-row lg:items-stretch">
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-text-primary">CLI vs HTTP 比較摘要（最近一輪）</p>
               <div className="mt-3 grid gap-2 text-[11px] text-text-secondary sm:grid-cols-2 lg:grid-cols-4">
@@ -1863,70 +1895,74 @@ export default function AIServiceSettingsPage() {
             </div>
             {renderAdapterRunNoticesColumn()}
           </div>
-          <EnhancedTable<AdapterConfigTableRow>
-            tableId={HTTP_ADAPTER_CONFIG_TABLE_ID}
-            columns={httpAdapterConfigTableColumns}
-            data={httpAdapterTableRows}
-            initialWidths={[...HTTP_ADAPTER_CONFIG_TABLE_INITIAL_WIDTHS]}
-            minWidth={HTTP_ADAPTER_CONFIG_TABLE_MIN_WIDTH_PX}
-            stretchToContainer={false}
-            persistentHorizontalScrollbar
-            getSearchValue={getAdapterConfigSearchValue}
-            getCategoryValue={getAdapterConfigCategoryValue}
-            extraToolbar={
-              <button
-                type="button"
-                onClick={() => {
-                  void runAllHttpAdapters();
-                }}
-                disabled={httpBulkStarting}
-                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                title={
-                  httpBulkStarting
-                    ? '一鍵啟動全部 HTTP Adapter 測試（進行中）'
-                    : '一鍵啟動全部 HTTP Adapter 測試'
-                }
-                aria-busy={httpBulkStarting}
-              >
-                {httpBulkStarting && httpBulkRunStartedAtMs != null ? (
-                  <>
-                    <Loader2 size={14} className="shrink-0 animate-spin" aria-hidden />
-                    <BulkRunElapsed startMs={httpBulkRunStartedAtMs} />
-                    <span>全測中</span>
-                  </>
-                ) : (
-                  <>
-                    <Play size={14} aria-hidden />
-                    全測
-                  </>
-                )}
-              </button>
-            }
-          />
+          <div className="min-h-0 flex-1">
+            <EnhancedTable<AdapterConfigTableRow>
+              tableId={HTTP_ADAPTER_CONFIG_TABLE_ID}
+              columns={httpAdapterConfigTableColumns}
+              data={httpAdapterTableRows}
+              initialWidths={[...HTTP_ADAPTER_CONFIG_TABLE_INITIAL_WIDTHS]}
+              minWidth={HTTP_ADAPTER_CONFIG_TABLE_MIN_WIDTH_PX}
+              stretchToContainer={false}
+              persistentHorizontalScrollbar
+              getSearchValue={getAdapterConfigSearchValue}
+              getCategoryValue={getAdapterConfigCategoryValue}
+              extraToolbar={
+                <button
+                  type="button"
+                  onClick={() => {
+                    void runAllHttpAdapters();
+                  }}
+                  disabled={httpBulkStarting}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  title={
+                    httpBulkStarting
+                      ? '一鍵啟動全部 HTTP Adapter 測試（進行中）'
+                      : '一鍵啟動全部 HTTP Adapter 測試'
+                  }
+                  aria-busy={httpBulkStarting}
+                >
+                  {httpBulkStarting && httpBulkRunStartedAtMs != null ? (
+                    <>
+                      <Loader2 size={14} className="shrink-0 animate-spin" aria-hidden />
+                      <BulkRunElapsed startMs={httpBulkRunStartedAtMs} />
+                      <span>全測中</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play size={14} aria-hidden />
+                      全測
+                    </>
+                  )}
+                </button>
+              }
+            />
+          </div>
         </div>
       );
     }
 
     if (activeTab === 'model-router') {
       return (
-        <div className="space-y-4">
-          <div className="rounded-base border border-dashed border-border-default bg-bg-secondary p-4">
+        <div className="flex min-h-0 flex-1 flex-col gap-3">
+          <div className="shrink-0 rounded-base border border-dashed border-border-default bg-bg-secondary p-3 sm:p-4">
             <p className="text-xs font-semibold text-text-primary">Model Router 規劃表</p>
             <p className="mt-1 text-xs text-text-muted">
               用於整理前面 Adapter 的模型路由策略，包含主模型、fallback chain、觸發條件與狀態，便於規劃像「謄本解析 AI 助手」這類實戰路由方案。
             </p>
           </div>
-          <EnhancedTable<ModelRouterRow>
-            tableId="ai-settings-model-router-v1"
-            columns={modelRouterColumns}
-            data={MODEL_ROUTER_ROWS}
-            initialWidths={[...MODEL_ROUTER_TABLE_INITIAL_WIDTHS]}
-            minWidth={MODEL_ROUTER_TABLE_MIN_WIDTH_PX}
-            stretchToContainer={false}
-            persistentHorizontalScrollbar
-            getSearchValue={getModelRouterSearchValue}
-            getCategoryValue={getModelRouterCategoryValue}
-          />
+          <div className="min-h-0 flex-1">
+            <EnhancedTable<ModelRouterRow>
+              tableId="ai-settings-model-router-v1"
+              columns={modelRouterColumns}
+              data={MODEL_ROUTER_ROWS}
+              initialWidths={[...MODEL_ROUTER_TABLE_INITIAL_WIDTHS]}
+              minWidth={MODEL_ROUTER_TABLE_MIN_WIDTH_PX}
+              stretchToContainer={false}
+              persistentHorizontalScrollbar
+              getSearchValue={getModelRouterSearchValue}
+              getCategoryValue={getModelRouterCategoryValue}
+            />
+          </div>
         </div>
       );
     }
@@ -2395,14 +2431,19 @@ export default function AIServiceSettingsPage() {
           {httpBulkToast}
         </div>
       )}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        {/* Avoid overflow-y-auto here + layout main both scrolling (double vertical bars). */}
-        <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden overflow-x-hidden px-2 py-3 sm:px-4 lg:px-6 lg:py-4">
-        <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-base border border-border-default bg-bg-secondary p-4 shadow-sm sm:p-5">
-            {renderContent()}
-          </div>
-        </section>
+      {/* Keys tab needs an outer scroll track; other tabs keep full-height layout with internal scroll. */}
+      <div
+        className={`flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-hidden px-2 py-2 sm:px-3 lg:px-4 lg:py-3 ${
+          activeTab === 'keys' ? 'overflow-y-auto' : 'overflow-hidden'
+        }`}
+      >
+        <div
+          className={`flex min-w-0 flex-col rounded-base border border-border-default bg-bg-secondary p-3 shadow-sm sm:p-4 ${
+            activeTab === 'keys' ? '' : 'min-h-0 flex-1 overflow-hidden'
+          }`}
+        >
+          {renderContent()}
+        </div>
 
         {/* Security reminder — only shown on keys tab */}
         {activeTab === 'keys' && (
@@ -2428,14 +2469,13 @@ export default function AIServiceSettingsPage() {
             </div>
           </div>
         )}
-        </div>
-        {/* Bottom sheet tabs — Excel-style navigation */}
-        <BottomSheetTabs
-          tabs={SHEET_TABS}
-          activeTab={activeTab}
-          onTabChange={handleSheetTabChange}
-        />
       </div>
+      {/* Bottom sheet tabs — Excel-style navigation */}
+      <BottomSheetTabs
+        tabs={SHEET_TABS}
+        activeTab={activeTab}
+        onTabChange={handleSheetTabChange}
+      />
       {showPromptManager && (
         <PromptManagerModal
           onClose={() => setShowPromptManager(false)}

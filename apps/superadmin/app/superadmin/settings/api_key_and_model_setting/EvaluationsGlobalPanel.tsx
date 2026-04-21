@@ -17,6 +17,18 @@ import {
   type EvaluationsGlobalTableRow,
 } from './evaluations-global-columns';
 
+type AdapterEvaluationRunRecord = {
+  id: string;
+  created_at: string;
+  result_summary: string;
+  evaluation_level: string;
+  http_status: number | null;
+  ttft_ms: number | null;
+  e2e_ms: number | null;
+  requested_model: string;
+  effective_model: string;
+};
+
 /** Same as the Adapter tabs bulk-run state: show elapsed seconds (1 decimal) */
 function BulkRunElapsed({ startMs }: { startMs: number }) {
   const [, setTick] = useState(0);
@@ -65,22 +77,64 @@ export function EvaluationsGlobalPanel({
   const [outputDetailRow, setOutputDetailRow] = useState<EvaluationsGlobalTableRow | null>(null);
   const sheetOpen = outputDetailRow != null;
 
+  const [historyRow, setHistoryRow] = useState<EvaluationsGlobalTableRow | null>(null);
+  const historySheetOpen = historyRow != null;
+  const [historyRuns, setHistoryRuns] = useState<AdapterEvaluationRunRecord[]>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
   const onOpenOutputDetail = useCallback((r: EvaluationsGlobalTableRow) => {
     setOutputDetailRow(r);
   }, []);
 
+  const onOpenFullHistory = useCallback(async (r: EvaluationsGlobalTableRow) => {
+    const adapterId = r.adapterItemId;
+    const channel = r.adapterChannel;
+    if (!adapterId || !channel) return;
+    setHistoryRow(r);
+    setHistoryLoading(true);
+    setHistoryError(null);
+    setHistoryRuns([]);
+    try {
+      const qs = new URLSearchParams({
+        adapterId,
+        channel,
+        limit: '200',
+        offset: '0',
+      });
+      const res = await fetch(`/api/ai-settings/adapter-evaluation-runs?${qs.toString()}`);
+      const data = (await res.json()) as {
+        runs?: AdapterEvaluationRunRecord[];
+        total?: number;
+        error?: string;
+      };
+      if (!res.ok) {
+        setHistoryError(data.error ?? `HTTP ${res.status}`);
+        return;
+      }
+      setHistoryRuns(data.runs ?? []);
+      setHistoryTotal(typeof data.total === 'number' ? data.total : (data.runs ?? []).length);
+    } catch (e) {
+      setHistoryError(e instanceof Error ? e.message : '載入失敗');
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
   const columns = useMemo(
-    () => createEvaluationsGlobalColumns({ onOpenOutputDetail, onRunRow, onControlRow }),
-    [onOpenOutputDetail, onRunRow, onControlRow],
+    () =>
+      createEvaluationsGlobalColumns({
+        onOpenOutputDetail,
+        onRunRow,
+        onControlRow,
+        onOpenFullHistory,
+      }),
+    [onOpenOutputDetail, onRunRow, onControlRow, onOpenFullHistory],
   );
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
-      <p className="text-xs text-text-muted">
-        下列列來自「LLM CLI Adapter調適」與「LLM Http Adapter調適」：顯示最近一次測試<strong className="text-text-primary">及格（pass）</strong>
-        或目前進行中的 Adapter。工具列「全測」會依序跑完整 CLI 與 HTTP 兩輪（與兩張 Adapter 表相同）。Raw／Rendered
-        欄以捲動框完整呈現輸出內容（對齊 Adapter 分頁）；點擊欄內可開啟側欄放大檢視。正式測試紀錄仍以儲存模組／後端為準。
-      </p>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <EnhancedTable<EvaluationsGlobalTableRow>
           tableId={EVALUATIONS_GLOBAL_TABLE_ID}
@@ -131,6 +185,83 @@ export function EvaluationsGlobalPanel({
           }
         />
       </div>
+
+      <Sheet
+        open={historySheetOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setHistoryRow(null);
+            setHistoryRuns([]);
+            setHistoryError(null);
+          }
+        }}
+      >
+        <SheetContent className="w-full sm:max-w-[min(96vw,40rem)] lg:max-w-[min(96vw,48rem)]">
+          {historyRow && (
+            <>
+              <SheetHeader>
+                <SheetTitle>伺服器測試歷史</SheetTitle>
+                <SheetDescription>
+                  {historyRow.companyName} · {transportLabel(historyRow.transport)} ·{' '}
+                  <span className="font-mono">{historyRow.adapterModel}</span>
+                  {historyLoading ? (
+                    <span className="ml-2 inline-flex items-center gap-1 text-text-muted">
+                      <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                      載入中…
+                    </span>
+                  ) : null}
+                </SheetDescription>
+              </SheetHeader>
+              <div className="space-y-3 px-6 pb-8">
+                {historyError && (
+                  <p className="rounded-md border border-rose-200 bg-rose-50/80 px-3 py-2 text-xs text-rose-900">
+                    {historyError}
+                  </p>
+                )}
+                {!historyLoading && !historyError && (
+                  <p className="text-[11px] text-text-muted">
+                    共 <span className="tabular-nums font-semibold">{historyTotal}</span> 筆（依建立時間新→舊；此清單最多 200 筆）
+                  </p>
+                )}
+                <div className="max-h-[min(70vh,520px)] overflow-auto rounded-lg border border-border-subtle">
+                  {historyRuns.length === 0 && !historyLoading && !historyError ? (
+                    <p className="px-3 py-6 text-center text-[11px] text-text-muted">尚無紀錄</p>
+                  ) : (
+                    <table className="w-full min-w-[520px] border-collapse text-left text-[11px]">
+                      <thead className="sticky top-0 bg-bg-secondary">
+                        <tr className="border-b border-border-subtle">
+                          <th className="px-2 py-2 font-semibold text-text-secondary">時間</th>
+                          <th className="px-2 py-2 font-semibold text-text-secondary">等級</th>
+                          <th className="px-2 py-2 font-semibold text-text-secondary">HTTP</th>
+                          <th className="px-2 py-2 font-semibold text-text-secondary">TTFT</th>
+                          <th className="px-2 py-2 font-semibold text-text-secondary">E2E</th>
+                          <th className="px-2 py-2 font-semibold text-text-secondary">摘要</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {historyRuns.map((run) => (
+                          <tr key={run.id} className="border-b border-border-subtle/80 align-top">
+                            <td className="whitespace-nowrap px-2 py-1.5 text-text-muted">
+                              {new Date(run.created_at).toLocaleString()}
+                            </td>
+                            <td className="px-2 py-1.5 font-mono">{run.evaluation_level}</td>
+                            <td className="px-2 py-1.5 font-mono tabular-nums">{run.http_status ?? '—'}</td>
+                            <td className="px-2 py-1.5 font-mono tabular-nums">{run.ttft_ms ?? '—'}</td>
+                            <td className="px-2 py-1.5 font-mono tabular-nums">{run.e2e_ms ?? '—'}</td>
+                            <td className="max-w-[280px] px-2 py-1.5 break-words text-text-primary">
+                              {run.result_summary}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
 
       <Sheet open={sheetOpen} onOpenChange={(open) => !open && setOutputDetailRow(null)}>
         <SheetContent className="w-full sm:max-w-[min(96vw,48rem)] lg:max-w-[min(96vw,56rem)]">

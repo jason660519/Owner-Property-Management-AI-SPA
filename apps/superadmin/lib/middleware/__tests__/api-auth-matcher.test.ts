@@ -39,6 +39,12 @@ describe('isPublicApiPath', () => {
     expect(isPublicApiPath('/api/people-db/ingest')).toBe(false);
   });
 
+  it('matches the exact public leaderboard mirror endpoint only', () => {
+    expect(isPublicApiPath('/api/artificial-analysis/llm-leaderboard')).toBe(true);
+    expect(isPublicApiPath('/api/artificial-analysis/llm-leaderboard/anything')).toBe(false);
+    expect(isPublicApiPath('/api/artificial-analysis')).toBe(false);
+  });
+
   it('rejects arbitrary paths that look like auth but are not', () => {
     expect(isPublicApiPath('/api/ai-settings/keys')).toBe(false);
     expect(isPublicApiPath('/api/iam/audit')).toBe(false);

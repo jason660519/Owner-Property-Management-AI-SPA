@@ -89,6 +89,9 @@ These mistakes recur on settings pages with long content + tables:
 1. **Double vertical scrollbars** — if the app layout `<main>` (or parent) already scrolls with `overflow-y-auto`, avoid adding **another** full-height `overflow-y-auto` on an inner wrapper around the same content. Prefer **`overflow-hidden` + `flex` + `min-h-0`** on intermediate shells so **one** scroll region owns the flow (often the outer layout), or deliberately isolate scroll to the table panel only — but not both at once for the same column of content.
 2. **Table height in flex pages** — for a table that should fill remaining space under a header, wrap the table area with **`flex-1 min-h-0 flex flex-col`** so the inner scrollport can shrink; `EnhancedTable` with `persistentHorizontalScrollbar` uses **`flex min-h-0 flex-1 flex-col`** on its root so the sync strip stays with the card.
 3. **Blocks that must not shrink** — put **`shrink-0`** on sections above a flex-grown table (security banners, static cards) so they don’t collapse when space is tight.
+4. **Remove wrapper-only layers** — if a container only forwards layout (`flex-col`, no unique spacing/background/border/sticky/ARIA semantics) and wraps a single child, remove it. Keep only shells that actually own behavior (scroll ownership, spacing between multiple siblings, borders/cards, sticky regions). Fewer wrappers means more usable space and less `min-h-0`/`overflow` debugging.
+5. **Compact spacing knobs first** — to reclaim viewport area without breaking behavior, reduce container/card padding before touching table internals (e.g. page shell `lg:px-6 -> lg:px-4`, card `p-4 sm:p-5 -> p-3 sm:p-4`). This is low risk and usually gives immediate gains.
+6. **Tab microcopy is optional UI chrome** — tab subtitle/description lines are helpful but consume vertical space. If a tab needs maximum data density, allow empty description so the subtitle row is not rendered.
 
 See `references/troubleshooting.md` #10 for the nested-scroll pattern.
 
@@ -118,6 +121,8 @@ Run through the checklist:
 - [ ] **Only one vertical scrollbar** for the main page column (no nested `overflow-y-auto` fighting the layout `<main>` — see troubleshooting #10)
 - [ ] If `persistentHorizontalScrollbar`: **one** horizontal strip under the grid (inside card), synced with scroll; no duplicate docked bar at viewport bottom
 - [ ] If using **width preset overwrite** + tab/hash: `onAfterWidthPresetOverwrite` runs after toast (tab focus / `location.hash` as needed)
+- [ ] No redundant wrapper layers around the table card (every remaining parent owns a real responsibility: scroll, spacing between siblings, sticky, or visual boundary)
+- [ ] If page feels cramped, verify shell/card paddings are intentionally chosen (compact defaults for dense ops pages)
 - [ ] Widths persist across page reload (localStorage)
 - [ ] `Reset Widths` returns to `initialWidths`
 - [ ] Search filters rows

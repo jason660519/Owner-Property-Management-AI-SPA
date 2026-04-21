@@ -194,6 +194,83 @@ export type Database = {
           },
         ]
       }
+      adapter_evaluation_runs: {
+        Row: {
+          adapter_id: string
+          adapter_option_label: string
+          channel: string
+          created_at: string
+          effective_model: string
+          error_type: string | null
+          evaluation_level: string
+          evaluation_message: string
+          http_status: number | null
+          id: string
+          model_source: string
+          provider: string
+          raw_output: string | null
+          rendered_output: string | null
+          requested_model: string
+          result_summary: string
+          tokens_per_sec: number | null
+          ttft_ms: number | null
+          e2e_ms: number | null
+          user_id: string
+        }
+        Insert: {
+          adapter_id: string
+          adapter_option_label: string
+          channel: string
+          created_at?: string
+          effective_model?: string
+          error_type?: string | null
+          evaluation_level: string
+          evaluation_message?: string
+          http_status?: number | null
+          id?: string
+          model_source?: string
+          provider: string
+          raw_output?: string | null
+          rendered_output?: string | null
+          requested_model?: string
+          result_summary?: string
+          tokens_per_sec?: number | null
+          ttft_ms?: number | null
+          e2e_ms?: number | null
+          user_id: string
+        }
+        Update: {
+          adapter_id?: string
+          adapter_option_label?: string
+          channel?: string
+          created_at?: string
+          effective_model?: string
+          error_type?: string | null
+          evaluation_level?: string
+          evaluation_message?: string
+          http_status?: number | null
+          id?: string
+          model_source?: string
+          provider?: string
+          raw_output?: string | null
+          rendered_output?: string | null
+          requested_model?: string
+          result_summary?: string
+          tokens_per_sec?: number | null
+          ttft_ms?: number | null
+          e2e_ms?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adapter_evaluation_runs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "iam_users_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_agent_model_assignments: {
         Row: {
           agent_key: string

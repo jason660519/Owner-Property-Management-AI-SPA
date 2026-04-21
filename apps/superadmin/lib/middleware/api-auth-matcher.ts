@@ -29,6 +29,12 @@ export const PUBLIC_API_PATHS: ReadonlyArray<{
     reason: 'hmac',
     exact: true,
   },
+  // Public mirrored leaderboard data (no tenant/user secrets).
+  {
+    prefix: '/api/artificial-analysis/llm-leaderboard',
+    reason: 'health',
+    exact: true,
+  },
 ];
 
 /** True when `pathname` is in the public API allow-list. */

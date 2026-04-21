@@ -1726,7 +1726,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員-AI 服務設定（API 金鑰與模型費用）",
     locatedPage: "superadmin/settings/api_key_and_model_setting",
-    percentage: 97,
+    percentage: 98,
     acceptanceCriteria:
       "1. API 金鑰管理：從 .env 導入、單筆/全部刪除、金鑰驗證。\n2. 未登入時以 resolveUserId fallback 寫入/讀取 Supabase（keys/models/modules/prompts）。\n3. 側欄組態概況：已選總 models 數量即時反映各 provider 勾選加總。\n4. 儲存設定按鈕：將畫面上已選模型寫入 ai_model_selections。\n5. 分頁命名：模型費用說明；說明文案導向「模型費用說明」分頁。",
     docPath: "/project-process/test-logs/test-ai-settings-adapter-self-report-2026-04-19.md",

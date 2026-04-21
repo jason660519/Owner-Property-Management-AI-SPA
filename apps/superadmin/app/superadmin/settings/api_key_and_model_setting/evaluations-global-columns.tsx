@@ -23,6 +23,8 @@ export type EvaluationsGlobalHistoryEntry = {
   at: string;
   resultSummary: string;
   httpStatus: number | null;
+  /** 來自 `adapter_evaluation_runs.evaluation_level`（可選） */
+  evaluationLevel?: string;
 };
 
 /** 新版「AI 模型全域評測」工作表列模型（後續再接 API／執行緒） */
@@ -139,10 +141,15 @@ export function buildEvaluationsGlobalHistoryMarkdown(row: EvaluationsGlobalTabl
   ];
 
   if (row.historyEntries.length > 0) {
-    lines.push(`## 快照列（非 SSOT，僅供離線參考）`, ``, `| 時間 (ISO) | 結果摘要 | HTTP |`, `| --- | --- | --- |`);
+    lines.push(
+      `## 資料庫紀錄（最近匯入；完整列表請用「完整歷史」）`,
+      ``,
+      `| 時間 (ISO) | 結果摘要 | HTTP | 等級 |`,
+      `| --- | --- | --- | --- |`,
+    );
     for (const e of row.historyEntries) {
       const sum = e.resultSummary.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
-      lines.push(`| ${e.at} | ${sum} | ${e.httpStatus ?? '—'} |`);
+      lines.push(`| ${e.at} | ${sum} | ${e.httpStatus ?? '—'} | ${e.evaluationLevel ?? '—'} |`);
     }
   }
 
@@ -182,6 +189,8 @@ export interface CreateEvaluationsGlobalColumnsDeps {
     row: EvaluationsGlobalTableRow,
     action: 'pause' | 'resume' | 'stop',
   ) => void | Promise<void>;
+  /** 開啟伺服器端完整歷史（分頁 API） */
+  onOpenFullHistory?: (row: EvaluationsGlobalTableRow) => void | Promise<void>;
 }
 
 const col = createColumnHelper<EvaluationsGlobalTableRow>();
@@ -262,7 +271,7 @@ function RenderedOutputCell({
 export function createEvaluationsGlobalColumns(
   deps: CreateEvaluationsGlobalColumnsDeps,
 ): ColumnDef<EvaluationsGlobalTableRow, unknown>[] {
-  const { onOpenOutputDetail, onRunRow, onControlRow } = deps;
+  const { onOpenOutputDetail, onRunRow, onControlRow, onOpenFullHistory } = deps;
 
   return [
     col.display({
@@ -547,6 +556,7 @@ export function createEvaluationsGlobalColumns(
         const canExportSnapshot = r.historyEntries.length > 0;
         const canExportMinimal = Boolean(r.historyLastSummary.trim()) || hasLog;
         const exportDisabled = !canExportSnapshot && !canExportMinimal;
+        const canOpenServerHistory = Boolean(r.adapterItemId && r.adapterChannel && onOpenFullHistory);
 
         return (
           <div className="flex min-w-[130px] max-w-[220px] flex-col gap-1.5">
@@ -567,6 +577,16 @@ export function createEvaluationsGlobalColumns(
                 <ExternalLink className="h-3 w-3 shrink-0" />
                 正式紀錄
               </a>
+            )}
+            {canOpenServerHistory && (
+              <button
+                type="button"
+                onClick={() => void onOpenFullHistory?.(r)}
+                className="inline-flex w-fit items-center gap-1 rounded border border-border-subtle bg-bg-secondary px-2 py-1 text-[10px] font-medium text-accent hover:bg-bg-tertiary"
+              >
+                <ExternalLink className="h-3 w-3 shrink-0" />
+                完整歷史
+              </button>
             )}
             <button
               type="button"

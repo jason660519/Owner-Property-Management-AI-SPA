@@ -147,6 +147,29 @@ If the table itself must scroll vertically inside a fixed viewport, isolate that
 
 **Related**: Wide toolbars — ensure outer wrappers use **`min-w-0`** / **`w-full`** so flex layout does not block horizontal overflow from reaching the table’s scrollport (see main skill “Toolbar + wide rows”).
 
+### 12. Wasted Vertical Space from Wrapper-Only Containers
+
+**Symptom**: Layout works, but page feels cramped; DOM shows many nested `flex min-h-0 min-w-0 ...` wrappers with little or no unique behavior.
+
+**Cause**: Historical layering left containers that do not own any specific responsibility (no own border/background/sticky/ARIA semantics, no sibling spacing role, no dedicated scroll ownership).
+
+**Fix**:
+- Remove wrappers that only proxy one child and duplicate parent/child classes.
+- Keep only containers that provide distinct behavior:  
+  (a) scroll owner, (b) spacing across multiple siblings, (c) visual card boundary, (d) sticky/fixed region.
+- After removal, ensure the remaining card/container still has required `min-h-0 flex-1 overflow-*` behavior for the active tab mode.
+
+### 13. Fixed Header Microcopy Takes Space on Dense Tabs
+
+**Symptom**: Sticky/fixed top bar consumes too much vertical space for data-heavy tabs.
+
+**Cause**: Per-tab description text is always populated and rendered.
+
+**Fix**:
+- Make tab description optional and render with `currentTab.description && ...`.
+- For dense tabs (e.g. evaluation worktables), set description to empty string so the subtitle row is omitted.
+- Keep descriptions on onboarding-oriented tabs where explanatory text is more valuable than extra rows.
+
 ## Design Decisions
 
 ### Why CSS Grid instead of `<table>`?

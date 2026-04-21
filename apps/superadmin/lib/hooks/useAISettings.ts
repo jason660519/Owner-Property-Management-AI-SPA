@@ -133,9 +133,13 @@ export function useAISettings() {
   const FETCH_TIMEOUT_MS = 15000;
 
   // ---- Fetch all settings ----
-  const fetchAll = useCallback(async (silent = false) => {
+  // Returns the freshly fetched keys so callers (e.g. post-batch-import
+  // validate-all) can act on up-to-date data without waiting for the
+  // setKeys state update + ref-sync useEffect to flush.
+  const fetchAll = useCallback(async (silent = false): Promise<SavedKey[]> => {
     if (!silent) setLoading(true);
     setError(null);
+    let freshKeys: SavedKey[] = [];
     try {
       const headers = { 'x-user-id': userId };
       const controller = new AbortController();
@@ -171,7 +175,8 @@ export function useAISettings() {
       const rawKeys = (keysRes.ok ? (keysData?.keys ?? []) : []) as unknown[];
       // Keys now arrive as masked summaries only — no encrypted blob, no
       // decrypted plaintext. Plaintext is fetched on-demand via revealKey().
-      setKeys(rawKeys as SavedKey[]);
+      freshKeys = rawKeys as SavedKey[];
+      setKeys(freshKeys);
       // 僅在該 API 成功時更新；若 API 回傳空陣列但目前已有勾選，不覆寫（保留使用者模型選定）
       if (modelsRes.ok) {
         const nextModels = (modelsData?.models ?? []) as SavedModel[];
@@ -230,10 +235,11 @@ export function useAISettings() {
     } finally {
       if (!silent) setLoading(false);
     }
+    return freshKeys;
   }, [userId]);
 
   // Only fetch after auth is resolved to prevent double-fetch with wrong user ID
-  useEffect(() => { if (authChecked) fetchAll(); }, [authChecked, fetchAll]);
+  useEffect(() => { if (authChecked) void fetchAll(); }, [authChecked, fetchAll]);
 
   // ---- API Key Operations ----
   /** skipRefresh: 批量導入時使用，避免每筆儲存都觸發 fetchAll 造成畫面閃爍
@@ -385,8 +391,8 @@ export function useAISettings() {
     await fetchAll();
   }, [userId, fetchAll]);
 
-  /** 靜默重整：不設 loading，避免勾選模型後畫面閃爍 */
-  const refreshSilent = useCallback(() => fetchAll(true), [fetchAll]);
+  /** 靜默重整：不設 loading，避免勾選模型後畫面閃爍。回傳最新的 keys 以便批次匯入完成後馬上驗證時不必依賴尚未 flush 的 state/ref。 */
+  const refreshSilent = useCallback((): Promise<SavedKey[]> => fetchAll(true), [fetchAll]);
 
   /** 連線測試：測試指定 model 是否能正常回應；可傳入自訂 prompt 與選用檔案（PDF/圖片），回應內容在 output */
   const testModel = useCallback(

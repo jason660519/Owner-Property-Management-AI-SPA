@@ -108,6 +108,27 @@ export default function MyPage() {
 4. Each tab content should be a self-contained component (its own EnhancedTable with independent `tableId`)
 5. **Horizontal scroll for wide tables** — use `EnhancedTable`’s `persistentHorizontalScrollbar` if needed; the synced strip lives **inside the table card**, not fixed over the tab bar. See `troubleshooting.md` #11.
 
+## Dense Mode Spacing Preset (for data-heavy tabs)
+
+When a tab is primarily a worktable and users need more visible rows, use this compact spacing preset first (before touching table internals):
+
+- **Page content shell**: `px-2 py-2 sm:px-3 lg:px-4 lg:py-3`
+- **Table card**: `p-3 sm:p-4`
+- **Inter-section spacing**: prefer `gap-3` (or keep `gap-4` if readability drops)
+- **Optional microcopy**: allow empty tab description so subtitle line is not rendered on dense tabs
+
+Example shell:
+
+```tsx
+<div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-hidden px-2 py-2 sm:px-3 lg:px-4 lg:py-3">
+  <div className="flex min-w-0 flex-col rounded-base border border-border-default bg-bg-secondary p-3 shadow-sm sm:p-4">
+    {/* table / tab content */}
+  </div>
+</div>
+```
+
+Use this preset for operations pages where row density is the priority; keep roomier spacing for onboarding/config pages.
+
 ## Hash Navigation
 
 BottomSheetTabs automatically updates `window.location.hash` on tab click. To read the hash on page load:

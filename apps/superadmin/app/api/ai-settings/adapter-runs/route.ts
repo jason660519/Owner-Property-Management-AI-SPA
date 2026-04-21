@@ -27,6 +27,7 @@ import {
   openCodeZenChatModelId,
 } from '@/lib/ai-key-validation/kilo-opencode-zen';
 import { pickRecommendedModelByProvider } from '@/lib/pick-latest-model';
+import { insertAdapterEvaluationRun } from '@/lib/adapter-evaluation-runs/insert-adapter-evaluation-run';
 
 /**
  * Chained fallback design (2026-04-21): CLI mode only retries through more CLI attempts,
@@ -690,6 +691,22 @@ export async function POST(request: NextRequest) {
       run.status = 'stopped';
     }
     await cleanupTemp(run);
+    void insertAdapterEvaluationRun({
+      userId: run.userId,
+      adapterId: run.adapterId,
+      provider: run.provider,
+      mode: run.mode,
+      requestedModel: run.requestedModel,
+      effectiveModel: run.effectiveModel,
+      modelSource: run.modelSource,
+      logs: run.logs,
+      resultText: run.resultText,
+      ttftMs: run.ttftMs,
+      e2eLatencyMs: run.e2eLatencyMs,
+      tokensPerSec: run.tokensPerSec,
+      httpStatus: run.httpStatus,
+      errorType: run.errorType,
+    });
   });
 
   return NextResponse.json({
