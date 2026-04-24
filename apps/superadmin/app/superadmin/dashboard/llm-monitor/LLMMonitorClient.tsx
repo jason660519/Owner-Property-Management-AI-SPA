@@ -192,6 +192,28 @@ function formatIsoDate(iso: string | null): string {
   return d.toLocaleDateString('zh-TW');
 }
 
+const STALE_MS = 30 * 24 * 60 * 60 * 1000;
+
+function isPricingStale(iso: string | null | undefined): boolean {
+  if (!iso) return true;
+  return Date.now() - new Date(iso).getTime() > STALE_MS;
+}
+
+function computeEstimatedCost(
+  totalRequests: number,
+  avgPromptTokens: number,
+  avgCompletionTokens: number,
+  inputPricePerM: number | null | undefined,
+  outputPricePerM: number | null | undefined,
+): number | null {
+  if (inputPricePerM == null || outputPricePerM == null) return null;
+  return (
+    (totalRequests * avgPromptTokens * inputPricePerM +
+      totalRequests * avgCompletionTokens * outputPricePerM) /
+    1_000_000
+  );
+}
+
 function compactText(value: string | null | undefined, max = 90): string {
   if (!value) return '-';
   const normalized = value.replace(/\s+/g, ' ').trim();
@@ -637,13 +659,84 @@ const modelComparisonColumns: ColumnDef<LLMAggregateStat, unknown>[] = [
     },
   },
   {
+    id: 'col-estimated-cost',
+    header: '估算成本 (USD)',
+    meta: { headerEn: 'Est. Cost (USD)', headerZh: '估算成本 (USD)' },
+    accessorFn: (row) =>
+      computeEstimatedCost(
+        row.total_requests,
+        row.avg_prompt_tokens,
+        row.avg_completion_tokens,
+        row.official_input_price_per_1m,
+        row.official_output_price_per_1m,
+      ) ?? -1,
+    cell: ({ row }) => {
+      const est = computeEstimatedCost(
+        row.original.total_requests,
+        row.original.avg_prompt_tokens,
+        row.original.avg_completion_tokens,
+        row.original.official_input_price_per_1m,
+        row.original.official_output_price_per_1m,
+      );
+      if (est === null) return <span className="text-gray-500 text-xs">-</span>;
+      return <span className="font-mono text-xs text-emerald-300">${est.toFixed(4)}</span>;
+    },
+  },
+  {
+    id: 'col-cost-delta',
+    header: '差異 (實際-估算)',
+    meta: { headerEn: 'Delta (Actual-Est.)', headerZh: '差異 (實際-估算)' },
+    accessorFn: (row) => {
+      const est = computeEstimatedCost(
+        row.total_requests,
+        row.avg_prompt_tokens,
+        row.avg_completion_tokens,
+        row.official_input_price_per_1m,
+        row.official_output_price_per_1m,
+      );
+      if (est === null || est === 0) return 0;
+      return (row.total_cost - est) / est;
+    },
+    cell: ({ row }) => {
+      const est = computeEstimatedCost(
+        row.original.total_requests,
+        row.original.avg_prompt_tokens,
+        row.original.avg_completion_tokens,
+        row.original.official_input_price_per_1m,
+        row.original.official_output_price_per_1m,
+      );
+      if (est === null || est === 0) return <span className="text-gray-500 text-xs">-</span>;
+      const delta = row.original.total_cost - est;
+      const deltaPct = (delta / est) * 100;
+      const sign = delta >= 0 ? '+' : '';
+      const color =
+        Math.abs(deltaPct) < 10 ? 'text-gray-300' : delta > 0 ? 'text-rose-400' : 'text-emerald-400';
+      return (
+        <span className={`font-mono text-xs ${color}`} title={`$${delta.toFixed(6)}`}>
+          {sign}{deltaPct.toFixed(1)}%
+        </span>
+      );
+    },
+  },
+  {
     id: 'col-official-researched-at',
     header: '調查日期',
     meta: { headerEn: 'Research Date', headerZh: '調查日期' },
     accessorFn: (row) => row.official_price_researched_at ?? '',
-    cell: ({ row }) => (
-      <span className="text-gray-300 text-xs whitespace-nowrap">{formatIsoDate(row.original.official_price_researched_at)}</span>
-    ),
+    cell: ({ row }) => {
+      const iso = row.original.official_price_researched_at;
+      const stale = isPricingStale(iso);
+      return (
+        <span className="flex items-center gap-1 text-xs whitespace-nowrap">
+          <span className={stale ? 'text-yellow-400' : 'text-gray-300'}>{formatIsoDate(iso)}</span>
+          {stale && (
+            <Badge variant="warning" className="text-[10px] px-1 py-0 leading-tight">
+              過期
+            </Badge>
+          )}
+        </span>
+      );
+    },
   },
   {
     id: 'col-official-source',
@@ -782,7 +875,7 @@ const evaluationRunColumns: ColumnDef<LLMEvaluationRunRow, unknown>[] = [
 ];
 
 const USAGE_LOG_WIDTHS = [13, 9, 14, 16, 8, 8, 8, 8, 16];
-const MODEL_COMPARISON_WIDTHS = [8, 14, 8, 8, 9, 10, 10, 10, 9, 9, 7, 8];
+const MODEL_COMPARISON_WIDTHS = [8, 14, 8, 8, 9, 10, 10, 10, 9, 9, 10, 9, 7, 8];
 const TRACE_CONSOLE_WIDTHS = [6, 9, 6, 10, 9, 10, 5, 4, 5, 5, 7, 7, 9, 5, 3];
 const EVALUATION_RUN_WIDTHS = [10, 14, 8, 16, 15, 7, 7, 8, 5, 10];
 
@@ -1156,6 +1249,7 @@ export default function LLMMonitorClient({
                   row.display_key,
                   row.official_price_source_url ?? '',
                   row.official_price_researched_at ?? '',
+                  isPricingStale(row.official_price_researched_at) ? '過期 stale' : '',
                 ]
                   .filter(Boolean)
                   .join(' ')
