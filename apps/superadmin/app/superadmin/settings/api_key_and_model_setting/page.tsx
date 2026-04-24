@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Key, FlaskConical, ScanText, BookMarked, Trophy, Bot,
-  Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download, Play, Route,
+  Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download, Play, Route, X,
 } from 'lucide-react';
 import {
   PromptManagerModal,
@@ -58,7 +58,6 @@ type SettingsTab =
   | 'keys'
   | 'llm-leaderboard'
   | 'evaluations-global'
-  | 'adapter-config'
   | 'http-adapter-config'
   | 'model-router'
   | 'ocr';
@@ -67,7 +66,6 @@ const TAB_IDS: SettingsTab[] = [
   'keys',
   'llm-leaderboard',
   'evaluations-global',
-  'adapter-config',
   'http-adapter-config',
   'model-router',
   'ocr',
@@ -196,12 +194,6 @@ const TABS: { id: SettingsTab; label: string; icon: React.ElementType; descripti
     description: '',
   },
   {
-    id: 'adapter-config',
-    label: 'Adapter調適與設定',
-    icon: Bot,
-    description: '',
-  },
-  {
     id: 'http-adapter-config',
     label: 'HTTP Adapter調適',
     icon: Bot,
@@ -253,14 +245,6 @@ const SHEET_TABS: SheetTabDef[] = [
     activeColor: 'bg-emerald-600 text-white',
   },
   {
-    id: 'adapter-config',
-    label: '',
-    zhLabel: 'LLM CLI Adapter調適',
-    icon: Bot,
-    color: 'text-teal-600',
-    activeColor: 'bg-teal-600 text-white',
-  },
-  {
     id: 'http-adapter-config',
     label: '',
     zhLabel: 'LLM Http Adapter調適',
@@ -285,6 +269,8 @@ const ADAPTER_PROVIDER_LABEL: Record<string, string> = {
   codex: 'Codex',
   kilo: 'Kilo',
   opencode: 'OpenCode',
+  ollama_cloud: 'Ollama Cloud',
+  ollama_local: 'Ollama Local',
 };
 
 type AdapterRunStatus = 'idle' | 'running' | 'paused' | 'stopped';
@@ -296,11 +282,6 @@ const LS_ADAPTER_RUN_SNAPSHOT = 'ai-settings:adapter-run-snapshot';
 const LS_HTTP_ADAPTER_RUN_SNAPSHOT = 'ai-settings:http-adapter-run-snapshot';
 const ADAPTER_RESULTS_MODULE_KEY = 'adapter_config_test_results';
 
-/** EnhancedTable: column widths sum to 100% (10 columns: serial + company + ...) */
-const ADAPTER_CONFIG_TABLE_ID = 'ai-settings-adapter-config-v1';
-const ADAPTER_CONFIG_TABLE_INITIAL_WIDTHS = [4, 7, 10, 14, 8, 10, 8, 14, 13, 12];
-/** Fixed table width (with stretchToContainer={false}) so common viewport sizes show the bottom horizontal scrollbar */
-const ADAPTER_CONFIG_TABLE_MIN_WIDTH_PX = 2400;
 const HTTP_ADAPTER_CONFIG_TABLE_ID = 'ai-settings-http-adapter-config-v1';
 const HTTP_ADAPTER_CONFIG_TABLE_INITIAL_WIDTHS = [4, 7, 10, 14, 8, 10, 8, 14, 13, 12, 6, 6, 6, 6, 5, 8, 7];
 const HTTP_ADAPTER_CONFIG_TABLE_MIN_WIDTH_PX = 3200;
@@ -442,6 +423,13 @@ function buildAdapterCommand(
       ? `opencode -m ${item.model} run -f ${fileArg} ${promptArg}`
       : `opencode -m ${item.model} run ${promptArg}`;
   }
+  if (item.provider === 'ollama_cloud' || item.provider === 'ollama_local') {
+    /**
+     * Cloud vs local both go through the local `ollama` binary; the model slug's `:cloud`
+     * suffix signals the daemon to proxy to ollama.com. `-f` is not supported.
+     */
+    return `ollama run ${item.model} ${promptArg}`;
+  }
   return item.cliCommandTemplate.replace('<prompt>', prompt);
 }
 
@@ -460,6 +448,16 @@ export default function AIServiceSettingsPage() {
   const [validateAllLoading, setValidateAllLoading] = useState(false);
   /** Per-key results after "validate all", so each card can show available models without re-validating */
   const [validateAllResultsByKeyId, setValidateAllResultsByKeyId] = useState<Record<string, KeyValidationResult>>({});
+  /** Summary shown at the bottom of the keys tab after import+validate-all completes */
+  const [validateSummary, setValidateSummary] = useState<{
+    importedCount: number | null;
+    successCount: number;
+    successCloud: number;
+    successLocal: number;
+    failedProviders: string[];
+    totalModels: number;
+    perProviderModels: Array<{ name: string; count: number }>;
+  } | null>(null);
   const keysRef = useRef(settings.keys);
   const [modelEvaluatorHeaderActions, setModelEvaluatorHeaderActions] = useState<{
     runBatchTest: () => void;
@@ -529,7 +527,6 @@ export default function AIServiceSettingsPage() {
   const [exportingSettings, setExportingSettings] = useState(false);
   const [importingSettings, setImportingSettings] = useState(false);
   const [bulkStarting, setBulkStarting] = useState(false);
-  const [bulkRunStartedAtMs, setBulkRunStartedAtMs] = useState<number | null>(null);
   const [httpBulkStarting, setHttpBulkStarting] = useState(false);
   const [httpBulkRunStartedAtMs, setHttpBulkRunStartedAtMs] = useState<number | null>(null);
   /** Evaluations Global bulk-run: run CLI bulk-run first, then HTTP bulk-run (same engine as both Adapter tables) */
@@ -565,7 +562,6 @@ export default function AIServiceSettingsPage() {
   const [adapterPromptOptions, setAdapterPromptOptions] = useState<AdapterPromptOption[]>([]);
   const adapterPollIntervalRefs = useRef<Record<string, ReturnType<typeof setInterval> | null>>({});
   const httpAdapterPollIntervalRefs = useRef<Record<string, ReturnType<typeof setInterval> | null>>({});
-  const adapterFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const httpAdapterFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const adapterDraftsRef = useRef(adapterConfigDrafts);
   const httpAdapterDraftsRef = useRef(httpAdapterConfigDrafts);
@@ -1110,7 +1106,6 @@ export default function AIServiceSettingsPage() {
   const runAllAdapters = useCallback(async () => {
     if (bulkStarting) return;
     setBulkStarting(true);
-    setBulkRunStartedAtMs(Date.now());
     try {
       const drafts = adapterDraftsRef.current;
       const tasks = ADAPTER_CONFIG_ITEMS.map(async (item) => {
@@ -1124,7 +1119,6 @@ export default function AIServiceSettingsPage() {
       await waitForAllAdapterRunsSettled(() => adapterDraftsRef.current);
     } finally {
       setBulkStarting(false);
-      setBulkRunStartedAtMs(null);
     }
   }, [bulkStarting, startAdapterRun]);
   const runAllHttpAdapters = useCallback(async () => {
@@ -1209,14 +1203,36 @@ export default function AIServiceSettingsPage() {
         row.adapterChannel && row.adapterItemId
           ? { channel: row.adapterChannel, itemId: row.adapterItemId }
           : parseEvalGlobalRowId(row.id);
-      if (!parsed) return;
+      if (!parsed) {
+        appendAdapterRunNotice({
+          severity: 'warn',
+          adapterLabel: row.companyName,
+          message: '無法解析此列的 adapter id，請重新整理頁面後再試。',
+        });
+        return;
+      }
       const item = ADAPTER_CONFIG_ITEMS.find((i) => i.id === parsed.itemId);
-      if (!item) return;
+      if (!item) {
+        appendAdapterRunNotice({
+          severity: 'error',
+          adapterLabel: row.companyName,
+          message: `找不到 adapter 設定：${parsed.itemId}`,
+        });
+        return;
+      }
       const draftsMap = parsed.channel === 'http' ? httpAdapterConfigDrafts : adapterConfigDrafts;
       const draft = draftsMap[item.id] ?? createDefaultAdapterDraft(item.model);
-      await startAdapterRun(item, draft, parsed.channel);
+      try {
+        await startAdapterRun(item, draft, parsed.channel);
+      } catch (e) {
+        appendAdapterRunNotice({
+          severity: 'error',
+          adapterLabel: item.optionLabel,
+          message: e instanceof Error ? e.message : '啟動測試失敗（未預期錯誤）',
+        });
+      }
     },
-    [adapterConfigDrafts, httpAdapterConfigDrafts, parseEvalGlobalRowId, startAdapterRun],
+    [adapterConfigDrafts, httpAdapterConfigDrafts, parseEvalGlobalRowId, startAdapterRun, appendAdapterRunNotice],
   );
 
   /** Evaluations Global: single-row "Pause/Resume/Stop" dispatched to the underlying adapter run engine */
@@ -1493,35 +1509,38 @@ export default function AIServiceSettingsPage() {
         } catch (saveErr) {
           console.warn('[驗證全部金鑰] 組態概況寫入失敗，不影響驗證結果', saveErr);
         }
-        if (typeof window !== 'undefined') {
-          const lines: string[] = [];
-          if (importedCount != null && importedCount > 0) {
-            lines.push(`導入成功 ${importedCount} 家金鑰。`);
-            lines.push('');
-          }
-          lines.push(`驗證完成。驗證成功 ${successCount} 家。`);
-          const failedProviders = keys
-            .filter((_, i) => !results[i]?.valid)
-            .map((k) => getProviderById(k.provider as Parameters<typeof getProviderById>[0])?.name ?? k.provider);
-          if (failedProviders.length > 0) {
-            lines.push(`驗證失敗（${failedProviders.length} 家）：${failedProviders.join('、')}。`);
-          }
-          if (byProviderForTotal.size > 0) {
-            const perProvider = Array.from(byProviderForTotal.entries())
-              .map(([providerId, count]) => {
-                const name = getProviderById(providerId as Parameters<typeof getProviderById>[0])?.name ?? providerId;
-                return `${name}：${count} 個`;
-              })
-              .join('；');
-            lines.push(`各家可用模型數：${perProvider}`);
-          }
-          lines.push(`全部可用模型共 ${totalModels} 個。`);
-          window.alert(lines.join('\n'));
-        }
+        // Local providers run on user's own infrastructure (not cloud APIs)
+        const LOCAL_PROVIDER_IDS = new Set(['ollama_local']);
+        const failedProviders = keys
+          .filter((_, i) => !results[i]?.valid)
+          .map((k) => getProviderById(k.provider as Parameters<typeof getProviderById>[0])?.name ?? k.provider);
+        const successCloud = keys.filter((k, i) => results[i]?.valid && !LOCAL_PROVIDER_IDS.has(k.provider)).length;
+        const successLocal = keys.filter((k, i) => results[i]?.valid && LOCAL_PROVIDER_IDS.has(k.provider)).length;
+        const perProviderModels = Array.from(byProviderForTotal.entries()).map(([providerId, count]) => ({
+          name: getProviderById(providerId as Parameters<typeof getProviderById>[0])?.name ?? providerId,
+          count,
+        }));
+        setValidateSummary({
+          importedCount: importedCount ?? null,
+          successCount,
+          successCloud,
+          successLocal,
+          failedProviders,
+          totalModels,
+          perProviderModels,
+        });
       } catch (err) {
         const msg =
           err instanceof Error ? err.message : '驗證全部金鑰時發生錯誤，請稍後再試';
-        if (typeof window !== 'undefined') window.alert(msg);
+        setValidateSummary({
+          importedCount: null,
+          successCount: 0,
+          successCloud: 0,
+          successLocal: 0,
+          failedProviders: [msg],
+          totalModels: 0,
+          perProviderModels: [],
+        });
       } finally {
         setValidateAllLoading(false);
       }
@@ -1607,18 +1626,6 @@ export default function AIServiceSettingsPage() {
     return () => clearInterval(id);
   }, [activeTab, refreshEvalGlobalDbSummaries]);
 
-  const adapterConfigTableColumns = useMemo(
-    () =>
-      createAdapterConfigColumns({
-        providerLabel: ADAPTER_PROVIDER_LABEL,
-        promptOptions,
-        adapterFileInputRefs,
-        setAdapterConfigDrafts,
-        startAdapterRun,
-        controlAdapterRun,
-      }),
-    [promptOptions, startAdapterRun, controlAdapterRun],
-  );
   const httpAdapterConfigTableColumns = useMemo(
     () =>
       createAdapterConfigColumns({
@@ -1767,30 +1774,79 @@ export default function AIServiceSettingsPage() {
     // --- Keys tab ---
     if (activeTab === 'keys') {
       return (
-        <ApiKeyManager
-          ref={apiKeyManagerRef}
-          savedKeys={settings.keys}
-          validateAllResultsByKeyId={validateAllResultsByKeyId}
-          onSave={settings.saveKey}
-          onDelete={settings.deleteKey}
-          onValidate={async (provider, apiKey, keyId) => {
-            const r = await settings.validateKey(provider, apiKey, keyId);
-            if (keyId && r?.valid) setValidateAllResultsByKeyId((prev) => ({ ...prev, [keyId]: r }));
-            return r;
-          }}
-          onRevealKey={settings.revealKey}
-          headerActionsRef={apiKeyHeaderActionsRef}
-          onBatchImportComplete={async (importedCount) => {
-            // Use keys returned by refreshSilent directly. Relying on
-            // keysRef.current was racy: the ref is synced to settings.keys
-            // via useEffect after React re-renders, which hadn't flushed
-            // when we fired validate-all — so validation hit the now-
-            // deactivated previous rows (keyId-matched, no is_active filter)
-            // and the freshly-inserted active rows stayed is_valid=NULL.
-            const freshKeys = await settings.refreshSilent();
-            await runValidateAllKeys(freshKeys, importedCount);
-          }}
-        />
+        <div className="space-y-4">
+          <ApiKeyManager
+            ref={apiKeyManagerRef}
+            savedKeys={settings.keys}
+            validateAllResultsByKeyId={validateAllResultsByKeyId}
+            onSave={settings.saveKey}
+            onDelete={settings.deleteKey}
+            onValidate={async (provider, apiKey, keyId) => {
+              const r = await settings.validateKey(provider, apiKey, keyId);
+              if (keyId && r?.valid) setValidateAllResultsByKeyId((prev) => ({ ...prev, [keyId]: r }));
+              return r;
+            }}
+            onRevealKey={settings.revealKey}
+            headerActionsRef={apiKeyHeaderActionsRef}
+            onBatchImportComplete={async (importedCount) => {
+              // Use keys returned by refreshSilent directly. Relying on
+              // keysRef.current was racy: the ref is synced to settings.keys
+              // via useEffect after React re-renders, which hadn't flushed
+              // when we fired validate-all — so validation hit the now-
+              // deactivated previous rows (keyId-matched, no is_active filter)
+              // and the freshly-inserted active rows stayed is_valid=NULL.
+              const freshKeys = await settings.refreshSilent();
+              await runValidateAllKeys(freshKeys, importedCount);
+            }}
+          />
+
+          {/* Validate-all summary — shown at the bottom after import+validate completes */}
+          {validateSummary && (
+            <div className="rounded-base border border-green-500/30 bg-green-500/5 p-4 text-sm">
+              <div className="flex items-start justify-between gap-2">
+                <div className="space-y-2 flex-1">
+                  {validateSummary.importedCount != null && validateSummary.importedCount > 0 && (
+                    <div>
+                      <p className="font-semibold text-green-400 mb-1">
+                        匯入成功：共 {validateSummary.importedCount} 家金鑰
+                      </p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="font-semibold text-green-400 mb-1">
+                      驗證完成：共 {validateSummary.successCount} 家通過
+                      {validateSummary.failedProviders.length > 0 && (
+                        <span className="ml-2 text-red-400 font-normal text-xs">
+                          （失敗 {validateSummary.failedProviders.length} 家：{validateSummary.failedProviders.join('、')}）
+                        </span>
+                      )}
+                    </p>
+                    <div className="flex flex-wrap gap-3 text-xs text-text-muted">
+                      <span>☁️ 雲端：{validateSummary.successCloud} 家</span>
+                      <span>🖥️ 地端：{validateSummary.successLocal} 家</span>
+                    </div>
+                  </div>
+                  {validateSummary.perProviderModels.length > 0 && (
+                    <div className="pt-1">
+                      <p className="text-xs text-text-muted mb-1">各家可用模型數（共 {validateSummary.totalModels} 個）：</p>
+                      <p className="text-xs text-text-secondary leading-relaxed">
+                        {validateSummary.perProviderModels.map((p) => `${p.name}：${p.count} 個`).join('；')}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setValidateSummary(null)}
+                  className="text-text-muted hover:text-text-primary transition-colors shrink-0"
+                  aria-label="關閉摘要"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       );
     }
 
@@ -1800,77 +1856,23 @@ export default function AIServiceSettingsPage() {
 
     if (activeTab === 'evaluations-global') {
       return (
-        <EvaluationsGlobalPanel
-          importedRows={evaluationsGlobalDisplayRows}
-          onBulkRunAllAdapters={() => {
-            void runCliThenHttpForEvaluationsGlobal();
-          }}
-          bulkRunAllBusy={evalGlobalBulkStarting || bulkStarting || httpBulkStarting}
-          bulkRunAllStartedAtMs={evalGlobalBulkStarting ? evalGlobalBulkRunStartedAtMs : null}
-          onRunRow={handleEvalGlobalRunRow}
-          onControlRow={handleEvalGlobalControlRow}
-          onWidthPresetOverwriteSaved={focusEvaluationsGlobalTab}
-        />
-      );
-    }
-
-    if (activeTab === 'adapter-config') {
-      return (
         <div className="flex min-h-0 flex-1 flex-col gap-3">
-          <div className="shrink-0 flex flex-col gap-3 rounded-base border border-dashed border-border-default bg-bg-secondary p-3 sm:p-4 lg:flex-row lg:items-stretch">
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-text-primary">Adapter Config 規劃中</p>
-              <p className="mt-1 text-xs text-text-muted">
-                可針對每家 Adapter 設定測試 Prompt、上傳測試文件並控制執行；Prompt 可自行編輯或從 Prompt Management 載入。
-              </p>
-            </div>
-            {renderAdapterRunNoticesColumn()}
-          </div>
-          <div className="min-h-0 flex-1">
-            <EnhancedTable<AdapterConfigTableRow>
-              tableId={ADAPTER_CONFIG_TABLE_ID}
-              columns={adapterConfigTableColumns}
-              data={adapterTableRows}
-              initialWidths={[...ADAPTER_CONFIG_TABLE_INITIAL_WIDTHS]}
-              minWidth={ADAPTER_CONFIG_TABLE_MIN_WIDTH_PX}
-              stretchToContainer={false}
-              persistentHorizontalScrollbar
-              getSearchValue={getAdapterConfigSearchValue}
-              getCategoryValue={getAdapterConfigCategoryValue}
-              extraToolbar={
-                <button
-                  type="button"
-                  onClick={() => {
-                    void runAllAdapters();
-                  }}
-                  disabled={bulkStarting}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  title={
-                    bulkStarting
-                      ? '一鍵啟動全部 Adapter 測試（進行中）'
-                      : '一鍵啟動全部 Adapter 測試'
-                  }
-                  aria-busy={bulkStarting}
-                >
-                  {bulkStarting && bulkRunStartedAtMs != null ? (
-                    <>
-                      <Loader2 size={14} className="shrink-0 animate-spin" aria-hidden />
-                      <BulkRunElapsed startMs={bulkRunStartedAtMs} />
-                      <span>全測中</span>
-                    </>
-                  ) : (
-                    <>
-                      <Play size={14} aria-hidden />
-                      全測
-                    </>
-                  )}
-                </button>
-              }
-            />
-          </div>
+          <EvaluationsGlobalPanel
+            importedRows={evaluationsGlobalDisplayRows}
+            onBulkRunAllAdapters={() => {
+              void runCliThenHttpForEvaluationsGlobal();
+            }}
+            bulkRunAllBusy={evalGlobalBulkStarting || bulkStarting || httpBulkStarting}
+            bulkRunAllStartedAtMs={evalGlobalBulkStarting ? evalGlobalBulkRunStartedAtMs : null}
+            onRunRow={handleEvalGlobalRunRow}
+            onControlRow={handleEvalGlobalControlRow}
+            onWidthPresetOverwriteSaved={focusEvaluationsGlobalTab}
+          />
+          <div className="shrink-0">{renderAdapterRunNoticesColumn()}</div>
         </div>
       );
     }
+
     if (activeTab === 'http-adapter-config') {
       const { cli, http } = adapterCompareSummary;
       return (
@@ -2210,7 +2212,7 @@ export default function AIServiceSettingsPage() {
         <div className="flex items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2 gap-y-1 min-w-0">
             {React.createElement(currentTab.icon, { size: 18, className: 'text-accent shrink-0' })}
-            {activeTab !== 'adapter-config' && activeTab !== 'http-adapter-config' && (
+            {activeTab !== 'http-adapter-config' && (
               <div className="min-w-0">
                 <h2 className="text-sm font-semibold text-text-primary">{currentTab.label}</h2>
                 {currentTab.description && (
@@ -2220,7 +2222,6 @@ export default function AIServiceSettingsPage() {
             )}
             {activeTab !== 'llm-leaderboard' &&
             activeTab !== 'evaluations-global' &&
-            activeTab !== 'adapter-config' &&
             activeTab !== 'http-adapter-config' &&
             activeTab !== 'model-router' && (
             <div className="flex items-center gap-2 shrink-0">

@@ -41,9 +41,13 @@ function toNumberOrNull(raw: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Matches data rows in the leaderboard table body (SSR). */
-const TR_PATTERN =
-  /<tr class="border-b border-\[hsl\(var\(--ui-border\)\)\] data-\[state=selected\]:bg-\[hsl\(var\(--ui-muted\)\)\] group hover:bg-slate-50 transition-colors"[^>]*>([\s\S]*?)<\/tr>/g;
+/**
+ * Matches any table row in server-rendered HTML.
+ *
+ * Upstream often reorders/renames utility classes; matching a full class
+ * string is brittle and can drop all rows after minor site updates.
+ */
+const TR_PATTERN = /<tr[^>]*>([\s\S]*?)<\/tr>/g;
 
 const TD_PATTERN = /<td[^>]*>([\s\S]*?)<\/td>/g;
 
@@ -86,6 +90,7 @@ export function parseArtificialAnalysisLlmLeaderboardHtml(html: string): Artific
     const tds = extractTdContents(inner);
     if (tds.length < 9) continue;
     const links = extractModelLinks(tds[8]);
+    if (!links.modelPath && !links.providersPath) continue;
     rows.push({
       model: stripHtml(tds[0]),
       contextWindowTokens: toNumberOrNull(stripHtml(tds[1])),

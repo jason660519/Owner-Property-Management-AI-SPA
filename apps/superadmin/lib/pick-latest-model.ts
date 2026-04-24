@@ -355,6 +355,8 @@ const TIEBREAKER_KEYWORDS: Record<AIProvider, readonly string[]> = {
   qwen: ['qwen-max', 'qwen-plus', 'qwen-turbo', 'qwen-vl'],
   kilo: ['dola-seed', 'minimax', 'qwen'],
   opencode: ['kimi', 'glm', 'minimax', 'qwen'],
+  ollama_cloud: ['gpt-oss'],
+  ollama_local: ['llama', 'qwen'],
 };
 
 function tiebreakerScore(id: string, keywords: readonly string[]): number {

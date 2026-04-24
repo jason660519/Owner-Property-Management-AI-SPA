@@ -131,6 +131,8 @@ function ProviderKeyRow({ provider, savedKey, validationResultFromValidateAll, o
     grok: '#FFFFFF',
     together: '#6366F1',
     qwen: '#615CED', // Qwen / 通義千問 brand purple
+    ollama_cloud: '#0B3B91',
+    ollama_local: '#1F2937',
     kilo: '#0F766E',
     opencode: '#7C3AED',
   };
@@ -373,6 +375,12 @@ function ProviderKeyRow({ provider, savedKey, validationResultFromValidateAll, o
         )}
         <span>Base URL: <code className="text-text-secondary">{provider.baseUrl}</code></span>
       </div>
+
+      {provider.id === 'ollama_local' && (
+        <div className="mt-2 rounded-base border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-500/90">
+          建議填入你 Linux 主機（或反向代理層）設定的 API token。請勿填 SSH 公鑰。
+        </div>
+      )}
 
       {/* 驗證後可用模型清單（顯示 API 回傳的完整模型列表） */}
       {displayResult?.valid && Array.isArray(displayResult.availableModels) && displayResult.availableModels.length > 0 && (

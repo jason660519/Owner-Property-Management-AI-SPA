@@ -59,9 +59,15 @@ function row(item: AdapterConfigItem, draft: AdapterConfigDraftCell): AdapterCon
 describe('buildEvaluationsGlobalRowsFromAdapterTables', () => {
   const labels: Record<string, string> = { claude: 'Claude' };
 
-  it('returns empty when nothing passes', () => {
+  it('returns empty when the last run did not pass and is not in flight', () => {
     const item = mockItem({ id: 'a1' });
-    const d = baseDraft({ runCount: 0 });
+    const d = baseDraft({
+      runCount: 1,
+      runStatus: 'idle',
+      renderedOutput: '',
+      outputLines: [],
+      errorType: 'timeout',
+    });
     expect(buildEvaluationsGlobalRowsFromAdapterTables([row(item, d)], [], labels)).toEqual([]);
   });
 
@@ -75,10 +81,13 @@ describe('buildEvaluationsGlobalRowsFromAdapterTables', () => {
     expect(out[0]!.adapterItemId).toBe('a2');
   });
 
-  it('still excludes never-run rows', () => {
+  it('includes never-run rows as pending so new adapters show in the global table', () => {
     const item = mockItem({ id: 'a2b' });
-    const d = baseDraft({ runStatus: 'idle', runCount: 0 });
-    expect(buildEvaluationsGlobalRowsFromAdapterTables([row(item, d)], [], labels)).toEqual([]);
+    const d = baseDraft({ runStatus: 'idle', runCount: 0, renderedOutput: '', outputLines: [] });
+    const out = buildEvaluationsGlobalRowsFromAdapterTables([row(item, d)], [], labels);
+    expect(out).toHaveLength(1);
+    expect(out[0]!.evaluationLevel).toBe('pending');
+    expect(out[0]!.historyLastSummary).toContain('尚未執行測試');
   });
 
   it('excludes idle rows whose last run did not pass', () => {
@@ -105,7 +114,9 @@ describe('buildEvaluationsGlobalRowsFromAdapterTables', () => {
     const out = buildEvaluationsGlobalRowsFromAdapterTables([row(item, d)], [], labels);
     expect(out).toHaveLength(1);
     expect(out[0]!.id).toBe('cli-adapter-pass-gem-x');
-    expect(out[0]!.transport).toBe('local');
+    expect(out[0]!.invocationPath).toBe('cli');
+    expect(out[0]!.executionPlane).toBe('vendor_saas');
+    expect(out[0]!.companyName).toBe('Claude');
     expect(out[0]!.adapterModel).toBe('Gemini CLI + X');
     expect(out[0]!.adapterChannel).toBe('cli');
     expect(out[0]!.adapterItemId).toBe('gem-x');
@@ -117,8 +128,19 @@ describe('buildEvaluationsGlobalRowsFromAdapterTables', () => {
     const out = buildEvaluationsGlobalRowsFromAdapterTables([], [row(item, d)], labels);
     expect(out).toHaveLength(1);
     expect(out[0]!.id).toBe('http-adapter-pass-http-1');
-    expect(out[0]!.transport).toBe('internet');
+    expect(out[0]!.companyName).toBe('Claude');
+    expect(out[0]!.invocationPath).toBe('http');
+    expect(out[0]!.executionPlane).toBe('vendor_saas');
     expect(out[0]!.adapterChannel).toBe('http');
     expect(out[0]!.adapterItemId).toBe('http-1');
+  });
+
+  it('marks ollama_local as on-prem execution plane even when invoked via CLI', () => {
+    const item = mockItem({ id: 'ol1', provider: 'ollama_local' });
+    const d = baseDraft();
+    const out = buildEvaluationsGlobalRowsFromAdapterTables([row(item, d)], [], labels);
+    expect(out).toHaveLength(1);
+    expect(out[0]!.invocationPath).toBe('cli');
+    expect(out[0]!.executionPlane).toBe('on_prem');
   });
 });

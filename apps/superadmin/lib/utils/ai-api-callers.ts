@@ -625,6 +625,63 @@ export async function callQwen(
   return { ok: false, text: '', error: data?.error?.message ?? `HTTP ${res.status}` };
 }
 
+// ---------------------------------------------------------------------------
+// Ollama — OpenAI-compatible endpoint at /v1/chat/completions
+// Cloud hosts models (gpt-oss, etc.) behind an API key; local talks to the
+// user's own daemon on 127.0.0.1:11434 with no auth.
+// ---------------------------------------------------------------------------
+
+async function callOllamaAt(
+  baseUrl: string,
+  apiKey: string,
+  modelId: string,
+  fileBase64: string,
+  mimeType: string,
+  systemPrompt?: string,
+  signal?: AbortSignal,
+): Promise<CallerResult> {
+  const prompt = systemPrompt ?? TRANSCRIPT_PARSE_PROMPT;
+
+  type TextPart = { type: 'text'; text: string };
+  type ImagePart = { type: 'image_url'; image_url: { url: string } };
+  let content: string | (TextPart | ImagePart)[] = prompt;
+
+  if (isImageMime(mimeType)) {
+    content = [
+      { type: 'image_url' as const, image_url: { url: `data:${mimeType};base64,${fileBase64}` } },
+      { type: 'text' as const, text: prompt },
+    ];
+  }
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+  const res = await fetch(`${baseUrl}/v1/chat/completions`, {
+    method: 'POST',
+    signal,
+    headers,
+    body: JSON.stringify({
+      model: modelId,
+      messages: [{ role: 'user', content }],
+      max_tokens: 4096,
+    }),
+  });
+
+  const data = (await res.json().catch(() => ({}))) as {
+    choices?: { message?: { content?: string } }[];
+    error?: { message?: string };
+  };
+  const text = data?.choices?.[0]?.message?.content ?? '';
+  if (res.ok) return { ok: true, text };
+  return { ok: false, text: '', error: data?.error?.message ?? `HTTP ${res.status}` };
+}
+
+export const callOllamaCloud: CallerFn = (key, model, b64, mime, sys, signal) =>
+  callOllamaAt('https://ollama.com', key, model, b64, mime, sys, signal);
+
+export const callOllamaLocal: CallerFn = (key, model, b64, mime, sys, signal) =>
+  callOllamaAt('http://localhost:11434', key, model, b64, mime, sys, signal);
+
 export const CALLERS: Record<AIProvider, CallerFn> = {
   openai: callOpenAI,
   anthropic: callAnthropic,
@@ -637,6 +694,8 @@ export const CALLERS: Record<AIProvider, CallerFn> = {
   zhipu: callZhipu,
   perplexity: callPerplexity,
   qwen: callQwen,
+  ollama_cloud: callOllamaCloud,
+  ollama_local: callOllamaLocal,
   kilo: callOpenRouter,
   opencode: callOpenRouter,
 };

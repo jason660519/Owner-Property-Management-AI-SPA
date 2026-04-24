@@ -17,11 +17,15 @@ import {
   Mic,
   SlidersHorizontal,
   Percent,
+  GitBranch,
+  ClipboardCheck,
+  Eye,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import EnhancedTable from '@/components/ui/EnhancedTable';
 import { BottomSheetTabs } from '@/components/ui/BottomSheetTabs';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/Sheet';
 import type { SheetTabDef } from '@/components/ui/BottomSheetTabs';
 import type { ColumnDef } from '@tanstack/react-table';
 import type {
@@ -32,6 +36,8 @@ import type {
   WeeklyTokenPoint,
   VoiceQualityPoint,
   LLMMonitorConfig,
+  LLMTraceConsoleRow,
+  LLMEvaluationRunRow,
 } from './actions';
 import LLMMonitorBudgetPanel from './LLMMonitorBudgetPanel';
 
@@ -43,6 +49,8 @@ interface LLMMonitorClientPropsV2 {
   dailyTokenSeries: DailyTokenPoint[];
   weeklyTokenSeries: WeeklyTokenPoint[];
   voiceQualitySeries: VoiceQualityPoint[];
+  traceConsoleRows?: LLMTraceConsoleRow[];
+  evaluationRuns?: LLMEvaluationRunRow[];
 }
 
 interface StatCardProps {
@@ -56,7 +64,9 @@ interface StatCardProps {
 
 type TabId =
   | 'overall-stats'
+  | 'trace-console'
   | 'ai-usage-logs'
+  | 'evaluation-runs'
   | 'model-comparison'
   | 'token-trends'
   | 'voice-quality'
@@ -64,7 +74,9 @@ type TabId =
 
 const TAB_IDS: TabId[] = [
   'overall-stats',
+  'trace-console',
   'ai-usage-logs',
+  'evaluation-runs',
   'model-comparison',
   'token-trends',
   'voice-quality',
@@ -85,12 +97,28 @@ const SHEET_TABS: SheetTabDef[] = [
     activeColor: 'bg-emerald-600 text-white',
   },
   {
+    id: 'trace-console',
+    label: 'Trace Console',
+    zhLabel: '調用追蹤',
+    icon: GitBranch,
+    color: 'text-teal-500',
+    activeColor: 'bg-teal-600 text-white',
+  },
+  {
     id: 'ai-usage-logs',
     label: 'AI Usage Logs',
     zhLabel: '使用紀錄',
     icon: FileText,
     color: 'text-blue-500',
     activeColor: 'bg-blue-600 text-white',
+  },
+  {
+    id: 'evaluation-runs',
+    label: 'Evaluations',
+    zhLabel: '評測紀錄',
+    icon: ClipboardCheck,
+    color: 'text-lime-500',
+    activeColor: 'bg-lime-700 text-white',
   },
   {
     id: 'model-comparison',
@@ -157,6 +185,40 @@ function formatPct01(n: number): string {
   return `${(n * 100).toFixed(2)}%`;
 }
 
+function formatIsoDate(iso: string | null): string {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '-';
+  return d.toLocaleDateString('zh-TW');
+}
+
+function compactText(value: string | null | undefined, max = 90): string {
+  if (!value) return '-';
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  if (normalized.length <= max) return normalized;
+  return `${normalized.slice(0, max - 1)}…`;
+}
+
+function statusBadge(status: string | null | undefined) {
+  if (status === 'success' || status === 'pass') return <Badge variant="success">{status}</Badge>;
+  if (status === 'warning' || status === 'timeout' || status === 'pending') {
+    return <Badge variant="warning">{status}</Badge>;
+  }
+  if (status === 'error' || status === 'fail') return <Badge variant="error">{status}</Badge>;
+  return <span className="text-gray-600 text-xs">-</span>;
+}
+
+function DetailBlock({ title, value }: { title: string; value: string | number | null | undefined }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-xs font-semibold text-text-secondary">{title}</p>
+      <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-md border border-border-default bg-bg-tertiary p-3 text-xs leading-5 text-text-primary">
+        {value == null || value === '' ? '-' : String(value)}
+      </pre>
+    </div>
+  );
+}
+
 function MiniBarChart({
   title,
   subtitle,
@@ -197,6 +259,164 @@ function MiniBarChart({
     </div>
   );
 }
+
+const traceConsoleColumns: ColumnDef<LLMTraceConsoleRow, unknown>[] = [
+  {
+    id: 'col-created-at',
+    header: '時間',
+    meta: { headerEn: 'Time', headerZh: '時間' },
+    accessorFn: (row) => row.created_at,
+    cell: ({ row }) => (
+      <span className="text-gray-400 text-xs whitespace-nowrap">
+        {new Date(row.original.created_at).toLocaleString('zh-TW')}
+      </span>
+    ),
+  },
+  {
+    id: 'col-page',
+    header: 'Page',
+    meta: { headerEn: 'Page' },
+    accessorFn: (row) => row.page_path ?? '',
+    cell: ({ row }) => (
+      <span className="font-mono text-[11px] text-gray-300" title={row.original.page_path ?? undefined}>
+        {compactText(row.original.page_path, 48)}
+      </span>
+    ),
+  },
+  {
+    id: 'col-company',
+    header: 'Company',
+    meta: { headerEn: 'Company' },
+    accessorFn: (row) => row.company_name ?? '',
+    cell: ({ row }) => <span className="text-xs text-gray-300">{row.original.company_name ?? '-'}</span>,
+  },
+  {
+    id: 'col-invocation',
+    header: 'Invocation / Execution',
+    meta: { headerEn: 'Invocation / Execution' },
+    accessorFn: (row) => `${row.invocation_name ?? ''} ${row.execution_name ?? ''}`,
+    cell: ({ row }) => (
+      <div className="text-xs">
+        <div className="text-gray-200 truncate" title={row.original.invocation_name ?? undefined}>
+          {row.original.invocation_name ?? '-'}
+        </div>
+        <div className="text-gray-500 truncate" title={row.original.execution_name ?? undefined}>
+          {row.original.execution_name ?? '-'}
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 'col-provider-adapter',
+    header: 'Provider / Adapter',
+    meta: { headerEn: 'Provider / Adapter' },
+    accessorFn: (row) => `${row.provider ?? ''} ${row.adapter_id ?? ''}`,
+    cell: ({ row }) => (
+      <div className="text-xs font-mono">
+        <div className="text-white truncate">{row.original.provider ?? '-'}</div>
+        <div className="text-gray-500 truncate" title={row.original.adapter_id ?? undefined}>
+          {row.original.adapter_id ?? row.original.source_kind}
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 'col-models',
+    header: 'Requested / Effective',
+    meta: { headerEn: 'Requested / Effective Model' },
+    accessorFn: (row) => `${row.requested_model ?? ''} ${row.effective_model ?? ''}`,
+    cell: ({ row }) => (
+      <div className="text-xs font-mono">
+        <div className="text-gray-300 truncate" title={row.original.requested_model ?? undefined}>
+          {row.original.requested_model ?? '-'}
+        </div>
+        <div className="text-emerald-300 truncate" title={row.original.effective_model ?? undefined}>
+          {row.original.effective_model ?? '-'}
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 'col-status',
+    header: 'Status',
+    meta: { headerEn: 'Status' },
+    accessorFn: (row) => row.status ?? '',
+    cell: ({ row }) => statusBadge(row.original.status),
+  },
+  {
+    id: 'col-http-status',
+    header: 'HTTP',
+    meta: { headerEn: 'HTTP Status' },
+    accessorFn: (row) => row.http_status ?? 0,
+    cell: ({ row }) => <span className="font-mono text-xs text-gray-300">{row.original.http_status ?? '-'}</span>,
+  },
+  {
+    id: 'col-ttft',
+    header: 'TTFT (ms)',
+    meta: { headerEn: 'TTFT (ms)' },
+    accessorFn: (row) => row.ttft_ms ?? 0,
+    cell: ({ row }) => <span className="font-mono text-xs text-gray-300">{row.original.ttft_ms ?? '-'}</span>,
+  },
+  {
+    id: 'col-e2e',
+    header: 'E2E (ms)',
+    meta: { headerEn: 'E2E (ms)' },
+    accessorFn: (row) => row.e2e_ms ?? 0,
+    cell: ({ row }) => <span className="font-mono text-xs text-gray-300">{row.original.e2e_ms ?? '-'}</span>,
+  },
+  {
+    id: 'col-throughput',
+    header: 'Throughput (tok/s)',
+    meta: { headerEn: 'Throughput (tok/s)' },
+    accessorFn: (row) => row.throughput_tokens_per_s ?? 0,
+    cell: ({ row }) => (
+      <span className="font-mono text-xs text-gray-300">
+        {row.original.throughput_tokens_per_s != null ? row.original.throughput_tokens_per_s.toFixed(2) : '-'}
+      </span>
+    ),
+  },
+  {
+    id: 'col-tokens',
+    header: 'Tokens (in/out)',
+    meta: { headerEn: 'Tokens (in/out)' },
+    accessorFn: (row) => (row.tokens_input ?? 0) + (row.tokens_output ?? 0),
+    cell: ({ row }) => (
+      <span className="font-mono text-xs text-gray-300">
+        {row.original.tokens_input ?? '-'}/{row.original.tokens_output ?? '-'}
+      </span>
+    ),
+  },
+  {
+    id: 'col-evaluation',
+    header: 'Evaluation',
+    meta: { headerEn: 'Evaluation' },
+    accessorFn: (row) => `${row.evaluation_label ?? ''} ${row.evaluation_message ?? ''}`,
+    cell: ({ row }) => (
+      <div className="text-xs">
+        <div>{statusBadge(row.original.evaluation_label)}</div>
+        <div className="text-gray-500 truncate mt-1" title={row.original.evaluation_message ?? undefined}>
+          {compactText(row.original.evaluation_message, 70)}
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 'col-raw-rendered',
+    header: 'Raw / Rendered',
+    meta: { headerEn: 'Raw / Rendered Output' },
+    enableSorting: false,
+    cell: ({ row }) => (
+      <div className="text-[11px] leading-5">
+        <div className="text-gray-400" title={row.original.raw_output ?? undefined}>
+          raw: {compactText(row.original.raw_output, 70)}
+        </div>
+        <div className="text-gray-300" title={row.original.rendered_output ?? undefined}>
+          rendered: {compactText(row.original.rendered_output, 70)}
+        </div>
+      </div>
+    ),
+  },
+];
 
 const usageLogColumns: ColumnDef<AIUsageLog, unknown>[] = [
   {
@@ -396,10 +616,175 @@ const modelComparisonColumns: ColumnDef<LLMAggregateStat, unknown>[] = [
       );
     },
   },
+  {
+    id: 'col-official-input-price',
+    header: '官方 Input $/1M',
+    meta: { headerEn: 'Official Input $/1M' },
+    accessorFn: (row) => row.official_input_price_per_1m ?? 0,
+    cell: ({ row }) => {
+      const price = row.original.official_input_price_per_1m;
+      return <span className="font-mono text-xs text-cyan-300">{price == null ? '-' : price.toFixed(4)}</span>;
+    },
+  },
+  {
+    id: 'col-official-output-price',
+    header: '官方 Output $/1M',
+    meta: { headerEn: 'Official Output $/1M' },
+    accessorFn: (row) => row.official_output_price_per_1m ?? 0,
+    cell: ({ row }) => {
+      const price = row.original.official_output_price_per_1m;
+      return <span className="font-mono text-xs text-cyan-300">{price == null ? '-' : price.toFixed(4)}</span>;
+    },
+  },
+  {
+    id: 'col-official-researched-at',
+    header: '調查日期',
+    meta: { headerEn: 'Research Date', headerZh: '調查日期' },
+    accessorFn: (row) => row.official_price_researched_at ?? '',
+    cell: ({ row }) => (
+      <span className="text-gray-300 text-xs whitespace-nowrap">{formatIsoDate(row.original.official_price_researched_at)}</span>
+    ),
+  },
+  {
+    id: 'col-official-source',
+    header: '官方來源',
+    meta: { headerEn: 'Official Source', headerZh: '官方來源' },
+    accessorFn: (row) => row.official_price_source_url ?? '',
+    enableSorting: false,
+    cell: ({ row }) => {
+      const url = row.original.official_price_source_url;
+      if (!url) return <span className="text-gray-500 text-xs">-</span>;
+      return (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-cyan-300 underline underline-offset-2 hover:text-cyan-200"
+        >
+          source
+        </a>
+      );
+    },
+  },
+];
+
+const evaluationRunColumns: ColumnDef<LLMEvaluationRunRow, unknown>[] = [
+  {
+    id: 'col-created-at',
+    header: '時間',
+    meta: { headerEn: 'Time', headerZh: '時間' },
+    accessorFn: (row) => row.created_at,
+    cell: ({ row }) => (
+      <span className="text-gray-400 text-xs whitespace-nowrap">
+        {new Date(row.original.created_at).toLocaleString('zh-TW')}
+      </span>
+    ),
+  },
+  {
+    id: 'col-adapter',
+    header: 'Adapter',
+    meta: { headerEn: 'Adapter' },
+    accessorFn: (row) => `${row.adapter_id} ${row.channel}`,
+    cell: ({ row }) => (
+      <div className="text-xs font-mono">
+        <div className="text-gray-200 truncate" title={row.original.adapter_id}>
+          {row.original.adapter_id}
+        </div>
+        <div className="text-gray-500">{row.original.channel}</div>
+      </div>
+    ),
+  },
+  {
+    id: 'col-provider',
+    header: 'Provider',
+    meta: { headerEn: 'Provider' },
+    accessorFn: (row) => row.provider,
+    cell: ({ row }) => <span className="text-xs text-gray-300">{row.original.provider}</span>,
+  },
+  {
+    id: 'col-models',
+    header: 'Requested / Effective',
+    meta: { headerEn: 'Requested / Effective Model' },
+    accessorFn: (row) => `${row.requested_model} ${row.effective_model}`,
+    cell: ({ row }) => (
+      <div className="text-xs font-mono">
+        <div className="text-gray-300 truncate" title={row.original.requested_model}>
+          {row.original.requested_model || '-'}
+        </div>
+        <div className="text-emerald-300 truncate" title={row.original.effective_model}>
+          {row.original.effective_model || '-'}
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 'col-evaluation',
+    header: 'Evaluation',
+    meta: { headerEn: 'Evaluation' },
+    accessorFn: (row) => `${row.evaluation_level} ${row.evaluation_message}`,
+    cell: ({ row }) => (
+      <div className="text-xs">
+        {statusBadge(row.original.evaluation_level)}
+        <div className="text-gray-500 truncate mt-1" title={row.original.evaluation_message}>
+          {compactText(row.original.evaluation_message, 80)}
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 'col-ttft',
+    header: 'TTFT (ms)',
+    meta: { headerEn: 'TTFT (ms)' },
+    accessorFn: (row) => row.ttft_ms ?? 0,
+    cell: ({ row }) => <span className="font-mono text-xs text-gray-300">{row.original.ttft_ms ?? '-'}</span>,
+  },
+  {
+    id: 'col-e2e',
+    header: 'E2E (ms)',
+    meta: { headerEn: 'E2E (ms)' },
+    accessorFn: (row) => row.e2e_ms ?? 0,
+    cell: ({ row }) => <span className="font-mono text-xs text-gray-300">{row.original.e2e_ms ?? '-'}</span>,
+  },
+  {
+    id: 'col-throughput',
+    header: 'Throughput (tok/s)',
+    meta: { headerEn: 'Throughput (tok/s)' },
+    accessorFn: (row) => row.tokens_per_sec ?? 0,
+    cell: ({ row }) => (
+      <span className="font-mono text-xs text-gray-300">
+        {row.original.tokens_per_sec != null ? row.original.tokens_per_sec.toFixed(2) : '-'}
+      </span>
+    ),
+  },
+  {
+    id: 'col-http',
+    header: 'HTTP',
+    meta: { headerEn: 'HTTP Status' },
+    accessorFn: (row) => row.http_status ?? 0,
+    cell: ({ row }) => <span className="font-mono text-xs text-gray-300">{row.original.http_status ?? '-'}</span>,
+  },
+  {
+    id: 'col-output',
+    header: 'Output',
+    meta: { headerEn: 'Output' },
+    enableSorting: false,
+    cell: ({ row }) => (
+      <div className="text-[11px] leading-5">
+        <div className="text-gray-400" title={row.original.raw_output ?? undefined}>
+          raw: {compactText(row.original.raw_output, 80)}
+        </div>
+        <div className="text-gray-300" title={row.original.rendered_output ?? undefined}>
+          rendered: {compactText(row.original.rendered_output, 80)}
+        </div>
+      </div>
+    ),
+  },
 ];
 
 const USAGE_LOG_WIDTHS = [13, 9, 14, 16, 8, 8, 8, 8, 16];
-const MODEL_COMPARISON_WIDTHS = [12, 14, 10, 10, 12, 12, 12, 14];
+const MODEL_COMPARISON_WIDTHS = [8, 14, 8, 8, 9, 10, 10, 10, 9, 9, 7, 8];
+const TRACE_CONSOLE_WIDTHS = [6, 9, 6, 10, 9, 10, 5, 4, 5, 5, 7, 7, 9, 5, 3];
+const EVALUATION_RUN_WIDTHS = [10, 14, 8, 16, 15, 7, 7, 8, 5, 10];
 
 export default function LLMMonitorClient({
   overallStats,
@@ -409,8 +794,11 @@ export default function LLMMonitorClient({
   dailyTokenSeries,
   weeklyTokenSeries,
   voiceQualitySeries,
+  traceConsoleRows = [],
+  evaluationRuns = [],
 }: LLMMonitorClientPropsV2) {
   const router = useRouter();
+  const [traceDetailRow, setTraceDetailRow] = useState<LLMTraceConsoleRow | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     if (typeof window === 'undefined') return 'overall-stats';
     const hashTab = window.location.hash.replace('#', '');
@@ -430,6 +818,30 @@ export default function LLMMonitorClient({
   const sortedAggregateStats = useMemo(
     () => [...aggregateStats].sort((a, b) => b.total_requests - a.total_requests),
     [aggregateStats],
+  );
+
+  const traceConsoleColumnsWithDetail = useMemo<ColumnDef<LLMTraceConsoleRow, unknown>[]>(
+    () => [
+      ...traceConsoleColumns,
+      {
+        id: 'col-detail',
+        header: '',
+        meta: { headerEn: 'Detail' },
+        enableSorting: false,
+        cell: ({ row }) => (
+          <button
+            type="button"
+            onClick={() => setTraceDetailRow(row.original)}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[#3A3A3A] text-gray-300 transition hover:border-teal-400 hover:text-teal-200"
+            title="查看完整 Trace"
+            aria-label="查看完整 Trace"
+          >
+            <Eye className="h-3.5 w-3.5" aria-hidden />
+          </button>
+        ),
+      },
+    ],
+    [],
   );
 
   useEffect(() => {
@@ -509,12 +921,14 @@ export default function LLMMonitorClient({
   const tabsWithBadges: SheetTabDef[] = useMemo(
     () =>
       SHEET_TABS.map((tab) => {
+        if (tab.id === 'trace-console') return { ...tab, badge: traceConsoleRows.length };
         if (tab.id === 'ai-usage-logs') return { ...tab, badge: usageLogs.length };
+        if (tab.id === 'evaluation-runs') return { ...tab, badge: evaluationRuns.length };
         if (tab.id === 'model-comparison') return { ...tab, badge: aggregateStats.length };
         if (tab.id === 'voice-quality') return { ...tab, badge: voiceQualitySeries.length };
         return tab;
       }),
-    [usageLogs.length, aggregateStats.length, voiceQualitySeries.length],
+    [traceConsoleRows.length, usageLogs.length, evaluationRuns.length, aggregateStats.length, voiceQualitySeries.length],
   );
 
   return (
@@ -605,6 +1019,48 @@ export default function LLMMonitorClient({
           </div>
         )}
 
+        {activeTab === 'trace-console' && (
+          <div className="space-y-2 max-w-7xl mx-auto">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-200">LLM 調用追蹤</h2>
+                <p className="text-xs text-gray-500 mt-1">
+                  統一檢視 page、company、invocation、execution、model、raw/rendered output、evaluation 與 latency。
+                </p>
+              </div>
+              <span className="text-xs text-gray-500">{traceConsoleRows.length} 筆</span>
+            </div>
+
+            <EnhancedTable<LLMTraceConsoleRow>
+              tableId="llm_trace_console"
+              columns={traceConsoleColumnsWithDetail}
+              data={traceConsoleRows}
+              initialWidths={TRACE_CONSOLE_WIDTHS}
+              pageSizes={[20, 50, 100]}
+              minWidth={1900}
+              getCategoryValue={(row) => row.source_kind}
+              getSearchValue={(row) =>
+                [
+                  row.page_path,
+                  row.company_name,
+                  row.module_key,
+                  row.invocation_name,
+                  row.execution_name,
+                  row.provider,
+                  row.adapter_id,
+                  row.requested_model,
+                  row.effective_model,
+                  row.evaluation_label,
+                  row.evaluation_message,
+                  row.error_message,
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+              }
+            />
+          </div>
+        )}
+
         {activeTab === 'ai-usage-logs' && (
           <div className="space-y-2 max-w-7xl mx-auto">
             <div className="flex items-center justify-between">
@@ -635,10 +1091,55 @@ export default function LLMMonitorClient({
           </div>
         )}
 
+        {activeTab === 'evaluation-runs' && (
+          <div className="space-y-2 max-w-7xl mx-auto">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-200">Evaluation Runs</h2>
+                <p className="text-xs text-gray-500 mt-1">
+                  先收斂 Adapter 全域評測紀錄；後續 evaluator/judge call 會寫入同一觀測模型。
+                </p>
+              </div>
+              <span className="text-xs text-gray-500">{evaluationRuns.length} 筆</span>
+            </div>
+
+            <EnhancedTable<LLMEvaluationRunRow>
+              tableId="llm_evaluation_runs"
+              columns={evaluationRunColumns}
+              data={evaluationRuns}
+              initialWidths={EVALUATION_RUN_WIDTHS}
+              pageSizes={[20, 50, 100]}
+              minWidth={1450}
+              getCategoryValue={(row) => row.evaluation_level}
+              getSearchValue={(row) =>
+                [
+                  row.adapter_id,
+                  row.channel,
+                  row.provider,
+                  row.adapter_option_label,
+                  row.requested_model,
+                  row.effective_model,
+                  row.evaluation_level,
+                  row.evaluation_message,
+                  row.result_summary,
+                  row.error_type,
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+              }
+            />
+          </div>
+        )}
+
         {activeTab === 'model-comparison' && (
           <div className="space-y-2 max-w-7xl mx-auto">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-200">模型比較</h2>
+              <div>
+                <h2 className="text-sm font-semibold text-gray-200">模型比較</h2>
+                <p className="text-xs text-gray-500 mt-1">
+                  僅統計 Evaluations Global 已測模型；官方牌價與調查日期來自 model research 快取。
+                </p>
+              </div>
               <span className="text-xs text-gray-500">{aggregateStats.length} 個模型</span>
             </div>
 
@@ -648,7 +1149,17 @@ export default function LLMMonitorClient({
               data={sortedAggregateStats}
               initialWidths={MODEL_COMPARISON_WIDTHS}
               minWidth={1100}
-              getSearchValue={(row) => `${row.provider} ${row.model_id} ${row.display_key}`}
+              getSearchValue={(row) =>
+                [
+                  row.provider,
+                  row.model_id,
+                  row.display_key,
+                  row.official_price_source_url ?? '',
+                  row.official_price_researched_at ?? '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+              }
             />
           </div>
         )}
@@ -711,6 +1222,71 @@ export default function LLMMonitorClient({
         activeTab={activeTab}
         onTabChange={handleTabChange}
       />
+
+      <Sheet
+        open={traceDetailRow != null}
+        onOpenChange={(open) => {
+          if (!open) setTraceDetailRow(null);
+        }}
+      >
+        <SheetContent className="w-full sm:max-w-[min(96vw,42rem)] lg:max-w-[min(96vw,58rem)]">
+          {traceDetailRow ? (
+            <>
+              <SheetHeader>
+                <SheetTitle>Trace Detail</SheetTitle>
+                <SheetDescription>
+                  {traceDetailRow.page_path ?? '-'} · {traceDetailRow.provider ?? '-'} ·{' '}
+                  <span className="font-mono">{traceDetailRow.effective_model ?? traceDetailRow.requested_model ?? '-'}</span>
+                </SheetDescription>
+              </SheetHeader>
+              <div className="space-y-4 px-6 pb-8">
+                <div className="grid grid-cols-2 gap-3 text-xs md:grid-cols-4">
+                  <div>
+                    <p className="text-text-muted">Status</p>
+                    <div className="mt-1">{statusBadge(traceDetailRow.status)}</div>
+                  </div>
+                  <div>
+                    <p className="text-text-muted">HTTP</p>
+                    <p className="mt-1 font-mono text-text-primary">{traceDetailRow.http_status ?? '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-text-muted">TTFT / E2E</p>
+                    <p className="mt-1 font-mono text-text-primary">
+                      {traceDetailRow.ttft_ms ?? '-'} / {traceDetailRow.e2e_ms ?? '-'} ms
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-text-muted">Throughput</p>
+                    <p className="mt-1 font-mono text-text-primary">
+                      {traceDetailRow.throughput_tokens_per_s != null
+                        ? `${traceDetailRow.throughput_tokens_per_s.toFixed(2)} tok/s`
+                        : '-'}
+                    </p>
+                  </div>
+                </div>
+
+                <DetailBlock title="Invocation / Execution" value={`${traceDetailRow.invocation_name ?? '-'} / ${traceDetailRow.execution_name ?? '-'}`} />
+                <DetailBlock title="Company" value={traceDetailRow.company_name} />
+                <DetailBlock title="Test File" value={traceDetailRow.test_file_name} />
+                <DetailBlock title="Input Prompt" value={traceDetailRow.input_prompt ?? traceDetailRow.test_prompt} />
+                <DetailBlock title="Raw Output" value={traceDetailRow.raw_output} />
+                <DetailBlock title="Rendered Output" value={traceDetailRow.rendered_output} />
+                <DetailBlock
+                  title="Evaluation"
+                  value={[
+                    traceDetailRow.evaluation_label ? `label: ${traceDetailRow.evaluation_label}` : null,
+                    traceDetailRow.evaluation_score != null ? `score: ${traceDetailRow.evaluation_score}` : null,
+                    traceDetailRow.evaluation_message,
+                  ]
+                    .filter(Boolean)
+                    .join('\n')}
+                />
+                <DetailBlock title="Error" value={traceDetailRow.error_message} />
+              </div>
+            </>
+          ) : null}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

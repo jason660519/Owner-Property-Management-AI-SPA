@@ -105,7 +105,7 @@ const ALLOWED_PREFIXES = ['opencode/', 'openrouter/'];
 // DO NOT add new entries here without explicit approval — the point of
 // this lint is to stop new rows from landing without a prefix.
 const LEGACY_EXEMPTIONS = new Set([
-  'opencode-glm-5-1',
+  // All legacy violations resolved as of 2026-04-25.
 ]);
 
 const violations = [];

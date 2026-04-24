@@ -5,8 +5,9 @@ function baseRow(over: Partial<EvaluationsGlobalTableRow>): EvaluationsGlobalTab
   return {
     id: 'cli-adapter-pass-x',
     no: 1,
-    companyName: 'Anthropic · CLI',
-    transport: 'local',
+    companyName: 'Anthropic',
+    invocationPath: 'cli',
+    executionPlane: 'vendor_saas',
     adapterModel: 'Test',
     adapterChannel: 'cli',
     adapterItemId: 'claude-opus-4-7',

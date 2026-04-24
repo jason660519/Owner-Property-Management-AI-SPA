@@ -239,21 +239,30 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員AI LLM API效能監控－AI語音回應可靠度監控功能",
     locatedPage: "superadmin/dashboard/llm-monitor",
-    percentage: 80,
+    percentage: 85,
     acceptanceCriteria:
       "1. 即時顯示各 LLM API 的請求數量、平均回應時間、錯誤率。\n2. 可設定 API 使用量預算上限與警示閾值。\n3. 提供每日/每週 Token 消耗統計與費用估算。\n4. 語音回應品質分數（延遲、斷句率）需以圖表呈現。\n5. API 密鑰輪換提醒功能（距離過期 30 天前通知）。",
-    docPath: "",
+    docPath:
+      "/project-process/test-logs/test-llm-observability-console-2026-04-24.md",
+    featureSpecDocPath:
+      "/project-process/features/llm-observability-console-dev-spec-20260424.md",
     tddSpecDocPath:
-      "/project-process/features/tdd-superadmin-platform-20260221.md",
+      "/project-process/features/tdd-llm-observability-console-20260424.md",
     devLogDocPath:
-      "/project-process/dev-logs/dev-superadmin-features-2026-02-21.md",
+      "/project-process/dev-logs/008-development-log-summary.md",
     category: "超級管理員 (Super Admin)",
     points: 8,
-    lastModifiedBy: "Paperclip Agent",
-    lastModifiedDate: "2026/04/14",
+    testScriptPath: "apps/superadmin/unit_test/008",
+    testProgress: "82%（Sprint 1 Trace/Eval Console MVP 進行中；UI/actions/migration、adapter prompt/file metadata、property-description write path 與 Trace Detail 已完成）",
+    testCoverage: 82,
+    unitTestCoverage: 0,
+    e2eTestCoverage: 0,
+    defectCount: 0,
+    lastModifiedBy: "Codex",
+    lastModifiedDate: "2026/04/24",
     phase: "development",
     developmentProgress:
-      "連接真實 ai_performance_metrics 資料表，page.tsx + LLMMonitorClient + actions (getLLMMetrics/getLLMAggregateStats/getLLMOverallStats)；每模型效能比較表、最近請求記錄。\n\n### 2026-04-04 監控可追到 Prompt / 模組 / 成功失敗\n- 新增 ai_usage_logs 監控欄位（prompt source/version/hash、request_path、response_status 等）。\n- 物件介紹文案 AI（/api/property-description/stream）每次嘗試會寫入 ai_usage_logs（含成功/失敗、tokens、延遲、provider/model）。\n- llm-monitor 頁面新增「AI 使用紀錄（含 Prompt / 模組 / 狀態）」表格（最新 100 筆）。",
+      "連接真實 ai_performance_metrics 資料表，page.tsx + LLMMonitorClient + actions (getLLMMetrics/getLLMAggregateStats/getLLMOverallStats)；每模型效能比較表、最近請求記錄。\n\n### 2026-04-04 監控可追到 Prompt / 模組 / 成功失敗\n- 新增 ai_usage_logs 監控欄位（prompt source/version/hash、request_path、response_status 等）。\n- 物件介紹文案 AI（/api/property-description/stream）每次嘗試會寫入 ai_usage_logs（含成功/失敗、tokens、延遲、provider/model）。\n- llm-monitor 頁面新增「AI 使用紀錄（含 Prompt / 模組 / 狀態）」表格（最新 100 筆）。\n\n### 2026-04-24 Sprint 1 — Trace/Eval Console MVP\n- 借鏡 Langfuse / Phoenix，將監控模型從 flat usage log 擴充為 trace / invocation / evaluation 三層。\n- 新增 Row 008 DEV-SPEC、TDD-SPEC、TDD Progress Report、Development Log Summary 與 handoff。\n- 建立 `llm_observability_traces`、`llm_observability_invocations` schema，為每次 LLM call 保留 page、company、invocation、execution、requested/effective model、raw/rendered output、evaluation、TTFT/E2E/throughput/http status 等欄位。\n- `llm-monitor` 新增 Trace Console 與 Evaluation Runs 視角，先彙整既有 `ai_usage_logs` 與 `adapter_evaluation_runs`，後續再把各 call-site 寫入原生 trace 表。\n- 新增 `lib/ai/observability.ts` best-effort helper；adapter evaluation、adapter-run test prompt/file metadata 與 property-description stream 已開始寫入原生 trace/invocation。\n- Trace Console 新增 Trace Detail sheet，可查看單筆完整 prompt、test file、raw/rendered output、evaluation 與 latency metadata。",
   },
   {
     name: "超級管理員-網路安全－隱私審計管理功能",
@@ -2654,6 +2663,6 @@ const RAW_FEATURES: RoadmapFeature[] = [
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/19 Row 146 規劃 + Step 1 啟動",
+  lastUpdated: "2026/04/24 Row 008 LLM Observability Console Sprint 1",
   features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
 };

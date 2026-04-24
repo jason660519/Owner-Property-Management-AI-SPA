@@ -38,8 +38,18 @@ import { insertAdapterEvaluationRun } from '@/lib/adapter-evaluation-runs/insert
 
 export const runtime = 'nodejs';
 
+const OLLAMA_CLOUD_HTTP_BASE = process.env.OLLAMA_CLOUD_BASE_URL?.replace(/\/$/, '') || 'https://ollama.com';
+const OLLAMA_LOCAL_HTTP_BASE = process.env.OLLAMA_LOCAL_BASE_URL?.replace(/\/$/, '') || 'http://localhost:11434';
+
 type RunStatus = 'idle' | 'running' | 'paused' | 'stopped';
-type AdapterProvider = 'claude' | 'gemini' | 'codex' | 'kilo' | 'opencode';
+type AdapterProvider =
+  | 'claude'
+  | 'gemini'
+  | 'codex'
+  | 'kilo'
+  | 'opencode'
+  | 'ollama_cloud'
+  | 'ollama_local';
 
 type ActiveRun = {
   userId: string;
@@ -51,6 +61,8 @@ type ActiveRun = {
   command: string;
   logs: string[];
   resultText: string;
+  testPrompt: string;
+  testFileName: string | null;
   requestedModel: string;
   effectiveModel: string;
   modelSource: string;
@@ -102,7 +114,13 @@ function pushRunHistory(runKey: string, success: boolean): number | null {
 }
 
 function stripAnsi(raw: string): string {
-  return raw.replace(/\u001b\[[0-9;]*m/g, '');
+  /**
+   * Match full CSI sequences `ESC [ <params> <final>` — params may include
+   * digits/semicolons/`?`/`!`/etc., final is any letter. Also handles DEC private
+   * modes like `ESC [ ? 25 l` (cursor hide) that `ollama run` emits on every
+   * token; without this they leak into the "last meaningful line" heuristic.
+   */
+  return raw.replace(/\u001b\[[0-9;?!<>=]*[A-Za-z]/g, '');
 }
 
 /** `adapter-config` 用 `openrouter/<vendor>/<id>`；OpenRouter HTTP API 的 `model` 須為 `<vendor>/<id>`。 */
@@ -115,6 +133,14 @@ function aggregatorModelForOpenAiChat(model: string): string {
   if (model.startsWith('openrouter/')) return model.slice('openrouter/'.length);
   if (model.startsWith('opencode/')) return model.slice('opencode/'.length);
   return model;
+}
+
+function extractOllamaChatText(data: unknown): string {
+  const messageText = (data as { message?: { content?: string } })?.message?.content;
+  if (typeof messageText === 'string' && messageText.trim()) return messageText.trim();
+  const responseText = (data as { response?: string })?.response;
+  if (typeof responseText === 'string') return responseText.trim();
+  return '';
 }
 
 function deriveResultFromLogs(lines: string[]): string {
@@ -178,6 +204,13 @@ function getCommand(
         : adapterModel
           ? { command: 'opencode', args: ['-m', adapterModel, 'run', prompt] }
           : { command: 'opencode', args: ['run', prompt] };
+    case 'ollama_cloud':
+    case 'ollama_local':
+      // Both share the same `ollama` CLI; the model slug (e.g. `:cloud` suffix) determines
+      // whether the local daemon proxies to ollama.com or runs fully on-prem.
+      return adapterModel
+        ? { command: 'ollama', args: ['run', adapterModel, prompt] }
+        : { command: 'ollama', args: ['run', prompt] };
     default:
       return { command: 'echo', args: ['Unsupported provider'] };
   }
@@ -225,7 +258,12 @@ async function runHttpAttempt(
 ): Promise<void> {
   const startedAt = Date.now();
   /** gpt-5 系推理較慢；25s 易 AbortError，與 max_output 一併放寬 */
-  const timeoutMs = run.provider === 'codex' && /^gpt-5/i.test(model) ? 120_000 : 25_000;
+  const timeoutMs =
+    run.provider === 'ollama_cloud' || run.provider === 'ollama_local'
+      ? 120_000
+      : run.provider === 'codex' && /^gpt-5/i.test(model)
+        ? 120_000
+        : 25_000;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   let text = '';
@@ -278,6 +316,38 @@ async function runHttpAttempt(
       if (!res.ok) {
         const msg = (data as { error?: { message?: string } }).error?.message ?? `HTTP ${res.status}`;
         throw new Error(msg);
+      }
+    } else if (run.provider === 'ollama_cloud' || run.provider === 'ollama_local') {
+      const isCloud = run.provider === 'ollama_cloud';
+      const base = isCloud ? OLLAMA_CLOUD_HTTP_BASE : OLLAMA_LOCAL_HTTP_BASE;
+      const apiKey = isCloud
+        ? (env.OLLAMA_API_KEY?.trim() ?? '')
+        : (env.OLLAMA_LOCAL_API_KEY?.trim() ?? '');
+      if (isCloud && !apiKey) {
+        run.errorType = 'empty_output';
+        run.resultText = '';
+        pushLog(run, 'HTTP 失敗：需要 Ollama Cloud 金鑰（OLLAMA_API_KEY）');
+        clearTimeout(timeout);
+        return;
+      }
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+      const res = await fetch(`${base}/api/chat`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model,
+          stream: false,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+        signal: controller.signal,
+      });
+      statusCode = res.status;
+      const data = await res.json().catch(() => ({}));
+      text = extractOllamaChatText(data);
+      if (!res.ok) {
+        const msg = (data as { error?: string })?.error ?? `HTTP ${res.status}`;
+        throw new Error(typeof msg === 'string' ? msg : `HTTP ${res.status}`);
       }
     } else {
       let endpoint: string;
@@ -554,6 +624,11 @@ function preflightStrictModelCheck(
 ): { ok: true } | { ok: false; message: string } {
   if (!requestedModel) return { ok: true };
 
+  /**
+   * Ollama (cloud/local) is intentionally excluded: users can `ollama pull` arbitrary tags at any
+   * time, and the `/api/tags` snapshot in the validation cache is never a closed world. Strict
+   * preflight would reject real models like `kimi-k2.6:cloud` that aren't in the cached list.
+   */
   const strictMapping: Partial<Record<AdapterProvider, AIProvider>> = {
     claude: 'anthropic',
     gemini: 'gemini',
@@ -609,6 +684,7 @@ export async function POST(request: NextRequest) {
 
   const { tempDir, tempFilePath } = await writeTempFileIfNeeded(file instanceof File ? file : null);
   const safePrompt = prompt || DEFAULT_ADAPTER_TEST_PROMPT;
+  const testFileName = file instanceof File ? file.name : null;
   const keyEnv = await loadUserApiKeyEnv(auth.userId);
   const preflight = preflightStrictModelCheck(provider, resolvedModel, keyEnv.availableModelsByProvider);
   if (!preflight.ok) {
@@ -630,6 +706,8 @@ export async function POST(request: NextRequest) {
     command: mode === 'http' ? `HTTP ${provider} ${resolvedModel}` : commandPreview,
     logs: [],
     resultText: '',
+    testPrompt: safePrompt,
+    testFileName,
     requestedModel: resolvedModel,
     effectiveModel: resolvedModel,
     modelSource: 'requested',
@@ -701,6 +779,8 @@ export async function POST(request: NextRequest) {
       modelSource: run.modelSource,
       logs: run.logs,
       resultText: run.resultText,
+      testPrompt: run.testPrompt,
+      testFileName: run.testFileName,
       ttftMs: run.ttftMs,
       e2eLatencyMs: run.e2eLatencyMs,
       tokensPerSec: run.tokensPerSec,
@@ -884,4 +964,3 @@ export async function GET(request: NextRequest) {
     cursor: run.logs.length,
   });
 }
-

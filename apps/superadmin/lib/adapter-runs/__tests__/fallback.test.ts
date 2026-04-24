@@ -22,7 +22,15 @@ describe('adapter-runs fallback guard', () => {
   });
 
   it('should fallback for all adapter providers on non-zero exit', () => {
-    const providers = ['claude', 'gemini', 'codex', 'kilo', 'opencode'] as const;
+    const providers = [
+      'claude',
+      'gemini',
+      'codex',
+      'kilo',
+      'opencode',
+      'ollama_cloud',
+      'ollama_local',
+    ] as const;
     for (const provider of providers) {
       expect(shouldUseApiFallback(provider, 1, null, ['some error'])).toBe(true);
     }

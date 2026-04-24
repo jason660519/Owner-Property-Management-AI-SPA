@@ -1,11 +1,15 @@
 import { NextRequest } from 'next/server';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { decryptApiKey } from '@/lib/crypto';
 import { resolveUserId } from '@/lib/resolve-ai-settings-user';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { createClient } from '@/utils/supabase/server';
 import { PromptNotFoundError, resolveSystemPrompt } from '@/lib/ai/prompt-safety';
 import { startPromptAudit } from '@/lib/ai/audit';
+import {
+  createLLMObservabilityTrace,
+  logLLMObservabilityInvocation,
+} from '@/lib/ai/observability';
 import { checkRateLimit } from '@/lib/ai/rate-limit';
 import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 import {
@@ -561,6 +565,9 @@ export async function POST(request: NextRequest) {
       };
 
       const startedAt = Date.now();
+      const traceStartedAt = new Date(startedAt).toISOString();
+      const observabilityTraceKey = `property-description:${randomUUID()}`;
+      let observabilityTraceId: string | null = null;
       const adminClient = createAdminClient();
 
       try {
@@ -586,6 +593,27 @@ export async function POST(request: NextRequest) {
         send({ type: 'phase', phase: 'building_prompt' satisfies TracePhase, message: '整理生成指令中…' });
         const finalPrompt = `${prompt}\n\n生成設定：\n${generationSettings}${currentDescriptionSection}${PROMPT_SAFETY_TRAILER}`;
         const finalPromptHash = createHash('sha256').update(finalPrompt).digest('hex');
+        observabilityTraceId = await createLLMObservabilityTrace({
+          client: adminClient,
+          traceKey: observabilityTraceKey,
+          userId,
+          pagePath: '/api/property-description/stream',
+          moduleKey: 'property_description',
+          invocationName: PROMPT_NAME,
+          executionName: 'stream',
+          status: 'running',
+          startedAt: traceStartedAt,
+          metadata: {
+            promptSource: promptResolution.source,
+            promptModuleKey: promptResolution.moduleKey,
+            promptVersion: promptResolution.version,
+            finalPromptHash,
+            listingType: body.listingType,
+            generationTone: body.generationTone ?? null,
+            generationLength: body.generationLength ?? null,
+            generationGoal: body.generationGoal ?? null,
+          },
+        });
         send({
           type: 'prompt_loaded',
           promptName: PROMPT_NAME,
@@ -664,6 +692,32 @@ export async function POST(request: NextRequest) {
                 response_status: null,
               });
             }
+            await logLLMObservabilityInvocation({
+              client: adminClient,
+              traceId: observabilityTraceId,
+              userId,
+              sourceKind: 'llm_call',
+              provider: candidate.provider,
+              requestedModel: candidate.model,
+              effectiveModel: candidate.model,
+              inputPrompt: finalPrompt,
+              evaluationLabel: 'fail',
+              evaluationScore: 0,
+              evaluationMessage: 'missing_api_key',
+              tokensInput: 0,
+              tokensOutput: 0,
+              costUsd: 0,
+              status: 'error',
+              errorMessage: 'missing_api_key',
+              startedAt: new Date().toISOString(),
+              endedAt: new Date().toISOString(),
+              metadata: {
+                apiKeySource: candidate.apiKeySource,
+                selectionSource: candidate.selectionSource,
+                moduleKey: candidate.moduleKey,
+                finalPromptHash,
+              },
+            });
             continue;
           }
 
@@ -694,6 +748,7 @@ export async function POST(request: NextRequest) {
           });
 
           const callStart = Date.now();
+          const callStartedAt = new Date(callStart).toISOString();
           let response: Awaited<ReturnType<typeof invokeProvider>>;
           try {
             response = await invokeProvider(
@@ -704,13 +759,40 @@ export async function POST(request: NextRequest) {
               maxTokens,
             );
           } catch (callErr) {
+            const callEndedAt = new Date().toISOString();
+            const latencyMs = Date.now() - callStart;
             await audit.complete('api_error', {
               errorMessage: callErr instanceof Error ? callErr.message : 'Unknown',
-              latencyMs: Date.now() - callStart,
+              latencyMs,
+            });
+            await logLLMObservabilityInvocation({
+              client: adminClient,
+              traceId: observabilityTraceId,
+              userId,
+              sourceKind: 'llm_call',
+              provider: candidate.provider,
+              requestedModel: candidate.model,
+              effectiveModel: candidate.model,
+              inputPrompt: finalPrompt,
+              evaluationLabel: 'fail',
+              evaluationScore: 0,
+              evaluationMessage: callErr instanceof Error ? callErr.message : 'Unknown provider error',
+              e2eMs: latencyMs,
+              status: 'error',
+              errorMessage: callErr instanceof Error ? callErr.message : 'Unknown provider error',
+              startedAt: callStartedAt,
+              endedAt: callEndedAt,
+              metadata: {
+                apiKeySource: candidate.apiKeySource,
+                selectionSource: candidate.selectionSource,
+                moduleKey: candidate.moduleKey,
+                finalPromptHash,
+              },
             });
             throw callErr;
           }
           const callDuration = Date.now() - callStart;
+          const callEndedAt = new Date().toISOString();
 
           if (response.ok && response.description) {
             await audit.complete('success', {
@@ -755,7 +837,62 @@ export async function POST(request: NextRequest) {
             });
           }
 
+          await logLLMObservabilityInvocation({
+            client: adminClient,
+            traceId: observabilityTraceId,
+            userId,
+            sourceKind: 'llm_call',
+            provider: candidate.provider,
+            requestedModel: candidate.model,
+            effectiveModel: candidate.model,
+            inputPrompt: finalPrompt,
+            rawOutput: response.raw,
+            renderedOutput: response.description || null,
+            evaluationLabel: response.ok && response.description ? 'pass' : 'fail',
+            evaluationScore: response.ok && response.description ? 1 : 0,
+            evaluationMessage: response.ok && response.description ? 'description_generated' : `http_${response.status}`,
+            e2eMs: callDuration,
+            throughputTokensPerS:
+              response.usage?.outputTokens && callDuration > 0
+                ? Number(((response.usage.outputTokens / callDuration) * 1000).toFixed(2))
+                : null,
+            httpStatus: response.status,
+            tokensInput: response.usage?.inputTokens ?? null,
+            tokensOutput: response.usage?.outputTokens ?? null,
+            costUsd: 0,
+            status: response.ok && response.description ? 'success' : 'error',
+            errorMessage: response.ok && response.description ? null : `http_${response.status}`,
+            startedAt: callStartedAt,
+            endedAt: callEndedAt,
+            metadata: {
+              apiKeySource: candidate.apiKeySource,
+              selectionSource: candidate.selectionSource,
+              moduleKey: candidate.moduleKey,
+              promptSource: promptResolution.source,
+              promptModuleKey: promptResolution.moduleKey,
+              promptVersion: promptResolution.version,
+              finalPromptHash,
+            },
+          });
+
           if (response.ok && response.description) {
+            await createLLMObservabilityTrace({
+              client: adminClient,
+              traceKey: observabilityTraceKey,
+              userId,
+              pagePath: '/api/property-description/stream',
+              moduleKey: 'property_description',
+              invocationName: PROMPT_NAME,
+              executionName: 'stream',
+              status: 'success',
+              startedAt: traceStartedAt,
+              endedAt: callEndedAt,
+              metadata: {
+                finalPromptHash,
+                completedProvider: candidate.provider,
+                completedModel: candidate.model,
+              },
+            });
             send({ type: 'phase', phase: 'completed' satisfies TracePhase, message: 'AI 草稿已完成' });
             send({
               type: 'complete',
@@ -788,20 +925,73 @@ export async function POST(request: NextRequest) {
         }
 
         if (missingKeyCount === modelCandidates.length) {
+          await createLLMObservabilityTrace({
+            client: adminClient,
+            traceKey: observabilityTraceKey,
+            userId,
+            pagePath: '/api/property-description/stream',
+            moduleKey: 'property_description',
+            invocationName: PROMPT_NAME,
+            executionName: 'stream',
+            status: 'error',
+            startedAt: traceStartedAt,
+            endedAt: new Date().toISOString(),
+            metadata: { finalPromptHash, error: 'missing_api_key' },
+          });
           send({ type: 'error', message: '尚未設定可用的 AI 服務 API 金鑰，請至「AI 服務 / API KEY」完成設定' });
           return;
         }
 
         if (lastErrorMessage) {
+          await createLLMObservabilityTrace({
+            client: adminClient,
+            traceKey: observabilityTraceKey,
+            userId,
+            pagePath: '/api/property-description/stream',
+            moduleKey: 'property_description',
+            invocationName: PROMPT_NAME,
+            executionName: 'stream',
+            status: 'error',
+            startedAt: traceStartedAt,
+            endedAt: new Date().toISOString(),
+            metadata: { finalPromptHash, error: lastErrorMessage },
+          });
           send({ type: 'error', message: lastErrorMessage });
           return;
         }
 
+        await createLLMObservabilityTrace({
+          client: adminClient,
+          traceKey: observabilityTraceKey,
+          userId,
+          pagePath: '/api/property-description/stream',
+          moduleKey: 'property_description',
+          invocationName: PROMPT_NAME,
+          executionName: 'stream',
+          status: 'error',
+          startedAt: traceStartedAt,
+          endedAt: new Date().toISOString(),
+          metadata: { finalPromptHash, error: 'generation_failed' },
+        });
         send({ type: 'error', message: '生成失敗，請稍後再試' });
       } catch (error) {
         if (request.signal.aborted) {
           return;
         }
+        await createLLMObservabilityTrace({
+          client: adminClient,
+          traceKey: observabilityTraceKey,
+          pagePath: '/api/property-description/stream',
+          moduleKey: 'property_description',
+          invocationName: PROMPT_NAME,
+          executionName: 'stream',
+          status: 'error',
+          startedAt: traceStartedAt,
+          endedAt: new Date().toISOString(),
+          metadata: {
+            error: error instanceof Error ? error.message : String(error),
+          },
+        });
         console.error('[property-description/stream] Unexpected error:', error);
         send({
           type: 'error',

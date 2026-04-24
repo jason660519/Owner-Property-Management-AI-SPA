@@ -56,6 +56,15 @@ function createSupabaseAdminMock(options: {
   }>;
 }) {
   const insertMock = jest.fn().mockResolvedValue({ error: null });
+  const observabilityInsertMock = jest.fn().mockResolvedValue({ error: null });
+  const observabilityTraceUpsertMock = jest.fn().mockReturnValue({
+    select: jest.fn().mockReturnValue({
+      single: jest.fn().mockResolvedValue({
+        data: { id: 'trace-id' },
+        error: null,
+      }),
+    }),
+  });
 
   const aiSystemPromptsQuery = {
     select: jest.fn().mockReturnThis(),
@@ -117,11 +126,21 @@ function createSupabaseAdminMock(options: {
           insert: insertMock,
         };
       }
+      if (table === 'llm_observability_traces') {
+        return {
+          upsert: observabilityTraceUpsertMock,
+        };
+      }
+      if (table === 'llm_observability_invocations') {
+        return {
+          insert: observabilityInsertMock,
+        };
+      }
       throw new Error(`Unexpected table: ${table}`);
     }),
   };
 
-  return { adminClient, insertMock };
+  return { adminClient, insertMock, observabilityInsertMock, observabilityTraceUpsertMock };
 }
 
 describe('POST /api/property-description/stream (usage logs)', () => {
