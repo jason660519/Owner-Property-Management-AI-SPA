@@ -20,6 +20,9 @@ interface ValidationResult {
   availableModels?: string[]; // full list of available models for provider/key
 }
 
+const OLLAMA_CLOUD_BASE_URL = process.env.OLLAMA_CLOUD_BASE_URL?.replace(/\/$/, '') || 'https://ollama.com';
+const OLLAMA_LOCAL_BASE_URL = process.env.OLLAMA_LOCAL_BASE_URL?.replace(/\/$/, '') || 'http://localhost:11434';
+
 /**
  * Build the success-case modelInfo string by running the recommended-model
  * heuristic on the available models list. Returns undefined when the list
@@ -426,6 +429,89 @@ async function validateQwen(apiKey: string): Promise<ValidationResult> {
   }
 }
 
+async function validateOllamaCloud(apiKey: string): Promise<ValidationResult> {
+  // Ollama cloud mode requires Bearer token.
+  try {
+    const res = await fetch(`${OLLAMA_CLOUD_BASE_URL}/api/tags`, {
+      headers: { Authorization: `Bearer ${apiKey.trim()}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      const raw = Array.isArray((data as { models?: unknown[] })?.models)
+        ? (data as { models: Array<{ name?: string; model?: string }> }).models
+        : [];
+      const models = raw
+        .map((m) => (typeof m.name === 'string' && m.name ? m.name : (typeof m.model === 'string' ? m.model : '')))
+        .filter(Boolean);
+
+      return {
+        valid: true,
+        provider: 'ollama_cloud',
+        message: 'Ollama Cloud 連線成功',
+        modelInfo: buildModelInfo('ollama_cloud', models),
+        availableModels: models,
+      };
+    }
+    return {
+      valid: false,
+      provider: 'ollama_cloud',
+      message: `Ollama Cloud 回應異常 (HTTP ${res.status})`,
+    };
+  } catch (e) {
+    return {
+      valid: false,
+      provider: 'ollama_cloud',
+      message: `無法連線到 Ollama Cloud (${OLLAMA_CLOUD_BASE_URL}): ${e instanceof Error ? e.message : 'Unknown'}`,
+    };
+  }
+}
+
+async function validateOllamaLocal(apiKey: string): Promise<ValidationResult> {
+  // Enforce token for local-network deployments behind auth proxy.
+  const token = apiKey.trim();
+  if (!token) {
+    return {
+      valid: false,
+      provider: 'ollama_local',
+      message: 'Ollama Local 需要 API token',
+    };
+  }
+
+  try {
+    const res = await fetch(`${OLLAMA_LOCAL_BASE_URL}/api/tags`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      const raw = Array.isArray((data as { models?: unknown[] })?.models)
+        ? (data as { models: Array<{ name?: string; model?: string }> }).models
+        : [];
+      const models = raw
+        .map((m) => (typeof m.name === 'string' && m.name ? m.name : (typeof m.model === 'string' ? m.model : '')))
+        .filter(Boolean);
+
+      return {
+        valid: true,
+        provider: 'ollama_local',
+        message: 'Ollama Local 連線成功',
+        modelInfo: buildModelInfo('ollama_local', models),
+        availableModels: models,
+      };
+    }
+    return {
+      valid: false,
+      provider: 'ollama_local',
+      message: `Ollama Local 回應異常 (HTTP ${res.status})`,
+    };
+  } catch (e) {
+    return {
+      valid: false,
+      provider: 'ollama_local',
+      message: `無法連線到 Ollama Local (${OLLAMA_LOCAL_BASE_URL}): ${e instanceof Error ? e.message : 'Unknown'}`,
+    };
+  }
+}
+
 async function validateKilo(apiKey: string): Promise<ValidationResult> {
   const r = await validateKiloGatewayKey(apiKey);
   if (!r.valid) {
@@ -468,6 +554,8 @@ const validators: Record<AIProvider, (key: string) => Promise<ValidationResult>>
   zhipu: validateZhipu,
   perplexity: validatePerplexity,
   qwen: validateQwen,
+  ollama_cloud: validateOllamaCloud,
+  ollama_local: validateOllamaLocal,
   kilo: validateKilo,
   opencode: validateOpenCode,
 };

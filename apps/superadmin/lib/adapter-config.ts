@@ -1,4 +1,11 @@
-export type AdapterProvider = 'claude' | 'gemini' | 'codex' | 'kilo' | 'opencode';
+export type AdapterProvider =
+  | 'claude'
+  | 'gemini'
+  | 'codex'
+  | 'kilo'
+  | 'opencode'
+  | 'ollama_cloud'
+  | 'ollama_local';
 
 export type AdapterLifecycleStatus = 'planned' | 'active' | 'deprecated';
 
@@ -136,7 +143,6 @@ export const ADAPTER_CONFIG_ITEMS: AdapterConfigItem[] = [
       'gpt-5.2-codex',
       'gpt-5.1-codex',
       'gpt-5-codex',
-      'gpt-4o-mini',
     ],
     status: 'planned',
     useCases: ['code-fix', 'test-authoring'],
@@ -202,11 +208,17 @@ export const ADAPTER_CONFIG_ITEMS: AdapterConfigItem[] = [
     optionValue: 'opencode-glm-5-1',
     optionLabel: 'OpenCode CLI + GLM 5.1',
     provider: 'opencode',
-    model: 'z-ai/glm-5.1',
+    /**
+     * Must use `openrouter/z-ai/glm-5.1` (not bare `z-ai/glm-5.1`) so the lint rule passes
+     * and CLI routing goes through OpenRouter correctly.
+     * HTTP: openCodeZenChatModelId strips `openrouter/` → `z-ai/glm-5.1` → Zen table → `glm-5.1`.
+     * Confirmed available on OpenCode Zen via #keys validation (推薦: glm-5.1, 2026-04-25).
+     */
+    model: 'openrouter/z-ai/glm-5.1',
     fallbackModels: [
-      'z-ai/glm-5',
-      'z-ai/glm-4.7',
-      'z-ai/glm-4.6',
+      'openrouter/z-ai/glm-5',
+      'openrouter/z-ai/glm-4.7',
+      'openrouter/z-ai/glm-4.6',
     ],
     status: 'planned',
     useCases: ['multilingual', 'code-assistant'],
@@ -234,18 +246,56 @@ export const ADAPTER_CONFIG_ITEMS: AdapterConfigItem[] = [
     docsPath: 'docs/Adapter CLIs/OpenCode_CLI.md',
   },
   {
-    id: 'opencode-qwen-3-6-plus',
-    optionValue: 'opencode-qwen-3-6-plus',
-    optionLabel: 'OpenCode CLI + Qwen 3.6 Plus',
+    id: 'opencode-qwen-3-5-plus',
+    optionValue: 'opencode-qwen-3-5-plus',
+    optionLabel: 'OpenCode CLI + Qwen 3.5 Plus',
     provider: 'opencode',
-    model: 'openrouter/qwen/qwen3.6-plus',
+    /**
+     * qwen3.6-plus is not yet available on OpenCode's OpenRouter path or Zen API (as of 2026-04-25).
+     * qwen3.5-plus is the latest confirmed-working Qwen on OpenCode (fallback validated via HTTP chain).
+     */
+    model: 'openrouter/qwen/qwen3.5-plus',
     fallbackModels: [
-      'openrouter/qwen/qwen3.5-plus',
+      'openrouter/qwen/qwen3-max',
+      'openrouter/qwen/qwen-plus',
     ],
     status: 'planned',
     useCases: ['chinese-content', 'code-assistant'],
     cliCommandTemplate: 'opencode run "<prompt>"',
     docsPath: 'docs/Adapter CLIs/OpenCode_CLI.md',
+  },
+  {
+    id: 'ollama-kimi-k2-6-cloud',
+    optionValue: 'ollama-kimi-k2-6-cloud',
+    optionLabel: 'Ollama CLI + Kimi K2.6 (cloud)',
+    provider: 'ollama_cloud',
+    /**
+     * Cloud variant: `ollama run kimi-k2.6:cloud` → hits ollama.com via local daemon signin.
+     * HTTP side hits https://ollama.com/api/chat with OLLAMA_API_KEY.
+     * See https://ollama.com/library/kimi-k2.6
+     */
+    model: 'kimi-k2.6:cloud',
+    fallbackModels: ['minimax-m2:cloud', 'deepseek-v3.1:671b-cloud', 'qwen3-coder:480b-cloud'],
+    status: 'planned',
+    useCases: ['long-horizon-coding', 'agentic', 'multimodal'],
+    cliCommandTemplate: 'ollama run kimi-k2.6:cloud',
+    docsPath: 'docs/Adapter CLIs/Ollama_CLI.md',
+  },
+  {
+    id: 'ollama-gemma4-local',
+    optionValue: 'ollama-gemma4-local',
+    optionLabel: 'Ollama CLI + Gemma 4 (local)',
+    provider: 'ollama_local',
+    /**
+     * Local variant: `ollama run gemma4:latest` → runs fully on-prem via the local daemon.
+     * HTTP side hits http://localhost:11434/api/chat (no auth required for default setup).
+     */
+    model: 'gemma4:latest',
+    fallbackModels: ['minicpm-v:latest'],
+    status: 'planned',
+    useCases: ['on-prem-privacy', 'offline-inference'],
+    cliCommandTemplate: 'ollama run gemma4:latest',
+    docsPath: 'docs/Adapter CLIs/Ollama_CLI.md',
   },
 ];
 

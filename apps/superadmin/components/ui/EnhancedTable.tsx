@@ -107,6 +107,15 @@ export interface EnhancedTableProps<T> {
   persistentHorizontalScrollbar?: boolean;
   /** Extra toolbar content (rendered after standard buttons) */
   extraToolbar?: React.ReactNode;
+  /** Search input placeholder text */
+  searchPlaceholder?: string;
+  /**
+   * When the table lives inside a flex column with limited height (e.g. superadmin
+   * `contentFullHeight` + bottom sheet tabs), use flex fill instead of a fixed
+   * `100vh` max-height so the toolbar can wrap / font-size can grow without clipping
+   * the pagination row or sibling UI.
+   */
+  fillAvailableHeight?: boolean;
   /**
    * After user overwrites an existing width preset ("Save" on a saved preset row):
    * shows a short success toast, then invokes this callback (e.g. switch tab / hash).
@@ -157,6 +166,8 @@ export default function EnhancedTable<T>({
   stretchToContainer = true,
   persistentHorizontalScrollbar = false,
   extraToolbar,
+  searchPlaceholder = 'Search...',
+  fillAvailableHeight = false,
   onAfterWidthPresetOverwrite,
 }: EnhancedTableProps<T>) {
   // --- Persisted preferences ---
@@ -493,11 +504,13 @@ export default function EnhancedTable<T>({
     [colWidths],
   );
 
+  const rootColumnFlex = fillAvailableHeight || persistentHorizontalScrollbar;
+
   return (
     <div
       className={clsx(
         'min-w-0 w-full max-w-full',
-        persistentHorizontalScrollbar ? 'flex min-h-0 flex-1 flex-col gap-3' : 'space-y-3',
+        rootColumnFlex ? 'flex min-h-0 flex-1 flex-col gap-3' : 'space-y-3',
       )}
     >
       {widthPresetOverwriteFeedback && (
@@ -520,12 +533,17 @@ export default function EnhancedTable<T>({
       )}
 
       {/* Toolbar — min-w-0 so wide control rows don’t expand past viewport and swallow table-level horizontal scroll */}
-      <div className="min-w-0 w-full max-w-full bg-bg-primary p-4 rounded-lg border border-border-default shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+      <div
+        className={clsx(
+          'min-w-0 w-full max-w-full bg-bg-primary p-4 rounded-lg border border-border-default shadow-sm flex flex-col md:flex-row justify-between items-center gap-4',
+          rootColumnFlex && 'shrink-0',
+        )}
+      >
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
           {/* Search */}
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted w-4 h-4" />
-            <input type="text" placeholder="Search..." value={globalFilter} onChange={e => setGlobalFilter(e.target.value)}
+            <input type="text" placeholder={searchPlaceholder} value={globalFilter} onChange={e => setGlobalFilter(e.target.value)}
               className="w-full bg-bg-secondary border border-border-default rounded-md pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-text-primary placeholder-text-muted" />
           </div>
 
@@ -767,25 +785,25 @@ export default function EnhancedTable<T>({
       <div
         className={clsx(
           'min-w-0 w-full max-w-full overflow-hidden rounded-lg border border-border-default bg-bg-primary shadow-sm',
-          persistentHorizontalScrollbar && 'flex min-h-0 flex-1 flex-col',
+          (persistentHorizontalScrollbar || fillAvailableHeight) && 'flex min-h-0 flex-1 flex-col',
         )}
       >
         <div
           className={clsx(
             'min-w-0 w-full max-w-full',
             stretchToContainer
-              ? 'overflow-auto'
+              ? clsx('overflow-auto', fillAvailableHeight && 'min-h-0 flex-1')
               : clsx(
                   'overflow-y-auto',
                   persistentHorizontalScrollbar
                     ? 'overflow-x-auto enhanced-table-scrollport--hide-native-h-scrollbar'
                     : 'overflow-x-scroll',
-                  persistentHorizontalScrollbar && 'min-h-0 flex-1',
+                  (persistentHorizontalScrollbar || fillAvailableHeight) && 'min-h-0 flex-1',
                 ),
           )}
           onScroll={persistentHorizontalScrollbar ? syncExternalScrollbarFromTable : undefined}
           ref={tableContainerRef}
-          style={{ maxHeight: 'calc(100vh - 320px)' }}
+          style={fillAvailableHeight ? undefined : { maxHeight: 'calc(100vh - 320px)' }}
         >
           <div
             ref={tableInnerRef}
@@ -877,7 +895,12 @@ export default function EnhancedTable<T>({
 
         {/* Pagination */}
         {hasPagination && (
-          <div className="flex items-center justify-between border-t border-border-default px-4 py-3 bg-bg-secondary/30">
+          <div
+            className={clsx(
+              'flex items-center justify-between border-t border-border-default px-4 py-3 bg-bg-secondary/30',
+              rootColumnFlex && 'shrink-0',
+            )}
+          >
             <div className="text-xs text-text-muted">
               共 {table.getFilteredRowModel().rows.length} 筆，第 {table.getState().pagination.pageIndex + 1} / {table.getPageCount()} 頁
             </div>

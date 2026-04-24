@@ -13,7 +13,7 @@ function hasCliErrorSignals(lines: string[]): boolean {
 }
 
 export function shouldUseApiFallback(
-  provider: 'claude' | 'gemini' | 'codex' | 'kilo' | 'opencode',
+  provider: 'claude' | 'gemini' | 'codex' | 'kilo' | 'opencode' | 'ollama_cloud' | 'ollama_local',
   exitCode: number | null,
   signal: NodeJS.Signals | null,
   lines: string[]

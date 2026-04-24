@@ -8,16 +8,26 @@ import { AdapterRunElapsedLabel } from './adapter-config-columns';
 import type { AdapterEvaluationLevel } from './adapter-evaluation';
 
 /**
- * 傳輸／拓樸路徑（存 enum；顯示用 `transportLabel`）
- * - `intranet`：同機房或內網 LAN（與 VPN 隧道區隔）
+ * 控制面：評測是怎麼被觸發／送出的（與模型實際算在哪無關）。
+ * 目前由 Adapter `cli` / `http` 對應；保留 enum 供未來擴充。
  */
-export type EvaluationsGlobalTransport =
-  | 'internet'
-  | 'local'
-  | 'intranet'
-  | 'leased_line'
-  | 'vpn'
-  | 'on_prem_k8s';
+export type EvaluationsGlobalInvocationPath =
+  | 'cli'
+  | 'http'
+  | 'sdk_inprocess'
+  | 'queued_worker'
+  | 'unknown';
+
+/**
+ * 運算面：completion 主要在哪類基礎設施上產生（與觸發方式正交）。
+ */
+export type EvaluationsGlobalExecutionPlane =
+  | 'vendor_saas'
+  | 'self_hosted_remote'
+  | 'on_prem'
+  | 'edge_device'
+  | 'hybrid'
+  | 'unknown';
 
 export type EvaluationsGlobalHistoryEntry = {
   at: string;
@@ -32,7 +42,8 @@ export type EvaluationsGlobalTableRow = {
   id: string;
   no: number;
   companyName: string;
-  transport: EvaluationsGlobalTransport;
+  invocationPath: EvaluationsGlobalInvocationPath;
+  executionPlane: EvaluationsGlobalExecutionPlane;
   adapterModel: string;
   testPrompt: string;
   testFileNames: string[];
@@ -84,22 +95,50 @@ export const EVALUATIONS_GLOBAL_TABLE_ID = 'ai-settings-evaluations-global-v2';
 
 /** 欄寬百分比，加總為 100（見 EnhancedTable 技能說明） */
 export const EVALUATIONS_GLOBAL_TABLE_INITIAL_WIDTHS = [
-  3, 6, 6, 8, 9, 7, 6, 7, 8, 8, 5, 4, 4, 4, 3, 12,
+  3, 6, 3, 3, 8, 9, 7, 6, 7, 8, 8, 5, 4, 4, 4, 3, 12,
 ] as const;
 
-export const EVALUATIONS_GLOBAL_TABLE_MIN_WIDTH_PX = 3000;
+export const EVALUATIONS_GLOBAL_TABLE_MIN_WIDTH_PX = 3180;
 
-const TRANSPORT_LABEL: Record<EvaluationsGlobalTransport, string> = {
-  internet: '雲端 (Internet)',
-  local: '地端 (Local)',
-  intranet: '內網 LAN (Intranet)',
-  leased_line: '專線 (Leased line)',
-  vpn: 'VPN 隧道',
-  on_prem_k8s: 'On-prem K8s',
+const INVOCATION_PATH_LABEL: Record<EvaluationsGlobalInvocationPath, string> = {
+  cli: 'CLI 程序',
+  http: 'HTTP 直連',
+  sdk_inprocess: 'SDK 進程內',
+  queued_worker: '佇列／Worker',
+  unknown: '未知',
 };
 
-export function transportLabel(t: EvaluationsGlobalTransport): string {
-  return TRANSPORT_LABEL[t] ?? t;
+const EXECUTION_PLANE_LABEL: Record<EvaluationsGlobalExecutionPlane, string> = {
+  vendor_saas: '公有雲 API',
+  self_hosted_remote: '自架遠端',
+  on_prem: '地端／內網',
+  edge_device: '邊緣裝置',
+  hybrid: '混合',
+  unknown: '未知',
+};
+
+export function invocationPathLabel(p: EvaluationsGlobalInvocationPath): string {
+  return INVOCATION_PATH_LABEL[p] ?? p;
+}
+
+export function executionPlaneLabel(p: EvaluationsGlobalExecutionPlane): string {
+  return EXECUTION_PLANE_LABEL[p] ?? p;
+}
+
+/** 由 Adapter channel 推斷控制面（目前僅 cli / http） */
+export function invocationPathFromAdapterChannel(channel: 'cli' | 'http'): EvaluationsGlobalInvocationPath {
+  return channel === 'cli' ? 'cli' : 'http';
+}
+
+/** 由 provider id 粗分運算面；無法判定時為 unknown */
+export function inferExecutionPlaneFromAdapterProvider(provider: string): EvaluationsGlobalExecutionPlane {
+  if (!provider.trim()) return 'unknown';
+  if (provider === 'ollama_local') return 'on_prem';
+  return 'vendor_saas';
+}
+
+export function evaluationsGlobalTopologySummary(row: EvaluationsGlobalTableRow): string {
+  return `${invocationPathLabel(row.invocationPath)} · ${executionPlaneLabel(row.executionPlane)}`;
 }
 
 function formatNum(n: number | null | undefined, decimals?: number): string {
@@ -130,6 +169,8 @@ export function buildEvaluationsGlobalHistoryMarkdown(row: EvaluationsGlobalTabl
     `# 測試紀錄（匯出）`,
     ``,
     `- 公司：${row.companyName}`,
+    `- 觸發路徑：${invocationPathLabel(row.invocationPath)}`,
+    `- 運算面：${executionPlaneLabel(row.executionPlane)}`,
     `- Adapter：${row.adapterModel}`,
     `- 產出時間：${new Date().toISOString()}`,
     `- 正式紀錄連結（SSOT）：${row.historyLogUrl ?? '（尚未設定）'}`,
@@ -165,7 +206,8 @@ export function getEvaluationsGlobalSearchValue(row: EvaluationsGlobalTableRow):
     row.effectiveModel,
     row.evaluation,
     row.testFileNames.join(' '),
-    transportLabel(row.transport),
+    invocationPathLabel(row.invocationPath),
+    executionPlaneLabel(row.executionPlane),
     row.historyLastSummary,
     row.historyLogUrl ?? '',
     row.rawOutput,
@@ -176,7 +218,7 @@ export function getEvaluationsGlobalSearchValue(row: EvaluationsGlobalTableRow):
 }
 
 export function getEvaluationsGlobalCategoryValue(row: EvaluationsGlobalTableRow): string {
-  return transportLabel(row.transport);
+  return evaluationsGlobalTopologySummary(row);
 }
 
 export interface CreateEvaluationsGlobalColumnsDeps {
@@ -292,13 +334,23 @@ export function createEvaluationsGlobalColumns(
         </span>
       ),
     }),
-    col.accessor('transport', {
-      id: 'col-transport',
-      header: 'Transport',
-      meta: { headerEn: 'Transport', headerZh: '傳輸方式' },
+    col.accessor('invocationPath', {
+      id: 'col-invocation',
+      header: 'Invoke',
+      meta: { headerEn: 'Invocation path', headerZh: '觸發路徑' },
       cell: ({ getValue }) => (
-        <span className="inline-flex max-w-[200px] rounded-full bg-bg-tertiary px-2 py-0.5 text-[10px] text-text-primary">
-          <span className="truncate">{transportLabel(getValue())}</span>
+        <span className="inline-flex max-w-[160px] rounded-full bg-bg-tertiary px-2 py-0.5 text-[10px] text-text-primary">
+          <span className="truncate">{invocationPathLabel(getValue())}</span>
+        </span>
+      ),
+    }),
+    col.accessor('executionPlane', {
+      id: 'col-execution',
+      header: 'Compute',
+      meta: { headerEn: 'Execution plane', headerZh: '運算面' },
+      cell: ({ getValue }) => (
+        <span className="inline-flex max-w-[160px] rounded-full bg-bg-tertiary px-2 py-0.5 text-[10px] text-text-primary">
+          <span className="truncate">{executionPlaneLabel(getValue())}</span>
         </span>
       ),
     }),
@@ -357,17 +409,21 @@ export function createEvaluationsGlobalColumns(
       cell: ({ row }) => {
         const r = row.original;
         const st = r.runStatus;
-        const canDispatch = Boolean(onRunRow) && Boolean(onControlRow);
+        const canStart = Boolean(onRunRow);
+        const canControl = Boolean(onControlRow);
         const isRunning = st === 'running';
         const isPaused = st === 'paused';
+        const playDisabled = isPaused ? !canControl : !canStart || isRunning;
         return (
           <div className="flex flex-col items-start gap-0.5">
             <div className="flex flex-wrap items-center gap-1">
               <button
                 type="button"
                 title={isPaused ? '恢復執行' : '開始執行'}
-                disabled={!canDispatch || isRunning}
-                onClick={() => {
+                disabled={playDisabled}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
                   if (isPaused) {
                     void onControlRow?.(r, 'resume');
                   } else {
@@ -382,8 +438,10 @@ export function createEvaluationsGlobalColumns(
               <button
                 type="button"
                 title="暫停"
-                disabled={!canDispatch || !isRunning}
-                onClick={() => {
+                disabled={!canControl || !isRunning}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
                   void onControlRow?.(r, 'pause');
                 }}
                 className="inline-flex h-7 w-7 items-center justify-center rounded border border-border-subtle bg-bg-primary text-amber-700 hover:bg-bg-tertiary disabled:cursor-not-allowed disabled:opacity-40"
@@ -393,8 +451,10 @@ export function createEvaluationsGlobalColumns(
               <button
                 type="button"
                 title="停止"
-                disabled={!canDispatch || (st !== 'running' && st !== 'paused')}
-                onClick={() => {
+                disabled={!canControl || (st !== 'running' && st !== 'paused')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
                   void onControlRow?.(r, 'stop');
                 }}
                 className="inline-flex h-7 w-7 items-center justify-center rounded border border-border-subtle bg-bg-primary text-red-600 hover:bg-bg-tertiary disabled:cursor-not-allowed disabled:opacity-40"

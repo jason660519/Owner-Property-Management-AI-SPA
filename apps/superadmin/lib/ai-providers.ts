@@ -15,6 +15,8 @@ export type AIProvider =
   | 'zhipu'
   | 'perplexity'
   | 'qwen'
+  | 'ollama_cloud'
+  | 'ollama_local'
   | 'kilo'
   | 'opencode';
 
@@ -800,6 +802,85 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
         inputPrice: 1.20,
         outputPrice: 1.20,
         capabilities: ['text', 'reasoning'],
+      },
+    ],
+  },
+  {
+    id: 'ollama_cloud',
+    name: 'Ollama Cloud',
+    envKey: 'OLLAMA_API_KEY',
+    sdkPackage: 'ollama / openai-compatible',
+    docsUrl: 'https://docs.ollama.com/',
+    apiKeyUrl: 'https://docs.ollama.com/api/authentication',
+    sdkDocsUrl: 'https://docs.ollama.com/api/openai-compatibility',
+    dashboardUrl: 'https://ollama.com/search',
+    sdkDocsLabel: 'Ollama Cloud API Doc',
+    dashboardLabel: 'Ollama Cloud Models',
+    baseUrl: 'https://ollama.com/api',
+    keyPrefix: '',
+    models: [
+      {
+        id: 'gpt-oss:20b',
+        name: 'GPT-OSS 20B',
+        contextWindow: 128000,
+        maxOutput: 8192,
+        inputPrice: 0,
+        outputPrice: 0,
+        capabilities: ['text'],
+        recommended: true,
+      },
+      {
+        id: 'gpt-oss:120b',
+        name: 'GPT-OSS 120B',
+        contextWindow: 128000,
+        maxOutput: 8192,
+        inputPrice: 0,
+        outputPrice: 0,
+        capabilities: ['text'],
+      },
+    ],
+  },
+  {
+    id: 'ollama_local',
+    name: 'Ollama Local',
+    envKey: 'OLLAMA_LOCAL_API_KEY',
+    sdkPackage: 'ollama / openai-compatible',
+    docsUrl: 'https://docs.ollama.com/',
+    apiKeyUrl: 'https://docs.ollama.com/api/introduction',
+    sdkDocsUrl: 'https://docs.ollama.com/api/chat',
+    dashboardUrl: 'http://localhost:11434',
+    sdkDocsLabel: 'Ollama Local API Doc',
+    dashboardLabel: 'Ollama Local Endpoint',
+    baseUrl: 'http://localhost:11434/api',
+    keyPrefix: '',
+    models: [
+      {
+        id: 'llama3.2',
+        name: 'Llama 3.2',
+        contextWindow: 128000,
+        maxOutput: 8192,
+        inputPrice: 0,
+        outputPrice: 0,
+        capabilities: ['text'],
+        recommended: true,
+      },
+      {
+        id: 'qwen3',
+        name: 'Qwen 3',
+        contextWindow: 128000,
+        maxOutput: 8192,
+        inputPrice: 0,
+        outputPrice: 0,
+        capabilities: ['text'],
+      },
+      {
+        id: 'qwen2.5vl',
+        name: 'Qwen 2.5 VL',
+        contextWindow: 128000,
+        maxOutput: 8192,
+        inputPrice: 0,
+        outputPrice: 0,
+        capabilities: ['text', 'vision'],
       },
     ],
   },

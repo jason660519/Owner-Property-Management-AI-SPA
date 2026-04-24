@@ -25,7 +25,10 @@ export function openCodeZenChatModelId(model: string): string {
   const table: Record<string, string> = {
     'qwen/qwen3.6-plus': 'qwen3.6-plus',
     'qwen/qwen3.6-plus:free': 'qwen3.6-plus',
+    'qwen/qwen3.5-plus-02-15': 'qwen3.5-plus-02-15',
     'qwen/qwen3.5-plus': 'qwen3.5-plus',
+    'qwen/qwen3-max': 'qwen3-max',
+    'qwen/qwen-plus': 'qwen-plus',
     'moonshotai/kimi-k2.5': 'kimi-k2.5',
     'moonshotai/kimi-k2-thinking': 'kimi-k2-thinking',
     'moonshotai/kimi-k2': 'kimi-k2',

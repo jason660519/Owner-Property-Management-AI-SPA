@@ -13,7 +13,7 @@ import {
   EVALUATIONS_GLOBAL_TABLE_MIN_WIDTH_PX,
   getEvaluationsGlobalCategoryValue,
   getEvaluationsGlobalSearchValue,
-  transportLabel,
+  evaluationsGlobalTopologySummary,
   type EvaluationsGlobalTableRow,
 } from './evaluations-global-columns';
 
@@ -62,7 +62,7 @@ export interface EvaluationsGlobalPanelProps {
 }
 
 /**
- * "Evaluations Global" main content: the new 16-column EnhancedTable layout.
+ * "Evaluations Global" main content: the EnhancedTable layout（觸發路徑 + 運算面分欄）.
  * Full output is viewed in the right-side Sheet; test history uses `historyLogUrl` as SSOT, and .md is export-only.
  */
 export function EvaluationsGlobalPanel({
@@ -143,6 +143,7 @@ export function EvaluationsGlobalPanel({
           initialWidths={[...EVALUATIONS_GLOBAL_TABLE_INITIAL_WIDTHS]}
           minWidth={EVALUATIONS_GLOBAL_TABLE_MIN_WIDTH_PX}
           stretchToContainer={false}
+          fillAvailableHeight
           persistentHorizontalScrollbar
           getSearchValue={getEvaluationsGlobalSearchValue}
           getCategoryValue={getEvaluationsGlobalCategoryValue}
@@ -202,7 +203,7 @@ export function EvaluationsGlobalPanel({
               <SheetHeader>
                 <SheetTitle>伺服器測試歷史</SheetTitle>
                 <SheetDescription>
-                  {historyRow.companyName} · {transportLabel(historyRow.transport)} ·{' '}
+                  {historyRow.companyName} · {evaluationsGlobalTopologySummary(historyRow)} ·{' '}
                   <span className="font-mono">{historyRow.adapterModel}</span>
                   {historyLoading ? (
                     <span className="ml-2 inline-flex items-center gap-1 text-text-muted">
@@ -270,7 +271,7 @@ export function EvaluationsGlobalPanel({
               <SheetHeader>
                 <SheetTitle>輸出詳情</SheetTitle>
                 <SheetDescription>
-                  {outputDetailRow.companyName} · {transportLabel(outputDetailRow.transport)} ·{' '}
+                  {outputDetailRow.companyName} · {evaluationsGlobalTopologySummary(outputDetailRow)} ·{' '}
                   <span className="font-mono">{outputDetailRow.adapterModel}</span>
                 </SheetDescription>
               </SheetHeader>

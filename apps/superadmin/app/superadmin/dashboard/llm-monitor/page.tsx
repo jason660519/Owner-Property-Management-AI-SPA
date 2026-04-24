@@ -7,6 +7,8 @@ import {
   getDailyTokenSeries,
   getWeeklyTokenSeries,
   getVoiceQualityDaily,
+  getLLMTraceConsoleRows,
+  getLLMEvaluationRuns,
 } from './actions';
 import LLMMonitorClient from './LLMMonitorClient';
 import { Brain } from 'lucide-react';
@@ -22,6 +24,8 @@ export default async function LLMMonitorPage() {
     dailyTokenSeries,
     weeklyTokenSeries,
     voiceQualitySeries,
+    traceConsoleRows,
+    evaluationRuns,
   ] = await Promise.all([
     getLLMOverallStats(),
     getLLMAggregateStats(),
@@ -30,6 +34,8 @@ export default async function LLMMonitorPage() {
     getDailyTokenSeries(14),
     getWeeklyTokenSeries(8),
     getVoiceQualityDaily(14),
+    getLLMTraceConsoleRows(150),
+    getLLMEvaluationRuns(100),
   ]);
 
   return (
@@ -51,6 +57,8 @@ export default async function LLMMonitorPage() {
         dailyTokenSeries={dailyTokenSeries}
         weeklyTokenSeries={weeklyTokenSeries}
         voiceQualitySeries={voiceQualitySeries}
+        traceConsoleRows={traceConsoleRows}
+        evaluationRuns={evaluationRuns}
       />
     </Suspense>
   );

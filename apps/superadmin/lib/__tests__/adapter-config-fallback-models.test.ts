@@ -19,7 +19,7 @@ import {
 } from '@/lib/adapter-config';
 import { openCodeZenChatModelId } from '@/lib/ai-key-validation/kilo-opencode-zen';
 
-type CacheProvider = 'anthropic' | 'gemini' | 'openai' | 'kilo' | 'opencode';
+type CacheProvider = 'anthropic' | 'gemini' | 'openai' | 'kilo' | 'opencode' | 'ollama';
 
 const CACHE_SNAPSHOT: Record<CacheProvider, readonly string[]> = {
   anthropic: [
@@ -71,8 +71,22 @@ const CACHE_SNAPSHOT: Record<CacheProvider, readonly string[]> = {
     'kimi-k2.5',
     'kimi-k2-thinking',
     'kimi-k2',
-    'qwen3.6-plus',
     'qwen3.5-plus',
+    'qwen3-max',
+    'qwen-plus',
+  ],
+  /**
+   * Ollama runs under two providers (ollama_cloud / ollama_local) in ai_key_validation_cache,
+   * but the drift check does not care which side a model lives on — it just sanity-checks the
+   * slug appears in some cached list. So we merge cloud + local tags into a single snapshot.
+   */
+  ollama: [
+    'kimi-k2.6:cloud',
+    'minimax-m2:cloud',
+    'deepseek-v3.1:671b-cloud',
+    'qwen3-coder:480b-cloud',
+    'gemma4:latest',
+    'minicpm-v:latest',
   ],
 };
 
@@ -100,6 +114,9 @@ function translateForCache(
     }
     case 'opencode':
       return { cacheProvider: 'opencode', cacheId: openCodeZenChatModelId(model) };
+    case 'ollama_cloud':
+    case 'ollama_local':
+      return { cacheProvider: 'ollama', cacheId: model };
   }
 }
 
@@ -131,13 +148,12 @@ describe('adapter-config fallbackModels (offline drift check)', () => {
         expect(CACHE_SNAPSHOT[cacheProvider]).toContain(cacheId);
       });
 
-      it.each(item.fallbackModels)(
-        'fallback %s appears in cache snapshot',
-        (fallback: string) => {
+      it('each fallback slug appears in cache snapshot', () => {
+        for (const fallback of item.fallbackModels) {
           const { cacheProvider, cacheId } = translateForCache(item.provider, fallback);
           expect(CACHE_SNAPSHOT[cacheProvider]).toContain(cacheId);
-        },
-      );
+        }
+      });
     },
   );
 });

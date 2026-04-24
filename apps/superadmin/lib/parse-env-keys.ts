@@ -4,18 +4,42 @@
 
 import { AI_PROVIDERS, type AIProvider } from './ai-providers';
 
-/** 系統僅辨識這五個 AI 金鑰變數名（大小寫不敏感），其餘一律忽略 */
-const SUPPORTED_AI_ENV_KEYS = new Set(
-  AI_PROVIDERS.map((p) => p.envKey.toUpperCase())
-);
-/** 大寫變數名 -> provider id，用於大小寫不敏感比對 */
-const UPPER_ENV_KEY_TO_PROVIDER: Record<string, AIProvider> = Object.fromEntries(
+/** Additional accepted env-key aliases for import compatibility. */
+const ENV_KEY_ALIASES: Record<string, { provider: AIProvider; canonicalEnvKey: string }> = {
+  OLLAMA_CLOUD_API_KEY: {
+    provider: 'ollama_cloud',
+    canonicalEnvKey: 'OLLAMA_API_KEY',
+  },
+};
+
+const BASE_ENV_KEY_TO_PROVIDER: Record<string, AIProvider> = Object.fromEntries(
   AI_PROVIDERS.map((p) => [p.envKey.toUpperCase(), p.id])
 );
-/** 大寫變數名 -> 標準 envKey（用於回傳與顯示） */
-const UPPER_TO_CANONICAL: Record<string, string> = Object.fromEntries(
+
+const BASE_UPPER_TO_CANONICAL: Record<string, string> = Object.fromEntries(
   AI_PROVIDERS.map((p) => [p.envKey.toUpperCase(), p.envKey])
 );
+
+const ALL_ENV_KEY_TO_PROVIDER: Record<string, AIProvider> = {
+  ...BASE_ENV_KEY_TO_PROVIDER,
+  ...Object.fromEntries(
+    Object.entries(ENV_KEY_ALIASES).map(([alias, meta]) => [alias.toUpperCase(), meta.provider])
+  ),
+};
+
+const ALL_UPPER_TO_CANONICAL: Record<string, string> = {
+  ...BASE_UPPER_TO_CANONICAL,
+  ...Object.fromEntries(
+    Object.entries(ENV_KEY_ALIASES).map(([alias, meta]) => [alias.toUpperCase(), meta.canonicalEnvKey])
+  ),
+};
+
+/** 系統僅辨識這五個 AI 金鑰變數名（大小寫不敏感），其餘一律忽略 */
+const SUPPORTED_AI_ENV_KEYS = new Set(Object.keys(ALL_ENV_KEY_TO_PROVIDER));
+/** 大寫變數名 -> provider id，用於大小寫不敏感比對 */
+const UPPER_ENV_KEY_TO_PROVIDER: Record<string, AIProvider> = ALL_ENV_KEY_TO_PROVIDER;
+/** 大寫變數名 -> 標準 envKey（用於回傳與顯示） */
+const UPPER_TO_CANONICAL: Record<string, string> = ALL_UPPER_TO_CANONICAL;
 
 /**
  * Parse KEY=VALUE lines. Handles:
@@ -67,7 +91,10 @@ export interface ParsedAIKey {
 }
 
 /** 辨識用的金鑰名稱列表（供 UI 顯示） */
-export const SUPPORTED_AI_ENV_KEY_NAMES = AI_PROVIDERS.map((p) => p.envKey);
+export const SUPPORTED_AI_ENV_KEY_NAMES = [
+  ...AI_PROVIDERS.map((p) => p.envKey),
+  ...Object.keys(ENV_KEY_ALIASES),
+];
 
 /**
  * 過濾機制：

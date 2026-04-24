@@ -25,6 +25,8 @@ import {
 } from '@/lib/ai-key-validation/kilo-opencode-zen';
 
 const DEFAULT_TEST_PROMPT = '請用一句話回覆：你好，我是{你的模型名稱與型號}，可以正常接收並回應。';
+const OLLAMA_CLOUD_BASE_URL = process.env.OLLAMA_CLOUD_BASE_URL?.replace(/\/$/, '') || 'https://ollama.com';
+const OLLAMA_LOCAL_BASE_URL = process.env.OLLAMA_LOCAL_BASE_URL?.replace(/\/$/, '') || 'http://localhost:11434';
 
 /** Hard cap for user-supplied test prompts. Generous to allow legit evaluation
  *  scenarios but bounded so the endpoint cannot be abused as a free LLM proxy. */
@@ -487,6 +489,114 @@ async function testQwen(
   }
 }
 
+function extractOllamaOutput(data: unknown): string {
+  const messageText = (data as { message?: { content?: string } })?.message?.content;
+  if (typeof messageText === 'string' && messageText.trim()) return messageText.trim();
+  const responseText = (data as { response?: string })?.response;
+  if (typeof responseText === 'string') return responseText.trim();
+  return '';
+}
+
+async function testOllamaCloud(
+  apiKey: string,
+  modelId: string,
+  userPrompt?: string,
+  file?: FileAttachment
+): Promise<TestResult> {
+  // Ollama cloud mode.
+  const { prompt } = getPromptAndMaxTokens(userPrompt);
+  const message: { role: 'user'; content: string; images?: string[] } = {
+    role: 'user',
+    content: prompt,
+  };
+
+  if (file && isImageMime(file.mimeType)) {
+    message.images = [file.fileBase64];
+  }
+
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (apiKey?.trim()) {
+      headers.Authorization = `Bearer ${apiKey.trim()}`;
+    }
+    const res = await fetch(`${OLLAMA_CLOUD_BASE_URL}/api/chat`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: modelId,
+        stream: false,
+        messages: [message],
+      }),
+      signal: providerSignal(),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      return {
+        success: true,
+        message: '連線成功',
+        output: extractOllamaOutput(data) || '（無輸出）',
+      };
+    }
+    const errorText = (data as { error?: string })?.error;
+    return { success: false, message: typeof errorText === 'string' ? errorText : `HTTP ${res.status}` };
+  } catch (e) {
+    return { success: false, message: `連線失敗: ${e instanceof Error ? e.message : 'Unknown'}` };
+  }
+}
+
+async function testOllamaLocal(
+  apiKey: string,
+  modelId: string,
+  userPrompt?: string,
+  file?: FileAttachment
+): Promise<TestResult> {
+  // Ollama local mode.
+  const token = apiKey.trim();
+  if (!token) {
+    return { success: false, message: 'Ollama Local 需要 API token' };
+  }
+
+  const { prompt } = getPromptAndMaxTokens(userPrompt);
+  const message: { role: 'user'; content: string; images?: string[] } = {
+    role: 'user',
+    content: prompt,
+  };
+
+  if (file && isImageMime(file.mimeType)) {
+    message.images = [file.fileBase64];
+  }
+
+  try {
+    const res = await fetch(`${OLLAMA_LOCAL_BASE_URL}/api/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        model: modelId,
+        stream: false,
+        messages: [message],
+      }),
+      signal: providerSignal(),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      return {
+        success: true,
+        message: '連線成功',
+        output: extractOllamaOutput(data) || '（無輸出）',
+      };
+    }
+    const errorText = (data as { error?: string })?.error;
+    return { success: false, message: typeof errorText === 'string' ? errorText : `HTTP ${res.status}` };
+  } catch (e) {
+    return { success: false, message: `連線失敗: ${e instanceof Error ? e.message : 'Unknown'}` };
+  }
+}
+
 async function testKilo(
   apiKey: string,
   modelId: string,
@@ -568,6 +678,8 @@ const testers: Record<AIProvider, TesterFn> = {
   zhipu: testZhipu,
   perplexity: testPerplexity,
   qwen: testQwen,
+  ollama_cloud: testOllamaCloud,
+  ollama_local: testOllamaLocal,
   kilo: testKilo,
   opencode: testOpenCode,
 };
