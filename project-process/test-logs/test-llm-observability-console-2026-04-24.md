@@ -52,3 +52,27 @@
 - 完成 trace schema migration 與 actions 查詢：2 小時。
 - 將 Global Evaluation Test 的非 adapter batch report 與最近報告套用流程寫入 invocation：2 小時。
 - 補 Row 008 E2E smoke：2 小時。
+
+---
+
+## 2026-04-25 Sprint 2 更新
+
+### 本次完成
+
+- `lib/ai/llm-price-map.ts` 建立（35+ 模型 bundled 定價快照，`calculateCostUsd` utility）。
+- `lib/ai/instrumented-llm-call.ts` 建立（`reportLLMUsage` best-effort wrapper）。
+- `model-research/generate/route.ts` 加上埋點（每次 AI 研究報告生成自動寫入 invocation，含 cost_usd）。
+- `llm-monitor/actions.ts` 加上 LiteLLM price map fallback（研究報告沒有的模型自動補定價）。
+- `app/api/llm-monitor/sync-prices/route.ts` 建立（上游定價比對端點）。
+- TS check 通過。
+
+### 驗證紀錄（2026-04-25）
+
+- `npx tsc --noEmit --project apps/superadmin/tsconfig.json`：通過（只剩 people-database 既有錯誤）。
+- Sprint 1 現有測試不受影響（未修改 actions 的已有查詢邏輯）。
+
+### 待辦（Sprint 2 後續）
+
+- 補 `llm-price-map.ts` 與 `instrumented-llm-call.ts` 單元測試。
+- 評估 Claude CLI `--output-format json`，補足 Paperclip CLI 生產 agent token tracking。
+- Sprint 3：LiteLLM Proxy Docker sidecar。

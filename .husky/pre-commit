@@ -30,13 +30,22 @@ if git diff --cached --name-only --diff-filter=AM | grep -qx 'apps/superadmin/li
   bash tools/testing/lint-adapter-model-ids.sh
 fi
 
-# 5. Run lint-staged (prettier + eslint on touched files only).
+# 5. Skills sync reminder (non-blocking).
+STAGED_FILES="$(git diff --cached --name-only --diff-filter=AM)"
+if echo "$STAGED_FILES" | grep -qE '^\.claude/skills/'; then
+  if ! echo "$STAGED_FILES" | grep -qE '^(\.agents/skills/|\.codex/skills/|\.cursor/skills/|\.agent/skills/|\.github/skills/|\.opencode/skill/)'; then
+    echo "⚠️  Detected staged changes under .claude/skills/"
+    echo "   Reminder: run 'npm run sync:skills' and stage synced files when needed."
+  fi
+fi
+
+# 6. Run lint-staged (prettier + eslint on touched files only).
 if git diff --cached --name-only --diff-filter=AM | grep -qE '\.(ts|tsx|js|jsx|json|md)$'; then
   echo "✨ Running lint-staged on touched files..."
   npx --no-install lint-staged
 fi
 
-# 6. Secret scanner — blocks .env files and real-looking API keys / PEM keys.
+# 7. Secret scanner — blocks .env files and real-looking API keys / PEM keys.
 echo "🔐 Scanning staged content for secrets..."
 bash tools/security/check-staged-secrets.sh
 

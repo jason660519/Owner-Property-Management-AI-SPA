@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { decryptApiKey } from '@/lib/crypto';
 import { requireSuperadmin } from '@/lib/auth/require-superadmin';
+import { reportLLMUsage } from '@/lib/ai/instrumented-llm-call';
 
 type ResearchStatus = 'pending' | 'researching' | 'done' | 'failed';
 
@@ -147,7 +148,8 @@ function dedupe(arr: string[]): string[] {
 // Provider-specific evaluator callers — each returns { text, urls }
 // ---------------------------------------------------------------------------
 
-type EvaluatorCaller = (apiKey: string, model: string, prompt: string) => Promise<{ text: string; urls: string[] }>;
+interface EvaluatorResult { text: string; urls: string[]; tokensInput?: number | null; tokensOutput?: number | null }
+type EvaluatorCaller = (apiKey: string, model: string, prompt: string) => Promise<EvaluatorResult>;
 
 function timeoutSignal(): AbortSignal {
   return AbortSignal.timeout(PER_TARGET_TIMEOUT_MS);
@@ -172,10 +174,12 @@ async function callAnthropic(apiKey: string, model: string, prompt: string) {
 
   const data = (await res.json().catch(() => ({}))) as {
     content?: AnthropicContentBlock[];
+    usage?: { input_tokens?: number; output_tokens?: number };
     error?: { message?: string };
   };
   if (!res.ok) throw new Error(data?.error?.message ?? `HTTP ${res.status}`);
-  return extractAnthropicTextAndUrls(data.content ?? []);
+  const { text, urls } = extractAnthropicTextAndUrls(data.content ?? []);
+  return { text, urls, tokensInput: data.usage?.input_tokens ?? null, tokensOutput: data.usage?.output_tokens ?? null };
 }
 
 async function callOpenAI(apiKey: string, model: string, prompt: string) {
@@ -352,7 +356,7 @@ function getEvaluatorCaller(provider: string): EvaluatorCaller | null {
   return EVALUATOR_CALLERS[provider] ?? null;
 }
 
-function buildMockResult(target: GenerateTarget): { text: string; urls: string[] } {
+function buildMockResult(target: GenerateTarget): EvaluatorResult {
   const text = `## ${target.modelName}（Mock）
 
 這是 mock 回應，用於前端開發。實際呼叫請移除 \`?mock=1\`。
@@ -450,9 +454,30 @@ export async function POST(request: NextRequest) {
         );
 
       try {
-        const { text, urls } = isMock
+        const callStartedAt = new Date().toISOString();
+        const callStartMs = Date.now();
+        const prompt = buildPrompt(target);
+        const callResult = isMock
           ? buildMockResult(target)
-          : await evaluatorCaller!(apiKey, evaluatorModel, buildPrompt(target));
+          : await evaluatorCaller!(apiKey, evaluatorModel, prompt);
+        const { text, urls } = callResult;
+
+        if (!isMock) {
+          void reportLLMUsage({
+            provider: evaluatorProvider,
+            model: evaluatorModel,
+            userId,
+            moduleKey: 'ai_model_research',
+            inputPrompt: prompt,
+            outputText: text,
+            tokensInput: callResult.tokensInput ?? null,
+            tokensOutput: callResult.tokensOutput ?? null,
+            httpStatus: 200,
+            startedAt: callStartedAt,
+            startMs: callStartMs,
+            metadata: { targetProvider: target.provider, targetModelId: target.modelId },
+          });
+        }
 
         const structured = parseStructuredJson(text, urls);
         const reportMarkdown = stripJsonFence(text);
@@ -489,6 +514,18 @@ export async function POST(request: NextRequest) {
         results.push(row);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error';
+        if (!isMock) {
+          void reportLLMUsage({
+            provider: evaluatorProvider,
+            model: evaluatorModel,
+            userId,
+            moduleKey: 'ai_model_research',
+            startedAt: new Date().toISOString(),
+            startMs: Date.now(),
+            errorMessage: message,
+            metadata: { targetProvider: target.provider, targetModelId: target.modelId },
+          });
+        }
         const { data: failedRow } = await supabase
           .from('ai_model_research_reports')
           .upsert(

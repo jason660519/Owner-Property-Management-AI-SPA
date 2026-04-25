@@ -11,6 +11,7 @@
     "dev:mobile": "npm run dev --workspace mobile",
     "dev:stop": "./stop.sh",
     "dev:clean": "./start.sh clean",
+    "sync:skills": "bash tools/sync-skills-from-claude.sh",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",

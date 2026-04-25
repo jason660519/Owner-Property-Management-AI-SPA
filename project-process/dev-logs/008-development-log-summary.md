@@ -1,5 +1,58 @@
 # Development Log Summary — Row 008 LLM Observability Console
 
+## 2026-04-25 — Sprint 2: LiteLLM Refactor（Price Map + Instrumented Call Wrapper）
+
+### 本日完成任務清單
+
+- 閱讀 LiteLLM 官方文件，分析 proxy、callback、cost tracking、virtual keys 各功能對本專案的適用性。
+- 評估架構選項，決定「借用 LiteLLM 理念，不引入 LiteLLM Proxy 或 Python SDK」——因為 85% 的 LLM call 走 CLI subprocess，proxy 攔不到。
+- 建立 `lib/ai/llm-price-map.ts`：內建 35+ 主流模型定價快照（Anthropic / OpenAI / Gemini / xAI / Perplexity / DeepSeek / Qwen / OpenRouter），公開 `calculateCostUsd()` / `getModelPricing()` / `inferProvider()` / `normalizeModelId()` utilities。
+- 建立 `lib/ai/instrumented-llm-call.ts`：`reportLLMUsage()` best-effort wrapper，任何 HTTP LLM call 完成後呼叫一行即可自動寫入 `llm_observability_invocations`（含 cost_usd 計算）。
+- 更新 `app/api/ai-settings/model-research/generate/route.ts`：
+  - 匯入 `reportLLMUsage`
+  - `callAnthropic` 新增回傳 `tokensInput` / `tokensOutput`（從 API response usage 欄位讀取）
+  - POST handler 在每次成功/失敗呼叫後 fire-and-forget `reportLLMUsage`
+- 更新 `app/superadmin/dashboard/llm-monitor/actions.ts`：
+  - `getOfficialPricingMap` 加上 LiteLLM bundled price map fallback：對 `ai_model_research_reports` 中找不到定價的模型，自動使用 bundled snapshot 填充 `official_input_price_per_1m`
+- 建立 `app/api/llm-monitor/sync-prices/route.ts`：`GET` endpoint，與 LiteLLM GitHub 上游 JSON 比對，回報定價差異（供維護者定期執行確認 bundled snapshot 是否需要更新）。
+- 建立 Sprint 2 DEV-SPEC：`project-process/features/llm-monitor-litellm-refactor-dev-spec-20260425.md`。
+- TypeScript check 通過（`npx tsc --noEmit --project apps/superadmin/tsconfig.json`）。
+
+### 交付物與完成度
+
+| 檔案 | 狀態 |
+|---|---|
+| `lib/ai/llm-price-map.ts` | ✅ 完成 |
+| `lib/ai/instrumented-llm-call.ts` | ✅ 完成 |
+| `app/api/ai-settings/model-research/generate/route.ts` | ✅ 埋點完成 |
+| `app/superadmin/dashboard/llm-monitor/actions.ts` | ✅ Price map fallback 完成 |
+| `app/api/llm-monitor/sync-prices/route.ts` | ✅ 完成 |
+| `project-process/features/llm-monitor-litellm-refactor-dev-spec-20260425.md` | ✅ 完成 |
+
+整體狀態：Sprint 2 完成；Row 008 整體進度推進至 88%。
+
+### 遭遇困難與根因分析
+
+- **Paperclip CLI 生產 agent runs 仍無法直接追蹤**：Paperclip 在 Docker worktrees 中跑 `claude -p`/`codex exec` 等 CLI 指令，屬於完全外部的子程序。沒有 HTTP hook 可以攔截，token usage 不透明。根因：CLI adapter 的 token 資訊只存在於 CLI 程序的 stdout，而程序結束後 stdout 只有最終回應文字，不含 usage JSON（除非 CLI 支援 `--output-format json` 旗標）。
+- **`buildMockResult` 型別問題**：型別從 `{ text, urls }` 改成 `EvaluatorResult` 後 `tokensInput` 存取正確，需同步更新 mock 函式回傳型別。已修正。
+
+### 踩雷事件與預防指標
+
+- 踩雷：LiteLLM Proxy 看起來很全能，但 proxy 攔截的是 HTTP 流量；CLI subprocess 走的是 OS-level 程序，完全不同路徑。
+- 預防：新增 LLM 監控功能前先確認「這個 call 是 HTTP API 還是 CLI subprocess？」。
+
+### 下次避免措施
+
+- 不在同一個 PR 混合 proxy 架構與 callback 架構的程式碼，這兩者部署方式完全不同。
+- `EvaluatorResult` 型別更新後，記得同步更新所有回傳該型別的函式（包括 mock 函式）。
+
+### 明日優先工作項目與預估工時
+
+- 補 `lib/ai/llm-price-map.ts` 單元測試（`calculateCostUsd` / `normalizeModelId` / `inferProvider`）：1 小時。
+- 補 `lib/ai/instrumented-llm-call.ts` 單元測試（mock `logLLMObservabilityInvocation`，驗證 best-effort 不拋出）：1 小時。
+- 評估 Claude CLI `--output-format json` 選項：若可行，可以在 `adapter-runs/route.ts` 的 `runCliAttempt` 中提取真實 token usage，補足 Paperclip 的最後一塊盲點：2 小時。
+- Sprint 3 規劃：LiteLLM Proxy Docker sidecar（for HTTP calls only），virtual key budget enforcement。
+
 ## 2026-04-24 — Sprint 1: Trace/Eval Console MVP
 
 ### 本日完成任務清單

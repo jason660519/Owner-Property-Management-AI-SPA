@@ -7,6 +7,7 @@
 import { useState, useTransition, useRef, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   flexRender,
   getCoreRowModel,
@@ -27,7 +28,6 @@ import { formatStructuredAddress } from '@/lib/types/properties';
 import { PROPERTY_TYPES } from '@/lib/types/properties';
 import { TAIWAN_CITIES, getDistrictsByCity } from '@/lib/data/taiwan-address';
 import { PropertyCreateModal } from './PropertyCreateModal';
-import { PropertyMapView } from './PropertyMapView';
 import { useTablePreferences } from '@/lib/hooks/useTablePreferences';
 
 function normalizeTaiwanAddressText(input: string): string {
@@ -256,9 +256,6 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
   // Delete state
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isPendingDelete, startDeleteTransition] = useTransition();
-
-  // View mode: table vs map
-  const [viewMode, setViewMode] = useState<'table' | 'map'>('table');
 
   // Table layout / view controls — derived from persisted preferences
   const tableAlignH = tablePrefs.tableAlignH;
@@ -899,30 +896,20 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
           </button>
           {/* Table / Map view toggle */}
           <div className="flex rounded-md border border-border-default overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setViewMode('table')}
+            <Link
+              href="/superadmin/properties"
               title="表格檢視"
-              className={`px-2.5 py-1.5 text-xs flex items-center gap-1 transition-colors ${
-                viewMode === 'table'
-                  ? 'bg-accent text-white'
-                  : 'bg-bg-primary text-text-secondary hover:bg-bg-secondary'
-              }`}
+              className="px-2.5 py-1.5 text-xs flex items-center gap-1 transition-colors bg-accent text-white"
             >
               <AlignLeft size={13} /> 表格
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('map')}
+            </Link>
+            <Link
+              href="/superadmin/properties/map"
               title="地圖檢視"
-              className={`px-2.5 py-1.5 text-xs flex items-center gap-1 border-l border-border-default transition-colors ${
-                viewMode === 'map'
-                  ? 'bg-accent text-white'
-                  : 'bg-bg-primary text-text-secondary hover:bg-bg-secondary'
-              }`}
+              className="px-2.5 py-1.5 text-xs flex items-center gap-1 border-l border-border-default transition-colors bg-bg-primary text-text-secondary hover:bg-bg-secondary"
             >
               <Map size={13} /> 地圖
-            </button>
+            </Link>
           </div>
           <button
             type="button"
@@ -1091,14 +1078,9 @@ export function PropertiesList({ data: result }: { data: PropertiesResult }) {
         </div>
       </div>
 
-      {/* Map view */}
-      {viewMode === 'map' && (
-        <PropertyMapView properties={filteredData} />
-      )}
-
       {/* Table: single scroll container (flex-1 min-h-0) so thead sticky works correctly */}
       <div
-        className={`flex-1 min-h-0 flex flex-col bg-bg-secondary border border-border-default rounded-lg overflow-hidden [&_th]:whitespace-normal [&_td]:whitespace-normal [&_th]:break-words [&_td]:break-words [&_th]:min-w-0 [&_td]:min-w-0 [&_th]:overflow-hidden [&_td]:overflow-hidden ${TABLE_H_ALIGN_CLASSES[tableAlignH]} ${TABLE_V_ALIGN_CLASSES[tableAlignV]} ${viewMode === 'map' ? 'hidden' : ''}`}
+        className={`flex-1 min-h-0 flex flex-col bg-bg-secondary border border-border-default rounded-lg overflow-hidden [&_th]:whitespace-normal [&_td]:whitespace-normal [&_th]:break-words [&_td]:break-words [&_th]:min-w-0 [&_td]:min-w-0 [&_th]:overflow-hidden [&_td]:overflow-hidden ${TABLE_H_ALIGN_CLASSES[tableAlignH]} ${TABLE_V_ALIGN_CLASSES[tableAlignV]}`}
       >
         <div className="overflow-auto flex-1 min-h-0">
           <table

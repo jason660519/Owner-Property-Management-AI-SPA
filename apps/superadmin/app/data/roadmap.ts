@@ -245,7 +245,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     docPath:
       "/project-process/test-logs/test-llm-observability-console-2026-04-24.md",
     featureSpecDocPath:
-      "/project-process/features/llm-observability-console-dev-spec-20260424.md",
+      "/project-process/features/llm-monitor-litellm-refactor-dev-spec-20260425.md",
     tddSpecDocPath:
       "/project-process/features/tdd-llm-observability-console-20260424.md",
     devLogDocPath:
@@ -253,16 +253,16 @@ const RAW_FEATURES: RoadmapFeature[] = [
     category: "超級管理員 (Super Admin)",
     points: 8,
     testScriptPath: "apps/superadmin/unit_test/008",
-    testProgress: "82%（Sprint 1 Trace/Eval Console MVP 進行中；UI/actions/migration、adapter prompt/file metadata、property-description write path 與 Trace Detail 已完成）",
+    testProgress: "88%（Sprint 2 LiteLLM Refactor 完成；price map bundled snapshot、instrumented-llm-call wrapper、model-research 埋點、actions pricing fallback 均已落地）",
     testCoverage: 82,
     unitTestCoverage: 0,
     e2eTestCoverage: 0,
     defectCount: 0,
-    lastModifiedBy: "Codex",
-    lastModifiedDate: "2026/04/24",
+    lastModifiedBy: "Claude Sonnet 4.6",
+    lastModifiedDate: "2026/04/25",
     phase: "development",
     developmentProgress:
-      "連接真實 ai_performance_metrics 資料表，page.tsx + LLMMonitorClient + actions (getLLMMetrics/getLLMAggregateStats/getLLMOverallStats)；每模型效能比較表、最近請求記錄。\n\n### 2026-04-04 監控可追到 Prompt / 模組 / 成功失敗\n- 新增 ai_usage_logs 監控欄位（prompt source/version/hash、request_path、response_status 等）。\n- 物件介紹文案 AI（/api/property-description/stream）每次嘗試會寫入 ai_usage_logs（含成功/失敗、tokens、延遲、provider/model）。\n- llm-monitor 頁面新增「AI 使用紀錄（含 Prompt / 模組 / 狀態）」表格（最新 100 筆）。\n\n### 2026-04-24 Sprint 1 — Trace/Eval Console MVP\n- 借鏡 Langfuse / Phoenix，將監控模型從 flat usage log 擴充為 trace / invocation / evaluation 三層。\n- 新增 Row 008 DEV-SPEC、TDD-SPEC、TDD Progress Report、Development Log Summary 與 handoff。\n- 建立 `llm_observability_traces`、`llm_observability_invocations` schema，為每次 LLM call 保留 page、company、invocation、execution、requested/effective model、raw/rendered output、evaluation、TTFT/E2E/throughput/http status 等欄位。\n- `llm-monitor` 新增 Trace Console 與 Evaluation Runs 視角，先彙整既有 `ai_usage_logs` 與 `adapter_evaluation_runs`，後續再把各 call-site 寫入原生 trace 表。\n- 新增 `lib/ai/observability.ts` best-effort helper；adapter evaluation、adapter-run test prompt/file metadata 與 property-description stream 已開始寫入原生 trace/invocation。\n- Trace Console 新增 Trace Detail sheet，可查看單筆完整 prompt、test file、raw/rendered output、evaluation 與 latency metadata。",
+      "連接真實 ai_performance_metrics 資料表，page.tsx + LLMMonitorClient + actions (getLLMMetrics/getLLMAggregateStats/getLLMOverallStats)；每模型效能比較表、最近請求記錄。\n\n### 2026-04-04 監控可追到 Prompt / 模組 / 成功失敗\n- 新增 ai_usage_logs 監控欄位（prompt source/version/hash、request_path、response_status 等）。\n- 物件介紹文案 AI（/api/property-description/stream）每次嘗試會寫入 ai_usage_logs（含成功/失敗、tokens、延遲、provider/model）。\n- llm-monitor 頁面新增「AI 使用紀錄（含 Prompt / 模組 / 狀態）」表格（最新 100 筆）。\n\n### 2026-04-24 Sprint 1 — Trace/Eval Console MVP\n- 借鏡 Langfuse / Phoenix，將監控模型從 flat usage log 擴充為 trace / invocation / evaluation 三層。\n- 新增 Row 008 DEV-SPEC、TDD-SPEC、TDD Progress Report、Development Log Summary 與 handoff。\n- 建立 `llm_observability_traces`、`llm_observability_invocations` schema，為每次 LLM call 保留 page、company、invocation、execution、requested/effective model、raw/rendered output、evaluation、TTFT/E2E/throughput/http status 等欄位。\n- `llm-monitor` 新增 Trace Console 與 Evaluation Runs 視角，先彙整既有 `ai_usage_logs` 與 `adapter_evaluation_runs`，後續再把各 call-site 寫入原生 trace 表。\n- 新增 `lib/ai/observability.ts` best-effort helper；adapter evaluation、adapter-run test prompt/file metadata 與 property-description stream 已開始寫入原生 trace/invocation。\n- Trace Console 新增 Trace Detail sheet，可查看單筆完整 prompt、test file、raw/rendered output、evaluation 與 latency metadata。\n\n### 2026-04-25 Sprint 2 — LiteLLM Refactor\n- 分析 LiteLLM Proxy / SDK / callback 機制；決定採「借用理念不引入 Proxy」策略（因 85% LLM call 走 CLI subprocess，proxy 攔不到）。\n- 建立 `lib/ai/llm-price-map.ts`：35+ 主流模型 bundled 定價快照（Anthropic / OpenAI / Gemini / xAI / Perplexity / DeepSeek / Qwen / OpenRouter），含 `calculateCostUsd` / `normalizeModelId` / `inferProvider` utilities，取代手動維護的 `ai_model_research_reports` 查詢。\n- 建立 `lib/ai/instrumented-llm-call.ts`：`reportLLMUsage()` best-effort wrapper，任何 HTTP LLM route 完成後一行即可自動寫入 `llm_observability_invocations`（含 cost_usd 計算）。\n- 更新 `api/ai-settings/model-research/generate/route.ts`：加上 `reportLLMUsage` 埋點，Anthropic call 新增 token usage 回傳。\n- 更新 `llm-monitor/actions.ts`：`getOfficialPricingMap` 加上 bundled price map fallback，研究報告未覆蓋的模型自動補定價。\n- 建立 `app/api/llm-monitor/sync-prices/route.ts`：與 LiteLLM GitHub 上游 JSON 比對，回報 bundled snapshot 是否需要更新。\n- TS check 通過。",
   },
   {
     name: "超級管理員-網路安全－隱私審計管理功能",
@@ -2660,9 +2660,26 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedBy: "Claude Sonnet 4.5",
     lastModifiedDate: "2026/04/19",
   },
+
+  // --- Row 147: 超級管理員 — 物件地圖檢視修復 ---
+  {
+    name: "超級管理員-物件地圖檢視：Leaflet CSS 修復 + 大安區座標補設（ID 147）",
+    locatedPage: "superadmin/properties/map",
+    percentage: 90,
+    category: "超級管理員 (Super Admin)",
+    phase: "development",
+    featureDescription:
+      "修復 /superadmin/properties/map 地圖頁兩個問題：1) PropertyMapView.tsx 缺少 leaflet/dist/leaflet.css import 導致地圖 tile 分裂渲染；2) 18 筆大安區物件（敦化南路 101–117號 + 敦化南路二段精品豪宅）缺少座標無法顯示於地圖。同時清除 unused useRouter import（TS 警告）。",
+    acceptanceCriteria:
+      "1. 地圖 tile 完整渲染，無黑色空白或分裂現象\n2. 大安區 18 筆物件全部顯示為 markers（18 件已定位）\n3. Marker popup 可點擊跳至編輯頁 / Google Maps\n4. 縣市/區 篩選器可正確過濾物件\n5. TS 無 unused import 警告",
+    developmentProgress:
+      "2026/04/25\n- psql 直接更新 property_sales 表：為 18 筆大安區物件補設 latitude/longitude（敦化南路一段 101–117號 沿路排列於 25.0412~25.0420, 121.5489~121.5491；敦化南路二段精品豪宅 25.0380, 121.5490）\n- PropertyMapView.tsx：補加 `import 'leaflet/dist/leaflet.css'`，修正 tile 分裂渲染問題\n- PropertyMapView.tsx：移除未使用的 useRouter import（消除 TS 6133 警告）\n- 驗收：瀏覽器確認地圖全幅渲染、18 件已定位、markers 集中在敦化南路仁愛路四段一帶",
+    lastModifiedBy: "Claude Sonnet 4.6",
+    lastModifiedDate: "2026/04/25",
+  },
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/24 Row 008 LLM Observability Console Sprint 1",
+  lastUpdated: "2026/04/25 Row 008 LLM Monitor Sprint 2 LiteLLM Refactor",
   features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
 };

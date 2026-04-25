@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { createClient } from '@/utils/supabase/server';
+import { getModelPricing, inferProvider } from '@/lib/ai/llm-price-map';
 
 const SETTINGS_KEY = 'llm_monitor';
 const REVALIDATE_PATH = '/superadmin/dashboard/llm-monitor';
@@ -304,6 +305,26 @@ async function getOfficialPricingMap(
       output_price_per_1m: row.output_price_per_1m,
       generated_at: row.generated_at,
       source_urls: row.source_urls,
+    });
+  }
+
+  // Fallback: for display keys not covered by research reports, use bundled LiteLLM price map.
+  for (const displayKey of scope.displayKeys) {
+    if (byKey.has(displayKey)) continue;
+    const [rawProvider, ...modelParts] = displayKey.split('/');
+    const rawModelId = modelParts.join('/');
+    if (!rawModelId) continue;
+    const bundled = getModelPricing(rawModelId);
+    if (!bundled) continue;
+    const resolvedProvider = bundled.provider ?? rawProvider ?? inferProvider(rawModelId) ?? rawProvider;
+    byKey.set(displayKey, {
+      provider: resolvedProvider,
+      model_id: rawModelId,
+      // Convert from per-token to per-1M-tokens for UI display
+      input_price_per_1m: bundled.inputCostPerToken * 1_000_000,
+      output_price_per_1m: bundled.outputCostPerToken * 1_000_000,
+      generated_at: '2026-04-25T00:00:00Z',
+      source_urls: ['https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json'],
     });
   }
 

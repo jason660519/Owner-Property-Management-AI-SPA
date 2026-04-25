@@ -56,6 +56,19 @@
 - Superadmin 後台：http://localhost:3001/superadmin/dashboard
 - 開發進度儀表板：http://localhost:3001/superadmin/dashboard/project-progress
 
+### 跨 IDE Skills 同步
+
+當你新增或修改 `.claude/skills/` 後，請執行以下指令，把 skills 同步到其他 AI 平台目錄：
+
+```bash
+npm run sync:skills
+```
+
+使用時機：
+- 新增 skill（新資料夾或 `SKILL.md`）
+- 修改既有 skill 內容
+- 切換到其他 IDE 前，確認各平台 skills 一致
+
 ### 查看本機 IP (供手機訪問)
 
 ```bash

@@ -45,6 +45,22 @@
 
 ---
 
+## 🤖 跨 IDE Skills 同步（Tools）
+
+> 位置：`tools/`
+
+| 腳本名稱 | 格式 | 說明 |
+| :--- | :--- | :--- |
+| `tools/sync-skills-from-claude.sh` | Shell | 以 `.claude/skills` 為單一來源，將 skills 同步到 `.agents/skills`、`.codex/skills`、`.cursor/skills`、`.agent/skills`、`.github/skills`、`.opencode/skill`。 |
+
+建議統一使用 npm 入口執行：
+
+```bash
+npm run sync:skills
+```
+
+---
+
 ## ▶️ 專案啟停腳本補充
 
 ### `start.sh`

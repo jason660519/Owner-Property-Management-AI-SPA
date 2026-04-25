@@ -3,8 +3,9 @@
 // interactive Leaflet markers; properties without coords are listed below.
 'use client';
 
+import 'leaflet/dist/leaflet.css';
+
 import { useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { MapPin, AlertTriangle, ExternalLink } from 'lucide-react';
 import type { PropertyItem } from '@/lib/types/properties';
 
@@ -36,7 +37,6 @@ function formatPrice(p: PropertyItem): string {
 }
 
 export function PropertyMapView({ properties }: Props) {
-  const router = useRouter();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   // Keep a ref to the Leaflet map instance so we can destroy it on unmount
   const mapInstanceRef = useRef<import('leaflet').Map | null>(null);
@@ -52,9 +52,8 @@ export function PropertyMapView({ properties }: Props) {
     import('leaflet').then((L) => {
       if (destroyed || !mapContainerRef.current) return;
 
-      // Fix default marker icon paths broken by webpack
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      delete (L.Icon.Default.prototype as any)._getIconUrl;
+      const iconProto = L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown };
+      delete iconProto._getIconUrl;
       L.Icon.Default.mergeOptions({
         iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
         iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
