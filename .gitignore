@@ -44,6 +44,11 @@ docker/**/.env.*.bak*
 # ============================================
 .DS_Store
 .agents/
+.agent/
+.codex/
+.opencode/
+.cursor/skills/
+.github/skills/
 .playwright-cli/
 .vscode/
 .idea/
@@ -111,6 +116,7 @@ docker/paperclip/.env.paperclip
 # Project Specific
 # ============================================
 CLAUDE.local.md
+keys-snapshot.md
 test-output-*.png
 Google Drive Outh.json
 Outh.json
