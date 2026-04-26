@@ -71,6 +71,9 @@
 
 **每次完成工作後**，將成果更新至 `apps/superadmin/app/data/roadmap.ts`（`RAW_FEATURES` 陣列末端新增或修改對應項目）。
 
+- Row ID 一律以儀表板 ID 欄或 `RAW_FEATURES` 完整 1-based 順序為準；**不要**用依賴可選欄位（如 `devLogDocPath`、`testScriptPath`）的 regex / parser 估算，否則會把文件掛到錯列。
+- 若 user 已提供 Row ID / 截圖，先信任該 ID，再核對 `name`、`testScriptPath`、`devLogDocPath`、`ROADMAP_DATA.lastUpdated` 是否一致。
+
 ### 必填欄位
 
 | 欄位               | 說明                              |

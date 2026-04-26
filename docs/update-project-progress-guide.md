@@ -1,6 +1,6 @@
 # 專案進度儀表板更新指南
 
-> **創建日期**: 2026-02-14 | **更新日期**: 2026-03-07 | **位置**: `docs/update-project-progress-guide.md`
+> **創建日期**: 2026-02-14 | **更新日期**: 2026-04-27 | **位置**: `docs/update-project-progress-guide.md`
 > **用途**: 更新專案開發進度儀表板時，請依本指南操作（欄位、格式、連結規則、流程）。
 > **文件格式**: 本專案採 **Markdown 優先**（見下方「文件格式：Markdown 優先」），Feature Spec / TDD Spec / TDD Progress Report 一律使用 `.md`，以利 AI 讀取與版本控制。
 
@@ -55,6 +55,113 @@ http://localhost:3001/superadmin/dashboard/project-progress#testing
 | 14 | **Notes / 備註**                                 | —                                     | 備註欄（目前顯示 `—`，預留擴充）                                                                                                                                                                   |
 
 > ⚠️ **測試腳本目錄注意**：欄8 的自動產生路徑為 `apps/superadmin/unit_test/{ID}/`（**非** `unit_and_integration_test`）。
+
+## 🆔 Row ID 辨識防呆（必讀）
+
+本專案的 Row ID 曾發生過「用錯方法計算陣列順序，導致文件掛到錯列」的事故。之後請把以下規則視為硬性規則：
+
+1. **以儀表板畫面上的 ID 欄為最高優先真值**。
+   - 若 user 提供截圖、URL、或明確說「Row 114」，先視 `114` 為目標列。
+   - 不要先用 feature 名稱反推另一個 ID，再拿那個反推結果覆蓋 user 提供的 ID。
+2. **若必須從程式碼驗證 ID，只能依完整 `RAW_FEATURES` 1-based 順序計算**。
+   - 可以先用 `name` 搜尋鎖定候選物件，再以完整陣列順序確認實際 index。
+   - **禁止**使用只匹配部分欄位的 regex 來數列，例如要求物件同時含 `devLogDocPath`、`testScriptPath`、`docPath` 等可選欄位；任何缺欄位的列都會被跳過，造成 ID 漂移。
+3. **feature 名稱搜尋只能用來定位候選列，不能單獨當作 Row ID 依據**。
+   - 同一主題可能有相近名稱。
+   - roadmap 欄位完整度不一致時，名稱搜尋 + 不完整 parser 很容易誤算。
+4. **正式下手前，至少核對以下 3 項是否一致**：
+   - 儀表板 ID / user 提供的 Row ID
+   - `roadmap.ts` 內的 exact feature `name`
+   - 對應測試目錄 `apps/superadmin/unit_test/{ID}` 與 `apps/superadmin/e2e/{ID}`
+5. **修改完成後，再做一次回寫驗證**：
+   - `devLogDocPath`
+   - `featureSpecDocPath`
+   - `tddSpecDocPath`
+   - `docPath`
+   - `testScriptPath`
+   - `ROADMAP_DATA.lastUpdated`
+   - 以上欄位都不得殘留錯的 Row ID。
+
+### 常見錯誤示例
+
+- 錯誤作法：用 regex 只抓同時有 `devLogDocPath` 和 `testScriptPath` 的物件，再把抓到的結果當作全陣列排名。
+- 錯誤原因：不少舊列沒有這些欄位，會被略過，最後算出的 index 會比真實 Row ID 小。
+- 正確作法：先以 `name` 搜尋鎖定候選，再依完整 `RAW_FEATURES` 順序確認 1-based index，或直接以儀表板 ID 為準。
+
+### 安全辨識 Row ID 的標準 Node 檢查範本
+
+以下範本的目的只有一個：**從完整 `RAW_FEATURES` 陣列安全算出 1-based Row ID**。
+
+- 它不依賴 `devLogDocPath`、`testScriptPath` 等可選欄位。
+- 它只拿 `name` 當搜尋條件，再用完整陣列順序算 index。
+- 若 user 已明確指定 Row ID，仍應以 user / 儀表板顯示的 ID 為主，這段只用來交叉驗證。
+
+```bash
+node - <<'NODE'
+const fs = require('fs');
+
+const filePath = 'apps/superadmin/app/data/roadmap.ts';
+const targetName = '開發環境 Docker 整合 - Paperclip 自動啟停';
+const content = fs.readFileSync(filePath, 'utf8');
+
+const startToken = 'const RAW_FEATURES: RoadmapFeature[] = [';
+const start = content.indexOf(startToken);
+if (start === -1) {
+   throw new Error('Could not find RAW_FEATURES');
+}
+
+const arrayStart = content.indexOf('[', start);
+let depth = 0;
+let arrayEnd = -1;
+
+for (let index = arrayStart; index < content.length; index += 1) {
+   const char = content[index];
+   if (char === '[') depth += 1;
+   if (char === ']') depth -= 1;
+   if (depth === 0) {
+      arrayEnd = index + 1;
+      break;
+   }
+}
+
+if (arrayEnd === -1) {
+   throw new Error('Could not find RAW_FEATURES end');
+}
+
+const arrayLiteral = content.slice(arrayStart, arrayEnd);
+
+// roadmap.ts uses plain object literals, so eval is acceptable here for local read-only verification.
+const features = eval(arrayLiteral);
+
+if (!Array.isArray(features)) {
+   throw new Error('RAW_FEATURES is not an array');
+}
+
+const rowIndex = features.findIndex((feature) => feature?.name === targetName);
+
+if (rowIndex === -1) {
+   throw new Error(`Feature not found: ${targetName}`);
+}
+
+const rowId = rowIndex + 1;
+const feature = features[rowIndex];
+
+console.log(JSON.stringify({
+   rowId,
+   name: feature.name,
+   locatedPage: feature.locatedPage ?? null,
+   testScriptPath: feature.testScriptPath ?? null,
+   devLogDocPath: feature.devLogDocPath ?? null,
+}, null, 2));
+NODE
+```
+
+#### 使用規則
+
+1. 先把 `targetName` 改成你要核對的 feature 名稱。
+2. 執行後只把輸出的 `rowId` 當作**交叉驗證結果**。
+3. 若輸出的 `rowId` 與 user / 儀表板顯示 ID 不一致，**先停下來查明原因**，不要直接改檔。
+4. 核對通過後，再建立 `apps/superadmin/unit_test/{ID}`、`apps/superadmin/e2e/{ID}` 與對應 `.md` 文件。
 
 ### 欄位與 roadmap.ts 對應摘要
 
@@ -174,6 +281,9 @@ http://localhost:3001/superadmin/dashboard/project-progress#testing
 
 1. **讀取現有資料**：讀取 `apps/superadmin/app/data/roadmap.ts` 的 `RAW_FEATURES` 陣列
 2. **識別 Row ID**：直接看儀表板 Development Tab 的 ID 欄（001, 002…），對應陣列順序
+
+   - 若 user 已提供 Row ID / 截圖，先以該 ID 為主，再到 `roadmap.ts` 驗證名稱與欄位。
+   - 若只能從程式碼側確認，必須以完整 `RAW_FEATURES` 的 1-based 順序計算；不要用依賴可選欄位的 regex / parser 估算。
 3. **決定 phase**
 
    - 功能仍在開發中 → 不填或填 `phase: 'development'`
@@ -202,9 +312,12 @@ http://localhost:3001/superadmin/dashboard/project-progress#testing
 
 
    1. 確認 Row ID（如 `027`）
+      - 先核對 user / 儀表板顯示的 ID 是否一致
+      - 再核對 feature `name` 與 `apps/superadmin/unit_test/{ID}`、`apps/superadmin/e2e/{ID}` 是否對齊
    2. 建立上述 3 個 `.md` 文件（若已存在則更新內容）
    3. 建立 `unit_test/{Row-ID}/` 和 `e2e/{Row-ID}/` 目錄（若已存在則跳過）
    4. 在 roadmap.ts 中填入 `featureSpecDocPath`、`tddSpecDocPath`、`docPath`、`testScriptPath`
+   5. 回讀檢查 `devLogDocPath`、`testScriptPath`、`ROADMAP_DATA.lastUpdated`，確認沒有掛到別的 Row ID
 
    **範例**（Row ID = 027，備份系統）：
 

@@ -2686,6 +2686,6 @@ const RAW_FEATURES: RoadmapFeature[] = [
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/27 Row 114 Agent runtime startup hardening",
+  lastUpdated: "2026/04/27 Row 126 Agent runtime startup hardening",
   features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
 };
