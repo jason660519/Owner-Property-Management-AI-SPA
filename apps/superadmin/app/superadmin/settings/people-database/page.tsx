@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Users,
@@ -75,6 +76,7 @@ function formatQualityScore(score: number | null): string {
 // ---------------------------------------------------------------------------
 
 export default function PeopleDatabasePage() {
+  const router = useRouter();
   const [stats, setStats] = useState<Stats | null>(null);
   const [expandedSection, setExpandedSection] = useState<SectionId | null>('search');
 
@@ -183,11 +185,21 @@ export default function PeopleDatabasePage() {
             資料來源
           </button>
           <div className="ml-auto flex items-center gap-2">
-            <Button asChild size="sm" variant="outline">
-              <a href="/superadmin/settings/people-database/merge-candidates">合併審核</a>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => router.push('/superadmin/settings/people-database/merge-candidates')}
+            >
+              合併審核
             </Button>
-            <Button asChild size="sm" variant="outline">
-              <a href="/superadmin/settings/people-database/ingest">Ingest 監控</a>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => router.push('/superadmin/settings/people-database/ingest')}
+            >
+              Ingest 監控
             </Button>
           </div>
         </div>

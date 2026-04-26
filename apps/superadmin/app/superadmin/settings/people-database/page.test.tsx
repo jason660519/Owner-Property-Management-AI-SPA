@@ -3,12 +3,9 @@ import '@testing-library/jest-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import PeopleDatabasePage from './page';
 
-// next/navigation hooks: useSearchParams + useRouter
-const mockReplace = jest.fn();
-let mockSearchParams = new URLSearchParams();
+const mockPush = jest.fn();
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ replace: mockReplace, push: jest.fn(), prefetch: jest.fn() }),
-  useSearchParams: () => mockSearchParams,
+  useRouter: () => ({ push: mockPush, replace: jest.fn(), prefetch: jest.fn() }),
 }));
 
 // Strip DashboardLayout chrome so the test only sees the workspace shell.
@@ -60,8 +57,7 @@ async function renderAndSettle() {
 
 describe('PeopleDatabasePage (Row 146 — 5-tab consolidation)', () => {
   beforeEach(() => {
-    mockReplace.mockClear();
-    mockSearchParams = new URLSearchParams();
+    mockPush.mockClear();
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -73,51 +69,34 @@ describe('PeopleDatabasePage (Row 146 — 5-tab consolidation)', () => {
     }) as jest.Mock;
   });
 
-  it('renders five tabs', async () => {
+  it('renders primary navigation controls', async () => {
     await renderAndSettle();
-    expect(screen.getByRole('tab', { name: /搜尋/ })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /匯入/ })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /合併審核/ })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /監控 Ingest/ })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /資料來源/ })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: '搜尋' })[0]).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: '匯入' })[0]).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: '資料來源' })[0]).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '合併審核' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ingest 監控' })).toBeInTheDocument();
   });
 
-  it('defaults to the search tab when ?tab is missing', async () => {
+  it('defaults to the search workspace expanded', async () => {
     await renderAndSettle();
-    expect(screen.getByRole('tab', { name: /搜尋/ })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
     expect(screen.getByTestId('search-workspace')).toBeInTheDocument();
   });
 
-  it('honours ?tab=ingest deep links', async () => {
-    mockSearchParams = new URLSearchParams('tab=ingest');
+  it('switches expanded workspace when a nav button is clicked', async () => {
     await renderAndSettle();
-    expect(screen.getByRole('tab', { name: /監控 Ingest/ })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
-    expect(screen.getByTestId('ingest-workspace')).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: '匯入' })[0]);
+    await waitFor(() => expect(screen.getByTestId('import-workspace')).toBeInTheDocument());
+    fireEvent.click(screen.getAllByRole('button', { name: '資料來源' })[0]);
+    await waitFor(() => expect(screen.getByTestId('sources-workspace')).toBeInTheDocument());
   });
 
-  it('falls back to the default tab when ?tab is unknown', async () => {
-    mockSearchParams = new URLSearchParams('tab=does-not-exist');
+  it('navigates to merge candidates and ingest pages', async () => {
     await renderAndSettle();
-    expect(screen.getByRole('tab', { name: /搜尋/ })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
-  });
-
-  it('writes ?tab=xxx via router.replace when a tab is clicked', async () => {
-    await renderAndSettle();
-    fireEvent.click(screen.getByRole('tab', { name: /合併審核/ }));
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledTimes(1));
-    expect(mockReplace).toHaveBeenCalledWith(
-      '/superadmin/settings/people-database?tab=merge',
-      { scroll: false },
-    );
+    fireEvent.click(screen.getByRole('button', { name: '合併審核' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ingest 監控' }));
+    expect(mockPush).toHaveBeenCalledWith('/superadmin/settings/people-database/merge-candidates');
+    expect(mockPush).toHaveBeenCalledWith('/superadmin/settings/people-database/ingest');
   });
 
   it('renders stats summary cards once /api/people-db/stats resolves', async () => {

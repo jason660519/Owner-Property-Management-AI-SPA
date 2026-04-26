@@ -1,6 +1,7 @@
 /**
  * @jest-environment node
  */
+import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 
 import { copyStagingRowsForFile, getConnectionString } from '../staging-copy';
@@ -14,6 +15,25 @@ describe('staging-copy', () => {
   beforeAll(async () => {
     pool = new Pool({ connectionString: conn, max: 2 });
     await pool.query('SELECT 1');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.people_db_files (
+        id uuid PRIMARY KEY,
+        sha256 text NOT NULL,
+        source_path text NOT NULL,
+        dataset_root text NOT NULL,
+        ext text NOT NULL,
+        size_bytes bigint NOT NULL,
+        mtime timestamptz NOT NULL,
+        status text NOT NULL
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.people_db_staging_records (
+        file_id uuid NOT NULL,
+        record_index integer NOT NULL,
+        raw jsonb NOT NULL
+      )
+    `);
   });
 
   afterAll(async () => {
@@ -21,13 +41,12 @@ describe('staging-copy', () => {
   });
 
   it('COPYs 1000 rows and matches count', async () => {
-    const ins = await pool.query<{ id: string }>(
-      `INSERT INTO public.people_db_files (sha256, source_path, dataset_root, ext, size_bytes, mtime, status)
-       VALUES ($1, $2, $3, $4, $5, NOW(), 'pending')
-       RETURNING id`,
-      ['test-sha-copy-1000', '/tmp/x', 'root', '.dbf', 1],
+    const fileId = randomUUID();
+    await pool.query(
+      `INSERT INTO public.people_db_files (id, sha256, source_path, dataset_root, ext, size_bytes, mtime, status)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), 'pending')`,
+      [fileId, 'test-sha-copy-1000', '/tmp/x', 'root', '.dbf', 1],
     );
-    const fileId = ins.rows[0].id;
     try {
       const rows: StagingRow[] = Array.from({ length: 1000 }, (_, i) => ({
         file_id: fileId,
@@ -47,13 +66,12 @@ describe('staging-copy', () => {
   });
 
   it('round-trips JSONB with CJK in raw', async () => {
-    const ins = await pool.query<{ id: string }>(
-      `INSERT INTO public.people_db_files (sha256, source_path, dataset_root, ext, size_bytes, mtime, status)
-       VALUES ($1, $2, $3, $4, $5, NOW(), 'pending')
-       RETURNING id`,
-      ['test-sha-cjk', '/tmp/y', 'root', '.dbf', 1],
+    const fileId = randomUUID();
+    await pool.query(
+      `INSERT INTO public.people_db_files (id, sha256, source_path, dataset_root, ext, size_bytes, mtime, status)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), 'pending')`,
+      [fileId, 'test-sha-cjk', '/tmp/y', 'root', '.dbf', 1],
     );
-    const fileId = ins.rows[0].id;
     try {
       const rows: StagingRow[] = [
         {
@@ -78,13 +96,12 @@ describe('staging-copy', () => {
     // DBF fixed-width fields often pad with 0x00; Postgres JSONB cannot store
     // \u0000 and COPY aborts the whole transaction if any row contains one.
     // staging-copy must scrub the NUL escape before handing it to COPY.
-    const ins = await pool.query<{ id: string }>(
-      `INSERT INTO public.people_db_files (sha256, source_path, dataset_root, ext, size_bytes, mtime, status)
-       VALUES ($1, $2, $3, $4, $5, NOW(), 'pending')
-       RETURNING id`,
-      ['test-sha-nul', '/tmp/z', 'root', '.dbf', 1],
+    const fileId = randomUUID();
+    await pool.query(
+      `INSERT INTO public.people_db_files (id, sha256, source_path, dataset_root, ext, size_bytes, mtime, status)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), 'pending')`,
+      [fileId, 'test-sha-nul', '/tmp/z', 'root', '.dbf', 1],
     );
-    const fileId = ins.rows[0].id;
     try {
       const rows: StagingRow[] = [
         {
