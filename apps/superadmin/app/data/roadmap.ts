@@ -2195,15 +2195,21 @@ const RAW_FEATURES: RoadmapFeature[] = [
     category: "通用/系統 (General/System)",
     points: 2,
     phase: "development",
-    lastModifiedBy: "Jason + GPT-5.3-Codex",
-    lastModifiedDate: "2026/04/13",
+    lastModifiedBy: "GPT-5.4",
+    lastModifiedDate: "2026/04/27",
     featureDescription:
-      "以 Docker 方式整合 Paperclip，並納入專案統一啟停流程，讓開發者執行 ./start.sh all 時可一併啟動，執行 ./stop.sh 時可一併停止。",
+      "以 start.sh / stop.sh 為中心整合本機 agent runtime 維運：Paperclip 延續 Docker 啟停與更新，並補上 Hermes Docker 啟動/更新、OpenClaw 本機設定定位、三者資料保存路徑揭露與一鍵備份。",
     acceptanceCriteria:
-      "1. 新增專案內 Paperclip compose 設定，採官方 quickstart 單容器模式。\n2. start.sh 具備 paperclip 啟動命令與 all 模式自動啟動。\n3. stop.sh 可透過 compose down 停止 Paperclip。\n4. 預設使用較少衝突的 host port（3187），並可透過 .env.paperclip 覆寫。\n5. 首次執行可自動建立 .env.paperclip 與 BETTER_AUTH_SECRET。",
+      "1. 新增專案內 Paperclip compose 設定，採官方 quickstart 單容器模式。\n2. start.sh 具備 paperclip 啟動命令與 all 模式自動啟動。\n3. stop.sh 可透過 compose down 停止 Paperclip。\n4. 預設使用較少衝突的 host port（3187），並可透過 .env.paperclip 覆寫。\n5. 首次執行可自動建立 .env.paperclip 與 BETTER_AUTH_SECRET。\n6. Hermes Dashboard 可由 start.sh 啟動、更新並在 browser 中自動開啟，且 Docker 模式更新路徑清楚。\n7. start.sh all 需顯示 Hermes / Paperclip / OpenClaw 的資料保存位置。\n8. 需提供單一 backup 指令備份三者本機持久資料，且排除 socket / pipe 類執行期檔案。",
     developmentProgress:
-      "已新增 docker/paperclip/docker-compose.paperclip.yml 與 .env.paperclip.example；start.sh 新增 ensure_paperclip_env/start_paperclip，menu 與 CLI 入口支援 paperclip；start_all 會一併啟動 Paperclip；stop.sh 新增 Paperclip compose down。2026/04/11 再優化啟動效能：start_paperclip 先檢查容器是否已 running，已執行時直接返回；預設改為使用本機快取映像檔（PAPERCLIP_AUTO_PULL=0），僅首次或手動啟用 auto-pull 才拉取最新映像，避免每次 start.sh 都卡在 docker pull。新增 update_paperclip_image 與 CLI 指令 paperclip-update，並在啟動選單提供「更新 Paperclip 映像檔」，讓使用者在需要時手動更新並重啟容器套用新版本。另將預設資料目錄從 /tmp 改為 $HOME/.paperclip-data-owner-property-management，避免系統清理暫存目錄後遺失 instance 設定。新增 Paperclip 自動開瀏覽器機制：啟動後等候 health 再開啟指定 Dashboard URL，預設導向 /VIS/agents/ceo/dashboard，可用 PAPERCLIP_AUTO_OPEN_BROWSER 與 PAPERCLIP_DASHBOARD_URL 控制。2026/04/12 補強容器執行模式：改用 CLAUDE_CODE_OAUTH_TOKEN（停用 ANTHROPIC_API_KEY credit 路徑）驗證 claude_local adapter subscription 流程；workspace 掛載策略從 read-only PoC 進展到 read-write + worktree isolation，並透過 docker exec 統一 git worktree 路徑語義（/workspace）避免 host/container 路徑漂移。2026/04/13 針對 codex_local adapter 追加穩定化：重新建立 paperclip 容器以套用最新 host OPENAI_API_KEY、確認容器內 key hash 與 host 一致；容器內執行 codex login --with-api-key 後，codex exec smoke 測試轉為可穩定成功，排除先前 Missing bearer/invalid_api_key 混合故障。",
-    docPath: "/docs/scripts-directory-guide.md",
+      "已新增 docker/paperclip/docker-compose.paperclip.yml 與 .env.paperclip.example；start.sh 新增 ensure_paperclip_env/start_paperclip，menu 與 CLI 入口支援 paperclip；start_all 會一併啟動 Paperclip；stop.sh 新增 Paperclip compose down。2026/04/11 再優化啟動效能：start_paperclip 先檢查容器是否已 running，已執行時直接返回；預設改為使用本機快取映像檔（PAPERCLIP_AUTO_PULL=0），僅首次或手動啟用 auto-pull 才拉取最新映像，避免每次 start.sh 都卡在 docker pull。新增 update_paperclip_image 與 CLI 指令 paperclip-update，並在啟動選單提供「更新 Paperclip 映像檔」，讓使用者在需要時手動更新並重啟容器套用新版本。另將預設資料目錄從 /tmp 改為 $HOME/.paperclip-data-owner-property-management，避免系統清理暫存目錄後遺失 instance 設定。新增 Paperclip 自動開瀏覽器機制：啟動後等候 health 再開啟指定 Dashboard URL，預設導向 /VIS/agents/ceo/dashboard，可用 PAPERCLIP_AUTO_OPEN_BROWSER 與 PAPERCLIP_DASHBOARD_URL 控制。2026/04/12 補強容器執行模式：改用 CLAUDE_CODE_OAUTH_TOKEN（停用 ANTHROPIC_API_KEY credit 路徑）驗證 claude_local adapter subscription 流程；workspace 掛載策略從 read-only PoC 進展到 read-write + worktree isolation，並透過 docker exec 統一 git worktree 路徑語義（/workspace）避免 host/container 路徑漂移。2026/04/13 針對 codex_local adapter 追加穩定化：重新建立 paperclip 容器以套用最新 host OPENAI_API_KEY、確認容器內 key hash 與 host 一致；容器內執行 codex login --with-api-key 後，codex exec smoke 測試轉為可穩定成功，排除先前 Missing bearer/invalid_api_key 混合故障。2026/04/27 延伸為 agent runtime 維運加固：重新接回 Hermes Docker 啟動與更新、補上 Docker-only 更新提示、修復 Paperclip `force-recreate` transient race、盤點 OpenClaw 本機設定根目錄 `~/.openclaw`、在 `start.sh all` 摘要顯示 Hermes / Paperclip / OpenClaw 的資料保存位置，並新增 `backup-agent-data` 一鍵備份三者持久資料且排除 socket / pipe 類執行期檔案。",
+    devLog:
+      "[2026/04/27] (GPT-5.4)\n• 完成 Hermes Docker 啟動/更新整合，新增 hermes-update 與 Docker-only 提示。\n• 修復 Paperclip update 的 Docker recreate 競態，更新流程可自動重試並穩定回到 Up。\n• 盤點三個 runtime 的資料保存位置：Hermes `~/.hermes-opm`、Paperclip `PAPERCLIP_DATA_DIR`、OpenClaw `~/.openclaw`。\n• 新增 `backup-agent-data`，可打包 Hermes / Paperclip / OpenClaw 本機持久資料，並排除 socket / pipe。\n• 建立 Row 126 對應 DEV-SPEC / TDD SPEC / TDD Progress Report / Development Log Summary。",
+    devLogDocPath: "/project-process/dev-logs/126-development-log-summary.md",
+    featureSpecDocPath: "/project-process/features/agent-runtime-startup-hardening-dev-spec-20260427.md",
+    tddSpecDocPath: "/project-process/features/tdd-agent-runtime-startup-hardening-20260427.md",
+    docPath: "/project-process/test-logs/test-agent-runtime-startup-hardening-2026-04-27.md",
+    testScriptPath: "apps/superadmin/unit_test/126",
   },
   {
     name: "Superadmin × Paperclip 開發流程整合（Prompt→Issue→Worktree→Diff→Merge）",
@@ -2680,6 +2686,6 @@ const RAW_FEATURES: RoadmapFeature[] = [
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/25 Row 008 LLM Monitor Sprint 2 LiteLLM Refactor",
+  lastUpdated: "2026/04/27 Row 114 Agent runtime startup hardening",
   features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
 };

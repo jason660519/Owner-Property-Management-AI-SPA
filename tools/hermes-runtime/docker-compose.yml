@@ -1,0 +1,40 @@
+services:
+  hermes:
+    image: nousresearch/hermes-agent:latest
+    container_name: hermes-opm
+    restart: unless-stopped
+    command: gateway run
+    environment:
+      HERMES_HOME: /opt/data
+      TERMINAL_ENV: local
+      TERMINAL_CWD: /workspace/project
+    volumes:
+      - ${HERMES_HOME_DIR}:/opt/data
+      - ${PROJECT_ROOT}:/workspace/project
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    networks:
+      - hermes-net
+
+  hermes-dashboard:
+    image: nousresearch/hermes-agent:latest
+    container_name: hermes-dashboard
+    restart: unless-stopped
+    command: dashboard --host 0.0.0.0 --port ${HERMES_DASHBOARD_PORT:-9119} --no-open --insecure
+    environment:
+      HERMES_HOME: /opt/data
+      GATEWAY_HEALTH_URL: http://hermes:8642
+    ports:
+      - 127.0.0.1:${HERMES_DASHBOARD_PORT:-9119}:${HERMES_DASHBOARD_PORT:-9119}
+    volumes:
+      - ${HERMES_HOME_DIR}:/opt/data
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    depends_on:
+      - hermes
+    networks:
+      - hermes-net
+
+networks:
+  hermes-net:
+    driver: bridge

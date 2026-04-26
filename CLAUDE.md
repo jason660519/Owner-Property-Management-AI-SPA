@@ -20,6 +20,7 @@
 | Next.js / React 慣例、Badge / Sidebar / 設計 token | `.claude/rules/frontend/react-next.md` |
 | 禁止降級的套件（React 19 / Next 16 等）、Node 25 + tsx 運行時陷阱 | `.claude/rules/critical-deps.md` |
 | AI Adapter 註冊（provider/model prefix、id 命名、豁免清單） | `.claude/rules/backend/ai-adapter.md` |
+| Claude Code background shell 漏水點（`/private/tmp/claude-*` 無上限累積、dev server 禁忌） | `.claude/rules/claude-code-background-shell.md` |
 
 ## 啟動
 

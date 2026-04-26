@@ -13,6 +13,7 @@ LOG_DIR="$PROJECT_ROOT/logs/dev"
 PAPERCLIP_ENV_FILE="$PROJECT_ROOT/docker/paperclip/.env.paperclip"
 PAPERCLIP_COMPOSE_FILE="$PROJECT_ROOT/docker/paperclip/docker-compose.paperclip.yml"
 ELASTIC_COMPOSE_FILE="$PROJECT_ROOT/backend/elasticsearch/docker-compose.yml"
+HERMES_RUNTIME_COMPOSE_FILE="$PROJECT_ROOT/tools/hermes-runtime/docker-compose.yml"
 PAPERCLIP_PORT="3187"
 
 if [ -f "$PAPERCLIP_ENV_FILE" ]; then
@@ -61,6 +62,24 @@ elif docker ps -a --format '{{.Names}}' | grep -q '^paperclip-paperclip-1$'; the
 fi
 kill_port "$PAPERCLIP_PORT" "Paperclip"
 
+# 停止 Hermes Docker 服務
+if [ -f "$HERMES_RUNTIME_COMPOSE_FILE" ]; then
+    echo -e "${YELLOW}Stopping Hermes Dashboard (Docker)...${NC}"
+    (
+        cd "$PROJECT_ROOT/tools/hermes-runtime"
+        PROJECT_ROOT="$PROJECT_ROOT" \
+        HERMES_HOME_DIR="${HERMES_HOME_DIR:-$HOME/.hermes-opm}" \
+        docker compose -f "$HERMES_RUNTIME_COMPOSE_FILE" down
+    ) > /dev/null 2>&1 || true
+    echo -e "${GREEN}✅ Hermes Dashboard stopped${NC}"
+elif docker ps -a --format '{{.Names}}' | grep -Eq '^(hermes-opm|hermes-dashboard)$'; then
+    echo -e "${YELLOW}Stopping Hermes containers directly...${NC}"
+    docker rm -f hermes-opm hermes-dashboard > /dev/null 2>&1 || true
+    echo -e "${GREEN}✅ Hermes Dashboard stopped${NC}"
+fi
+kill_port 9119 "Hermes Dashboard"
+kill_port 9120 "Hermes Dashboard (Alt Port)"
+
 # 停止 Elasticsearch / Kibana Docker 服務
 if [ -f "$ELASTIC_COMPOSE_FILE" ]; then
     echo -e "${YELLOW}Stopping Elasticsearch + Kibana (Docker)...${NC}"
@@ -83,9 +102,24 @@ rm -f \
     "$LOG_DIR/nextjs-au.log" \
     "$LOG_DIR/superadmin.log" \
     "$LOG_DIR/paperclip.log" \
+    "$LOG_DIR/hermes-runtime.log" \
     /tmp/nextjs.log \
     /tmp/nextjs-au.log \
     /tmp/superadmin.log 2>/dev/null
+
+# 2.5 清理 Claude Code background-shell 攔截的 log
+# 已知問題：Claude Code 把 run_in_background 子進程的 stdout/stderr 存到
+# /private/tmp/claude-{UID}/tasks/，沒有 rotation/自動清理。
+# 長時間累積可達數十 GB（GitHub anthropics/claude-code#35164）。
+# 詳見 .claude/rules/claude-code-background-shell.md
+CLAUDE_TMP_TASKS="/private/tmp/claude-$(id -u)/tasks"
+if [ -d "$CLAUDE_TMP_TASKS" ]; then
+    CLAUDE_TMP_SIZE=$(du -sh "$CLAUDE_TMP_TASKS" 2>/dev/null | awk '{print $1}')
+    echo -e "${YELLOW}🧹 清理 Claude Code background-shell logs ($CLAUDE_TMP_TASKS, 目前 $CLAUDE_TMP_SIZE)...${NC}"
+    # 只清 24h 前的檔案，避免砍掉正在執行的 task 輸出
+    find "$CLAUDE_TMP_TASKS" -type f -mtime +1 -delete 2>/dev/null || true
+    echo -e "${GREEN}✅ Claude Code logs 已清理（保留 24h 內的 active log）${NC}"
+fi
 
 # 3. 詢問 Supabase
 echo ""
