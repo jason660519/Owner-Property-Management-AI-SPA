@@ -58,6 +58,7 @@ type SettingsTab =
   | 'keys'
   | 'llm-leaderboard'
   | 'evaluations-global'
+  | 'evaluations-visual'
   | 'http-adapter-config'
   | 'model-router'
   | 'ocr';
@@ -66,6 +67,7 @@ const TAB_IDS: SettingsTab[] = [
   'keys',
   'llm-leaderboard',
   'evaluations-global',
+  'evaluations-visual',
   'http-adapter-config',
   'model-router',
   'ocr',
@@ -189,7 +191,13 @@ const TABS: { id: SettingsTab; label: string; icon: React.ElementType; descripti
   },
   {
     id: 'evaluations-global',
-    label: 'AI 模型全域評測',
+    label: 'LLM能力評測',
+    icon: FlaskConical,
+    description: '',
+  },
+  {
+    id: 'evaluations-visual',
+    label: '視覺解析能力評測',
     icon: FlaskConical,
     description: '',
   },
@@ -239,7 +247,15 @@ const SHEET_TABS: SheetTabDef[] = [
   {
     id: 'evaluations-global',
     label: '',
-    zhLabel: 'AI 模型全域評測',
+    zhLabel: 'LLM能力評測',
+    icon: FlaskConical,
+    color: 'text-emerald-600',
+    activeColor: 'bg-emerald-600 text-white',
+  },
+  {
+    id: 'evaluations-visual',
+    label: '',
+    zhLabel: '視覺解析能力評測',
     icon: FlaskConical,
     color: 'text-emerald-600',
     activeColor: 'bg-emerald-600 text-white',
@@ -1323,6 +1339,7 @@ export default function AIServiceSettingsPage() {
       case 'keys':
       case 'llm-leaderboard':
       case 'evaluations-global':
+      case 'evaluations-visual':
       default:
         return 'general';
     }
@@ -1425,6 +1442,7 @@ export default function AIServiceSettingsPage() {
       case 'keys':
       case 'llm-leaderboard':
       case 'evaluations-global':
+      case 'evaluations-visual':
       default:
         return 'eval_general_global_prompt';
     }
@@ -1854,7 +1872,7 @@ export default function AIServiceSettingsPage() {
       return <LlmLeaderboardPanel />;
     }
 
-    if (activeTab === 'evaluations-global') {
+    if (activeTab === 'evaluations-global' || activeTab === 'evaluations-visual') {
       return (
         <div className="flex min-h-0 flex-1 flex-col gap-3">
           <EvaluationsGlobalPanel
@@ -1866,7 +1884,9 @@ export default function AIServiceSettingsPage() {
             bulkRunAllStartedAtMs={evalGlobalBulkStarting ? evalGlobalBulkRunStartedAtMs : null}
             onRunRow={handleEvalGlobalRunRow}
             onControlRow={handleEvalGlobalControlRow}
-            onWidthPresetOverwriteSaved={focusEvaluationsGlobalTab}
+            onWidthPresetOverwriteSaved={
+              activeTab === 'evaluations-visual' ? focusEvaluationsVisualTab : focusEvaluationsGlobalTab
+            }
           />
           <div className="shrink-0">{renderAdapterRunNoticesColumn()}</div>
         </div>
@@ -2206,6 +2226,14 @@ export default function AIServiceSettingsPage() {
     }
   }, []);
 
+  /** Visual evaluations: after overwriting a width preset, switch back to the tab and sync the URL hash */
+  const focusEvaluationsVisualTab = useCallback(() => {
+    setActiveTab('evaluations-visual');
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', '#evaluations-visual');
+    }
+  }, []);
+
   const fixedBlock = (
     <div className="w-full px-4 lg:px-6 py-3 bg-bg-secondary border-b border-border-subtle">
       <div className="w-full">
@@ -2222,6 +2250,7 @@ export default function AIServiceSettingsPage() {
             )}
             {activeTab !== 'llm-leaderboard' &&
             activeTab !== 'evaluations-global' &&
+            activeTab !== 'evaluations-visual' &&
             activeTab !== 'http-adapter-config' &&
             activeTab !== 'model-router' && (
             <div className="flex items-center gap-2 shrink-0">

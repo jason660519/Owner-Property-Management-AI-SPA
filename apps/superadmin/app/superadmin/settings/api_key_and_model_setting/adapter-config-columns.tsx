@@ -431,7 +431,7 @@ export function createAdapterConfigColumns(
 
     col.display({
       id: 'col-review',
-      meta: meta('Evaluation', '測試評價'),
+      meta: meta('LLM', '測試評價'),
       enableSorting: false,
       cell: ({ row }) => {
         const { item, draft } = row.original;

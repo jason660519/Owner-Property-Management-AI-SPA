@@ -51,13 +51,6 @@ function hasRawOutput(outputLines: string[]): boolean {
 }
 
 /** CLI 有完整 log，但 deriveResultFromLogs 只取最後一行時，render 可能過短；此時仍以 raw 整段為準。 */
-function hasMeaningfulAdapterOutput(renderedOutput: string, outputLines: string[]): boolean {
-  if (hasRenderableOutput(renderedOutput)) return true;
-  const substantive = outputLines.filter((line) => !isAdapterRunMetaLine(line));
-  const joined = substantive.join('\n');
-  return meaningfulCharCount(joined) >= MIN_MEANINGFUL_OUTPUT_CHARS;
-}
-
 function lastNonEmptyLine(lines: string[]): string {
   for (let i = lines.length - 1; i >= 0; i--) {
     const s = lines[i].trim();
@@ -267,10 +260,8 @@ export function evaluateAdapterRun(input: EvaluateAdapterRunInput): AdapterEvalu
   }
   const modelMatched = !!requestedModel && modelsMatchForEvaluation(requestedModel, effectiveModel);
   const rawOk = hasRawOutput(input.outputLines);
-  const outputMeaningfulEnough = hasMeaningfulAdapterOutput(renderedOutput, input.outputLines);
-
-  if (!outputMeaningfulEnough) {
-    return { level: 'fail', message: '不及格（render 與 raw 皆過短或空白）' };
+  if (!hasRenderableOutput(renderedOutput)) {
+    return { level: 'fail', message: '不及格（rendered output 過短或空白）' };
   }
 
   if (hasNoActualModelReply(renderedOutput, input.outputLines)) {
@@ -317,5 +308,5 @@ export function evaluateAdapterRun(input: EvaluateAdapterRunInput): AdapterEvalu
     };
   }
 
-  return { level: 'pass', message: '模型正確（及格）' };
+  return { level: 'pass', message: 'LLM測試成功且model型號正確（及格）' };
 }

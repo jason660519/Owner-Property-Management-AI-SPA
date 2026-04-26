@@ -95,7 +95,7 @@ export const EVALUATIONS_GLOBAL_TABLE_ID = 'ai-settings-evaluations-global-v2';
 
 /** 欄寬百分比，加總為 100（見 EnhancedTable 技能說明） */
 export const EVALUATIONS_GLOBAL_TABLE_INITIAL_WIDTHS = [
-  3, 6, 3, 3, 8, 9, 7, 6, 7, 8, 8, 5, 4, 4, 4, 3, 12,
+  3, 6, 3, 3, 8, 12, 6, 7, 8, 8, 5, 4, 4, 4, 4, 3, 10,
 ] as const;
 
 export const EVALUATIONS_GLOBAL_TABLE_MIN_WIDTH_PX = 3180;
@@ -378,30 +378,6 @@ export function createEvaluationsGlobalColumns(
         );
       },
     }),
-    col.accessor('testFileNames', {
-      id: 'col-files',
-      header: 'Test files',
-      meta: { headerEn: 'Test files', headerZh: 'Test Files' },
-      cell: ({ getValue }) => {
-        const names = getValue();
-        if (!names.length) {
-          return <span className="text-text-muted italic text-xs">—</span>;
-        }
-        return (
-          <div className="flex max-w-[200px] flex-wrap gap-1">
-            {names.map((n) => (
-              <span
-                key={n}
-                className="inline-block max-w-full truncate rounded border border-border-subtle bg-bg-secondary px-1.5 py-0.5 text-[10px] text-text-secondary"
-                title={n}
-              >
-                {n}
-              </span>
-            ))}
-          </div>
-        );
-      },
-    }),
     col.display({
       id: 'col-run',
       header: 'Run',
@@ -517,8 +493,8 @@ export function createEvaluationsGlobalColumns(
     }),
     col.display({
       id: 'col-eval',
-      header: 'Evaluation',
-      meta: { headerEn: 'Evaluation', headerZh: '測試評價' },
+      header: 'LLM',
+      meta: { headerEn: 'LLM', headerZh: '測試評價' },
       enableSorting: false,
       cell: ({ row }) => {
         const r = row.original;

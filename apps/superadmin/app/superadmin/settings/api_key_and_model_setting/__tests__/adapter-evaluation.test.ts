@@ -16,7 +16,7 @@ describe('evaluateAdapterRun', () => {
 
     expect(result).toEqual({
       level: 'fail',
-      message: '不及格（render 與 raw 皆過短或空白）',
+      message: '不及格（rendered output 過短或空白）',
     });
   });
 
@@ -72,7 +72,7 @@ describe('evaluateAdapterRun', () => {
 
     expect(result).toEqual({
       level: 'pass',
-      message: '模型正確（及格）',
+      message: 'LLM測試成功且model型號正確（及格）',
     });
   });
 
@@ -191,7 +191,7 @@ describe('evaluateAdapterRun', () => {
     ).toBe('fail');
   });
 
-  it('passes when render is short but raw log has enough text (deriveResultFromLogs edge case)', () => {
+  it('fails when render is short even if raw log has enough text', () => {
     const longRaw = '這是一段足夠長的 CLI 輸出內容用於測試';
     const result = evaluateAdapterRun({
       requestedModel: 'claude-3-5-sonnet',
@@ -200,7 +200,10 @@ describe('evaluateAdapterRun', () => {
       outputLines: [longRaw],
     });
 
-    expect(result.level).toBe('pass');
+    expect(result).toEqual({
+      level: 'fail',
+      message: '不及格（rendered output 過短或空白）',
+    });
   });
 
   it('fails when raw is only adapter bookkeeping (no model reply)', () => {
@@ -217,7 +220,7 @@ describe('evaluateAdapterRun', () => {
     });
 
     expect(result.level).toBe('fail');
-    expect(result.message).toMatch(/render 與 raw 皆過短或空白/);
+    expect(result.message).toMatch(/rendered output 過短或空白/);
   });
 
   it('still warns when different model versions (e.g. minimax m2.6 vs m2.7)', () => {
@@ -267,7 +270,7 @@ describe('evaluateAdapterRun', () => {
       outputLines: ['ok'],
     });
 
-    expect(result).toEqual({ level: 'pass', message: '模型正確（及格）' });
+    expect(result).toEqual({ level: 'pass', message: 'LLM測試成功且model型號正確（及格）' });
   });
 
   it('passes when model self-reports family without a version (cannot disprove)', () => {
