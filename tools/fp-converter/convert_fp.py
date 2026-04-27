@@ -96,6 +96,24 @@ _SECTION_HEADERS = frozenset({
     '土地標示部', '土地所有權部', '土地他項權利部',
 })
 
+_FALLBACK_FIELD_LABELS = tuple(sorted(
+    _ALL_KNOWN_LABELS | {
+        '序號', '部別', '異動別', '異動日期', '權利人', '收件字號', '列印日期', '查詢日期',
+        '地段', '地 / 建號', '地/建號',
+    },
+    key=len,
+    reverse=True,
+))
+
+_SECTION_HEADER_PATTERN = re.compile(
+    '|'.join(sorted((re.escape(name) for name in _SECTION_HEADERS), key=len, reverse=True))
+)
+
+_FALLBACK_FIELD_PATTERN = re.compile(
+    rf'(?P<label>{"|".join(re.escape(label) for label in _FALLBACK_FIELD_LABELS)})：'
+    rf'(?P<value>.*?)(?=(?:{"|".join(re.escape(label) for label in _FALLBACK_FIELD_LABELS)})：|$)'
+)
+
 
 # ---------------------------------------------------------------------------
 # Step 1: raw binary extraction (x-aware, no dedup)
@@ -309,8 +327,12 @@ def extract_text_from_fp(filepath: Path) -> list[str]:
     """
     if filepath.stat().st_size < 4:
         raise ValueError(f'File too small: {filepath.name}')
+    header = filepath.read_bytes()[:4]
     raw = _extract_raw_records(filepath)
-    return _preprocess(raw)
+    tokens = _preprocess(raw)
+    if not tokens and header == b'FINC':
+        raise ValueError(f'Unsupported FINC legacy binary format: {filepath.name}')
+    return tokens
 
 
 def _is_valid_char(c: str) -> bool:
@@ -385,6 +407,66 @@ def _parse_doc_structure(tokens: list[str]) -> dict:
         else:
             i += 1
 
+    if structure['sections']:
+        return structure
+
+    return _parse_doc_structure_without_markers(tokens)
+
+
+def _normalize_inline_field_text(text: str) -> str:
+    text = re.sub(r'\s*[:：]\s*', '：', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return re.sub(r'民國\s*(\d+)\s*年\s*(\d+)\s*月\s*(\d+)\s*日', r'民國\1年\2月\3日', text)
+
+
+def _parse_fields_from_inline_text(text: str) -> list[tuple[str, str]]:
+    normalized = _normalize_inline_field_text(text)
+    fields: list[tuple[str, str]] = []
+    for match in _FALLBACK_FIELD_PATTERN.finditer(normalized):
+        label = match.group('label').strip()
+        value = _normalize_inline_field_text(match.group('value'))
+        if label or value:
+            fields.append((label, value))
+    return fields
+
+
+def _parse_doc_structure_without_markers(tokens: list[str]) -> dict:
+    structure: dict = {'header_tokens': [], 'sections': []}
+    cleaned = [re.sub(r'\s+', ' ', token).strip() for token in tokens if token.strip()]
+    if not cleaned:
+        return structure
+
+    first_section_index = next(
+        (index for index, token in enumerate(cleaned) if _SECTION_HEADER_PATTERN.search(token)),
+        None,
+    )
+    if first_section_index is None:
+        structure['header_tokens'] = cleaned
+        return structure
+
+    structure['header_tokens'] = cleaned[:first_section_index]
+
+    current_name: str | None = None
+    current_tokens: list[str] = []
+
+    def flush_current_section() -> None:
+        if current_name is None:
+            return
+        fields = _parse_fields_from_inline_text(' '.join(current_tokens))
+        if fields:
+            structure['sections'].append({'name': current_name, 'fields': fields})
+
+    for token in cleaned[first_section_index:]:
+        match = _SECTION_HEADER_PATTERN.search(token)
+        if match:
+            flush_current_section()
+            current_name = match.group(0)
+            trailing = token[match.end():].strip()
+            current_tokens = [trailing] if trailing else []
+            continue
+        current_tokens.append(token)
+
+    flush_current_section()
     return structure
 
 
@@ -865,10 +947,7 @@ def collect_fp_files(path: Path) -> list[Path]:
     if path.is_file():
         return [path]
     if path.is_dir():
-        files = sorted(path.glob('*.fp'))
-        if not files:
-            files = sorted(path.rglob('*.fp'))
-        return files
+        return sorted(candidate for candidate in path.rglob('*') if candidate.is_file() and candidate.suffix.lower() == '.fp')
     raise FileNotFoundError(f'Path not found: {path}')
 
 
