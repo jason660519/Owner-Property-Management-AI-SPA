@@ -24,6 +24,7 @@ import json
 import re
 import struct
 import sys
+import zlib
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -56,13 +57,16 @@ _VALUE_UNIT_CHARS = frozenset('層頁年月日元坪倍期間數量')
 # Used in _merge_label_singles to avoid incorrectly stopping the scan.
 _VALUE_UNIT_CHARS = frozenset('層頁年月日元坪倍期數量')
 
-# Known system/authority names used in the page header
+# Known system/authority names used in the page header.
+# Includes the pre-2010 legacy variant ('地籍地價地籍圖資料電傳資訊服務系統')
+# emitted by older FinePrint-encoded transcripts.
 _SYSTEM_NAMES = frozenset({
     '光特版地政電傳資訊系統',
     '光特版地政電子閘門資訊系統',
     '地政電傳資訊系統',
     '地政電子閘門資訊系統',
     '地政電子謄本',
+    '地籍地價地籍圖資料電傳資訊服務系統',
 })
 
 # Comprehensive set of known field-label tokens in Taiwan land registry documents
@@ -119,13 +123,13 @@ _FALLBACK_FIELD_PATTERN = re.compile(
 # Step 1: raw binary extraction (x-aware, no dedup)
 # ---------------------------------------------------------------------------
 
-def _extract_raw_records(filepath: Path) -> list[tuple[str, int]]:
+def _extract_raw_records_from_bytes(data: bytes) -> list[tuple[str, int]]:
     """
-    Return (text, x_val) for every valid text record in byte-offset order.
-    x_val comes from the nearest preceding 0x13 position record (within 300 bytes).
-    No deduplication.
+    Internal helper: same scanning logic as _extract_raw_records but operates
+    on a raw byte buffer instead of a file path. This allows callers to scan
+    legacy FinePrint payloads after they have been zlib-decompressed (see
+    _decompress_legacy_finc_pages).
     """
-    data = filepath.read_bytes()
     n = len(data)
 
     # Collect 0x13 position records: offset → x_value
@@ -167,31 +171,144 @@ def _extract_raw_records(filepath: Path) -> list[tuple[str, int]]:
     return [(text, x) for _, text, x in results]
 
 
+def _extract_raw_records(filepath: Path) -> list[tuple[str, int]]:
+    """
+    Return (text, x_val) for every valid text record in byte-offset order.
+    x_val comes from the nearest preceding 0x13 position record (within 300 bytes).
+    No deduplication. Thin wrapper around _extract_raw_records_from_bytes
+    so existing callers and tests keep their file-path API.
+    """
+    return _extract_raw_records_from_bytes(filepath.read_bytes())
+
+
+# ---------------------------------------------------------------------------
+# Legacy FINC v2 zlib-compressed page format (pre-2012 transcripts)
+# ---------------------------------------------------------------------------
+#
+# Layout:
+#   bytes 0..3   : "FINC" magic
+#   bytes 4..7   : version (uint32-LE, observed value: 2)
+#   bytes 8..11  : page_count (uint32-LE)
+#   bytes 12..   : N x 16-byte page descriptors, where each descriptor is
+#                  (offset_in_file, type, compressed_size, uncompressed_size)
+#                  all uint32-LE. Total header size = 12 + 16 * page_count
+#                  (typically 60 bytes for a 3-page transcript).
+#   bytes ...    : per-page payloads, each one a raw deflate stream
+#                  (zlib.decompress(..., wbits=-15)) that decompresses to a
+#                  classic 0x1E / 0x13 FinePrint record stream identical to
+#                  the post-2012 uncompressed format.
+#
+# Reverse-engineered 2026-04-27 against
+#   resources/samples/新謄本/97~100年度/9703/9703-226_忠孝東路4段17巷4號.fp
+# and the other ~50% of the 新謄本 corpus that previously produced empty
+# tokens (and therefore empty PDFs that displayed only the page header /
+# address line — the symptom that motivated this fix).
+
+
+def _decompress_legacy_finc_pages(data: bytes) -> list[bytes]:
+    """
+    Best-effort decompression of legacy FINC v2 page payloads.
+
+    Returns a list of decompressed page byte strings, or an empty list when
+    the file does not match the legacy layout. Never raises — callers fall
+    back to the canonical 0x1E scan when this returns an empty list.
+    """
+    if len(data) < 16 or data[:4] != b'FINC':
+        return []
+
+    try:
+        version, page_count = struct.unpack_from('<II', data, 4)
+    except struct.error:
+        return []
+
+    if version != 2 or page_count == 0 or page_count > 1024:
+        return []
+
+    descriptor_table_end = 12 + page_count * 16
+    if descriptor_table_end > len(data):
+        return []
+
+    pages: list[bytes] = []
+    for i in range(page_count):
+        off = 12 + i * 16
+        try:
+            file_offset, _type, compressed_size, _uncompressed_size = struct.unpack_from(
+                '<IIII', data, off,
+            )
+        except struct.error:
+            return []
+        if file_offset < descriptor_table_end:
+            return []
+        if file_offset + compressed_size > len(data):
+            return []
+        chunk = data[file_offset:file_offset + compressed_size]
+        try:
+            decompressed = zlib.decompress(chunk, -15)
+        except zlib.error:
+            # Any single page failing decompression invalidates the whole
+            # legacy interpretation — fall back to the canonical scan.
+            return []
+        pages.append(decompressed)
+
+    return pages
+
+
 # ---------------------------------------------------------------------------
 # Step 2: preprocessing pipeline
 # ---------------------------------------------------------------------------
 
 def _remove_page_footers(raw: list[tuple[str, int]]) -> list[tuple[str, int]]:
     """
-    Remove page-number footer runs by detecting the sequence:
-        第  [digit-only token]  頁  ，  共  [digit-only token]  頁
-    This is more reliable than an x-value threshold because some
-    right-margin content tokens (e.g., '號', '建物坐落地號') have very
-    large x values and must NOT be discarded.
+    Remove page-number footer runs.
+
+    Two distinct footer dialects exist in the corpus:
+      • Modern (post-2012) uses a CJK comma:
+          第  [digit-only token]  頁  ，  共  [digit-only token]  頁
+      • Legacy (pre-2012, decompressed from FINC zlib pages) uses a slash:
+          第  [digit-only token]  頁  /  共  [digit-only token]  頁
+        The number tokens may also be padded with full-width / ASCII spaces
+        ('  1  ') because the legacy renderer right-aligns them. We accept
+        either separator and either spacing.
+
+    Detecting the textual pattern is more reliable than an x-value threshold
+    because some right-margin content tokens (e.g. '號', '建物坐落地號')
+    have very large x values and must NOT be discarded.
     """
     import re as _re
     texts = [t for t, _ in raw]
     n = len(texts)
     skip: set[int] = set()
 
+    digit_re = _re.compile(r'^[\s　]*\d+[\s　]*$')
+
     i = 0
     while i < n:
-        # Look for pattern: '第' [N] '頁' '，' '共' [N] '頁'
+        # Modern dialect: 第 N 頁 ， 共 N 頁
         if texts[i] == '第' and i + 6 < n:
-            n1, y1, comma, gong, n2, y2 = texts[i+1:i+7]
-            if (y1 == '頁' and comma == '，' and gong == '共' and y2 == '頁'
-                    and _re.match(r'^\s*\d+\s*$', n1)
-                    and _re.match(r'^\s*\d+\s*$', n2)):
+            n1, y1, comma, gong, n2, y2 = texts[i + 1:i + 7]
+            if (
+                y1 == '頁'
+                and comma in ('，', ',')
+                and gong == '共'
+                and y2 == '頁'
+                and digit_re.match(n1)
+                and digit_re.match(n2)
+            ):
+                for k in range(i, i + 7):
+                    skip.add(k)
+                i += 7
+                continue
+        # Legacy dialect: 第 N 頁 / 共 N 頁 (slash; spacing-tolerant)
+        if texts[i].strip() == '第' and i + 6 < n:
+            n1, y1, slash, gong, n2, y2 = texts[i + 1:i + 7]
+            if (
+                y1.strip() == '頁'
+                and slash.strip() in ('/', '／')
+                and gong.strip() == '共'
+                and y2.strip() == '頁'
+                and digit_re.match(n1)
+                and digit_re.match(n2)
+            ):
                 for k in range(i, i + 7):
                     skip.add(k)
                 i += 7
@@ -319,20 +436,69 @@ def extract_text_from_fp(filepath: Path) -> list[str]:
     """
     Parse a .fp file and return a clean, ordered list of text tokens.
 
-    Uses the full preprocessing pipeline:
-      • removes page-footer tokens (page-number rows with large X values)
-      • removes repeated page-header blocks (keeps only the first)
-      • merges Republic-era date fragments (民國 NNN 年 NN 月 NN 日)
-      • merges consecutive single-CJK-char label tokens before ：
+    Resolution strategy:
+      1. Read the whole file once.
+      2. Run the canonical 0x1E text-record scanner on the raw bytes
+         (matches modern FinePrint v2 transcripts where the records are
+         stored uncompressed inside the file).
+      3. If no records were found and the file begins with FINC, treat the
+         file as a *legacy* FINC v2 transcript: parse the per-page
+         descriptor table, zlib-decompress each page, and run the same 0x1E
+         scanner on each decompressed page. Concatenate the results.
+      4. Apply the standard preprocessing pipeline (footer / repeating-header
+         removal, date merging, label merging).
+      5. If both paths yield zero tokens and the header is FINC, raise so
+         that the caller treats the file as unsupported instead of producing
+         a misleading empty-but-valid PDF that only shows the page header
+         (the long-standing "only the address" symptom in the Web UI).
     """
     if filepath.stat().st_size < 4:
         raise ValueError(f'File too small: {filepath.name}')
-    header = filepath.read_bytes()[:4]
-    raw = _extract_raw_records(filepath)
+
+    data = filepath.read_bytes()
+    is_finc = data[:4] == b'FINC'
+
+    raw = _extract_raw_records_from_bytes(data)
+    legacy_pages: list[bytes] = []
+
+    if not raw and is_finc:
+        # Legacy zlib-compressed FINC payload — try the per-page decompression
+        # path. _decompress_legacy_finc_pages returns [] if the file does
+        # not match the legacy layout, in which case we fall through to the
+        # unsupported branch below.
+        legacy_pages = _decompress_legacy_finc_pages(data)
+        if legacy_pages:
+            collected: list[tuple[str, int]] = []
+            for page in legacy_pages:
+                collected.extend(_extract_raw_records_from_bytes(page))
+            raw = collected
+
     tokens = _preprocess(raw)
-    if not tokens and header == b'FINC':
+
+    if not tokens and is_finc:
+        # Two distinct cases land here, treated differently to give the user
+        # a useful PDF instead of a misleading "only-address" empty page or
+        # a hard 500 from the API:
+        #   • legacy_pages != []  →  the file is a recognised legacy FINC
+        #     transcript that simply contains no 0x1E text records (most
+        #     commonly 建物測量成果圖 / vector survey diagrams). We surface
+        #     a single explanatory token so the writers render a placeholder
+        #     instead of an empty body.
+        #   • legacy_pages == []  →  the file claims to be FINC but does
+        #     not decompress. Treat as truly unsupported.
+        if legacy_pages:
+            return [_NON_TEXT_FINC_PLACEHOLDER]
         raise ValueError(f'Unsupported FINC legacy binary format: {filepath.name}')
     return tokens
+
+
+# Sentinel string surfaced for legacy FINC files that decompress correctly
+# but contain no extractable 0x1E text records (typically vector survey
+# diagrams). Writers detect this token and render a human-readable note in
+# place of an empty document body.
+_NON_TEXT_FINC_PLACEHOLDER = (
+    '【此 FinePrint 檔案不含可擷取的文字內容（可能為建物測量成果圖、向量圖件或空白頁），無法產出文字版 PDF。】'
+)
 
 
 def _is_valid_char(c: str) -> bool:
@@ -826,6 +992,22 @@ def build_html(filename: str, texts: list[str]) -> str:
             body_parts.append(f'<tr><th>{lh}</th><td>{vh}</td></tr>')
         body_parts.append('</table>')
         body_parts.append('</div>')
+
+    # Fallback notice: if neither sections nor a structured page header
+    # surfaced any tokens, render every header_token verbatim. This avoids
+    # the legacy "only-address" symptom for unusual inputs (e.g. survey
+    # diagrams that surface the _NON_TEXT_FINC_PLACEHOLDER) where
+    # _build_header_html cannot match any of its known patterns.
+    if not doc['sections']:
+        residual_tokens = [t for t in doc['header_tokens'] if t.strip('　 ：，（）') and '＊' not in t]
+        if residual_tokens:
+            joined = ' '.join(residual_tokens)
+            body_parts.append(
+                '<div class="section">'
+                '<div class="section-title">內文</div>'
+                f'<p style="padding:10px 14px; line-height:1.7;">{_esc(joined)}</p>'
+                '</div>'
+            )
 
     body_parts.append('<p class="footer">由 fp-converter 自動轉換自 FinePrint .fp 格式</p>')
     return _HTML_TEMPLATE.format(title=_esc(title), body='\n'.join(body_parts))
