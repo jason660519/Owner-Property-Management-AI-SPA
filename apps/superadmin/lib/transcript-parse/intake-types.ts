@@ -143,7 +143,7 @@ export interface TranscriptIntakeAiStageModel {
 export interface TranscriptIntakeAiStageTrace {
   stage: TranscriptIntakeAiStageKey;
   label: string;
-  status: 'success' | 'fallback' | 'failed' | 'skipped';
+  status: 'success' | 'fallback' | 'failed' | 'skipped' | 'running';
   engine: 'vlm_ai' | 'local_python_text' | 'structured_json' | 'processor_seed' | 'mixed';
   durationMs?: number | null;
   agentKey?: string | null;

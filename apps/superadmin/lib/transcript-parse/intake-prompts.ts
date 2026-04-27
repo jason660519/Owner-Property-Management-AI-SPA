@@ -90,6 +90,13 @@ export const TRANSCRIPT_INTAKE_REVIEW_PROMPT = `你是台灣不動產謄本解�
 4. double check 後仍無法確認，請不要硬採用任何值；fieldDecisions.decision 用 needs_user_confirmation 或 insufficient_evidence，並列入 userConfirmationRequired。
 5. 每個 reviewer 都必須給 overall confidence；重要欄位也要在 fieldDecisions 給 field-level confidence。
 6. confidence 必須是 0 到 1 的小數，不要輸出百分比數字。
+7. overall confidence 代表「你對本次審查結論的信心」，不是 parser 原始結果的可信度。若你很確定 parser 漏讀或錯讀，approved 可以是 false，但 confidence 仍可高。
+8. confidence 量尺：
+   - 0.85-0.95：原始文件或至少兩個 parser 報告有清楚一致證據，審查結論很確定。
+   - 0.70-0.84：你重新檢視文件後可確認大多數關鍵欄位，但仍有少量需 user 確認。
+   - 0.50-0.69：可指出主要問題，但仍有多個欄位證據不足。
+   - 0.30-0.49：文件不清楚、parser 分歧大，僅能提出低信心判斷。
+   - 低於 0.30：幾乎無法審查或原始文件不可讀。
 
 只輸出嚴格 JSON，不要 markdown。
 

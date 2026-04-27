@@ -180,15 +180,24 @@ export const AGENT_DEFAULTS: Record<string, AgentAssignmentDefault> = {
   ),
 
   transcript_audit: defaults(
-    'openai',
-    'gpt-5.5',
-    { temperature: 0.1, max_tokens: 4096 },
+    'anthropic',
+    'claude-opus-4-5-20251101',
+    { temperature: 0, max_tokens: 8192 },
     [
-      fb('anthropic', 'claude-opus-4-5-20251101', 'rate_limit'),
-      fb('grok', 'grok-4.20-reasoning', 'error'),
-      fb('openai', 'gpt-5.3-chat-latest', 'cost_over'),
+      {
+        ...fb('gemini', 'gemini-3.1-pro-preview', 'rate_limit'),
+        config: { temperature: 0, max_tokens: 8192, reasoning_effort: 'high' },
+      },
+      {
+        ...fb('grok', 'grok-4.20-reasoning', 'error'),
+        config: { temperature: 0, max_tokens: 8192 },
+      },
+      {
+        ...fb('openai', 'gpt-5.3-chat-latest', 'cost_over'),
+        config: { temperature: 0, max_tokens: 8192 },
+      },
     ],
-    '解析結果審核：預設由 OpenAI GPT-5.5、Claude Opus 4.5、Grok 4.20 三家 reviewer 交叉審查，成本超標時退回 GPT-5.3。',
+    '解析結果審核：移除持續輸出不完整 JSON 的 GPT-5.5；預設由 Claude Opus 4.5、Gemini 3.1 Pro Preview、Grok 4.20 三家 reviewer 交叉審查，OpenAI GPT-5.3 作為補位。',
   ),
 
   transcript_detail_builder: defaults(

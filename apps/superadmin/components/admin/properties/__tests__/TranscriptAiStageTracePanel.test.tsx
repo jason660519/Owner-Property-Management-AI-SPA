@@ -47,6 +47,36 @@ describe('TranscriptAiStageTracePanel', () => {
     expect(screen.getByText(/已花費/)).toBeInTheDocument();
   });
 
+  it('infers active parser timers for the first three pending candidates only', () => {
+    render(<TranscriptAiStageTracePanel run={{
+      ...baseRun,
+      parsedResult: {
+        aiStageTrace: [{
+          stage: 'parse',
+          label: 'Parse 正式擷取',
+          status: 'skipped',
+          engine: 'vlm_ai',
+          durationMs: null,
+          agentKey: 'transcript_visual_parse',
+          moduleKey: 'transcript.parse',
+          models: [
+            { provider: 'openai', model: 'gpt-5.5', role: 'parse', status: 'pending' },
+            { provider: 'gemini', model: 'gemini-3.1-pro-preview', role: 'parse', status: 'pending' },
+            { provider: 'anthropic', model: 'claude-opus-4-5', role: 'parse', status: 'pending' },
+            { provider: 'gemini', model: 'gemini-1.5-pro', role: 'parse', status: 'pending' },
+          ],
+          summary: ['等待正式解析開始'],
+          corrections: [],
+          warnings: [],
+        }],
+      },
+    }} />);
+
+    expect(screen.getAllByText(/工作中/)).toHaveLength(3);
+    expect(screen.getByText('Parser 正在解析上傳文件')).toBeInTheDocument();
+    expect(screen.getByText('parse: gemini/gemini-1.5-pro')).toBeInTheDocument();
+  });
+
   it('shows the review model while verify review is running', () => {
     render(<TranscriptAiStageTracePanel run={{
       ...baseRun,
@@ -73,6 +103,38 @@ describe('TranscriptAiStageTracePanel', () => {
     expect(screen.getByText('review: anthropic/claude-sonnet-4-5')).toBeInTheDocument();
     expect(screen.getByText('處理中 · vlm_ai')).toBeInTheDocument();
     expect(screen.getByText(/已花費/)).toBeInTheDocument();
+  });
+
+  it('infers active reviewer timers for the first three pending candidates only', () => {
+    render(<TranscriptAiStageTracePanel run={{
+      ...baseRun,
+      status: 'reviewing',
+      currentPhase: 'reviewing',
+      parsedResult: {
+        aiStageTrace: [{
+          stage: 'verify_review',
+          label: 'Verify / Review 驗證審查',
+          status: 'skipped',
+          engine: 'vlm_ai',
+          durationMs: null,
+          agentKey: 'transcript_audit',
+          moduleKey: 'transcript.intake.review',
+          models: [
+            { provider: 'openai', model: 'gpt-5.5', role: 'review', status: 'pending' },
+            { provider: 'anthropic', model: 'claude-opus-4-5', role: 'review', status: 'pending' },
+            { provider: 'grok', model: 'grok-4.20-reasoning', role: 'review', status: 'pending' },
+            { provider: 'openai', model: 'gpt-5.3-chat-latest', role: 'review', status: 'pending' },
+          ],
+          summary: ['等待驗證審查開始'],
+          corrections: [],
+          warnings: [],
+        }],
+      },
+    }} />);
+
+    expect(screen.getAllByText(/工作中/)).toHaveLength(3);
+    expect(screen.getByText('Reviewer 正在審查 parser 報告')).toBeInTheDocument();
+    expect(screen.getByText('review: openai/gpt-5.3-chat-latest')).toBeInTheDocument();
   });
 
   it('freezes completed parser durations while the parse stage is still running', () => {
@@ -270,9 +332,9 @@ describe('TranscriptAiStageTracePanel', () => {
     }} />);
 
     expect(screen.getByText('review: anthropic/claude-opus-4-5')).toBeInTheDocument();
-    expect(screen.getByText('confidence 82%')).toBeInTheDocument();
+    expect(screen.getByText('審查信心 82%')).toBeInTheDocument();
     expect(screen.getByText('review: grok/grok-4.20-reasoning')).toBeInTheDocument();
-    expect(screen.getByText('confidence 41%')).toBeInTheDocument();
-    expect(screen.getByText('confidence 62%')).toBeInTheDocument();
+    expect(screen.getByText('審查信心 41%')).toBeInTheDocument();
+    expect(screen.getByText('審查信心 62%')).toBeInTheDocument();
   });
 });

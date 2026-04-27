@@ -102,6 +102,27 @@ describe('runConcurrentUntilTargetSuccess', () => {
     expect(aborted.sort((a, b) => a - b)).toEqual([1, 2]);
   });
 
+  it('does not wait for non-cooperative inflight work after the success target is reached', async () => {
+    const result = await runConcurrentUntilTargetSuccess({
+      items: [0, 1],
+      maxConcurrency: 2,
+      targetSuccessCount: 1,
+      runItem: async (item) => {
+        if (item === 0) {
+          await delay(1);
+          return { id: item, ok: true };
+        }
+        return new Promise<{ id: number; ok: boolean }>(() => {});
+      },
+      isSuccessful: (item) => item.ok,
+    });
+
+    expect(result.successCount).toBe(1);
+    expect(result.launchedCount).toBe(2);
+    expect(result.cancelledIndices).toEqual([1]);
+    expect(result.results).toEqual([{ id: 0, ok: true }]);
+  });
+
   it('marks inflight work as cancelled when stopped by an external abort signal', async () => {
     const stopController = new AbortController();
 
@@ -127,6 +148,26 @@ describe('runConcurrentUntilTargetSuccess', () => {
 
     expect(result.stoppedBySignal).toBe(true);
     expect(result.successCount).toBe(0);
+    expect(result.cancelledIndices).toEqual([0, 1]);
+    expect(result.results).toEqual([]);
+  });
+
+  it('does not wait for non-cooperative inflight work after an external abort signal', async () => {
+    const stopController = new AbortController();
+
+    const resultPromise = runConcurrentUntilTargetSuccess({
+      items: [0, 1],
+      maxConcurrency: 2,
+      targetSuccessCount: 2,
+      stopSignal: stopController.signal,
+      runItem: async () => new Promise<{ id: number; ok: boolean }>(() => {}),
+      isSuccessful: (item) => item.ok,
+    });
+
+    stopController.abort();
+    const result = await resultPromise;
+
+    expect(result.stoppedBySignal).toBe(true);
     expect(result.cancelledIndices).toEqual([0, 1]);
     expect(result.results).toEqual([]);
   });

@@ -256,6 +256,8 @@ function getTrace(run: TranscriptAiStageTracePanelProps['run']): StageTrace[] {
 
 function statusLabel(status: string): string {
   switch (status) {
+    case 'running':
+      return '處理中';
     case 'success':
       return '成功';
     case 'fallback':
@@ -315,6 +317,61 @@ function modelStartedAtMs(model: StageModel): number | null {
   return Number.isFinite(time) ? time : null;
 }
 
+const DEFAULT_ACTIVE_MODEL_TARGET = 3;
+
+function modelIsTerminal(model: StageModel): boolean {
+  return model.status === 'success' ||
+    model.status === 'error' ||
+    model.status === 'cancelled' ||
+    model.status === 'skipped' ||
+    typeof model.durationMs === 'number' ||
+    Boolean(model.errorMessage);
+}
+
+function inferredRunningModelStartedAt(params: {
+  isActive: boolean;
+  model: StageModel;
+  modelIndex: number;
+  models: StageModel[];
+  stageStartedAtMs: number | null;
+}): number | null {
+  if (!params.isActive || modelIsTerminal(params.model)) return null;
+
+  const explicitStartedAt = modelStartedAtMs(params.model);
+  if (params.model.status === 'running') return explicitStartedAt ?? params.stageStartedAtMs;
+  if (params.model.status && params.model.status !== 'pending') return null;
+  if (params.model.role !== 'parse' && params.model.role !== 'review') return null;
+
+  const terminalBefore = params.models
+    .slice(0, params.modelIndex)
+    .filter(modelIsTerminal)
+    .length;
+  const inferredLaunchedCount = Math.min(
+    params.models.length,
+    DEFAULT_ACTIVE_MODEL_TARGET + terminalBefore,
+  );
+  if (params.modelIndex >= inferredLaunchedCount) return null;
+
+  if (params.modelIndex < DEFAULT_ACTIVE_MODEL_TARGET) return params.stageStartedAtMs;
+
+  const priorTerminalDurations = params.models
+    .slice(0, params.modelIndex)
+    .flatMap((model) => typeof model.durationMs === 'number' ? [model.durationMs] : []);
+  if (!params.stageStartedAtMs || !priorTerminalDurations.length) return params.stageStartedAtMs;
+  return params.stageStartedAtMs + Math.min(...priorTerminalDurations);
+}
+
+function displaySummary(trace: StageTrace, isActive: boolean): string[] {
+  if (!isActive) return trace.summary;
+  if (trace.stage === 'parse' && trace.summary.includes('等待正式解析開始')) {
+    return ['Parser 正在解析上傳文件'];
+  }
+  if (trace.stage === 'verify_review' && trace.summary.includes('等待驗證審查開始')) {
+    return ['Reviewer 正在審查 parser 報告'];
+  }
+  return trace.summary;
+}
+
 function StatusIcon({ status }: { status: string }) {
   if (status === 'running') return <Loader2 size={14} className="animate-spin text-accent" />;
   if (status === 'success') return <CheckCircle2 size={14} className="text-green-600" />;
@@ -330,7 +387,6 @@ export function TranscriptAiStageTracePanel({ run }: TranscriptAiStageTracePanel
 
   useEffect(() => {
     if (!hasActiveStage) return;
-    setNow(Date.now());
     const timer = window.setInterval(() => setNow(Date.now()), 100);
     return () => window.clearInterval(timer);
   }, [hasActiveStage]);
@@ -386,12 +442,18 @@ export function TranscriptAiStageTracePanel({ run }: TranscriptAiStageTracePanel
               </div>
 
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {trace.models.length ? trace.models.map((model) => {
-                  const modelStart = modelStartedAtMs(model);
-                  const modelElapsedMs = isActive && modelIsStillRunning(model)
-                    ? modelStart !== null
-                      ? now - modelStart
-                      : elapsedMs
+                {trace.models.length ? trace.models.map((model, modelIndex) => {
+                  const modelStart = inferredRunningModelStartedAt({
+                    isActive,
+                    model,
+                    modelIndex,
+                    models: trace.models,
+                    stageStartedAtMs: startedAt,
+                  });
+                  const modelElapsedMs = modelStart !== null
+                    ? now - modelStart
+                    : isActive && modelIsStillRunning(model)
+                      ? elapsedMs
                     : null;
                   const reportUrl = typeof model.reportUrl === 'string' ? model.reportUrl : null;
                   return (
@@ -406,7 +468,7 @@ export function TranscriptAiStageTracePanel({ run }: TranscriptAiStageTracePanel
                         <span>花費 {formatDuration(model.durationMs)}</span>
                       ) : null}
                       {typeof model.confidence === 'number' ? (
-                        <span>confidence {Math.round(model.confidence * 100)}%</span>
+                        <span>審查信心 {Math.round(model.confidence * 100)}%</span>
                       ) : null}
                       {model.errorMessage ? (
                         <span className="text-yellow-700">錯誤：{model.errorMessage}</span>
@@ -431,14 +493,14 @@ export function TranscriptAiStageTracePanel({ run }: TranscriptAiStageTracePanel
                 )}
                 {typeof trace.confidence === 'number' ? (
                   <span className="rounded border border-border-default bg-bg-secondary px-2 py-1 text-[11px] text-text-secondary">
-                    confidence {Math.round(trace.confidence * 100)}%
+                    審查信心 {Math.round(trace.confidence * 100)}%
                   </span>
                 ) : null}
               </div>
 
-              {trace.summary.length ? (
+              {displaySummary(trace, isActive).length ? (
                 <ul className="mt-2 space-y-1 text-[11px] text-text-secondary">
-                  {trace.summary.map((item) => <li key={item}>{item}</li>)}
+                  {displaySummary(trace, isActive).map((item) => <li key={item}>{item}</li>)}
                 </ul>
               ) : null}
 

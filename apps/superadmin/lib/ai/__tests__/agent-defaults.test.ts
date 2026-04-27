@@ -94,4 +94,17 @@ describe('AGENT_DEFAULTS', () => {
     expect(def).not.toBeNull();
     expect(def?.primary_provider).toBe(AGENT_DEFAULTS[key].primary_provider);
   });
+
+  it('does not use GPT-5.5 in the transcript audit reviewer chain', () => {
+    const audit = AGENT_DEFAULTS.transcript_audit;
+    const modelIds = [
+      audit.primary_model_id,
+      ...audit.fallbacks.map((fallback) => fallback.model_id),
+    ];
+
+    expect(audit.primary_provider).toBe('anthropic');
+    expect(audit.primary_model_id).toBe('claude-opus-4-5-20251101');
+    expect(modelIds).not.toContain('gpt-5.5');
+    expect(modelIds).toContain('gpt-5.3-chat-latest');
+  });
 });

@@ -233,6 +233,47 @@ function updateStageTraceModel(
   return false;
 }
 
+function updateParseStageProgress(
+  traces: TranscriptIntakeAiStageTrace[],
+  event: Record<string, unknown>,
+): boolean {
+  const type = typeof event.type === 'string' ? event.type : '';
+  const trace = traces.find((item) => item.stage === 'parse');
+  if (!trace) return false;
+
+  if (type === 'parse_start') {
+    const target = typeof event.targetSuccessCount === 'number' ? event.targetSuccessCount : null;
+    const total = typeof event.total === 'number' ? event.total : null;
+    trace.status = 'running';
+    trace.summary = [
+      target && total
+        ? `Parser 正在解析上傳文件，目標取得 ${target}/${total} 份有效報告`
+        : 'Parser 正在解析上傳文件',
+    ];
+    return true;
+  }
+
+  if (type === 'consensus' || type === 'judge_start' || type === 'saving') {
+    const message = typeof event.message === 'string' ? event.message : null;
+    trace.status = 'running';
+    trace.summary = [message ?? 'Parse 後處理中'];
+    return true;
+  }
+
+  if (type === 'judge_done') {
+    trace.status = 'running';
+    trace.summary = [event.success === true ? '裁判審查完成，準備儲存解析結果' : '裁判審查未採用，使用多模型共識結果'];
+    return true;
+  }
+
+  if (type === 'complete') {
+    trace.summary = ['解析完成，準備進入驗證審查'];
+    return true;
+  }
+
+  return false;
+}
+
 function persistTraceProgress(params: {
   admin: AdminClient;
   runId: string;
@@ -487,7 +528,9 @@ export async function processTranscriptIntakeRunById(runId: string): Promise<voi
           {
             stopSignal: neverAborted.signal,
             onEvent: (event) => {
-              if (!updateStageTraceModel(aiStageTrace, 'parse', event)) return;
+              const changed = updateStageTraceModel(aiStageTrace, 'parse', event) ||
+                updateParseStageProgress(aiStageTrace, event);
+              if (!changed) return;
               persistTraceProgress({
                 admin,
                 runId,

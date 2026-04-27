@@ -43,42 +43,27 @@ export async function runConcurrentUntilTargetSuccess<TItem, TResult>(
   let successCount = 0;
   let stopScheduling = false;
   let stoppedBySignal = false;
+  let resolveStopRace: (() => void) | null = null;
 
-  const abortActive = () => {
-    for (const [, { controller, promise }] of active.entries()) {
-      controller.abort();
-      void promise.catch(() => undefined);
-    }
+  const markCancelled = (index: number) => {
+    if (!cancelledIndices.includes(index)) cancelledIndices.push(index);
   };
 
-  const collectActiveResults = async () => {
+  const cancelActiveWithoutWaiting = () => {
     const inflightEntries = Array.from(active.entries());
     active.clear();
-
-    const settled = await Promise.allSettled(
-      inflightEntries.map(([, { promise }]) => promise),
-    );
-
-    for (const outcome of settled) {
-      if (outcome.status !== 'fulfilled') continue;
-      const { index, result } = outcome.value;
-      if (isCancelled?.(result)) {
-        cancelledIndices.push(index);
-        continue;
-      }
-
-      resultsByIndex.set(index, result);
-      onItemResult?.(items[index], index, result);
-      if (isSuccessful(result)) {
-        successCount += 1;
-      }
+    for (const [index, { controller, promise }] of inflightEntries) {
+      markCancelled(index);
+      controller.abort();
+      void promise.catch(() => undefined);
     }
   };
 
   const handleStopSignalAbort = () => {
     stoppedBySignal = true;
     stopScheduling = true;
-    abortActive();
+    cancelActiveWithoutWaiting();
+    resolveStopRace?.();
   };
 
   if (stopSignal) {
@@ -106,13 +91,28 @@ export async function runConcurrentUntilTargetSuccess<TItem, TResult>(
   launchNext();
 
   while (active.size > 0) {
-    const settled = await Promise.race(Array.from(active.values(), ({ promise }) => promise));
+    const activeRace = Array.from(active.values(), ({ promise }) =>
+      promise.then((value) => ({ type: 'item' as const, value })),
+    );
+    const stopRace = new Promise<{ type: 'stop' }>((resolve) => {
+      if (stoppedBySignal) resolve({ type: 'stop' });
+      else resolveStopRace = () => resolve({ type: 'stop' });
+    });
+    const raced = await Promise.race([...activeRace, stopRace]);
+    resolveStopRace = null;
+
+    if (raced.type === 'stop') {
+      cancelActiveWithoutWaiting();
+      break;
+    }
+
+    const settled = raced.value;
     const settledItem = items[settled.index];
     active.delete(settled.index);
     const cancelled = isCancelled?.(settled.result) ?? false;
 
     if (cancelled) {
-      cancelledIndices.push(settled.index);
+      markCancelled(settled.index);
     } else {
       resultsByIndex.set(settled.index, settled.result);
       onItemResult?.(settledItem, settled.index, settled.result);
@@ -122,14 +122,13 @@ export async function runConcurrentUntilTargetSuccess<TItem, TResult>(
       successCount += 1;
       if (successCount >= safeTargetSuccessCount) {
         stopScheduling = true;
-        abortActive();
-        await collectActiveResults();
+        cancelActiveWithoutWaiting();
         break;
       }
     }
 
     if (stoppedBySignal) {
-      await collectActiveResults();
+      cancelActiveWithoutWaiting();
       break;
     }
 
