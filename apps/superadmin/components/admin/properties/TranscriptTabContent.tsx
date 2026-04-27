@@ -52,6 +52,7 @@ import { useAISettings } from '@/lib/hooks/useAISettings';
 import { TranscriptParseSection } from './TranscriptParseSection';
 import { BuildingTranscriptForm } from './BuildingTranscriptForm';
 import { LandTranscriptForm } from './LandTranscriptForm';
+import { TranscriptIntakeWorkbench } from './TranscriptIntakeWorkbench';
 import { resolveParsePromptScenario } from '@/lib/transcript-parse-scenario-prompts';
 import { filterDocumentsForMultiBuildingSlot } from '@/lib/utils/multi-building-doc-tags';
 
@@ -1181,6 +1182,8 @@ export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto space-y-6">
+      <TranscriptIntakeWorkbench property={property} documents={documents} />
+
       {/* 銷售方式：獨立卡片，與謄本區視覺分開 */}
       <div className="rounded-lg border border-border-default bg-bg-primary overflow-hidden">
         <div

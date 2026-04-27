@@ -333,7 +333,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "買家的溝通中心",
     locatedPage: "web/buyer/contracted/communication",
-    percentage: 65,
+    percentage: 72,
     acceptanceCriteria:
       "1. 可與房東、仲介進行即時文字訊息往來。\n2. 訊息需有已讀/未讀狀態標示。\n3. 支援發送附件（PDF、圖片）。\n4. 有新訊息時推送通知（系統通知）。\n5. 訊息歷史可按日期搜尋，最長保留2年。",
     docPath: "/project-process/test-logs/test-buyer-communication-center-2026-04-12.md",
@@ -359,7 +359,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "買家的繳費記錄",
     locatedPage: "web (待建)",
-    percentage: 45,
+    percentage: 65,
     acceptanceCriteria:
       "1. 顯示所有付款紀錄（日期、金額、類型、付款方式、狀態）。\n2. 支援下載單筆收據（PDF格式）。\n3. 可依日期範圍、金額、付款狀態篩選。\n4. 顯示未付款項目提醒與到期日。\n5. 年度付款總額統計與圖表。",
     docPath: "",
@@ -411,7 +411,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "公開案件市場頁",
     locatedPage: "web/properties",
-    percentage: 78,
+    percentage: 82,
     acceptanceCriteria:
       "1. 公開列表頁需清楚區分買賣案件與租賃案件。\n2. 提供搜尋、類型與狀態篩選。\n3. 頁首需說明多角色平台定位，而非單純物件列表。\n4. 提供導流至平台能力頁與合作提案頁的 CTA。\n5. 卡片需顯示基本案件資訊與協作鏈語意標籤。",
     docPath: "/project-process/features/multi-role-business-plan-20260322.md",
@@ -1431,21 +1431,26 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
-    name: "謄本權狀掃描功能",
-    locatedPage: "web/landlord/properties/add",
-    percentage: 95,
+    name: "統一謄本解析工作台",
+    locatedPage: "superadmin/properties/:id/edit?tab=transcript",
+    percentage: 78,
     acceptanceCriteria:
-      "1. 上傳謄本/權狀文件（JPG、PNG、PDF），系統自動辨識並擷取關鍵資訊。\n2. 擷取資訊包含：地段、地號、面積、所有權人、抵押設定。\n3. OCR 準確率在清晰文件下達 90% 以上。\n4. 擷取結果可人工校正，並儲存至物件資料。\n5. 文件儲存至雲端，可隨時下載原始掃描檔。",
-    docPath: "/project-process/features/vlm-ocr-system.md",
-    featureSpecDocPath: "/project-process/features/vlm-ocr-system.md",
-    tddSpecDocPath: "/project-process/features/tdd-system-common-20260221.md",
+      "1. User 可上傳 PDF、圖片、JSON、文字等謄本來源，不需先手動選建物／土地／車位類型。\n2. PDF 先判斷是否可由 Python 快速解析出台灣常用繁體謄本文字；不適合時自動改走具電腦視覺能力的 VLM。\n3. AI 流程至少拆為 detect、parse、review 三段非同步判讀，並保留 evidence、confidence 與需人工確認欄位。\n4. 系統可初判純土地、整棟建物、透天／別墅、公寓華廈辦公店面、車位等出售型態。\n5. 車位產權型態可複選：獨立產權、公設產權，或兩者皆有。\n6. User 確認後才儲存謄本結果，並供下一頁建物土地明細表自動計算面積與持分。",
+    docPath: "/project-process/test-logs/test-transcript-intake-workbench-2026-04-27.md",
+    featureSpecDocPath: "/project-process/features/transcript-intake-workbench-dev-spec-20260427.md",
+    tddSpecDocPath: "/project-process/features/tdd-transcript-intake-workbench-20260427.md",
     category: "通用/系統 (General/System)",
     points: 5,
-    lastModifiedBy: "Trae AI",
-    lastModifiedDate: "2026/03/15",
+    lastModifiedBy: "Codex",
+    lastModifiedDate: "2026/04/27",
     devLog:
-      "[2026/03/15] (Trae AI)\n• 支援地端 (Local) 與雲端 (Cloud) 雙機制切換\n• 實作 CJK 相容字元正規化與控制字元清理\n• 完善建物與土地謄本的欄位對應邏輯",
-    devLogDocPath: "/docs/operational-guides/transcript-parsing-guide.md",
+      "[2026/03/15] (Trae AI)\n• 支援地端 (Local) 與雲端 (Cloud) 雙機制切換\n• 實作 CJK 相容字元正規化與控制字元清理\n• 完善建物與土地謄本的欄位對應邏輯\n\n[2026/04/27] (Codex)\n• 啟動統一謄本解析工作台改造，第一階段完成 intake contract、Python/VLM 技術路由、detect/parse/review prompt contract、transcript_intake_runs migration 與 targeted unit tests。\n• 第二階段完成 intake run 建立/查詢 API。\n• 第三階段完成 intake worker 骨架、process API 與 cron drain；parse 階段重用既有 transcript parse core。\n• 第四階段接入真正 AI detect/review stage，失敗時保留 processor seed fallback；目前 detect/review 為單一模型、主要文件視覺輸入，其他文件透過 context JSON 輔助。\n• 第五階段新增謄本工作台 UI 面板，支援建立 run、啟動 process、輪詢狀態並顯示 route/detect/review 摘要；既有分散式上傳與表單暫時保留。\n• 第六階段新增人工確認 API 與 UI 按鈕，將 needs_user_confirmation 的 run 鎖定為 confirmed 並寫入 confirmed_result snapshot。\n• 第七階段將 confirmed result 同步回 property details，帶入主建物、土地、獨立車位謄本與車位產權，供建物土地面積明細表自動計算。\n• 第八階段接入 PDF text probe，建立 run 時用實際文字層判斷 Python/VLM route，並以真實謄本 PDF 範例補回歸測試。",
+    devLogDocPath: "/project-process/dev-logs/085-development-log-summary.md",
+    testScriptCount: 8,
+    testScriptPassedCount: 8,
+    testScriptPath: "apps/superadmin/unit_test/085",
+    testLogDocPath: "/project-process/test-logs/test-transcript-intake-workbench-2026-04-27.md",
+    phase: "development",
   },
   {
     name: "上傳物件照片功能",
@@ -1948,12 +1953,12 @@ const RAW_FEATURES: RoadmapFeature[] = [
     category: "通用/系統 (General/System)",
     percentage: 100,
     phase: "development",
-    lastModifiedBy: "Claude Sonnet 4.6",
-    lastModifiedDate: "2026/03/18",
+    lastModifiedBy: "GitHub Copilot",
+    lastModifiedDate: "2026/04/27",
     devLog:
-      "### 完成項目\n- 逆向工程 FinePrint .fp 二進位格式：發現文字以 UTF-16LE 儲存於固定結構 record（magic: 0x1E ?? 0x40 YY，其中 ??=8+YY×4），無需 Windows 或 FinePrint 即可解析\n- tools/fp-converter/convert_fp.py — CLI 工具，支援三種輸出格式：HTML（推薦）/ Markdown / PDF（fpdf2）\n- 批次測試 109 份「新謄本」資料夾中的 .fp 檔案，全部 109/109 成功轉換，0 失敗\n- HTML 輸出包含完整謄本結構（建物標示部、所有權部、他項權利部、抵押權等），PingFang TC 字型，支援瀏覽器列印為 PDF\n- tools/fp-converter/README.md 完整使用說明\n### 2026/03/18 排版大幅改善\n- 移除全域去重邏輯：改用 content-based 頁碼偵測（第N頁共N頁 pattern），正確保留所有重複結構詞（民國/年/月/日/：）\n- 新增 X-座標感知提取，辨別右對齊 content token vs 頁尾 token\n- 日期片段自動合併：民國 NNN 年 NN 月 NN 日 → 單一字串\n- 單字拆分修正：連續單字元 CJK token 在「：」前自動合併為複合標籤（層數/總面積/住址）\n- 全新表格式 HTML 排版：官方謄本樣式（深藍標題列、欄位表格、位置列）\n- 建物標示部/所有權部欄位正確 label:value 對應（登記日期、登記原因、建物門牌等）",
+      "### 完成項目\n- 逆向工程 FinePrint .fp 二進位格式：發現文字以 UTF-16LE 儲存於固定結構 record（magic: 0x1E ?? 0x40 YY，其中 ??=8+YY×4），無需 Windows 或 FinePrint 即可解析\n- tools/fp-converter/convert_fp.py — CLI 工具，支援三種輸出格式：HTML（推薦）/ Markdown / PDF（fpdf2）\n- 批次測試 109 份「新謄本」資料夾中的 .fp 檔案，全部 109/109 成功轉換，0 失敗\n- HTML 輸出包含完整謄本結構（建物標示部、所有權部、他項權利部、抵押權等），PingFang TC 字型，支援瀏覽器列印為 PDF\n- tools/fp-converter/README.md 完整使用說明\n### 2026/03/18 排版大幅改善\n- 移除全域去重邏輯：改用 content-based 頁碼偵測（第N頁共N頁 pattern），正確保留所有重複結構詞（民國/年/月/日/：）\n- 新增 X-座標感知提取，辨別右對齊 content token vs 頁尾 token\n- 日期片段自動合併：民國 NNN 年 NN 月 NN 日 → 單一字串\n- 單字拆分修正：連續單字元 CJK token 在「：」前自動合併為複合標籤（層數/總面積/住址）\n- 全新表格式 HTML 排版：官方謄本樣式（深藍標題列、欄位表格、位置列）\n- 建物標示部/所有權部欄位正確 label:value 對應（登記日期、登記原因、建物門牌等）\n### 2026/04/27 Bugfix\n- 補上無 `＊＊＊ section ＊＊＊` marker 的異動索引類謄本 fallback parser，避免 Markdown/PDF 退化成只有標題與 header 段落\n- 新增 tools/fp-converter/tests/test_convert_fp.py，先用失敗測試重現 ASCII `:` + inline section header 的舊格式樣本，再修正 parser\n- fallback parser 現可切出建物所有權部與異動別/登記日期/登記次序/登記原因/收件字號/異動日期/權利人等欄位",
     developmentProgress:
-      "完整實作：可在 macOS 批次將 10 年前 Windows FinePrint .fp 格式謄本轉換為 HTML/MD/PDF，無需任何 Windows 環境。",
+      "完整實作：可在 macOS 批次將 10 年前 Windows FinePrint .fp 格式謄本轉換為 HTML/MD/PDF，無需任何 Windows 環境；2026/04/27 已補修舊版異動索引類謄本沒有 section marker 時的 Markdown/PDF 缺欄位問題。",
   },
   // === 2026-03-20 小型 UX 更新 ===
   {
@@ -2686,6 +2691,6 @@ const RAW_FEATURES: RoadmapFeature[] = [
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/27 Row 126 Agent runtime startup hardening",
+  lastUpdated: "2026/04/27 Row 085 transcript intake workbench",
   features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
 };

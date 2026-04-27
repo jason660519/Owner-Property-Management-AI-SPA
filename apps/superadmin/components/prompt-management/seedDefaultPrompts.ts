@@ -15,6 +15,14 @@ import {
   DETECT_LAND_COUNT_PROMPT,
   DETECT_LAND_COUNT_SAVED_PROMPT_MODULE_KEY,
 } from '@/lib/transcript-detect-prompts';
+import {
+  TRANSCRIPT_INTAKE_DETECT_MODULE_KEY,
+  TRANSCRIPT_INTAKE_DETECT_PROMPT,
+  TRANSCRIPT_INTAKE_PARSE_MODULE_KEY,
+  TRANSCRIPT_INTAKE_PARSE_PROMPT,
+  TRANSCRIPT_INTAKE_REVIEW_MODULE_KEY,
+  TRANSCRIPT_INTAKE_REVIEW_PROMPT,
+} from '@/lib/transcript-parse/intake-prompts';
 import { DEFAULT_PROMPT as PROPERTY_DESCRIPTION_PROMPT } from '@/app/api/property-description/stream/utils';
 
 interface SeedEntry {
@@ -87,6 +95,30 @@ function buildSeedEntries(): SeedEntry[] {
     tags: ['謄本解析', '系統預設', '輕量偵測'],
     description: '判斷一份土地謄本內含幾筆地號（用於前置流程）',
     moduleKey: DETECT_LAND_COUNT_SAVED_PROMPT_MODULE_KEY,
+  });
+
+  entries.push({
+    name: '謄本工作台-案件初判',
+    content: TRANSCRIPT_INTAKE_DETECT_PROMPT,
+    tags: ['謄本解析', '系統預設', '工作台'],
+    description: '統一謄本工作台的案件結構初判 Prompt（detect 階段）',
+    moduleKey: TRANSCRIPT_INTAKE_DETECT_MODULE_KEY,
+  });
+
+  entries.push({
+    name: '謄本工作台-結構化解析',
+    content: TRANSCRIPT_INTAKE_PARSE_PROMPT,
+    tags: ['謄本解析', '系統預設', '工作台'],
+    description: '統一謄本工作台依初判結果進行結構化解析的 Prompt（parse 階段）',
+    moduleKey: TRANSCRIPT_INTAKE_PARSE_MODULE_KEY,
+  });
+
+  entries.push({
+    name: '謄本工作台-品質審核',
+    content: TRANSCRIPT_INTAKE_REVIEW_PROMPT,
+    tags: ['謄本解析', '系統預設', '工作台'],
+    description: '統一謄本工作台交叉檢查解析結果的 Prompt（review 階段）',
+    moduleKey: TRANSCRIPT_INTAKE_REVIEW_MODULE_KEY,
   });
 
   return entries;
