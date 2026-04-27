@@ -3,6 +3,8 @@
 // Shared types and constants for properties (extracted from server actions to
 // comply with Next.js "use server" export restrictions).
 
+import type { TranscriptIntakeAreaDetailDraft } from '@/lib/transcript-parse/intake-types';
+
 /** 結構化地址零件（台灣：縣市 → 區 → 路/段/街 → 門牌、樓層、單位） */
 export interface StructuredAddress {
   city?: string;
@@ -282,6 +284,8 @@ export interface PropertyItem {
   isPureLand?: boolean;
   /** 土地地號，來自土地謄本 OCR（e.g. 大安區○○段 第0345地號） */
   landNumber?: string | null;
+  /** User 確認前可修正的四區面積明細 draft，儲存於 details.transcriptIntakeAreaDetails */
+  transcriptIntakeAreaDetails?: TranscriptIntakeAreaDetailDraft | null;
   // ── Content status indicators (fetched in getAllProperties) ────────
   /** Total number of photos uploaded to property_photos */
   photoCount?: number;

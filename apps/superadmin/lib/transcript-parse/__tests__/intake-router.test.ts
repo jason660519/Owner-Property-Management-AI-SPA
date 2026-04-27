@@ -47,6 +47,24 @@ describe('transcript intake router', () => {
       .toBe('structured_json');
   });
 
+  it('routes owner title deed copies to VLM visual parsing', () => {
+    const imageDecision = decideTranscriptTechnicalRoute({
+      fileName: '屋主建物權狀影本.jpg',
+      mimeType: 'image/jpeg',
+      documentType: 'building_title',
+    });
+    expect(imageDecision.route).toBe('vlm_visual');
+    expect(imageDecision.reasons.join(' ')).toContain('Title deed image');
+
+    const pdfDecision = decideTranscriptTechnicalRoute({
+      fileName: '土地權狀.pdf',
+      mimeType: 'application/pdf',
+      documentType: 'land_title',
+      extractedText: '土地所有權狀 權狀字號 所有權人 地號 權利範圍 '.repeat(20),
+    });
+    expect(pdfDecision.route).toBe('vlm_visual');
+  });
+
   it('requires both CJK volume and registry markers for usable local text', () => {
     expect(hasUsableTaiwanRegistryText('這是一段很長但沒有關鍵謄本標記的文字'.repeat(20))).toBe(false);
     expect(hasUsableTaiwanRegistryText('建物標示部 所有權部 地號 建號 權利範圍'.repeat(20))).toBe(true);

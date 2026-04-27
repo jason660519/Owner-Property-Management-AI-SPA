@@ -813,6 +813,7 @@ export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
   const [landDetectError, setLandDetectError] = useState<string | null>(null);
   const [selectedBuildingDetectDocId, setSelectedBuildingDetectDocId] = useState<string | null>(null);
   const [selectedLandDetectDocId, setSelectedLandDetectDocId] = useState<string | null>(null);
+  const [showLegacyTranscriptTools, setShowLegacyTranscriptTools] = useState(false);
 
   const refresh = async () => {
     const list = await getPropertyDocuments(property.id);
@@ -1181,9 +1182,32 @@ export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
   }
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto space-y-6">
-      <TranscriptIntakeWorkbench property={property} documents={documents} />
+    <div className="space-y-6">
+      <TranscriptIntakeWorkbench property={property} documents={documents} onDocumentsChanged={refresh} />
 
+      {showLegacyTranscriptTools ? (
+      <div className="rounded-lg border border-border-default bg-bg-primary overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowLegacyTranscriptTools((value) => !value)}
+          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-bg-secondary transition-colors"
+          aria-expanded={showLegacyTranscriptTools}
+        >
+          <span>
+            <span className="block text-sm font-semibold text-text-primary">進階／舊版謄本工具</span>
+            <span className="mt-1 block text-xs text-text-muted">
+              手動指定建物、土地、車位類型與舊版單文件解析流程。
+            </span>
+          </span>
+          {showLegacyTranscriptTools ? (
+            <ChevronUp size={16} className="shrink-0 text-text-muted" />
+          ) : (
+            <ChevronDown size={16} className="shrink-0 text-text-muted" />
+          )}
+        </button>
+        {showLegacyTranscriptTools ? (
+          <div className="space-y-6 border-t border-border-default p-4">
+            <>
       {/* 銷售方式：獨立卡片，與謄本區視覺分開 */}
       <div className="rounded-lg border border-border-default bg-bg-primary overflow-hidden">
         <div
@@ -1777,6 +1801,11 @@ export function TranscriptTabContent({ property }: TranscriptTabContentProps) {
           <p className="text-xs mt-1">勾選後將顯示合併後的謄本上傳與 AI 解析區域</p>
         </div>
       )}
+            </>
+          </div>
+        ) : null}
+      </div>
+      ) : null}
     </div>
   );
 }

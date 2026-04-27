@@ -17,6 +17,10 @@ import type {
   BuildingDescription,
   LandDescription,
 } from '@/lib/types/properties';
+import type {
+  TranscriptIntakeAreaDetailDraft,
+  TranscriptIntakeAreaDetailRow,
+} from '@/lib/transcript-parse/intake-types';
 import {
   parseAreaNumber,
   formatAreaNumber,
@@ -111,6 +115,32 @@ function collectLandWarnings(data: LandTranscriptData): string[] {
     return ['土地面積數值缺漏。'];
   }
   return [];
+}
+
+function hasConfirmedAreaDetails(
+  draft?: TranscriptIntakeAreaDetailDraft | null
+): draft is TranscriptIntakeAreaDetailDraft {
+  if (!draft) return false;
+  return (
+    draft.buildingAreas.length > 0 ||
+    draft.landShareAreas.length > 0 ||
+    draft.parkingBuildingAreas.length > 0 ||
+    draft.parkingLandShareAreas.length > 0
+  );
+}
+
+function parseEffectiveShareRatio(row: TranscriptIntakeAreaDetailRow, defaultFullShare: boolean): number {
+  const ratioText = row.shareRatio.trim();
+  if (!ratioText && defaultFullShare) return 1;
+  return parseShareRatio(ratioText);
+}
+
+function calcConfirmedRowArea(row: TranscriptIntakeAreaDetailRow, defaultFullShare: boolean): number {
+  return parseAreaNumber(row.areaSqm) * parseEffectiveShareRatio(row, defaultFullShare);
+}
+
+function formatMaybeArea(value: number): string {
+  return formatAreaNumber(value) || '-';
 }
 
 // ---------------------------------------------------------------------------
@@ -655,6 +685,190 @@ function AreaSummary({
 }
 
 // ---------------------------------------------------------------------------
+// Confirmed intake area details (read-only, canonical after user confirmation)
+// ---------------------------------------------------------------------------
+
+function ConfirmedAreaDetailSection({
+  title,
+  rows,
+  icon,
+  defaultFullShare,
+}: {
+  title: string;
+  rows: TranscriptIntakeAreaDetailRow[];
+  icon: React.ReactNode;
+  defaultFullShare: boolean;
+}) {
+  const subtotal = rows.reduce((sum, row) => sum + calcConfirmedRowArea(row, defaultFullShare), 0);
+
+  return (
+    <SectionCard>
+      <h4 className={sectionTitleCls}>
+        {icon}
+        {title}
+      </h4>
+      {rows.length === 0 ? (
+        <p className="text-xs text-text-muted">本區尚未有已確認明細。</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className={tableCls}>
+            <thead>
+              <tr className="border-b border-border-default">
+                <th className={thCls}>項目</th>
+                <th className={thCls}>建號／地號</th>
+                <th className={thCls}>用途／分區</th>
+                <th className={thCls}>總面積（㎡）</th>
+                <th className={thCls}>持分</th>
+                <th className={thCls}>持分面積（㎡）</th>
+                <th className={thCls}>持分面積（坪）</th>
+                <th className={thCls}>來源</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => {
+                const effectiveArea = calcConfirmedRowArea(row, defaultFullShare);
+                const source = [
+                  row.sourceDocumentName,
+                  row.sourcePage ? `第 ${row.sourcePage} 頁` : null,
+                ].filter(Boolean).join(' · ');
+                return (
+                  <tr key={row.id} className="border-b border-border-default/50">
+                    <td className={tdCls}><ValueText>{row.label || '-'}</ValueText></td>
+                    <td className={tdCls}><ValueText>{row.identifier || '-'}</ValueText></td>
+                    <td className={tdCls}><ValueText>{row.use || '-'}</ValueText></td>
+                    <td className={tdCls}><ValueText>{row.areaSqm || '-'}</ValueText></td>
+                    <td className={tdCls}><ValueText>{row.shareRatio || (defaultFullShare ? '全部' : '-')}</ValueText></td>
+                    <td className={tdCls}><ValueText>{formatMaybeArea(effectiveArea)}</ValueText></td>
+                    <td className={`${tdCls} text-text-muted`}>{formatPing(effectiveArea) || '-'}</td>
+                    <td className={tdCls}><ValueText>{source || '-'}</ValueText></td>
+                  </tr>
+                );
+              })}
+              <tr className="border-b border-border-default bg-bg-secondary/30">
+                <td className={`${tdCls} font-medium`} colSpan={5}>小計</td>
+                <td className={`${tdCls} font-medium`}><ValueText>{formatMaybeArea(subtotal)}</ValueText></td>
+                <td className={`${tdCls} text-text-muted`}>{formatPing(subtotal) || '-'}</td>
+                <td className={tdCls} />
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
+function ConfirmedAreaSummary({ draft }: { draft: TranscriptIntakeAreaDetailDraft }) {
+  const rows = [
+    {
+      label: '建物建築面積小計',
+      sqm: draft.buildingAreas.reduce((sum, row) => sum + calcConfirmedRowArea(row, true), 0),
+    },
+    {
+      label: '建物所屬土地持分面積小計',
+      sqm: draft.landShareAreas.reduce((sum, row) => sum + calcConfirmedRowArea(row, false), 0),
+    },
+    {
+      label: '車位建築面積小計',
+      sqm: draft.parkingBuildingAreas.reduce((sum, row) => sum + calcConfirmedRowArea(row, true), 0),
+    },
+    {
+      label: '車位所屬土地持分面積小計',
+      sqm: draft.parkingLandShareAreas.reduce((sum, row) => sum + calcConfirmedRowArea(row, false), 0),
+    },
+  ].filter((row) => row.sqm > 0);
+
+  if (rows.length === 0) return null;
+
+  return (
+    <SectionCard>
+      <div data-testid="area-summary">
+        <h4 className={sectionTitleCls}>
+          <BarChart3 size={16} className="text-accent" />
+          出售／出租標的物面積小計總表
+        </h4>
+        <div className="overflow-x-auto">
+          <table className={tableCls}>
+            <thead>
+              <tr className="border-b border-border-default">
+                <th className={thCls}>項目</th>
+                <th className={thCls}>面積（㎡）</th>
+                <th className={thCls}>面積（坪）</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.label} className="border-b border-border-default/50">
+                  <td className={tdCls}><ValueText>{row.label}</ValueText></td>
+                  <td className={tdCls}><ValueText>{formatAreaNumber(row.sqm)}</ValueText></td>
+                  <td className={`${tdCls} text-text-muted`}>{formatPing(row.sqm)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
+function ConfirmedAreaDetailsView({
+  draft,
+  propertyId,
+}: {
+  draft: TranscriptIntakeAreaDetailDraft;
+  propertyId: string;
+}) {
+  const router = useRouter();
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold text-text-primary">建物 土地 車位面積明細表</h3>
+          <p className="text-xs text-text-muted">
+            本頁依「謄本」頁籤已確認的四大明細表自動計算，所有欄位唯讀；如資訊有誤，請回謄本頁修正或重新解析。
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => router.replace(`/superadmin/properties/${propertyId}/edit?tab=transcript`)}
+          className="shrink-0 px-3 py-1.5 text-xs border border-border-default rounded-md text-text-secondary hover:bg-bg-secondary transition-colors"
+        >
+          回謄本頁修正
+        </button>
+      </div>
+
+      <ConfirmedAreaDetailSection
+        title="建物建築面積明細表"
+        rows={draft.buildingAreas}
+        icon={<Building2 size={16} className="text-accent" />}
+        defaultFullShare
+      />
+      <ConfirmedAreaDetailSection
+        title="建物所屬土地持分面積明細表"
+        rows={draft.landShareAreas}
+        icon={<MapPin size={16} className="text-accent" />}
+        defaultFullShare={false}
+      />
+      <ConfirmedAreaDetailSection
+        title="車位建築面積明細表"
+        rows={draft.parkingBuildingAreas}
+        icon={<Building2 size={16} className="text-accent" />}
+        defaultFullShare
+      />
+      <ConfirmedAreaDetailSection
+        title="車位所屬土地持分面積明細表"
+        rows={draft.parkingLandShareAreas}
+        icon={<MapPin size={16} className="text-accent" />}
+        defaultFullShare={false}
+      />
+      <ConfirmedAreaSummary draft={draft} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main export
 // ---------------------------------------------------------------------------
 
@@ -668,6 +882,11 @@ export function BuildingLandAreaDetailTab({ property, propertyId, propertyType: 
     parkingLandTranscript,
     isPureLand,
   } = property;
+  const confirmedAreaDetails = property.transcriptIntakeAreaDetails;
+
+  if (hasConfirmedAreaDetails(confirmedAreaDetails)) {
+    return <ConfirmedAreaDetailsView draft={confirmedAreaDetails} propertyId={propertyId} />;
+  }
 
   const hasAnyData = !!(
     buildingTranscript || landTranscript ||

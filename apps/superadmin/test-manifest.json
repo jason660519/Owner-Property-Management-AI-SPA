@@ -163,7 +163,8 @@
         "apps/superadmin/app/api/transcript-intake/runs/__tests__/route.test.ts",
         "apps/superadmin/app/api/transcript-intake/runs/[id]/__tests__/route.test.ts",
         "apps/superadmin/app/api/transcript-intake/runs/[id]/process/__tests__/route.test.ts",
-        "apps/superadmin/components/admin/properties/__tests__/TranscriptIntakeWorkbench.test.tsx"
+        "apps/superadmin/components/admin/properties/__tests__/TranscriptIntakeWorkbench.test.tsx",
+        "apps/superadmin/components/admin/properties/__tests__/TranscriptAiStageTracePanel.test.tsx"
       ],
       "e2ePaths": [],
       "linkedToolScripts": []

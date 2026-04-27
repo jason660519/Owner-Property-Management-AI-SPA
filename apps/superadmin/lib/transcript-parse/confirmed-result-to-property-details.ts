@@ -2,7 +2,17 @@
 
 import type { BuildingTranscriptData, LandTranscriptData, ParkingTitleRight } from '@/lib/types/properties';
 import type { TranscriptParseOutput } from '@/lib/types/transcript';
-import type { TranscriptDetectionResult, TranscriptDispositionKind, TranscriptReviewResult } from './intake-types';
+import type {
+  TranscriptDetectionResult,
+  TranscriptDispositionKind,
+  TranscriptIntakeAreaDetailDraft,
+  TranscriptReviewResult,
+} from './intake-types';
+import {
+  applyAreaDetailDraftToBuildingTranscript,
+  applyAreaDetailDraftToLandTranscript,
+  normalizeAreaDetailDraft,
+} from './intake-area-details';
 
 type TranscriptDetailsPatch = {
   buildingTranscript?: BuildingTranscriptData;
@@ -13,6 +23,7 @@ type TranscriptDetailsPatch = {
   transcriptIntakeDispositionKind?: TranscriptDispositionKind;
   transcriptIntakeConfirmedAt?: string;
   transcriptIntakeRunId?: string;
+  transcriptIntakeAreaDetails?: TranscriptIntakeAreaDetailDraft;
 };
 
 export interface ConfirmedResultPropertySync {
@@ -51,6 +62,26 @@ function isTranscriptParseOutput(value: unknown): value is TranscriptParseOutput
     isRecord(value.landTranscript);
 }
 
+function hasBuildingContent(value: TranscriptParseOutput): boolean {
+  const desc = value.buildingTranscript.description;
+  return Boolean(
+    desc.buildingNumber ||
+    desc.totalArea ||
+    desc.floorArea ||
+    desc.mainBuildings?.length ||
+    value.buildingTranscript.ownership.length,
+  );
+}
+
+function hasLandContent(value: TranscriptParseOutput): boolean {
+  const desc = value.landTranscript.description;
+  return Boolean(
+    desc.landNumber ||
+    desc.area ||
+    value.landTranscript.ownership.length,
+  );
+}
+
 function readParkingTitleRights(
   detection: TranscriptDetectionResult | null,
   review: TranscriptReviewResult | null,
@@ -83,6 +114,7 @@ export function buildPropertySyncFromConfirmedTranscriptIntake(params: {
   detection: TranscriptDetectionResult | null;
   review: TranscriptReviewResult | null;
   confirmedAt: string;
+  areaDetailDraft?: unknown;
 }): ConfirmedResultPropertySync {
   const detailsPatch: TranscriptDetailsPatch = {
     transcriptIntakeConfirmedAt: params.confirmedAt,
@@ -92,18 +124,60 @@ export function buildPropertySyncFromConfirmedTranscriptIntake(params: {
   for (const doc of readParsedDocuments(params.parsedResult)) {
     if (!isTranscriptParseOutput(doc.parsedResult)) continue;
 
-    if (doc.documentType === 'building_registry_transcript') {
+    if (doc.documentType === 'building_registry_transcript' || doc.documentType === 'building_title') {
       detailsPatch.buildingTranscript = doc.parsedResult.buildingTranscript;
-    } else if (doc.documentType === 'land_registry_transcript') {
+    } else if (doc.documentType === 'land_registry_transcript' || doc.documentType === 'land_title') {
       detailsPatch.landTranscript = doc.parsedResult.landTranscript;
     } else if (doc.documentType === 'parking_building_registry_transcript') {
       detailsPatch.parkingBuildingTranscript = doc.parsedResult.buildingTranscript;
     } else if (doc.documentType === 'parking_land_registry_transcript') {
       detailsPatch.parkingLandTranscript = doc.parsedResult.landTranscript;
+    } else if (doc.documentType === 'registry_transcript_unclassified') {
+      if ((doc.parsedResult.kind === 'land' || hasLandContent(doc.parsedResult)) && !detailsPatch.landTranscript) {
+        detailsPatch.landTranscript = doc.parsedResult.landTranscript;
+      }
+      if ((doc.parsedResult.kind === 'building' || hasBuildingContent(doc.parsedResult)) && !detailsPatch.buildingTranscript) {
+        detailsPatch.buildingTranscript = doc.parsedResult.buildingTranscript;
+      }
     }
   }
 
-  const parkingTitleRights = readParkingTitleRights(params.detection, params.review);
+  const areaDetailDraft = normalizeAreaDetailDraft(params.areaDetailDraft);
+  const parkingTitleRights = areaDetailDraft?.parkingTitleRights.length
+    ? areaDetailDraft.parkingTitleRights
+    : readParkingTitleRights(params.detection, params.review);
+  if (areaDetailDraft) {
+    detailsPatch.transcriptIntakeAreaDetails = {
+      ...areaDetailDraft,
+      updatedAt: params.confirmedAt,
+    };
+  }
+
+  if (areaDetailDraft?.buildingAreas.length && detailsPatch.buildingTranscript) {
+    detailsPatch.buildingTranscript = applyAreaDetailDraftToBuildingTranscript(
+      detailsPatch.buildingTranscript,
+      areaDetailDraft.buildingAreas,
+    );
+  }
+  if (areaDetailDraft?.landShareAreas.length && detailsPatch.landTranscript) {
+    detailsPatch.landTranscript = applyAreaDetailDraftToLandTranscript(
+      detailsPatch.landTranscript,
+      areaDetailDraft.landShareAreas,
+    );
+  }
+  if (areaDetailDraft?.parkingBuildingAreas.length && detailsPatch.parkingBuildingTranscript) {
+    detailsPatch.parkingBuildingTranscript = applyAreaDetailDraftToBuildingTranscript(
+      detailsPatch.parkingBuildingTranscript,
+      areaDetailDraft.parkingBuildingAreas,
+    );
+  }
+  if (areaDetailDraft?.parkingLandShareAreas.length && detailsPatch.parkingLandTranscript) {
+    detailsPatch.parkingLandTranscript = applyAreaDetailDraftToLandTranscript(
+      detailsPatch.parkingLandTranscript,
+      areaDetailDraft.parkingLandShareAreas,
+    );
+  }
+
   detailsPatch.parkingTitleRights = parkingTitleRights;
   detailsPatch.transcriptIntakeDispositionKind = readDispositionKind(params.detection, params.review);
 

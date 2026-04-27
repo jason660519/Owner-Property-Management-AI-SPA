@@ -24,6 +24,8 @@ import {
   DETECT_LAND_COUNT_SAVED_PROMPT_MODULE_KEY,
 } from '@/lib/transcript-detect-prompts';
 import {
+  TRANSCRIPT_INTAKE_DETAIL_BUILDER_MODULE_KEY,
+  TRANSCRIPT_INTAKE_DETAIL_BUILDER_PROMPT,
   TRANSCRIPT_INTAKE_DETECT_MODULE_KEY,
   TRANSCRIPT_INTAKE_DETECT_PROMPT,
   TRANSCRIPT_INTAKE_PARSE_MODULE_KEY,
@@ -118,6 +120,14 @@ function buildSeedEntries(): SeedEntry[] {
     tags: ['謄本解析', '系統預設', '工作台'],
     description: '統一謄本工作台交叉檢查解析結果的 Prompt（review 階段）',
     moduleKey: TRANSCRIPT_INTAKE_REVIEW_MODULE_KEY,
+  });
+
+  entries.push({
+    name: '謄本工作台-明細草稿',
+    content: TRANSCRIPT_INTAKE_DETAIL_BUILDER_PROMPT,
+    tags: ['謄本解析', '系統預設', '工作台'],
+    description: '統一謄本工作台依 parse/review 結果產生可編輯建物土地車位明細草稿的 Prompt（detail_builder 階段）',
+    moduleKey: TRANSCRIPT_INTAKE_DETAIL_BUILDER_MODULE_KEY,
   });
 
   return entries;

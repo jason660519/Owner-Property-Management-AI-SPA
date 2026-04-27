@@ -2,7 +2,12 @@
 // Shared AI API caller functions — used by both single-model and consensus parsing.
 
 import type { AIProvider } from '@/lib/ai-providers';
+import type { AgentModelConfig } from '@/lib/types/agent-assignment';
 import { TRANSCRIPT_PARSE_PROMPT } from '@/lib/transcript-prompts';
+import { execFile } from 'child_process';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'fs/promises';
+import { tmpdir } from 'os';
+import path from 'path';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -12,7 +17,39 @@ import { TRANSCRIPT_PARSE_PROMPT } from '@/lib/transcript-prompts';
 // Helpers
 // ---------------------------------------------------------------------------
 
-const IMAGE_MIMES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+const IMAGE_MIMES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/tiff', 'image/bmp']);
+const PDF_IMAGE_PAGE_LIMIT = 4;
+const TRANSCRIPT_VISION_MAX_TOKENS = 8192;
+
+function configuredMaxTokens(config?: AgentModelConfig): number {
+  return typeof config?.max_tokens === 'number' && Number.isFinite(config.max_tokens)
+    ? config.max_tokens
+    : TRANSCRIPT_VISION_MAX_TOKENS;
+}
+
+function isOpenAiMaxCompletionModel(modelId: string): boolean {
+  const normalized = modelId.toLowerCase();
+  return normalized.startsWith('gpt-5') || normalized.startsWith('o1') || normalized.startsWith('o3') || normalized.startsWith('o4');
+}
+
+function openAiTokenLimit(modelId: string, config?: AgentModelConfig): Record<string, number> {
+  const maxTokens = configuredMaxTokens(config);
+  return isOpenAiMaxCompletionModel(modelId)
+    ? { max_completion_tokens: maxTokens }
+    : { max_tokens: maxTokens };
+}
+
+function configuredTemperature(config?: AgentModelConfig): number | undefined {
+  return typeof config?.temperature === 'number' && Number.isFinite(config.temperature)
+    ? config.temperature
+    : undefined;
+}
+
+function geminiThinkingConfig(modelId: string, config?: AgentModelConfig): Record<string, unknown> | undefined {
+  if (!modelId.startsWith('gemini-3')) return undefined;
+  if (!config?.reasoning_effort) return undefined;
+  return { thinkingLevel: config.reasoning_effort };
+}
 
 export function isImageMime(mime: string): boolean {
   return IMAGE_MIMES.has(mime.toLowerCase());
@@ -25,9 +62,53 @@ export function mimeFromPath(filePath: string): string {
     jpg: 'image/jpeg',
     jpeg: 'image/jpeg',
     png: 'image/png',
+    gif: 'image/gif',
     webp: 'image/webp',
+    tif: 'image/tiff',
+    tiff: 'image/tiff',
+    bmp: 'image/bmp',
   };
   return map[ext] ?? 'application/octet-stream';
+}
+
+function runPdftoppm(pdfPath: string, outputPrefix: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      'pdftoppm',
+      ['-jpeg', '-r', '180', '-f', '1', '-l', String(PDF_IMAGE_PAGE_LIMIT), pdfPath, outputPrefix],
+      { encoding: 'utf8', maxBuffer: 2 * 1024 * 1024 },
+      (error) => {
+        if (error) reject(error);
+        else resolve();
+      },
+    );
+  });
+}
+
+async function pdfToJpegDataUrls(fileBase64: string): Promise<string[]> {
+  const dir = await mkdtemp(path.join(tmpdir(), 'transcript-vlm-pdf-'));
+  const pdfPath = path.join(dir, 'source.pdf');
+  const outputPrefix = path.join(dir, 'page');
+  try {
+    await writeFile(pdfPath, Buffer.from(fileBase64, 'base64'));
+    await runPdftoppm(pdfPath, outputPrefix);
+    const files = (await readdir(dir)).filter((file) => file.endsWith('.jpg')).sort();
+    const dataUrls: string[] = [];
+    for (const file of files) {
+      const bytes = await readFile(path.join(dir, file));
+      dataUrls.push(`data:image/jpeg;base64,${bytes.toString('base64')}`);
+    }
+    return dataUrls;
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+async function visionDataUrls(fileBase64: string, mimeType: string): Promise<string[]> {
+  const mime = mimeType.toLowerCase();
+  if (isImageMime(mime)) return [`data:${mime};base64,${fileBase64}`];
+  if (mime === 'application/pdf') return pdfToJpegDataUrls(fileBase64);
+  return [];
 }
 
 /**
@@ -36,7 +117,7 @@ export function mimeFromPath(filePath: string): string {
  * - Falls back to first {...} object if no fence found (for "以下是結果：{...}" style).
  */
 export function extractJsonFromOutput(text: string): unknown {
-  let raw = text.trim();
+  let raw = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
   const codeFence = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (codeFence) {
     raw = codeFence[1].trim();
@@ -55,7 +136,7 @@ export function extractJsonFromOutput(text: string): unknown {
           }
         }
       }
-      if (end >= 0) raw = raw.slice(brace, end + 1);
+      raw = end >= 0 ? raw.slice(brace, end + 1) : raw.slice(brace);
     }
   }
   return JSON.parse(raw) as unknown;
@@ -82,6 +163,7 @@ export async function callOpenAI(
   mimeType: string,
   systemPrompt?: string,
   signal?: AbortSignal,
+  config?: AgentModelConfig,
 ): Promise<CallerResult> {
   const prompt = systemPrompt ?? TRANSCRIPT_PARSE_PROMPT;
 
@@ -89,10 +171,10 @@ export async function callOpenAI(
   type ImagePart = { type: 'image_url'; image_url: { url: string } };
   let content: string | (TextPart | ImagePart)[] = prompt;
 
-  const isDocOrImage = isImageMime(mimeType) || mimeType.toLowerCase() === 'application/pdf';
-  if (isDocOrImage) {
+  const imageUrls = await visionDataUrls(fileBase64, mimeType);
+  if (imageUrls.length) {
     content = [
-      { type: 'image_url' as const, image_url: { url: `data:${mimeType};base64,${fileBase64}` } },
+      ...imageUrls.map((url) => ({ type: 'image_url' as const, image_url: { url } })),
       { type: 'text' as const, text: prompt },
     ];
   }
@@ -104,7 +186,7 @@ export async function callOpenAI(
     body: JSON.stringify({
       model: modelId,
       messages: [{ role: 'user', content }],
-      max_tokens: 4096,
+      ...openAiTokenLimit(modelId, config),
       response_format: { type: 'json_object' },
     }),
   });
@@ -134,10 +216,10 @@ export async function callPerplexity(
   type ImagePart = { type: 'image_url'; image_url: { url: string } };
   let content: string | (TextPart | ImagePart)[] = prompt;
 
-  const isDocOrImage = isImageMime(mimeType) || mimeType.toLowerCase() === 'application/pdf';
-  if (isDocOrImage) {
+  const imageUrls = await visionDataUrls(fileBase64, mimeType);
+  if (imageUrls.length) {
     content = [
-      { type: 'image_url' as const, image_url: { url: `data:${mimeType};base64,${fileBase64}` } },
+      ...imageUrls.map((url) => ({ type: 'image_url' as const, image_url: { url } })),
       { type: 'text' as const, text: prompt },
     ];
   }
@@ -149,7 +231,7 @@ export async function callPerplexity(
     body: JSON.stringify({
       model: modelId,
       messages: [{ role: 'user', content }],
-      max_tokens: 4096,
+      max_tokens: TRANSCRIPT_VISION_MAX_TOKENS,
       response_format: { type: 'json_object' },
     }),
   });
@@ -197,7 +279,7 @@ export async function callAnthropic(
     headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: modelId,
-      max_tokens: 4096,
+      max_tokens: TRANSCRIPT_VISION_MAX_TOKENS,
       messages: [{ role: 'user', content: blocks }],
     }),
   });
@@ -223,6 +305,7 @@ export async function callGemini(
   mimeType: string,
   systemPrompt?: string,
   signal?: AbortSignal,
+  config?: AgentModelConfig,
 ): Promise<CallerResult> {
   const prompt = systemPrompt ?? TRANSCRIPT_PARSE_PROMPT;
 
@@ -235,9 +318,14 @@ export async function callGemini(
   // Gemma models (gemma-*) do not support responseMimeType:'application/json';
   // use plain text mode and rely on extractJsonFromOutput for those models.
   const isGemma = /gemma/i.test(modelId);
+  const baseGenerationConfig = {
+    maxOutputTokens: configuredMaxTokens(config),
+    ...(configuredTemperature(config) !== undefined ? { temperature: configuredTemperature(config) } : {}),
+    ...(geminiThinkingConfig(modelId, config) ? { thinkingConfig: geminiThinkingConfig(modelId, config) } : {}),
+  };
   const generationConfig = isGemma
-    ? { maxOutputTokens: 4096 }
-    : { maxOutputTokens: 4096, responseMimeType: 'application/json' };
+    ? baseGenerationConfig
+    : { ...baseGenerationConfig, responseMimeType: 'application/json' };
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/${name}:generateContent?key=${apiKey}`,
     {
@@ -279,10 +367,10 @@ export async function callDeepSeek(
   type ImagePart = { type: 'image_url'; image_url: { url: string } };
   let content: string | (TextPart | ImagePart)[] = prompt;
 
-  const isDocOrImage = isImageMime(mimeType) || mimeType.toLowerCase() === 'application/pdf';
-  if (isDocOrImage) {
+  const imageUrls = await visionDataUrls(fileBase64, mimeType);
+  if (imageUrls.length) {
     content = [
-      { type: 'image_url' as const, image_url: { url: `data:${mimeType};base64,${fileBase64}` } },
+      ...imageUrls.map((url) => ({ type: 'image_url' as const, image_url: { url } })),
       { type: 'text' as const, text: prompt },
     ];
   }
@@ -299,7 +387,7 @@ export async function callDeepSeek(
         { role: 'system', content: '請務必以嚴格的 JSON 格式輸出結果，不要加任何說明文字。' },
         { role: 'user', content },
       ],
-      max_tokens: 4096,
+      max_tokens: TRANSCRIPT_VISION_MAX_TOKENS,
       response_format: { type: 'json_object' },
     }),
   });
@@ -331,10 +419,10 @@ export async function callGrok(
   type ImagePart = { type: 'image_url'; image_url: { url: string } };
   let content: string | (TextPart | ImagePart)[] = prompt;
 
-  const isDocOrImage = isImageMime(mimeType) || mimeType.toLowerCase() === 'application/pdf';
-  if (isDocOrImage) {
+  const imageUrls = await visionDataUrls(fileBase64, mimeType);
+  if (imageUrls.length) {
     content = [
-      { type: 'image_url' as const, image_url: { url: `data:${mimeType};base64,${fileBase64}` } },
+      ...imageUrls.map((url) => ({ type: 'image_url' as const, image_url: { url } })),
       { type: 'text' as const, text: prompt },
     ];
   }
@@ -346,7 +434,7 @@ export async function callGrok(
     body: JSON.stringify({
       model: modelId,
       messages: [{ role: 'user', content }],
-      max_tokens: 4096,
+      max_tokens: TRANSCRIPT_VISION_MAX_TOKENS,
     }),
   });
 
@@ -398,7 +486,7 @@ export async function callTogether(
         { role: 'system', content: '請務必以嚴格的 JSON 格式輸出結果，不要加任何說明文字。' },
         { role: 'user', content },
       ],
-      max_tokens: 4096,
+      max_tokens: TRANSCRIPT_VISION_MAX_TOKENS,
     }),
   });
 
@@ -429,10 +517,10 @@ export async function callKimi(
   type ImagePart = { type: 'image_url'; image_url: { url: string } };
   let content: string | (TextPart | ImagePart)[] = prompt;
 
-  const isDocOrImage = isImageMime(mimeType) || mimeType.toLowerCase() === 'application/pdf';
-  if (isDocOrImage) {
+  const imageUrls = await visionDataUrls(fileBase64, mimeType);
+  if (imageUrls.length) {
     content = [
-      { type: 'image_url' as const, image_url: { url: `data:${mimeType};base64,${fileBase64}` } },
+      ...imageUrls.map((url) => ({ type: 'image_url' as const, image_url: { url } })),
       { type: 'text' as const, text: prompt },
     ];
   }
@@ -447,7 +535,7 @@ export async function callKimi(
         { role: 'system', content: '請務必以嚴格的 JSON 格式輸出結果，不要加任何說明文字。' },
         { role: 'user', content },
       ],
-      max_tokens: 4096,
+      max_tokens: TRANSCRIPT_VISION_MAX_TOKENS,
       response_format: { type: 'json_object' },
     }),
   });
@@ -479,10 +567,10 @@ export async function callOpenRouter(
   type ImagePart = { type: 'image_url'; image_url: { url: string } };
   let content: string | (TextPart | ImagePart)[] = prompt;
 
-  const isDocOrImage = isImageMime(mimeType) || mimeType.toLowerCase() === 'application/pdf';
-  if (isDocOrImage) {
+  const imageUrls = await visionDataUrls(fileBase64, mimeType);
+  if (imageUrls.length) {
     content = [
-      { type: 'image_url' as const, image_url: { url: `data:${mimeType};base64,${fileBase64}` } },
+      ...imageUrls.map((url) => ({ type: 'image_url' as const, image_url: { url } })),
       { type: 'text' as const, text: prompt },
     ];
   }
@@ -497,7 +585,7 @@ export async function callOpenRouter(
         { role: 'system', content: '請務必以嚴格的 JSON 格式輸出結果，不要加任何說明文字。' },
         { role: 'user', content },
       ],
-      max_tokens: 4096,
+      max_tokens: TRANSCRIPT_VISION_MAX_TOKENS,
       response_format: { type: 'json_object' },
     }),
   });
@@ -529,10 +617,10 @@ export async function callZhipu(
   type ImagePart = { type: 'image_url'; image_url: { url: string } };
   let content: string | (TextPart | ImagePart)[] = prompt;
 
-  const isDocOrImage = isImageMime(mimeType) || mimeType.toLowerCase() === 'application/pdf';
-  if (isDocOrImage) {
+  const imageUrls = await visionDataUrls(fileBase64, mimeType);
+  if (imageUrls.length) {
     content = [
-      { type: 'image_url' as const, image_url: { url: `data:${mimeType};base64,${fileBase64}` } },
+      ...imageUrls.map((url) => ({ type: 'image_url' as const, image_url: { url } })),
       { type: 'text' as const, text: prompt },
     ];
   }
@@ -547,7 +635,7 @@ export async function callZhipu(
         { role: 'system', content: '請務必以嚴格的 JSON 格式輸出結果，不要加任何說明文字。' },
         { role: 'user', content },
       ],
-      max_tokens: 4096,
+      max_tokens: TRANSCRIPT_VISION_MAX_TOKENS,
       response_format: { type: 'json_object' },
     }),
   });
@@ -572,12 +660,13 @@ export type CallerFn = (
   mime: string,
   systemPrompt?: string,
   signal?: AbortSignal,
+  config?: AgentModelConfig,
 ) => Promise<CallerResult>;
 
 // ---------------------------------------------------------------------------
 // Qwen (Alibaba DashScope) — OpenAI-compatible
-// Note: only qwen-vl-* models accept images; text models will ignore file data.
-// PDFs are not natively supported and will be rejected by the model.
+// Qwen multimodal families accept image_url parts. PDFs are left to providers
+// with native PDF support, such as Gemini or Anthropic.
 // ---------------------------------------------------------------------------
 
 export async function callQwen(
@@ -594,9 +683,10 @@ export async function callQwen(
   type ImagePart = { type: 'image_url'; image_url: { url: string } };
   let content: string | (TextPart | ImagePart)[] = prompt;
 
-  if (isImageMime(mimeType)) {
+  const imageUrls = await visionDataUrls(fileBase64, mimeType);
+  if (imageUrls.length) {
     content = [
-      { type: 'image_url' as const, image_url: { url: `data:${mimeType};base64,${fileBase64}` } },
+      ...imageUrls.map((url) => ({ type: 'image_url' as const, image_url: { url } })),
       { type: 'text' as const, text: prompt },
     ];
   }
@@ -611,7 +701,7 @@ export async function callQwen(
         { role: 'system', content: '請務必以嚴格的 JSON 格式輸出結果，不要加任何說明文字。' },
         { role: 'user', content },
       ],
-      max_tokens: 4096,
+      max_tokens: TRANSCRIPT_VISION_MAX_TOKENS,
       response_format: { type: 'json_object' },
     }),
   });
@@ -646,9 +736,10 @@ async function callOllamaAt(
   type ImagePart = { type: 'image_url'; image_url: { url: string } };
   let content: string | (TextPart | ImagePart)[] = prompt;
 
-  if (isImageMime(mimeType)) {
+  const imageUrls = await visionDataUrls(fileBase64, mimeType);
+  if (imageUrls.length) {
     content = [
-      { type: 'image_url' as const, image_url: { url: `data:${mimeType};base64,${fileBase64}` } },
+      ...imageUrls.map((url) => ({ type: 'image_url' as const, image_url: { url } })),
       { type: 'text' as const, text: prompt },
     ];
   }
@@ -663,7 +754,7 @@ async function callOllamaAt(
     body: JSON.stringify({
       model: modelId,
       messages: [{ role: 'user', content }],
-      max_tokens: 4096,
+      max_tokens: TRANSCRIPT_VISION_MAX_TOKENS,
     }),
   });
 

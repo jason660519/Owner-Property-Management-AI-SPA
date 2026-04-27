@@ -44,6 +44,7 @@ interface DocumentRow {
   document_name: string | null;
   mime_type: string | null;
   original_filename: string | null;
+  document_type: string | null;
 }
 
 const fromSpy = jest.fn();
@@ -152,6 +153,7 @@ beforeEach(() => {
       document_name: '謄本-scan',
       mime_type: 'application/pdf',
       original_filename: 'scan.pdf',
+      document_type: 'building_registry_transcript',
     },
   ];
   pdfProbeSpy.mockClear();
@@ -219,6 +221,36 @@ describe('/api/transcript-intake/runs', () => {
         }),
       ],
     });
+  });
+
+  it('POST routes owner title deed images to VLM without PDF text probing', async () => {
+    documentRows = [{
+      ...documentRows[0],
+      file_path: 'property-1/title-copy.jpg',
+      document_name: '屋主建物權狀影本',
+      mime_type: 'image/jpeg',
+      original_filename: '屋主建物權狀影本.jpg',
+      document_type: 'building_title',
+    }];
+
+    const res = await POST(postReq({
+      propertyId: 'property-1',
+      propertyType: 'sale',
+      documentIds: ['doc-1'],
+    }));
+
+    expect(res.status).toBe(200);
+    expect(insertedPayload?.route_decision).toMatchObject({
+      aggregateRoute: 'vlm_visual',
+      documents: [
+        expect.objectContaining({
+          route: 'vlm_visual',
+          inputFormat: 'image',
+          pdfTextProbe: null,
+        }),
+      ],
+    });
+    expect(pdfProbeSpy).not.toHaveBeenCalled();
   });
 
   it('POST rejects documents that belong to another property', async () => {

@@ -124,6 +124,14 @@ function req(): NextRequest {
   });
 }
 
+function postReq(body?: unknown): NextRequest {
+  return new NextRequest('http://localhost:3001/api/transcript-intake/runs/run-1', {
+    method: 'POST',
+    body: body ? JSON.stringify(body) : undefined,
+    headers: body ? { 'content-type': 'application/json' } : undefined,
+  });
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   propertyUpdatePayloads.length = 0;
@@ -193,7 +201,7 @@ describe('GET /api/transcript-intake/runs/[id]', () => {
       review_result: { approved: true },
     } as Record<string, unknown>;
 
-    const res = await POST(req(), { params: Promise.resolve({ id: 'run-1' }) });
+    const res = await POST(postReq(), { params: Promise.resolve({ id: 'run-1' }) });
 
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -243,7 +251,31 @@ describe('GET /api/transcript-intake/runs/[id]', () => {
       },
     } as Record<string, unknown>;
 
-    const res = await POST(req(), { params: Promise.resolve({ id: 'run-1' }) });
+    const res = await POST(postReq({
+      areaDetailDraft: {
+        version: 1,
+        dispositionKind: 'unit_building_with_land_share_sale',
+        parkingTitleRights: ['independent', 'shared_facility'],
+        buildingAreas: [{
+          id: 'building-1',
+          label: '五層',
+          identifier: '001建號',
+          areaSqm: '88.5',
+          shareRatio: '全部',
+          use: '住家用',
+        }],
+        landShareAreas: [{
+          id: 'land-1',
+          label: '住宅區',
+          identifier: '100地號',
+          areaSqm: '200',
+          shareRatio: '10000分之350',
+          use: '住宅區',
+        }],
+        parkingBuildingAreas: [],
+        parkingLandShareAreas: [],
+      },
+    }), { params: Promise.resolve({ id: 'run-1' }) });
 
     expect(res.status).toBe(200);
     expect(propertyUpdatePayloads[0]).toMatchObject({
@@ -254,8 +286,11 @@ describe('GET /api/transcript-intake/runs/[id]', () => {
         existing: true,
         buildingTranscript,
         landTranscript,
-        parkingTitleRights: ['independent'],
+        parkingTitleRights: ['independent', 'shared_facility'],
         transcriptIntakeDispositionKind: 'unit_building_with_land_share_sale',
+        transcriptIntakeAreaDetails: expect.objectContaining({
+          buildingAreas: [expect.objectContaining({ areaSqm: '88.5' })],
+        }),
       },
     });
   });

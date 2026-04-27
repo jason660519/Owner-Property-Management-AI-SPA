@@ -85,6 +85,25 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     keyPrefix: 'sk-',
     models: [
       {
+        id: 'gpt-5.5',
+        name: 'GPT-5.5',
+        contextWindow: 400000,
+        maxOutput: 128000,
+        inputPrice: 10.00,
+        outputPrice: 40.00,
+        capabilities: ['text', 'vision', 'reasoning', 'function_calling', 'json_mode'],
+        recommended: true,
+      },
+      {
+        id: 'gpt-5.3-chat-latest',
+        name: 'GPT-5.3 Chat Latest',
+        contextWindow: 400000,
+        maxOutput: 128000,
+        inputPrice: 5.00,
+        outputPrice: 20.00,
+        capabilities: ['text', 'vision', 'reasoning', 'function_calling', 'json_mode'],
+      },
+      {
         id: 'gpt-4o',
         name: 'GPT-4o',
         contextWindow: 128000,
@@ -156,6 +175,16 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     keyPrefix: 'sk-ant-',
     models: [
       {
+        id: 'claude-opus-4-5-20251101',
+        name: 'Claude Opus 4.5',
+        contextWindow: 200000,
+        maxOutput: 32768,
+        inputPrice: 15.00,
+        outputPrice: 75.00,
+        capabilities: ['text', 'vision', 'function_calling', 'extended_thinking', 'tool_use'],
+        recommended: true,
+      },
+      {
         id: 'claude-sonnet-4-20250514',
         name: 'Claude Sonnet 4',
         contextWindow: 200000,
@@ -199,6 +228,16 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
     keyPrefix: 'AIza',
     models: [
+      {
+        id: 'gemini-3.1-pro-preview',
+        name: 'Gemini 3.1 Pro Preview',
+        contextWindow: 2097152,
+        maxOutput: 65536,
+        inputPrice: 2.50,
+        outputPrice: 15.00,
+        capabilities: ['text', 'vision', 'function_calling', 'grounding', 'reasoning'],
+        recommended: true,
+      },
       {
         id: 'gemini-2.0-flash',
         name: 'Gemini 2.0 Flash',
@@ -486,6 +525,16 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     keyPrefix: 'xai-',
     models: [
       {
+        id: 'grok-4.20-reasoning',
+        name: 'Grok 4.20 Reasoning',
+        contextWindow: 256000,
+        maxOutput: 32768,
+        inputPrice: 5.00,
+        outputPrice: 25.00,
+        capabilities: ['text', 'vision', 'function_calling', 'reasoning'],
+        recommended: true,
+      },
+      {
         id: 'grok-3',
         name: 'Grok 3',
         contextWindow: 131072,
@@ -529,6 +578,16 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     baseUrl: 'https://api.moonshot.cn/v1',
     keyPrefix: 'sk-',
     models: [
+      {
+        id: 'kimi-k2.6',
+        name: 'Kimi K2.6',
+        contextWindow: 256000,
+        maxOutput: 32768,
+        inputPrice: 2.00,
+        outputPrice: 8.00,
+        capabilities: ['text', 'vision', 'function_calling', 'json_mode'],
+        recommended: true,
+      },
       {
         id: 'moonshot-v1-128k',
         name: 'Moonshot v1 128K',
@@ -748,6 +807,16 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     baseUrl: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
     keyPrefix: 'sk-',
     models: [
+      {
+        id: 'qwen3.6-plus',
+        name: 'Qwen 3.6 Plus',
+        contextWindow: 1000000,
+        maxOutput: 32768,
+        inputPrice: 0.40,
+        outputPrice: 1.20,
+        capabilities: ['text', 'vision', 'function_calling', 'json_mode'],
+        recommended: true,
+      },
       {
         id: 'qwen-max',
         name: 'Qwen Max',

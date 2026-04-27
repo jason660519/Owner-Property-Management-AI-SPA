@@ -5,6 +5,7 @@ import type {
   BuildingTranscriptData,
   LandTranscriptData,
 } from '@/lib/types/properties';
+import type { TranscriptIntakeAreaDetailDraft } from '@/lib/transcript-parse/intake-types';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -149,11 +150,120 @@ function makeLandTranscript(
   };
 }
 
+function makeConfirmedAreaDetails(): TranscriptIntakeAreaDetailDraft {
+  return {
+    version: 1,
+    dispositionKind: 'unit_building_with_land_share_sale',
+    parkingTitleRights: ['independent', 'shared_facility'],
+    buildingAreas: [
+      {
+        id: 'building-1',
+        sourceDocumentName: '建物所有權狀',
+        sourcePage: 1,
+        label: '主建物',
+        identifier: '02073-000建號',
+        areaSqm: '188.20',
+        shareRatio: '2分之1',
+        use: '商業用',
+      },
+    ],
+    landShareAreas: [
+      {
+        id: 'land-1',
+        sourceDocumentName: '土地所有權狀A',
+        sourcePage: 2,
+        label: '基地持分',
+        identifier: '0091-0000地號',
+        areaSqm: '1640',
+        shareRatio: '20000分之157',
+        use: '建',
+      },
+      {
+        id: 'land-2',
+        sourceDocumentName: '土地所有權狀B',
+        sourcePage: 3,
+        label: '基地持分',
+        identifier: '0091-0002地號',
+        areaSqm: '446',
+        shareRatio: '20000分之157',
+        use: '建',
+      },
+    ],
+    parkingBuildingAreas: [
+      {
+        id: 'parking-building-1',
+        sourceDocumentName: '停車位權狀',
+        sourcePage: 4,
+        label: '獨立車位',
+        identifier: '08888-000建號',
+        areaSqm: '28.40',
+        shareRatio: '全部',
+        use: '停車空間',
+      },
+    ],
+    parkingLandShareAreas: [
+      {
+        id: 'parking-land-1',
+        sourceDocumentName: '停車位土地持分',
+        sourcePage: 5,
+        label: '車位土地持分',
+        identifier: '0091-0000地號',
+        areaSqm: '1640',
+        shareRatio: '100000分之35',
+        use: '建',
+      },
+    ],
+    updatedAt: '2026-04-28T00:00:00.000Z',
+  };
+}
+
 describe('BuildingLandAreaDetailTab', () => {
   describe('no transcript data', () => {
     it('shows empty state message when no transcripts exist', () => {
       render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={makeProperty()} />);
       expect(screen.getByText(/尚未有謄本資料/)).toBeInTheDocument();
+    });
+  });
+
+  describe('confirmed transcript intake area details', () => {
+    it('uses the confirmed four area-detail tables as the readonly source of truth', () => {
+      const property = makeProperty({
+        transcriptIntakeAreaDetails: makeConfirmedAreaDetails(),
+        landTranscript: makeLandTranscript({ landNumber: 'legacy-land-should-not-render' }),
+      });
+
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
+
+      expect(screen.getByText('建物建築面積明細表')).toBeInTheDocument();
+      expect(screen.getByText('建物所屬土地持分面積明細表')).toBeInTheDocument();
+      expect(screen.getByText('車位建築面積明細表')).toBeInTheDocument();
+      expect(screen.getByText('車位所屬土地持分面積明細表')).toBeInTheDocument();
+
+      expect(screen.getByText('02073-000建號')).toBeInTheDocument();
+      expect(screen.getAllByText('0091-0000地號').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText('0091-0002地號')).toBeInTheDocument();
+      expect(screen.getByText('08888-000建號')).toBeInTheDocument();
+      expect(screen.queryByText('legacy-land-should-not-render')).not.toBeInTheDocument();
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    });
+
+    it('calculates summary from confirmed detail rows including multiple land rows', () => {
+      const property = makeProperty({
+        transcriptIntakeAreaDetails: makeConfirmedAreaDetails(),
+      });
+
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
+
+      const summarySection = screen.getByTestId('area-summary');
+      const buildingRow = within(summarySection).getByText('建物建築面積小計').closest('tr')!;
+      const landRow = within(summarySection).getByText('建物所屬土地持分面積小計').closest('tr')!;
+      const parkingBuildingRow = within(summarySection).getByText('車位建築面積小計').closest('tr')!;
+      const parkingLandRow = within(summarySection).getByText('車位所屬土地持分面積小計').closest('tr')!;
+
+      expect(within(buildingRow).getByText('94.1')).toBeInTheDocument();
+      expect(within(landRow).getByText('16.38')).toBeInTheDocument();
+      expect(within(parkingBuildingRow).getByText('28.4')).toBeInTheDocument();
+      expect(within(parkingLandRow).getByText('0.57')).toBeInTheDocument();
     });
   });
 

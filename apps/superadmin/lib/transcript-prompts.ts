@@ -14,11 +14,23 @@ export const TRANSCRIPT_PARSE_PROMPT = `你是台灣不動產「建物／土地�
 請你以「準確、可寫入資料庫、可被程式穩定讀取」為優先，將謄本內容解析為固定格式 JSON。
 
 你必須做到：
-1) 先完整閱讀原始內容（不要跳過頁面或區塊）。
-2) 判定謄本種類（建物 or 土地），並填入 kind。
-3) 嚴格依照下方 schema 輸出，欄位名稱不可更動、不可增減、不可用同義字。
-4) 找不到的值用空字串 "" 或空陣列 []（不要猜、不要編造）。
-5) 所有陣列請「依登記次序 seq 由小到大排序」，並保留前導零（例如 "0003"）。
+1) 先做「視覺文字轉錄」：像 OCR 一樣逐區塊閱讀文件，把你看見的標題、欄名、數字、地號、建號、權利範圍、面積、門牌、所有權人、字號在內部完整整理後，才開始填 JSON。
+2) 不要一開始就套 schema 而跳過小字、印章旁、表格邊緣或上下欄位；權狀 JPG/PNG/PDF 掃描影本尤其要先看完全部可見文字。
+3) 判定文件種類（建物謄本、土地謄本、建物權狀、土地權狀、混合文件），並填入 kind。
+4) 嚴格依照下方 schema 輸出，欄位名稱不可更動、不可增減、不可用同義字。
+5) 找不到的值用空字串 "" 或空陣列 []（不要猜、不要編造）。
+6) 所有陣列請「依登記次序 seq 由小到大排序」，並保留前導零（例如 "0003"）。
+
+權狀影本優先規則（非常重要）：
+- 權狀影本不是謄本，但仍必須解析；不可因沒有「標示部／所有權部」章節就輸出空白。
+- 若看到「土地所有權狀」「建物所有權狀」「所有權狀字號」「權狀字號」「權利範圍」「土地標示」「建物標示」等文字，請先視為可解析文件。
+- 權狀通常以「標題 + 權狀字號 + 所有權人 + 土地標示/建物標示 + 權利範圍」呈現，請直接把這些可見文字映射到 schema。
+- 土地權狀常見欄位：地號、坐落、地目、面積、權利範圍、所有權人、所有權狀字號，應寫入 landTranscript.header / description / ownership。
+- 建物權狀常見欄位：建號、門牌、基地坐落、層次、面積、主要用途、主要建材、共同使用部分、權利範圍、所有權人、所有權狀字號，應寫入 buildingTranscript.header / description / ownership / commonAreas。
+- 權狀可能同頁同時包含土地與建物資訊；請同時填入 landTranscript 與 buildingTranscript，不要只保留其中一邊。
+- 權狀上的「權利範圍」即 ownershipRatio；請保留原始字串，例如「20000分之157」「2分之1」「全部」。
+- 若文件主標題是土地權狀但下方列出建物標示，kind 可仍為 "land"，但 buildingTranscript 不可留空；反之亦同。
+- 不要輸出你的轉錄過程；最終只輸出嚴格 JSON。
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 【欄位對照表：謄本中文標籤 → JSON key（嚴格照此對應，不得自行改名）】
@@ -297,8 +309,9 @@ export const TRANSCRIPT_PARSE_PROMPT = `你是台灣不動產「建物／土地�
 }
 
 重要規則：
-- kind = "building" 時：landTranscript 仍需存在，但可填完整空結構（所有字串為 ""，所有陣列為 []）。
-- kind = "land" 時：buildingTranscript 仍需存在，但可填完整空結構（所有字串為 ""，所有陣列為 []）。
+- kind 代表文件主要類型；若同一份影本同時包含建物權狀與土地權狀，請選主要頁面作為 kind，但 buildingTranscript 與 landTranscript 都要盡量填寫，不可因 kind 只能二選一而丟棄另一種權狀內容。
+- kind = "building" 且文件確實沒有土地內容時：landTranscript 可填完整空結構（所有字串為 ""，所有陣列為 []）。
+- kind = "land" 且文件確實沒有建物內容時：buildingTranscript 可填完整空結構（所有字串為 ""，所有陣列為 []）。
 - ownership / encumbrances / annexedBuildings / commonAreas：若無資料請輸出 []（不要輸出含空物件的陣列）。
 - mainBuildings：若文件只有一筆主建物，也請輸出單一物件陣列；若完全無法辨識才輸出 []。
 - commonAreas：每筆優先同時填入 buildingNumber、area、ratio；若只辨識到部分欄位，未辨識欄位填 ""，但不要整筆省略。
@@ -313,7 +326,7 @@ export const TRANSCRIPT_PARSE_PROMPT = `你是台灣不動產「建物／土地�
 - 若文件模糊無法辨識：該欄位填 ""，不要猜。`;
 
 /** 雲端解析時依 DB 文件類型強制對應的 JSON kind／主要填入區塊 */
-export type TranscriptFileParseKind = 'building' | 'land';
+export type TranscriptFileParseKind = 'building' | 'land' | 'auto';
 
 /**
  * 依 property_documents.document_type 決定應填滿 buildingTranscript 或 landTranscript。
@@ -322,8 +335,10 @@ export type TranscriptFileParseKind = 'building' | 'land';
 export function resolveTranscriptParseKindFromDocumentType(
   documentType: string | null | undefined,
 ): TranscriptFileParseKind {
+  if (documentType === 'registry_transcript_unclassified') return 'auto';
   return documentType === 'land_registry_transcript' ||
-    documentType === 'parking_land_registry_transcript'
+    documentType === 'parking_land_registry_transcript' ||
+    documentType === 'land_title'
     ? 'land'
     : 'building';
 }
@@ -337,8 +352,16 @@ export function withTranscriptParseKindDirective(
   basePrompt: string,
 ): { parseKind: TranscriptFileParseKind; prompt: string } {
   const parseKind = resolveTranscriptParseKindFromDocumentType(documentType);
+  const isLandTitle = documentType === 'land_title';
+  const isBuildingTitle = documentType === 'building_title';
   const directive =
-    parseKind === 'land'
+    parseKind === 'auto'
+      ? '【系統已登記檔案類型：待判讀謄本／權狀】\n請先依文件內容自行判斷這是建物謄本、土地謄本、建物權狀、土地權狀、車位謄本或混合文件。若主要內容為土地或土地權狀，頂層 "kind" 請輸出 "land" 並填寫 landTranscript；若主要內容為建物、建物權狀或車位建物，頂層 "kind" 請輸出 "building" 並填寫 buildingTranscript。若同一份影本同時有建物權狀與土地權狀，即使 kind 只能二選一，也必須同時填寫 buildingTranscript 與 landTranscript。不可因登記類型未知而硬填錯誤區塊。\n\n'
+      : isLandTitle
+      ? '【系統已登記檔案類型：土地權狀】\n輸出 JSON 時頂層 "kind" 通常為 "land"。請先像 OCR 一樣讀完整張權狀，再將土地權狀中的地號、坐落、面積、所有權人、權利範圍、所有權狀字號寫入 landTranscript。若同頁可見「建物標示」「建號」「門牌」「共同使用部分」等建物資料，也必須同步填寫 buildingTranscript，不可強制留空。\n\n'
+      : isBuildingTitle
+      ? '【系統已登記檔案類型：建物權狀】\n輸出 JSON 時頂層 "kind" 通常為 "building"。請先像 OCR 一樣讀完整張權狀，再將建物權狀中的建號、門牌、層次、面積、用途、建材、所有權人、權利範圍、所有權狀字號寫入 buildingTranscript。若同頁可見「土地標示」「地號」「土地權利範圍」等土地資料，也必須同步填寫 landTranscript，不可強制留空。\n\n'
+      : parseKind === 'land'
       ? '【系統已登記檔案類型：土地謄本】\n輸出 JSON 時頂層 "kind" 必須為 "land"。請將文件中土地標示部、土地所有權部、土地他項權利部之內容完整對應至 landTranscript（header、description、ownership、encumbrances）。buildingTranscript 必須為完整空結構：所有字串為 ""，mainBuildings／annexedBuildings／commonAreas／ownership／encumbrances 皆為 []，不可將土地內容寫入 buildingTranscript。\n\n'
       : '【系統已登記檔案類型：建物謄本】\n輸出 JSON 時頂層 "kind" 必須為 "building"。請完整填寫 buildingTranscript；landTranscript 必須為完整空結構（字串皆 ""、陣列皆 []）。\n\n';
   return { parseKind, prompt: `${directive}${basePrompt}` };

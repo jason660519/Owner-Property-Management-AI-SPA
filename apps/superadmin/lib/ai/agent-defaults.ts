@@ -126,15 +126,24 @@ export const AGENT_DEFAULTS: Record<string, AgentAssignmentDefault> = {
 
   // ───────── Transcript ─────────
   transcript_detection: defaults(
-    'openai',
-    'gpt-4o',
-    { temperature: 0.1, max_tokens: 2048 },
+    'gemini',
+    'gemini-3.1-pro-preview',
+    { temperature: 0, max_tokens: 4096, reasoning_effort: 'high' },
     [
-      fb('gemini', 'gemini-1.5-pro', 'rate_limit'),
-      fb('anthropic', 'claude-sonnet-4-20250514', 'error'),
-      fb('gemini', 'gemini-2.0-flash', 'cost_over'),
+      {
+        ...fb('anthropic', 'claude-opus-4-5-20251101', 'rate_limit'),
+        config: { temperature: 0, max_tokens: 4096 },
+      },
+      {
+        ...fb('openai', 'gpt-5.5', 'error'),
+        config: { temperature: 0, max_tokens: 4096, reasoning_effort: 'high' },
+      },
+      {
+        ...fb('gemini', 'gemini-2.0-flash', 'cost_over'),
+        config: { temperature: 0, max_tokens: 4096, reasoning_effort: 'high' },
+      },
     ],
-    '謄本筆數偵測偏快，先 GPT-4o 視覺，成本超標切最便宜的 Gemini 2.0 Flash。',
+    '謄本與權狀初判：Gemini 3.1 Pro Preview 為主，temperature 0、thinking level high；權狀需優先判為 land_title / building_title，沒有明確車位證據不得推測車位。',
   ),
 
   transcript_review: defaults(
@@ -150,27 +159,57 @@ export const AGENT_DEFAULTS: Record<string, AgentAssignmentDefault> = {
   ),
 
   transcript_visual_parse: defaults(
-    'anthropic',
-    'claude-opus-4-20250514',
-    { temperature: 0.1, max_tokens: 4096 },
+    'gemini',
+    'gemini-3.1-pro-preview',
+    { temperature: 0, max_tokens: 8192, reasoning_effort: 'high' },
     [
-      fb('openai', 'gpt-4o', 'rate_limit'),
-      fb('gemini', 'gemini-1.5-pro', 'error'),
-      fb('anthropic', 'claude-sonnet-4-20250514', 'cost_over'),
+      {
+        ...fb('anthropic', 'claude-opus-4-5-20251101', 'rate_limit'),
+        config: { temperature: 0, max_tokens: 8192 },
+      },
+      {
+        ...fb('openai', 'gpt-5.5', 'error'),
+        config: { temperature: 0, max_tokens: 8192, reasoning_effort: 'high' },
+      },
+      {
+        ...fb('gemini', 'gemini-1.5-pro', 'cost_over'),
+        config: { temperature: 0, max_tokens: 8192 },
+      },
     ],
-    '視覺解析核心任務：三強視覺模型接力，避免任何一家掛點就全面停擺。',
+    '謄本與權狀視覺解析：Gemini 3.1 Pro Preview 為主，temperature 0、thinking level high；移除 Kimi/DeepSeek/Gemini Flash，備援保留 GPT-5.5、Claude Opus 與 Gemini Pro。',
   ),
 
   transcript_audit: defaults(
-    'anthropic',
-    'claude-opus-4-20250514',
+    'openai',
+    'gpt-5.5',
     { temperature: 0.1, max_tokens: 4096 },
     [
-      fb('openai', 'gpt-4o', 'rate_limit'),
-      fb('gemini', 'gemini-1.5-pro', 'error'),
-      fb('anthropic', 'claude-sonnet-4-20250514', 'cost_over'),
+      fb('anthropic', 'claude-opus-4-5-20251101', 'rate_limit'),
+      fb('grok', 'grok-4.20-reasoning', 'error'),
+      fb('openai', 'gpt-5.3-chat-latest', 'cost_over'),
     ],
-    '解析結果審核：與 visual_parse 使用不同 provider 當 fallback，避免同一家模型的同類錯誤重覆。',
+    '解析結果審核：預設由 OpenAI GPT-5.5、Claude Opus 4.5、Grok 4.20 三家 reviewer 交叉審查，成本超標時退回 GPT-5.3。',
+  ),
+
+  transcript_detail_builder: defaults(
+    'gemini',
+    'gemini-3.1-pro-preview',
+    { temperature: 0, max_tokens: 8192, reasoning_effort: 'high' },
+    [
+      {
+        ...fb('anthropic', 'claude-opus-4-5-20251101', 'rate_limit'),
+        config: { temperature: 0, max_tokens: 8192 },
+      },
+      {
+        ...fb('openai', 'gpt-5.5', 'error'),
+        config: { temperature: 0, max_tokens: 8192, reasoning_effort: 'high' },
+      },
+      {
+        ...fb('gemini', 'gemini-1.5-pro', 'cost_over'),
+        config: { temperature: 0, max_tokens: 8192 },
+      },
+    ],
+    '明細草稿產生：單一 Gemini 3.1 Pro Preview VLM 依 parse + review + 原始文件填入可編輯面積明細，有爭議才標記人工確認。',
   ),
 
   // ───────── Media ─────────

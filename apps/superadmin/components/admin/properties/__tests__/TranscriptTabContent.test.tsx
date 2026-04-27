@@ -1,6 +1,5 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 
 import { TranscriptTabContent } from '../TranscriptTabContent';
@@ -81,36 +80,19 @@ describe('TranscriptTabContent', () => {
     mockGetPropertyDocuments.mockResolvedValue([]);
   });
 
-  it('allows shared parking row toggle to collapse main transcript section', async () => {
-    const user = userEvent.setup();
+  it('renders the unified transcript workbench without the legacy tools entry', async () => {
     render(<TranscriptTabContent property={buildProperty()} />);
 
     await waitFor(() => {
       expect(mockGetPropertyDocuments).toHaveBeenCalledWith('property-1');
     });
 
-    await user.click(
-      screen.getByRole('checkbox', {
-        name: '公設產權車位（共有持分／登載於主建物謄本之停車空間）',
-      }),
-    );
-
-    await waitFor(() => {
-      expect(mockSaveParkingTitleRights).toHaveBeenCalledWith('property-1', 'sale', ['shared_facility']);
-    });
+    expect(await screen.findByText('謄本工作台')).toBeInTheDocument();
+    expect(screen.queryByText('進階／舊版謄本工具')).not.toBeInTheDocument();
+    expect(screen.queryByText('標的建築物建號筆數(單選)')).not.toBeInTheDocument();
     expect(mockSaveHasIndependentParking).not.toHaveBeenCalled();
     expect(mockSaveSaleModes).not.toHaveBeenCalled();
     expect(mockSaveBuildingCount).not.toHaveBeenCalled();
-
-    expect(screen.getByText('公設車位－建物全部謄本')).toBeInTheDocument();
-
-    await user.click(
-      screen.getByRole('button', {
-        name: '收合謄本（主建物與土地）',
-      }),
-    );
-
-    expect(screen.queryByText('公設車位－建物全部謄本')).not.toBeInTheDocument();
-    expect(screen.queryByText('公設車位－土地全部／持分謄本')).not.toBeInTheDocument();
+    expect(mockSaveParkingTitleRights).not.toHaveBeenCalled();
   });
 });

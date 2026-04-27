@@ -128,6 +128,9 @@ export async function POST(
   const { id } = await context.params;
   if (!id) return jsonError('Missing id', 400);
 
+  const body = await request.json().catch(() => ({})) as {
+    areaDetailDraft?: unknown;
+  };
   const admin = createAdminClient();
   const completedAt = new Date().toISOString();
   const { data: row, error } = await admin
@@ -159,6 +162,7 @@ export async function POST(
     detection: (snapshot.detection_result ?? null) as TranscriptDetectionResult | null,
     review: (snapshot.review_result ?? null) as TranscriptReviewResult | null,
     confirmedAt: completedAt,
+    areaDetailDraft: body.areaDetailDraft,
   });
 
   const { data: propertyRow, error: propertyFetchError } = await admin
@@ -205,6 +209,7 @@ export async function POST(
       landNumber: propertySync.landNumber,
       syncedDetailKeys: Object.keys(propertySync.detailsPatch),
     },
+    areaDetailDraft: body.areaDetailDraft ?? null,
   };
 
   const { data: confirmedRow, error: confirmedError } = await admin

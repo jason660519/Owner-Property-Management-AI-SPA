@@ -32,6 +32,7 @@ interface PropertyDocumentRow {
   document_name: string | null;
   mime_type: string | null;
   original_filename: string | null;
+  document_type: string | null;
 }
 
 const MAX_DOCUMENTS_PER_RUN = 20;
@@ -168,7 +169,7 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient();
   const { data: docs, error: docsError } = await admin
     .from('property_documents')
-    .select('id, property_id, property_type, file_path, document_name, mime_type, original_filename')
+    .select('id, property_id, property_type, file_path, document_name, mime_type, original_filename, document_type')
     .in('id', documentIds)
     .eq('is_active', true);
 
@@ -196,6 +197,7 @@ export async function POST(request: NextRequest) {
     const decision = decideTranscriptTechnicalRoute({
       fileName,
       mimeType: row.mime_type,
+      documentType: row.document_type,
       extractedText: pdfProbe.extractedText,
     });
     const reasons = pdfProbe.errorMessage

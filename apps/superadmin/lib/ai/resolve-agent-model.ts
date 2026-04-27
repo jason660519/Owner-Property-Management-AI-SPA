@@ -106,6 +106,7 @@ export const LEGACY_MODULE_KEY_ALIASES: Readonly<Record<string, string>> = {
   'transcript.judge': 'transcript_audit',
   'transcript.detect_building_count': 'transcript_detection',
   'transcript.detect_land_count': 'transcript_detection',
+  'transcript.intake.detail_builder': 'transcript_detail_builder',
   'property.description.default': 'property_description',
   // Flat forms used by run-transcript-parse-core.ts + the superadmin
   // Feature Modules section in ai-providers.ts

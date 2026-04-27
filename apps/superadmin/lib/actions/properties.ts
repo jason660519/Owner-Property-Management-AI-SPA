@@ -269,11 +269,14 @@ export async function getAllProperties(): Promise<PropertiesResult> {
         longitude: (row.longitude as number | null) ?? null,
         isPureLand: (row.is_pure_land as boolean) ?? false,
         landNumber: (row.land_number as string) ?? null,
+        transcriptIntakeAreaDetails:
+          (details.transcriptIntakeAreaDetails as PropertyItem['transcriptIntakeAreaDetails']) ?? null,
         // Content status indicators
         photoCount: photoCountMap[propertyId] ?? 0,
         hasTranscript:
           docTypesMap[propertyId]?.has('building_registry_transcript') ||
           docTypesMap[propertyId]?.has('land_registry_transcript') ||
+          docTypesMap[propertyId]?.has('registry_transcript_unclassified') ||
           false,
         hasTitleDoc:
           docTypesMap[propertyId]?.has('building_title') ||
@@ -499,9 +502,12 @@ export async function getPropertyById(id: string): Promise<PropertyItem | null> 
     longitude: (row.longitude as number | null) ?? null,
     isPureLand: (row.is_pure_land as boolean) ?? false,
     landNumber: (row.land_number as string) ?? null,
+    transcriptIntakeAreaDetails:
+      (details.transcriptIntakeAreaDetails as PropertyItem['transcriptIntakeAreaDetails']) ?? null,
     hasTranscript:
       docTypes.has('building_registry_transcript') ||
-      docTypes.has('land_registry_transcript'),
+      docTypes.has('land_registry_transcript') ||
+      docTypes.has('registry_transcript_unclassified'),
     hasTitleDoc:
       docTypes.has('building_title') ||
       docTypes.has('land_title'),
@@ -1326,6 +1332,7 @@ export async function uploadPropertyPhoto(
 }
 
 const DOC_TYPE_NAME: Record<string, string> = {
+  registry_transcript_unclassified: '待判讀謄本',
   land_registry_transcript: '土地謄本',
   building_registry_transcript: '建物謄本',
   building_title: '建物權狀',
@@ -1346,16 +1353,28 @@ export async function uploadPropertyDocument(
   propertyId: string,
   propertyType: 'sale' | 'rental',
   ownerId: string,
-  documentType: 'land_registry_transcript' | 'building_registry_transcript' | 'parking_land_registry_transcript' | 'parking_building_registry_transcript' | 'building_title' | 'land_title' | 'lease_contract' | 'sales_contract' | 'blog' | 'floor_plan' | 'building_measurement_survey' | 'transaction_comparables' | 'transaction_comparables_nearby' | 'transaction_comparables_street_section' | 'transaction_comparables_village',
+  documentType: 'registry_transcript_unclassified' | 'land_registry_transcript' | 'building_registry_transcript' | 'parking_land_registry_transcript' | 'parking_building_registry_transcript' | 'building_title' | 'land_title' | 'lease_contract' | 'sales_contract' | 'blog' | 'floor_plan' | 'building_measurement_survey' | 'transaction_comparables' | 'transaction_comparables_nearby' | 'transaction_comparables_street_section' | 'transaction_comparables_village',
   formData: FormData
 ): Promise<ActionResult> {
   const file = formData.get('file');
   if (!file || !(file instanceof File)) {
     return { success: false, message: '請選擇一個檔案' };
   }
-  const allowed = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  const allowed = [
+    'application/pdf',
+    'application/json',
+    'image/gif',
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/tiff',
+    'image/bmp',
+    'image/webp',
+    'text/csv',
+    'text/plain',
+  ];
   if (!allowed.includes(file.type)) {
-    return { success: false, message: '僅支援 PDF、JPG、PNG、WebP' };
+    return { success: false, message: '僅支援 PDF、JPG、PNG、GIF、WebP、TIFF、BMP、JSON、TXT、CSV' };
   }
   if (file.size > 20 * 1024 * 1024) {
     return { success: false, message: '單檔不得超過 20MB' };

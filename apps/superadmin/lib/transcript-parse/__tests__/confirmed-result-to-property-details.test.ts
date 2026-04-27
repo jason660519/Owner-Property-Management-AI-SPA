@@ -186,4 +186,129 @@ describe('buildPropertySyncFromConfirmedTranscriptIntake', () => {
     expect(sync.hasIndependentParking).toBe(false);
     expect(sync.detailsPatch.landTranscript).toBe(landTranscript);
   });
+
+  it('applies user-confirmed area detail corrections before syncing property details', () => {
+    const buildingTranscript = makeBuildingTranscript();
+    const landTranscript = makeLandTranscript();
+
+    const sync = buildPropertySyncFromConfirmedTranscriptIntake({
+      runId: 'run-3',
+      confirmedAt: '2026-04-27T00:00:00Z',
+      detection: null,
+      review: {
+        approved: true,
+        confidence: 0.9,
+        issues: [],
+        parkingTitleRights: ['independent'],
+        dispositionKind: 'unit_building_with_land_share_sale',
+        userConfirmationRequired: [],
+      },
+      parsedResult: {
+        documents: [
+          {
+            documentType: 'building_registry_transcript',
+            parsedResult: {
+              kind: 'building',
+              buildingTranscript,
+              landTranscript: makeLandTranscript(),
+            },
+          },
+          {
+            documentType: 'land_registry_transcript',
+            parsedResult: {
+              kind: 'land',
+              buildingTranscript: makeBuildingTranscript(),
+              landTranscript,
+            },
+          },
+        ],
+      },
+      areaDetailDraft: {
+        version: 1,
+        dispositionKind: 'unit_building_with_land_share_sale',
+        parkingTitleRights: ['shared_facility'],
+        buildingAreas: [{
+          id: 'building-1',
+          label: '五層',
+          identifier: '001建號',
+          areaSqm: '88.5',
+          shareRatio: '全部',
+          use: '住家用',
+        }],
+        landShareAreas: [{
+          id: 'land-1',
+          label: '住宅區',
+          identifier: '100地號',
+          areaSqm: '220',
+          shareRatio: '10000分之360',
+          use: '住宅區',
+        }],
+        parkingBuildingAreas: [],
+        parkingLandShareAreas: [],
+      },
+    });
+
+    expect(sync.detailsPatch.buildingTranscript?.description.totalArea).toBe('88.5');
+    expect(sync.detailsPatch.landTranscript?.description.area).toBe('220');
+    expect(sync.detailsPatch.landTranscript?.ownership[0].ownershipRatio).toBe('10000分之360');
+    expect(sync.detailsPatch.parkingTitleRights).toEqual(['shared_facility']);
+    expect(sync.detailsPatch.transcriptIntakeAreaDetails?.updatedAt).toBe('2026-04-27T00:00:00Z');
+  });
+
+  it('maps unclassified transcript documents by parsed kind', () => {
+    const landTranscript = makeLandTranscript();
+    const emptyBuildingTranscript = makeBuildingTranscript();
+    emptyBuildingTranscript.description.buildingNumber = '';
+    emptyBuildingTranscript.description.totalArea = '';
+    emptyBuildingTranscript.ownership = [];
+
+    const sync = buildPropertySyncFromConfirmedTranscriptIntake({
+      runId: 'run-4',
+      confirmedAt: '2026-04-27T00:00:00Z',
+      detection: null,
+      review: null,
+      parsedResult: {
+        documents: [
+          {
+            documentType: 'registry_transcript_unclassified',
+            parsedResult: {
+              kind: 'land',
+              buildingTranscript: emptyBuildingTranscript,
+              landTranscript,
+            },
+          },
+        ],
+      },
+    });
+
+    expect(sync.detailsPatch.landTranscript).toBe(landTranscript);
+    expect(sync.isPureLand).toBe(true);
+  });
+
+  it('keeps both building and land data from one mixed unclassified title copy', () => {
+    const buildingTranscript = makeBuildingTranscript();
+    const landTranscript = makeLandTranscript();
+
+    const sync = buildPropertySyncFromConfirmedTranscriptIntake({
+      runId: 'run-5',
+      confirmedAt: '2026-04-27T00:00:00Z',
+      detection: null,
+      review: null,
+      parsedResult: {
+        documents: [
+          {
+            documentType: 'registry_transcript_unclassified',
+            parsedResult: {
+              kind: 'land',
+              buildingTranscript,
+              landTranscript,
+            },
+          },
+        ],
+      },
+    });
+
+    expect(sync.detailsPatch.buildingTranscript).toBe(buildingTranscript);
+    expect(sync.detailsPatch.landTranscript).toBe(landTranscript);
+  });
 });

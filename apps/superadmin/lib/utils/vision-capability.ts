@@ -14,9 +14,12 @@ export function hasVisionCapability(key: string): boolean {
   // 動態載入的模型（來自 API 驗證）不在靜態列表，以 model ID 啟發式推斷
   const lower = (modelId ?? '').toLowerCase();
   if (lower.includes('vision') || lower.includes('-vl-') || lower.includes('-vl ')) return true;
-  // OpenAI / Anthropic / Gemini 的主力多模態模型通常含 vision（4o, claude-3, gemini）
-  if (providerId === 'openai' && (lower.includes('gpt-4o') || lower.includes('gpt-4-turbo'))) return true;
-  if (providerId === 'anthropic' && lower.includes('claude-3')) return true;
+  // Major multimodal families used by the transcript workbench.
+  if (providerId === 'openai' && (lower.includes('gpt-5') || lower.includes('gpt-4o') || lower.includes('gpt-4-turbo'))) return true;
+  if (providerId === 'anthropic' && lower.includes('claude')) return true;
   if (providerId === 'gemini' && lower.includes('gemini')) return true;
+  if (providerId === 'grok' && lower.includes('grok-4')) return true;
+  if (providerId === 'qwen' && (lower.includes('qwen3.6') || lower.includes('qwen-vl'))) return true;
+  if (providerId === 'kimi' && lower.includes('kimi-k2.6')) return true;
   return false;
 }

@@ -29,6 +29,7 @@ export default async function PropertyEditPage({ params, searchParams }: Propert
   }
 
   const shouldPrefetchInvestigation = resolvedSearchParams?.tab === 'investigation';
+  const isTranscriptTab = resolvedSearchParams?.tab === 'transcript';
   const propertyType = property.type === 'sale' ? 'sales' : 'rentals';
 
   const [{ data: initialInvestigationReport }, initialPhotos, initialDocuments] = shouldPrefetchInvestigation
@@ -48,7 +49,7 @@ export default async function PropertyEditPage({ params, searchParams }: Propert
         { label: '物件管理', href: `${BASE}/properties` },
         { label: property.title ?? '編輯物件' },
       ]}
-      contentFullHeight
+      contentFullHeight={!isTranscriptTab}
     >
       <PropertyEditForm
         property={property}

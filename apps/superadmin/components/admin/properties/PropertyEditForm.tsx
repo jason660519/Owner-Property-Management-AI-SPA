@@ -2,7 +2,7 @@
 // created: 2026-03-05 | creator: Claude
 'use client';
 
-import { useState, useTransition, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useTransition, useMemo, useRef, useEffect, useCallback, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2, Building2, Key, X } from 'lucide-react';
 import { updateProperty } from '@/lib/actions/properties';
@@ -73,9 +73,14 @@ type TabId =
   | 'contract'
   | 'investigation';
 
-const TAB_LABELS: Record<TabId, string> = {
+const TAB_LABELS: Record<TabId, ReactNode> = {
   transcript: '謄本',
-  building_land_area_detail: '建物土地面積明細表',
+  building_land_area_detail: (
+    <>
+      <span className="block">建物 土地 車位</span>
+      <span className="block">面積明細表</span>
+    </>
+  ),
   zoning_usage: '使用分區',
   geographic_info: '地理資訊',
   title: '權狀',
@@ -303,7 +308,11 @@ export function PropertyEditForm({
   }, []);
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+    <div
+      className={`flex-1 min-h-0 flex flex-col ${
+        activeTab === 'transcript' ? 'overflow-visible' : 'overflow-hidden'
+      }`}
+    >
       {/* Page header */}
       <div className="shrink-0 px-6 pt-2 pb-4 flex items-center gap-4">
         <button
@@ -332,7 +341,13 @@ export function PropertyEditForm({
       </div>
 
       {/* Card with tab bar + body */}
-      <div className="flex-1 min-h-0 mx-6 mb-6 flex flex-col bg-bg-secondary border border-border-default rounded-lg overflow-hidden">
+      <div
+        className={`mx-6 mb-6 flex flex-col bg-bg-secondary border border-border-default rounded-lg ${
+          activeTab === 'transcript'
+            ? 'flex-none overflow-visible'
+            : 'flex-1 min-h-0 overflow-hidden'
+        }`}
+      >
         {/* Tab bar */}
         <div className="shrink-0 border-b border-border-default px-4 flex gap-1 flex-wrap">
           {ALL_TABS.map((tab) => (
@@ -355,11 +370,11 @@ export function PropertyEditForm({
           ))}
         </div>
 
-        {/* Scrollable body — 謄本頁籤時改為固定高度，左右欄各自捲動 */}
+        {/* Scrollable body */}
         <div
           className={`flex-1 px-6 py-5 ${
             activeTab === 'transcript'
-              ? 'min-h-0 flex flex-col overflow-hidden'
+              ? 'overflow-visible'
               : 'overflow-y-auto space-y-5'
           }`}
         >
@@ -412,7 +427,7 @@ export function PropertyEditForm({
           )}
 
           {activeTab === 'transcript' && (
-            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+            <div className="space-y-6">
               <TranscriptTabContent property={property} />
             </div>
           )}

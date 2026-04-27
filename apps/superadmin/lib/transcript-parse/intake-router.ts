@@ -29,7 +29,12 @@ const MIN_REGISTRY_MARKER_COUNT = 2;
 export interface TranscriptRouteInput {
   fileName: string;
   mimeType?: string | null;
+  documentType?: string | null;
   extractedText?: string | null;
+}
+
+function isTitleDocumentType(documentType?: string | null): boolean {
+  return documentType === 'building_title' || documentType === 'land_title';
 }
 
 export function inferTranscriptInputFormat(fileName: string, mimeType?: string | null): TranscriptInputFormat {
@@ -68,6 +73,7 @@ export function hasUsableTaiwanRegistryText(text: string): boolean {
 export function decideTranscriptTechnicalRoute(input: TranscriptRouteInput): TranscriptRouteDecision {
   const inputFormat = inferTranscriptInputFormat(input.fileName, input.mimeType);
   const extractedText = input.extractedText ?? '';
+  const isTitleCopy = isTitleDocumentType(input.documentType);
   const metrics: TranscriptRouteMetrics = {
     fileName: input.fileName,
     mimeType: input.mimeType ?? '',
@@ -91,12 +97,23 @@ export function decideTranscriptTechnicalRoute(input: TranscriptRouteInput): Tra
     return {
       route: 'vlm_visual',
       inputFormat,
-      reasons: ['Image files require visual reading for Taiwanese registry text.'],
+      reasons: [isTitleCopy
+        ? 'Title deed image copies require VLM visual reading for Taiwanese ownership certificate text.'
+        : 'Image files require visual reading for Taiwanese registry text.'],
       metrics,
     };
   }
 
   if (inputFormat === 'pdf') {
+    if (isTitleCopy) {
+      return {
+        route: 'vlm_visual',
+        inputFormat,
+        reasons: ['Title deed copies should be visually interpreted by VLM even when a PDF text layer exists.'],
+        metrics,
+      };
+    }
+
     if (metrics.hasUsableTraditionalChineseText) {
       return {
         route: 'local_python_text',

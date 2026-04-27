@@ -411,7 +411,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "公開案件市場頁",
     locatedPage: "web/properties",
-    percentage: 82,
+    percentage: 84,
     acceptanceCriteria:
       "1. 公開列表頁需清楚區分買賣案件與租賃案件。\n2. 提供搜尋、類型與狀態篩選。\n3. 頁首需說明多角色平台定位，而非單純物件列表。\n4. 提供導流至平台能力頁與合作提案頁的 CTA。\n5. 卡片需顯示基本案件資訊與協作鏈語意標籤。",
     docPath: "/project-process/features/multi-role-business-plan-20260322.md",
@@ -430,7 +430,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "公開案件詳情頁",
     locatedPage: "web/properties/[id]",
-    percentage: 94,
+    percentage: 95,
     acceptanceCriteria:
       "1. 詳情頁需清楚呈現案件屬於買賣或租賃協作鏈。\n2. 顯示推薦接手角色與案件協作節點。\n3. 保留物件基本資訊、價格、地點與聯絡卡。\n4. 找不到案件時正確走 notFound 流程。\n5. 有對應回歸測試覆蓋主要協作內容與 notFound 行為。",
     docPath: "/project-process/features/multi-role-business-plan-20260322.md",
@@ -449,7 +449,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "公司平台介紹與支援導流頁",
     locatedPage: "web/about",
-    percentage: 88,
+    percentage: 89,
     acceptanceCriteria:
       "1. 關於頁需清楚說明產品已轉型為多角色不動產 AI 協作平台。\n2. 需呈現免費角色、付費角色與專業協作角色的分層定位。\n3. 需說明台灣 / 澳洲市場策略與按案件 / 物件收費模型。\n4. 頁面需提供導向 pricing、services、properties 與 contact 的 CTA。\n5. 需有對應回歸測試覆蓋主要平台敘事與 CTA 連結。",
     docPath: "/project-process/features/multi-role-business-plan-20260322.md",
@@ -1433,7 +1433,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "統一謄本解析工作台",
     locatedPage: "superadmin/properties/:id/edit?tab=transcript",
-    percentage: 78,
+    percentage: 97,
     acceptanceCriteria:
       "1. User 可上傳 PDF、圖片、JSON、文字等謄本來源，不需先手動選建物／土地／車位類型。\n2. PDF 先判斷是否可由 Python 快速解析出台灣常用繁體謄本文字；不適合時自動改走具電腦視覺能力的 VLM。\n3. AI 流程至少拆為 detect、parse、review 三段非同步判讀，並保留 evidence、confidence 與需人工確認欄位。\n4. 系統可初判純土地、整棟建物、透天／別墅、公寓華廈辦公店面、車位等出售型態。\n5. 車位產權型態可複選：獨立產權、公設產權，或兩者皆有。\n6. User 確認後才儲存謄本結果，並供下一頁建物土地明細表自動計算面積與持分。",
     docPath: "/project-process/test-logs/test-transcript-intake-workbench-2026-04-27.md",
@@ -1442,12 +1442,12 @@ const RAW_FEATURES: RoadmapFeature[] = [
     category: "通用/系統 (General/System)",
     points: 5,
     lastModifiedBy: "Codex",
-    lastModifiedDate: "2026/04/27",
+    lastModifiedDate: "2026/04/28",
     devLog:
-      "[2026/03/15] (Trae AI)\n• 支援地端 (Local) 與雲端 (Cloud) 雙機制切換\n• 實作 CJK 相容字元正規化與控制字元清理\n• 完善建物與土地謄本的欄位對應邏輯\n\n[2026/04/27] (Codex)\n• 啟動統一謄本解析工作台改造，第一階段完成 intake contract、Python/VLM 技術路由、detect/parse/review prompt contract、transcript_intake_runs migration 與 targeted unit tests。\n• 第二階段完成 intake run 建立/查詢 API。\n• 第三階段完成 intake worker 骨架、process API 與 cron drain；parse 階段重用既有 transcript parse core。\n• 第四階段接入真正 AI detect/review stage，失敗時保留 processor seed fallback；目前 detect/review 為單一模型、主要文件視覺輸入，其他文件透過 context JSON 輔助。\n• 第五階段新增謄本工作台 UI 面板，支援建立 run、啟動 process、輪詢狀態並顯示 route/detect/review 摘要；既有分散式上傳與表單暫時保留。\n• 第六階段新增人工確認 API 與 UI 按鈕，將 needs_user_confirmation 的 run 鎖定為 confirmed 並寫入 confirmed_result snapshot。\n• 第七階段將 confirmed result 同步回 property details，帶入主建物、土地、獨立車位謄本與車位產權，供建物土地面積明細表自動計算。\n• 第八階段接入 PDF text probe，建立 run 時用實際文字層判斷 Python/VLM route，並以真實謄本 PDF 範例補回歸測試。",
+      "[2026/03/15] (Trae AI)\n• 支援地端 (Local) 與雲端 (Cloud) 雙機制切換\n• 實作 CJK 相容字元正規化與控制字元清理\n• 完善建物與土地謄本的欄位對應邏輯\n\n[2026/04/27] (Codex)\n• 啟動統一謄本解析工作台改造，第一階段完成 intake contract、Python/VLM 技術路由、detect/parse/review prompt contract、transcript_intake_runs migration 與 targeted unit tests。\n• 第二階段完成 intake run 建立/查詢 API。\n• 第三階段完成 intake worker 骨架、process API 與 cron drain；parse 階段重用既有 transcript parse core。\n• 第四階段接入真正 AI detect/review stage，失敗時保留 processor seed fallback；目前 detect/review 為單一模型、主要文件視覺輸入，其他文件透過 context JSON 輔助。\n• 第五階段新增謄本工作台 UI 面板，支援建立 run、啟動 process、輪詢狀態並顯示 route/detect/review 摘要；既有分散式上傳與表單暫時保留。\n• 第六階段新增人工確認 API 與 UI 按鈕，將 needs_user_confirmation 的 run 鎖定為 confirmed 並寫入 confirmed_result snapshot。\n• 第七階段將 confirmed result 同步回 property details，帶入主建物、土地、獨立車位謄本與車位產權，供建物土地面積明細表自動計算。\n• 第八階段接入 PDF text probe，建立 run 時用實際文字層判斷 Python/VLM route，並以真實謄本 PDF 範例補回歸測試。\n\n[2026/04/28] (Codex)\n• 工作台升級為左右雙欄 v2：四段流程、上傳摘要、初判摘要、四區可編輯面積明細與文件預覽集中在單一介面。\n• 新增 area detail draft schema 與 helper，confirm API 可接收 user 修正後的建物／土地／車位面積明細，並同步寫入 property details。\n• evidence type 增加 bbox 結構，為下一階段精準紅框預覽鋪路；目前 UI 先顯示來源文字與文件預覽。\n• 新增工作台單一上傳入口與 registry_transcript_unclassified 文件類型，支援 PDF、圖片、GIF、JSON、TXT、CSV 先上傳後判讀，不再要求 user 先選建物／土地／車位。\n• Worker 會在未分類謄本 parse 後依 parsed kind 自動改成建物／土地文件角色；舊版分散式謄本工具已預設收合到進階區。\n• local_python_text route 已接入本地文字層 parser seed，PDF/TXT/JSON 可先以本地解析寫入 parsed_result，失敗才 fallback 到 VLM core。\n• PDF probe 改為優先使用 pdftotext -layout，並新增 local_python_text provider constraint migration，讓本地解析結果可正式寫回文件 parsed_result。\n• 工作台新增技術選擇區，逐份文件顯示實際採用 Python/pdftotext、VLM 或 JSON，以及頁數、文字量、繁中量、謄本標記數與 routing reason。\n• 工作台新增 AI 品質追蹤區，逐段顯示 detect、parse、verify/review 使用的 agent、prompt source、provider/model、成功/fallback 狀態、結果摘要、修正建議與人工確認項目。\n• 工作台新增已上傳謄本清單與兩段式刪除按鈕，user 上傳錯誤謄本時可直接刪除文件。\n• 已上傳謄本清單與右側文件預覽同步選取；被納入右側預覽範圍的文件會在左側顯示預覽中，點選欄位 evidence 也會切換到對應來源文件。\n• 已上傳謄本清單新增複選框，user 可勾選多份文件一起建立 detect/parse/review 任務；點檔名只切換預覽，勾選狀態才決定本次解析文件。\n• 右側文件預覽範圍會跟隨複選框同步增減；勾幾份就顯示幾份預覽，取消勾選時左側預覽中標記與右側對應 iframe 會同步移除。\n• 建立或啟動判讀後會顯示系統正在解析與已花費秒數，避免 user 誤以為系統沒有反應。\n• AI 品質追蹤的 Detect、Parse、Verify/Review 三段新增階段計時；執行中以 0.1 秒精度顯示已花費時間，完成後保留各段花費秒數。\n• 謄本頁底部不再顯示進階／舊版謄本工具，主流程收斂為單一謄本工作台。\n• 權狀影本納入謄本工作台：building_title、land_title 可勾選解析，影像權狀與 PDF 權狀皆走 VLM visual，且混合建物+土地權狀會保留雙邊資料。\n• AI 品質追蹤固定顯示 Detect、Parse、Verify/Review 三段，partial trace 狀態下 Parse 或 Review 開始工作也會立即顯示處理中與計時。\n• Worker 進入 parsing 前會先寫入 Parse 預計使用的 VLM/local parser，進入 reviewing 前會先寫入 Verify/Review provider/model，讓 user 等待時就知道哪個 AI 正在解析或審查。\n• 實機登入檢查後修正 transcript tab 高度策略，工作台改為頁面自然捲動；本機 DB 已套用 transcript_intake_runs migration 並 reload schema。\n• 實機 run c1426b0c-da38-4261-9454-934ab34b0ce9 驗證兩份 PDF 均走 local_python_text；review 偵測建物／土地謄本所有權人與地段不一致，保留 needs_user_confirmation 未自動儲存。\n• 實機 run e3485b68-eda9-4cfc-a9c3-646c8a65a5d8 驗證 AI 品質追蹤：detect 使用 openai/gpt-4o 但 PDF MIME fallback，parse 使用 local/local-python-text，review 使用 anthropic/claude-opus-4-20250514 並提出 dispositionKind/buildingType 修正建議。\n• Parser VLM 預設改為 Qwen 3.6 Plus、Kimi K2.6、Gemini 3.1 Pro 三家公司並行；Review 預設改為 OpenAI GPT-5.5、Claude Opus 4.5、Grok 4.20 三家公司並行，並將各 reviewer 模型與耗時寫入 AI 品質追蹤。\n• 新增資料 migration 20260428020000_update_transcript_vlm_agent_defaults，將 DB 既有 transcript_visual_parse/transcript_audit agent assignment 更新到新三模型組合，避免 runtime 繼續讀到舊 gpt-4o/Claude 設定。\n• 靜態模型清單與 vision capability 補上新版 GPT/Claude/Gemini/Grok/Kimi/Qwen 模型，並補齊 GIF/TIFF/BMP MIME 判斷，避免權狀影本因 MIME 不完整被擋在 VLM route 前。\n• AI 品質追蹤現在會顯示每個 parser/reviewer 各自的工作中計時與完成耗時；完成後提供三份解析報告 URL 與三份審查報告 URL，供 user 追溯模型品質。\n• 新增 ai-reports markdown API 與 ocr_parse_results provider constraint migration，確保 Qwen/Kimi 等新 parser raw output 可保存並生成報告。\n• 診斷權狀影本解析失敗原因後，新增 PDF 轉 JPG 頁面送入 image-only VLM、強化 markdown fence JSON 擷取、提高 transcript vision output token 上限，並把權狀補充規則寫入 saved_prompts migration。",
     devLogDocPath: "/project-process/dev-logs/085-development-log-summary.md",
-    testScriptCount: 8,
-    testScriptPassedCount: 8,
+    testScriptCount: 12,
+    testScriptPassedCount: 12,
     testScriptPath: "apps/superadmin/unit_test/085",
     testLogDocPath: "/project-process/test-logs/test-transcript-intake-workbench-2026-04-27.md",
     phase: "development",
@@ -1864,7 +1864,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "超級管理員-物件管理（新增物件含媒體上傳）",
     locatedPage: "superadmin/properties",
     category: "超級管理員 (Super Admin)",
-    percentage: 96,
+    percentage: 94,
     phase: "development",
     lastModifiedBy: "Gemini-3-Flash-Preview",
     lastModifiedDate: "2026/04/04",
@@ -1953,12 +1953,14 @@ const RAW_FEATURES: RoadmapFeature[] = [
     category: "通用/系統 (General/System)",
     percentage: 100,
     phase: "development",
-    lastModifiedBy: "GitHub Copilot",
+    lastModifiedBy: "Claude",
     lastModifiedDate: "2026/04/27",
     devLog:
-      "### 完成項目\n- 逆向工程 FinePrint .fp 二進位格式：發現文字以 UTF-16LE 儲存於固定結構 record（magic: 0x1E ?? 0x40 YY，其中 ??=8+YY×4），無需 Windows 或 FinePrint 即可解析\n- tools/fp-converter/convert_fp.py — CLI 工具，支援三種輸出格式：HTML（推薦）/ Markdown / PDF（fpdf2）\n- 批次測試 109 份「新謄本」資料夾中的 .fp 檔案，全部 109/109 成功轉換，0 失敗\n- HTML 輸出包含完整謄本結構（建物標示部、所有權部、他項權利部、抵押權等），PingFang TC 字型，支援瀏覽器列印為 PDF\n- tools/fp-converter/README.md 完整使用說明\n### 2026/03/18 排版大幅改善\n- 移除全域去重邏輯：改用 content-based 頁碼偵測（第N頁共N頁 pattern），正確保留所有重複結構詞（民國/年/月/日/：）\n- 新增 X-座標感知提取，辨別右對齊 content token vs 頁尾 token\n- 日期片段自動合併：民國 NNN 年 NN 月 NN 日 → 單一字串\n- 單字拆分修正：連續單字元 CJK token 在「：」前自動合併為複合標籤（層數/總面積/住址）\n- 全新表格式 HTML 排版：官方謄本樣式（深藍標題列、欄位表格、位置列）\n- 建物標示部/所有權部欄位正確 label:value 對應（登記日期、登記原因、建物門牌等）\n### 2026/04/27 Bugfix\n- 補上無 `＊＊＊ section ＊＊＊` marker 的異動索引類謄本 fallback parser，避免 Markdown/PDF 退化成只有標題與 header 段落\n- 新增 tools/fp-converter/tests/test_convert_fp.py，先用失敗測試重現 ASCII `:` + inline section header 的舊格式樣本，再修正 parser\n- fallback parser 現可切出建物所有權部與異動別/登記日期/登記次序/登記原因/收件字號/異動日期/權利人等欄位",
+      "### 完成項目\n- 逆向工程 FinePrint .fp 二進位格式：發現文字以 UTF-16LE 儲存於固定結構 record（magic: 0x1E ?? 0x40 YY，其中 ??=8+YY×4），無需 Windows 或 FinePrint 即可解析\n- tools/fp-converter/convert_fp.py — CLI 工具，支援三種輸出格式：HTML（推薦）/ Markdown / PDF（fpdf2）\n- 批次測試 109 份「新謄本」資料夾中的 .fp 檔案，全部 109/109 成功轉換，0 失敗\n- HTML 輸出包含完整謄本結構（建物標示部、所有權部、他項權利部、抵押權等），PingFang TC 字型，支援瀏覽器列印為 PDF\n- tools/fp-converter/README.md 完整使用說明\n### 2026/03/18 排版大幅改善\n- 移除全域去重邏輯：改用 content-based 頁碼偵測（第N頁共N頁 pattern），正確保留所有重複結構詞（民國/年/月/日/：）\n- 新增 X-座標感知提取，辨別右對齊 content token vs 頁尾 token\n- 日期片段自動合併：民國 NNN 年 NN 月 NN 日 → 單一字串\n- 單字拆分修正：連續單字元 CJK token 在「：」前自動合併為複合標籤（層數/總面積/住址）\n- 全新表格式 HTML 排版：官方謄本樣式（深藍標題列、欄位表格、位置列）\n- 建物標示部/所有權部欄位正確 label:value 對應（登記日期、登記原因、建物門牌等）\n### 2026/04/27 Bugfix（早晨）\n- 補上無 `＊＊＊ section ＊＊＊` marker 的異動索引類謄本 fallback parser，避免 Markdown/PDF 退化成只有標題與 header 段落\n- 新增 tools/fp-converter/tests/test_convert_fp.py，先用失敗測試重現 ASCII `:` + inline section header 的舊格式樣本，再修正 parser\n- fallback parser 現可切出建物所有權部與異動別/登記日期/登記次序/登記原因/收件字號/異動日期/權利人等欄位\n### 2026/04/27 Legacy FINC zlib 支援（下午）\n- Web UI `/superadmin/settings/fp-converter` 「PDF 只剩地址」根因鎖定：~50% 來源檔屬 pre-2012 的 legacy FINC v2，內容是逐頁 zlib raw deflate 壓縮，舊邏輯抓不到 0x1E 文字記錄就退化成只有 header 的空 PDF\n- 逆向工程 legacy 格式：12-byte file header (FINC + version + page_count) + N×16-byte page descriptor (file_offset, type, compressed_size, uncompressed_size) + 各 page 的 raw deflate payload（wbits=-15）\n- 在 convert_fp.py 加 `_decompress_legacy_finc_pages()`，先試現代 0x1E 路徑，0 token 才進 legacy decompress；解壓後直接餵給原本的 _extract_raw_records / _preprocess / _parse_doc_structure 完整管線\n- _SYSTEM_NAMES 加入 `地籍地價地籍圖資料電傳資訊服務系統`（pre-2010 站）；_remove_page_footers 補 legacy 版「第 N 頁 / 共 N 頁」slash 分隔\n- 對純向量繪圖（建物測量成果圖）/ FINE-nested 子格式檔案，回傳 `_NON_TEXT_FINC_PLACEHOLDER` 並讓 build_html / build_markdown render 提示句，避免 web UI 仍出現空 PDF\n- 抽樣 1907/2000 真實 .fp：99.42% 完整 sections + 0.58% 圖件 placeholder + 0% unsupported；舊邏輯下這同一批的 unsupported 比例 ~50%\n- tests/test_convert_fp.py 從 4 → 8 cases（legacy 兩份 fixture、normal regression、placeholder synthetic、原本的 inline-section/footer/recursive collect 全保留）",
+    devLogDocPath: "project-process/dev-logs/dev-fp-converter-legacy-finc-2026-04-27.md",
+    testScriptPath: "tools/fp-converter/tests/test_convert_fp.py",
     developmentProgress:
-      "完整實作：可在 macOS 批次將 10 年前 Windows FinePrint .fp 格式謄本轉換為 HTML/MD/PDF，無需任何 Windows 環境；2026/04/27 已補修舊版異動索引類謄本沒有 section marker 時的 Markdown/PDF 缺欄位問題。",
+      "完整實作：可在 macOS 批次將 Windows FinePrint .fp 謄本（modern + pre-2012 legacy zlib 兩種次格式）轉成 HTML/MD/PDF/JSON。Legacy FINC 從之前 50% 全 reject 變成 99%+ 解出完整 sections；少量純向量繪圖檔顯示明確的「無文字內容」提示而不是空 PDF。",
   },
   // === 2026-03-20 小型 UX 更新 ===
   {
@@ -2591,7 +2593,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     name: "超級管理員-尋人資料庫：樹狀資料來源管理 + 進階關聯分析（ID 144）",
     locatedPage: "superadmin/settings/people-database",
-    percentage: 97,
+    percentage: 96,
     category: "超級管理員 (Super Admin)",
     points: 13,
     phase: "testing",
@@ -2691,6 +2693,6 @@ const RAW_FEATURES: RoadmapFeature[] = [
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/27 Row 085 transcript intake workbench",
+  lastUpdated: "2026/04/27 FinePrint .fp legacy FINC zlib 支援",
   features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
 };

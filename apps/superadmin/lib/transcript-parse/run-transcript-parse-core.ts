@@ -29,7 +29,7 @@ import {
 } from '@/lib/ai/resolve-agent-model';
 import { checkAgentBudget, type AuditLogReader } from '@/lib/ai/agent-cost-guard';
 import { applyForbidProviders } from '@/lib/ai/agent-guardrail-filters';
-import type { AgentGuardrails } from '@/lib/types/agent-assignment';
+import type { AgentGuardrails, AgentModelConfig } from '@/lib/types/agent-assignment';
 import { sortByProviderPriority } from '@/lib/ai/provider-priority';
 import {
   buildConsensus,
@@ -38,6 +38,12 @@ import {
 } from '@/lib/utils/transcript-consensus';
 import { runConcurrentUntilTargetSuccess } from '@/lib/utils/concurrent-success-runner';
 import { resolveParserConcurrency } from '@/lib/utils/parser-concurrency';
+import {
+  limitTranscriptEnsembleModels,
+  TRANSCRIPT_PARSE_CANDIDATE_SIZE,
+  TRANSCRIPT_PARSE_ENSEMBLE_SIZE,
+  TRANSCRIPT_REVIEW_ENSEMBLE_SIZE,
+} from '@/lib/transcript-parse/transcript-ensemble-models';
 
 export type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -60,9 +66,10 @@ export type TranscriptParseCoreOutcome =
 
 type SendFn = (data: Record<string, unknown>) => void;
 
-interface AssignedModelRow {
+export interface AssignedModelRow {
   provider: string;
   model: string;
+  config?: AgentModelConfig;
   priority?: number;
 }
 
@@ -160,6 +167,7 @@ export async function runTranscriptParseCore(
         }));
       }
     }
+    parserModels = limitTranscriptEnsembleModels(parserModels, TRANSCRIPT_PARSE_CANDIDATE_SIZE);
 
     if (parserModels.length === 0) {
       return fail(
@@ -201,6 +209,12 @@ export async function runTranscriptParseCore(
         }
       }
     }
+    const limitedJudgeCandidates = limitTranscriptEnsembleModels(
+      judgeCandidates,
+      TRANSCRIPT_REVIEW_ENSEMBLE_SIZE,
+    );
+    judgeCandidates.length = 0;
+    judgeCandidates.push(...limitedJudgeCandidates);
 
     // Phase 2.5 judge budget gate. If hit, we don't bail the whole job —
     // parsing can still succeed without a judge, and the consensus layer
@@ -282,10 +296,14 @@ export async function runTranscriptParseCore(
       type: 'models_loaded',
       parserModels: parserModels.map((m) => ({ provider: m.provider, model: m.model })),
       judgeModel: judgeCandidates[0] ?? null,
+      judgeModels: judgeCandidates,
     });
 
-    const TARGET_SUCCESS_COUNT = Math.min(5, parserModels.length);
-    const parseConcurrency = resolveParserConcurrency(parserConcurrency, parserModels.length);
+    const TARGET_SUCCESS_COUNT = Math.min(TRANSCRIPT_PARSE_ENSEMBLE_SIZE, parserModels.length);
+    const parseConcurrency = Math.min(
+      resolveParserConcurrency(parserConcurrency, parserModels.length),
+      TARGET_SUCCESS_COUNT,
+    );
     send({
       type: 'parse_start',
       total: parserModels.length,
@@ -589,7 +607,7 @@ async function callSingleModel(
 
   const callStart = Date.now();
   try {
-    const callerResult = await caller(apiKey, m.model, fileBase64, mimeType, systemPrompt, signal);
+    const callerResult = await caller(apiKey, m.model, fileBase64, mimeType, systemPrompt, signal, m.config);
     const duration = Date.now() - callStart;
     if (!callerResult.ok) {
       await audit?.complete('api_error', {
@@ -799,7 +817,7 @@ async function fetchAssignedModels(
   return [];
 }
 
-interface TranscriptAgentResolution {
+export interface TranscriptAgentResolution {
   models: AssignedModelRow[];
   /** Non-null only when models came from the Phase 2 resolver path. */
   guardrails: AgentGuardrails | null;
@@ -819,7 +837,7 @@ interface TranscriptAgentResolution {
  * Also returns `guardrails` so the caller can run the Phase 2.5 monthly
  * budget check before invoking any LLM.
  */
-async function resolveAssignedModels(
+export async function resolveAssignedModels(
   adminClient: AdminClient,
   userId: string,
   agentKey: string,
@@ -842,6 +860,7 @@ async function resolveAssignedModels(
       sanitized.allowed.map((link) => ({
         provider: link.provider,
         model: link.model_id,
+        config: link.config,
       })),
     );
     return {

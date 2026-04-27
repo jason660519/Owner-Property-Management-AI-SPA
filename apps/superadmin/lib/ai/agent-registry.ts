@@ -130,6 +130,14 @@ export const AI_AGENT_REGISTRY: readonly AgentDef[] = [
     group: 'transcript',
     suggestedTagKeys: ['transcript_audit'],
   },
+  {
+    key: 'transcript_detail_builder',
+    label: '謄本明細草稿',
+    description: '依解析與審核結果產生建物土地車位明細草稿',
+    icon: ScanText,
+    group: 'transcript',
+    suggestedTagKeys: ['transcript_detail_builder'],
+  },
   // ── media ──
   {
     key: 'photo_generation',
