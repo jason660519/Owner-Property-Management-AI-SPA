@@ -108,12 +108,12 @@ curl -s -H "Authorization: Bearer $PAPERCLIP_API_KEY" \
 
 ### Step 2: 查詢 Roadmap 待做 Features
 
-從 `apps/superadmin/app/data/roadmap.ts` 的 `RAW_FEATURES` 陣列讀取。
-Row ID = 陣列 index + 1（1-based）。
+從 `apps/superadmin/app/data/roadmap.ts` 的 `RAW_FEATURES` 陣列讀取，但正式任務編號必須使用每個 feature 物件的固定 `id` 欄位。
+Feature ID = `feature.id`；禁止再用陣列 index + 1 推算。
 
 篩選條件（依需求調整）：
 - `percentage < 50`（未完成或剛起步的 feature）
-- 避免挑選已有 active VIS issue 的 Row
+- 避免挑選已有 active VIS issue 的 Feature ID
 
 同時查詢目前 active issues 避免重複：
 ```bash
@@ -137,7 +137,7 @@ curl -s -H "Authorization: Bearer $PAPERCLIP_API_KEY" \
 
 **向使用者確認分配方案後再執行。**
 
-### Step 3.5: 取得 Row 交接 Context（新流程，Phase 0 起）
+### Step 3.5: 取得 Feature ID 交接 Context（新流程，Phase 0 起）
 
 建 issue 前，先呼叫 superadmin 的 context API 拿到該 row 的完整交接 snapshot：
 
@@ -173,8 +173,8 @@ curl -s -X POST "http://localhost:3001/api/paperclip/issues" \
   -H "$(bash tools/paperclip/auth-header.sh)" \
   -H "Content-Type: application/json" \
   -d '{
-    "title": "[Row 031] 房東的客戶 Grid模式",
-    "description": "**Row ID**: 031\n**Feature**: ...\n\n## Acceptance Criteria\n1. ...",
+    "title": "[Feature 031] 房東的客戶 Grid模式",
+    "description": "**Feature ID**: 031\n**Feature**: ...\n\n## Acceptance Criteria\n1. ...",
     "status": "todo",
     "priority": "medium",
     "assigneeAgentId": "<agent-uuid>"
@@ -233,14 +233,14 @@ curl -s -H "Authorization: Bearer $PAPERCLIP_API_KEY" \
 
 ## Title 命名規則
 
-Title 格式**必須**包含 `[Row XXX]`，這樣：
+Title 格式**必須**包含 `[Feature XXX]`，這樣：
 1. `deriveSlugFromTitle()` 才能正確產生 worktree slug（`row-xxx`）
 2. Paperclip tasks 表才能正確記錄 `row_id`
 
 ```
-✅ [Row 031] 房東的客戶 Grid模式
-✅ [Row 050] 房東財務 銀行帳戶管理 資料庫 schema RLS
-❌ 房東的客戶-Grid模式（缺少 Row ID）
+✅ [Feature 031] 房東的客戶 Grid模式
+✅ [Feature 050] 房東財務 銀行帳戶管理 資料庫 schema RLS
+❌ 房東的客戶-Grid模式（缺少 Feature ID）
 ```
 
 **注意**：Title 不要用特殊字元（`－`、`：`），用空格或 ASCII 連字號 `-`。
@@ -251,7 +251,7 @@ slug 是從 title 衍生的，特殊字元可能造成 worktree 建立失敗。
 ## Description 模板
 
 ```markdown
-**Row ID**: {rowId}
+**Feature ID**: {rowId}
 **Feature**: {featureName}
 **Located Page**: {locatedPage}
 **Category**: {category}
@@ -350,7 +350,7 @@ docker compose -f docker/paperclip/docker-compose.paperclip.yml \
 
 ### Worktree 建立失敗（slug 衝突）
 
-如果同一個 Row ID 已經有 worktree，會報錯。
+如果同一個 Feature ID 已經有 worktree，會報錯。
 先清理舊的 worktree：
 
 ```bash

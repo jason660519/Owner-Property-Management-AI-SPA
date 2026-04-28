@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, FileText, Loader2 } from 'lucide-react';
-import { ROADMAP_DATA } from '@/app/data/roadmap';
+import { findRoadmapFeatureById, normalizeRoadmapFeatureId } from '@/app/data/roadmap';
 import { MarkdownViewer } from '@/components/docs/MarkdownViewer';
 import { useTablePreferences } from '@/lib/hooks/useTablePreferences';
 import {
@@ -59,7 +59,7 @@ export default function TaskDevLogPage() {
   const router = useRouter();
   const params = useParams<{ rowId?: string | string[] }>();
   const rawRowId = Array.isArray(params.rowId) ? params.rowId[0] : params.rowId;
-  const normalizedRowId = useMemo(() => normalizeRowIdInput(rawRowId ?? ''), [rawRowId]);
+  const normalizedRowId = useMemo(() => normalizeRoadmapFeatureId(rawRowId ?? ''), [rawRowId]);
   const { settings: tablePrefs } = useTablePreferences<DevTabSettings>({
     pageKey: DEV_TAB_PAGE_KEY,
     storageKey: DEV_TAB_STORAGE_KEY,
@@ -67,12 +67,8 @@ export default function TaskDevLogPage() {
   });
 
   const rowInfo = useMemo(() => {
-    const features = ROADMAP_DATA.features;
-    const numeric = /^\d+$/.test(normalizedRowId) ? parseInt(normalizedRowId, 10) : Number.NaN;
-    if (!Number.isNaN(numeric) && numeric >= 1 && numeric <= features.length) {
-      const feature = features[numeric - 1];
-      if (!feature) return null;
-
+    const feature = findRoadmapFeatureById(normalizedRowId);
+    if (feature) {
       return {
         row: {
           ...feature,
@@ -182,9 +178,9 @@ export default function TaskDevLogPage() {
           </button>
         </div>
         <div className="rounded-md border border-border-default bg-bg-secondary p-4">
-          <p className="text-sm font-medium text-text-primary">找不到 Row ID「{rawRowId ?? ''}」</p>
+          <p className="text-sm font-medium text-text-primary">找不到 Feature ID「{rawRowId ?? ''}」</p>
           <p className="mt-1 text-xs text-text-muted">
-            請確認該 Row ID 是否存在於 Development Tab 的 roadmap 或自訂 rows。
+            請確認該 Feature ID 是否存在於 Development Tab 的 roadmap 或自訂 rows。
           </p>
         </div>
       </div>
@@ -204,7 +200,7 @@ export default function TaskDevLogPage() {
             回到 Project Progress
           </button>
           <div className="min-w-0">
-            <p className="text-xs text-text-muted">Row {rowInfo.row.__rowId}</p>
+            <p className="text-xs text-text-muted">Feature ID {rowInfo.row.__rowId}</p>
             <p className="text-sm font-semibold text-text-primary truncate">{rowInfo.row.name}</p>
           </div>
         </div>

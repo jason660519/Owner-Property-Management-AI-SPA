@@ -22,9 +22,12 @@
 import { NextResponse } from 'next/server';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { ROADMAP_DATA, type RoadmapFeature } from '@/app/data/roadmap';
 import {
-  normalizeRowIdInput,
+  findRoadmapFeatureById,
+  normalizeRoadmapFeatureId,
+  type RoadmapFeature,
+} from '@/app/data/roadmap';
+import {
   resolveDevLogDocPath,
   resolveUnitTestFolder,
   resolveE2EFolder,
@@ -210,16 +213,14 @@ async function loadLastRunFailure(
 
 // -- Route ------------------------------------------------------------------
 
-function resolveRowByNumericId(rowId: string): {
+function resolveFeatureById(rowId: string): {
   feature: RoadmapFeature;
   resolvedId: string;
 } | null {
-  if (!/^\d+$/.test(rowId)) return null;
-  const numeric = parseInt(rowId, 10);
-  if (numeric < 1 || numeric > ROADMAP_DATA.features.length) return null;
-  const feature = ROADMAP_DATA.features[numeric - 1];
+  const resolvedId = normalizeRoadmapFeatureId(rowId);
+  const feature = findRoadmapFeatureById(resolvedId);
   if (!feature) return null;
-  return { feature, resolvedId: rowId };
+  return { feature, resolvedId };
 }
 
 export async function GET(
@@ -227,34 +228,34 @@ export async function GET(
   { params }: { params: Promise<{ rowId: string }> },
 ) {
   const { rowId: rawRowId } = await params;
-  const rowId = normalizeRowIdInput(rawRowId ?? '');
+  const rowId = normalizeRoadmapFeatureId(rawRowId ?? '');
 
   if (!rowId) {
     return NextResponse.json(
       {
         ok: false,
         status: 400,
-        error: 'rowId path parameter is required.',
+        error: 'feature ID path parameter is required.',
       } satisfies RoadmapContextResult,
       { status: 400 },
     );
   }
 
-  const hit = resolveRowByNumericId(rowId);
+  const hit = resolveFeatureById(rowId);
   if (!hit) {
     return NextResponse.json(
       {
         ok: false,
         status: 404,
-        error: `Roadmap row ${rowId} not found. Custom rows (client-side only) are not yet supported by this route.`,
+        error: `Roadmap feature ID ${rowId} not found. Custom rows (client-side only) are not yet supported by this route.`,
       } satisfies RoadmapContextResult,
       { status: 404 },
     );
   }
-  const { feature } = hit;
+  const { feature, resolvedId } = hit;
 
   const repoRoot = await getMonorepoRoot();
-  const devLogDocPath = resolveDevLogDocPath(feature, rowId);
+  const devLogDocPath = resolveDevLogDocPath(feature, resolvedId);
   const devLogDocContent = devLogDocPath
     ? await readDevLogDoc(repoRoot, devLogDocPath)
     : undefined;
@@ -270,7 +271,7 @@ export async function GET(
   }
 
   const snapshot: RoadmapContextSnapshot = {
-    rowId,
+    rowId: resolvedId,
     name: feature.name,
     category: feature.category,
     locatedPage: feature.locatedPage,
@@ -290,8 +291,8 @@ export async function GET(
     featureSpecDocPath: feature.featureSpecDocPath,
     tddSpecDocPath: feature.tddSpecDocPath,
 
-    unitFolder: resolveUnitTestFolder(feature, rowId),
-    e2eFolder: resolveE2EFolder(rowId),
+    unitFolder: resolveUnitTestFolder(feature, resolvedId),
+    e2eFolder: resolveE2EFolder(resolvedId),
 
     visIssueId: feature.vis_issue_id,
     visIssueKey: feature.vis_issue_key,

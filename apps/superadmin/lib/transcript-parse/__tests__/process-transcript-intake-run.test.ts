@@ -367,26 +367,62 @@ describe('processTranscriptIntakeRunById', () => {
     });
   });
 
-  it('falls back to seeded detect and review when AI stages fail', async () => {
+  it('marks the run failed instead of inventing seeded data when detect AI fails', async () => {
     detectShouldFail = true;
+
+    await processTranscriptIntakeRunById('run-1');
+
+    expect(updates.some((u) => u.payload.detection_result)).toBe(false);
+    expect(updates.some((u) => u.payload.status === 'needs_user_confirmation')).toBe(false);
+    expect(updates.some((u) => (
+      u.payload.status === 'failed' &&
+      String(u.payload.error_message).includes('Detect AI 全部候選模型失敗')
+    ))).toBe(true);
+    const traceUpdate = updates.find((u) => u.payload.parsed_result);
+    expect(traceUpdate?.payload.parsed_result).toMatchObject({
+      aiStageTrace: expect.arrayContaining([
+        expect.objectContaining({ stage: 'detect', status: 'failed', engine: 'vlm_ai' }),
+      ]),
+    });
+  });
+
+  it('marks the run failed instead of inventing seeded review when review AI fails', async () => {
     reviewShouldFail = true;
 
     await processTranscriptIntakeRunById('run-1');
 
-    const detectionUpdate = updates.find((u) => u.payload.detection_result);
-    const finalUpdate = updates.find((u) => u.payload.status === 'needs_user_confirmation');
-    expect(detectionUpdate?.payload.detection_result).toMatchObject({
-      riskFlags: expect.arrayContaining([expect.stringContaining('AI detect failed')]),
-    });
-    expect(finalUpdate?.payload.review_result).toMatchObject({
-      issues: expect.arrayContaining([
-        expect.objectContaining({ fieldPath: 'review.ai' }),
+    expect(updates.some((u) => u.payload.review_result)).toBe(false);
+    expect(updates.some((u) => u.payload.status === 'needs_user_confirmation')).toBe(false);
+    expect(updates.some((u) => (
+      u.payload.status === 'failed' &&
+      String(u.payload.error_message).includes('Verify / Review AI 全部候選模型失敗')
+    ))).toBe(true);
+    const traceUpdate = updates.find((u) => (
+      String(JSON.stringify(u.payload.parsed_result ?? {})).includes('Verify / Review 全部候選 AI 模型失敗')
+    ));
+    expect(traceUpdate?.payload.parsed_result).toMatchObject({
+      aiStageTrace: expect.arrayContaining([
+        expect.objectContaining({ stage: 'verify_review', status: 'failed', engine: 'vlm_ai' }),
       ]),
     });
-    expect(finalUpdate?.payload.parsed_result).toMatchObject({
+  });
+
+  it('marks the run failed instead of inventing seeded details when detail builder AI fails', async () => {
+    detailShouldFail = true;
+
+    await processTranscriptIntakeRunById('run-1');
+
+    expect(updates.some((u) => u.payload.status === 'needs_user_confirmation')).toBe(false);
+    expect(updates.some((u) => (
+      u.payload.status === 'failed' &&
+      String(u.payload.error_message).includes('Detail Builder AI 全部候選模型失敗')
+    ))).toBe(true);
+    const traceUpdate = updates.find((u) => (
+      String(JSON.stringify(u.payload.parsed_result ?? {})).includes('Detail Builder 全部候選 AI 模型失敗')
+    ));
+    expect(traceUpdate?.payload.parsed_result).toMatchObject({
       aiStageTrace: expect.arrayContaining([
-        expect.objectContaining({ stage: 'detect', status: 'fallback' }),
-        expect.objectContaining({ stage: 'verify_review', status: 'fallback' }),
+        expect.objectContaining({ stage: 'detail_builder', status: 'failed', engine: 'vlm_ai' }),
       ]),
     });
   });

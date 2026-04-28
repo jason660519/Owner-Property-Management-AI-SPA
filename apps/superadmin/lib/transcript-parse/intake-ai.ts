@@ -97,6 +97,8 @@ const STAGE_CONFIG = {
   },
 } as const;
 
+const TRANSCRIPT_SINGLE_STAGE_FALLBACK_SIZE = 4;
+
 async function getApiKey(
   adminClient: AdminClient,
   userId: string,
@@ -116,14 +118,6 @@ async function getApiKey(
   } catch {
     return null;
   }
-}
-
-async function resolveFirstAgentLink(
-  adminClient: AdminClient,
-  agentKey: string,
-): Promise<AgentLink | null> {
-  const links = await resolveAgentLinks(adminClient, agentKey, 1);
-  return links[0] ?? null;
 }
 
 async function resolveAgentLinks(
@@ -190,7 +184,9 @@ export async function resolveTranscriptIntakeAiStageInfo(
     config.moduleKey,
     config.fallbackPrompt,
   );
-  const limit = stage === 'review' ? TRANSCRIPT_REVIEW_CANDIDATE_SIZE : 1;
+  const limit = stage === 'review'
+    ? TRANSCRIPT_REVIEW_CANDIDATE_SIZE
+    : TRANSCRIPT_SINGLE_STAGE_FALLBACK_SIZE;
   const links = await resolveAgentLinks(adminClient, config.agentKey, limit);
   const link = links[0] ?? null;
   return {
@@ -457,7 +453,7 @@ async function callIntakeModelJson(
   }
 }
 
-async function runIntakeAiJson(
+async function runIntakeAiJsonFallbackChain(
   input: IntakeStageCallInput,
 ): Promise<unknown> {
   const documents = await loadDocuments(input.adminClient, input.documentIds);
@@ -467,8 +463,12 @@ async function runIntakeAiJson(
     input.moduleKey,
     input.fallbackPrompt,
   );
-  const link = await resolveFirstAgentLink(input.adminClient, input.agentKey);
-  if (!link) throw new Error(`未設定 ${input.agentKey} 使用的 AI 模型`);
+  const links = await resolveAgentLinks(
+    input.adminClient,
+    input.agentKey,
+    TRANSCRIPT_SINGLE_STAGE_FALLBACK_SIZE,
+  );
+  if (links.length === 0) throw new Error(`未設定 ${input.agentKey} 使用的 AI 模型`);
 
   const { fileBase64, mimeType } = await downloadPrimaryDocument(input.adminClient, documents);
   const context = buildDocumentContext(
@@ -477,8 +477,40 @@ async function runIntakeAiJson(
     input.routeDecision,
     input.parsedResult,
   );
-  const result = await callIntakeModelJson(input, link, prompt, fileBase64, mimeType, context);
-  return result.raw;
+  const errors: string[] = [];
+
+  for (const link of links) {
+    input.onModelEvent?.({
+      type: 'model_start',
+      provider: link.provider,
+      model: link.model,
+    });
+    const startedAt = Date.now();
+    try {
+      const result = await callIntakeModelJson(input, link, prompt, fileBase64, mimeType, context);
+      input.onModelEvent?.({
+        type: 'model_result',
+        provider: link.provider,
+        model: link.model,
+        success: true,
+        duration_ms: result.latencyMs,
+      });
+      return result.raw;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown error';
+      errors.push(`${link.provider}/${link.model}: ${message}`);
+      input.onModelEvent?.({
+        type: 'model_result',
+        provider: link.provider,
+        model: link.model,
+        success: false,
+        duration_ms: Date.now() - startedAt,
+        error: message,
+      });
+    }
+  }
+
+  throw new Error(errors.join('；') || `${input.agentKey} 所有模型皆失敗`);
 }
 
 async function runReviewAiEnsemble(input: IntakeStageCallInput): Promise<TranscriptReviewResult> {
@@ -585,7 +617,7 @@ async function runReviewAiEnsemble(input: IntakeStageCallInput): Promise<Transcr
 export async function runTranscriptIntakeDetectionAi(
   input: RunAiStageInput,
 ): Promise<TranscriptDetectionResult> {
-  const raw = await runIntakeAiJson({
+  const raw = await runIntakeAiJsonFallbackChain({
     ...input,
     agentKey: 'transcript_detection',
     moduleKey: TRANSCRIPT_INTAKE_DETECT_MODULE_KEY,
@@ -612,7 +644,7 @@ export async function runTranscriptIntakeDetailBuilderAi(
     reviewResult: unknown;
   },
 ): Promise<TranscriptDetailBuilderResult> {
-  const raw = await runIntakeAiJson({
+  const raw = await runIntakeAiJsonFallbackChain({
     ...input,
     agentKey: 'transcript_detail_builder',
     moduleKey: TRANSCRIPT_INTAKE_DETAIL_BUILDER_MODULE_KEY,

@@ -26,7 +26,7 @@ export function tddTail(ctx: PromptContext): string {
 
 export function promptHeader(ctx: PromptContext, desc: string): string {
   return [
-    `請針對這一筆工作（Row ID「${ctx.rowId}」）以及選定的 IDE「${ctx.ideLabel}」${desc}。`,
+    `請針對這一筆工作（Feature ID「${ctx.rowId}」）以及選定的 IDE「${ctx.ideLabel}」${desc}。`,
     '請先閱讀：',
     `1) Feature Spec (.md)：${ctx.featureSpec}`,
     `2) TDD Spec (.md)：${ctx.tddSpec}`,
@@ -75,7 +75,7 @@ export const WORK_CATEGORY_OPTIONS: WorkCategoryOption[] = [
 
 export function getDefaultPrompt(ctx: PromptContext): string {
   return [
-    `請根據專案進度儀表板（Development Tab）中工作編號 Row ID「${ctx.rowId}」與選定的 IDE「${ctx.ideLabel}」，開始或繼續進行開發與測試。`,
+    `請根據專案進度儀表板（Development Tab）中工作編號 Feature ID「${ctx.rowId}」與選定的 IDE「${ctx.ideLabel}」，開始或繼續進行開發與測試。`,
     '', '【必讀文件】', '在撰寫程式碼前，請先完整閱讀並理解：',
     `• Feature Spec (.md)：${ctx.featureSpec}`, `• TDD Spec (.md)：${ctx.tddSpec}`,
     '', '【TDD 流程】',
@@ -92,7 +92,7 @@ export function getDefaultPrompt(ctx: PromptContext): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Row-context-aware dispatch prompt
+// Feature-context-aware dispatch prompt
 // ─────────────────────────────────────────────────────────────────────────
 //
 // Builds a handoff-optimized prompt from RoadmapContextSnapshot (returned by
@@ -108,8 +108,8 @@ export function getDefaultPrompt(ctx: PromptContext): string {
 
 function formatHeaderSection(snap: RoadmapContextSnapshot, ideLabel: string): string {
   const lines = [
-    '# Row 資訊',
-    `- ID: [Row ${snap.rowId}] ${snap.name}`,
+    '# Feature 資訊',
+    `- ID: [Feature ${snap.rowId}] ${snap.name}`,
     `- 類別: ${snap.category}`,
   ];
   if (snap.locatedPage) lines.push(`- 所屬頁面: ${snap.locatedPage}`);

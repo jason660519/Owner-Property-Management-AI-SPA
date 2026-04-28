@@ -16,6 +16,16 @@ interface RouteDocument {
   reasons: string[];
   metrics: Record<string, unknown>;
   pdfTextProbe: Record<string, unknown>;
+  pages: RoutePage[];
+}
+
+interface RoutePage {
+  pageNumber: number | null;
+  pageRole: string;
+  sourceTrust: string;
+  orientation: string;
+  confidence: number | null;
+  evidenceText: string;
 }
 
 function asObject(value: unknown): Record<string, unknown> {
@@ -35,6 +45,21 @@ function asNumber(value: unknown): number | null {
 function asStringList(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+}
+
+function getRoutePages(value: unknown): RoutePage[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((raw) => {
+    const item = asObject(raw);
+    return {
+      pageNumber: asNumber(item.pageNumber),
+      pageRole: asString(item.pageRole, 'unknown'),
+      sourceTrust: asString(item.sourceTrust, 'unknown'),
+      orientation: asString(item.orientation, 'unknown'),
+      confidence: asNumber(item.confidence),
+      evidenceText: asString(item.evidenceText, ''),
+    };
+  });
 }
 
 function routeLabel(route: string): string {
@@ -67,6 +92,59 @@ function routeTone(route: string): string {
   }
 }
 
+function pageRoleLabel(role: string): string {
+  switch (role) {
+    case 'building_transcript':
+      return '建物謄本';
+    case 'land_transcript':
+      return '土地謄本';
+    case 'building_title':
+      return '建物權狀';
+    case 'land_title':
+      return '土地權狀';
+    case 'parking_building_transcript':
+      return '車位建物謄本';
+    case 'parking_land_transcript':
+      return '車位土地謄本';
+    case 'mixed_transcript':
+      return '混合謄本';
+    case 'property_description':
+      return '不動產說明書';
+    case 'investigation_report':
+      return '物件調查報告';
+    case 'map_or_photo':
+      return '圖資/照片';
+    default:
+      return '待判讀';
+  }
+}
+
+function sourceTrustLabel(sourceTrust: string): string {
+  switch (sourceTrust) {
+    case 'authoritative':
+      return '正式來源';
+    case 'reference_only':
+      return '參考來源';
+    case 'ignore':
+      return '略過';
+    default:
+      return '待確認';
+  }
+}
+
+function sourceTrustTone(sourceTrust: string): string {
+  switch (sourceTrust) {
+    case 'authoritative':
+      return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700';
+    case 'reference_only':
+      return 'border-amber-500/30 bg-amber-500/10 text-amber-700';
+    case 'ignore':
+      return 'border-slate-500/30 bg-slate-500/10 text-slate-600';
+    default:
+      return 'border-border-default bg-bg-tertiary text-text-secondary';
+  }
+}
+
 function getRouteDocuments(run: TranscriptTechnicalRoutePanelProps['run']): RouteDocument[] {
   const routeDecision = asObject(run?.routeDecision);
   const rawDocuments = Array.isArray(routeDecision.documents) ? routeDecision.documents : [];
@@ -79,6 +157,7 @@ function getRouteDocuments(run: TranscriptTechnicalRoutePanelProps['run']): Rout
       reasons: asStringList(item.reasons),
       metrics: asObject(item.metrics),
       pdfTextProbe: asObject(item.pdfTextProbe),
+      pages: getRoutePages(item.pages),
     };
   });
 }
@@ -95,6 +174,19 @@ function metricParts(doc: RouteDocument): string[] {
     cjkCount === null ? null : `繁中 ${cjkCount}`,
     markerCount === null ? null : `謄本標記 ${markerCount}`,
     likelyScanned ? '疑似掃描件' : null,
+  ].filter((part): part is string => Boolean(part));
+}
+
+function pageSummaryParts(pages: RoutePage[]): string[] {
+  const official = pages.filter((page) => page.sourceTrust === 'authoritative').length;
+  const reference = pages.filter((page) => page.sourceTrust === 'reference_only').length;
+  const ignored = pages.filter((page) => page.sourceTrust === 'ignore').length;
+  const unknown = pages.filter((page) => page.sourceTrust === 'unknown').length;
+  return [
+    official ? `正式 ${official}` : null,
+    reference ? `參考 ${reference}` : null,
+    ignored ? `略過 ${ignored}` : null,
+    unknown ? `待確認 ${unknown}` : null,
   ].filter((part): part is string => Boolean(part));
 }
 
@@ -136,6 +228,42 @@ export function TranscriptTechnicalRoutePanel({
                 </div>
                 {doc.reasons[0] ? (
                   <p className="mt-2 text-[11px] text-text-muted">{doc.reasons[0]}</p>
+                ) : null}
+                {doc.pages.length ? (
+                  <div className="mt-3 rounded border border-border-default bg-bg-secondary/60 p-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-[11px] font-medium text-text-secondary">頁面分類</p>
+                      {pageSummaryParts(doc.pages).map((part) => (
+                        <span key={part} className="rounded bg-bg-tertiary px-2 py-0.5 text-[10px] text-text-muted">
+                          {part}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="mt-2 grid gap-1.5">
+                      {doc.pages.slice(0, 5).map((page, pageIndex) => (
+                        <div
+                          key={`${doc.documentId}-${page.pageNumber ?? pageIndex}`}
+                          className="grid gap-1 rounded bg-bg-primary px-2 py-1.5 text-[11px] sm:grid-cols-[auto_auto_1fr]"
+                        >
+                          <span className="font-medium text-text-secondary">
+                            P{page.pageNumber ?? pageIndex + 1}
+                          </span>
+                          <span className={`w-fit rounded border px-1.5 py-0.5 ${sourceTrustTone(page.sourceTrust)}`}>
+                            {sourceTrustLabel(page.sourceTrust)}
+                          </span>
+                          <span className="min-w-0 truncate text-text-muted">
+                            {pageRoleLabel(page.pageRole)}
+                            {page.orientation !== 'unknown' ? ` / ${page.orientation}` : ''}
+                            {page.confidence === null ? '' : ` / ${Math.round(page.confidence * 100)}%`}
+                            {page.evidenceText ? ` / ${page.evidenceText}` : ''}
+                          </span>
+                        </div>
+                      ))}
+                      {doc.pages.length > 5 ? (
+                        <p className="text-[10px] text-text-muted">另有 {doc.pages.length - 5} 頁待展開檢視</p>
+                      ) : null}
+                    </div>
+                  </div>
                 ) : null}
               </div>
             );

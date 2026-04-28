@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Activity } from 'lucide-react';
-import { ROADMAP_DATA, type PhaseType } from '@/app/data/roadmap';
+import { ROADMAP_DATA, normalizeRoadmapFeatureId, type PhaseType } from '@/app/data/roadmap';
 import { useTablePreferences } from '@/lib/hooks/useTablePreferences';
 import { useAISettings } from '@/lib/hooks/useAISettings';
 import { usePaperclipAgents } from '@/lib/hooks/usePaperclipAgents';
@@ -87,7 +87,10 @@ export default function ProjectProgressPage() {
   const buildPhaseRows = useCallback((phase: PhaseType, customRows: CustomProjectProgressRowPayload[]): PhaseRow[] => {
     const roadmapRows = allFeatures
       .filter(f => (f.phase ?? 'development') === phase)
-      .map((f, idx) => ({ ...f, __rowIdx: idx }));
+      .map((f, idx) => ({
+        ...f,
+        __featureId: normalizeRoadmapFeatureId(f.id) || String(idx + 1).padStart(3, '0'),
+      }));
 
     const customPhaseRows: PhaseRow[] = customRows.map((r, idx) => ({
       name: r.name,
@@ -95,7 +98,7 @@ export default function ProjectProgressPage() {
       percentage: r.percentage ?? 0,
       locatedPage: r.locatedPage,
       phase,
-      __rowIdx: roadmapRows.length + idx,
+      __featureId: normalizeRoadmapFeatureId(r.rowId) || String(roadmapRows.length + idx + 1).padStart(3, '0'),
     }));
 
     return [...roadmapRows, ...customPhaseRows];
@@ -131,7 +134,7 @@ export default function ProjectProgressPage() {
   // Existing row IDs for duplicate detection in AddRowModal
   const existingRowIds = useMemo(() => {
     const ids = new Set<string>();
-    activeRows.forEach((r, idx) => ids.add((idx + 1).toString().padStart(3, '0')));
+    activeRows.forEach((r) => ids.add(r.__featureId));
     const prefs = activePhase === 'testing' ? testingPrefs
       : activePhase === 'deployment' ? deploymentPrefs
         : operationsPrefs;

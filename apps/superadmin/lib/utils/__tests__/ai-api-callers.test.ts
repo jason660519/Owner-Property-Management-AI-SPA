@@ -1,4 +1,4 @@
-import { callOpenAI } from '@/lib/utils/ai-api-callers';
+import { callOpenAI, extractJsonFromOutput } from '@/lib/utils/ai-api-callers';
 
 describe('callOpenAI', () => {
   const originalFetch = global.fetch;
@@ -37,5 +37,21 @@ describe('callOpenAI', () => {
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     expect(body.max_tokens).toBe(2048);
     expect(body).not.toHaveProperty('max_completion_tokens');
+  });
+});
+
+describe('extractJsonFromOutput', () => {
+  it('extracts an object when a string field contains braces', () => {
+    expect(extractJsonFromOutput('前言 {"message":"含有 { 大括號 } 的中文","ok":true} 後記')).toEqual({
+      message: '含有 { 大括號 } 的中文',
+      ok: true,
+    });
+  });
+
+  it('repairs common trailing commas before parsing', () => {
+    expect(extractJsonFromOutput('```json\n{"items":["a",],"ok":true,}\n```')).toEqual({
+      items: ['a'],
+      ok: true,
+    });
   });
 });

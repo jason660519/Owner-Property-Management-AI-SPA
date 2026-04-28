@@ -194,6 +194,17 @@ describe('/api/transcript-intake/runs', () => {
     expect(insertedPayload?.source_document_ids).toEqual(['doc-1']);
     expect(insertedPayload?.route_decision).toMatchObject({
       aggregateRoute: 'local_python_text',
+      documents: [
+        expect.objectContaining({
+          pages: [
+            expect.objectContaining({
+              pageNumber: 1,
+              pageRole: 'building_transcript',
+              sourceTrust: 'authoritative',
+            }),
+          ],
+        }),
+      ],
     });
     expect(pdfProbeSpy).toHaveBeenCalledTimes(1);
   });
@@ -218,6 +229,34 @@ describe('/api/transcript-intake/runs', () => {
       documents: [
         expect.objectContaining({
           pdfTextProbe: expect.objectContaining({ likelyScanned: true }),
+          pages: [
+            expect.objectContaining({
+              pageNumber: 1,
+              pageRole: 'building_transcript',
+              sourceTrust: 'authoritative',
+              confidence: 0.2,
+            }),
+            expect.objectContaining({
+              pageNumber: 2,
+              pageRole: 'building_transcript',
+              sourceTrust: 'authoritative',
+            }),
+            expect.objectContaining({
+              pageNumber: 3,
+              pageRole: 'building_transcript',
+              sourceTrust: 'authoritative',
+            }),
+            expect.objectContaining({
+              pageNumber: 4,
+              pageRole: 'building_transcript',
+              sourceTrust: 'authoritative',
+            }),
+            expect.objectContaining({
+              pageNumber: 5,
+              pageRole: 'building_transcript',
+              sourceTrust: 'authoritative',
+            }),
+          ],
         }),
       ],
     });
@@ -247,6 +286,13 @@ describe('/api/transcript-intake/runs', () => {
           route: 'vlm_visual',
           inputFormat: 'image',
           pdfTextProbe: null,
+          pages: [
+            expect.objectContaining({
+              pageNumber: 1,
+              pageRole: 'building_title',
+              sourceTrust: 'authoritative',
+            }),
+          ],
         }),
       ],
     });

@@ -2,7 +2,7 @@
 // Hook that merges roadmap features with custom rows and applies filters
 
 import { useMemo } from 'react';
-import type { RoadmapFeature } from '@/app/data/roadmap';
+import { normalizeRoadmapFeatureId, type RoadmapFeature } from '@/app/data/roadmap';
 import type { CustomProjectProgressRowPayload } from '../../types';
 import {
   type ProgressRow,
@@ -40,7 +40,7 @@ export function useDevTableData(
   const rows = useMemo<ProgressRow[]>(() => {
     const base: ProgressRow[] = features.map((f, idx) => ({
       ...f,
-      __rowId: (idx + 1).toString().padStart(3, '0'),
+      __rowId: normalizeRoadmapFeatureId(f.id) || (idx + 1).toString().padStart(3, '0'),
       __source: 'roadmap' as const,
     }));
 

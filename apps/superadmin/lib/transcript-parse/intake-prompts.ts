@@ -26,6 +26,9 @@ export const TRANSCRIPT_INTAKE_DETECT_PROMPT = `你是台灣不動產謄本與�
 
 規則：
 - 證據不足就填 unknown 或 null，不要硬猜。
+- 如果輸入包含 route_decision.documents[].pages，必須依 pageRole/sourceTrust 判斷來源可信度；sourceTrust=authoritative 的謄本/權狀才可作為正式分類證據。
+- 不動產說明書、物件調查報告書、照片、地圖、平面圖只能作為 reference_only 或 ignore；不可把它們當成 building_transcript / land_transcript，也不可用來判定正式面積或持分。
+- 同一 PDF 內若混有說明書與謄本，請只採信謄本或權狀頁，並在 riskFlags 記錄 mixed_authoritative_and_reference_sources。
 - 權狀影本不是錯誤文件；若看到「土地所有權狀」「土地標示」「地號」「權利範圍」等內容，documentKinds 必須包含 land_title，不要輸出 land_transcript。
 - 若看到「建物所有權狀」「建物標示」「建號」「門牌」「共同使用部分」等內容，documentKinds 必須包含 building_title，不要輸出 building_transcript。
 - 同一張權狀若同時含土地標示與建物標示，documentKinds 應同時包含 land_title 與 building_title。
@@ -60,13 +63,15 @@ export const TRANSCRIPT_INTAKE_PARSE_PROMPT = `你是台灣不動產謄本結構
 
 解析要求：
 1. 依既有 TranscriptParseOutput schema 輸出 buildingTranscript 與 landTranscript；權狀影本也要盡量對應到相同 schema。
-2. 若是純土地出售，buildingTranscript 請保留空白結構，不要捏造建物資料。
-3. 若是公寓、華廈、辦公室或店面，通常建物所有權是 100%，土地是持分；請保留原始持分字串。
-4. 若是透天或別墅，土地可能是 100%，但仍要以謄本證據為準。
-5. 車位若為獨立產權，請辨識是否有獨立建號或土地持分。
-6. 車位若為公設產權，請從共有部分、附屬建物、停車空間、權利範圍等文字找證據。
-7. 每個非空重要欄位都應能回溯到原文；無法確認時填空字串或空陣列。
-8. 權狀常見欄位如「所有權狀字號／權狀字號、所有權人、建號、地號、面積、權利範圍、坐落、門牌」應盡量擷取；權狀沒有謄本標示部／所有權部章節時，不要因此判定不可解析。
+2. 若輸入包含 route_decision.documents[].pages，只能使用 sourceTrust=authoritative 的頁面填入 schema；reference_only/ignore 頁面不可直接寫入 buildingTranscript、landTranscript 或車位欄位。
+3. 不動產說明書、物件調查報告書、照片、地圖、平面圖只能用來發現「可能需要人工複核」的差異，不可覆蓋謄本或權狀原文。
+4. 若是純土地出售，buildingTranscript 請保留空白結構，不要捏造建物資料。
+5. 若是公寓、華廈、辦公室或店面，通常建物所有權是 100%，土地是持分；請保留原始持分字串。
+6. 若是透天或別墅，土地可能是 100%，但仍要以謄本證據為準。
+7. 車位若為獨立產權，請辨識是否有獨立建號或土地持分。
+8. 車位若為公設產權，請從共有部分、附屬建物、停車空間、權利範圍等文字找證據。
+9. 每個非空重要欄位都應能回溯到原文；無法確認時填空字串或空陣列。
+10. 權狀常見欄位如「所有權狀字號／權狀字號、所有權人、建號、地號、面積、權利範圍、坐落、門牌」應盡量擷取；權狀沒有謄本標示部／所有權部章節時，不要因此判定不可解析。
 
 只輸出嚴格 JSON，不要 markdown、不要解說。`;
 
@@ -82,6 +87,8 @@ export const TRANSCRIPT_INTAKE_REVIEW_PROMPT = `你是台灣不動產謄本解�
 4. 車位產權是否正確分類為 independent、shared_facility，或兩者皆有。
 5. 建號、地號、所有權人、持分、面積是否有明顯漏讀或互相矛盾。
 6. 欄位若無證據，不可批准為確定值。
+7. parser 是否誤用不動產說明書、物件調查報告書、照片、地圖、平面圖等 reference_only/ignore 來源填入正式欄位；若有，必須列 blocking issue。
+8. 若 reference_only 來源的坪數或面積與謄本/權狀不同，只能列為 doubleCheckSummary 或 userConfirmationRequired，不可直接覆蓋正式解析值。
 
 決策規則：
 1. 同一欄位若至少兩個 parser 回報相同值，且 parser 報告或原始文件有清楚證據，fieldDecisions.decision 請用 majority_accept，可採信該值。
@@ -151,7 +158,10 @@ export const TRANSCRIPT_INTAKE_DETAIL_BUILDER_PROMPT = `你是台灣不動產謄
 7. 公設共同使用部分若沒有明確停車位文字，不要自動當成車位；可放在 buildingAreas 或標記人工確認。
 8. 面積請保留平方公尺數字字串，持分請保留原始權利範圍字串，例如「2分之1」「20000分之157」。
 9. 每列都要盡量提供 sourceDocumentId、sourceDocumentName、sourcePage、evidenceText、confidence。
-10. 只輸出嚴格 JSON，不要 markdown。
+10. 獨立車位建物若同一建號含主建物、附屬建物、共有部分，且所有權部另有車位整體權利範圍，例如「84分之2」，請把「84分之2」填入每列 parkingBuildingAreas[].groupShareRatio；該列 shareRatio 只放單一組成項目的權利範圍，例如主建物/附屬建物填「全部」，共有部分填「100000分之1745」。
+11. 若 route_decision.documents[].pages 顯示該頁 sourceTrust=reference_only 或 ignore，該頁不可成為明細列的 sourcePage；只能用於 warnings 或 userConfirmationRequired。
+12. 不動產說明書或物件調查報告書中的坪數可用來檢查謄本解析是否疑似錯誤，但不可當成正確答案直接填表。
+13. 只輸出嚴格 JSON，不要 markdown。
 
 輸出 schema：
 {
@@ -165,6 +175,7 @@ export const TRANSCRIPT_INTAKE_DETAIL_BUILDER_PROMPT = `你是台灣不動產謄
         "sourceDocumentId": "",
         "sourceDocumentName": "",
         "sourcePage": 1,
+        "groupShareRatio": "",
         "label": "",
         "identifier": "",
         "areaSqm": "",

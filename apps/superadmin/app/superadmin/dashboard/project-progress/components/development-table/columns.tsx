@@ -307,7 +307,7 @@ export function createDevColumns(deps: CreateDevColumnsDeps): ColumnDef<Progress
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline truncate max-w-full"
-              title={`查看 Row ${r.__rowId} 的開發日誌匯總`}
+              title={`查看 Feature ID ${r.__rowId} 的開發日誌匯總`}
             >
               <ExternalLink className="w-3 h-3 flex-shrink-0" />
               <span className="truncate">查看匯總</span>

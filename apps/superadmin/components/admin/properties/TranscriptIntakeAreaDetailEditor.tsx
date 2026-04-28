@@ -6,6 +6,7 @@ import type {
   TranscriptIntakeAreaDetailDraft,
   TranscriptIntakeAreaDetailRow,
 } from '@/lib/transcript-parse/intake-types';
+import { PARKING_AREA_EMPTY_MESSAGE } from '@/lib/transcript-parse/area-detail-copy';
 
 type RowKey =
   | 'buildingAreas'
@@ -38,11 +39,11 @@ const SECTION_META: Record<RowKey, { title: string; empty: string }> = {
   },
   parkingBuildingAreas: {
     title: '車位建築面積明細表',
-    empty: '尚未擷取獨立車位建物，可手動新增。',
+    empty: PARKING_AREA_EMPTY_MESSAGE,
   },
   parkingLandShareAreas: {
     title: '車位所屬土地持分面積明細表',
-    empty: '尚未擷取車位土地持分，可手動新增。',
+    empty: PARKING_AREA_EMPTY_MESSAGE,
   },
 };
 
@@ -79,6 +80,34 @@ function updateRowField(
     ...row,
     [field]: value,
   };
+}
+
+function sourceTrustLabel(sourceTrust: TranscriptIntakeAreaDetailRow['sourceTrust']): string {
+  switch (sourceTrust) {
+    case 'authoritative':
+      return '正式來源';
+    case 'reference_only':
+      return '參考來源';
+    case 'ignore':
+      return '略過';
+    case 'unknown':
+      return '待確認';
+    default:
+      return '未標記';
+  }
+}
+
+function sourceTrustTone(sourceTrust: TranscriptIntakeAreaDetailRow['sourceTrust']): string {
+  switch (sourceTrust) {
+    case 'authoritative':
+      return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700';
+    case 'reference_only':
+      return 'border-amber-500/30 bg-amber-500/10 text-amber-700';
+    case 'ignore':
+      return 'border-slate-500/30 bg-slate-500/10 text-slate-600';
+    default:
+      return 'border-border-default bg-bg-tertiary text-text-muted';
+  }
 }
 
 function SectionTable({
@@ -188,13 +217,18 @@ function SectionTable({
                     />
                   </td>
                   <td className={`${tdCls} min-w-[160px]`}>
-                    <button
-                      type="button"
-                      onClick={() => onFocusEvidence?.(row)}
-                      className="max-w-[220px] truncate text-left text-[11px] text-accent hover:text-accent-hover"
-                    >
-                      {row.evidenceText || row.sourceDocumentName || '查看來源'}
-                    </button>
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <span className={`w-fit rounded border px-1.5 py-0.5 text-[10px] ${sourceTrustTone(row.sourceTrust)}`}>
+                        {sourceTrustLabel(row.sourceTrust)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onFocusEvidence?.(row)}
+                        className="max-w-[220px] truncate text-left text-[11px] text-accent hover:text-accent-hover"
+                      >
+                        {row.evidenceText || row.sourceDocumentName || '查看來源'}
+                      </button>
+                    </div>
                   </td>
                   <td className={tdCls}>
                     <button

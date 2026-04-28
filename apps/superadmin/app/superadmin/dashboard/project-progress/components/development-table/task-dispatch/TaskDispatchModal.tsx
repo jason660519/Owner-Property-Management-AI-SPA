@@ -158,7 +158,7 @@ export default function TaskDispatchModal({
         <div className="flex items-center justify-between border-b border-border-light px-4 py-3">
           <div className="min-w-0">
             <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide">任務派遣</p>
-            <p className="mt-0.5 text-xs text-text-muted truncate">Row {row.__rowId} &ndash; {row.name}</p>
+            <p className="mt-0.5 text-xs text-text-muted truncate">Feature ID {row.__rowId} &ndash; {row.name}</p>
           </div>
           <button type="button" onClick={onClose} className="ml-3 rounded-md border border-border-default px-2 py-1 text-[11px] text-text-secondary hover:bg-bg-secondary hover:text-text-primary">關閉</button>
         </div>
@@ -168,7 +168,7 @@ export default function TaskDispatchModal({
           {/* Config row */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="space-y-1">
-              <p className="text-[11px] font-medium text-text-secondary">Row ID</p>
+              <p className="text-[11px] font-medium text-text-secondary">Feature ID</p>
               <p className="rounded-md border border-border-default bg-bg-secondary px-2 py-1 text-xs font-mono text-text-primary">{row.__rowId}</p>
             </div>
             <div className="space-y-1">

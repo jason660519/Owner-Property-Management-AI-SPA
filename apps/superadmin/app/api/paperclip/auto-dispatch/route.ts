@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { autoRouteRole } from '@/lib/paperclip/auto-route';
 import type { PaperclipRoleId } from '@/lib/paperclip/types';
-import { ROADMAP_DATA } from '@/app/data/roadmap';
+import { ROADMAP_DATA, normalizeRoadmapFeatureId } from '@/app/data/roadmap';
 
 function readAgentMapping(): Record<PaperclipRoleId, string | undefined> {
   return {
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       const issues = (await res.json()) as Record<string, unknown>[];
       for (const issue of issues) {
         const title = String(issue.title ?? '');
-        const match = title.match(/\[Row\s+(\S+?)\]/i);
+        const match = title.match(/\[(?:Row|Feature)\s+(\S+?)\]/i);
         if (match) activeRowIds.add(match[1]);
         const assignee = issue.assigneeAgentId as string | undefined;
         if (assignee) busyAgentIds.add(assignee);
@@ -113,11 +113,11 @@ export async function POST(request: NextRequest) {
 
   for (let i = 0; i < features.length; i++) {
     const f = features[i];
-    const rowId = String(i + 1).padStart(3, '0');
+    const rowId = normalizeRoadmapFeatureId(f.id) || String(i + 1).padStart(3, '0');
     if ((f.percentage ?? 0) >= 100) continue;
     if (activeRowIds.has(rowId)) continue;
     if (SKIP_CATEGORIES.some(c => (f.category ?? '').includes(c))) continue;
-    const routeResult = autoRouteRole(`[Row ${rowId}] ${f.name}`);
+    const routeResult = autoRouteRole(`[Feature ${rowId}] ${f.name}`);
     candidates.push({
       rowId, name: f.name, role: routeResult.role,
       acceptanceCriteria: f.acceptanceCriteria ?? '',
@@ -165,11 +165,11 @@ async function createIssueForFeature(
   agentId: string,
 ): Promise<{ issueIdentifier?: string; worktreeSlug?: string; error?: string }> {
   try {
-    const title = `[Row ${feature.rowId}] ${feature.name}`
+    const title = `[Feature ${feature.rowId}] ${feature.name}`
       .replace(/[－：]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
 
     const description = [
-      `**Row ID**: ${feature.rowId}`,
+      `**Feature ID**: ${feature.rowId}`,
       `**Feature**: ${feature.name}`,
       feature.locatedPage ? `**Located Page**: ${feature.locatedPage}` : '',
       feature.points ? `**Points**: ${feature.points}` : '',

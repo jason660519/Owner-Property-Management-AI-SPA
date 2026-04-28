@@ -9,6 +9,7 @@ import {
   decideTranscriptTechnicalRoute,
   inferTranscriptInputFormat,
 } from '@/lib/transcript-parse/intake-router';
+import { buildTranscriptPageClassifications } from '@/lib/transcript-parse/intake-page-classifier';
 import type { TranscriptTechnicalRoute } from '@/lib/transcript-parse/intake-types';
 import { extractTranscriptPdfTextForRouting } from '@/lib/transcript-parse/transcript-pdf-probe';
 import { createAdminClient } from '@/utils/supabase/admin';
@@ -64,6 +65,11 @@ function chooseAggregateRoute(routes: TranscriptTechnicalRoute[]): TranscriptTec
   if (routes.includes('local_python_text')) return 'local_python_text';
   if (routes.includes('structured_json')) return 'structured_json';
   return 'unsupported';
+}
+
+function readPdfPageCount(probe: Record<string, unknown> | null): number | null {
+  const pageCount = probe?.pageCount;
+  return typeof pageCount === 'number' && Number.isFinite(pageCount) ? pageCount : null;
 }
 
 function serializeRun(row: Record<string, unknown>) {
@@ -200,6 +206,12 @@ export async function POST(request: NextRequest) {
       documentType: row.document_type,
       extractedText: pdfProbe.extractedText,
     });
+    const pages = buildTranscriptPageClassifications({
+      inputFormat,
+      documentType: row.document_type,
+      extractedText: pdfProbe.extractedText,
+      pdfPageCount: readPdfPageCount(pdfProbe.probe),
+    });
     const reasons = pdfProbe.errorMessage
       ? [...decision.reasons, `PDF text probe failed: ${pdfProbe.errorMessage}`]
       : decision.reasons;
@@ -210,6 +222,7 @@ export async function POST(request: NextRequest) {
       originalFilename: row.original_filename,
       ...decision,
       reasons,
+      pages,
       pdfTextProbe: pdfProbe.probe,
     };
   }));

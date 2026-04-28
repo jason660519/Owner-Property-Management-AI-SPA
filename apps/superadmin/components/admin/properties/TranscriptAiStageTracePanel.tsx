@@ -172,8 +172,8 @@ function fallbackTrace(run: TranscriptAiStageTracePanelProps['run']): StageTrace
     {
       stage: 'detect',
       label: 'Detect 初判',
-      status: stringList(detection.riskFlags).some((flag) => flag.includes('failed')) ? 'fallback' : 'skipped',
-      engine: 'processor_seed',
+      status: stringList(detection.riskFlags).some((flag) => flag.includes('failed')) ? 'failed' : 'skipped',
+      engine: 'vlm_ai',
       durationMs: null,
       agentKey: 'transcript_detection',
       moduleKey: 'transcript.intake.detect',

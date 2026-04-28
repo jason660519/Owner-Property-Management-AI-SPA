@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Pause, Play, Square } from 'lucide-react';
-import { ROADMAP_DATA } from '@/app/data/roadmap';
+import { findRoadmapFeatureById, normalizeRoadmapFeatureId } from '@/app/data/roadmap';
 import { useTablePreferences } from '@/lib/hooks/useTablePreferences';
 import { ADAPTER_SELECT_OPTIONS } from '@/lib/adapter-config';
 import type { CustomProjectProgressRowPayload } from '../../types';
@@ -72,15 +72,11 @@ export default function TaskPromptSettingsPage() {
     defaults: DEV_TAB_DEFAULTS,
   });
 
-  const normalizedRowId = useMemo(() => normalizeRowIdInput(rawRowId ?? ''), [rawRowId]);
+  const normalizedRowId = useMemo(() => normalizeRoadmapFeatureId(rawRowId ?? ''), [rawRowId]);
 
   const rowInfo = useMemo(() => {
-    const features = ROADMAP_DATA.features;
-    const numeric = /^\d+$/.test(normalizedRowId) ? parseInt(normalizedRowId, 10) : NaN;
-    if (!Number.isNaN(numeric) && numeric >= 1 && numeric <= features.length) {
-      const idx = numeric - 1;
-      const f = features[idx];
-      if (!f) return null;
+    const f = findRoadmapFeatureById(normalizedRowId);
+    if (f) {
       return {
         row: { ...f, __rowId: normalizedRowId, __source: 'roadmap' as const } satisfies ProgressRow,
         source: 'roadmap' as RowSource,
@@ -180,8 +176,8 @@ export default function TaskPromptSettingsPage() {
           <button type="button" onClick={() => router.push('/superadmin/dashboard/project-progress#development')} className="inline-flex items-center gap-2 rounded-md border border-border-default bg-bg-secondary/60 px-3 py-1.5 text-xs text-text-secondary hover:bg-bg-secondary hover:text-text-primary"><ArrowLeft className="h-4 w-4" />回到 Project Progress</button>
         </div>
         <div className="rounded-md border border-border-default bg-bg-secondary p-4">
-          <p className="text-sm font-medium text-text-primary">找不到 Row ID「{rawRowId ?? ''}」</p>
-          <p className="mt-1 text-xs text-text-muted">請確認該 Row ID 是否存在於 Development Tab 的 roadmap 或自訂 rows。</p>
+          <p className="text-sm font-medium text-text-primary">找不到 Feature ID「{rawRowId ?? ''}」</p>
+          <p className="mt-1 text-xs text-text-muted">請確認該 Feature ID 是否存在於 Development Tab 的 roadmap 或自訂 rows。</p>
         </div>
       </div>
     );
@@ -193,7 +189,7 @@ export default function TaskPromptSettingsPage() {
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => router.push('/superadmin/dashboard/project-progress#development')} className="inline-flex items-center gap-2 rounded-md border border-border-default bg-bg-secondary/60 px-3 py-1.5 text-xs text-text-secondary hover:bg-bg-secondary hover:text-text-primary"><ArrowLeft className="h-4 w-4" />回到 Project Progress</button>
           <div className="min-w-0">
-            <p className="text-xs text-text-muted">Row {rowInfo.row.__rowId}</p>
+            <p className="text-xs text-text-muted">Feature ID {rowInfo.row.__rowId}</p>
             <p className="text-sm font-semibold text-text-primary truncate">{rowInfo.row.name}</p>
           </div>
         </div>
@@ -209,7 +205,7 @@ export default function TaskPromptSettingsPage() {
         <div className="space-y-4 px-4 py-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="space-y-1">
-              <p className="text-[11px] font-medium text-text-secondary">Row ID</p>
+              <p className="text-[11px] font-medium text-text-secondary">Feature ID</p>
               <p className="rounded-md border border-border-default bg-bg-secondary px-2 py-1 text-xs font-mono text-text-primary">{rowInfo.row.__rowId}</p>
             </div>
             <div className="space-y-1">

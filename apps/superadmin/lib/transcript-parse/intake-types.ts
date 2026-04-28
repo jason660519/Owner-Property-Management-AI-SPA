@@ -38,6 +38,36 @@ export type TranscriptDocumentKind =
   | 'mixed_transcript'
   | 'unknown';
 
+export type TranscriptPageRole =
+  | TranscriptDocumentKind
+  | 'property_description'
+  | 'investigation_report'
+  | 'map_or_photo';
+
+export type TranscriptPageSourceTrust =
+  | 'authoritative'
+  | 'reference_only'
+  | 'ignore'
+  | 'unknown';
+
+export type TranscriptPageOrientation =
+  | 'portrait'
+  | 'landscape'
+  | 'rotated_clockwise'
+  | 'rotated_counterclockwise'
+  | 'unknown';
+
+export interface TranscriptPageClassification {
+  pageNumber: number;
+  pageRole: TranscriptPageRole;
+  sourceTrust: TranscriptPageSourceTrust;
+  orientation: TranscriptPageOrientation;
+  rotationHint: 0 | 90 | 180 | 270 | null;
+  confidence: number;
+  evidenceText: string;
+  reasons: string[];
+}
+
 export interface TranscriptRouteMetrics {
   fileName: string;
   mimeType: string;
@@ -208,6 +238,8 @@ export interface TranscriptIntakeAreaDetailRow {
   sourceDocumentId?: string;
   sourceDocumentName?: string | null;
   sourcePage?: number | null;
+  sourceTrust?: TranscriptPageSourceTrust;
+  groupShareRatio?: string;
   label: string;
   identifier: string;
   areaSqm: string;

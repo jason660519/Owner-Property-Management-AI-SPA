@@ -1,7 +1,7 @@
 # 統一謄本解析工作台 Dev Spec
 
-日期：2026-04-27  
-Roadmap Row：085  
+日期：2026-04-27
+Feature ID：084
 位置：`/superadmin/properties/:id/edit?tab=transcript`
 
 ## 目標
@@ -62,7 +62,7 @@ Roadmap Row：085
 
 ## 第四階段限制
 
-- detect/review 目前各取 agent chain 第一個模型，不做多模型共識。
+- detect/detail_builder 採 agent chain 依序 fallback；review 採多模型 reviewer ensemble。
 - 視覺輸入目前以第一份文件為主，其他文件透過 context JSON 傳入；多文件逐份判讀留待後續強化。
 - Python route 已於建立 run 時讀取 PDF 文字層判斷是否適合 local text path；實際 parse engine 仍沿用既有 parse core。
 
@@ -116,3 +116,110 @@ Roadmap Row：085
 - VLM 可能漏讀持分或共有部分，review 階段必須要求 evidence。
 - 公設車位常藏在共有部分或備註，不能只靠文件標題判斷。
 - 同一案件可同時存在獨立產權車位與公設產權車位。
+
+## 2026-04-28 增量交付
+
+### 工作台 UX 收斂
+
+- 已上傳謄本區改為可複選，勾選狀態決定本次預覽與解析範圍。
+- 右側文件預覽依勾選同步增加或移除，不再只顯示單一文件。
+- 移除多餘的開啟、聚焦與目前預覽提示，降低介面噪音。
+- 最終確認按鈕文字改為「儲存解析結果」，明確表示 user 儲存的是本次 AI 解析與人工修正結果。
+
+### 權狀影本支援
+
+- 新增 `building_title`、`land_title` 文件型態，權狀影本不再被視為 unsupported。
+- JPG、PNG、GIF、WebP、TIFF、BMP 等影像權狀直接走 `vlm_visual`。
+- PDF 權狀優先走 VLM；若 provider 僅接受 image MIME，系統會先將 PDF page 轉成 JPG 再送入 VLM。
+- 混合建物+土地權狀影本可同時保留 `buildingTranscript` 與 `landTranscript`，避免只保存其中一側。
+
+### 多模型 Parse / Review
+
+- Parse stage 採最多 5 個候選、目標 3 份成功 parser 報告；目前主要候選包含 OpenAI、Gemini、Anthropic，另以 Gemini 1.5 Pro 作補位。
+- Verify/Review stage 採最多 5 個候選、目標 3 份成功 reviewer 報告；`openai/gpt-5.5` 因 JSON 穩定性問題移出預設前三順位。
+- Reviewer 預設改為 Claude Opus 4.5、Gemini 3.1 Pro、Grok 4.20；OpenAI GPT-5.3 chat latest 作 fallback。
+- 成功達標後，併發 runner 會取消尚未完成的 active provider，且不再等待不理 abort 的 request。
+
+### 報告與可觀測性
+
+- `AI 品質追蹤` 顯示 Detect、Parse、Verify/Review、Detail Builder 的 provider/model、prompt source、狀態、耗時與摘要。
+- Parser、Reviewer 完成後各自提供 Markdown 報告 URL。
+- 執行中模型 badge 會顯示各自工作時間；完成後保留各自花費秒數。
+- Reviewer confidence 顯示語意改為「審查信心」，避免與 parser 原始結果可信度混淆。
+
+### Detail Builder
+
+- 新增 `detail_builder` stage，由單一 VLM 依 parser reports、reviewer reports 與原始文件產生四大明細草稿。
+- 四大明細包含建物建築面積、建物所屬土地持分、車位建築面積、車位所屬土地持分。
+- 若 detail_builder 重看文件後仍有爭議，會列入人工確認，不直接覆蓋成 canonical data。
+- User 按下「儲存解析結果」後，確認後的 area detail draft 會同步到 `building_land_area_detail` 使用的資料來源。
+
+## 2026-04-28 新增限制與風險
+
+- 欄位紅框目前仍以 evidence 與來源文件提示為主，尚未完成精準 bbox overlay。
+- Provider compatibility smoke test 尚未自動化，仍需依實機錯誤與 regression test 補強。
+- 舊 run 的 trace 沒有完整子階段與 per-model timing，UI 需保留 fallback 顯示。
+- 權狀樣本含個資時，後續 regression 需使用遮罩樣本或 synthetic fixture。
+
+## 2026-04-29 Sprint 3 規格增量
+
+狀態：In Review。
+
+### 目標
+
+- 將混合 PDF/影像文件從「整份文件初判」升級為「逐頁分類」。
+- 明確分離正式來源與參考來源：謄本/權狀可寫入明細；不動產說明書/物件調查報告只可作坪數交叉檢查。
+- 支援橫躺電傳謄本頁的方向提示，降低 VLM 漏讀或誤讀。
+
+### 新增資料契約
+
+- `route_decision.documents[].pages[]` 保存 page-level classification。
+- 每頁需包含 `pageNumber`、`pageRole`、`sourceTrust`、`orientation`、`rotationHint`、`confidence`、`evidenceText`。
+- `pageRole` 至少包含 `building_transcript`、`land_transcript`、`building_title`、`land_title`、`property_description`、`investigation_report`、`map_or_photo`、`unknown`。
+- `sourceTrust` 分為 `authoritative`、`reference_only`、`ignore`、`unknown`。
+
+### 流程調整
+
+1. 建立 intake run 時先保留文件層級 routing，再補頁面分類結果。
+2. Parse stage 僅採用 `sourceTrust=authoritative` 的謄本或權狀頁作正式解析依據。
+3. Detail Builder 產生明細時，每列必須保留來源頁與來源信任層級。
+4. 不動產說明書與物件調查報告只進 cross-check，不可直接覆蓋 canonical transcript 或 area detail。
+5. 坪數校驗比較謄本平方公尺換算坪數、參考文件坪數與目前系統明細表坪數；差異超過門檻時列入人工確認。
+
+### 風險
+
+- Provider 可能無法穩定輸出每頁 JSON；需保留 deterministic fallback。
+- PDF 頁面轉圖與旋轉可能增加成本；先保存方向提示，不在第一版強制重排所有頁。
+- 舊 run 沒有 `pages` 欄位，UI 與 reviewer 必須保留相容 fallback。
+
+### 今日實作結果
+
+- 已新增 deterministic page classifier 與 `route_decision.documents[].pages[]` contract。
+- 建立 run 時會保存頁面角色、來源信任層級、方向提示、信心分數與 evidenceText。
+- 工作台技術選擇區已顯示正式來源/參考來源/略過/待確認頁數與前 5 頁分類。
+- area detail row 新增 `sourceTrust`，來源欄顯示正式來源狀態。
+- Prompt 與 saved_prompts migration 已限制 reference_only/ignore 來源不可直接填正式明細。
+
+## 2026-04-29 AI Fallback 增量
+
+狀態：In Review。
+
+### 目標
+
+- 避免 Detect 或 Detail Builder 因單一 VLM 回傳畸形 JSON 直接退回 processor seed。
+- 將 Detect/Detail Builder 與 Review 的模型追蹤統一顯示在 AI 品質追蹤。
+- 對常見模型輸出包裝與尾逗號 JSON 做保守修復，降低非業務錯誤造成的 fallback。
+
+### 流程調整
+
+1. `transcript_detection` 與 `transcript_detail_builder` 會讀取 agent chain 前 4 個候選模型。
+2. 第一個模型若 API 失敗或 JSON/schema 解析失敗，流程會保留錯誤並依序嘗試下一個模型。
+3. 任一候選成功即使用該模型結果，不再呼叫後續模型。
+4. 全部候選失敗時，run 直接進入 `failed`，並在 AI 品質追蹤中列出各模型錯誤；不得產生 seeded detect/review/detail 草稿。
+5. Detect/Detail Builder 的模型 start/result 狀態會寫入 `aiStageTrace.models`。
+
+### 風險
+
+- 依序 fallback 會增加失敗案例耗時，但只在前一模型失敗後才追加成本。
+- JSON repair 僅處理抽取與尾逗號等低風險情境，不推測補全被截斷的內容。
+- 高風險謄本資料不得用 processor seed 假裝 AI 成功；如果 AI 全部失敗，必須讓 user 看到失敗原因與失敗模型。

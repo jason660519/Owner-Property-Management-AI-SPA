@@ -5,6 +5,8 @@
 export type PhaseType = "development" | "testing" | "deployment" | "operations";
 
 export interface RoadmapFeature {
+  /** Stable project-progress feature ID shown in the dashboard. Do not derive this from array index. */
+  id?: string;
   name: string;
   percentage: number;
   /** 開發完成數，與 devTodoCount 一起顯示為「開發進度」完成數/TODO數 */
@@ -88,6 +90,17 @@ export interface RoadmapData {
   features: RoadmapFeature[];
 }
 
+export function normalizeRoadmapFeatureId(raw: string | undefined): string {
+  const trimmed = (raw ?? '').trim();
+  if (!trimmed) return '';
+  if (/^\d+$/.test(trimmed)) return trimmed.padStart(3, '0');
+  return trimmed;
+}
+
+function formatGeneratedRoadmapFeatureId(index: number): string {
+  return String(index + 1).padStart(3, '0');
+}
+
 /** Derive default phase from existing data when not explicitly set */
 function inferPhase(f: RoadmapFeature): PhaseType {
   if (f.phase) return f.phase;
@@ -99,6 +112,7 @@ function inferPhase(f: RoadmapFeature): PhaseType {
 const RAW_FEATURES: RoadmapFeature[] = [
   // 超級管理員
   {
+    id: "001",
     name: "超級管理員-儀表板",
     locatedPage: "superadmin/dashboard",
     percentage: 98,
@@ -123,6 +137,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     testStatus: "passed",
   },
   {
+    id: "002",
     name: "超級管理員-網站行為監控與紀錄功能",
     locatedPage: "superadmin/dashboard/behavior-monitoring",
     percentage: 100,
@@ -144,6 +159,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "DB migration (behavior_logs table + RLS + anomaly detection function), server actions (getBehaviorLogs/getBehaviorStats/getDailyStats/getAnomalies/runAnomalyDetection), page.tsx + BehaviorMonitoringClient + BehaviorStatsCards + BehaviorChart + BehaviorLogsTable 完成；Sidebar 新增導航。待接入 middleware 行為記錄 + E2E 測試。",
   },
   {
+    id: "003",
     name: "超級管理員的RBAC CRUD平台",
     locatedPage: "superadmin/dashboard/rbac_access_control",
     percentage: 98,
@@ -165,6 +181,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "Permission Matrix 完整 DB 持久化：新增 iam_role_permissions 表（migration 20260226100000）、getRolePermissions / saveRolePermissions server actions；RolesTab 改為從 DB 載入/儲存角色權限，儲存前有 dirty 提示，儲存中 spinner；修復 iam_user_group_memberships view + parent_role_id 欄位未套用問題。",
   },
   {
+    id: "004",
     name: "超級管理員-雲端空間管理平台",
     locatedPage: "superadmin/dashboard/storage",
     percentage: 70,
@@ -186,6 +203,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "storage_quotas migration (RLS + updated_at trigger)；actions.ts 補強 getStorageQuotas/setUserQuota/batchDeleteFiles（分塊批次刪除）；StorageDashboardClient 已有 quota tab + 孤兒檔案清理。",
   },
   {
+    id: "005",
     name: "超級管理員針對 各種Roles的 Access Matrix管理平台",
     locatedPage: "superadmin/dashboard/role_access_matrix",
     percentage: 60,
@@ -201,6 +219,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "006",
     name: "超級管理員-資料庫Supabase管理功能",
     locatedPage: "superadmin/dashboard/supabase",
     percentage: 60,
@@ -221,6 +240,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "靜態 mock 改為連接真實資料：admin client 查詢各資料表記錄數（Promise.allSettled 並發）、連線健康度檢測、RLs 政策（透過 rpc）；SupabaseDashboardClient + Supabase Dashboard 快速連結；頁面採 Server Component + Suspense 架構。\n\n### 2026-04-09 維護\n- 清理不符合專案 SQL 管理規則的 `supabase/seed.sql`。\n- 同步將 `supabase/config.toml` 的 `db.seed` 關閉，避免 `supabase db reset` 再引用空的 seed 檔。\n- 保持 migration 流程不變；本地 reset 仍會正常執行 migrations，只是不再額外執行空白 seed 步驟。",
   },
   {
+    id: "007",
     name: "超級管理員-資料庫Elastic Search管理功能（已移除）",
     locatedPage: "superadmin/dashboard/elasticsearch",
     percentage: 0,
@@ -237,6 +257,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "2026-04-12：建立 /api/elasticsearch 代理路由與 dashboard page。\n2026-04-20：移除本功能。\n- 刪除 apps/superadmin/app/api/elasticsearch/（route + tests）\n- 刪除 apps/superadmin/app/superadmin/dashboard/elasticsearch/（page + tests）\n- 刪除 apps/superadmin/e2e/007/\n- 移除 nav-items.ts 內 'Elasticsearch' 側邊欄項目\n- 移除 test-manifest.json id='007' 條目\n- 後續如需 ES 運維視圖，建議整合為 people-database workspace 的『系統』tab，並直接走 es-gateway 而非舊 OCR service。",
   },
   {
+    id: "008",
     name: "超級管理員AI LLM API效能監控－AI語音回應可靠度監控功能",
     locatedPage: "superadmin/dashboard/llm-monitor",
     percentage: 85,
@@ -265,6 +286,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "連接真實 ai_performance_metrics 資料表，page.tsx + LLMMonitorClient + actions (getLLMMetrics/getLLMAggregateStats/getLLMOverallStats)；每模型效能比較表、最近請求記錄。\n\n### 2026-04-04 監控可追到 Prompt / 模組 / 成功失敗\n- 新增 ai_usage_logs 監控欄位（prompt source/version/hash、request_path、response_status 等）。\n- 物件介紹文案 AI（/api/property-description/stream）每次嘗試會寫入 ai_usage_logs（含成功/失敗、tokens、延遲、provider/model）。\n- llm-monitor 頁面新增「AI 使用紀錄（含 Prompt / 模組 / 狀態）」表格（最新 100 筆）。\n\n### 2026-04-24 Sprint 1 — Trace/Eval Console MVP\n- 借鏡 Langfuse / Phoenix，將監控模型從 flat usage log 擴充為 trace / invocation / evaluation 三層。\n- 新增 Row 008 DEV-SPEC、TDD-SPEC、TDD Progress Report、Development Log Summary 與 handoff。\n- 建立 `llm_observability_traces`、`llm_observability_invocations` schema，為每次 LLM call 保留 page、company、invocation、execution、requested/effective model、raw/rendered output、evaluation、TTFT/E2E/throughput/http status 等欄位。\n- `llm-monitor` 新增 Trace Console 與 Evaluation Runs 視角，先彙整既有 `ai_usage_logs` 與 `adapter_evaluation_runs`，後續再把各 call-site 寫入原生 trace 表。\n- 新增 `lib/ai/observability.ts` best-effort helper；adapter evaluation、adapter-run test prompt/file metadata 與 property-description stream 已開始寫入原生 trace/invocation。\n- Trace Console 新增 Trace Detail sheet，可查看單筆完整 prompt、test file、raw/rendered output、evaluation 與 latency metadata。\n\n### 2026-04-25 Sprint 2 — LiteLLM Refactor\n- 分析 LiteLLM Proxy / SDK / callback 機制；決定採「借用理念不引入 Proxy」策略（因 85% LLM call 走 CLI subprocess，proxy 攔不到）。\n- 建立 `lib/ai/llm-price-map.ts`：35+ 主流模型 bundled 定價快照（Anthropic / OpenAI / Gemini / xAI / Perplexity / DeepSeek / Qwen / OpenRouter），含 `calculateCostUsd` / `normalizeModelId` / `inferProvider` utilities，取代手動維護的 `ai_model_research_reports` 查詢。\n- 建立 `lib/ai/instrumented-llm-call.ts`：`reportLLMUsage()` best-effort wrapper，任何 HTTP LLM route 完成後一行即可自動寫入 `llm_observability_invocations`（含 cost_usd 計算）。\n- 更新 `api/ai-settings/model-research/generate/route.ts`：加上 `reportLLMUsage` 埋點，Anthropic call 新增 token usage 回傳。\n- 更新 `llm-monitor/actions.ts`：`getOfficialPricingMap` 加上 bundled price map fallback，研究報告未覆蓋的模型自動補定價。\n- 建立 `app/api/llm-monitor/sync-prices/route.ts`：與 LiteLLM GitHub 上游 JSON 比對，回報 bundled snapshot 是否需要更新。\n- TS check 通過。",
   },
   {
+    id: "009",
     name: "超級管理員-網路安全－隱私審計管理功能",
     locatedPage: "superadmin/dashboard/security",
     percentage: 80,
@@ -293,6 +315,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "- 待完成：合規報告生成、異常登入偵測規則優化",
   },
   {
+    id: "010",
     name: "超級管理員-網站效能監控功能",
     locatedPage: "superadmin/dashboard/performance",
     percentage: 100,
@@ -316,6 +339,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
 
   // 買家
   {
+    id: "011",
     name: "買家(已簽約)-儀表板",
     locatedPage: "web/buyer/contracted/dashboard",
     percentage: 50,
@@ -331,6 +355,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/02/06",
   },
   {
+    id: "012",
     name: "買家的溝通中心",
     locatedPage: "web/buyer/contracted/communication",
     percentage: 72,
@@ -357,6 +382,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/04/12",
   },
   {
+    id: "013",
     name: "買家的繳費記錄",
     locatedPage: "web (待建)",
     percentage: 65,
@@ -372,6 +398,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
 
   // 公司首頁與產品
   {
+    id: "014",
     name: "公司首頁",
     locatedPage: "web/",
     percentage: 98,
@@ -390,6 +417,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "首頁 Hero 與 metadata 已從單一房東工具重新定位為多角色不動產 AI 協作平台；Header banner、FeaturedProperties、Footer CTA、services 頁、Testimonials 與 FAQ 文案已同步對齊，並補上 HeroSection、FeaturedProperties、Testimonials、FAQ、Footer、services 導流測試。另新增 public marketing funnel Playwright 測試，覆蓋首頁進 pricing/services，以及 pricing、services、about、properties 導向 contact 的公開漏斗。2026/04/14 補做穩定性修復：清除 `customer-details.ts` 未解 merge conflict，恢復首頁編譯；同時修正 Header/Footer 首頁可見 CTA 的 `a > button` 無效 HTML，改為 link-wrapped button-styled span，消除 localhost:3000 首頁 hydration mismatch。另以 Jest 驗證 landlord customers 相關 2 suites、10 tests 全數通過。下一步可接上真實 lead funnel tracking。",
   },
   {
+    id: "015",
     name: "公司產品費用說明頁",
     locatedPage: "web/pricing",
     percentage: 90,
@@ -409,6 +437,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "已將 web/pricing 重構為多角色商業模式版本：新增免費流量入口、仲介個人版、分店管理版、企業合作版、按案件專業角色價格表、方案比較矩陣、FAQ 與 CTA 導流；CTA 已接到 contact 詢問表單，並補上 TWD/AUD、月付/年付與 CTA 連結測試。下一步是接上真正的付款流程或 CRM lead tracking。",
   },
   {
+    id: "016",
     name: "公開案件市場頁",
     locatedPage: "web/properties",
     percentage: 84,
@@ -428,6 +457,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "web/properties 已從傳統物件列表重新定位為多角色案件市場：新增市場定位 Hero、平台能力 / 合作提案 CTA、案件摘要卡、買賣協作鏈與租賃協作鏈 badge，並保留搜尋、篩選、分頁與空狀態處理；另補上 PropertiesClient 回歸測試。下一步可補整頁 E2E 導流驗證與更細的角色篩選。",
   },
   {
+    id: "017",
     name: "公開案件詳情頁",
     locatedPage: "web/properties/[id]",
     percentage: 95,
@@ -447,6 +477,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "web/properties/[id] 已從單純物件詳情頁調整為案件協作視角：新增買賣 / 租賃協作鏈 badge、推薦接手角色、案件協作節點與案件說明，並保留原有價格、地圖與聯絡卡。PropertyContactCard 已把看房、法律諮詢、合作提案三種入口改為帶有 property context 的真實導流連結；另補上 detail page、contact card、notFound 測試，以及從公開案件列表進入 detail、再驗證登入後三種 CTA 都能把 inquiryType、entryPoint、property context 正確帶入 contact 的 Playwright E2E。這次也一併修正了 property detail SSR 使用舊版 Supabase helper 導致 header 已登入但 contact card 仍顯示 guest 狀態的 session 不一致問題。",
   },
   {
+    id: "018",
     name: "公司平台介紹與支援導流頁",
     locatedPage: "web/about",
     percentage: 89,
@@ -466,6 +497,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "web/about 已從舊的物業管理品牌頁重構為多角色平台介紹頁：補上平台使命、角色分層、台灣 / 澳洲市場策略、案件協作流程與 Need Help 導流區塊，CTA 已連到 pricing、services、properties 與 contact；已新增 about page 回歸測試，並納入 public marketing funnel Playwright 流程，驗證公開導流可回到 pricing 與 contact。",
   },
   {
+    id: "019",
     name: "公司產品教學",
     locatedPage: "web/tutorial",
     percentage: 60,
@@ -488,6 +520,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "架構實作完成：tutorial 角色選擇頁（SSG Server Component）、[role] 教學步驟頁（Client Component + useTutorialProgress hook）、靜態 TypeScript 教學資料模組（lib/tutorial-data.ts）。進度以 localStorage 儲存，支援完成徽章。單元測試（web app + superadmin row tests）與 E2E 規格已建立。待完成：截圖資產製作、Supabase 進度同步（Phase 2）。ADR：/docs/technical-selection/adr-019-company-product-tutorial.md",
   },
   {
+    id: "020",
     name: "聯絡我們>發送訊息功能",
     locatedPage: "web/contact",
     percentage: 100,
@@ -508,6 +541,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
 
   // 第三方加值服務
   {
+    id: "021",
     name: "第三方加值服務－智能門鎖",
     locatedPage: "web (待建)",
     percentage: 0,
@@ -522,6 +556,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "022",
     name: "第三方加值服務－保險方案",
     locatedPage: "web (待建)",
     percentage: 0,
@@ -536,6 +571,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "023",
     name: "第三方加值服務－攝影機監控",
     locatedPage: "web (待建)",
     percentage: 0,
@@ -550,6 +586,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "024",
     name: "第三方加值服務－租金保障",
     locatedPage: "web (待建)",
     percentage: 0,
@@ -566,6 +603,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
 
   // 房東
   {
+    id: "025",
     name: "房東-儀表板",
     locatedPage: "web/landlord/dashboard",
     percentage: 90,
@@ -581,6 +619,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/02/06",
   },
   {
+    id: "026",
     name: "房東的Access Matrix管理平台",
     locatedPage: "web/landlord (待建)",
     percentage: 60,
@@ -595,6 +634,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "027",
     name: "房東新增物件方式1－手動輸入",
     locatedPage: "web/landlord/properties/add",
     percentage: 85,
@@ -609,6 +649,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "028",
     name: "房東新增物件方式2－自動填入 (VLM/OCR)",
     locatedPage: "web/landlord/properties/add",
     percentage: 95,
@@ -626,6 +667,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     devLogDocPath: "/docs/operational-guides/transcript-parsing-guide.md",
   },
   {
+    id: "029",
     name: "房東的預約看房管理功能",
     locatedPage: "web/landlord/appointments",
     percentage: 75,
@@ -647,6 +689,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "[2026/04/12] (Paperclip CTO)\n• 補齊房東預約 API 狀態變更通知：confirmed/cancelled/completed 會寄送訪客 Email（含取消原因）。\n• 新增房東預約月曆視圖，顯示每日時段與筆數。\n• 新增 Row 029 對應單元測試與 TDD Progress Report。",
   },
   {
+    id: "030",
     name: "房東的客戶－Details模式",
     locatedPage: "web/landlord/customers",
     percentage: 95,
@@ -664,6 +707,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "2026/04/13 (VIS-26)\n- 依賴解除後複審 acceptance：`CustomerDetailsPanel` + `customer-details.ts` 符合 roadmap 五項驗收；TDD 報告見 `project-process/test-logs/test-landlord-customers-details-2026-04-12.md`。\n- 請 QA 在 `web/landlord/customers` 做 Details 側欄 smoke（可選）。\n\n2026/04/12\n- `apps/web/app/(dashboard)/landlord/customers/page.tsx` 新增 Details 側欄模式（完整資料、狀態快速切換、意向、看房紀錄區塊、跟進備註、最新 5 筆溝通摘要、發送訊息快捷按鈕）\n- `apps/web/app/(dashboard)/landlord/customers/customer-details.ts` 抽離 Details 資料解析與序列化工具，兼容舊 notes 純文字\n- `apps/web/app/(dashboard)/landlord/customers/__tests__/customer-details.test.ts` 新增 6 個單元測試；覆蓋 status 正規化、follow-up/communication append、payload parse/serialize",
   },
   {
+    id: "031",
     name: "房東的客戶－Grid模式",
     locatedPage: "web/landlord/customers",
     percentage: 80,
@@ -686,6 +730,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "- 待完成：欄數切換 UI、拖曳重排",
   },
   {
+    id: "032",
     name: "房東的客戶－List模式",
     locatedPage: "web/landlord/customers",
     percentage: 50,
@@ -699,6 +744,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/04/14",
   },
   {
+    id: "033",
     name: "房東的客戶－新增客戶",
     locatedPage: "web/landlord/customers",
     percentage: 50,
@@ -712,6 +758,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/04/14",
   },
   {
+    id: "034",
     name: "房東的客戶－成交客戶",
     locatedPage: "web/landlord/customers",
     percentage: 40,
@@ -725,6 +772,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/04/14",
   },
   {
+    id: "035",
     name: "房東－邀請第三人成為user的功能",
     locatedPage: "web/landlord (待建)",
     percentage: 0,
@@ -738,6 +786,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "036",
     name: "房東的部落格創建功能",
     locatedPage: "web/landlord (待建)",
     percentage: 0,
@@ -751,6 +800,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "037",
     name: "房東給租客的Ｑ＆Ａ",
     locatedPage: "web/landlord/properties",
     percentage: 0,
@@ -764,6 +814,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "038",
     name: "房東給買家的Ｑ＆Ａ",
     locatedPage: "web/landlord/properties",
     percentage: 0,
@@ -777,6 +828,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "039",
     name: "一鍵生成物件銷售部落格",
     locatedPage: "superadmin/properties/[id]/edit?tab=blog",
     percentage: 80,
@@ -792,6 +844,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "### 2026-03-19 全面優化部落格生成功能\n- 抽出 HTML 模板邏輯至 lib/utils/blogTemplate.ts（pure functions，保持 blog.ts 在 500 行以內）\n- 串接 Claude claude-sonnet-4-6 API（generateDescriptionWithAI）：依物件資料生成 150-250 字專業中文銷售文案\n- 修復 CTA 空 href：新增 getOwnerContact() 從 users_profile + auth.users 取得電話/email，寫入 tel:/mailto:\n- 新增重新生成確認機制：已發佈狀態點「重新生成」先顯示警告，5 秒自動取消\n- 新增 updatePropertyBlog() server action：支援手動修改 title / excerpt，同步更新 contentHtml hero title\n- 草稿狀態也顯示預覽連結（附「草稿，需登入」標註）\n- 新增 SEO 預覽面板：模擬 Google SERP 呈現 seoTitle / seoDescription / slug\n\n### 2026-03-22 模板可維護性強化\n- 完成 8 個獨立模板檔（local 4 + google_blogger 4）註解區塊細化，統一為 STYLE IDENTITY / LAYOUT RULES / COMPONENT RULES / EDITABLE GUIDANCE 結構\n- 補齊模板維護註記，降低後續人工調整 Prompt 時的修改風險與理解成本",
   },
   {
+    id: "040",
     name: "物件介紹 AI 協作撰稿流程",
     locatedPage: "superadmin/properties/[id]/edit?tab=edit",
     percentage: 100,
@@ -808,6 +861,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "superadmin 物件編輯表單改為 AI 協作撰稿流程：抽出 PropertyDescriptionAIAssistant，新增文案風格/長度/用途控制、資料完整度提示、草稿預覽、套用/附加/還原操作；新增 /api/property-description/stream 串流 trace，前端可即時顯示資料蒐集、Prompt 載入、module key、模型來源、LLM/provider、金鑰來源、最終 Prompt 預覽與完成耗時；trace 支援複製與下載；後端已接入 ai_modules_assigned_function、ai_system_prompts 與多 provider fallback，並將物件介紹文案獨立為 property_description module，可在 AI 設定頁單獨配置。\n\n### 2026-04-04 UX 與可觀測性補強\n- 生成中顯示 spinner + 秒數（小數 1 位）。\n- 生成完成/失敗後在頁面上保留摘要：總耗時、tokens（in/out/total）、provider/model、HTTP status。\n- 後端寫入 ai_usage_logs，llm-monitor 可追蹤每次生成成功/失敗與使用的 Prompt/模型資訊；補齊相關 migration 與單元測試。",
   },
   {
+    id: "041",
     name: "房東的部落格 AI 寫手",
     locatedPage: "web/landlord (待建)",
     percentage: 0,
@@ -821,6 +875,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "042",
     name: "房東的部落格 AI 講房",
     locatedPage: "web/landlord (待建)",
     percentage: 0,
@@ -834,6 +889,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "043",
     name: "房東自定義銷售物件的Ｑ＆Ａ功能",
     locatedPage: "web/landlord/properties",
     percentage: 0,
@@ -847,6 +903,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "044",
     name: "房東自定義出租物件的Ｑ＆Ａ功能",
     locatedPage: "web/landlord/properties",
     percentage: 0,
@@ -860,6 +917,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "045",
     name: "AI TTS語音助理+物件專屬轉接號碼",
     locatedPage: "web/landlord (待建)",
     percentage: 0,
@@ -873,6 +931,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "046",
     name: "房東的仲介－Details模式",
     locatedPage: "web/landlord (待建)",
     percentage: 0,
@@ -886,6 +945,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "047",
     name: "房東的仲介－Grid模式",
     locatedPage: "web/landlord (待建)",
     percentage: 0,
@@ -899,6 +959,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "048",
     name: "房東的仲介－List模式",
     locatedPage: "web/landlord (待建)",
     percentage: 0,
@@ -912,6 +973,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "049",
     name: "房東的仲介－新增仲介",
     locatedPage: "web/landlord (待建)",
     percentage: 0,
@@ -925,6 +987,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "050",
     name: "房東財務－銀行帳戶管理",
     locatedPage: "web/landlord/finance",
     percentage: 30,
@@ -944,6 +1007,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "- 待完成：前端 UI、API route、開放銀行 API 整合",
   },
   {
+    id: "051",
     name: "房東財務－收支明細儀表板",
     locatedPage: "web/landlord/finance",
     percentage: 40,
@@ -957,6 +1021,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/04/14",
   },
   {
+    id: "052",
     name: "房東財務－租金收支管理",
     locatedPage: "web/landlord/finance",
     percentage: 0,
@@ -970,6 +1035,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "053",
     name: "房東財務－ATO租賃報稅表生成功能",
     locatedPage: "web/landlord/finance/reports",
     percentage: 0,
@@ -983,6 +1049,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "054",
     name: "房東財務－台灣租賃報稅表生成功能",
     locatedPage: "web/landlord/finance/reports",
     percentage: 0,
@@ -996,6 +1063,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "055",
     name: "房東的溝通頁面",
     locatedPage: "web/landlord/messages",
     percentage: 15,
@@ -1009,6 +1077,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/04/14",
   },
   {
+    id: "056",
     name: "房東的物件展示功能－Details模式",
     locatedPage: "web/landlord/properties/[id]",
     percentage: 50,
@@ -1022,6 +1091,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/04/14",
   },
   {
+    id: "057",
     name: "房東的物件展示功能－Grid模式",
     locatedPage: "web/landlord/properties",
     percentage: 50,
@@ -1035,6 +1105,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/04/14",
   },
   {
+    id: "058",
     name: "房東的物件－照片增生功能 (AI)",
     locatedPage: "web/landlord/properties",
     percentage: 0,
@@ -1048,6 +1119,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "059",
     name: "房東的物件展示功能－List模式",
     locatedPage: "web/landlord/properties",
     percentage: 50,
@@ -1061,6 +1133,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/04/14",
   },
   {
+    id: "060",
     name: "房東的維修派工管理",
     locatedPage: "web/landlord (待建)",
     percentage: 50,
@@ -1074,6 +1147,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/04/14",
   },
   {
+    id: "061",
     name: "房東的行銷部落格網站行為監控",
     locatedPage: "web/landlord (待建)",
     percentage: 0,
@@ -1087,6 +1161,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "062",
     name: "房東的email inbox信箱",
     locatedPage: "web/landlord (待建)",
     percentage: 0,
@@ -1100,6 +1175,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "063",
     name: "房東的客戶-租客篩選功能",
     locatedPage: "web/landlord/customers",
     percentage: 40,
@@ -1113,6 +1189,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/04/14",
   },
   {
+    id: "064",
     name: "房東的會計人員查帳審計功能",
     locatedPage: "web/landlord/finance",
     percentage: 0,
@@ -1128,6 +1205,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
 
   // 租客
   {
+    id: "065",
     name: "租客(已簽約)-儀表板",
     locatedPage: "web/tenant/contracted/dashboard",
     percentage: 90,
@@ -1143,6 +1221,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/02/06",
   },
   {
+    id: "066",
     name: "租客(潛在)-儀表板",
     locatedPage: "web/tenant/potential/dashboard",
     percentage: 90,
@@ -1158,6 +1237,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/02/06",
   },
   {
+    id: "067",
     name: "租客的維修申請",
     locatedPage: "web/tenant/maintenance",
     percentage: 30,
@@ -1179,6 +1259,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "- 注意：此 Row 原測試由 Row 120 維護，QA Agent 新增額外獨立測試檔案",
   },
   {
+    id: "068",
     name: "租客的溝通中心",
     locatedPage: "web/tenant (待建)",
     percentage: 0,
@@ -1192,6 +1273,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "069",
     name: "租客的繳費記錄",
     locatedPage: "web/tenant (待建)",
     percentage: 0,
@@ -1207,6 +1289,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
 
   // 合約與法務
   {
+    id: "070",
     name: "買賣合約附加條款功能",
     locatedPage: "web (待建)",
     percentage: 0,
@@ -1221,6 +1304,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "071",
     name: "租賃合約附加條款功能",
     locatedPage: "web (待建)",
     percentage: 0,
@@ -1235,6 +1319,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "072",
     name: "一鍵生成買賣制式合約",
     locatedPage: "web (待建)",
     percentage: 100,
@@ -1252,6 +1337,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "完成買賣契約欄位 schema、draft builder、/api/contracts/draft route、superadmin 契約預覽 UI、HTML 套版 renderer、DOCX 匯出與列印另存 PDF 流程；新增官方成屋買賣契約書範本映射層、placeholder token map、tokenized template 中間層與官方條次文字骨架，renderer 已改為由 template + tokenMap 驅動輸出，並支援優先複用官方 DOCX 模板套件骨架後再注入內容、保留 theme 與 Word package Metadata；本階段已加入 official document.xml 關鍵段落原地替換的 hybrid renderer 路徑，完成買賣契約第一條買賣標的的土地／建物／權利摘要 inline replacement、第二條總價與土地／建物／車位價款拆分 inline replacement、第三條付款約定四個期別、第五條價金履約／保管方式摘要、第六條產權移轉與代書專責辦理資訊、第七條稅費負擔與代辦費摘要、第八條點交段落、第十一條建物被占用／占用他人土地／出租出借三個結構化欄位的 official inline replacement、第十二條副本留存人留白段落、第十二條後買賣雙方簽署區與簽約日期，以及第十三條仲介經紀業／經紀人簽章段落的 inline replacement；同時補齊 sale draft API、預覽 UI、token map 與 HTML template 對 brokerName / agentName / scrivenerName 的端到端支援，並新增 taxAllocation / registrationFeeAllocation / brokerFeeAllocation / deliveryCondition / escrowMethod / occupiedByOthersCondition / encroachmentCondition / leaseBorrowCondition / copyRetentionHolder / defaultClauseSummary 的可編輯欄位、API 轉傳、builder override、template mapping 與預覽顯示，完成聚焦 Jest 驗證；另已確認官方 sale DOCX 第十一條仍沒有可安全承載 defaultClauseSummary 的穩定特約留白，因此 defaultClauseSummary 先安全輸出於 API、預覽與 HTML fallback 路徑；另外 superadmin 契約 tab 現已支援目前瀏覽器自動暫存與手動清除草稿，重新整理或重新登入後可還原已輸入欄位。2026/03/20 rebuild 契約草稿預覽 UI：將原本的資料卡片彙總改為以 iframe srcDoc 嵌入全文 HTML 合約預覽，點選「產生草稿預覽」後直接在頁面內顯示完整的官方條文格式合約供律師或代書覆核；同時新增買賣契約缺少謄本時的 pre-flight 警告並停用產生按鈕，以及需人工覆核時的 amber 提示條。",
   },
   {
+    id: "073",
     name: "一鍵生成租賃制式合約",
     locatedPage: "web (待建)",
     percentage: 100,
@@ -1269,6 +1355,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "完成租賃契約欄位 schema、draft builder、/api/contracts/draft route、superadmin 契約預覽 UI、HTML 套版 renderer、DOCX 匯出與列印另存 PDF 流程；新增官方房屋租賃契約書範本映射層、placeholder token map、tokenized template 中間層與官方條次文字骨架，renderer 已改為由 template + tokenMap 驅動輸出，並支援優先複用官方 DOCX 模板套件骨架後再注入內容、保留 theme 與 Word package Metadata；本階段已驗證租賃官方 DOCX 可直接按條次錨點改寫 document.xml 內文，除原有審閱權、第一至第五條與第十六條外，現已補上第二條附屬設備、第九條使用用途留白、第十四條返還遲延違約金倍數留白、第二十四條契約分存份數留白，以及第十六條其他特約摘要與第二十六條後附件區底部的出租人／承租人簽署列與簽約日期 inline replacement；同時 superadmin 契約草稿 UI 已補上契約日期輸入並回傳至 renderer 使用，優先輸出更接近官方版型的 Word 文件，若錨點不足則自動 fallback 至 altChunk 匯出；另外 superadmin 契約 tab 現已支援目前瀏覽器自動暫存與手動清除草稿，重新整理或重新登入後可還原已輸入欄位。2026/03/20 rebuild 契約草稿預覽 UI：將原本的資料卡片彙總改為以 iframe srcDoc 嵌入全文 HTML 合約預覽，點選「產生草稿預覽」後直接在頁面內顯示包含全部 26 條款的官方條文格式合約供律師或代書覆核，並可直接列印或下載 HTML / DOCX。",
   },
   {
+    id: "074",
     name: "電子簽約功能",
     locatedPage: "web (待建)",
     percentage: 40,
@@ -1285,6 +1372,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
 
   // 通用/系統
   {
+    id: "075",
     name: "一鍵切換UI風格：暗/亮模式",
     locatedPage: "全站",
     percentage: 100,
@@ -1305,6 +1393,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/04/14",
   },
   {
+    id: "076",
     name: "RWD網頁響應式設計",
     locatedPage: "全站",
     percentage: 85,
@@ -1319,6 +1408,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/04/14",
   },
   {
+    id: "077",
     name: "使用者身份驗證系統",
     locatedPage: "web/login, web/register, superadmin/middleware",
     percentage: 98,
@@ -1347,6 +1437,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/04/14",
   },
   {
+    id: "078",
     name: "註冊的使用者都有自己的行事曆管理頁面",
     locatedPage: "web (待建)",
     percentage: 0,
@@ -1360,6 +1451,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "079",
     name: "使用者登入頁面",
     locatedPage: "web/login",
     percentage: 100,
@@ -1375,6 +1467,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/02/05",
   },
   {
+    id: "080",
     name: "使用者登入頁面-記住我功能",
     locatedPage: "web/login",
     percentage: 100,
@@ -1391,6 +1484,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/02/05",
   },
   {
+    id: "081",
     name: "使用者密碼重設頁面",
     locatedPage: "web/forgot-password, web/update-password",
     percentage: 95,
@@ -1405,6 +1499,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "082",
     name: "使用者的溝通頁面",
     locatedPage: "web (待建)",
     percentage: 0,
@@ -1418,6 +1513,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "083",
     name: "受邀使用者登入介面",
     locatedPage: "web/onboarding/add-role",
     percentage: 0,
@@ -1431,28 +1527,32 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "084",
     name: "統一謄本解析工作台",
     locatedPage: "superadmin/properties/:id/edit?tab=transcript",
-    percentage: 97,
+    percentage: 99,
     acceptanceCriteria:
       "1. User 可上傳 PDF、圖片、JSON、文字等謄本來源，不需先手動選建物／土地／車位類型。\n2. PDF 先判斷是否可由 Python 快速解析出台灣常用繁體謄本文字；不適合時自動改走具電腦視覺能力的 VLM。\n3. AI 流程至少拆為 detect、parse、review 三段非同步判讀，並保留 evidence、confidence 與需人工確認欄位。\n4. 系統可初判純土地、整棟建物、透天／別墅、公寓華廈辦公店面、車位等出售型態。\n5. 車位產權型態可複選：獨立產權、公設產權，或兩者皆有。\n6. User 確認後才儲存謄本結果，並供下一頁建物土地明細表自動計算面積與持分。",
-    docPath: "/project-process/test-logs/test-transcript-intake-workbench-2026-04-27.md",
+    docPath: "/project-process/test-logs/test-transcript-intake-workbench-2026-04-28.md",
     featureSpecDocPath: "/project-process/features/transcript-intake-workbench-dev-spec-20260427.md",
     tddSpecDocPath: "/project-process/features/tdd-transcript-intake-workbench-20260427.md",
     category: "通用/系統 (General/System)",
     points: 5,
     lastModifiedBy: "Codex",
-    lastModifiedDate: "2026/04/28",
+    lastModifiedDate: "2026/04/29",
     devLog:
-      "[2026/03/15] (Trae AI)\n• 支援地端 (Local) 與雲端 (Cloud) 雙機制切換\n• 實作 CJK 相容字元正規化與控制字元清理\n• 完善建物與土地謄本的欄位對應邏輯\n\n[2026/04/27] (Codex)\n• 啟動統一謄本解析工作台改造，第一階段完成 intake contract、Python/VLM 技術路由、detect/parse/review prompt contract、transcript_intake_runs migration 與 targeted unit tests。\n• 第二階段完成 intake run 建立/查詢 API。\n• 第三階段完成 intake worker 骨架、process API 與 cron drain；parse 階段重用既有 transcript parse core。\n• 第四階段接入真正 AI detect/review stage，失敗時保留 processor seed fallback；目前 detect/review 為單一模型、主要文件視覺輸入，其他文件透過 context JSON 輔助。\n• 第五階段新增謄本工作台 UI 面板，支援建立 run、啟動 process、輪詢狀態並顯示 route/detect/review 摘要；既有分散式上傳與表單暫時保留。\n• 第六階段新增人工確認 API 與 UI 按鈕，將 needs_user_confirmation 的 run 鎖定為 confirmed 並寫入 confirmed_result snapshot。\n• 第七階段將 confirmed result 同步回 property details，帶入主建物、土地、獨立車位謄本與車位產權，供建物土地面積明細表自動計算。\n• 第八階段接入 PDF text probe，建立 run 時用實際文字層判斷 Python/VLM route，並以真實謄本 PDF 範例補回歸測試。\n\n[2026/04/28] (Codex)\n• 工作台升級為左右雙欄 v2：四段流程、上傳摘要、初判摘要、四區可編輯面積明細與文件預覽集中在單一介面。\n• 新增 area detail draft schema 與 helper，confirm API 可接收 user 修正後的建物／土地／車位面積明細，並同步寫入 property details。\n• evidence type 增加 bbox 結構，為下一階段精準紅框預覽鋪路；目前 UI 先顯示來源文字與文件預覽。\n• 新增工作台單一上傳入口與 registry_transcript_unclassified 文件類型，支援 PDF、圖片、GIF、JSON、TXT、CSV 先上傳後判讀，不再要求 user 先選建物／土地／車位。\n• Worker 會在未分類謄本 parse 後依 parsed kind 自動改成建物／土地文件角色；舊版分散式謄本工具已預設收合到進階區。\n• local_python_text route 已接入本地文字層 parser seed，PDF/TXT/JSON 可先以本地解析寫入 parsed_result，失敗才 fallback 到 VLM core。\n• PDF probe 改為優先使用 pdftotext -layout，並新增 local_python_text provider constraint migration，讓本地解析結果可正式寫回文件 parsed_result。\n• 工作台新增技術選擇區，逐份文件顯示實際採用 Python/pdftotext、VLM 或 JSON，以及頁數、文字量、繁中量、謄本標記數與 routing reason。\n• 工作台新增 AI 品質追蹤區，逐段顯示 detect、parse、verify/review 使用的 agent、prompt source、provider/model、成功/fallback 狀態、結果摘要、修正建議與人工確認項目。\n• 工作台新增已上傳謄本清單與兩段式刪除按鈕，user 上傳錯誤謄本時可直接刪除文件。\n• 已上傳謄本清單與右側文件預覽同步選取；被納入右側預覽範圍的文件會在左側顯示預覽中，點選欄位 evidence 也會切換到對應來源文件。\n• 已上傳謄本清單新增複選框，user 可勾選多份文件一起建立 detect/parse/review 任務；點檔名只切換預覽，勾選狀態才決定本次解析文件。\n• 右側文件預覽範圍會跟隨複選框同步增減；勾幾份就顯示幾份預覽，取消勾選時左側預覽中標記與右側對應 iframe 會同步移除。\n• 建立或啟動判讀後會顯示系統正在解析與已花費秒數，避免 user 誤以為系統沒有反應。\n• AI 品質追蹤的 Detect、Parse、Verify/Review 三段新增階段計時；執行中以 0.1 秒精度顯示已花費時間，完成後保留各段花費秒數。\n• 謄本頁底部不再顯示進階／舊版謄本工具，主流程收斂為單一謄本工作台。\n• 權狀影本納入謄本工作台：building_title、land_title 可勾選解析，影像權狀與 PDF 權狀皆走 VLM visual，且混合建物+土地權狀會保留雙邊資料。\n• AI 品質追蹤固定顯示 Detect、Parse、Verify/Review 三段，partial trace 狀態下 Parse 或 Review 開始工作也會立即顯示處理中與計時。\n• Worker 進入 parsing 前會先寫入 Parse 預計使用的 VLM/local parser，進入 reviewing 前會先寫入 Verify/Review provider/model，讓 user 等待時就知道哪個 AI 正在解析或審查。\n• 實機登入檢查後修正 transcript tab 高度策略，工作台改為頁面自然捲動；本機 DB 已套用 transcript_intake_runs migration 並 reload schema。\n• 實機 run c1426b0c-da38-4261-9454-934ab34b0ce9 驗證兩份 PDF 均走 local_python_text；review 偵測建物／土地謄本所有權人與地段不一致，保留 needs_user_confirmation 未自動儲存。\n• 實機 run e3485b68-eda9-4cfc-a9c3-646c8a65a5d8 驗證 AI 品質追蹤：detect 使用 openai/gpt-4o 但 PDF MIME fallback，parse 使用 local/local-python-text，review 使用 anthropic/claude-opus-4-20250514 並提出 dispositionKind/buildingType 修正建議。\n• Parser VLM 預設改為 Qwen 3.6 Plus、Kimi K2.6、Gemini 3.1 Pro 三家公司並行；Review 預設改為 OpenAI GPT-5.5、Claude Opus 4.5、Grok 4.20 三家公司並行，並將各 reviewer 模型與耗時寫入 AI 品質追蹤。\n• 新增資料 migration 20260428020000_update_transcript_vlm_agent_defaults，將 DB 既有 transcript_visual_parse/transcript_audit agent assignment 更新到新三模型組合，避免 runtime 繼續讀到舊 gpt-4o/Claude 設定。\n• 靜態模型清單與 vision capability 補上新版 GPT/Claude/Gemini/Grok/Kimi/Qwen 模型，並補齊 GIF/TIFF/BMP MIME 判斷，避免權狀影本因 MIME 不完整被擋在 VLM route 前。\n• AI 品質追蹤現在會顯示每個 parser/reviewer 各自的工作中計時與完成耗時；完成後提供三份解析報告 URL 與三份審查報告 URL，供 user 追溯模型品質。\n• 新增 ai-reports markdown API 與 ocr_parse_results provider constraint migration，確保 Qwen/Kimi 等新 parser raw output 可保存並生成報告。\n• 診斷權狀影本解析失敗原因後，新增 PDF 轉 JPG 頁面送入 image-only VLM、強化 markdown fence JSON 擷取、提高 transcript vision output token 上限，並把權狀補充規則寫入 saved_prompts migration。",
-    devLogDocPath: "/project-process/dev-logs/085-development-log-summary.md",
-    testScriptCount: 12,
-    testScriptPassedCount: 12,
-    testScriptPath: "apps/superadmin/unit_test/085",
-    testLogDocPath: "/project-process/test-logs/test-transcript-intake-workbench-2026-04-27.md",
-    phase: "development",
+      "[2026/03/15] (Trae AI)\n• 支援地端 (Local) 與雲端 (Cloud) 雙機制切換\n• 實作 CJK 相容字元正規化與控制字元清理\n• 完善建物與土地謄本的欄位對應邏輯\n\n[2026/04/27] (Codex)\n• 啟動統一謄本解析工作台改造，第一階段完成 intake contract、Python/VLM 技術路由、detect/parse/review prompt contract、transcript_intake_runs migration 與 targeted unit tests。\n• 第二階段完成 intake run 建立/查詢 API。\n• 第三階段完成 intake worker 骨架、process API 與 cron drain；parse 階段重用既有 transcript parse core。\n• 第四階段接入真正 AI detect/review stage，失敗時保留 processor seed fallback；目前 detect/review 為單一模型、主要文件視覺輸入，其他文件透過 context JSON 輔助。\n• 第五階段新增謄本工作台 UI 面板，支援建立 run、啟動 process、輪詢狀態並顯示 route/detect/review 摘要；既有分散式上傳與表單暫時保留。\n• 第六階段新增人工確認 API 與 UI 按鈕，將 needs_user_confirmation 的 run 鎖定為 confirmed 並寫入 confirmed_result snapshot。\n• 第七階段將 confirmed result 同步回 property details，帶入主建物、土地、獨立車位謄本與車位產權，供建物土地面積明細表自動計算。\n• 第八階段接入 PDF text probe，建立 run 時用實際文字層判斷 Python/VLM route，並以真實謄本 PDF 範例補回歸測試。\n\n[2026/04/28] (Codex)\n• 工作台升級為左右雙欄 v2：四段流程、上傳摘要、初判摘要、四區可編輯面積明細與文件預覽集中在單一介面。\n• 新增 area detail draft schema 與 helper，confirm API 可接收 user 修正後的建物／土地／車位面積明細，並同步寫入 property details。\n• evidence type 增加 bbox 結構，為下一階段精準紅框預覽鋪路；目前 UI 先顯示來源文字與文件預覽。\n• 新增工作台單一上傳入口與 registry_transcript_unclassified 文件類型，支援 PDF、圖片、GIF、JSON、TXT、CSV 先上傳後判讀，不再要求 user 先選建物／土地／車位。\n• Worker 會在未分類謄本 parse 後依 parsed kind 自動改成建物／土地文件角色；舊版分散式謄本工具已預設收合到進階區。\n• local_python_text route 已接入本地文字層 parser seed，PDF/TXT/JSON 可先以本地解析寫入 parsed_result，失敗才 fallback 到 VLM core。\n• PDF probe 改為優先使用 pdftotext -layout，並新增 local_python_text provider constraint migration，讓本地解析結果可正式寫回文件 parsed_result。\n• 工作台新增技術選擇區，逐份文件顯示實際採用 Python/pdftotext、VLM 或 JSON，以及頁數、文字量、繁中量、謄本標記數與 routing reason。\n• 工作台新增 AI 品質追蹤區，逐段顯示 detect、parse、verify/review 使用的 agent、prompt source、provider/model、成功/fallback 狀態、結果摘要、修正建議與人工確認項目。\n• 工作台新增已上傳謄本清單與兩段式刪除按鈕，user 上傳錯誤謄本時可直接刪除文件。\n• 已上傳謄本清單與右側文件預覽同步選取；被納入右側預覽範圍的文件會在左側顯示預覽中，點選欄位 evidence 也會切換到對應來源文件。\n• 已上傳謄本清單新增複選框，user 可勾選多份文件一起建立 detect/parse/review 任務；點檔名只切換預覽，勾選狀態才決定本次解析文件。\n• 右側文件預覽範圍會跟隨複選框同步增減；勾幾份就顯示幾份預覽，取消勾選時左側預覽中標記與右側對應 iframe 會同步移除。\n• 建立或啟動判讀後會顯示系統正在解析與已花費秒數，避免 user 誤以為系統沒有反應。\n• AI 品質追蹤的 Detect、Parse、Verify/Review 三段新增階段計時；執行中以 0.1 秒精度顯示已花費時間，完成後保留各段花費秒數。\n• 謄本頁底部不再顯示進階／舊版謄本工具，主流程收斂為單一謄本工作台。\n• 權狀影本納入謄本工作台：building_title、land_title 可勾選解析，影像權狀與 PDF 權狀皆走 VLM visual，且混合建物+土地權狀會保留雙邊資料。\n• AI 品質追蹤固定顯示 Detect、Parse、Verify/Review 三段，partial trace 狀態下 Parse 或 Review 開始工作也會立即顯示處理中與計時。\n• Worker 進入 parsing 前會先寫入 Parse 預計使用的 VLM/local parser，進入 reviewing 前會先寫入 Verify/Review provider/model，讓 user 等待時就知道哪個 AI 正在解析或審查。\n• 實機登入檢查後修正 transcript tab 高度策略，工作台改為頁面自然捲動；本機 DB 已套用 transcript_intake_runs migration 並 reload schema。\n• 實機 run c1426b0c-da38-4261-9454-934ab34b0ce9 驗證兩份 PDF 均走 local_python_text；review 偵測建物／土地謄本所有權人與地段不一致，保留 needs_user_confirmation 未自動儲存。\n• 實機 run e3485b68-eda9-4cfc-a9c3-646c8a65a5d8 驗證 AI 品質追蹤：detect 使用 openai/gpt-4o 但 PDF MIME fallback，parse 使用 local/local-python-text，review 使用 anthropic/claude-opus-4-20250514 並提出 dispositionKind/buildingType 修正建議。\n• Parser VLM 預設改為 Qwen 3.6 Plus、Kimi K2.6、Gemini 3.1 Pro 三家公司並行；Review 預設改為 OpenAI GPT-5.5、Claude Opus 4.5、Grok 4.20 三家公司並行，並將各 reviewer 模型與耗時寫入 AI 品質追蹤。\n• 新增資料 migration 20260428020000_update_transcript_vlm_agent_defaults，將 DB 既有 transcript_visual_parse/transcript_audit agent assignment 更新到新三模型組合，避免 runtime 繼續讀到舊 gpt-4o/Claude 設定。\n• 靜態模型清單與 vision capability 補上新版 GPT/Claude/Gemini/Grok/Kimi/Qwen 模型，並補齊 GIF/TIFF/BMP MIME 判斷，避免權狀影本因 MIME 不完整被擋在 VLM route 前。\n• AI 品質追蹤現在會顯示每個 parser/reviewer 各自的工作中計時與完成耗時；完成後提供三份解析報告 URL 與三份審查報告 URL，供 user 追溯模型品質。\n• 新增 ai-reports markdown API 與 ocr_parse_results provider constraint migration，確保 Qwen/Kimi 等新 parser raw output 可保存並生成報告。\n• 診斷權狀影本解析失敗原因後，新增 PDF 轉 JPG 頁面送入 image-only VLM、強化 markdown fence JSON 擷取、提高 transcript vision output token 上限，並把權狀補充規則寫入 saved_prompts migration。\n\n[2026/04/29] (Codex)\n• Sprint 3 啟動登記：逐頁文件分類與正式/參考來源分流，狀態 In Progress。\n• 今日目標：混合 PDF 先分頁辨識謄本、權狀、不動產說明書、物件調查報告與照片/地圖；謄本/權狀為正式來源，說明書/調查報告只作坪數交叉檢查。\n• 本機儀表板需登入，已依 update-project-progress-guide 以 roadmap 固定 Feature ID 084 作任務真值並同步 DEV-SPEC、TDD-SPEC、TDD Progress Report、Development Log Summary 與 Handoff。\n• Sprint 3 實作完成第一版：新增 page-level classifier，建立 run 時寫入 pages/sourceTrust/orientation；技術選擇 UI 顯示正式/參考/略過頁數與頁面角色。\n• Prompt 與 saved_prompts migration 已補正式來源分流規則：不動產說明書、物件調查報告、照片、地圖只可作參考檢查，不可直接填正式明細。\n• 面積明細草稿新增 sourceTrust，來源欄會標示正式來源；targeted Jest 20/20、tsc、manifest validation、git diff --check 通過，狀態調整為 In Review。\n• 修正車位建物坪數計算：parkingBuildingAreas 會套用車位建物整體權利範圍 groupShareRatio，例如 84分之2；實機案例已由 1054.88㎡ / 319.10坪 修正為 25.12㎡ / 7.60坪。\n• Detect 與 Detail Builder 改為 agent chain 依序 fallback，單一 VLM 回傳畸形 JSON 時會嘗試下一個候選模型；全部候選 AI 失敗時標記 run failed，不產生 processor seed 草稿。",
+    developmentProgress:
+      "[2026/04/28] (Codex)\n• 完成今日進度報告回寫：TDD Progress Report 指向 2026-04-28 版本，Development Log Summary 補上完成清單、困難、踩雷、避免措施與明日優先順序。\n• Reviewer confidence 顯示語意改為審查信心，後端新增 confidence calibration，避免把 parser 結果很差誤讀成 reviewer 審查信心很低。\n• Parser/reviewer fallback runner 改為候選最多 5 個、目標 3 份成功報告；達標後立即取消 active provider 並進入下一階段。\n• 新增 detail_builder stage，由單一 VLM 整合 parser/reviewer 報告與原始文件，產生四大明細草稿並列出需人工確認項目。\n• 新增資料 migration 20260428110000_replace_transcript_audit_gpt55，將 transcript_audit 預設移除 openai/gpt-5.5，改由 Claude / Gemini / Grok 為前三順位，OpenAI GPT-5.3 作 fallback。\n• 修正 project-progress ID 漂移問題：roadmap feature 新增固定 id 欄位，Development Tab、phase tabs、dev-log API、roadmap context API、Paperclip dispatch 改讀 Feature ID，不再用陣列順序推算；統一謄本解析工作台正式校正為 Feature ID 084。\n\n[2026/04/29] (Codex)\n• Sprint 3 狀態：In Review。\n• 完成 page-level classifier、authoritative/reference source split、prompt/migration 同步與明細來源標記。\n• 驗證：targeted Jest 20/20、tsc --noEmit、validate-test-manifest.sh、git diff --check 通過。\n• 車位坪數 hotfix：BuildingLandAreaDetailTab regression 28/28 通過，實機頁面確認車位建物外層持分已套用。\n• Detect / Detail Builder fallback hotfix：intake-ai 3/3、ai-api-callers 4/4、process worker 10/10 通過；AI 全部候選失敗時不產生假草稿，直接標記 failed 並顯示模型錯誤。",
+    devLogDocPath: "/project-process/dev-logs/084-development-log-summary.md",
+    testScriptCount: 27,
+    testScriptPassedCount: 27,
+    testScriptPath: "apps/superadmin/unit_test/084",
+    testLogDocPath: "/project-process/test-logs/test-transcript-intake-workbench-2026-04-28.md",
+    phase: "testing",
   },
   {
+    id: "085",
     name: "上傳物件照片功能",
     locatedPage: "web/landlord/properties/add",
     percentage: 95,
@@ -1469,6 +1569,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
 
   // 金流支付
   {
+    id: "086",
     name: "可用的付款方式之一: ID pay",
     locatedPage: "web (待建)",
     percentage: 0,
@@ -1483,6 +1584,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "087",
     name: "可用的付款方式之一: Apple Pay",
     locatedPage: "web (待建)",
     percentage: 0,
@@ -1497,6 +1599,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "088",
     name: "可用的付款方式之一: PayPal",
     locatedPage: "web (待建)",
     percentage: 0,
@@ -1511,6 +1614,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "089",
     name: "可用的付款方式之一: Credit card",
     locatedPage: "web (待建)",
     percentage: 0,
@@ -1525,6 +1629,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "",
   },
   {
+    id: "090",
     name: "線上支付功能",
     locatedPage: "web (待建)",
     percentage: 0,
@@ -1541,6 +1646,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
 
   // 測試與品質保證
   {
+    id: "091",
     name: "登入頁面>「記住我」功能 TDD 開發進度檢測報告",
     locatedPage: "文件/測試報告",
     percentage: 100,
@@ -1559,6 +1665,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
 
   // 專案管理與工具
   {
+    id: "092",
     name: "專案開發進度儀表板重構 (Project Dashboard Overhaul)",
     locatedPage: "superadmin/dashboard/project-progress",
     percentage: 100,
@@ -1579,6 +1686,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     testCoverage: 0,
   },
   {
+    id: "093",
     name: "檔案整理與歸檔系統 (File Manager)",
     locatedPage: "superadmin/tools/file-manager",
     percentage: 100,
@@ -1596,6 +1704,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
 
   // === 2026-02-14 新增任務 ===
   {
+    id: "094",
     name: "OCR 服務 lint 與型別檢查修正",
     locatedPage: "後端/OCR 服務",
     percentage: 100,
@@ -1619,6 +1728,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/02/14",
   },
   {
+    id: "095",
     name: "删除錯誤的 vercel.json 配置文件",
     locatedPage: "專案根目錄/部署",
     percentage: 100,
@@ -1641,6 +1751,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/02/14",
   },
   {
+    id: "096",
     name: "Winston 日誌系統重構為 Supabase 資料庫日誌",
     locatedPage: "apps/web/lib",
     percentage: 100,
@@ -1663,6 +1774,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/02/14",
   },
   {
+    id: "097",
     name: "雲端部署平台選擇說明書",
     locatedPage: "docs/operational-guides",
     percentage: 100,
@@ -1689,6 +1801,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
 
   // === 2026-02-16 新增任務 ===
   {
+    id: "098",
     name: "登入／Portal／IAM 角色流程與 Superadmin 全角色選單",
     locatedPage: "web/portal, superadmin/users",
     percentage: 100,
@@ -1714,6 +1827,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/02/16",
   },
   {
+    id: "099",
     name: "OAuth 用戶新增角色功能修復（Add Role Feature Fix）",
     locatedPage: "web/portal, web/onboarding/add-role",
     percentage: 100,
@@ -1738,6 +1852,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   },
   // 超級管理員 - AI 服務設定（API 金鑰與模型）
   {
+    id: "100",
     name: "超級管理員-AI 服務設定（API 金鑰與模型費用）",
     locatedPage: "superadmin/settings/api_key_and_model_setting",
     percentage: 98,
@@ -1762,6 +1877,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
 
   // === 2026-02-21 新增任務 ===
   {
+    id: "101",
     name: "Project Progress Dashboard — Feature Spec URL & TDD Spec URL 欄位完善",
     locatedPage: "superadmin/dashboard/project-progress",
     percentage: 100,
@@ -1789,6 +1905,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
 
   // === 2026-02-19 新增任務 ===
   {
+    id: "102",
     name: "Project Progress Dashboard — 四階段 Tab 重構",
     locatedPage: "superadmin/dashboard/project-progress",
     percentage: 100,
@@ -1816,6 +1933,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/02/19",
   },
   {
+    id: "103",
     name: "LocalAgent - Cursor & Claude CLI IDE 整合",
     locatedPage: "tools/local-agent, superadmin/dashboard/project-progress",
     category: "專案管理與工具 (Project Management)",
@@ -1828,6 +1946,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     docPath: "/tools/local-agent/README (run-cursor.sh / run-claude.sh)",
   },
   {
+    id: "104",
     name: "IAM Management Hub（整合）",
     locatedPage: "/superadmin/dashboard/iam-management",
     category: "超級管理員 (Super Admin)",
@@ -1839,6 +1958,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "### 完成項目\n- 將 4 個分散頁面（iam-management, users, groups, rbac_access_control）整合為單一 tab 式儀表板\n- 新增 IAMTabBar / OverviewTab / UsersTab / GroupsTab / RolesTab 元件\n- iam-management/page.tsx 改為 hash-based tab shell（'use client'）\n- /superadmin/users、/superadmin/groups、/superadmin/dashboard/rbac_access_control 改為 client-side redirect\n- Sidebar 移除 3 個舊項目，IAM Management 改用 Shield icon\n- 2026/02/26：Roles tab Permission Matrix 完整 DB 持久化（iam_role_permissions 表、CRUD actions、即時儲存 UI）\n- 2026/02/27（Phase A）：修復 Hydration Error（useState 初始值從 getTabFromHash 改為 'overview' 常數，hash 讀取移至 useEffect）；刪除孤兒元件 PermissionMatrixTab.tsx（已被 RolesTab DB 版取代）",
   },
   {
+    id: "105",
     name: "Enterprise RBAC — Resources / Route Permissions / Scope",
     locatedPage: "/superadmin/dashboard/iam-management#roles",
     category: "超級管理員 (Super Admin)",
@@ -1850,6 +1970,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "### 完成項目\n- DB migration 20260226190000：iam_role_permissions 新增 scope 欄位（all/own/assigned）+ CHECK constraint + index；新增 check_user_permission RPC\n- lib/rbac/resources.ts：16 resource 定義，分 5 組（Property/Contracts/Finance/IAM/System），export ResourceId + RESOURCE_DEFINITIONS + RESOURCES\n- lib/rbac/permissions.ts：PermissionScope type、checkUserHasPermission RPC wrapper、ROUTE_PERMISSIONS（21 路由對應）、findRoutePermission（最長前綴匹配）、getAccessibleRoutes\n- actions.ts：RolePermission 加 scope，getAllRolePermissions/saveRolePermissions 同步更新\n- RolesTab.tsx：16 resource 替換舊 7 個、scopeMatrix state、每欄 scope badge 可循環切換、Legend 說明\n- Sidebar.tsx：export navItems + NavItem，新增 accessibleHrefs prop 過濾可見路由\n- layout.tsx：改 async Server Component，呼叫 get_user_roles 判斷 isSuperAdmin，傳 accessibleHrefs 給 Sidebar\n- 2026/02/27（Phase C）：migration 20260227110000 — 5 張核心資料表（property_rentals / property_sales / lease_agreements / rental_ledger / sales_ledger）加入 iam_controlled_read + iam_managed_full_access 加法式 RLS 政策；透過 check_user_permission RPC 回傳 all/own/NULL 控制存取，保留既有 landlord/agent 政策不動\n- 2026/02/27（Phase D）：apps/web/middleware.ts 全面改寫 — 新增 ROUTE_ROLE_GUARDS（最長前綴優先）、getRequiredRoles()；受保護路由使用 get_user_roles() RPC 即時查 IAM 角色，super_admin 繞過全部守衛；role 不符跳轉 /portal?reason=insufficient_role",
   },
   {
+    id: "106",
     name: "OAuth 用戶入職 — Avatar URL 支援",
     locatedPage: "/onboarding",
     category: "通用/系統 (General/System)",
@@ -1861,6 +1982,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "### 完成項目（Phase B）\n- config.toml：確認 Supabase CLI 不支援 scopes 鍵；改以 Dashboard UI 或 GOTRUE_EXTERNAL_*_SCOPES 環境變數設定 OAuth Scope（已在 config.toml 加入說明注解）\n- migration 20260227100000：users_profile 新增 avatar_url TEXT 欄位；從 auth.users.raw_user_meta_data 回填現有 OAuth 用戶（Google: avatar_url/picture，Facebook: avatar_url）\n- apps/web/lib/actions/onboarding.ts：createUserProfile() 新增 avatarUrl 提取（metadata.avatar_url || metadata.picture），寫入 users_profile.avatar_url",
   },
   {
+    id: "107",
     name: "超級管理員-物件管理（新增物件含媒體上傳）",
     locatedPage: "superadmin/properties",
     category: "超級管理員 (Super Admin)",
@@ -1874,6 +1996,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "物件列表與編輯功能（含 PropertyEditModal + PropertyMediaSection）已完成；實價行情功能已達成 TDD 綠燈狀態，支援分頁大數據、自定義半徑與精確字體渲染。下一步：表單欄位前端 validation、建立後自動跳至媒體頁籤。",
   },
   {
+    id: "108",
     name: "超級管理員-實價登錄資料自動化同步管理",
     locatedPage: "superadmin/settings/lvr-sync",
     category: "超級管理員 (Super Admin)",
@@ -1889,6 +2012,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "### 2026-04-04 實價資料同步管理工具上線\n- **管理頁面**: 建立 `/superadmin/settings/lvr-sync` 頁面，整合同步控制與資料統計兩大功能。\n- **增量更新機制**: 捨棄舊有的「先刪後抓」邏輯，改為「下載最新 -> 自動去重 -> 增量累積」，支援建立多年期歷史資料庫。\n- **資料去重**: Migration 20260404100000 為 `lvr_land_transactions` 增加唯一約束（縣市/行政區/日期/價格/面積/地址），並實作 upsert 邏輯。\n- **統計優化**: `getLvrStatsAction` 採用並行 COUNT 查詢，解決統計數字卡在 1,000 筆的問題，並新增「最後更新日」顯示。\n- **資料來源**: 直接對接內政部 Open Data 季資料 API (https://plvr.land.moi.gov.tw/)。",
   },
   {
+    id: "109",
     name: "雲端 OCR 多模型共識謄本解析",
     locatedPage: "superadmin/properties",
     category: "超級管理員 (Super Admin)",
@@ -1905,6 +2029,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "核心架構與 UI 已完成。2026-03-14 地端 Python 解析器全面升級：(P0.1) schema_converter.py 直接輸出 TranscriptParseOutput 統一格式，消除 buildFromLocalPython 橋接函式；(P1.2) 每個欄位附帶 field_confidences（regex 命中=1.0，空值=0.0）；(P2) local/route.ts 優先呼叫 HTTP 服務（port 8819），HTTP 不可用時自動降級至 CLI subprocess；(P0.2) PDF 無文字層（422）時前端自動觸發雲端解析；(P1.1) 地端解析結果可作為 local/local-regex-parser 虛擬模型注入共識 Pipeline；(P3) CJK 正規化擴充：全形小寫字母、括號變體、全形冒號/標點、日文漢字（証→證、様→樣等）。\n### 2026-03-18 新增\n- 解析 Prompt 加入「他項權利部特別說明」：全款購屋無貸款的謄本無他項權利部時，AI 必須輸出 encumbrances: []，不得填入含空字串的物件。\n- 建物/土地謄本表單：謄寫後若 encumbrances 為空陣列，顯示「（空白）－本物件目前無他項權利部」提示訊息，取代舊有的空白表單；使用者點擊「新增他項權利」即可繼續手動填寫。\n- 裁判模型更新為 3 組循序備援：Claude 3.5 Sonnet → Gemini 2.5 Flash → GPT-4o。\n- 謄本種類感知地端解析來源提取：kind = land 時優先使用 landTranscript，kind = building 時優先使用 buildingTranscript。\n- 謄寫前清除所有欄位（clear-first）：所有欄位（header / description / ownership / encumbrances）在謄寫前以 empty* 工廠函式清空，避免不同謄本的資料混入。\n- OCR 未設定模型警告：按下解析按鈕且無可用模型時，顯示 amber 警告並附設定頁連結，取代「所有模型失敗」的錯誤列表。",
   },
   {
+    id: "110",
     name: "物件地址架構重構與自動同步 (Property Address Refactoring)",
     locatedPage: "superadmin/properties",
     percentage: 100,
@@ -1922,6 +2047,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     docPath: "/docs/technical-selection/property-address-architecture.md",
   },
   {
+    id: "111",
     name: "Prompt 模板庫（儲存 / 載入）",
     locatedPage: "superadmin/settings/evaluations-global-test",
     category: "超級管理員 (Super Admin)",
@@ -1935,6 +2061,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "功能完整實作：儲存、列出、載入、刪除 Prompt 均已連接雲端 Supabase；UI 風格與現有頁面一致。",
   },
   {
+    id: "112",
     name: "Prompt 管理獨立頁面",
     locatedPage: "superadmin/settings/prompt-management",
     category: "超級管理員 (Super Admin)",
@@ -1948,6 +2075,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "獨立頁面完整實作：CRUD、搜尋、複製、載入均已完成；新增「設為系統 Prompt」功能，saved_prompts 可一鍵提升為解析系統 Prompt（online_ocr_parse）。",
   },
   {
+    id: "113",
     name: "FinePrint .fp 謄本轉檔工具",
     locatedPage: "tools/fp-converter",
     category: "通用/系統 (General/System)",
@@ -1964,6 +2092,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   },
   // === 2026-03-20 小型 UX 更新 ===
   {
+    id: "114",
     name: "超級管理員-物件編輯合約 Tab 文案更新",
     locatedPage: "superadmin/properties/[id]/edit?tab=contract",
     category: "超級管理員 (Super Admin)",
@@ -1978,6 +2107,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/03/20",
   },
   {
+    id: "115",
     name: "超級管理員-合約雲端草稿同步",
     locatedPage: "superadmin/properties/[id]/edit?tab=contract",
     category: "超級管理員 (Super Admin)",
@@ -1992,6 +2122,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/03/19",
   },
   {
+    id: "116",
     name: "超級管理員-合約 Tab 輸入穩定性修復",
     locatedPage: "superadmin/properties/[id]/edit?tab=contract",
     category: "超級管理員 (Super Admin)",
@@ -2006,6 +2137,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/03/20",
   },
   {
+    id: "117",
     name: "超級管理員-物件列表頁面效能優化",
     locatedPage: "superadmin/properties",
     category: "超級管理員 (Super Admin)",
@@ -2022,6 +2154,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/03/20",
   },
   {
+    id: "118",
     name: "物件調查報告書全面升級（Phase 1-4）",
     locatedPage: "superadmin/properties/[id]/edit?tab=investigation",
     category: "超級管理員 (Super Admin)",
@@ -2034,6 +2167,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/04/09",
   },
   {
+    id: "119",
     name: "超級管理員-合約套版多範本選擇器",
     locatedPage: "superadmin/properties/[id]/edit?tab=contract",
     category: "超級管理員 (Super Admin)",
@@ -2050,6 +2184,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/03/22",
   },
   {
+    id: "120",
     name: "多角色平台商業計畫與定價策略",
     locatedPage: "docs + web/pricing",
     category: "專案管理與工具 (Project Management)",
@@ -2070,6 +2205,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   },
 
   {
+    id: "121",
     name: "物件部落格多平台發布",
     locatedPage: "superadmin/properties/[id]/edit?tab=advertisement_creators",
     category: "超級管理員 (Super Admin)",
@@ -2088,6 +2224,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "已完成：DB migration、Google OAuth2 routes、Blogger API v3 CRUD、Facebook Graph API、integrations server actions、BlogSupabasePanel/BlogGooglePanel/BlogFacebookPanel 拆分、平台選擇器、風格預設選擇器（4 個預設 + Claude 生成）、參考 URL 輸入、StylePreset 型別與 blog.ts 整合、BlogGooglePanel 帳號連結但無部落格友善提示修復、Google Blogger 在有參考 URL/風格預設時改為先重新生成再發布（含同步更新流程）並新增單元測試覆蓋。新增：地端 4 份 + Google Blogger 4 份，共 8 份獨立模板檔，並以 targetPlatform 明確切分生成來源，便於後續維護與版本管理。2026/03/22 補強：`blog_posts` 改為真正以 stylePreset + targetPlatform 讀寫與回查、PropertyBlogGenerator/BlogSupabasePanel/BlogGooglePanel/PropertyBlogStyleRowActionCells 全面改為 variant-aware 資料流，避免不同樣式/平台互相讀錯文章；Google OAuth callback 不再自動選第一個 Blogger blog；新增 BlogGooglePanel 與 Google callback 單元測試。2026/03/22 第二波補強：將 reference URL 正式納入 `blog_posts` variant identity 與查詢條件，避免同樣式但不同參考網址互相覆蓋，並把 `blogReferenceUrl` 同步到 URL query 以支援重新整理後仍能定位到正確 variant。2026/03/23 驗證：已在 local Supabase 套用 `20260322223000_add_blog_post_variant_identity.sql`，新增 `lib/actions/blog.test.ts` 驗證 reference URL normalization 與 null-variant lookup，新增 `PropertyBlogGenerator.test.tsx` 驗證 blogPlatform / blogStylePreset / blogReferenceUrl 的 query restore 與 sync/clear 行為，並新增 Playwright `property-blog-query-sync.spec.ts` 實測 superadmin 物件編輯頁在切換 Google Blogger / 商務簡潔樣式 / 參考網址後，重新整理仍能保留 query 與 UI 狀態。2026/03/30 補充：已完成新版「物件廣告生成流程重規劃 Spec」、Wireframe/元件結構稿、Implementation Tasks，以及更細的開發順序文件 `/project-process/features/property-advertisement-dev-order-20260330.md`。同日已開始落地第一張工單：PropertyBlogGenerator 先接上新的 content-first builder 骨架，將內容區塊、風格選擇、草稿概念與輸出流程改成 step-based 版面，同時保留既有 query restore 與平台發布能力。本次再完成第二張工單：新增 readiness summary、可勾選的內容區塊卡片，以及「系統模板 / 參考網址模式」互斥切換，並同步更新 Jest 與 Playwright query-sync 規格。接著完成第三張小工單：readiness summary 不再使用靜態 mapping，先改由 property 真實欄位動態判斷基本資料、照片、介紹與定位可用性，並新增 property-advertisement-readiness utility 與對應單元測試。最新進度再擴充為 8 個內容區塊：除了基本資料、照片、介紹、定位外，已納入謄本連結、建物與土地面積明細表、權狀連結、物件格局圖；單筆物件載入流程也會同步帶入 hasTranscript / hasTitleDoc / hasFloorPlan 等文件旗標，讓 builder 在編輯頁可依真實資料來源動態顯示可用性。Step 3 也已從 placeholder 改為可操作的「生成廣告草稿」主 CTA，會依目前選定的平台、模板或參考網址直接呼叫既有 variant-aware generate flow，讓使用者不必再依賴下方樣式列按鈕才能開始。最新補齊：selected sections 已正式帶入 generatePropertyBlog action 與 AI prompt context，並持久化到 `blog_posts.generation_context`；前端在生成完成後與重新整理後都會顯示「本次草稿帶入內容」摘要，讓 builder 的內容選擇不再只是暫時 UI 狀態。最新再補上 canonical builder draft persistence：PropertyBlogGenerator 已重用既有 `form_drafts` + localStorage helper，自動保存平台、風格模式、preset/reference URL 與 selected sections，重新整理或回到同一物件時會先還原最近 builder 狀態，同時保留 URL query override 能力。另已擴充 Playwright `property-blog-query-sync.spec.ts`，加入 builder draft restore / query override 流程，並把登入改為讀取 `PLAYWRIGHT_SUPERADMIN_EMAIL` / `PLAYWRIGHT_SUPERADMIN_PASSWORD`，同時改成 serial 以避免共享 draft 狀態互相干擾；目前在本地因未提供有效測試帳密而安全 skip。待完善：在有效 superadmin 測試帳號可用後，補跑完整端到端驗證。",
   },
   {
+    id: "122",
     name: "租客維修申請系統",
     category: "租客 (Tenant)",
     percentage: 80,
@@ -2098,6 +2235,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "已完成：maintenance.ts server actions（getMyMaintenanceRequests、createMaintenanceRequest、cancelMaintenanceRequest、getLandlordMaintenanceRequests、updateMaintenanceRequest）、租客維修頁面（/tenant/maintenance）含提交表單與狀態追蹤、房東維修管理頁面（/landlord/maintenance）含列表/篩選/狀態推進/備註輸入、房東 Sidebar 加入維修管理導覽。待完善：照片上傳、廠商指派、費用結算。",
   },
   {
+    id: "123",
     name: "租賃申請系統（申請表/審核流程/Email通知）",
     category: "租客 (Tenant)",
     percentage: 90,
@@ -2108,6 +2246,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "已完成：rental_applications DB migration（含 RLS 政策、索引）、applications.ts server actions（getMyApplications、createApplication、submitApplication、withdrawApplication、getLandlordApplications、reviewApplication、getApplicationById、updateApplicationDraft）、租賃申請列表頁（mock data 替換）、申請表填寫頁（/tenant/potential/applications/[id]/edit）含 RHF+Zod 驗證/草稿儲存/送出流程、房東審核頁（/landlord/applications）含展開申請人詳情/核准/婉拒+拒絕原因 Modal、Email 通知系統（lib/email.ts nodemailer）：申請送出通知房東、審核結果通知申請人、SMTP env vars 可設定。待完善：E2E 測試。",
   },
   {
+    id: "124",
     name: "台灣官方網站全頁面重設計（TW-only）",
     category: "通用/系統 (General/System)",
     percentage: 100,
@@ -2118,6 +2257,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "已完成：首頁（/）全面改寫（TW專屬文案、6角色入口、6步驟交易流程、FAQ）；關於我們（/about）移除澳洲市場敘述、改為深耕台灣策略；平台能力（/services）新增角色別功能列表（6角色）、AI核心能力（謄本OCR/跟進建議/文件清單）、台灣本地化功能清單；收費方式（/pricing）移除AUD幣別切換、改為純TWD計價、FAQ更新；聯絡我們（/contact）移除澳洲地址、改為台灣辦公室資訊；物件列表（/properties + lib/api/properties.ts）新增 region='TW' 篩選，僅顯示台灣物件。",
   },
   {
+    id: "125",
     name: "Contact Leads 指派負責人與備註系統",
     category: "超級管理員 (Super Admin)",
     percentage: 90,
@@ -2128,6 +2268,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "已完成：DB migration 20260322190000（contact_messages 新增 assignee_id/assignee_name、新增 contact_lead_notes 表含 RLS）、actions.ts 新增 getSuperadminUsers、assignContactLead、getContactLeadNotes、addContactLeadNote、deleteContactLeadNote server actions、ContactLeadAssigneeForm 元件（下拉選擇負責人/儲存指派）、ContactLeadNotesSection 元件（新增/刪除備註、note_type: note/reply/internal）、ContactLeadsTable 新增負責人欄位、[id]/page.tsx 整合三個新區塊（訊息+指派/備註）。批次狀態更新前端 UI 已完整（既有功能）。所有現有 Jest 測試（17 tests）均通過。",
   },
   {
+    id: "126",
     name: "專案文檔與維護腳本清理與規範化 (Docs & Scripts Maintenance)",
     locatedPage: "docs/, scripts/",
     percentage: 100,
@@ -2141,6 +2282,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     phase: "development",
   },
   {
+    id: "127",
     name: "AI 設定 - 模型網路評測報告 Sheet",
     locatedPage: "superadmin/settings/api_key_and_model_setting (research tab)",
     percentage: 90,
@@ -2159,6 +2301,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "[2026/04/10] (Claude Opus 4.6)\n## Phase 1 — 基礎 sheet（Anthropic 評審 only）\n• Migration 20260410120000_create_ai_model_research_reports.sql：新增 ai_model_research_reports 表（per-user RLS、結構化欄位 + Markdown + source_urls）。\n• 後端 API：app/api/ai-settings/model-research/route.ts (GET/POST/DELETE) 與 app/api/ai-settings/model-research/generate/route.ts（呼叫 Claude with web_search_20250305 工具，逐筆 upsert，含 mock 模式）。\n• 前端：components/ai-settings/ModelResearchReport.tsx 完成（EnhancedTable + MarkdownViewer + 免責 banner + 批次/單筆生成 + 展開報告）。\n• Page 整合：api_key_and_model_setting/page.tsx 新增 'research' tab 於 keys 與 model-analysis 之間。\n## Phase 2 — Multi-provider evaluator（使用者可選）\n• Migration 20260410130000_add_perplexity_provider.sql：將 perplexity 加入 5 個 ai_* 表的 provider CHECK constraint。\n• ai-providers.ts 新增 perplexity provider 與 sonar-pro / sonar / sonar-reasoning-pro 三個模型；validate/route.ts 與 models/test/route.ts 各加 Perplexity caller (OpenAI-compatible)。\n• generate/route.ts 重構為 multi-provider 架構：5 個 EvaluatorCaller (callAnthropic / callOpenAI / callGemini / callGrok / callPerplexity) 統一回傳 { text, urls }，dispatcher EVALUATOR_CALLERS 依 evaluatorProvider 派送。\n• ModelResearchReport.tsx 加入 EVALUATOR_CATALOG（Anthropic + OpenAI + Gemini + Grok + Perplexity，DeepSeek 排除）+ 兩段下拉（廠商→模型，自動依 savedKeys 過濾）+ localStorage 持久化（key: ai-settings:model-research:evaluator）。\n## 測試\n• 單元測試：components/ai-settings/__tests__/ModelResearchReport.test.tsx 共 10 個測試全綠（含新加 2 個：dropdown filter + 傳送選定 evaluator）。其他相關 ai-settings 測試 79 個全綠。\n• 瀏覽器驗證：localhost:3001/superadmin/settings/api_key_and_model_setting#research，下拉精準過濾出 4 家已驗證評審（Anthropic / OpenAI / Gemini / Grok），切換 OpenAI 後 model dropdown 自動換成 GPT-5 / GPT-4o，reload 後 localStorage 還原選擇。\n\n[2026/04/11] (GPT-5.2)\n• 依需求移除 /superadmin/settings/api_key_and_model_setting 的 #research / #model-analysis 分頁入口（不再顯示於 BottomSheetTabs）。",
   },
   {
+    id: "128",
     name: "AI Prompt 安全強化（SSoT + Injection 防護 + 審計 + Rate Limit + Auto-seed）",
     locatedPage: "docs/ai-prompt-safety-guide.md",
     percentage: 100,
@@ -2178,6 +2321,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     devLogDocPath: "/docs/ai-prompt-safety-guide.md",
   },
   {
+    id: "129",
     name: "AI 設定 - 模型選擇與設定 Sheet（Agent 指派）",
     locatedPage: "superadmin/settings/api_key_and_model_setting#agent-config",
     percentage: 99,
@@ -2196,6 +2340,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "Phase 1 + Phase 2 同步完成：\n• Data layer: migration 20260412100000 (ai_agent_model_assignments 表) + migration 20260412110000 (新增 legal_contract / code_generation / general_assistant 三個 role tag)\n• Agent registry: lib/ai/agent-registry.ts (14 agents × 5 groups，全員都有 suggestedTagKeys) + lib/ai/agent-defaults.ts (Primary + 3 Fallbacks + $5 cap)\n• API: app/api/ai-settings/agent-assignments/route.ts (GET/PUT/DELETE)\n• Hook: lib/hooks/useAgentAssignments.ts (reset → upsert defaults)\n• UI 主面板: components/ai-settings/AgentModelAssignmentPanel.tsx (hoisted useModelRoleCatalog + 匯出報告 button) + agent-model/{AgentList, AgentStrategyForm, AgentRecommendationPanel}.tsx（bypass tag filter 軟 fallback）\n• ClassifyConfigSheet + TagEditorSheet 從 model-role-catalog 孤兒狀態收編進 AgentRecommendationPanel\n• 匯出器: lib/ai/agent-report.ts 生成全 14 agent Markdown 快照 + 可設定 maxRecommendationsPerAgent 上限 (default 10)\n• Phase 2 Dispatcher: lib/ai/resolve-agent-model.ts (resolveAgentModel + resolveFirstAgentModel + 8 筆 legacy module_key alias + factory default fallback) → 11 unit tests\n• Callsite migrations: (1) app/api/property-description/stream/route.ts + (2) lib/transcript-parse/run-transcript-parse-core.ts parser + judge 兩處，皆主路徑 resolver / 第二 fallback 保留 per-user 舊表\n• Page 整合: page.tsx 新增 'agent-config' 頁籤\n• Tests: 90 suites / 649 tests 全綠（agent-defaults 46 + agent-report 17 + resolve-agent-model 11 + useAgentAssignments 6 + AgentModelAssignmentPanel 7 含 bypass test + property-description/stream route 2 + transcript-parse 既有套件無迴歸 + 其他既有）\n• DB 已 seed 14 筆初始預設 + 3 筆新 role tag",
   },
   {
+    id: "130",
     name: "開發環境 Docker 整合 - Paperclip 自動啟停",
     locatedPage: "start.sh / stop.sh",
     percentage: 100,
@@ -2219,6 +2364,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     testScriptPath: "apps/superadmin/unit_test/126",
   },
   {
+    id: "131",
     name: "Superadmin × Paperclip 開發流程整合（Prompt→Issue→Worktree→Diff→Merge）",
     locatedPage: "superadmin/dashboard/project-progress + superadmin/dashboard/paperclip-worktrees",
     percentage: 100,
@@ -2247,6 +2393,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     testScriptPath: "apps/superadmin/unit_test/130",
   },
   {
+    id: "132",
     name: "Paperclip 全自動開發流程優化（API 成本／卡住與重試／Mac mini 24h 穩定）",
     locatedPage:
       "superadmin/dashboard/project-progress + superadmin/dashboard/paperclip-worktrees + docker/paperclip",
@@ -2280,6 +2427,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     testScriptPath: "apps/superadmin/unit_test/133",
   },
   {
+    id: "133",
     name: "超級管理員-尋人資料庫（People Database）",
     locatedPage: "superadmin/settings/people-database",
     percentage: 75,
@@ -2301,6 +2449,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "Phase 1 單元測試 100% 通過（12/12）：\n  ✅ parse_column_reference：Excel 欄位轉換（A→0, Z→25, AA→26）\n  ✅ extract_csv_preview：CSV 負載與編碼驗證\n  ✅ extract_excel_preview：Excel 檔案驗證\n  ✅ ImportSubmitRequest：請求結構與欄位驗證\n  ✅ 整合測試框架：API 端點驗證（12 項）\n  ✅ 前端單頁工作區測試：app/superadmin/settings/people-database/page.test.tsx（tab 切換與同頁 workspace 驗證）\n  ✅ Playwright E2E（真資料 fixture）：apps/superadmin/e2e/131/people-database-single-page-workspace.spec.ts（注入台北市里長樣本語意資料後，必須命中指定查詢）\n  ✅ Kibana 操作檢查清單：docs/operational-guides/people-db-kibana-checklist.md（索引、mapping、分詞、查詢與 UI 對照）\n  ✅ 一鍵 smoke script：tools/people-db/check-es.sh（將 checklist 1~5 步驟轉為可執行檢查）\n  ✅ seed 腳本：tools/people-db/seed-es-sample.sh（真寫入台北市里長樣本 1 筆，讓 docs.count > 0 並讓 multi-match 檢查轉綠）\n  ✅ 用台北市里長樣本實測初始化鏈路：people-db API 成功建立 people_database index；smoke script 已可全綠\n  ✅ 規範更新：docs/update-project-progress-guide.md 新增「跨 ID 可重用工具」放置與引用規範（tools 與 testScriptPath 職責分離）\n  ✅ 測試治理 Phase 1 落地：新增 apps/superadmin/test-manifest.json、tools/testing/validate-test-manifest.sh、tools/testing/run-superadmin-nightly.sh（支援 AI worker 機器可讀編排與 nightly 回歸）\n  ✅ 測試治理 Phase 1.1：將 apps/superadmin/e2e 根層散落 spec 全部收斂至 apps/superadmin/e2e/common/，並同步更新 manifest 與 start.sh 路徑\n  ✅ 測試治理 Phase 1.2：將 e2e/common 再分層為 smoke/regression，manifest 新增 nightlyLayer，nightly runner 依層級先 smoke 再 regression\n  ✅ 測試治理 Phase 1.3：manifest 新增 nightlyOrder，nightly runner 在同層依 nightlyOrder 穩定排序執行（小到大）\n  ✅ 測試治理 Phase 1.4：nightly runner 輸出執行計畫（id/layer/order/unit/e2e），可在 dry-run 與正式執行前快速審核排序\n  ✅ 測試治理 Phase 1.5：導入 Playwright CLI 團隊標準化（pinned version + wrapper + update checker），並把 update check 以 non-blocking 模式接入 nightly runner\n  ✅ project-progress 路徑治理測試補齊：新增 path-utils 與 resolver 測試（共 10 tests）並通過，覆蓋合法路徑、trailing slash、path traversal、絕對路徑、URL-like path、白名單前綴限制\n  下一步：E2E 實資料匯入驗證 + 搜尋結果抽樣比對",
   },
   {
+    id: "134",
     name: "超級管理員-尋人資料庫：精準搜尋與來源可追溯升級（ID 132）",
     locatedPage: "superadmin/settings/people-database",
     percentage: 75,
@@ -2326,6 +2475,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   },
   // --- Row 135: PromptEngineer 重建 — 多人協作任務派遣系統 ---
   {
+    id: "135",
     name: "PromptEngineer 重建 — 多人協作任務派遣系統 + Adapter 自動輪替",
     locatedPage: "superadmin/dashboard/project-progress + docker/paperclip",
     percentage: 100,
@@ -2375,6 +2525,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "- ✅ 6 adapter 環境測試全通過（claude/codex/cursor/hermes/opencode ✅ PASS，pi ⚠️ 需設 model）",
   },
   {
+    id: "136",
     name: "[Stability] Anthropic credit low-balance alert + circuit breaker",
     category: "通用/系統 (General/System)",
     percentage: 100,
@@ -2395,6 +2546,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
 
   // --- VIS 同步系統 (Row 136-139) ---
   {
+    id: "137",
     name: "VIS 同步基礎設施 — Engineer Profile V2 + Webhook 框架",
     category: "超級管理員 (Super Admin)",
     percentage: 70,
@@ -2424,6 +2576,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "- 待完成：HMAC 驗證整合測試、背景 worker 實作",
   },
   {
+    id: "138",
     name: "VIS 批量遷移工具 — 135 任務導出到 Paperclip VIS",
     category: "超級管理員 (Super Admin)",
     percentage: 60,
@@ -2449,6 +2602,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "- 待完成：增量模式、vis_issue_id 回寫驗證",
   },
   {
+    id: "139",
     name: "VIS \u2194 Roadmap 雙向同步引擎 + 衝突解決",
     category: "超級管理員 (Super Admin)",
     percentage: 0,
@@ -2469,6 +2623,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     lastModifiedDate: "2026/04/14",
   },
   {
+    id: "140",
     name: "CEO VIS 任務分配工作流 — Engineer 指派 + 進度整合",
     category: "超級管理員 (Super Admin)",
     percentage: 50,
@@ -2498,6 +2653,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
 
   // --- 三層自動化 + Mission Control (Row 141) ---
   {
+    id: "141",
     name: "Paperclip 三層自動化 + Mission Control Dashboard",
     category: "專案管理與工具 (Project Management)",
     percentage: 90,
@@ -2527,6 +2683,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   },
   // --- Row 142: Elastic Observability MVP ---
   {
+    id: "142",
     name: "Elastic Observability MVP（APM / PostgreSQL / Docker / Synthetics）",
     category: "通用/系統 (General/System)",
     percentage: 0,
@@ -2562,6 +2719,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
 
   // === 2026-04-17 新增 Row 143 ===
   {
+    id: "143",
     name: "Adapter CLI 文件自動更新流程（15 天排程）",
     category: "專案管理與工具 (Project Management)",
     percentage: 80,
@@ -2591,6 +2749,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   },
   // --- Row 144: 尋人資料庫 — 樹狀資料來源管理 + 進階關聯分析 ---
   {
+    id: "144",
     name: "超級管理員-尋人資料庫：樹狀資料來源管理 + 進階關聯分析（ID 144）",
     locatedPage: "superadmin/settings/people-database",
     percentage: 96,
@@ -2624,6 +2783,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
   },
   // --- Row 145: 尋人資料庫 — 大規模批次 Ingestion Pipeline (RFC 決議版) ---
   {
+    id: "145",
     name: "超級管理員-尋人資料庫：大規模批次 Ingestion Pipeline（ID 145）",
     locatedPage: "superadmin/settings/people-database/ingest",
     percentage: 99,
@@ -2651,6 +2811,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
 
   // --- Row 146: 尋人資料庫 — 工作區整合 + 強制 dataset + Scope 顏色標記 ---
   {
+    id: "146",
     name: "超級管理員-尋人資料庫：5-tab 工作區整合 + 強制 dataset + Scope 顏色標記（ID 146）",
     locatedPage: "superadmin/settings/people-database",
     percentage: 100,
@@ -2676,6 +2837,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
 
   // --- Row 147: 超級管理員 — 物件地圖檢視修復 ---
   {
+    id: "147",
     name: "超級管理員-物件地圖檢視：Leaflet CSS 修復 + 大安區座標補設（ID 147）",
     locatedPage: "superadmin/properties/map",
     percentage: 90,
@@ -2693,6 +2855,16 @@ const RAW_FEATURES: RoadmapFeature[] = [
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/27 FinePrint .fp legacy FINC zlib 支援",
-  features: RAW_FEATURES.map((f) => ({ ...f, phase: inferPhase(f) })),
+  lastUpdated: "2026/04/29 Feature ID 084 no processor seed on AI failure",
+  features: RAW_FEATURES.map((f, index) => ({
+    ...f,
+    id: normalizeRoadmapFeatureId(f.id) || formatGeneratedRoadmapFeatureId(index),
+    phase: inferPhase(f),
+  })),
 };
+
+export function findRoadmapFeatureById(id: string): RoadmapFeature | undefined {
+  const normalized = normalizeRoadmapFeatureId(id);
+  if (!normalized) return undefined;
+  return ROADMAP_DATA.features.find((feature) => feature.id === normalized);
+}

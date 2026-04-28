@@ -328,8 +328,8 @@ export async function POST(request: NextRequest) {
   if (result.ok) {
     // Internal-key callers (skills, cron) have no session userId — record null.
     const userId = authResult.userId ?? undefined;
-    // Extract rowId from title format "[Row 042] Feature Name"
-    const rowIdMatch = body.title.match(/\[Row\s+(\S+?)\]/i);
+    // Extract the stable feature ID from title formats like "[Feature 042]" or legacy "[Row 042]".
+    const rowIdMatch = body.title.match(/\[(?:Feature|Row)\s+(\S+?)\]/i);
     const rowId = rowIdMatch?.[1] ?? body.title;
 
     // Extract per-task adapter/model from optional _taskMeta

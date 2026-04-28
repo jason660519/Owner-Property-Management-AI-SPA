@@ -314,7 +314,7 @@ export default function TableToolbar({
                             title="取消隱藏"
                           >
                             <span className="block truncate text-xs text-text-muted">{key}</span>
-                            <span className="block truncate">{row ? `${row.__rowId} — ${row.name}` : '（Row 已不存在）'}</span>
+                            <span className="block truncate">{row ? `${row.__rowId} — ${row.name}` : '（Feature 已不存在）'}</span>
                           </button>
                         ))}
                       </div>

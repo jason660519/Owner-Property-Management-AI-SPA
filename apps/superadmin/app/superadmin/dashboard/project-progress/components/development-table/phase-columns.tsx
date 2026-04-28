@@ -7,19 +7,19 @@ import type { RoadmapFeature } from '@/app/data/roadmap';
 import { ProgressBar } from '../ProgressBar';
 
 // --- Common row type for phase sheets (simpler than ProgressRow) ---
-export type PhaseRow = RoadmapFeature & { __rowIdx: number };
+export type PhaseRow = RoadmapFeature & { __featureId: string };
 
 // --- Shared columns (ID, Category, Feature) ---
 function commonColumns(): ColumnDef<PhaseRow, unknown>[] {
   return [
     {
       id: 'col-id',
-      accessorFn: (row) => row.__rowIdx,
+      accessorFn: (row) => row.__featureId,
       header: 'ID',
       meta: { headerEn: 'ID', headerZh: '編碼' },
       cell: ({ row }) => (
         <span className="font-mono text-xs text-text-secondary">
-          {(row.original.__rowIdx + 1).toString().padStart(3, '0')}
+          {row.original.__featureId}
         </span>
       ),
     },

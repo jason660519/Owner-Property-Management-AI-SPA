@@ -122,24 +122,61 @@ export function extractJsonFromOutput(text: string): unknown {
   if (codeFence) {
     raw = codeFence[1].trim();
   } else {
-    const brace = raw.indexOf('{');
-    if (brace >= 0) {
-      let depth = 0;
-      let end = -1;
-      for (let i = brace; i < raw.length; i++) {
-        if (raw[i] === '{') depth++;
-        else if (raw[i] === '}') {
-          depth--;
-          if (depth === 0) {
-            end = i;
-            break;
-          }
-        }
+    raw = extractFirstJsonObject(raw);
+  }
+  return parseJsonWithCommonRepairs(raw);
+}
+
+function extractFirstJsonObject(text: string): string {
+  const brace = text.indexOf('{');
+  if (brace < 0) return text;
+
+  let depth = 0;
+  let end = -1;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = brace; i < text.length; i += 1) {
+    const char = text[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      escaped = inString;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (char === '{') depth += 1;
+    if (char === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        end = i;
+        break;
       }
-      raw = end >= 0 ? raw.slice(brace, end + 1) : raw.slice(brace);
     }
   }
-  return JSON.parse(raw) as unknown;
+
+  return end >= 0 ? text.slice(brace, end + 1) : text.slice(brace);
+}
+
+function parseJsonWithCommonRepairs(raw: string): unknown {
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch (error) {
+    const repaired = raw
+      .replace(/^\uFEFF/, '')
+      .replace(/,\s*([}\]])/g, '$1')
+      .trim();
+    if (repaired !== raw) {
+      return JSON.parse(repaired) as unknown;
+    }
+    throw error;
+  }
 }
 
 // ---------------------------------------------------------------------------

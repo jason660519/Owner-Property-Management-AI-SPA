@@ -5,15 +5,12 @@ import { createAdminClient } from '@/utils/supabase/admin';
 import type { TranscriptParseOutput } from '@/lib/types/transcript';
 import type {
   TranscriptDetectionResult,
-  TranscriptDispositionKind,
   TranscriptIntakeAiStageTrace,
-  TranscriptDocumentKind,
   TranscriptIntakeParsedResult,
   TranscriptReviewResult,
   TranscriptTechnicalRoute,
   TranscriptDetailBuilderResult,
 } from '@/lib/transcript-parse/intake-types';
-import { buildAreaDetailDraftFromIntake } from '@/lib/transcript-parse/intake-area-details';
 import { parseTranscriptTextLayer } from '@/lib/transcript-parse/local-text-parser';
 import { loadTranscriptParserReports } from '@/lib/transcript-parse/parser-report';
 import { extractTranscriptPdfTextForRouting } from '@/lib/transcript-parse/transcript-pdf-probe';
@@ -43,106 +40,6 @@ interface DocumentSnapshotRow {
   mime_type?: string | null;
   parsed_result: TranscriptParseOutput | null;
   consensus_metadata: Record<string, unknown> | null;
-}
-
-function documentKindFromType(documentType: string): TranscriptDocumentKind {
-  if (documentType === 'registry_transcript_unclassified') return 'unknown';
-  if (documentType === 'building_registry_transcript') return 'building_transcript';
-  if (documentType === 'land_registry_transcript') return 'land_transcript';
-  if (documentType === 'building_title') return 'building_title';
-  if (documentType === 'land_title') return 'land_title';
-  if (documentType === 'parking_building_registry_transcript') return 'parking_building_transcript';
-  if (documentType === 'parking_land_registry_transcript') return 'parking_land_transcript';
-  return 'unknown';
-}
-
-function dispositionFromKinds(kinds: TranscriptDocumentKind[]): TranscriptDispositionKind {
-  const hasBuilding = kinds.includes('building_transcript');
-  const hasLand = kinds.includes('land_transcript');
-  const hasBuildingTitle = kinds.includes('building_title');
-  const hasLandTitle = kinds.includes('land_title');
-  const hasParking = kinds.includes('parking_building_transcript') || kinds.includes('parking_land_transcript');
-
-  if (!hasBuilding && !hasBuildingTitle && (hasLand || hasLandTitle) && !hasParking) return 'pure_land_sale';
-  if (hasParking && !hasBuilding && !hasLand) return 'parking_only_sale';
-  if ((hasBuilding || hasBuildingTitle) && (hasLand || hasLandTitle)) return 'unit_building_with_land_share_sale';
-  if (hasParking || hasBuilding || hasLand || hasBuildingTitle || hasLandTitle) return 'mixed_or_unclear';
-  return 'unknown';
-}
-
-function buildDetectionSeed(documents: DocumentSnapshotRow[]): TranscriptDetectionResult {
-  const documentKinds = [...new Set(documents.map((doc) => documentKindFromType(doc.document_type)))];
-  const hasIndependentParking = documentKinds.includes('parking_building_transcript') ||
-    documentKinds.includes('parking_land_transcript');
-
-  return {
-    dispositionKind: dispositionFromKinds(documentKinds),
-    documentKinds,
-    parkingTitleRights: hasIndependentParking ? ['independent'] : [],
-    hasBuildingTranscript: documentKinds.includes('building_transcript') || documentKinds.includes('building_title'),
-    hasLandTranscript: documentKinds.includes('land_transcript') || documentKinds.includes('land_title'),
-    hasParkingEvidence: hasIndependentParking,
-    buildingOwnershipLikelyFull: null,
-    landOwnershipLikelyFull: null,
-    buildingNumberCount: null,
-    landParcelCount: null,
-    riskFlags: ['AI detect stage pending; seeded from uploaded document types.'],
-    evidence: documents.map((doc) => ({
-      documentId: doc.id,
-      section: 'property_documents.document_type',
-      text: doc.document_name || doc.document_type,
-    })),
-  };
-}
-
-function buildReviewSeed(
-  detection: TranscriptDetectionResult,
-  parsedDocuments: DocumentSnapshotRow[],
-): TranscriptReviewResult {
-  const missingParsed = parsedDocuments
-    .filter((doc) => !doc.parsed_result)
-    .map((doc) => doc.document_name || doc.id);
-
-  return {
-    approved: missingParsed.length === 0,
-    confidence: missingParsed.length === 0 ? 0.55 : 0.2,
-    issues: missingParsed.map((label) => ({
-      severity: 'blocking',
-      fieldPath: 'documents.parsed_result',
-      message: `文件尚未產生解析結果：${label}`,
-    })),
-    parkingTitleRights: detection.parkingTitleRights,
-    dispositionKind: detection.dispositionKind,
-    userConfirmationRequired: [
-      '請確認案件出售型態、建物/土地持分與車位產權型態。',
-      'AI review stage pending; current review is a processor seed.',
-    ],
-  };
-}
-
-function buildDetailBuilderSeed(
-  parsedResult: TranscriptIntakeParsedResult,
-  detection: TranscriptDetectionResult,
-  review: TranscriptReviewResult,
-  warnings: string[] = [],
-): TranscriptDetailBuilderResult {
-  const areaDetailDraft = buildAreaDetailDraftFromIntake({
-    parsedResult,
-    dispositionKind: review.dispositionKind || detection.dispositionKind,
-    parkingTitleRights: review.parkingTitleRights.length ? review.parkingTitleRights : detection.parkingTitleRights,
-  });
-  return {
-    areaDetailDraft,
-    summary: [
-      `建物明細 ${areaDetailDraft.buildingAreas.length} 列`,
-      `土地持分 ${areaDetailDraft.landShareAreas.length} 列`,
-      `車位建物 ${areaDetailDraft.parkingBuildingAreas.length} 列`,
-      `車位土地 ${areaDetailDraft.parkingLandShareAreas.length} 列`,
-    ],
-    warnings,
-    userConfirmationRequired: warnings.length ? ['Detail Builder 失敗，已改用 parser seed 草稿，請人工確認明細。'] : [],
-    confidence: warnings.length ? 0.2 : 0.45,
-  };
 }
 
 async function loadDocumentSnapshots(
@@ -194,7 +91,13 @@ function updateStageTraceModel(
     trace.models.push({
       provider,
       model,
-      role: stage === 'verify_review' ? 'review' : stage === 'detail_builder' ? 'detail_builder' : 'parse',
+      role: stage === 'verify_review'
+        ? 'review'
+        : stage === 'detail_builder'
+          ? 'detail_builder'
+          : stage === 'detect'
+            ? 'detect'
+            : 'parse',
       status: 'pending',
     });
     modelIndex = trace.models.length - 1;
@@ -443,10 +346,23 @@ export async function processTranscriptIntakeRunById(runId: string): Promise<voi
     const initialDocuments = await loadDocumentSnapshots(admin, run.source_document_ids);
     const aiStageTrace: TranscriptIntakeAiStageTrace[] = [];
     const detectStageInfo = await safeResolveStageInfo(admin, run.requested_by_user_id, 'detect');
+    replaceStageTrace(aiStageTrace, {
+      stage: 'detect',
+      label: 'Detect 初判',
+      status: 'running',
+      engine: 'vlm_ai',
+      durationMs: null,
+      agentKey: detectStageInfo?.agentKey ?? 'transcript_detection',
+      moduleKey: detectStageInfo?.moduleKey ?? null,
+      promptSource: detectStageInfo?.promptSource ?? null,
+      models: stageModelFromInfo(detectStageInfo, 'detect'),
+      confidence: null,
+      summary: ['Detect 正在判讀上傳文件'],
+      corrections: [],
+      warnings: [],
+    });
     const detectStartedAt = Date.now();
-    let detection = buildDetectionSeed(initialDocuments);
-    let detectStatus: TranscriptIntakeAiStageTrace['status'] = 'success';
-    let detectErrorMessage: string | null = null;
+    let detection: TranscriptDetectionResult;
     try {
       detection = await runTranscriptIntakeDetectionAi({
         adminClient: admin,
@@ -454,28 +370,55 @@ export async function processTranscriptIntakeRunById(runId: string): Promise<voi
         userId: run.requested_by_user_id,
         documentIds: run.source_document_ids,
         routeDecision: run.route_decision,
+        onModelEvent: (event) => {
+          updateStageTraceModel(aiStageTrace, 'detect', event);
+        },
       });
     } catch (error) {
-      detectStatus = 'fallback';
-      detectErrorMessage = error instanceof Error ? error.message : 'unknown error';
-      detection = {
-        ...detection,
-        riskFlags: [
-          ...detection.riskFlags,
-          `AI detect failed; using seeded detection: ${detectErrorMessage}`,
-        ],
-      };
+      const detectErrorMessage = error instanceof Error ? error.message : 'unknown error';
+      const progressedDetectModels = aiStageTrace.find((trace) => trace.stage === 'detect')?.models ?? [];
+      replaceStageTrace(aiStageTrace, {
+        stage: 'detect',
+        label: 'Detect 初判',
+        status: 'failed',
+        engine: 'vlm_ai',
+        durationMs: Date.now() - detectStartedAt,
+        agentKey: detectStageInfo?.agentKey ?? 'transcript_detection',
+        moduleKey: detectStageInfo?.moduleKey ?? null,
+        promptSource: detectStageInfo?.promptSource ?? null,
+        models: mergeModelProgress(stageModelFromInfo(detectStageInfo, 'detect'), progressedDetectModels),
+        confidence: null,
+        summary: ['Detect 全部候選 AI 模型失敗，未產生初判結果。'],
+        corrections: [],
+        warnings: [detectErrorMessage],
+        errorMessage: detectErrorMessage,
+      });
+      await admin
+        .from('transcript_intake_runs')
+        .update({
+          parsed_result: {
+            strategy: 'existing_transcript_parse_core',
+            routeDecision: run.route_decision,
+            aiStageTrace,
+            parseOutcomes: [],
+            documents: [],
+          } satisfies TranscriptIntakeParsedResult,
+        })
+        .eq('id', runId);
+      await failRun(admin, runId, `Detect AI 全部候選模型失敗：${detectErrorMessage}`);
+      return;
     }
-    aiStageTrace.push({
+    const progressedDetectModels = aiStageTrace.find((trace) => trace.stage === 'detect')?.models ?? [];
+    replaceStageTrace(aiStageTrace, {
       stage: 'detect',
       label: 'Detect 初判',
-      status: detectStatus,
-      engine: detectStatus === 'success' ? 'vlm_ai' : 'processor_seed',
+      status: 'success',
+      engine: 'vlm_ai',
       durationMs: Date.now() - detectStartedAt,
       agentKey: detectStageInfo?.agentKey ?? 'transcript_detection',
       moduleKey: detectStageInfo?.moduleKey ?? null,
       promptSource: detectStageInfo?.promptSource ?? null,
-      models: stageModelFromInfo(detectStageInfo, 'detect'),
+      models: mergeModelProgress(stageModelFromInfo(detectStageInfo, 'detect'), progressedDetectModels),
       confidence: null,
       summary: [
         `物件型態：${detection.dispositionKind}`,
@@ -484,7 +427,6 @@ export async function processTranscriptIntakeRunById(runId: string): Promise<voi
       ],
       corrections: [],
       warnings: detection.riskFlags,
-      errorMessage: detectErrorMessage,
     });
     const pendingParseTrace = buildPendingParseStageTrace(await safeResolveParseStageModels(admin, run.requested_by_user_id, run.route_decision), run.route_decision);
     replaceStageTrace(aiStageTrace, pendingParseTrace);
@@ -615,9 +557,7 @@ export async function processTranscriptIntakeRunById(runId: string): Promise<voi
       .eq('id', runId);
 
     const reviewStartedAt = Date.now();
-    let review = buildReviewSeed(detection, parsedDocuments);
-    let reviewStatus: TranscriptIntakeAiStageTrace['status'] = 'success';
-    let reviewErrorMessage: string | null = null;
+    let review: TranscriptReviewResult;
     try {
       review = await runTranscriptIntakeReviewAi({
         adminClient: admin,
@@ -637,27 +577,41 @@ export async function processTranscriptIntakeRunById(runId: string): Promise<voi
         },
       });
     } catch (error) {
-      reviewStatus = 'fallback';
-      reviewErrorMessage = error instanceof Error ? error.message : 'unknown error';
-      review = {
-        ...review,
-        issues: [
-          ...review.issues,
-          {
-            severity: 'warning',
-            fieldPath: 'review.ai',
-            message: `AI review failed; using seeded review: ${reviewErrorMessage}`,
-          },
-        ],
-      };
+      const reviewErrorMessage = error instanceof Error ? error.message : 'unknown error';
+      const progressedReviewModels = aiStageTrace.find((trace) => trace.stage === 'verify_review')?.models ?? [];
+      replaceStageTrace(aiStageTrace, attachStageReportUrls(runId, {
+        stage: 'verify_review',
+        label: 'Verify / Review 驗證審查',
+        status: 'failed',
+        engine: 'vlm_ai',
+        durationMs: Date.now() - reviewStartedAt,
+        agentKey: reviewStageInfo?.agentKey ?? 'transcript_audit',
+        moduleKey: reviewStageInfo?.moduleKey ?? null,
+        promptSource: reviewStageInfo?.promptSource ?? null,
+        models: mergeModelProgress(stageModelFromInfo(reviewStageInfo, 'review'), progressedReviewModels),
+        confidence: null,
+        summary: ['Verify / Review 全部候選 AI 模型失敗，未產生審查結果。'],
+        corrections: [],
+        warnings: [reviewErrorMessage],
+        errorMessage: reviewErrorMessage,
+      }));
+      parsedResult.aiStageTrace = aiStageTrace;
+      await admin
+        .from('transcript_intake_runs')
+        .update({
+          parsed_result: parsedResult,
+        })
+        .eq('id', runId);
+      await failRun(admin, runId, `Verify / Review AI 全部候選模型失敗：${reviewErrorMessage}`);
+      return;
     }
     const corrections = buildReviewCorrections(review);
     const progressedReviewModels = aiStageTrace.find((trace) => trace.stage === 'verify_review')?.models ?? [];
     replaceStageTrace(aiStageTrace, attachStageReportUrls(runId, {
       stage: 'verify_review',
       label: 'Verify / Review 驗證審查',
-      status: reviewStatus,
-      engine: reviewStatus === 'success' ? 'vlm_ai' : 'processor_seed',
+      status: 'success',
+      engine: 'vlm_ai',
       durationMs: Date.now() - reviewStartedAt,
       agentKey: reviewStageInfo?.agentKey ?? 'transcript_audit',
       moduleKey: reviewStageInfo?.moduleKey ?? null,
@@ -674,7 +628,6 @@ export async function processTranscriptIntakeRunById(runId: string): Promise<voi
         ...review.issues.map((issue) => `${issue.severity}: ${issue.message}`),
         ...review.userConfirmationRequired,
       ],
-      errorMessage: reviewErrorMessage,
     }));
     parsedResult.aiStageTrace = aiStageTrace;
 
@@ -693,9 +646,7 @@ export async function processTranscriptIntakeRunById(runId: string): Promise<voi
       .eq('id', runId);
 
     const detailBuilderStartedAt = Date.now();
-    let detailBuilder = buildDetailBuilderSeed(parsedResult, detection, review);
-    let detailStatus: TranscriptIntakeAiStageTrace['status'] = 'success';
-    let detailErrorMessage: string | null = null;
+    let detailBuilder: TranscriptDetailBuilderResult;
     try {
       detailBuilder = await runTranscriptIntakeDetailBuilderAi({
         adminClient: admin,
@@ -705,25 +656,58 @@ export async function processTranscriptIntakeRunById(runId: string): Promise<voi
         routeDecision: run.route_decision,
         parsedResult,
         reviewResult: review,
+        onModelEvent: (event) => {
+          if (!updateStageTraceModel(aiStageTrace, 'detail_builder', event)) return;
+          parsedResult.aiStageTrace = aiStageTrace;
+          persistTraceProgress({
+            admin,
+            runId,
+            parsedResult,
+          });
+        },
       });
     } catch (error) {
-      detailStatus = 'fallback';
-      detailErrorMessage = error instanceof Error ? error.message : 'unknown error';
-      detailBuilder = buildDetailBuilderSeed(parsedResult, detection, review, [
-        `AI detail_builder failed; using parser seed draft: ${detailErrorMessage}`,
-      ]);
+      const detailErrorMessage = error instanceof Error ? error.message : 'unknown error';
+      const progressedDetailModels = aiStageTrace.find((trace) => trace.stage === 'detail_builder')?.models ?? [];
+      replaceStageTrace(aiStageTrace, attachStageReportUrls(runId, {
+        stage: 'detail_builder',
+        label: 'Detail Builder 明細草稿',
+        status: 'failed',
+        engine: 'vlm_ai',
+        durationMs: Date.now() - detailBuilderStartedAt,
+        agentKey: detailStageInfo?.agentKey ?? 'transcript_detail_builder',
+        moduleKey: detailStageInfo?.moduleKey ?? null,
+        promptSource: detailStageInfo?.promptSource ?? null,
+        models: mergeModelProgress(stageModelFromInfo(detailStageInfo, 'detail_builder'), progressedDetailModels),
+        confidence: null,
+        summary: ['Detail Builder 全部候選 AI 模型失敗，未產生明細草稿。'],
+        corrections: [],
+        warnings: [detailErrorMessage],
+        errorMessage: detailErrorMessage,
+      }));
+      parsedResult.aiStageTrace = aiStageTrace;
+      await admin
+        .from('transcript_intake_runs')
+        .update({
+          parsed_result: parsedResult,
+          review_result: review as unknown as Record<string, unknown>,
+        })
+        .eq('id', runId);
+      await failRun(admin, runId, `Detail Builder AI 全部候選模型失敗：${detailErrorMessage}`);
+      return;
     }
 
+    const progressedDetailModels = aiStageTrace.find((trace) => trace.stage === 'detail_builder')?.models ?? [];
     replaceStageTrace(aiStageTrace, attachStageReportUrls(runId, {
       stage: 'detail_builder',
       label: 'Detail Builder 明細草稿',
-      status: detailStatus,
-      engine: detailStatus === 'success' ? 'vlm_ai' : 'processor_seed',
+      status: 'success',
+      engine: 'vlm_ai',
       durationMs: Date.now() - detailBuilderStartedAt,
       agentKey: detailStageInfo?.agentKey ?? 'transcript_detail_builder',
       moduleKey: detailStageInfo?.moduleKey ?? null,
       promptSource: detailStageInfo?.promptSource ?? null,
-      models: stageModelFromInfo(detailStageInfo, 'detail_builder'),
+      models: mergeModelProgress(stageModelFromInfo(detailStageInfo, 'detail_builder'), progressedDetailModels),
       confidence: detailBuilder.confidence,
       summary: detailBuilder.summary.length ? detailBuilder.summary : [
         `建物明細 ${detailBuilder.areaDetailDraft.buildingAreas.length} 列`,
@@ -734,7 +718,6 @@ export async function processTranscriptIntakeRunById(runId: string): Promise<voi
         ...detailBuilder.warnings,
         ...detailBuilder.userConfirmationRequired,
       ],
-      errorMessage: detailErrorMessage,
     }));
     parsedResult.aiStageTrace = aiStageTrace;
     parsedResult.areaDetailDraft = detailBuilder.areaDetailDraft;

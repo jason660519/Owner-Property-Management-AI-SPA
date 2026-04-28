@@ -226,7 +226,7 @@ describe('BuildingLandAreaDetailTab', () => {
   });
 
   describe('confirmed transcript intake area details', () => {
-    it('uses the confirmed four area-detail tables as the readonly source of truth', () => {
+    it('uses one unified confirmed area table as the readonly source of truth', () => {
       const property = makeProperty({
         transcriptIntakeAreaDetails: makeConfirmedAreaDetails(),
         landTranscript: makeLandTranscript({ landNumber: 'legacy-land-should-not-render' }),
@@ -234,10 +234,12 @@ describe('BuildingLandAreaDetailTab', () => {
 
       render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
 
-      expect(screen.getByText('建物建築面積明細表')).toBeInTheDocument();
-      expect(screen.getByText('建物所屬土地持分面積明細表')).toBeInTheDocument();
-      expect(screen.getByText('車位建築面積明細表')).toBeInTheDocument();
-      expect(screen.getByText('車位所屬土地持分面積明細表')).toBeInTheDocument();
+      expect(screen.getByText('標的物面積小記總表（建物 土地 車位）')).toBeInTheDocument();
+      expect(screen.getAllByText('建物建築面積').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('建物所屬土地持分').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('車位建築面積').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('車位所屬土地持分').length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryByText('用途／分區')).not.toBeInTheDocument();
 
       expect(screen.getByText('02073-000建號')).toBeInTheDocument();
       expect(screen.getAllByText('0091-0000地號').length).toBeGreaterThanOrEqual(1);
@@ -264,6 +266,92 @@ describe('BuildingLandAreaDetailTab', () => {
       expect(within(landRow).getByText('16.38')).toBeInTheDocument();
       expect(within(parkingBuildingRow).getByText('28.4')).toBeInTheDocument();
       expect(within(parkingLandRow).getByText('0.57')).toBeInTheDocument();
+    });
+
+    it('applies parking building ownership ratio after component common-area ratios', () => {
+      const parkingBuildingTranscript = makeBuildingTranscript();
+      parkingBuildingTranscript.ownership[0] = {
+        ...parkingBuildingTranscript.ownership[0],
+        ownershipRatio: '2/84',
+      };
+      const property = makeProperty({
+        parkingBuildingTranscript,
+        transcriptIntakeAreaDetails: {
+          ...makeConfirmedAreaDetails(),
+          buildingAreas: [],
+          landShareAreas: [],
+          parkingLandShareAreas: [],
+          parkingBuildingAreas: [
+            {
+              id: 'parking-main',
+              label: '單位主建物',
+              identifier: '05113-000',
+              areaSqm: '8.77',
+              shareRatio: '全部',
+              groupShareRatio: '2/84',
+              use: '',
+            },
+            {
+              id: 'parking-annex',
+              label: '單位附屬建物-陽台',
+              identifier: '05113-000',
+              areaSqm: '6.20',
+              shareRatio: '全部',
+              groupShareRatio: '2/84',
+              use: '',
+            },
+            {
+              id: 'parking-common-a',
+              label: '單位共有部分',
+              identifier: '05136-000',
+              areaSqm: '1278.17',
+              shareRatio: '100000分之1745',
+              groupShareRatio: '2/84',
+              use: '',
+            },
+            {
+              id: 'parking-common-b',
+              label: '單位共有部分',
+              identifier: '05139-000',
+              areaSqm: '1017.71',
+              shareRatio: '10000分之9999',
+              groupShareRatio: '2/84',
+              use: '',
+            },
+          ],
+        },
+      });
+
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
+
+      const summarySection = screen.getByTestId('area-summary');
+      const parkingBuildingRow = within(summarySection)
+        .getByText('車位建築面積小計')
+        .closest('tr')!;
+
+      expect(within(summarySection).getAllByText('全部 × 2/84')).toHaveLength(2);
+      expect(within(summarySection).getByText('100000分之1745 × 2/84')).toBeInTheDocument();
+      expect(within(summarySection).getByText('10000分之9999 × 2/84')).toBeInTheDocument();
+      expect(within(parkingBuildingRow).getByText('25.12')).toBeInTheDocument();
+      expect(within(parkingBuildingRow).getByText('7.60')).toBeInTheDocument();
+    });
+
+    it('uses the shared parking empty message for both missing parking rows', () => {
+      const confirmedAreaDetails = makeConfirmedAreaDetails();
+      const property = makeProperty({
+        transcriptIntakeAreaDetails: {
+          ...confirmedAreaDetails,
+          parkingBuildingAreas: [],
+          parkingLandShareAreas: [],
+        },
+      });
+
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
+
+      const summarySection = screen.getByTestId('area-summary');
+      expect(
+        within(summarySection).getAllByText('本標的無車位或尚未上傳車位相關資料')
+      ).toHaveLength(2);
     });
   });
 

@@ -18,26 +18,55 @@ jest.mock('@/lib/hooks/useTablePreferences', () => ({
 }));
 
 jest.mock('@/app/data/roadmap', () => ({
+  normalizeRoadmapFeatureId: (raw: string) => raw.trim().padStart(3, '0'),
   ROADMAP_DATA: {
     features: [
       {
+        id: '001',
         name: 'Feature 1',
         category: '測試分類',
         percentage: 10,
       },
       {
+        id: '002',
         name: 'Feature 2',
         category: '測試分類',
         percentage: 20,
         devLogDocPath: '/project-process/dev-logs/not-markdown.txt',
       },
       {
+        id: '003',
         name: 'Feature 3',
         category: '測試分類',
         percentage: 30,
         devLogDocPath: '/project-process/dev-logs/feature-3-dev-log-2026-04-17.md',
       },
     ],
+  },
+  findRoadmapFeatureById: (id: string) => {
+    const features = [
+      {
+        id: '001',
+        name: 'Feature 1',
+        category: '測試分類',
+        percentage: 10,
+      },
+      {
+        id: '002',
+        name: 'Feature 2',
+        category: '測試分類',
+        percentage: 20,
+        devLogDocPath: '/project-process/dev-logs/not-markdown.txt',
+      },
+      {
+        id: '003',
+        name: 'Feature 3',
+        category: '測試分類',
+        percentage: 30,
+        devLogDocPath: '/project-process/dev-logs/feature-3-dev-log-2026-04-17.md',
+      },
+    ];
+    return features.find((feature) => feature.id === id);
   },
 }));
 

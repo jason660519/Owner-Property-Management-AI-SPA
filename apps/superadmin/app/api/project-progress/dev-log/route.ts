@@ -1,13 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
-import { ROADMAP_DATA } from '@/app/data/roadmap';
+import { findRoadmapFeatureById, normalizeRoadmapFeatureId } from '@/app/data/roadmap';
 import { getProjectRoot } from '@/lib/docs-config';
 import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 import { canUseProjectFilePath } from '@/app/superadmin/dashboard/project-progress/components/development-table/path-utils';
 import {
   buildFallbackDevLogDocPath,
-  normalizeRowIdInput,
   resolveConfiguredDevLogDocPath,
 } from '@/app/superadmin/dashboard/project-progress/components/development-table/types';
 
@@ -18,11 +17,7 @@ const DEV_LOG_ALLOWED_PREFIXES = ['project-process/', 'docs/'] as const;
 type DevLogDocPathState = 'configured' | 'missing' | 'invalid';
 
 function buildDevLogPayload(rowId: string) {
-  const numeric = /^\d+$/.test(rowId) ? parseInt(rowId, 10) : Number.NaN;
-  const feature =
-    !Number.isNaN(numeric) && numeric >= 1 && numeric <= ROADMAP_DATA.features.length
-      ? ROADMAP_DATA.features[numeric - 1]
-      : null;
+  const feature = findRoadmapFeatureById(rowId) ?? null;
 
   const configuredValue = feature?.devLogDocPath?.trim() || null;
   const configuredPath = feature ? resolveConfiguredDevLogDocPath(feature) : null;
@@ -47,7 +42,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }
 
-  const rowId = normalizeRowIdInput(request.nextUrl.searchParams.get('rowId') ?? '');
+  const rowId = normalizeRoadmapFeatureId(request.nextUrl.searchParams.get('rowId') ?? '');
   if (!rowId) {
     return NextResponse.json({ error: 'Missing rowId parameter' }, { status: 400 });
   }

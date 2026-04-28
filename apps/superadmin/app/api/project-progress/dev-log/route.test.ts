@@ -7,21 +7,25 @@ jest.mock('fs', () => ({
 }));
 
 jest.mock('@/app/data/roadmap', () => ({
-  ROADMAP_DATA: {
-    features: [
+  normalizeRoadmapFeatureId: (raw: string) => raw.trim().padStart(3, '0'),
+  findRoadmapFeatureById: (id: string) => {
+    const features = [
       {
+        id: '001',
         name: 'Feature 1',
         category: '測試',
         percentage: 10,
         devLogDocPath: '/docs/operational-guides/transcript-parsing-guide.md',
       },
       {
+        id: '002',
         name: 'Feature 2',
         category: '測試',
         percentage: 10,
         devLogDocPath: '/project-process/dev-logs/not-markdown.txt',
       },
-    ],
+    ];
+    return features.find((feature) => feature.id === id);
   },
 }));
 
