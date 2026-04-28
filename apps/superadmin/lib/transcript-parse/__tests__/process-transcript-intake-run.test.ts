@@ -298,7 +298,10 @@ describe('processTranscriptIntakeRunById', () => {
           expect.objectContaining({
             provider: 'anthropic',
             model: 'claude-opus-4-20250514',
-            markdown: expect.stringContaining('## 這個 parser 看到的東西'),
+            markdown: expect.stringContaining('## 第二段：我看到的內容'),
+            standardReport: expect.objectContaining({
+              structuredJson: expect.objectContaining({ kind: 'building' }),
+            }),
             observations: expect.arrayContaining([
               expect.stringContaining('看到建號：001建號'),
             ]),

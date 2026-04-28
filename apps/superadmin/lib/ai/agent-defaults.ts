@@ -139,11 +139,11 @@ export const AGENT_DEFAULTS: Record<string, AgentAssignmentDefault> = {
         config: { temperature: 0, max_tokens: 4096, reasoning_effort: 'high' },
       },
       {
-        ...fb('gemini', 'gemini-2.0-flash', 'cost_over'),
+        ...fb('gemini', 'gemini-1.5-pro', 'cost_over'),
         config: { temperature: 0, max_tokens: 4096, reasoning_effort: 'high' },
       },
     ],
-    '謄本與權狀初判：Gemini 3.1 Pro Preview 為主，temperature 0、thinking level high；權狀需優先判為 land_title / building_title，沒有明確車位證據不得推測車位。',
+    '謄本與權狀初判：Gemini 3.1 Pro Preview 為主，temperature 0、thinking level high；移除 Gemini 2.0 Flash，fallback 保留 Claude Opus、GPT-5.5 與 Gemini Pro；權狀需優先判為 land_title / building_title，沒有明確車位證據不得推測車位。',
   ),
 
   transcript_review: defaults(

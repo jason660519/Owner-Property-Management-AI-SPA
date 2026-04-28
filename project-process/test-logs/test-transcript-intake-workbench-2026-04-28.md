@@ -412,3 +412,51 @@ npm test --workspace superadmin -- --runTestsByPath components/admin/properties/
 cd apps/superadmin && npx tsc --noEmit
 git diff --check
 ```
+
+## 2026-04-29 AI 報告制式規格驗證
+
+### 本日完成任務清單
+
+- 新增 `standardReport` 型別與 normalizer，覆蓋 Parser、Verify / Review、Detail Builder 三階段。
+- 新增 consensus matrix regression，確認欄位可分類為 100% 相同、多數相同、單一來源、全部不同與人工審核。
+- 更新 process worker regression，確認 parserReports 會保存 `standardReport` 並產生新版六段式 Markdown。
+- 重跑 intake AI fallback tests，確認新增 optional report 欄位不破壞既有 Detect / Review / Detail Builder chain。
+
+### 交付物與完成度
+
+- 測試完成度：100%。
+- 結果：3 suites / 14 tests 全部通過。
+
+### 踩雷事件與預防指標
+
+- 數字字串需正規化；`88.5` 與 `88.50` 應視為同值。
+- 若 reviewer/detail builder 只收到 Markdown，無法可靠計算模型間欄位共識。
+
+### 實際執行命令
+
+```bash
+npm test --workspace superadmin -- lib/transcript-parse/__tests__/report-standard.test.ts lib/transcript-parse/__tests__/intake-ai.test.ts lib/transcript-parse/__tests__/process-transcript-intake-run.test.ts --runInBand
+npx tsc --noEmit --project apps/superadmin/tsconfig.json
+```
+
+## 2026-04-29 Detect 候補狀態與 Gemini Flash 移除驗證
+
+### 本日完成任務清單
+
+- 更新 AI 品質追蹤 component regression，確認 Detect 單一模型成功時，其他 pending 模型顯示為 `候補未執行`。
+- 重跑 agent defaults regression，確認 transcript detection factory default 不再使用 `gemini-2.0-flash`。
+- 重跑 intake AI 與 process worker regression，確認 fallback chain event 與 trace 不受 UI label 調整影響。
+- 套用本機 DB migration，確認 `transcript_detection` fallback 第三順位已改為 `gemini-1.5-pro`。
+
+### 交付物與完成度
+
+- 測試完成度：100%。
+- 結果：4 suites / 73 tests 全部通過。
+
+### 實際執行命令
+
+```bash
+npm test --workspace superadmin -- components/admin/properties/__tests__/TranscriptAiStageTracePanel.test.tsx lib/ai/__tests__/agent-defaults.test.ts lib/transcript-parse/__tests__/intake-ai.test.ts lib/transcript-parse/__tests__/process-transcript-intake-run.test.ts --runInBand --forceExit
+npx tsc --noEmit --project apps/superadmin/tsconfig.json
+psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/migrations/20260429120000_replace_transcript_detection_gemini_flash.sql
+```

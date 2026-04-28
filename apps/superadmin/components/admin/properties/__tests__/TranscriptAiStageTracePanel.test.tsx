@@ -277,6 +277,38 @@ describe('TranscriptAiStageTracePanel', () => {
     expect(screen.getByRole('link', { name: /審查報告/ })).toHaveAttribute('href', '/review-report');
   });
 
+  it('labels unlaunched fallback candidates after a single-model detect success', () => {
+    render(<TranscriptAiStageTracePanel run={{
+      ...baseRun,
+      status: 'needs_user_confirmation',
+      currentPhase: 'needs_user_confirmation',
+      parsedResult: {
+        aiStageTrace: [{
+          stage: 'detect',
+          label: 'Detect 初判',
+          status: 'success',
+          engine: 'vlm_ai',
+          durationMs: 20800,
+          agentKey: 'transcript_detection',
+          moduleKey: 'transcript.intake.detect',
+          models: [
+            { provider: 'gemini', model: 'gemini-3.1-pro-preview', role: 'detect', status: 'success', durationMs: 20700 },
+            { provider: 'anthropic', model: 'claude-opus-4-5-20251101', role: 'detect', status: 'pending' },
+            { provider: 'openai', model: 'gpt-5.5', role: 'detect', status: 'pending' },
+            { provider: 'gemini', model: 'gemini-1.5-pro', role: 'detect', status: 'pending' },
+          ],
+          summary: ['物件型態：unit_building_with_land_share_sale'],
+          corrections: [],
+          warnings: [],
+        }],
+      },
+    }} />);
+
+    expect(screen.getByText('detect: gemini/gemini-3.1-pro-preview')).toBeInTheDocument();
+    expect(screen.getByText('花費 20.7 秒')).toBeInTheDocument();
+    expect(screen.getAllByText('候補未執行')).toHaveLength(3);
+  });
+
   it('numbers warning and manual-confirmation items', () => {
     render(<TranscriptAiStageTracePanel run={{
       ...baseRun,

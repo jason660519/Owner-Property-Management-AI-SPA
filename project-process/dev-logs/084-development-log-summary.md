@@ -376,3 +376,73 @@
 ### 明日優先工作項目與預估工時
 
 - 實機重跑混合 PDF，確認畫面失敗狀態與模型錯誤顯示清楚：1h。
+
+## 2026-04-29 AI 報告制式規格升級
+
+### 本日完成任務清單
+
+- 新增 transcript `standardReport` contract，讓 Parser、Verify / Review、Detail Builder 都輸出可機器比較的制式報告資料。
+- 新增 consensus matrix 工具，將多模型 structured JSON 分為 100% 相同、多數相同、單一來源、全部不同與需要人工審核 items。
+- `/api/transcript-intake/runs/[id]/ai-reports` 改為六段式 Markdown：報告人與時間、看到的內容、最終 Structured JSON、缺漏資訊、面積計算、初步明細與信心分數。
+- Parser report fallback 會從既有 raw output 產生基本 `standardReport`，舊資料仍可輸出新版制式報告。
+- 新增 saved_prompts migration `20260429110000_standardize_transcript_ai_reports.sql`，避免 DB prompt 覆蓋程式碼 fallback 規格。
+
+### 交付物與完成度
+
+- AI report standardization：100%。
+- 狀態：In Review。
+
+### 遭遇困難與根因分析
+
+- 原先 report 偏 debug dump，缺少逐頁觀察、缺漏資訊、計算結果與一致性比對欄位。
+- 共識比對不能只讀 Markdown，必須用 normalized structured JSON；因此新增共用 consensus matrix，而不是讓後續 AI 再解析人類文字。
+
+### 踩雷事件與預防指標
+
+- `88.5` 與 `88.50` 這類等價數字字串若不正規化，會被誤判成模型衝突。
+- 若 report 只有 Markdown、沒有 `standardReport`，代表後續 reviewer/detail builder 無法穩定做欄位級比對。
+
+### 下次避免措施
+
+- 新增 report-standard regression，覆蓋 100% / 多數 / 單一來源 / 全部不同分類。
+- 後續任何 AI report UI 改版都應讀 `standardReport`，Markdown 只作呈現層。
+
+### 實際執行命令
+
+```bash
+npm test --workspace superadmin -- lib/transcript-parse/__tests__/report-standard.test.ts lib/transcript-parse/__tests__/intake-ai.test.ts lib/transcript-parse/__tests__/process-transcript-intake-run.test.ts --runInBand
+npx tsc --noEmit --project apps/superadmin/tsconfig.json
+```
+
+## 2026-04-29 Detect 候補模型顯示與 Gemini Flash 移除
+
+### 本日完成任務清單
+
+- AI 品質追蹤的模型 chip 現在明確顯示 `已執行`、`執行中`、`失敗`、`已取消`、`候補等待` 或 `候補未執行`。
+- 修正 Detect fallback chain 完成後只看到一個模型有計時卻不知道其他模型是否執行的 UX 問題。
+- `transcript_detection` factory default 與本機 DB assignment 移除 `gemini/gemini-2.0-flash`，改用 `gemini/gemini-1.5-pro` 作 Gemini Pro fallback。
+- 新增 migration `20260429120000_replace_transcript_detection_gemini_flash.sql`，fresh DB 與既有 DB 都會套用新的 detection chain。
+
+### 交付物與完成度
+
+- Detect trace clarity hotfix：100%。
+- Gemini 2.0 Flash removal from transcript detection：100%。
+- 狀態：In Review。
+
+### 遭遇困難與根因分析
+
+- Detect / Detail Builder 是依序 fallback，不是 parser/reviewer 的三模型並行 ensemble。第一個模型成功時，後續候補不會執行，原 UI 只列出候選模型名稱，未標示候補狀態。
+- `gemini-2.0-flash` 留在 detection cost_over fallback，對權狀與車位初判品質不足。
+
+### 踩雷事件與預防指標
+
+- 若完成階段的模型 chip 沒有 `已執行` 或 `候補未執行`，user 會誤以為所有候選都已經跑過但只有一個有計時。
+- 若 transcript detection chain 仍出現 `gemini-2.0-flash`，代表 DB assignment 或 factory default 未同步。
+
+### 實際執行命令
+
+```bash
+npm test --workspace superadmin -- components/admin/properties/__tests__/TranscriptAiStageTracePanel.test.tsx lib/ai/__tests__/agent-defaults.test.ts lib/transcript-parse/__tests__/intake-ai.test.ts lib/transcript-parse/__tests__/process-transcript-intake-run.test.ts --runInBand --forceExit
+npx tsc --noEmit --project apps/superadmin/tsconfig.json
+psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/migrations/20260429120000_replace_transcript_detection_gemini_flash.sql
+```

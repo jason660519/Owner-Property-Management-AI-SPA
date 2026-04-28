@@ -17,7 +17,7 @@ export const TRANSCRIPT_PARSE_PROMPT = `你是台灣不動產「建物／土地�
 1) 先做「視覺文字轉錄」：像 OCR 一樣逐區塊閱讀文件，把你看見的標題、欄名、數字、地號、建號、權利範圍、面積、門牌、所有權人、字號在內部完整整理後，才開始填 JSON。
 2) 不要一開始就套 schema 而跳過小字、印章旁、表格邊緣或上下欄位；權狀 JPG/PNG/PDF 掃描影本尤其要先看完全部可見文字。
 3) 判定文件種類（建物謄本、土地謄本、建物權狀、土地權狀、混合文件），並填入 kind。
-4) 嚴格依照下方 schema 輸出，欄位名稱不可更動、不可增減、不可用同義字。
+4) 嚴格依照下方 schema 輸出，既有欄位名稱不可更動；可且必須額外輸出 standardReport 作為可審查報告資料。
 5) 找不到的值用空字串 "" 或空陣列 []（不要猜、不要編造）。
 6) 所有陣列請「依登記次序 seq 由小到大排序」，並保留前導零（例如 "0003"）。
 
@@ -327,9 +327,20 @@ export const TRANSCRIPT_PARSE_PROMPT = `你是台灣不動產「建物／土地�
   - encumbrances.id = "encumbrance-" + seq
   - mainBuildings 若多筆：用 "main-1", "main-2"...
   - annexedBuildings 若多筆：用 "annex-1", "annex-2"...
-  - commonAreas 若多筆：用 "common-1", "common-2"...
+- commonAreas 若多筆：用 "common-1", "common-2"...
 - 日期、面積、金額、字號等：以原始文件記載為準，勿自行換算；格式不明確就保留原文。
-- 若文件模糊無法辨識：該欄位填 ""，不要猜。`;
+- 若文件模糊無法辨識：該欄位填 ""，不要猜。
+
+standardReport（必填，供工作台產生制式解析成果報告）：
+- reportMeta：stage 固定 "parse"，company 填 provider 公司名，model 填模型型號，generatedAt 填目前日期時間或空字串。
+- documentInventory：列出 user 上傳了幾份文件、分別是什麼、每份頁數與大致文件架構。
+- pageObservations：逐頁列出你看到什麼；visibleText 必須盡量列出該頁所有可見文字。若頁數很多，至少完整列出每個 authoritative 頁。
+- structuredJson：放你判斷的最終標的物結構化 JSON，可與外層 buildingTranscript/landTranscript 對應。
+- missingInformation：列出 user 提供文件缺少哪些重要資訊。
+- calculations：列出建物、土地、車位面積與持分計算，保留平方公尺與原始持分。
+- preliminarySummary：列出物件初步內容與建物、土地、車位面積明細表應有狀況。
+- confidence.overall：0 到 1；confidence.fieldLevel 可列重要欄位信心。
+- humanReviewRequired：列出需要人類確認的欄位或頁面。`;
 
 /** 雲端解析時依 DB 文件類型強制對應的 JSON kind／主要填入區塊 */
 export type TranscriptFileParseKind = 'building' | 'land' | 'auto';

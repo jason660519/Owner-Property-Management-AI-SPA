@@ -72,6 +72,7 @@ export const TRANSCRIPT_INTAKE_PARSE_PROMPT = `你是台灣不動產謄本結構
 8. 車位若為公設產權，請從共有部分、附屬建物、停車空間、權利範圍等文字找證據。
 9. 每個非空重要欄位都應能回溯到原文；無法確認時填空字串或空陣列。
 10. 權狀常見欄位如「所有權狀字號／權狀字號、所有權人、建號、地號、面積、權利範圍、坐落、門牌」應盡量擷取；權狀沒有謄本標示部／所有權部章節時，不要因此判定不可解析。
+11. 另輸出 standardReport，供工作台產生制式解析成果報告；其中 pageObservations.visibleText 必須逐頁列出可見文字，structuredJson 放本 parser 判斷的最終標的物 JSON，missingInformation/calculations/preliminarySummary/confidence/humanReviewRequired 必須填寫。
 
 只輸出嚴格 JSON，不要 markdown、不要解說。`;
 
@@ -104,6 +105,16 @@ export const TRANSCRIPT_INTAKE_REVIEW_PROMPT = `你是台灣不動產謄本解�
    - 0.50-0.69：可指出主要問題，但仍有多個欄位證據不足。
    - 0.30-0.49：文件不清楚、parser 分歧大，僅能提出低信心判斷。
    - 低於 0.30：幾乎無法審查或原始文件不可讀。
+
+制式審查報告資料：
+- 必須輸出 standardReport。
+- standardReport.reportMeta.stage 固定 "review"，company 填 provider 公司名，model 填模型型號，generatedAt 填目前日期時間或空字串。
+- standardReport.consensusMatrix 必須比較三個 parser 與你自己的 structuredJson：allAgree=100% 相同，majorityAgree=至少兩人相同，singleSource=只有一人提供，allDiffer=我們四個都不同，humanReviewRequired=需要人類審核的 items。
+- standardReport.structuredJson 放你綜合三個 parser 與自己審查後判斷的最終標的物 JSON。
+- standardReport.missingInformation 要回答 parser 說少的資訊你有沒有找到；找不到就列入 humanReviewRequired。
+- standardReport.calculations 要列建物、土地、車位面積與持分計算。
+- standardReport.preliminarySummary 要列物件初步內容及建物、土地、車位面積明細表應有狀況。
+- standardReport.confidence.overall 是你對審查結論的信心，0 到 1。
 
 只輸出嚴格 JSON，不要 markdown。
 
@@ -140,7 +151,33 @@ export const TRANSCRIPT_INTAKE_REVIEW_PROMPT = `你是台灣不動產謄本解�
       ]
     }
   ],
-  "doubleCheckSummary": []
+  "doubleCheckSummary": [],
+  "standardReport": {
+    "reportMeta": {
+      "stage": "review",
+      "company": "",
+      "provider": "",
+      "model": "",
+      "generatedAt": "",
+      "roleLabel": "Reviewer"
+    },
+    "documentInventory": [],
+    "pageObservations": [],
+    "observedContentSummary": [],
+    "structuredJson": {},
+    "consensusMatrix": {
+      "allAgree": [],
+      "majorityAgree": [],
+      "singleSource": [],
+      "allDiffer": [],
+      "humanReviewRequired": []
+    },
+    "missingInformation": [],
+    "calculations": [],
+    "preliminarySummary": [],
+    "confidence": { "overall": 0, "fieldLevel": [] },
+    "humanReviewRequired": []
+  }
 }`;
 
 export const TRANSCRIPT_INTAKE_DETAIL_BUILDER_PROMPT = `你是台灣不動產謄本與權狀的明細表草稿產生器。
@@ -161,7 +198,12 @@ export const TRANSCRIPT_INTAKE_DETAIL_BUILDER_PROMPT = `你是台灣不動產謄
 10. 獨立車位建物若同一建號含主建物、附屬建物、共有部分，且所有權部另有車位整體權利範圍，例如「84分之2」，請把「84分之2」填入每列 parkingBuildingAreas[].groupShareRatio；該列 shareRatio 只放單一組成項目的權利範圍，例如主建物/附屬建物填「全部」，共有部分填「100000分之1745」。
 11. 若 route_decision.documents[].pages 顯示該頁 sourceTrust=reference_only 或 ignore，該頁不可成為明細列的 sourcePage；只能用於 warnings 或 userConfirmationRequired。
 12. 不動產說明書或物件調查報告書中的坪數可用來檢查謄本解析是否疑似錯誤，但不可當成正確答案直接填表。
-13. 只輸出嚴格 JSON，不要 markdown。
+13. 必須輸出 standardReport，供工作台產生制式明細草稿報告。standardReport.consensusMatrix 要比較三份 Verify / Review 審查報告與你自己的 structuredJson；allDiffer 與 humanReviewRequired 必須列出需要人類審核的 items。
+14. standardReport.structuredJson 放你綜合三位 reviewer 與自己審查後判斷的最終標的物 JSON。
+15. standardReport.missingInformation 要回答 Reviewer 說少的資訊你有沒有找到；找不到就列入 humanReviewRequired。
+16. standardReport.calculations 要列建物、土地、車位面積與持分計算。
+17. standardReport.preliminarySummary 要列物件初步內容及建物、土地、車位面積明細表應有狀況。
+18. 只輸出嚴格 JSON，不要 markdown。
 
 輸出 schema：
 {
@@ -196,5 +238,32 @@ export const TRANSCRIPT_INTAKE_DETAIL_BUILDER_PROMPT = `你是台灣不動產謄
   "summary": [],
   "warnings": [],
   "userConfirmationRequired": [],
-  "confidence": 0
+  "confidence": 0,
+  "standardReport": {
+    "reportMeta": {
+      "stage": "detail_builder",
+      "company": "",
+      "provider": "",
+      "model": "",
+      "generatedAt": "",
+      "roleLabel": "Detail Builder"
+    },
+    "documentInventory": [],
+    "pageObservations": [],
+    "observedContentSummary": [],
+    "structuredJson": {},
+    "consensusMatrix": {
+      "allAgree": [],
+      "majorityAgree": [],
+      "singleSource": [],
+      "allDiffer": [],
+      "humanReviewRequired": []
+    },
+    "missingInformation": [],
+    "calculations": [],
+    "preliminarySummary": [],
+    "areaDetailDraft": {},
+    "confidence": { "overall": 0, "fieldLevel": [] },
+    "humanReviewRequired": []
+  }
 }`;

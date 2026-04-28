@@ -18,6 +18,7 @@ import {
   mergeTranscriptReviewAttempts,
   normalizeReviewConfidence,
 } from '@/lib/transcript-parse/intake-review-merge';
+import { normalizeStandardReport } from '@/lib/transcript-parse/report-standard';
 import {
   TRANSCRIPT_INTAKE_DETAIL_BUILDER_MODULE_KEY,
   TRANSCRIPT_INTAKE_DETAIL_BUILDER_PROMPT,
@@ -369,6 +370,7 @@ function normalizeReviewResult(raw: unknown): TranscriptReviewResult {
       : [],
     fieldDecisions,
     doubleCheckSummary: normalizeStringArray(obj.doubleCheckSummary),
+    standardReport: normalizeStandardReport(obj.standardReport),
   };
 }
 
@@ -388,6 +390,7 @@ function normalizeDetailBuilderResult(raw: unknown): TranscriptDetailBuilderResu
     warnings: normalizeStringArray(obj.warnings),
     userConfirmationRequired: normalizeStringArray(obj.userConfirmationRequired),
     confidence: normalizeReviewConfidence(obj.confidence),
+    standardReport: normalizeStandardReport(obj.standardReport),
   };
 }
 

@@ -1545,8 +1545,8 @@ const RAW_FEATURES: RoadmapFeature[] = [
     developmentProgress:
       "[2026/04/28] (Codex)\n• 完成今日進度報告回寫：TDD Progress Report 指向 2026-04-28 版本，Development Log Summary 補上完成清單、困難、踩雷、避免措施與明日優先順序。\n• Reviewer confidence 顯示語意改為審查信心，後端新增 confidence calibration，避免把 parser 結果很差誤讀成 reviewer 審查信心很低。\n• Parser/reviewer fallback runner 改為候選最多 5 個、目標 3 份成功報告；達標後立即取消 active provider 並進入下一階段。\n• 新增 detail_builder stage，由單一 VLM 整合 parser/reviewer 報告與原始文件，產生四大明細草稿並列出需人工確認項目。\n• 新增資料 migration 20260428110000_replace_transcript_audit_gpt55，將 transcript_audit 預設移除 openai/gpt-5.5，改由 Claude / Gemini / Grok 為前三順位，OpenAI GPT-5.3 作 fallback。\n• 修正 project-progress ID 漂移問題：roadmap feature 新增固定 id 欄位，Development Tab、phase tabs、dev-log API、roadmap context API、Paperclip dispatch 改讀 Feature ID，不再用陣列順序推算；統一謄本解析工作台正式校正為 Feature ID 084。\n\n[2026/04/29] (Codex)\n• Sprint 3 狀態：In Review。\n• 完成 page-level classifier、authoritative/reference source split、prompt/migration 同步與明細來源標記。\n• 驗證：targeted Jest 20/20、tsc --noEmit、validate-test-manifest.sh、git diff --check 通過。\n• 車位坪數 hotfix：BuildingLandAreaDetailTab regression 28/28 通過，實機頁面確認車位建物外層持分已套用。\n• Detect / Detail Builder fallback hotfix：intake-ai 3/3、ai-api-callers 4/4、process worker 10/10 通過；AI 全部候選失敗時不產生假草稿，直接標記 failed 並顯示模型錯誤。",
     devLogDocPath: "/project-process/dev-logs/084-development-log-summary.md",
-    testScriptCount: 27,
-    testScriptPassedCount: 27,
+    testScriptCount: 28,
+    testScriptPassedCount: 28,
     testScriptPath: "apps/superadmin/unit_test/084",
     testLogDocPath: "/project-process/test-logs/test-transcript-intake-workbench-2026-04-28.md",
     phase: "testing",
@@ -2855,7 +2855,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/29 Feature ID 084 no processor seed on AI failure",
+  lastUpdated: "2026/04/29 Feature ID 084 detect fallback clarity and Gemini Flash removal",
   features: RAW_FEATURES.map((f, index) => ({
     ...f,
     id: normalizeRoadmapFeatureId(f.id) || formatGeneratedRoadmapFeatureId(index),

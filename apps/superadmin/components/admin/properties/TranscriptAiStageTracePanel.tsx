@@ -307,10 +307,6 @@ function modelReportLabel(role: string): string {
   return role === 'review' ? '審查報告' : '解析報告';
 }
 
-function modelIsStillRunning(model: StageModel): boolean {
-  return model.status === 'running' || (!model.status && typeof model.durationMs !== 'number' && !model.errorMessage);
-}
-
 function modelStartedAtMs(model: StageModel): number | null {
   if (!model.startedAt) return null;
   const time = new Date(model.startedAt).getTime();
@@ -359,6 +355,27 @@ function inferredRunningModelStartedAt(params: {
     .flatMap((model) => typeof model.durationMs === 'number' ? [model.durationMs] : []);
   if (!params.stageStartedAtMs || !priorTerminalDurations.length) return params.stageStartedAtMs;
   return params.stageStartedAtMs + Math.min(...priorTerminalDurations);
+}
+
+function modelStatusLabel(model: StageModel, isActive: boolean, modelStart: number | null): string {
+  if (model.status === 'error' || model.errorMessage) return '失敗';
+  if (model.status === 'cancelled') return '已取消';
+  if (model.status === 'skipped') return '候補未執行';
+  if (model.status === 'running' || modelStart !== null) return '執行中';
+  if (model.status === 'success' || typeof model.durationMs === 'number') return '已執行';
+  if (model.status === 'pending' && isActive) return '候補等待';
+  if (model.status === 'pending') return '候補未執行';
+  if (!isActive && !model.status && typeof model.durationMs !== 'number') return '候補未執行';
+  return '狀態未記錄';
+}
+
+function modelStatusClass(label: string): string {
+  if (label === '執行中') return 'text-accent';
+  if (label === '已執行') return 'text-green-700';
+  if (label === '失敗') return 'text-yellow-700';
+  if (label === '已取消') return 'text-text-muted';
+  if (label === '候補未執行' || label === '候補等待') return 'text-text-muted';
+  return 'text-text-secondary';
 }
 
 function displaySummary(trace: StageTrace, isActive: boolean): string[] {
@@ -450,11 +467,8 @@ export function TranscriptAiStageTracePanel({ run }: TranscriptAiStageTracePanel
                     models: trace.models,
                     stageStartedAtMs: startedAt,
                   });
-                  const modelElapsedMs = modelStart !== null
-                    ? now - modelStart
-                    : isActive && modelIsStillRunning(model)
-                      ? elapsedMs
-                    : null;
+                  const modelElapsedMs = modelStart !== null ? now - modelStart : null;
+                  const statusText = modelStatusLabel(model, isActive, modelStart);
                   const reportUrl = typeof model.reportUrl === 'string' ? model.reportUrl : null;
                   return (
                     <span
@@ -462,6 +476,7 @@ export function TranscriptAiStageTracePanel({ run }: TranscriptAiStageTracePanel
                       className="inline-flex items-center gap-1.5 rounded border border-border-default bg-bg-secondary px-2 py-1 text-[11px] text-text-secondary"
                     >
                       <span>{model.role}: {model.provider}/{model.model}</span>
+                      <span className={modelStatusClass(statusText)}>{statusText}</span>
                       {modelElapsedMs !== null ? (
                         <span className="text-accent">工作中 {formatDuration(modelElapsedMs)}</span>
                       ) : typeof model.durationMs === 'number' ? (

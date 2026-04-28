@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-28-feature-id-084",
+  "updatedAt": "2026-04-29-feature-id-084-report-standard",
   "entries": [
     {
       "id": "common-smoke",
@@ -159,6 +159,7 @@
         "apps/superadmin/lib/transcript-parse/__tests__/intake-router.test.ts",
         "apps/superadmin/lib/transcript-parse/__tests__/intake-router.samples.test.ts",
         "apps/superadmin/lib/transcript-parse/__tests__/intake-page-classifier.test.ts",
+        "apps/superadmin/lib/transcript-parse/__tests__/report-standard.test.ts",
         "apps/superadmin/lib/transcript-parse/__tests__/confirmed-result-to-property-details.test.ts",
         "apps/superadmin/lib/transcript-parse/__tests__/process-transcript-intake-run.test.ts",
         "apps/superadmin/app/api/transcript-intake/runs/__tests__/route.test.ts",

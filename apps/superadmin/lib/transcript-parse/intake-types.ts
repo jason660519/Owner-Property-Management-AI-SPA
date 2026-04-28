@@ -98,6 +98,87 @@ export interface TranscriptEvidenceRef {
   };
 }
 
+export type TranscriptStandardReportStage = 'parse' | 'review' | 'detail_builder';
+
+export interface TranscriptStandardReportMeta {
+  stage: TranscriptStandardReportStage;
+  company: string;
+  provider: string;
+  model: string;
+  generatedAt: string;
+  runId?: string;
+  roleLabel?: string;
+}
+
+export interface TranscriptDocumentInventoryItem {
+  documentId?: string;
+  documentName?: string | null;
+  documentKind?: string;
+  pageCount?: number | null;
+  structureSummary: string[];
+}
+
+export interface TranscriptPageObservation {
+  documentId?: string;
+  documentName?: string | null;
+  page: number;
+  summary: string;
+  visibleText: string[];
+  sourceTrust?: TranscriptPageSourceTrust;
+  evidence?: TranscriptEvidenceRef[];
+}
+
+export interface TranscriptConsensusItem {
+  fieldPath: string;
+  value: unknown;
+  participants: string[];
+  evidence?: TranscriptEvidenceRef[];
+  note?: string;
+}
+
+export interface TranscriptConsensusMatrix {
+  allAgree: TranscriptConsensusItem[];
+  majorityAgree: TranscriptConsensusItem[];
+  singleSource: TranscriptConsensusItem[];
+  allDiffer: TranscriptConsensusItem[];
+  humanReviewRequired: TranscriptConsensusItem[];
+}
+
+export interface TranscriptAreaCalculation {
+  category: 'building' | 'land' | 'parking_building' | 'parking_land' | 'other';
+  label: string;
+  areaSqm?: string;
+  shareRatio?: string;
+  calculatedAreaSqm?: string;
+  formula?: string;
+  confidence?: number;
+  evidence?: TranscriptEvidenceRef[];
+}
+
+export interface TranscriptReportFieldConfidence {
+  fieldPath: string;
+  confidence: number;
+  rationale?: string;
+}
+
+export interface TranscriptStandardReport {
+  reportMeta?: TranscriptStandardReportMeta;
+  documentInventory: TranscriptDocumentInventoryItem[];
+  pageObservations: TranscriptPageObservation[];
+  observedContentSummary: string[];
+  structuredJson?: unknown;
+  consensusMatrix?: TranscriptConsensusMatrix;
+  missingInformation: string[];
+  calculations: TranscriptAreaCalculation[];
+  preliminarySummary: string[];
+  areaDetailDraft?: unknown;
+  confidence: {
+    overall: number;
+    fieldLevel: TranscriptReportFieldConfidence[];
+  };
+  humanReviewRequired: string[];
+}
+
 export interface TranscriptDetectionResult {
   dispositionKind: TranscriptDispositionKind;
   documentKinds: TranscriptDocumentKind[];
@@ -133,6 +214,7 @@ export interface TranscriptReviewResult {
   reviewerModels?: TranscriptIntakeAiStageModel[];
   reviewerErrors?: string[];
   reviewerReports?: TranscriptReviewerReport[];
+  standardReport?: TranscriptStandardReport;
 }
 
 export interface TranscriptReviewFieldDecision {
@@ -217,6 +299,7 @@ export interface TranscriptParserReport {
   documentCount: number;
   observations: string[];
   markdown: string;
+  standardReport?: TranscriptStandardReport;
   documents: Array<{
     documentId: string;
     durationMs?: number | null;
@@ -270,4 +353,5 @@ export interface TranscriptDetailBuilderResult {
   warnings: string[];
   userConfirmationRequired: string[];
   confidence: number;
+  standardReport?: TranscriptStandardReport;
 }
