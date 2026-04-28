@@ -460,3 +460,31 @@ npm test --workspace superadmin -- components/admin/properties/__tests__/Transcr
 npx tsc --noEmit --project apps/superadmin/tsconfig.json
 psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/migrations/20260429120000_replace_transcript_detection_gemini_flash.sql
 ```
+
+## 2026-04-29 今日進度整合驗證
+
+### 覆蓋範圍
+
+- AI 報告制式規格：`standardReport` normalizer、consensus matrix、parserReports 保存與六段式 Markdown 產生。
+- Detect / Detail Builder fallback：候選模型依序 fallback、畸形 JSON 轉交下一模型、全候選失敗時不產生 processor seed。
+- AI 品質追蹤 UI：Detect 第一個模型成功時，後續候補顯示 `候補未執行`，避免被誤解為漏計時。
+- Agent defaults：`transcript_detection` fallback chain 不再包含 `gemini/gemini-2.0-flash`。
+- Roadmap governance：Feature ID 084 的 test script count、TDD Progress Report、Development Log Summary、unit_test/084 索引與 test manifest 同步。
+
+### 驗證結果
+
+- `npm test --workspace superadmin -- components/admin/properties/__tests__/TranscriptAiStageTracePanel.test.tsx lib/ai/__tests__/agent-defaults.test.ts lib/transcript-parse/__tests__/report-standard.test.ts lib/transcript-parse/__tests__/intake-ai.test.ts lib/transcript-parse/__tests__/process-transcript-intake-run.test.ts app/data/roadmap.test.ts --runInBand --forceExit`
+  - 結果：6 suites / 76 tests passed。
+- `npx tsc --noEmit --project apps/superadmin/tsconfig.json`
+  - 結果：passed。
+- `bash tools/testing/validate-test-manifest.sh`
+  - 結果：passed，22 entries。
+- `git diff --check`
+  - 結果：passed。
+- `psql ... where agent_key='transcript_detection'`
+  - 結果：本機 DB primary 為 `gemini/gemini-3.1-pro-preview`，fallbacks 為 Claude Opus、GPT-5.5、Gemini 1.5 Pro，未再包含 Gemini 2.0 Flash。
+
+### 殘餘風險
+
+- Jest targeted run 仍需 `--forceExit` 避免既有 open handle 卡住；明日需以 `--detectOpenHandles` 追蹤。
+- `standardReport.pageObservations` 的逐頁 visibleText 完整度仍依模型輸出品質而定；紅框 evidence 對位前需再以真實混合 PDF 驗證。

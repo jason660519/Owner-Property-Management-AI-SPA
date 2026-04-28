@@ -446,3 +446,79 @@ npm test --workspace superadmin -- components/admin/properties/__tests__/Transcr
 npx tsc --noEmit --project apps/superadmin/tsconfig.json
 psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/migrations/20260429120000_replace_transcript_detection_gemini_flash.sql
 ```
+
+## 2026-04-29 今日工作進度報告（Feature 084）
+
+### 本日完成之任務清單
+
+- AI 報告制式規格升級：100%。交付 `standardReport` contract、Parser / Verify Review / Detail Builder 六段式報告、consensus matrix、舊資料 fallback report、`ai-reports` Markdown API 呈現與 saved_prompts migration。
+- Detect / Detail Builder fallback 修正：100%。交付 agent chain 依序 fallback、畸形 JSON 轉交下一候選模型、各候選模型 trace event、保守 JSON extractor 與 regression tests。
+- 移除 AI 全失敗時的 processor seed 草稿：100%。交付 no fabricated seed data policy，Detect / Review / Detail Builder 全候選失敗時標記 `failed`，不產生可儲存假草稿。
+- Detect 候補模型顯示修正：100%。交付 AI 品質追蹤模型 chip 狀態：`已執行`、`執行中`、`失敗`、`已取消`、`候補等待`、`候補未執行`。
+- 移除 `gemini/gemini-2.0-flash`：100%。交付 `transcript_detection` factory default 更新、DB assignment migration、並已於本機資料庫套用與查詢驗證。
+- 車位建物坪數修正：100%。交付 `groupShareRatio` 外層持分計算，實機案例由 1054.88㎡ / 319.10坪 修正為 25.12㎡ / 7.60坪。
+- 專案進度與測試治理文件更新：100%。交付 roadmap Feature 084 欄位、Development Log Summary、TDD Progress Report、test manifest 與 unit_test/084 索引同步。
+
+### 遭遇之技術或流程困難
+
+- 問題現象：Detect 初判畫面只有一個模型顯示耗時，其他候選模型只顯示名稱，使用者無法判斷是候補、未執行或漏跑。
+  排查過程：檢查 `TranscriptAiStageTracePanel` 的 model chip render 邏輯與 trace model status，確認候選模型清單與實際執行模型混在同一個呈現層。
+  根因分析：Detect / Detail Builder 是依序 fallback，不是三模型並行 ensemble；第一個模型成功後，後續候補本來就不應執行，但 UI 沒有 terminal 狀態標籤。
+  最終解法：新增候補狀態文案與 component regression，完成後清楚標示 `已執行` 與 `候補未執行`。
+
+- 問題現象：Parser / Reviewer / Detail Builder 的報告偏 debug dump，缺少逐頁可見文字、缺漏資訊、計算結果與欄位一致性比對。
+  排查過程：比對既有 parserReports、reviewerReports 與 detailBuilder result 結構，確認 Markdown 呈現不足以讓下一階段 AI 穩定比較。
+  根因分析：報告規格只服務人類閱讀，未形成可機器比較的欄位級 `standardReport`。
+  最終解法：新增 `standardReport` typed contract 與 consensus matrix，Markdown 只作呈現層，後續 AI 與 UI 可直接讀 structured data。
+
+- 問題現象：`gemini-2.0-flash` 仍出現在 detection fallback chain，對權狀、車位與混合文件初判品質不足。
+  排查過程：檢查 `AGENT_DEFAULTS` 與本機 `ai_agent_model_assignments`，確認程式碼預設與既有 DB assignment 都需要同步更新。
+  根因分析：只改 factory default 不會覆蓋已存在資料庫 assignment，fresh DB 與既有 DB 需要各自處理。
+  最終解法：改為 `gemini/gemini-1.5-pro`，新增 migration，並用 `psql` 套用與查詢確認已無 `gemini-2.0-flash`。
+
+- 問題現象：Jest targeted tests 全部通過後仍有 open handle 警告。
+  排查過程：針對本次變更先用 `--runInBand --forceExit` 完成可重現驗證，並保留後續 `--detectOpenHandles` 追蹤項。
+  根因分析：此警告屬現有測試 runtime 非同步 handle 問題，非本次 AI report 或 trace logic 直接失敗。
+  最終解法：本日交付以 targeted regression、TypeScript、manifest validation、diff check 為準；明日排入 open handle 清理。
+
+### 本日踩雷事件與事前可預防指標
+
+- 踩雷：模型候選清單沒有 terminal status，導致使用者誤以為只有一個模型有計時、其他模型可能漏跑。
+  事前可預防指標：完成階段的 model chip 若只有 provider/model 文字，沒有 `success/error/pending/skipped` 類狀態，就會造成誤讀。
+- 踩雷：`88.5` 與 `88.50` 這類等價數字字串若直接比對，會被 consensus matrix 誤判成模型衝突。
+  事前可預防指標：structured JSON 內大量 numeric string 欄位尚未 canonicalize。
+- 踩雷：只更新程式碼 prompt 會被 DB `saved_prompts` 覆蓋，導致 production prompt 規格仍停在舊版。
+  事前可預防指標：prompt contract 有新增欄位，但沒有對應 `supabase/migrations/*saved_prompts*.sql`。
+- 踩雷：只更新 `AGENT_DEFAULTS` 不會改既有 DB agent assignment，舊模型仍會出現在實機流程。
+  事前可預防指標：`ai_agent_model_assignments` 查詢結果與 `apps/superadmin/lib/ai/agent-defaults.ts` 不一致。
+- 踩雷：AI 全部候選失敗時若仍產生 processor seed，會讓正式謄本資料看似可儲存。
+  事前可預防指標：run status 進入 `needs_user_confirmation`，但 trace 沒有任何成功 AI 或 local parser evidence。
+
+### 下次避免措施
+
+- 流程優化：凡是 AI chain 顯示候選模型，都必須同時顯示候選狀態；code review checklist 加入「候選清單不可無狀態」。
+- 流程優化：prompt contract 變更必須同時檢查 hardcoded prompt、saved_prompts migration、normalizer、report API 與 regression test。
+- 工具導入：新增 agent assignment drift checker，對比 `AGENT_DEFAULTS` 與 `ai_agent_model_assignments`，若出現退役模型或順序漂移即失敗。
+- 自動化腳本需求：新增 transcript report schema checker，驗證 parser/reviewer/detail builder raw output 均含 `standardReport`，且 consensus numeric string 已正規化。
+- 測試治理：針對 AI 全候選失敗建立固定 regression，確保任何階段失敗都不會回到 processor seed 假資料。
+- 測試治理：明日以 `--detectOpenHandles` 追蹤現有 Jest open handle，避免長期依賴 `--forceExit`。
+
+### 明日優先工作項目與預估工時
+
+- P0 實機重跑同一物件完整謄本工作台流程：1.5h。相依性：本機 dev server、Supabase local DB、可用 AI provider key。風險：provider latency 或 quota 造成 trace 驗證時間拉長。
+- P0 視覺驗證 AI 品質追蹤模型 chip：1h。相依性：需有 completed detect run。風險：舊 run cache 可能仍顯示舊 trace，需要新 run 對照。
+- P1 紅框 evidence / page text preview 對位：3-4h。相依性：`standardReport.pageObservations` 與 evidence refs 完整度。風險：部分模型可能未輸出逐頁 visibleText。
+- P1 建立 agent assignment drift checker：2h。相依性：DB 連線字串與 agent defaults parser。風險：provider/model alias 需要白名單。
+- P2 Jest open handle 排查：1-2h。相依性：可重跑 component test。風險：根因可能在既有 shared test setup，超出 Feature 084 範圍。
+
+### 今日驗證
+
+```bash
+npm test --workspace superadmin -- components/admin/properties/__tests__/TranscriptAiStageTracePanel.test.tsx lib/ai/__tests__/agent-defaults.test.ts lib/transcript-parse/__tests__/report-standard.test.ts lib/transcript-parse/__tests__/intake-ai.test.ts lib/transcript-parse/__tests__/process-transcript-intake-run.test.ts app/data/roadmap.test.ts --runInBand --forceExit
+npx tsc --noEmit --project apps/superadmin/tsconfig.json
+bash tools/testing/validate-test-manifest.sh
+git diff --check
+psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -c "select primary_provider || '/' || primary_model_id as primary, fallbacks::text from ai_agent_model_assignments where agent_key='transcript_detection';"
+```
+
+結果：6 suites / 76 tests 通過，TypeScript 通過，test manifest validation 通過，diff whitespace check 通過，本機 DB `transcript_detection` fallback 已確認改為 Claude Opus、GPT-5.5、Gemini 1.5 Pro，未再包含 Gemini 2.0 Flash。

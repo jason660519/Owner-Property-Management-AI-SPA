@@ -1549,6 +1549,10 @@ const RAW_FEATURES: RoadmapFeature[] = [
     testScriptPassedCount: 28,
     testScriptPath: "apps/superadmin/unit_test/084",
     testLogDocPath: "/project-process/test-logs/test-transcript-intake-workbench-2026-04-28.md",
+    testProgress:
+      "2026/04/29：今日整合驗證完成，AI report standardReport、Detect 候補狀態、Gemini Flash 移除與 no processor seed policy 均通過 targeted regression；6 suites / 76 tests、tsc、manifest validation、git diff --check 通過。",
+    testLog:
+      "今日工作進度報告已更新至 Development Log Summary 與 TDD Progress Report，包含完成清單、技術困難、踩雷事件、預防指標、避免措施、明日工時估算與殘餘風險。",
     phase: "testing",
   },
   {
@@ -2855,7 +2859,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/29 Feature ID 084 detect fallback clarity and Gemini Flash removal",
+  lastUpdated: "2026/04/29 Feature ID 084 daily progress report and AI report standardization",
   features: RAW_FEATURES.map((f, index) => ({
     ...f,
     id: normalizeRoadmapFeatureId(f.id) || formatGeneratedRoadmapFeatureId(index),
