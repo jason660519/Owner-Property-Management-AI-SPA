@@ -6,6 +6,7 @@ import { useState, useTransition, useMemo, useRef, useEffect, useCallback, type 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2, Building2, Key, X } from 'lucide-react';
 import { updateProperty } from '@/lib/actions/properties';
+import { fetchCadastralMap, type FetchResult } from '@/lib/actions/cadastral-maps';
 import { PropertyMediaSection } from './PropertyMediaSection';
 import { PropertyInvestigationReportSection } from './PropertyInvestigationReportSection';
 import { PropertyBlogGenerator } from './PropertyBlogGenerator';
@@ -26,8 +27,25 @@ import {
 } from '@/lib/types/properties';
 import { TAIWAN_CITIES, getDistrictsByCity } from '@/lib/data/taiwan-address';
 import { geocodeAddress } from '@/lib/utils/geocoding';
+import type { MapLayerPreset } from '@/lib/utils/cadastral-map-fetcher';
 import { NumberComboBox } from './NumberComboBox';
 import type { InvestigationReport } from './investigation-report/types';
+import {
+  writePendingLayer,
+  clearPendingLayer,
+  elapsedSecondsForLayer,
+} from './gis-fetch-pending-storage';
+import {
+  clearOutcomeForLayer,
+  writeOutcome,
+} from './gis-fetch-outcomes-storage';
+
+const GIS_AUTO_LAYERS: MapLayerPreset[] = ['cadastral', 'building', 'both'];
+
+function truncateGisMessage(s: string, max = 96): string {
+  if (s.length <= max) return s;
+  return `${s.slice(0, max)}…`;
+}
 
 function composeAddress(parts: {
   city?: string;
@@ -163,6 +181,7 @@ export function PropertyEditForm({
   const [latInput, setLatInput] = useState(property.latitude != null ? String(property.latitude) : '');
   const [lngInput, setLngInput] = useState(property.longitude != null ? String(property.longitude) : '');
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [isAutoGeneratingGis, setIsAutoGeneratingGis] = useState(false);
   const [geocodeMsg, setGeocodeMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Parse + validate lat/lng inputs
@@ -238,6 +257,83 @@ export function PropertyEditForm({
     }
   }, [addressCity, addressDistrict, addressStreet, addressNumber, property.address]);
 
+  const runAutoGisGenerationAfterSave = useCallback(
+    async (params: {
+      coords: { latitude: number; longitude: number } | null;
+      address: { district: string; street: string; addressNumber: string } | null;
+    }) => {
+      if (!params.coords && !params.address) {
+        setFeedback({
+          type: 'success',
+          message: '基本資料已儲存。缺少座標或完整地址，尚未自動產出 GIS 圖資。',
+        });
+        router.refresh();
+        return;
+      }
+
+      setIsAutoGeneratingGis(true);
+      setFeedback({
+        type: 'success',
+        message: '基本資料已儲存，正在自動產出地籍圖、建物套繪圖與合併圖。',
+      });
+
+      const results = await Promise.all(
+        GIS_AUTO_LAYERS.map(async (layer): Promise<FetchResult> => {
+          clearOutcomeForLayer(property.id, layer);
+          writePendingLayer(property.id, layer, Date.now());
+          try {
+            const result = await fetchCadastralMap(
+              property.id,
+              property.type,
+              property.ownerId,
+              layer,
+              params.coords,
+              params.coords ? null : params.address,
+              { source: 'historygis', replaceExisting: true },
+            );
+            const sec = elapsedSecondsForLayer(property.id, layer);
+            if (result.success) {
+              writeOutcome(property.id, layer, { kind: 'success', seconds: sec, at: Date.now() });
+            } else {
+              writeOutcome(property.id, layer, {
+                kind: 'error',
+                seconds: sec,
+                message: truncateGisMessage(result.message),
+                at: Date.now(),
+              });
+            }
+            return result;
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            const sec = elapsedSecondsForLayer(property.id, layer);
+            const message = `擷取失敗：${msg}`;
+            writeOutcome(property.id, layer, {
+              kind: 'error',
+              seconds: sec,
+              message: truncateGisMessage(message),
+              at: Date.now(),
+            });
+            return { success: false, message };
+          } finally {
+            clearPendingLayer(property.id, layer);
+          }
+        }),
+      );
+
+      const successCount = results.filter((r) => r.success).length;
+      setIsAutoGeneratingGis(false);
+      setFeedback({
+        type: successCount === GIS_AUTO_LAYERS.length ? 'success' : 'error',
+        message:
+          successCount === GIS_AUTO_LAYERS.length
+            ? '基本資料已儲存，3 份 GIS 圖資已自動產出。'
+            : `基本資料已儲存；GIS 圖資自動產出 ${successCount} / ${GIS_AUTO_LAYERS.length} 份完成，請到「地理資訊」查看失敗項目。`,
+      });
+      router.refresh();
+    },
+    [property.id, property.ownerId, property.type, router],
+  );
+
   function handleSubmit() {
     setFeedback(null);
     if (successFeedbackTimeoutRef.current) {
@@ -282,12 +378,26 @@ export function PropertyEditForm({
       input.leaseTerm = leaseTerm;
     }
 
+    const gisCoords =
+      validLat != null && validLng != null
+        ? { latitude: validLat, longitude: validLng }
+        : null;
+    const gisAddress =
+      gisCoords == null &&
+      addressDistrict.trim() &&
+      addressStreet.trim() &&
+      addressNumber.trim()
+        ? {
+            district: addressDistrict.trim(),
+            street: addressStreet.trim(),
+            addressNumber: addressNumber.trim(),
+          }
+        : null;
+
     startTransition(async () => {
       const result = await updateProperty(property.id, property.type, input);
       if (result.success) {
-        setFeedback({ type: 'success', message: result.message });
-        // 移除自動消失邏輯，讓使用者有足夠時間閱讀，需手動點擊 X 關閉
-        router.refresh();
+        void runAutoGisGenerationAfterSave({ coords: gisCoords, address: gisAddress });
       } else {
         setFeedback({ type: 'error', message: result.message });
       }
@@ -784,7 +894,7 @@ export function PropertyEditForm({
               <button
                 type="button"
                 onClick={() => router.push(BACK_URL)}
-                disabled={isPending}
+                disabled={isPending || isAutoGeneratingGis}
                 className="px-4 py-2 text-text-secondary hover:bg-bg-tertiary rounded-md transition-colors text-sm disabled:opacity-50"
               >
                 返回列表
@@ -792,11 +902,11 @@ export function PropertyEditForm({
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={isPending}
+                disabled={isPending || isAutoGeneratingGis}
                 className="px-5 py-2 bg-accent text-white hover:bg-accent-hover rounded-md transition-colors text-sm flex items-center gap-2 disabled:opacity-50"
               >
-                {isPending && <Loader2 size={14} className="animate-spin" />}
-                {isPending ? '儲存中...' : '儲存變更'}
+                {(isPending || isAutoGeneratingGis) && <Loader2 size={14} className="animate-spin" />}
+                {isPending ? '儲存中...' : isAutoGeneratingGis ? '產圖中...' : '儲存變更'}
               </button>
             </div>
           </div>

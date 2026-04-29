@@ -16,6 +16,40 @@ interface DropdownItem {
   [key: string]: string | number;
 }
 
+export interface TaipeiZoningOption {
+  id: string;
+  label: string;
+}
+
+export interface TaipeiZoningLotOption extends TaipeiZoningOption {
+  motherNo: string;
+  childNo: string;
+}
+
+export interface TaipeiZoningOfficialQueryInput {
+  label: string;
+  mode: 'single' | 'range';
+  secId: string;
+  sectionId: string;
+  subsectionId: string;
+  motherNo?: string;
+  childNo?: string;
+  rangeStartNo?: string;
+  rangeEndNo?: string;
+}
+
+interface QueryZonePayload {
+  options: '單筆查詢' | '連號查詢';
+  num: string;
+  secid: string;
+  aresecid: string;
+  aresubid: string;
+  aremno: string;
+  arepno: string;
+  aremnostart: string;
+  aremnoend: string;
+}
+
 // POST JSON to the Taipei zoning AJAX endpoints
 async function postQuery(endpoint: string, body: Record<string, string>): Promise<DropdownItem[]> {
   const res = await fetch(`${BASE_URL}/${endpoint}`, {
@@ -64,6 +98,175 @@ function findMatch(
     return val.includes(normalizedTarget) || normalizedTarget.includes(val);
   });
   return contains ?? null;
+}
+
+function normalizedApiString(value: string | number | undefined): string {
+  return String(value ?? '').trim().replace(/\.0$/, '');
+}
+
+export async function getTaipeiZoningDistrictOptions(): Promise<TaipeiZoningOption[]> {
+  const districts = await postQuery('Query.ashx', { options: 'Sec' });
+  return districts
+    .map((item) => ({
+      id: normalizedApiString(item.SECID),
+      label: normalizedApiString(item.SEC),
+    }))
+    .filter((item) => item.id && item.label);
+}
+
+export async function getTaipeiZoningSectionOptions(secId: string): Promise<TaipeiZoningOption[]> {
+  if (!secId) return [];
+  const sections = await postQuery('Query.ashx', { options: 'AreSec', secid: secId });
+  return sections
+    .map((item) => ({
+      id: normalizedApiString(item.ARESECID),
+      label: normalizedApiString(item.ARESEC),
+    }))
+    .filter((item) => item.id && item.label);
+}
+
+export async function getTaipeiZoningSubsectionOptions(
+  secId: string,
+  sectionId: string,
+): Promise<TaipeiZoningOption[]> {
+  if (!secId || !sectionId) return [];
+  const subsections = await postQuery('Query.ashx', {
+    options: 'AreSub',
+    secid: secId,
+    aresecid: sectionId,
+  });
+  return subsections
+    .map((item) => ({
+      id: normalizedApiString(item.AreSubID),
+      label: normalizedApiString(item.AreSub),
+    }))
+    .filter((item) => item.id && item.label);
+}
+
+export async function getTaipeiZoningLotOptions(
+  secId: string,
+  sectionId: string,
+  subsectionId: string,
+): Promise<TaipeiZoningLotOption[]> {
+  if (!secId || !sectionId || !subsectionId) return [];
+  const lots = await postQuery('Query.ashx', {
+    options: 'AremnoArepno',
+    secid: secId,
+    aresecid: sectionId,
+    aresubid: subsectionId,
+  });
+  return lots
+    .map((item) => {
+      const motherNo = normalizedApiString(item.AREMNO);
+      const childNo = normalizedApiString(item.AREPNO || '0');
+      const label = childNo === '0' ? motherNo : `${motherNo}-${childNo}`;
+      return {
+        id: `${motherNo}-${childNo}`,
+        label,
+        motherNo,
+        childNo,
+      };
+    })
+    .filter((item) => item.motherNo);
+}
+
+async function queryZoningPayload(
+  queryPayload: QueryZonePayload[],
+): Promise<Record<string, string>[]> {
+  const zoningRes = await fetch(`${BASE_URL}/QueryZone.ashx`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Origin': 'https://zone.udd.gov.taipei',
+      'Referer': 'https://zone.udd.gov.taipei/ZoneSearch.aspx',
+    },
+    body: JSON.stringify(queryPayload),
+  });
+  if (!zoningRes.ok) throw new Error(`使用分區查詢請求失敗 (${zoningRes.status})`);
+
+  const zoningJson = (await zoningRes.json()) as QueryResult;
+  if (!zoningJson.Success || zoningJson.Code !== '0000') {
+    throw new Error(`查詢失敗（${zoningJson.Code}）：該地號可能不存在於系統中。`);
+  }
+
+  return JSON.parse(zoningJson.DataInfo) as Record<string, string>[];
+}
+
+function normalizeLotDigits(value: string | undefined): string {
+  return (value ?? '').replace(/\D/g, '');
+}
+
+export async function queryTaipeiZoningOfficialInput(
+  input: TaipeiZoningOfficialQueryInput,
+): Promise<TaipeiZoningResult> {
+  try {
+    if (!input.secId || !input.sectionId || !input.subsectionId) {
+      return {
+        success: false,
+        message: '請先選擇行政區、地段與小段。',
+      };
+    }
+
+    const motherNo = normalizeLotDigits(input.motherNo);
+    const childNo = normalizeLotDigits(input.childNo || '0');
+    const rangeStartNo = normalizeLotDigits(input.rangeStartNo);
+    const rangeEndNo = normalizeLotDigits(input.rangeEndNo);
+
+    if (input.mode === 'single' && !motherNo) {
+      return {
+        success: false,
+        message: '請先選擇地號。',
+      };
+    }
+    if (input.mode === 'range' && (!rangeStartNo || !rangeEndNo)) {
+      return {
+        success: false,
+        message: '請輸入連續地號起號與迄號。',
+      };
+    }
+
+    const start = Number(rangeStartNo);
+    const end = Number(rangeEndNo);
+    const orderedStart = input.mode === 'range' ? String(Math.min(start, end)) : '';
+    const orderedEnd = input.mode === 'range' ? String(Math.max(start, end)) : '';
+
+    const records = await queryZoningPayload([{
+      options: input.mode === 'single' ? '單筆查詢' : '連號查詢',
+      num: '1',
+      secid: input.secId,
+      aresecid: input.sectionId,
+      aresubid: input.subsectionId,
+      aremno: input.mode === 'single' ? motherNo.padStart(4, '0') : '',
+      arepno: input.mode === 'single' ? childNo.padStart(4, '0') : '',
+      aremnostart: orderedStart,
+      aremnoend: orderedEnd,
+    }]);
+
+    if (records.length === 0) {
+      return {
+        success: false,
+        message: '查詢成功但無資料，該地號可能尚未登錄使用分區。',
+      };
+    }
+
+    const zoneValues = Array.from(new Set(records.map((record) => record['使用分區']).filter(Boolean)));
+    return {
+      success: true,
+      message: input.mode === 'range' ? `查詢成功，共 ${records.length} 筆資料` : '查詢成功',
+      data: {
+        zone: zoneValues.join('、'),
+        note: records[0]['其他規定'] || '',
+        raw: records,
+      },
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      success: false,
+      message: `查詢台北市使用分區時發生錯誤：${msg}`,
+    };
+  }
 }
 
 export interface TaipeiZoningResult {
@@ -164,7 +367,7 @@ export async function queryTaipeiZoning(
     const motherNoPadded = parsed.motherNo.padStart(4, '0');
     const childNoPadded = parsed.childNo.padStart(4, '0');
 
-    const queryPayload = [{
+    const queryPayload: QueryZonePayload[] = [{
       options: '單筆查詢',
       num: '1',
       secid: secId,
@@ -176,28 +379,7 @@ export async function queryTaipeiZoning(
       aremnoend: '',
     }];
 
-    const zoningRes = await fetch(`${BASE_URL}/QueryZone.ashx`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Origin': 'https://zone.udd.gov.taipei',
-        'Referer': 'https://zone.udd.gov.taipei/ZoneSearch.aspx',
-      },
-      body: JSON.stringify(queryPayload),
-    });
-    if (!zoningRes.ok) throw new Error(`使用分區查詢請求失敗 (${zoningRes.status})`);
-
-    const zoningJson = (await zoningRes.json()) as QueryResult;
-    if (!zoningJson.Success || zoningJson.Code !== '0000') {
-      return {
-        success: false,
-        message: `查詢失敗（${zoningJson.Code}）：該地號可能不存在於系統中。`,
-        parsedInput: parsed,
-      };
-    }
-
-    const records = JSON.parse(zoningJson.DataInfo) as Record<string, string>[];
+    const records = await queryZoningPayload(queryPayload);
     if (records.length === 0) {
       return {
         success: false,

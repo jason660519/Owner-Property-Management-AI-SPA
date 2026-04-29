@@ -1342,6 +1342,7 @@ const DOC_TYPE_NAME: Record<string, string> = {
   blog: '部落格',
   floor_plan: '格局圖',
   building_measurement_survey: '建物測量成果圖',
+  zoning_usage_certificate: '使用分區證明',
   transaction_comparables: '成交行情表',
   transaction_comparables_nearby: '附近成交價',
   transaction_comparables_street_section: '同街段成交價',
@@ -1353,7 +1354,7 @@ export async function uploadPropertyDocument(
   propertyId: string,
   propertyType: 'sale' | 'rental',
   ownerId: string,
-  documentType: 'registry_transcript_unclassified' | 'land_registry_transcript' | 'building_registry_transcript' | 'parking_land_registry_transcript' | 'parking_building_registry_transcript' | 'building_title' | 'land_title' | 'lease_contract' | 'sales_contract' | 'blog' | 'floor_plan' | 'building_measurement_survey' | 'transaction_comparables' | 'transaction_comparables_nearby' | 'transaction_comparables_street_section' | 'transaction_comparables_village',
+  documentType: 'registry_transcript_unclassified' | 'land_registry_transcript' | 'building_registry_transcript' | 'parking_land_registry_transcript' | 'parking_building_registry_transcript' | 'building_title' | 'land_title' | 'lease_contract' | 'sales_contract' | 'blog' | 'floor_plan' | 'building_measurement_survey' | 'zoning_usage_certificate' | 'transaction_comparables' | 'transaction_comparables_nearby' | 'transaction_comparables_street_section' | 'transaction_comparables_village',
   formData: FormData
 ): Promise<ActionResult> {
   const file = formData.get('file');

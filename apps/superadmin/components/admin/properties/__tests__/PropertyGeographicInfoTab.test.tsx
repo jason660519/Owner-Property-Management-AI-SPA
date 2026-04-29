@@ -5,23 +5,23 @@ import '@testing-library/jest-dom';
 
 import { PropertyGeographicInfoTab } from '../PropertyGeographicInfoTab';
 import {
-  fetchCadastralMap,
   deleteCadastralMap,
   listCadastralMapFiles,
   getGisFileUrl,
+  uploadManualCadastralMapFile,
 } from '@/lib/actions/cadastral-maps';
 
 jest.mock('@/lib/actions/cadastral-maps', () => ({
-  fetchCadastralMap: jest.fn(),
   deleteCadastralMap: jest.fn(),
   listCadastralMapFiles: jest.fn(),
   getGisFileUrl: jest.fn(),
+  uploadManualCadastralMapFile: jest.fn(),
 }));
 
-const mockFetch = fetchCadastralMap as jest.MockedFunction<typeof fetchCadastralMap>;
 const mockDelete = deleteCadastralMap as jest.MockedFunction<typeof deleteCadastralMap>;
 const mockListFiles = listCadastralMapFiles as jest.MockedFunction<typeof listCadastralMapFiles>;
 const mockGetGisUrl = getGisFileUrl as jest.MockedFunction<typeof getGisFileUrl>;
+const mockUploadManual = uploadManualCadastralMapFile as jest.MockedFunction<typeof uploadManualCadastralMapFile>;
 
 function baseProperty(overrides: Partial<import('@/lib/types/properties').PropertyItem> = {}) {
   const createdAt = overrides.createdAt ?? new Date().toISOString();
@@ -55,189 +55,117 @@ function baseProperty(overrides: Partial<import('@/lib/types/properties').Proper
 }
 
 describe('PropertyGeographicInfoTab', () => {
-  let fetchSeq = 0;
-
   beforeEach(() => {
     jest.clearAllMocks();
     sessionStorage.clear();
-    fetchSeq = 0;
-    mockFetch.mockImplementation(async () => {
-      fetchSeq += 1;
-      return {
-        success: true,
-        message: 'ok',
-        url: `https://signed.example/map-${fetchSeq}.jpg`,
-        storagePath: `prop-1/gis-${fetchSeq}.jpg`,
-        documentId: `doc-${fetchSeq}`,
-        source: 'historygis',
-        fetchedAt: new Date(1_700_000_000_000 + fetchSeq).toISOString(),
-      };
-    });
     mockDelete.mockResolvedValue({ success: true, message: '已刪除' });
     mockListFiles.mockResolvedValue({ data: [], error: null });
     mockGetGisUrl.mockResolvedValue({ url: null, error: 'not used' });
+    mockUploadManual.mockResolvedValue({
+      success: true,
+      message: 'GIS 圖資已上傳',
+      documentId: 'doc-manual',
+      storagePath: 'prop-1/gis-manual-cadastral.pdf',
+    });
   });
 
-  it('restores loading state from sessionStorage (e.g. returning to this tab)', async () => {
+  it('restores automatic generation loading state from sessionStorage', async () => {
     sessionStorage.setItem(
       'gis-fetch-pending:prop-1',
       JSON.stringify({ cadastral: Date.now() - 8000 }),
     );
     render(<PropertyGeographicInfoTab property={baseProperty()} />);
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^擷取地籍圖$/ })).toBeDisabled();
-    });
-    expect(screen.getByText(/進行中 · 已/)).toBeInTheDocument();
+
+    expect(await screen.findByText(/產出中 · 已/)).toBeInTheDocument();
+    expect(screen.getAllByText('建物套繪圖').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('地籍圖 + 建物套繪圖').length).toBeGreaterThan(0);
   });
 
-  it('invokes fetchCadastralMap with historygis and cadastral preset when 地籍圖 is clicked', async () => {
+  it('shows official GIS links and the manual upload area at the bottom', async () => {
+    render(<PropertyGeographicInfoTab property={baseProperty()} />);
+
+    expect(await screen.findByText('GIS 圖資查詢與檔案')).toBeInTheDocument();
+    expect(screen.getAllByText('地址').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/大安區\s+測試路1號/)).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /歷史圖資展示系統/ })).toHaveAttribute(
+      'href',
+      'https://historygis.udd.gov.taipei',
+    );
+    expect(screen.getByRole('link', { name: /地理資訊e點通/ })).toHaveAttribute(
+      'href',
+      'https://addr.gov.taipei',
+    );
+    expect(screen.getByRole('button', { name: '上傳 GIS 圖資' })).toBeDisabled();
+  });
+
+  it('groups address and three GIS files into one row with preview and delete actions', async () => {
+    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
+    mockGetGisUrl.mockResolvedValue({ url: 'https://signed.example/gis.jpg', error: null });
+    mockListFiles.mockResolvedValue({
+      data: [
+        {
+          id: 'doc-cadastral',
+          name: '地籍圖-歷史圖資展示系統',
+          filePath: 'prop-1/gis-cadastral.jpg',
+          createdAt: '2026-04-30T00:00:00.000Z',
+          tags: ['gis:cadastral', 'source:historygis'],
+        },
+        {
+          id: 'doc-building',
+          name: '建物套繪圖-歷史圖資展示系統',
+          filePath: 'prop-1/gis-building.jpg',
+          createdAt: '2026-04-30T00:01:00.000Z',
+          tags: ['gis:building', 'source:historygis'],
+        },
+        {
+          id: 'doc-both',
+          name: '地籍圖+建物套繪圖-歷史圖資展示系統',
+          filePath: 'prop-1/gis-both.jpg',
+          createdAt: '2026-04-30T00:02:00.000Z',
+          tags: ['gis:both', 'source:historygis'],
+        },
+      ],
+      error: null,
+    });
     const user = userEvent.setup();
     render(<PropertyGeographicInfoTab property={baseProperty()} />);
 
-    await user.click(screen.getByRole('button', { name: /^擷取地籍圖$/ }));
+    expect(await screen.findByText('地籍圖-歷史圖資展示系統')).toBeInTheDocument();
+    expect(screen.getByText('建物套繪圖-歷史圖資展示系統')).toBeInTheDocument();
+    expect(screen.getByText('地籍圖+建物套繪圖-歷史圖資展示系統')).toBeInTheDocument();
+    expect(screen.getAllByTitle('預覽')).toHaveLength(3);
+    expect(screen.getAllByTitle('刪除')).toHaveLength(3);
+
+    await user.click(screen.getAllByTitle('預覽')[0]);
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith(
-        'prop-1',
-        'sale',
-        'owner-1',
-        'cadastral',
-        { latitude: 25.033, longitude: 121.5654 },
-        null,
-        { source: 'historygis' },
-      );
+      expect(mockGetGisUrl).toHaveBeenCalledWith('prop-1/gis-cadastral.jpg');
     });
+    expect(openSpy).toHaveBeenCalledWith('https://signed.example/gis.jpg', '_blank');
+    openSpy.mockRestore();
   });
 
-  it('invokes fetchCadastralMap with epoint when e點通 source is selected (all three presets)', async () => {
+  it('uploads a manual GIS file as cadastral_map metadata', async () => {
     const user = userEvent.setup();
     render(<PropertyGeographicInfoTab property={baseProperty()} />);
 
-    await user.click(screen.getByRole('button', { name: /地理資訊e點通/ }));
-
-    await user.click(screen.getByRole('button', { name: /^擷取地籍圖$/ }));
-    await waitFor(() =>
-      expect(mockFetch).toHaveBeenLastCalledWith(
-        'prop-1',
-        'sale',
-        'owner-1',
-        'cadastral',
-        { latitude: 25.033, longitude: 121.5654 },
-        null,
-        { source: 'epoint' },
-      ),
+    await user.selectOptions(screen.getByLabelText('GIS 圖資類型'), 'both');
+    await user.upload(
+      screen.getByLabelText('上傳 GIS 圖資檔案'),
+      new File(['gis'], 'manual-gis.pdf', { type: 'application/pdf' }),
     );
+    await user.click(screen.getByRole('button', { name: '上傳 GIS 圖資' }));
 
-    await user.click(screen.getByRole('button', { name: /^擷取建物套繪圖$/ }));
-    await waitFor(() =>
-      expect(mockFetch).toHaveBeenLastCalledWith(
-        'prop-1',
-        'sale',
-        'owner-1',
-        'building',
-        { latitude: 25.033, longitude: 121.5654 },
-        null,
-        { source: 'epoint' },
-      ),
-    );
-
-    await user.click(screen.getByRole('button', { name: /^擷取地籍圖 \+ 建物套繪圖$/ }));
-    await waitFor(() =>
-      expect(mockFetch).toHaveBeenLastCalledWith(
+    await waitFor(() => {
+      expect(mockUploadManual).toHaveBeenCalledWith(
         'prop-1',
         'sale',
         'owner-1',
         'both',
-        { latitude: 25.033, longitude: 121.5654 },
-        null,
-        { source: 'epoint' },
-      ),
-    );
-  });
-
-  it('supports parallel fetches across presets while blocking duplicate clicks per preset', async () => {
-    const user = userEvent.setup();
-    let resolveFirstFetch: (v: Awaited<ReturnType<typeof mockFetch>>) => void;
-    let resolveSecondFetch: (v: Awaited<ReturnType<typeof mockFetch>>) => void;
-    const firstFetchPromise = new Promise<Awaited<ReturnType<typeof mockFetch>>>((r) => {
-      resolveFirstFetch = r;
+        expect.any(FormData),
+      );
     });
-    const secondFetchPromise = new Promise<Awaited<ReturnType<typeof mockFetch>>>((r) => {
-      resolveSecondFetch = r;
-    });
-    mockFetch
-      .mockReturnValueOnce(firstFetchPromise as never)
-      .mockReturnValueOnce(secondFetchPromise as never);
-
-    render(<PropertyGeographicInfoTab property={baseProperty()} />);
-
-    const cadastralBtn = screen.getByRole('button', { name: /^擷取地籍圖$/ });
-    const buildingBtn = screen.getByRole('button', { name: /^擷取建物套繪圖$/ });
-
-    await user.click(cadastralBtn);
-    expect(cadastralBtn).toBeDisabled();
-    expect(buildingBtn).not.toBeDisabled();
-    expect(screen.getAllByRole('button', { name: /^擷取/ })).toHaveLength(3);
-
-    await user.click(cadastralBtn);
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-
-    await user.click(buildingBtn);
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(buildingBtn).toBeDisabled();
-
-    resolveFirstFetch!({
-      success: true,
-      message: 'ok',
-      url: 'https://signed.example/done-cadastral.jpg',
-      storagePath: 'prop-1/gis-done-cadastral.jpg',
-      documentId: 'doc-done-cadastral',
-      source: 'historygis',
-      fetchedAt: new Date().toISOString(),
-    });
-    resolveSecondFetch!({
-      success: true,
-      message: 'ok',
-      url: 'https://signed.example/done-building.jpg',
-      storagePath: 'prop-1/gis-done-building.jpg',
-      documentId: 'doc-done-building',
-      source: 'historygis',
-      fetchedAt: new Date().toISOString(),
-    });
-
-    await waitFor(() => {
-      expect(cadastralBtn).not.toBeDisabled();
-      expect(buildingBtn).not.toBeDisabled();
-    });
-  });
-
-  it('clears spinner and shows error when fetchCadastralMap throws', async () => {
-    mockFetch.mockRejectedValueOnce(new Error('network down'));
-    const user = userEvent.setup();
-    render(<PropertyGeographicInfoTab property={baseProperty()} />);
-
-    await user.click(screen.getByRole('button', { name: /^擷取地籍圖$/ }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/擷取失敗：network down/)).toBeInTheDocument();
-    });
-    expect(screen.getByRole('button', { name: /^擷取地籍圖$/ })).not.toBeDisabled();
-  });
-
-  it('clears per-layer outcome when 清除擷取紀錄 is clicked', async () => {
-    mockFetch.mockRejectedValueOnce(new Error('network down'));
-    const user = userEvent.setup();
-    render(<PropertyGeographicInfoTab property={baseProperty()} />);
-
-    await user.click(screen.getByRole('button', { name: /^擷取地籍圖$/ }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/擷取失敗：network down/)).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByRole('button', { name: /^清除擷取紀錄$/ }));
-
-    expect(screen.queryByText(/擷取失敗：network down/)).not.toBeInTheDocument();
+    expect(await screen.findByText('GIS 圖資已上傳')).toBeInTheDocument();
   });
 
   it('cloud list 刪除 calls deleteCadastralMap', async () => {

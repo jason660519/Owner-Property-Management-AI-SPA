@@ -5,38 +5,32 @@ import {
   ExternalLink,
   MapPin,
   Loader2,
-  Map as MapIcon,
   Trash2,
   Eye,
-  FileText,
   CheckCircle2,
   XCircle,
+  Upload,
+  X,
 } from 'lucide-react';
 import { formatStructuredAddress, type PropertyItem } from '@/lib/types/properties';
 import {
-  fetchCadastralMap,
   deleteCadastralMap,
   listCadastralMapFiles,
   getGisFileUrl,
-  type FetchResult,
+  uploadManualCadastralMapFile,
   type StoredGisFile,
 } from '@/lib/actions/cadastral-maps';
 import {
   GIS_SOURCE_LABELS,
+  GIS_SOURCE_URLS,
   type MapLayerPreset,
-  type GisSource,
 } from '@/lib/utils/cadastral-map-fetcher';
 import {
-  readPendingMap,
-  writePendingLayer,
-  clearPendingLayer,
   pendingLayersList,
   elapsedSecondsForLayer,
 } from './gis-fetch-pending-storage';
 import {
   readOutcomesMap,
-  writeOutcome,
-  clearOutcomeForLayer,
   clearOutcomesMap,
   GIS_OUTCOME_PRESET_ORDER,
   type GisOutcomesMap,
@@ -44,34 +38,27 @@ import {
 
 const cardCls = 'rounded-lg border border-border-default bg-bg-primary px-4 py-3';
 
-interface FetchState {
-  fetchingLayers: MapLayerPreset[];
-}
-
-const INITIAL_STATE: FetchState = { fetchingLayers: [] };
-
-const SOURCE_OPTIONS: { value: GisSource; label: string; hint: string }[] = [
-  {
-    value: 'historygis',
-    label: GIS_SOURCE_LABELS.historygis,
-    hint: 'TWD97 座標，投影誤差較小（推薦）',
-  },
-  {
-    value: 'epoint',
-    label: GIS_SOURCE_LABELS.epoint,
-    hint: 'Web Mercator 座標（預計 2026/5/31 停止服務）',
-  },
-];
-
 const LAYER_LABELS: Record<MapLayerPreset, string> = {
   cadastral: '地籍圖',
   building: '建物套繪圖',
   both: '地籍圖 + 建物套繪圖',
 };
 
-function truncateMessage(s: string, max = 96): string {
-  if (s.length <= max) return s;
-  return `${s.slice(0, max)}…`;
+const MANUAL_UPLOAD_OPTIONS: MapLayerPreset[] = ['cadastral', 'building', 'both'];
+const LAYER_PRESET_ORDER: MapLayerPreset[] = ['cadastral', 'building', 'both'];
+
+function fileLayer(file: StoredGisFile): MapLayerPreset | null {
+  const tag = file.tags.find((item) => item.startsWith('gis:'));
+  const tagLayer = tag?.replace('gis:', '');
+  if (tagLayer === 'cadastral' || tagLayer === 'building' || tagLayer === 'both') {
+    return tagLayer;
+  }
+  if (file.name.includes('地籍圖+建物套繪圖') || file.name.includes('地籍圖 + 建物套繪圖')) {
+    return 'both';
+  }
+  if (file.name.includes('建物套繪圖')) return 'building';
+  if (file.name.includes('地籍圖')) return 'cadastral';
+  return null;
 }
 
 export function PropertyGeographicInfoTab({ property }: { property: PropertyItem }) {
@@ -79,6 +66,8 @@ export function PropertyGeographicInfoTab({ property }: { property: PropertyItem
   const lat = property.latitude;
   const lng = property.longitude;
   const hasCoords = lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng);
+  const hasAddress = !!(property.addressDistrict && property.addressStreet && property.addressNumber);
+  const canAutoGenerate = hasCoords || hasAddress;
 
   const googleUrl = hasCoords
     ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
@@ -87,53 +76,40 @@ export function PropertyGeographicInfoTab({ property }: { property: PropertyItem
     ? `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}&zoom=17`
     : null;
 
-  const [source, setSource] = useState<GisSource>('historygis');
-  const [fetchState, setFetchState] = useState<FetchState>(INITIAL_STATE);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [cloudFiles, setCloudFiles] = useState<StoredGisFile[]>([]);
+  const [pendingLayers, setPendingLayers] = useState<MapLayerPreset[]>([]);
   const [outcomes, setOutcomes] = useState<GisOutcomesMap>(() => readOutcomesMap(property.id));
-  const fetchingLayersRef = useRef<Set<MapLayerPreset>>(new Set());
-  const mountedRef = useRef(true);
-
   const [elapsedTick, setElapsedTick] = useState(0);
+  const [manualLayer, setManualLayer] = useState<MapLayerPreset>('cadastral');
+  const [manualFile, setManualFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    setFetchState({
-      fetchingLayers: pendingLayersList(property.id),
-    });
-    setOutcomes(readOutcomesMap(property.id));
+  const loadCloudFiles = useCallback(async () => {
+    const { data } = await listCadastralMapFiles(property.id);
+    setCloudFiles(data);
   }, [property.id]);
+
+  useEffect(() => {
+    void loadCloudFiles();
+  }, [loadCloudFiles]);
 
   useEffect(() => {
     const sync = () => {
-      const layers = pendingLayersList(property.id);
-      setFetchState((prev) => {
-        const same =
-          prev.fetchingLayers.length === layers.length &&
-          prev.fetchingLayers.every((l) => layers.includes(l)) &&
-          layers.every((l) => prev.fetchingLayers.includes(l));
-        if (same) return prev;
-        return { fetchingLayers: layers };
-      });
+      setPendingLayers(pendingLayersList(property.id));
       setOutcomes(readOutcomesMap(property.id));
     };
     sync();
-    const id = setInterval(sync, 400);
+    const id = setInterval(sync, 500);
     return () => clearInterval(id);
   }, [property.id]);
 
-  const pendingLayersKey = fetchState.fetchingLayers.join(',');
-
   useEffect(() => {
-    if (pendingLayersKey === '') return;
+    if (pendingLayers.length === 0) return;
     const id = setInterval(() => setElapsedTick((t) => t + 1), 1000);
     return () => clearInterval(id);
-  }, [pendingLayersKey]);
+  }, [pendingLayers.length]);
 
   const layerElapsed = useMemo(
     () => ({
@@ -141,116 +117,13 @@ export function PropertyGeographicInfoTab({ property }: { property: PropertyItem
       building: elapsedSecondsForLayer(property.id, 'building'),
       both: elapsedSecondsForLayer(property.id, 'both'),
     }),
-    [property.id, elapsedTick, pendingLayersKey],
+    [property.id, elapsedTick, pendingLayers.length],
   );
 
-  const hasAddress = !!(property.addressDistrict && property.addressStreet && property.addressNumber);
-  const canFetch = hasCoords || hasAddress;
-  const fetchInFlight = fetchState.fetchingLayers.length > 0;
-  const isLayerFetching = useCallback(
-    (layer: MapLayerPreset) => fetchState.fetchingLayers.includes(layer),
-    [fetchState.fetchingLayers],
+  const isLayerPending = useCallback(
+    (layer: MapLayerPreset) => pendingLayers.includes(layer),
+    [pendingLayers],
   );
-
-  const [cloudFiles, setCloudFiles] = useState<StoredGisFile[]>([]);
-
-  const loadCloudFiles = useCallback(async () => {
-    const { data } = await listCadastralMapFiles(property.id);
-    setCloudFiles(data);
-  }, [property.id]);
-
-  const handleFetch = useCallback(
-    async (layers: MapLayerPreset) => {
-      if (readPendingMap(property.id)[layers] != null || fetchingLayersRef.current.has(layers)) {
-        return;
-      }
-      fetchingLayersRef.current.add(layers);
-      clearOutcomeForLayer(property.id, layers);
-      writePendingLayer(property.id, layers, Date.now());
-      if (mountedRef.current) {
-        setOutcomes(readOutcomesMap(property.id));
-        setFetchState((prev) => ({
-          ...prev,
-          fetchingLayers: pendingLayersList(property.id),
-        }));
-      }
-
-      try {
-        const result: FetchResult = await fetchCadastralMap(
-          property.id,
-          property.type,
-          property.ownerId,
-          layers,
-          hasCoords ? { latitude: lat!, longitude: lng! } : null,
-          hasCoords || !hasAddress
-            ? null
-            : {
-                district: property.addressDistrict!,
-                street: property.addressStreet!,
-                addressNumber: property.addressNumber!,
-              },
-          { source },
-        );
-
-        const sec = elapsedSecondsForLayer(property.id, layers);
-
-        if (result.success && result.url && result.documentId && result.storagePath) {
-          writeOutcome(property.id, layers, { kind: 'success', seconds: sec, at: Date.now() });
-          if (mountedRef.current) {
-            setOutcomes(readOutcomesMap(property.id));
-            await loadCloudFiles();
-          }
-        } else {
-          writeOutcome(property.id, layers, {
-            kind: 'error',
-            seconds: sec,
-            message: truncateMessage(result.message),
-            at: Date.now(),
-          });
-          if (mountedRef.current) {
-            setOutcomes(readOutcomesMap(property.id));
-          }
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        const sec = elapsedSecondsForLayer(property.id, layers);
-        writeOutcome(property.id, layers, {
-          kind: 'error',
-          seconds: sec,
-          message: truncateMessage(`擷取失敗：${msg}`),
-          at: Date.now(),
-        });
-        if (mountedRef.current) {
-          setOutcomes(readOutcomesMap(property.id));
-        }
-      } finally {
-        clearPendingLayer(property.id, layers);
-        fetchingLayersRef.current.delete(layers);
-        if (mountedRef.current) {
-          setFetchState((prev) => ({
-            ...prev,
-            fetchingLayers: pendingLayersList(property.id),
-          }));
-          setOutcomes(readOutcomesMap(property.id));
-        }
-      }
-    },
-    [property, hasCoords, hasAddress, lat, lng, source, loadCloudFiles],
-  );
-
-  const handleDeleteAllCloud = useCallback(async () => {
-    if (cloudFiles.length === 0) return;
-    const items = [...cloudFiles];
-    await Promise.all(items.map((f) => deleteCadastralMap(f.id, f.filePath)));
-    setFetchState({
-      fetchingLayers: pendingLayersList(property.id),
-    });
-    await loadCloudFiles();
-  }, [cloudFiles, loadCloudFiles, property.id]);
-
-  useEffect(() => {
-    void loadCloudFiles();
-  }, [loadCloudFiles]);
 
   const handlePreviewGisFile = async (filePath: string) => {
     const { url, error } = await getGisFileUrl(filePath);
@@ -270,257 +143,305 @@ export function PropertyGeographicInfoTab({ property }: { property: PropertyItem
     setOutcomes({});
   };
 
+  const handleManualUpload = async () => {
+    if (!manualFile) return;
+    setIsUploading(true);
+    setFeedback(null);
+    const fd = new FormData();
+    fd.append('file', manualFile);
+    const result = await uploadManualCadastralMapFile(
+      property.id,
+      property.type,
+      property.ownerId,
+      manualLayer,
+      fd,
+    );
+    setIsUploading(false);
+    if (result.success) {
+      setFeedback({ type: 'success', message: result.message });
+      setManualFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      await loadCloudFiles();
+    } else {
+      setFeedback({ type: 'error', message: result.message });
+    }
+  };
+
   const hasAnyOutcome = GIS_OUTCOME_PRESET_ORDER.some((k) => outcomes[k] != null);
+  const latestFilesByLayer = useMemo(() => {
+    const grouped: Partial<Record<MapLayerPreset, StoredGisFile>> = {};
+    for (const file of cloudFiles) {
+      const layer = fileLayer(file);
+      if (!layer || grouped[layer]) continue;
+      grouped[layer] = file;
+    }
+    return grouped;
+  }, [cloudFiles]);
 
   return (
-    <div className="space-y-4 max-w-3xl">
+    <div className="space-y-4 max-w-full">
       <div className="flex items-start gap-2 text-sm text-text-muted">
         <MapPin size={18} className="text-accent shrink-0 mt-0.5" />
         <p>
-          預計查詢地址（與「物件基本資訊」頁一致），用於自動擷取台北市地籍圖與建物套繪圖。
+          儲存「物件基本資訊」後，系統會自動產出地籍圖、建物套繪圖、地籍圖 + 建物套繪圖三份 GIS 文件。
         </p>
       </div>
 
-      {/* Address card — read-only; allow text selection for copy */}
-      <div className={`${cardCls} select-text`}>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted mb-2">
-          地址
-        </h3>
-        <p className="text-sm text-text-primary leading-relaxed select-text">{addressLine}</p>
-      </div>
-
-      {/* External links */}
-      {hasCoords && googleUrl && osmUrl && (
-        <div className="flex flex-wrap gap-3">
-          <a
-            href={googleUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-sm text-accent hover:underline"
-          >
-            <ExternalLink size={14} />
-            在 Google 地圖開啟
-          </a>
-          <a
-            href={osmUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-sm text-accent hover:underline"
-          >
-            <ExternalLink size={14} />
-            在 OpenStreetMap 開啟
-          </a>
-        </div>
-      )}
-
-      {/* GIS Map Fetch Section */}
       <div className={`${cardCls} space-y-3`}>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted mb-1">
-          台北市地籍圖 / 建物套繪圖 自動擷取
-        </h3>
-
-        {/* Source selector */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium text-text-secondary">圖資來源</label>
-          <div className="flex gap-2">
-            {SOURCE_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                disabled={fetchInFlight}
-                onClick={() => setSource(opt.value)}
-                className={`flex-1 rounded-md border px-3 py-2 text-left transition-colors ${
-                  source === opt.value
-                    ? 'border-accent bg-accent/10 text-accent'
-                    : 'border-border-default bg-bg-secondary text-text-primary hover:bg-bg-tertiary'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                <span className="block text-xs font-medium">{opt.label}</span>
-                <span className="block text-[10px] text-text-muted mt-0.5">{opt.hint}</span>
-              </button>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+            GIS 圖資查詢與檔案
+          </h3>
+          {hasAnyOutcome && (
+            <button
+              type="button"
+              onClick={handleClearOutcomes}
+              className="text-[10px] text-text-muted hover:text-text-primary underline shrink-0"
+            >
+              清除擷取紀錄
+            </button>
+          )}
+        </div>
+        <div className="overflow-hidden rounded-md border border-border-default bg-bg-secondary text-xs">
+          <div className="hidden grid-cols-[minmax(220px,1.15fr)_minmax(150px,0.95fr)_minmax(150px,0.95fr)_minmax(170px,1.05fr)] gap-3 border-b border-border-default px-3 py-2 text-text-muted lg:grid">
+            <span>地址</span>
+            {LAYER_PRESET_ORDER.map((layer) => (
+              <span key={layer}>{LAYER_LABELS[layer]}</span>
             ))}
           </div>
-        </div>
-
-        <p className="text-xs text-text-muted">
-          A4 直向、1:1000 比例尺、300 DPI。結果自動儲存至物件文件。
-        </p>
-
-        {!canFetch && (
-          <p className="text-xs text-warning">
-            需要座標或完整結構化地址（行政區 + 道路 + 門牌號碼）才能擷取。
-          </p>
-        )}
-
-        {canFetch && (
-          <div className="flex flex-wrap gap-2">
-            <FetchButton
-              label="地籍圖"
-              loading={isLayerFetching('cadastral')}
-              onClick={() => void handleFetch('cadastral')}
-            />
-            <FetchButton
-              label="建物套繪圖"
-              loading={isLayerFetching('building')}
-              onClick={() => void handleFetch('building')}
-            />
-            <FetchButton
-              label="地籍圖 + 建物套繪圖"
-              loading={isLayerFetching('both')}
-              onClick={() => void handleFetch('both')}
-            />
-          </div>
-        )}
-
-        {canFetch && (
-          <div className="rounded-md border border-border-default bg-bg-secondary/60 px-3 py-2 space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
-                各項目擷取狀態（離開此頁後，未完成的項目仍會在背景繼續）
-              </p>
-              {hasAnyOutcome && (
-                <button
-                  type="button"
-                  onClick={handleClearOutcomes}
-                  className="text-[10px] text-text-muted hover:text-text-primary underline shrink-0"
-                >
-                  清除擷取紀錄
-                </button>
+          <div className="grid gap-3 px-3 py-3 lg:grid-cols-[minmax(220px,1.15fr)_minmax(150px,0.95fr)_minmax(150px,0.95fr)_minmax(170px,1.05fr)] lg:items-start">
+            <div className="min-w-0 select-text">
+              <p className="text-[11px] text-text-muted lg:hidden">地址</p>
+              <p className="font-medium leading-relaxed text-text-primary">{addressLine}</p>
+              {hasCoords && googleUrl && osmUrl && (
+                <div className="mt-2 flex flex-wrap gap-3">
+                  <ExternalMapLink href={googleUrl} label="Google 地圖" />
+                  <ExternalMapLink href={osmUrl} label="OpenStreetMap" />
+                </div>
+              )}
+              {!canAutoGenerate && (
+                <p className="mt-2 text-xs text-warning">
+                  需要座標或完整結構化地址（行政區 + 道路 + 門牌號碼）才能自動產圖。
+                </p>
               )}
             </div>
-            <ul className="space-y-1.5">
-              {GIS_OUTCOME_PRESET_ORDER.map((layer) => {
-                const pending = isLayerFetching(layer);
-                const o = outcomes[layer];
-                const waitSec = layerElapsed[layer];
-
-                let line: ReactNode;
-                if (pending) {
-                  line = (
-                    <span className="inline-flex items-center gap-1.5 text-text-secondary">
-                      <Loader2 size={12} className="animate-spin shrink-0" />
-                      進行中 · 已 {waitSec} 秒
-                    </span>
-                  );
-                } else if (o?.kind === 'success') {
-                  line = (
-                    <span className="inline-flex items-center gap-1.5 text-accent">
-                      <CheckCircle2 size={12} className="shrink-0" />
-                      成功 · 耗時 {o.seconds} 秒
-                    </span>
-                  );
-                } else if (o?.kind === 'error') {
-                  line = (
-                    <span className="inline-flex items-start gap-1.5 text-error">
-                      <XCircle size={12} className="shrink-0 mt-0.5" />
-                      <span>
-                        失敗 · 耗時 {o.seconds} 秒
-                        <span className="text-text-muted"> · </span>
-                        {o.message}
-                      </span>
-                    </span>
-                  );
-                } else {
-                  line = <span className="text-text-muted">尚未擷取</span>;
-                }
-
-                return (
-                  <li
-                    key={layer}
-                    className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3 text-xs"
-                  >
-                    <span className="font-medium text-text-primary shrink-0">{LAYER_LABELS[layer]}</span>
-                    <span className="min-w-0 break-words sm:text-right">{line}</span>
-                  </li>
-                );
-              })}
-            </ul>
+            {LAYER_PRESET_ORDER.map((layer) => (
+              <GisFileCell
+                key={layer}
+                label={LAYER_LABELS[layer]}
+                file={latestFilesByLayer[layer]}
+                pending={isLayerPending(layer)}
+                elapsed={layerElapsed[layer]}
+                outcome={outcomes[layer]}
+                onPreview={handlePreviewGisFile}
+                onDelete={handleDeleteGisFile}
+              />
+            ))}
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Cloud GIS file list — single source of truth after upload to Supabase */}
-      {cloudFiles.length > 0 && (
-        <div className="border border-border-default rounded-lg p-3 space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <h5 className="text-[11px] font-semibold text-text-primary flex items-center gap-1.5 min-w-0">
-              <FileText size={13} />
-              <span className="truncate">雲端 GIS 圖資紀錄（{cloudFiles.length}）</span>
-            </h5>
-            {cloudFiles.length > 1 && (
-              <button
-                type="button"
-                onClick={() => void handleDeleteAllCloud()}
-                className="inline-flex items-center gap-1 text-xs text-error hover:underline shrink-0"
-              >
-                <Trash2 size={12} />
-                全部刪除
-              </button>
-            )}
-          </div>
-          <ul className="space-y-1">
-            {cloudFiles.map((f) => (
-              <li
-                key={f.id}
-                className="flex items-center justify-between text-[11px] text-text-secondary py-1 px-2 rounded hover:bg-bg-secondary"
-              >
-                <span className="truncate mr-2">
-                  {f.name}
-                  {f.createdAt && (
-                    <span className="text-text-muted ml-2">
-                      {new Date(f.createdAt).toLocaleString('zh-TW')}
-                    </span>
-                  )}
-                </span>
-                <span className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => void handlePreviewGisFile(f.filePath)}
-                    className="p-1 rounded hover:bg-accent/10 text-accent"
-                    title="預覽"
-                  >
-                    <Eye size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleDeleteGisFile(f)}
-                    className="p-1 rounded hover:bg-red-500/10 text-red-400"
-                    title="刪除"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </span>
-              </li>
-            ))}
-          </ul>
+      <div className={`${cardCls} space-y-3`}>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+          手動查詢後上傳
+        </h3>
+        <div className="flex flex-wrap gap-3">
+          <ExternalMapLink href={GIS_SOURCE_URLS.historygis} label={GIS_SOURCE_LABELS.historygis} />
+          <ExternalMapLink href={GIS_SOURCE_URLS.epoint} label={GIS_SOURCE_LABELS.epoint} />
         </div>
-      )}
+
+        {feedback && (
+          <div
+            className={`p-2.5 rounded-md text-xs relative ${
+              feedback.type === 'success'
+                ? 'bg-green-500/10 text-green-500 border border-green-500/20'
+                : 'bg-red-500/10 text-red-500 border border-red-500/20'
+            }`}
+          >
+            <div className="pr-6">{feedback.message}</div>
+            <button
+              type="button"
+              onClick={() => setFeedback(null)}
+              className="absolute top-2 right-2 p-1 rounded-md hover:bg-black/5 transition-colors opacity-60 hover:opacity-100"
+              title="關閉提示"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
+        <div className="grid gap-2 sm:grid-cols-[180px_minmax(0,1fr)]">
+          <select
+            aria-label="GIS 圖資類型"
+            value={manualLayer}
+            onChange={(e) => setManualLayer(e.target.value as MapLayerPreset)}
+            className="w-full border border-border-default rounded-md px-2 py-1.5 bg-bg-primary text-text-primary text-xs focus:outline-none focus:border-accent"
+          >
+            {MANUAL_UPLOAD_OPTIONS.map((layer) => (
+              <option key={layer} value={layer}>
+                {LAYER_LABELS[layer]}
+              </option>
+            ))}
+          </select>
+          <input
+            ref={fileInputRef}
+            type="file"
+            aria-label="上傳 GIS 圖資檔案"
+            accept="application/pdf,image/jpeg,image/png,image/webp,image/tiff,image/bmp,image/gif"
+            onChange={(e) => setManualFile(e.target.files?.[0] ?? null)}
+            className="w-full text-xs text-text-secondary file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-bg-tertiary file:text-text-secondary hover:file:bg-border-default cursor-pointer"
+          />
+        </div>
+        {manualFile && (
+          <p className="text-xs text-text-muted">
+            已選取 {manualFile.name}（{(manualFile.size / 1024 / 1024).toFixed(1)} MB）
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={() => void handleManualUpload()}
+          disabled={!manualFile || isUploading}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-xs rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40"
+        >
+          {isUploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+          {isUploading ? '上傳中…' : '上傳 GIS 圖資'}
+        </button>
+      </div>
     </div>
   );
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────
+function ExternalMapLink({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1.5 text-sm text-accent hover:underline"
+    >
+      <ExternalLink size={14} />
+      {label}
+    </a>
+  );
+}
 
-function FetchButton({
+function FileStatusLine({
   label,
-  loading,
-  disabled = false,
-  onClick,
+  pending,
+  elapsed,
+  outcome,
+  hasFile,
 }: {
   label: string;
-  loading: boolean;
-  disabled?: boolean;
-  onClick: () => void;
+  pending: boolean;
+  elapsed: number;
+  outcome?: GisOutcomesMap[MapLayerPreset];
+  hasFile?: boolean;
+}) {
+  let line: ReactNode;
+  if (pending) {
+    line = (
+      <span className="inline-flex items-center gap-1.5 text-text-secondary">
+        <Loader2 size={12} className="animate-spin shrink-0" />
+        產出中 · 已 {elapsed} 秒
+      </span>
+    );
+  } else if (outcome?.kind === 'success') {
+    line = (
+      <span className="inline-flex items-center gap-1.5 text-accent">
+        <CheckCircle2 size={12} className="shrink-0" />
+        已產出 · 耗時 {outcome.seconds} 秒
+      </span>
+    );
+  } else if (outcome?.kind === 'error') {
+    line = (
+      <span className="inline-flex items-start gap-1.5 text-error">
+        <XCircle size={12} className="shrink-0 mt-0.5" />
+        <span>
+          失敗 · 耗時 {outcome.seconds} 秒
+          <span className="text-text-muted"> · </span>
+          {outcome.message}
+        </span>
+      </span>
+    );
+  } else if (hasFile) {
+    line = (
+      <span className="inline-flex items-center gap-1.5 text-green-500">
+        <CheckCircle2 size={12} className="shrink-0" />
+        已儲存檔案
+      </span>
+    );
+  } else {
+    line = <span className="text-text-muted">等待下次儲存基本資訊</span>;
+  }
+
+  return (
+    <div className="space-y-0.5">
+      <p className="text-[11px] font-medium text-text-primary">{label}</p>
+      <div className="min-w-0 break-words">{line}</div>
+    </div>
+  );
+}
+
+function GisFileCell({
+  label,
+  file,
+  pending,
+  elapsed,
+  outcome,
+  onPreview,
+  onDelete,
+}: {
+  label: string;
+  file?: StoredGisFile;
+  pending: boolean;
+  elapsed: number;
+  outcome?: GisOutcomesMap[MapLayerPreset];
+  onPreview: (filePath: string) => Promise<void>;
+  onDelete: (file: StoredGisFile) => Promise<void>;
 }) {
   return (
-    <button
-      type="button"
-      disabled={loading || disabled}
-      onClick={onClick}
-      className="inline-flex items-center gap-1.5 rounded-md border border-border-default bg-bg-secondary px-3 py-1.5 text-xs font-medium text-text-primary hover:bg-bg-tertiary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-    >
-      {loading ? <Loader2 size={14} className="animate-spin" /> : <MapIcon size={14} />}
-      擷取{label}
-    </button>
+    <div className="min-w-0 rounded-md border border-border-default bg-bg-primary p-2.5">
+      <p className="mb-1 text-[11px] text-text-muted lg:hidden">{label}</p>
+      <FileStatusLine
+        label="狀態"
+        pending={pending}
+        elapsed={elapsed}
+        outcome={outcome}
+        hasFile={file != null}
+      />
+      {file ? (
+        <div className="mt-2 flex items-start justify-between gap-2 rounded-md bg-bg-secondary px-2 py-2">
+          <div className="min-w-0">
+            <p className="truncate text-[11px] font-medium text-text-secondary">{file.name}</p>
+            {file.createdAt && (
+              <p className="mt-0.5 text-[10px] text-text-muted">
+                {new Date(file.createdAt).toLocaleString('zh-TW')}
+              </p>
+            )}
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => void onPreview(file.filePath)}
+              className="rounded p-1 text-accent hover:bg-accent/10"
+              title="預覽"
+            >
+              <Eye size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => void onDelete(file)}
+              className="rounded p-1 text-red-400 hover:bg-red-500/10"
+              title="刪除"
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="mt-2 text-[11px] text-text-muted">尚無檔案</p>
+      )}
+    </div>
   );
 }
