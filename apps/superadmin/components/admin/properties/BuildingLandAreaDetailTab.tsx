@@ -21,7 +21,10 @@ import type {
   TranscriptIntakeAreaDetailDraft,
   TranscriptIntakeAreaDetailRow,
 } from '@/lib/transcript-parse/intake-types';
-import { PARKING_AREA_EMPTY_MESSAGE } from '@/lib/transcript-parse/area-detail-copy';
+import {
+  PARKING_AREA_CAUTION_MESSAGE,
+  PARKING_AREA_EMPTY_MESSAGE,
+} from '@/lib/transcript-parse/area-detail-copy';
 import {
   parseAreaNumber,
   formatAreaNumber,
@@ -41,6 +44,7 @@ interface Props {
 // ---------------------------------------------------------------------------
 const thCls = 'px-3 py-2 text-left text-xs font-medium text-text-muted whitespace-nowrap';
 const tdCls = 'px-3 py-2 text-sm text-text-primary whitespace-nowrap';
+const subtotalTextTdCls = 'px-3 py-2 text-[15px] font-semibold text-text-primary whitespace-nowrap';
 const sectionTitleCls = 'flex items-center gap-2 text-sm font-semibold text-text-primary mb-3';
 const cardCls = 'rounded-lg border border-border-default bg-bg-primary p-4';
 const tableCls = 'w-full text-left border-collapse';
@@ -53,6 +57,8 @@ const deleteRowBtnCls =
   'p-0.5 text-text-muted hover:text-red-400 transition-colors';
 const valueHighlightCls =
   'inline-flex items-center bg-bg-tertiary text-text-primary px-1.5 py-0.5 rounded';
+const AREA_DETAIL_SOURCE_REMINDER =
+  '本頁所有數據來源來自謄本頁的最後輸入結果，如需要手動更改，請返回「謄本」頁面編輯。';
 
 function ValueText({ children }: { children: React.ReactNode }) {
   return <span className={valueHighlightCls}>{children}</span>;
@@ -67,6 +73,27 @@ function DataWarning({ message }: { message: string }) {
     <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-yellow-500/10 border border-yellow-500/30 text-xs text-yellow-400">
       <AlertTriangle size={14} className="shrink-0" />
       <span>{message}</span>
+    </div>
+  );
+}
+
+function AreaDetailNotes() {
+  const notes = [
+    AREA_DETAIL_SOURCE_REMINDER,
+    PARKING_AREA_CAUTION_MESSAGE,
+  ];
+
+  return (
+    <div className="rounded-md border border-border-default bg-bg-primary px-3 py-2 text-xs text-text-muted">
+      <div className="mb-1.5 flex items-center gap-2 font-medium text-text-primary">
+        <AlertTriangle size={14} className="shrink-0 text-yellow-400" />
+        <span>注意事項</span>
+      </div>
+      <ul className="list-disc space-y-1 pl-5">
+        {notes.map((note) => (
+          <li key={note}>{note}</li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -720,8 +747,12 @@ interface ConfirmedAreaGroup {
   rows: TranscriptIntakeAreaDetailRow[];
   defaultFullShare: boolean;
   emptyLabel: string;
+  emptySource?: string;
   groupShareRatio?: string;
 }
+
+const PARKING_LAND_SHARE_EMPTY_SOURCE =
+  '本標的車位土地持份 AI 暫時無法判讀，請洽您的代書幫您審核計算';
 
 function firstTranscriptOwnershipRatio(transcript?: BuildingTranscriptData | LandTranscriptData | null): string {
   return transcript?.ownership.find((owner) => owner.ownershipRatio.trim().length > 0)?.ownershipRatio ?? '';
@@ -769,7 +800,8 @@ function buildConfirmedAreaGroups(
       subtotalLabel: '車位所屬土地持分面積小計',
       rows: draft.parkingLandShareAreas,
       defaultFullShare: false,
-      emptyLabel: PARKING_AREA_EMPTY_MESSAGE,
+      emptyLabel: '車位土地持份面積小計',
+      emptySource: PARKING_LAND_SHARE_EMPTY_SOURCE,
     },
   ];
 }
@@ -832,6 +864,17 @@ function ConfirmedAreaUnifiedTable({
                 );
 
                 if (group.rows.length === 0) {
+                  if (group.emptySource) {
+                    return (
+                      <tr key={`${group.key}-empty`} className="border-b border-border-default/50">
+                        <td className={subtotalTextTdCls}><ValueText>{group.label}</ValueText></td>
+                        <td className={subtotalTextTdCls}><ValueText>{group.emptyLabel}</ValueText></td>
+                        <td className={`${tdCls} text-text-muted`} colSpan={5}>-</td>
+                        <td className={tdCls}><ValueText>{group.emptySource}</ValueText></td>
+                      </tr>
+                    );
+                  }
+
                   return (
                     <tr key={`${group.key}-empty`} className="border-b border-border-default/50">
                       <td className={tdCls}><ValueText>{group.label}</ValueText></td>
@@ -862,8 +905,8 @@ function ConfirmedAreaUnifiedTable({
                       );
                     })}
                     <tr className="border-b border-border-default bg-bg-secondary/30">
-                      <td className={`${tdCls} font-medium`}><ValueText>{group.label}</ValueText></td>
-                      <td className={`${tdCls} font-medium`} colSpan={4}>{group.subtotalLabel}</td>
+                      <td className={subtotalTextTdCls}><ValueText>{group.label}</ValueText></td>
+                      <td className={subtotalTextTdCls} colSpan={4}>{group.subtotalLabel}</td>
                       <td className={`${tdCls} font-medium`}><ValueText>{formatMaybeArea(subtotal)}</ValueText></td>
                       <td className={`${tdCls} text-text-muted`}>{formatPing(subtotal) || '-'}</td>
                       <td className={tdCls} />
@@ -912,6 +955,8 @@ function ConfirmedAreaDetailsView({
         draft={draft}
         parkingBuildingTranscript={parkingBuildingTranscript}
       />
+
+      <AreaDetailNotes />
     </div>
   );
 }
@@ -1033,6 +1078,8 @@ export function BuildingLandAreaDetailTab({ property, propertyId, propertyType: 
         landTranscript={landTranscript}
         parkingBuildingTranscript={parkingBuildingTranscript}
       />
+
+      <AreaDetailNotes />
     </div>
   );
 }

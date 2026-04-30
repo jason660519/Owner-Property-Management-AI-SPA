@@ -5,6 +5,10 @@ import type {
   BuildingTranscriptData,
   LandTranscriptData,
 } from '@/lib/types/properties';
+import {
+  PARKING_AREA_CAUTION_MESSAGE,
+  PARKING_AREA_EMPTY_MESSAGE,
+} from '@/lib/transcript-parse/area-detail-copy';
 import type { TranscriptIntakeAreaDetailDraft } from '@/lib/transcript-parse/intake-types';
 
 jest.mock('next/navigation', () => ({
@@ -218,6 +222,11 @@ function makeConfirmedAreaDetails(): TranscriptIntakeAreaDetailDraft {
 }
 
 describe('BuildingLandAreaDetailTab', () => {
+  const sourceReminder =
+    '本頁所有數據來源來自謄本頁的最後輸入結果，如需要手動更改，請返回「謄本」頁面編輯。';
+  const parkingLandShareEmptySource =
+    '本標的車位土地持份 AI 暫時無法判讀，請洽您的代書幫您審核計算';
+
   describe('no transcript data', () => {
     it('shows empty state message when no transcripts exist', () => {
       render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={makeProperty()} />);
@@ -247,6 +256,18 @@ describe('BuildingLandAreaDetailTab', () => {
       expect(screen.getByText('08888-000建號')).toBeInTheDocument();
       expect(screen.queryByText('legacy-land-should-not-render')).not.toBeInTheDocument();
       expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    });
+
+    it('shows the source reminder at the bottom of confirmed details', () => {
+      const property = makeProperty({
+        transcriptIntakeAreaDetails: makeConfirmedAreaDetails(),
+      });
+
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
+
+      expect(screen.getByText('注意事項')).toBeInTheDocument();
+      expect(screen.getByText(sourceReminder)).toBeInTheDocument();
+      expect(screen.getByText(PARKING_AREA_CAUTION_MESSAGE)).toBeInTheDocument();
     });
 
     it('calculates summary from confirmed detail rows including multiple land rows', () => {
@@ -336,7 +357,7 @@ describe('BuildingLandAreaDetailTab', () => {
       expect(within(parkingBuildingRow).getByText('7.60')).toBeInTheDocument();
     });
 
-    it('uses the shared parking empty message for both missing parking rows', () => {
+    it('uses a source-backed default row for missing parking land share rows', () => {
       const confirmedAreaDetails = makeConfirmedAreaDetails();
       const property = makeProperty({
         transcriptIntakeAreaDetails: {
@@ -349,9 +370,14 @@ describe('BuildingLandAreaDetailTab', () => {
       render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
 
       const summarySection = screen.getByTestId('area-summary');
-      expect(
-        within(summarySection).getAllByText('本標的無車位或尚未上傳車位相關資料')
-      ).toHaveLength(2);
+      const parkingLandShareRow = within(summarySection)
+        .getByText('車位土地持份面積小計')
+        .closest('tr')!;
+
+      expect(within(summarySection).getAllByText(PARKING_AREA_EMPTY_MESSAGE)).toHaveLength(1);
+      expect(within(parkingLandShareRow).getByText(parkingLandShareEmptySource)).toBeInTheDocument();
+      expect(within(summarySection).queryByText(PARKING_AREA_CAUTION_MESSAGE)).not.toBeInTheDocument();
+      expect(screen.getByText(PARKING_AREA_CAUTION_MESSAGE)).toBeInTheDocument();
     });
   });
 
@@ -476,11 +502,23 @@ describe('BuildingLandAreaDetailTab', () => {
         buildingTranscript: makeBuildingTranscript(),
       });
       render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
-      expect(screen.queryByText(/獨立車位/)).not.toBeInTheDocument();
+      expect(screen.queryByText('獨立車位建物面積明細')).not.toBeInTheDocument();
     });
   });
 
   describe('summary totals', () => {
+    it('shows the source reminder at the bottom of transcript-derived details', () => {
+      const property = makeProperty({
+        buildingTranscript: makeBuildingTranscript(),
+      });
+
+      render(<BuildingLandAreaDetailTab propertyId="test-id" propertyType="sale" property={property} />);
+
+      expect(screen.getByText('注意事項')).toBeInTheDocument();
+      expect(screen.getByText(sourceReminder)).toBeInTheDocument();
+      expect(screen.getByText(PARKING_AREA_CAUTION_MESSAGE)).toBeInTheDocument();
+    });
+
     it('calculates total building area (main + annexed + common)', () => {
       const property = makeProperty({
         buildingTranscript: makeBuildingTranscript({

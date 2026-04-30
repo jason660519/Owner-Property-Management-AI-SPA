@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 
 import { TranscriptIntakeAreaDetailEditor } from '../TranscriptIntakeAreaDetailEditor';
+import { PARKING_AREA_EMPTY_MESSAGE } from '@/lib/transcript-parse/area-detail-copy';
 import type { TranscriptIntakeAreaDetailDraft } from '@/lib/transcript-parse/intake-types';
 
 function makeDraft(): TranscriptIntakeAreaDetailDraft {
@@ -24,6 +25,6 @@ describe('TranscriptIntakeAreaDetailEditor', () => {
       />
     );
 
-    expect(screen.getAllByText('本標的無車位或尚未上傳車位相關資料')).toHaveLength(2);
+    expect(screen.getAllByText(PARKING_AREA_EMPTY_MESSAGE)).toHaveLength(2);
   });
 });

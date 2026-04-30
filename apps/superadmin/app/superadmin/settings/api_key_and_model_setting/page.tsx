@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Key, FlaskConical, ScanText, BookMarked, Trophy, Bot,
-  Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download, Play, Route, X,
+  Images, Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download, Play, Route, X,
 } from 'lucide-react';
 import {
   PromptManagerModal,
@@ -36,6 +36,7 @@ import {
 import { OcrSystemPromptPanel } from '@/components/ai-settings/OcrSystemPromptPanel';
 import { LlmLeaderboardPanel } from '@/components/ai-settings/LlmLeaderboardPanel';
 import { EvaluationsGlobalPanel } from './EvaluationsGlobalPanel';
+import { ImageToImageEvaluationPanel } from './ImageToImageEvaluationPanel';
 import { buildEvaluationsGlobalRowsFromAdapterTables } from './evaluations-global-from-adapters';
 import { mergeEvaluationsGlobalDbHistory } from './evaluations-global-merge-db';
 import type { AdapterEvaluationGroupSummaryDto } from './adapter-evaluation-runs-types';
@@ -59,6 +60,7 @@ type SettingsTab =
   | 'llm-leaderboard'
   | 'evaluations-global'
   | 'evaluations-visual'
+  | 'image-to-image-evaluation'
   | 'http-adapter-config'
   | 'model-router'
   | 'ocr';
@@ -68,6 +70,7 @@ const TAB_IDS: SettingsTab[] = [
   'llm-leaderboard',
   'evaluations-global',
   'evaluations-visual',
+  'image-to-image-evaluation',
   'http-adapter-config',
   'model-router',
   'ocr',
@@ -202,6 +205,12 @@ const TABS: { id: SettingsTab; label: string; icon: React.ElementType; descripti
     description: '',
   },
   {
+    id: 'image-to-image-evaluation',
+    label: '圖生圖模型評估',
+    icon: Images,
+    description: '',
+  },
+  {
     id: 'http-adapter-config',
     label: 'HTTP Adapter調適',
     icon: Bot,
@@ -257,6 +266,14 @@ const SHEET_TABS: SheetTabDef[] = [
     label: '',
     zhLabel: '視覺解析能力評測',
     icon: FlaskConical,
+    color: 'text-emerald-600',
+    activeColor: 'bg-emerald-600 text-white',
+  },
+  {
+    id: 'image-to-image-evaluation',
+    label: '',
+    zhLabel: '圖生圖模型評估',
+    icon: Images,
     color: 'text-emerald-600',
     activeColor: 'bg-emerald-600 text-white',
   },
@@ -1893,6 +1910,16 @@ export default function AIServiceSettingsPage() {
       );
     }
 
+    if (activeTab === 'image-to-image-evaluation') {
+      return (
+        <ImageToImageEvaluationPanel
+          savedKeys={settings.keys}
+          validateAllResultsByKeyId={validateAllResultsByKeyId}
+          onTestModel={settings.testModel}
+        />
+      );
+    }
+
     if (activeTab === 'http-adapter-config') {
       const { cli, http } = adapterCompareSummary;
       return (
@@ -2251,6 +2278,7 @@ export default function AIServiceSettingsPage() {
             {activeTab !== 'llm-leaderboard' &&
             activeTab !== 'evaluations-global' &&
             activeTab !== 'evaluations-visual' &&
+            activeTab !== 'image-to-image-evaluation' &&
             activeTab !== 'http-adapter-config' &&
             activeTab !== 'model-router' && (
             <div className="flex items-center gap-2 shrink-0">

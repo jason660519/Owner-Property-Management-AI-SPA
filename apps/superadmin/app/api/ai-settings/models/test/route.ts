@@ -54,6 +54,35 @@ function providerSignal(): AbortSignal {
   return AbortSignal.timeout(55_000);
 }
 
+function isOpenAIImageModel(modelId: string): boolean {
+  const lower = modelId.toLowerCase();
+  return lower.startsWith('gpt-image') || lower === 'chatgpt-image-latest';
+}
+
+function isQwenImageModel(modelId: string): boolean {
+  return modelId.toLowerCase().startsWith('qwen-image');
+}
+
+function attachmentBlob(file: FileAttachment): Blob {
+  return new Blob([Buffer.from(file.fileBase64, 'base64')], { type: file.mimeType });
+}
+
+function extractOpenAIImageUrl(data: unknown): string {
+  const image = (data as { data?: Array<{ b64_json?: string; url?: string }> })?.data?.[0];
+  if (typeof image?.b64_json === 'string' && image.b64_json.length > 0) {
+    return `data:image/png;base64,${image.b64_json}`;
+  }
+  return typeof image?.url === 'string' ? image.url : '';
+}
+
+function extractQwenImageUrl(data: unknown): string {
+  const content = (data as {
+    output?: { choices?: Array<{ message?: { content?: Array<{ image?: string }> } }> };
+  })?.output?.choices?.[0]?.message?.content;
+  const image = content?.find((item) => typeof item.image === 'string')?.image;
+  return typeof image === 'string' ? image : '';
+}
+
 function extractOpenAIOutput(data: unknown): string {
   const choices = (data as { choices?: { message?: { content?: string } }[] })?.choices;
   const text = choices?.[0]?.message?.content;
@@ -67,6 +96,34 @@ async function testOpenAI(
   file?: FileAttachment
 ): Promise<TestResult> {
   const { prompt, max_tokens } = getPromptAndMaxTokens(userPrompt);
+  if (file && isImageMime(file.mimeType) && isOpenAIImageModel(modelId)) {
+    try {
+      const form = new FormData();
+      form.append('model', modelId);
+      form.append('prompt', prompt);
+      form.append('image', attachmentBlob(file), file.fileName ?? 'floor-plan.png');
+      form.append('size', '1536x1024');
+      const res = await fetch('https://api.openai.com/v1/images/edits', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: form,
+        signal: providerSignal(),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        const imageUrl = extractOpenAIImageUrl(data);
+        return {
+          success: imageUrl.length > 0,
+          message: imageUrl ? '圖生圖成功' : '模型回應成功但未回傳圖片',
+          output: (data as { data?: Array<{ revised_prompt?: string }> })?.data?.[0]?.revised_prompt ?? 'OpenAI image edit completed',
+          ...(imageUrl ? { output_image_url: imageUrl } : {}),
+        };
+      }
+      return { success: false, message: (data as { error?: { message?: string } }).error?.message ?? `HTTP ${res.status}` };
+    } catch (e) {
+      return { success: false, message: `連線失敗: ${e instanceof Error ? e.message : 'Unknown'}` };
+    }
+  }
   let content: string | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> = prompt;
   if (file && isImageMime(file.mimeType)) {
     const dataUrl = `data:${file.mimeType};base64,${file.fileBase64}`;
@@ -462,6 +519,43 @@ async function testQwen(
   // Qwen (Alibaba DashScope) — OpenAI-compatible endpoint. VL models accept
   // inline image_url like any other OpenAI-style chat completions API.
   const { prompt, max_tokens } = getPromptAndMaxTokens(userPrompt);
+  if (file && isImageMime(file.mimeType) && isQwenImageModel(modelId)) {
+    const dataUrl = `data:${file.mimeType};base64,${file.fileBase64}`;
+    try {
+      const res = await fetch('https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: modelId,
+          input: {
+            messages: [{
+              role: 'user',
+              content: [{ image: dataUrl }, { text: prompt }],
+            }],
+          },
+          parameters: {
+            size: '1536*1024',
+            watermark: false,
+            prompt_extend: true,
+          },
+        }),
+        signal: providerSignal(),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        const imageUrl = extractQwenImageUrl(data);
+        return {
+          success: imageUrl.length > 0,
+          message: imageUrl ? '圖生圖成功' : '模型回應成功但未回傳圖片',
+          output: imageUrl ? 'Qwen image edit completed' : JSON.stringify(data),
+          ...(imageUrl ? { output_image_url: imageUrl } : {}),
+        };
+      }
+      return { success: false, message: (data as { message?: string })?.message ?? `HTTP ${res.status}` };
+    } catch (e) {
+      return { success: false, message: `連線失敗: ${e instanceof Error ? e.message : 'Unknown'}` };
+    }
+  }
   let content: string | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> = prompt;
   if (file && isImageMime(file.mimeType)) {
     const dataUrl = `data:${file.mimeType};base64,${file.fileBase64}`;

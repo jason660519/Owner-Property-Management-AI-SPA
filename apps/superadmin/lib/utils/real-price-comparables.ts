@@ -40,6 +40,8 @@ export interface PropertyComparableContext {
   lng: number | null;
   radiusKm: number;
   asOf: Date;
+  startDate?: Date;
+  endDate?: Date;
 }
 
 /** 台灣地址通用正規化：台/臺、一/1、空格處理 */
@@ -96,6 +98,20 @@ export function isWithinLastYear(transactionIsoDate: string, asOf: Date): boolea
   const start = new Date(asOf);
   start.setFullYear(start.getFullYear() - 1);
   return d >= start && d <= asOf;
+}
+
+export function isWithinComparablePeriod(
+  transactionIsoDate: string,
+  ctx: Pick<PropertyComparableContext, 'asOf' | 'startDate' | 'endDate'>,
+): boolean {
+  const d = new Date(transactionIsoDate);
+  if (Number.isNaN(d.getTime())) return false;
+  const start = ctx.startDate ? new Date(ctx.startDate) : new Date(ctx.asOf);
+  if (!ctx.startDate) {
+    start.setFullYear(start.getFullYear() - 1);
+  }
+  const end = ctx.endDate ? new Date(ctx.endDate) : ctx.asOf;
+  return d >= start && d <= end;
 }
 
 /** 自謄本／地號字串擷取地段關鍵字（例：仁愛段、仁愛段二小段） */
@@ -303,7 +319,7 @@ export function filterNearbyComparables(
   const out: NearbyComparableRow[] = [];
   for (const r of rows) {
     if (!sameCity(r, ctx)) continue;
-    if (!isWithinLastYear(r.transactionDate, ctx.asOf)) continue;
+    if (!isWithinComparablePeriod(r.transactionDate, ctx)) continue;
 
     if (hasPropertyCoords) {
       if (r.latitude != null && r.longitude != null) {
@@ -350,7 +366,7 @@ export function filterStreetSectionComparables(
   const out: NormalizedComparableSale[] = [];
   for (const r of rows) {
     if (!sameCityAndDistrict(r, ctx)) continue;
-    if (!isWithinLastYear(r.transactionDate, ctx.asOf)) continue;
+    if (!isWithinComparablePeriod(r.transactionDate, ctx)) continue;
 
     const snippetNorm = normalizeComparableAddressText(r.addressSnippet);
     const streetMatch = hasStreet && streetKeys.some((k) => snippetNorm.includes(k));
@@ -370,4 +386,3 @@ export function filterStreetSectionComparables(
   );
   return out;
 }
-

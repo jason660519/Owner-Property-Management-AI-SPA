@@ -27,8 +27,11 @@ export async function loadComparableSalesFromDb(ctx: PropertyComparableContext):
   dbError?: string;
 }> {
   const adminClient = createAdminClient();
-  const start = new Date(ctx.asOf);
-  start.setFullYear(start.getFullYear() - 1);
+  const start = ctx.startDate ? new Date(ctx.startDate) : new Date(ctx.asOf);
+  if (!ctx.startDate) {
+    start.setFullYear(start.getFullYear() - 1);
+  }
+  const end = ctx.endDate ? new Date(ctx.endDate) : ctx.asOf;
 
   // Normalize city name (台北市 → 臺北市) to match DB convention
   const normalizedCity = resolveCityName(ctx.city);
@@ -46,7 +49,7 @@ export async function loadComparableSalesFromDb(ctx: PropertyComparableContext):
       .eq('city', normalizedCity)
       .eq('district', ctx.district)
       .gte('transaction_date', start.toISOString().slice(0, 10))
-      .lte('transaction_date', ctx.asOf.toISOString().slice(0, 10))
+      .lte('transaction_date', end.toISOString().slice(0, 10))
       .order('transaction_date', { ascending: false })
       .range(from, from + PAGE_SIZE - 1);
 

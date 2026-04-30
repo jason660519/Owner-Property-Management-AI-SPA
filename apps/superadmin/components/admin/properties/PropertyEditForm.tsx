@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2, Building2, Key, X } from 'lucide-react';
 import { updateProperty } from '@/lib/actions/properties';
 import { fetchCadastralMap, type FetchResult } from '@/lib/actions/cadastral-maps';
+import { generateTransactionComparableDocuments } from '@/lib/actions/transaction-comparables';
 import { PropertyMediaSection } from './PropertyMediaSection';
 import { PropertyInvestigationReportSection } from './PropertyInvestigationReportSection';
 import { PropertyBlogGenerator } from './PropertyBlogGenerator';
@@ -39,8 +40,27 @@ import {
   clearOutcomeForLayer,
   writeOutcome,
 } from './gis-fetch-outcomes-storage';
+import {
+  clearPendingComparable,
+  writePendingComparable,
+  writeTransactionComparablesFeedback,
+} from './transaction-comparables-pending-storage';
 
 const GIS_AUTO_LAYERS: MapLayerPreset[] = ['cadastral', 'building', 'both'];
+const TRANSACTION_COMPARABLE_AUTO_TOTAL = 2;
+
+type AutoGisGenerationSummary = {
+  attempted: boolean;
+  successCount: number;
+  total: number;
+};
+
+type AutoComparableGenerationSummary = {
+  attempted: boolean;
+  success: boolean;
+  message: string;
+  generatedCount: number;
+};
 
 function truncateGisMessage(s: string, max = 96): string {
   if (s.length <= max) return s;
@@ -182,6 +202,7 @@ export function PropertyEditForm({
   const [lngInput, setLngInput] = useState(property.longitude != null ? String(property.longitude) : '');
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [isAutoGeneratingGis, setIsAutoGeneratingGis] = useState(false);
+  const [isAutoGeneratingComparables, setIsAutoGeneratingComparables] = useState(false);
   const [geocodeMsg, setGeocodeMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Parse + validate lat/lng inputs
@@ -261,21 +282,27 @@ export function PropertyEditForm({
     async (params: {
       coords: { latitude: number; longitude: number } | null;
       address: { district: string; street: string; addressNumber: string } | null;
-    }) => {
+    }, options: { suppressFeedback?: boolean; suppressRefresh?: boolean } = {}): Promise<AutoGisGenerationSummary> => {
       if (!params.coords && !params.address) {
-        setFeedback({
-          type: 'success',
-          message: '基本資料已儲存。缺少座標或完整地址，尚未自動產出 GIS 圖資。',
-        });
-        router.refresh();
-        return;
+        if (!options.suppressFeedback) {
+          setFeedback({
+            type: 'success',
+            message: '基本資料已儲存。缺少座標或完整地址，尚未自動產出 GIS 圖資。',
+          });
+        }
+        if (!options.suppressRefresh) {
+          router.refresh();
+        }
+        return { attempted: false, successCount: 0, total: GIS_AUTO_LAYERS.length };
       }
 
       setIsAutoGeneratingGis(true);
-      setFeedback({
-        type: 'success',
-        message: '基本資料已儲存，正在自動產出地籍圖、建物套繪圖與合併圖。',
-      });
+      if (!options.suppressFeedback) {
+        setFeedback({
+          type: 'success',
+          message: '基本資料已儲存，正在地理資訊頁面自動產出地籍圖、建物套繪圖與合併圖。您亦可前往該頁面觀察產出結果。',
+        });
+      }
 
       const results = await Promise.all(
         GIS_AUTO_LAYERS.map(async (layer): Promise<FetchResult> => {
@@ -322,16 +349,131 @@ export function PropertyEditForm({
 
       const successCount = results.filter((r) => r.success).length;
       setIsAutoGeneratingGis(false);
-      setFeedback({
-        type: successCount === GIS_AUTO_LAYERS.length ? 'success' : 'error',
-        message:
-          successCount === GIS_AUTO_LAYERS.length
-            ? '基本資料已儲存，3 份 GIS 圖資已自動產出。'
-            : `基本資料已儲存；GIS 圖資自動產出 ${successCount} / ${GIS_AUTO_LAYERS.length} 份完成，請到「地理資訊」查看失敗項目。`,
-      });
-      router.refresh();
+      if (!options.suppressFeedback) {
+        setFeedback({
+          type: successCount === GIS_AUTO_LAYERS.length ? 'success' : 'error',
+          message:
+            successCount === GIS_AUTO_LAYERS.length
+              ? '基本資料已儲存，3 份 GIS 圖資已自動產出。'
+              : `基本資料已儲存；GIS 圖資自動產出 ${successCount} / ${GIS_AUTO_LAYERS.length} 份完成，請到「地理資訊」查看失敗項目。`,
+        });
+      }
+      if (!options.suppressRefresh) {
+        router.refresh();
+      }
+      return { attempted: true, successCount, total: GIS_AUTO_LAYERS.length };
     },
     [property.id, property.ownerId, property.type, router],
+  );
+
+  const runAutoBasicInfoOutputsAfterSave = useCallback(
+    async (params: {
+      coords: { latitude: number; longitude: number } | null;
+      address: { district: string; street: string; addressNumber: string } | null;
+    }) => {
+      const shouldGenerateComparables = property.type === 'sale';
+      const canAttemptGis = params.coords != null || params.address != null;
+
+      if (shouldGenerateComparables) {
+        const startedAt = Date.now();
+        writePendingComparable(property.id, 'nearby', startedAt);
+        writePendingComparable(property.id, 'street_section', startedAt);
+        setIsAutoGeneratingComparables(true);
+      }
+
+      setFeedback({
+        type: 'success',
+        message: shouldGenerateComparables
+          ? canAttemptGis
+            ? '基本資料已儲存，正在地理資訊頁面自動產出地籍圖、建物套繪圖與合併圖，並在成交行情表頁面自動產出附近成交價與同街段成交價。您亦可前往各頁面觀察、預覽及下載結果。'
+            : '基本資料已儲存。缺少座標或完整地址，尚未自動產出 GIS 圖資；正在成交行情表頁面自動產出附近成交價與同街段成交價。您亦可前往該頁面預覽及下載結果。'
+          : canAttemptGis
+            ? '基本資料已儲存，正在地理資訊頁面自動產出地籍圖、建物套繪圖與合併圖。您亦可前往該頁面觀察產出結果。'
+            : '基本資料已儲存。缺少座標或完整地址，尚未自動產出 GIS 圖資。',
+      });
+
+      let comparableSummary: AutoComparableGenerationSummary = {
+        attempted: false,
+        success: true,
+        message: '',
+        generatedCount: 0,
+      };
+
+      try {
+        const [gisSummary, comparableResult] = await Promise.all([
+          runAutoGisGenerationAfterSave(params, { suppressFeedback: true, suppressRefresh: true }),
+          shouldGenerateComparables
+            ? generateTransactionComparableDocuments(property.id).catch((err) => ({
+                success: false,
+                message: err instanceof Error ? err.message : String(err),
+              }))
+            : Promise.resolve(null),
+        ]);
+
+        if (comparableResult) {
+          comparableSummary = {
+            attempted: true,
+            success: comparableResult.success,
+            message: comparableResult.message,
+            generatedCount: 'generated' in comparableResult ? comparableResult.generated?.length ?? 0 : 0,
+          };
+        }
+
+        const messages: string[] = ['基本資料已儲存'];
+        let hasError = false;
+
+        if (gisSummary.attempted) {
+          if (gisSummary.successCount === gisSummary.total) {
+            messages.push(`${gisSummary.total} 份 GIS 圖資已自動產出`);
+          } else {
+            hasError = true;
+            messages.push(
+              `GIS 圖資自動產出 ${gisSummary.successCount} / ${gisSummary.total} 份完成，請到「地理資訊」查看失敗項目`,
+            );
+          }
+        } else {
+          messages.push('GIS 圖資因缺少座標或完整地址未自動產出');
+        }
+
+        if (comparableSummary.attempted) {
+          if (comparableSummary.success) {
+            const generatedCount = comparableSummary.generatedCount || TRANSACTION_COMPARABLE_AUTO_TOTAL;
+            messages.push(
+              `${generatedCount} 份成交行情表已自動產出，請到「成交行情表」預覽及下載`,
+            );
+            writeTransactionComparablesFeedback(property.id, {
+              type: 'success',
+              message: `${generatedCount} 份成交行情表已自動產出，已儲存到資料庫，重新整理後仍會保留。請到「成交行情表」預覽及下載。`,
+            });
+          } else {
+            hasError = true;
+            messages.push(`成交行情表自動產出失敗：${comparableSummary.message}`);
+            writeTransactionComparablesFeedback(property.id, {
+              type: 'error',
+              message: `成交行情表自動產出失敗：${comparableSummary.message}`,
+            });
+          }
+        }
+
+        setFeedback({
+          type: hasError ? 'error' : 'success',
+          message: `${messages.join('；')}。`,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        setFeedback({
+          type: 'error',
+          message: `基本資料已儲存；自動產出附件時發生錯誤：${message}`,
+        });
+      } finally {
+        clearPendingComparable(property.id, 'nearby');
+        clearPendingComparable(property.id, 'street_section');
+        setIsAutoGeneratingGis(false);
+        setIsAutoGeneratingComparables(false);
+        router.refresh();
+      }
+    },
+    [property.id, property.type, router, runAutoGisGenerationAfterSave],
   );
 
   function handleSubmit() {
@@ -397,7 +539,12 @@ export function PropertyEditForm({
     startTransition(async () => {
       const result = await updateProperty(property.id, property.type, input);
       if (result.success) {
-        void runAutoGisGenerationAfterSave({ coords: gisCoords, address: gisAddress });
+        if (activeTab === 'edit') {
+          void runAutoBasicInfoOutputsAfterSave({ coords: gisCoords, address: gisAddress });
+        } else {
+          setFeedback({ type: 'success', message: result.message || '變更已儲存。' });
+          router.refresh();
+        }
       } else {
         setFeedback({ type: 'error', message: result.message });
       }
@@ -894,7 +1041,7 @@ export function PropertyEditForm({
               <button
                 type="button"
                 onClick={() => router.push(BACK_URL)}
-                disabled={isPending || isAutoGeneratingGis}
+                disabled={isPending || isAutoGeneratingGis || isAutoGeneratingComparables}
                 className="px-4 py-2 text-text-secondary hover:bg-bg-tertiary rounded-md transition-colors text-sm disabled:opacity-50"
               >
                 返回列表
@@ -902,11 +1049,11 @@ export function PropertyEditForm({
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={isPending || isAutoGeneratingGis}
+                disabled={isPending || isAutoGeneratingGis || isAutoGeneratingComparables}
                 className="px-5 py-2 bg-accent text-white hover:bg-accent-hover rounded-md transition-colors text-sm flex items-center gap-2 disabled:opacity-50"
               >
-                {(isPending || isAutoGeneratingGis) && <Loader2 size={14} className="animate-spin" />}
-                {isPending ? '儲存中...' : isAutoGeneratingGis ? '產圖中...' : '儲存變更'}
+                {(isPending || isAutoGeneratingGis || isAutoGeneratingComparables) && <Loader2 size={14} className="animate-spin" />}
+                {isPending ? '儲存中...' : isAutoGeneratingGis || isAutoGeneratingComparables ? '產出中...' : '儲存變更'}
               </button>
             </div>
           </div>

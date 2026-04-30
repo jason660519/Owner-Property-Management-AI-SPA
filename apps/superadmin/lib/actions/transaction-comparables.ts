@@ -12,6 +12,7 @@ import {
   filterStreetSectionComparables,
   normalizeComparableAddressText,
   normalizeTaiwanAddress,
+  type NormalizedComparableSale,
 } from '@/lib/utils/real-price-comparables';
 import { loadComparableSalesCombined } from '@/lib/utils/real-price-comparable-source';
 import { buildComparableSalesPdf } from '@/lib/utils/real-price-comparable-pdf';
@@ -52,13 +53,14 @@ async function saveComparablePdf(args: {
   docType: TransactionComparableDocType;
   kindTag: string;
   pdfBytes: Uint8Array;
+  displayLabel?: string;
 }): Promise<void> {
-  const { adminClient, propertyId, ownerId, docType, kindTag, pdfBytes } = args;
+  const { adminClient, propertyId, ownerId, docType, kindTag, pdfBytes, displayLabel } = args;
   await removePriorAutoComparable(adminClient, propertyId, kindTag);
 
   const dayStamp = new Date().toISOString().slice(0, 10);
   const storagePath = `${propertyId}/comparable-${kindTag.replace(/:/g, '-')}-${Date.now()}.pdf`;
-  const label = DOC_DISPLAY[docType];
+  const label = displayLabel ?? DOC_DISPLAY[docType];
 
   const { error: uploadError } = await adminClient.storage
     .from('property-documents')
@@ -98,6 +100,57 @@ export type GenerateSingleComparableResult = {
   message: string;
   notes?: string[];
 };
+
+export type ManualTransactionComparableMode = 'nearby' | 'street_section';
+
+export type ManualTransactionComparableInput = {
+  mode: ManualTransactionComparableMode;
+  radiusKm?: number;
+  addressKeyword?: string;
+  street?: string;
+  landSection?: string;
+  startYearMonth?: string;
+  endYearMonth?: string;
+};
+
+function parseYearMonthRange(input: ManualTransactionComparableInput): {
+  startDate: Date;
+  endDate: Date;
+  label: string;
+} {
+  const now = new Date();
+  const fallbackEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const fallbackStart = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+  const parseStart = (value?: string) => {
+    if (!value || !/^\d{4}-\d{2}$/.test(value)) return fallbackStart;
+    const [year, month] = value.split('-').map(Number);
+    return new Date(year, month - 1, 1);
+  };
+  const parseEnd = (value?: string) => {
+    if (!value || !/^\d{4}-\d{2}$/.test(value)) return fallbackEnd;
+    const [year, month] = value.split('-').map(Number);
+    return new Date(year, month, 0);
+  };
+  const startDate = parseStart(input.startYearMonth);
+  const endDate = parseEnd(input.endYearMonth);
+  if (startDate > endDate) {
+    throw new Error('交易期間起日不可晚於迄日');
+  }
+  return {
+    startDate,
+    endDate,
+    label: `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')} 至 ${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}`,
+  };
+}
+
+function applyAddressKeywordFilter<T extends NormalizedComparableSale>(
+  rows: T[],
+  keyword?: string,
+): T[] {
+  const key = normalizeComparableAddressText(keyword?.trim() ?? '');
+  if (key.length < 2) return rows;
+  return rows.filter((row) => normalizeComparableAddressText(row.addressSnippet).includes(key));
+}
 
 /** 產出單份「附近成交價」PDF */
 export async function generateNearbyComparableDocument(
@@ -161,11 +214,12 @@ export async function generateNearbyComparableDocument(
   }
 
   const addrLine = `${ctx.city}${ctx.district}${ctx.street}${property.addressNumber || ''}`;
+  const radiusLabel = `${ctx.radiusKm}km`;
 
   const propertyLines = [
     `物件地址：${addrLine}`,
     `座標：${ctx.lat?.toFixed(6) ?? '未偵測'}, ${ctx.lng?.toFixed(6) ?? '未偵測'}`,
-    `附近範圍：${ctx.radiusKm === 1 ? '1km' : '2km'}`,
+    `附近範圍：${radiusLabel}`,
   ];
 
   const nearbyCriteria =
@@ -188,7 +242,7 @@ export async function generateNearbyComparableDocument(
   const adminClient = createAdminClient();
   const pdf = await buildComparableSalesPdf({
     kind: 'nearby',
-    reportTitle: '附近成交價（近一年）',
+    reportTitle: `附近成交價 ${radiusLabel}（近一年）`,
     criteriaLines: nearbyCriteria,
     propertyLines,
     warnings: nearbyWarnings,
@@ -201,8 +255,9 @@ export async function generateNearbyComparableDocument(
     propertyId,
     ownerId: property.ownerId,
     docType: 'transaction_comparables_nearby',
-    kindTag: 'comparable:kind:nearby',
+    kindTag: `comparable:kind:nearby:${radiusLabel}`,
     pdfBytes: pdf,
+    displayLabel: `附近成交價-${radiusLabel}`,
   });
 
   revalidatePath(`/superadmin/properties/${propertyId}/edit`);
@@ -256,6 +311,138 @@ export async function generateStreetSectionComparableDocument(
 
   revalidatePath(`/superadmin/properties/${propertyId}/edit`);
   return { success: true, message: '同街段成交價產出成功', notes };
+}
+
+export async function generateManualTransactionComparableDocument(
+  propertyId: string,
+  input: ManualTransactionComparableInput,
+): Promise<GenerateSingleComparableResult> {
+  const property = await getPropertyById(propertyId);
+  if (!property || property.type !== 'sale') {
+    return { success: false, message: '找不到物件或非出售物件' };
+  }
+
+  try {
+    const { startDate, endDate, label: periodLabel } = parseYearMonthRange(input);
+    const ctx = buildComparableContextFromProperty(property, endDate);
+    if (!ctx) return { success: false, message: '請先補齊物件縣市與行政區' };
+
+    ctx.startDate = startDate;
+    ctx.endDate = endDate;
+
+    const radiusKm = Number(input.radiusKm);
+    if (Number.isFinite(radiusKm) && radiusKm > 0) {
+      ctx.radiusKm = radiusKm;
+    }
+
+    const street = input.street?.trim();
+    if (street) {
+      ctx.street = street;
+    }
+
+    const landSection = input.landSection?.trim();
+    if (landSection) {
+      ctx.landSectionTokens = [landSection];
+    }
+
+    if (ctx.lat == null || ctx.lng == null) {
+      const geo = await geocodeAddress({
+        city: ctx.city,
+        district: ctx.district,
+        street: ctx.street,
+        number: property.addressNumber || '',
+        rawAddress: property.address,
+      });
+
+      if (geo) {
+        ctx.lat = geo.lat;
+        ctx.lng = geo.lng;
+        await updateProperty(property.id, property.type, {
+          latitude: geo.lat,
+          longitude: geo.lng,
+        });
+      }
+    }
+
+    const { rows: pool, fetchNotes } = await loadComparableSalesCombined(ctx);
+    const notes: string[] = [...fetchNotes];
+    const addressKeyword = input.addressKeyword?.trim();
+    const adminClient = createAdminClient();
+    const generatedAtLabel = `產製時間：${new Date().toLocaleString('zh-TW', { hour12: false })}`;
+    const addrLine = `${ctx.city}${ctx.district}${ctx.street}${property.addressNumber || ''}`;
+    const commonPropertyLines = [
+      `物件地址：${addrLine}`,
+      `區段位置或門牌：${addressKeyword || '（未指定）'}`,
+      `交易期間：${periodLabel}`,
+    ];
+
+    if (input.mode === 'nearby') {
+      const rows = applyAddressKeywordFilter(filterNearbyComparables(pool, ctx), addressKeyword);
+      const radiusLabel = `${ctx.radiusKm}km`;
+      const pdf = await buildComparableSalesPdf({
+        kind: 'nearby',
+        reportTitle: `附近成交價 ${radiusLabel}`,
+        criteriaLines: [
+          '類型：買賣案件',
+          `搜尋模式：周邊距離 ${radiusLabel}`,
+          `街道：${ctx.street || '—'}`,
+          `地段：${ctx.landSectionTokens.join('、') || '—'}`,
+          `交易期間：${periodLabel}`,
+        ],
+        propertyLines: [
+          ...commonPropertyLines,
+          `座標：${ctx.lat != null && ctx.lng != null ? `${ctx.lat.toFixed(6)}, ${ctx.lng.toFixed(6)}` : '（未設定）'}`,
+        ],
+        warnings: [],
+        rows,
+        generatedAtLabel,
+      });
+
+      await saveComparablePdf({
+        adminClient,
+        propertyId,
+        ownerId: property.ownerId,
+        docType: 'transaction_comparables_nearby',
+        kindTag: `comparable:kind:manual:nearby:${radiusLabel}:${startDate.toISOString().slice(0, 7)}:${endDate.toISOString().slice(0, 7)}`,
+        pdfBytes: pdf,
+        displayLabel: `手動查詢-附近成交價-${radiusLabel}`,
+      });
+      revalidatePath(`/superadmin/properties/${propertyId}/edit`);
+      return { success: true, message: `手動查詢附近成交價 ${radiusLabel} 產出成功`, notes };
+    }
+
+    const rows = applyAddressKeywordFilter(filterStreetSectionComparables(pool, ctx), addressKeyword);
+    const streetLabel = ctx.street || landSection || '路段地段';
+    const pdf = await buildComparableSalesPdf({
+      kind: 'street_section',
+      reportTitle: '路段／地段成交價',
+      criteriaLines: [
+        '類型：買賣案件',
+        '搜尋模式：路段／地段',
+        `街道：${ctx.street || '—'}`,
+        `地段：${ctx.landSectionTokens.join('、') || '—'}`,
+        `交易期間：${periodLabel}`,
+      ],
+      propertyLines: commonPropertyLines,
+      warnings: [],
+      rows,
+      generatedAtLabel,
+    });
+
+    await saveComparablePdf({
+      adminClient,
+      propertyId,
+      ownerId: property.ownerId,
+      docType: 'transaction_comparables_street_section',
+      kindTag: `comparable:kind:manual:street:${normalizeTaiwanAddress(streetLabel)}:${startDate.toISOString().slice(0, 7)}:${endDate.toISOString().slice(0, 7)}`,
+      pdfBytes: pdf,
+      displayLabel: '手動查詢-路段地段成交價',
+    });
+    revalidatePath(`/superadmin/properties/${propertyId}/edit`);
+    return { success: true, message: '手動查詢路段／地段成交價產出成功', notes };
+  } catch (err) {
+    return { success: false, message: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 export type GenerateTransactionComparablesResult = {
