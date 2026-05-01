@@ -425,8 +425,11 @@ export function useAISettings() {
         body.mimeType = mimeType;
         if (fileName) body.fileName = fileName;
       }
+      const isImageRequest = !!(fileBase64 && mimeType);
+      // Image generation can take up to 120s server-side; give client a wider window.
+      const clientTimeoutMs = isImageRequest ? 135_000 : 65_000;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 65000); // 65s timeout
+      const timeoutId = setTimeout(() => controller.abort(), clientTimeoutMs);
       let res: Response;
       try {
         res = await fetch('/api/ai-settings/models/test', {
@@ -438,7 +441,7 @@ export function useAISettings() {
       } catch (fetchErr) {
         clearTimeout(timeoutId);
         const msg = fetchErr instanceof Error && fetchErr.name === 'AbortError'
-          ? '請求逾時（65 秒），請檢查網路或稍後再試'
+          ? `請求逾時（${clientTimeoutMs / 1000} 秒），請檢查網路或稍後再試`
           : `連線失敗: ${fetchErr instanceof Error ? fetchErr.message : 'Unknown'}`;
         return { success: false, message: msg };
       }

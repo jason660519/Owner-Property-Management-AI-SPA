@@ -13,17 +13,27 @@ export const IMAGE_TO_IMAGE_CAPABLE_MODELS: ImageToImageCapableModel[] = [
   {
     providerId: 'gemini',
     modelId: 'gemini-3.1-flash-image-preview',
-    modelName: 'Gemini Banana / Nano Banana 2',
+    modelName: 'Nano Banana 2 (3.1 Flash Image)',
   },
   {
     providerId: 'gemini',
     modelId: 'gemini-3-pro-image-preview',
-    modelName: 'Gemini Banana Pro',
+    modelName: 'Banana Pro (3 Pro Image)',
   },
   {
     providerId: 'gemini',
     modelId: 'gemini-2.5-flash-image',
-    modelName: 'Gemini Banana',
+    modelName: 'Banana (2.5 Flash Image)',
+  },
+  {
+    providerId: 'openai',
+    modelId: 'gpt-image-1.5',
+    modelName: 'GPT Image 1.5',
+  },
+  {
+    providerId: 'openai',
+    modelId: 'gpt-image-2',
+    modelName: 'GPT Images 2.0',
   },
   {
     providerId: 'openai',

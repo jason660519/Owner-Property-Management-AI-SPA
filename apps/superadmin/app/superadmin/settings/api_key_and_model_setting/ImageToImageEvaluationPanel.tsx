@@ -97,7 +97,7 @@ function requestedImageModes(outputMode: ImageToImageEvaluationRow['outputMode']
 }
 
 function promptForImageMode(row: ImageToImageEvaluationRow, mode: ImageOutputMode): string {
-  const modeLabel = mode === '2d' ? '2D 彩繪平面圖' : '3D 鳥瞰彩繪圖';
+  const modeLabel = mode === '2d' ? '2D 彩繪平面圖（正俯視）' : '3D 立體彩繪圖（45 度斜角俯瞰）';
   const basePrompt = row.prompt.trim() || buildImageToImagePrompt(row.style, row.outputMode);
   return [
     basePrompt,

@@ -62,6 +62,15 @@ Key rules:
 
 If the table has > 10 columns, extract to a separate `columns.tsx` file. Otherwise, `useMemo` inline is fine.
 
+**For tables with rich interactive cells** (file uploads, dropdowns, async "Run" buttons, status-driven previews, side-sheet detail) — see `references/complex-cell-patterns.md` BEFORE writing cells inline. Key rules summarized there:
+
+- Extract cells > 30 lines or with their own `useState/useMemo/useEffect` to `*Cell.tsx` files
+- **`stopTablePointerEvent`** on every interactive child (`<select>`, `<textarea>`, file input) — without it EnhancedTable's resize/row-click handlers steal events
+- **`relative isolate`** on cell wrappers that contain absolutely-positioned overlays (badges, hover toolbars) — otherwise `z-10` leaks into adjacent columns when scrolling
+- Never `min-w-[Xpx]` on cell content; column controls width via `w-full max-w-full`
+- Binary blobs (uploaded files) → IndexedDB, NOT localStorage; provide a filename-extension MIME fallback for restored Files
+- Migration logic on hydration in `fromStoredRows`, not on save: rebuild derived fields, reset `runStatus: 'running' → 'idle'`, clear in-memory-only fields
+
 ### Step 3: Configure EnhancedTable
 
 Wire up the component following `references/enhanced-table-props.md`.
@@ -137,6 +146,10 @@ Run through the checklist:
 - [ ] If Sheet Tabs: URL hash updates on tab switch
 - [ ] If row selection: batch actions appear on selection
 - [ ] If pagination: page navigation works
+- [ ] **If cells contain `<select>` / `<textarea>` / file input**: dropdowns open, textareas focus, file picker fires every time (if not — missing `stopTablePointerEvent` on `onMouseDown` / `onPointerDown` / `onClick`; see `complex-cell-patterns.md`)
+- [ ] **If cells render absolute-positioned overlays (badges anchored to thumbnails, hover toolbars)**: scroll the table horizontally — overlays stay inside their cell and never appear floating over other columns (if not — wrapper missing `isolate`; see troubleshooting #14)
+- [ ] **If cells use `URL.createObjectURL`**: no blob-URL leaks (DevTools → Memory → check after navigating away — counts should not grow); cleanup runs on unmount
+- [ ] **If using IndexedDB for binary persistence**: restored `File.type` is non-empty (verify via DevTools Console: `(await loadSharedXxx()).type`) — empty type silently breaks downstream MIME checks
 
 ## Existing Implementations (reference)
 
@@ -149,6 +162,7 @@ Run through the checklist:
 | IAM Overview | `OverviewTab.tsx` | 6 | extraToolbar CSV export |
 | IAM Roles | `RolesTab.tsx` | 17 | Dynamic role columns |
 | LLM Monitor | `LLMMonitorClient.tsx` | 8+6 | 2 tables + Sheet Tabs |
+| Image-to-Image Evaluation | `api_key_and_model_setting/ImageToImageEvaluationPanel.tsx` (+ 7 cell files, 4 helpers) | 18 | **Reference for complex cells**: file upload + thumbnail, model dropdown per row, per-row async "Run" with status state machine, IndexedDB binary persistence + localStorage settings, side-sheet detail, baseline + auto-seeded benchmark rows |
 
 ## References
 
@@ -156,5 +170,6 @@ Load these as needed for detailed patterns:
 
 - `references/enhanced-table-props.md` — Full Props API with examples
 - `references/column-patterns.md` — ColumnDef recipes for common cell types
+- `references/complex-cell-patterns.md` — Multi-file panels, interactive cells, async row actions, IndexedDB persistence, stacking-context isolation
 - `references/bottom-sheet-tabs.md` — Sheet Tabs setup and hash navigation
 - `references/troubleshooting.md` — Known issues, fixes, and design decisions

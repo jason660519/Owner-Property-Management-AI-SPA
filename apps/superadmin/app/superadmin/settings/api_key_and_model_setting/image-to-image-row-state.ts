@@ -3,6 +3,8 @@
 import {
   buildImageToImagePrompt,
   createImageToImageBaselineRow,
+  GEMINI_BANANA_MODEL,
+  GEMINI_BANANA_PROVIDER,
   type ImageToImageEvaluationRow,
 } from './image-to-image-evaluation-columns';
 
@@ -46,20 +48,27 @@ export function rowToStored(row: ImageToImageEvaluationRow): StoredImageToImageR
 export function fromStoredRows(rows: StoredImageToImageRow[]): ImageToImageEvaluationRow[] {
   const baseline = createImageToImageBaselineRow();
   const merged = rows.length > 0 ? rows : [rowToStored(baseline)];
-  return merged.map((row, index) => ({
-    ...row,
-    no: index + 1,
-    isBaseline: row.id === baseline.id ? true : row.isBaseline,
-    shouldTest: row.shouldTest ?? true,
-    outputMode: 'both',
-    prompt: buildImageToImagePrompt(row.style ?? 'modern', 'both'),
-    file: null,
-    fileName: '',
-    runStatus: row.runStatus === 'running' ? 'idle' : row.runStatus,
-    runStartedAtMs: null,
-    resultImage2dUrl: row.resultImage2dUrl ?? row.resultImageUrl ?? '',
-    resultImage3dUrl: row.resultImage3dUrl ?? '',
-  }));
+  return merged.map((row, index) => {
+    const isBaselineRow = row.id === baseline.id;
+    return {
+      ...row,
+      // Migrate baseline row to latest model whenever stored model differs
+      ...(isBaselineRow && row.modelId !== GEMINI_BANANA_MODEL
+        ? { providerId: GEMINI_BANANA_PROVIDER, modelId: GEMINI_BANANA_MODEL }
+        : {}),
+      no: index + 1,
+      isBaseline: isBaselineRow ? true : row.isBaseline,
+      shouldTest: row.shouldTest ?? true,
+      outputMode: 'both',
+      prompt: buildImageToImagePrompt(row.style ?? 'modern', 'both'),
+      file: null,
+      fileName: '',
+      runStatus: row.runStatus === 'running' ? 'idle' : row.runStatus,
+      runStartedAtMs: null,
+      resultImage2dUrl: row.resultImage2dUrl ?? row.resultImageUrl ?? '',
+      resultImage3dUrl: row.resultImage3dUrl ?? '',
+    };
+  });
 }
 
 function selectionPatch(selection?: ImageToImageModelSelection): Partial<ImageToImageEvaluationRow> {

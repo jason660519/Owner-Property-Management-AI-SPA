@@ -159,6 +159,38 @@ If the table itself must scroll vertically inside a fixed viewport, isolate that
   (a) scroll owner, (b) spacing across multiple siblings, (c) visual card boundary, (d) sticky/fixed region.
 - After removal, ensure the remaining card/container still has required `min-h-0 flex-1 overflow-*` behavior for the active tab mode.
 
+### 14. Cell Overlay Badges Float Over Other Columns When Scrolling
+
+**Symptom**: A small badge anchored to a cell (e.g. "✓ 已生成" pinned to a thumbnail's top-left, status pill on a preview tile) **escapes its column** when you horizontally scroll the table — the badge appears overlapping COMPANY, INVOCATION PATH, or other unrelated cells. Visually it looks like the badge is "floating" above the table.
+
+**Cause**: Two compounding bugs:
+
+1. The cell wrapper has `relative ... overflow-hidden` and the badge inside has `position: absolute; z-index: 10`. `overflow: hidden` clips children **visually** but `z-index: 10` still places the badge above sibling cells in the global stacking order. CSS Grid cells default to `overflow: visible` on the parent `<td>`/grid cell, so the wrapper's `overflow: hidden` doesn't isolate the stacking context.
+2. The cell content has a fixed `min-w-[180px]` (or `min-w-[220px]`) larger than the column width during scroll, so the wrapper itself overflows the column boundary, dragging the absolutely-positioned child along into adjacent columns' visual space.
+
+**Fix**: 
+
+```tsx
+// ❌ Before
+<button className="relative block h-24 w-full min-w-[180px] overflow-hidden ...">
+  <span className="absolute left-1.5 top-1.5 z-10 ...">✓ 已生成</span>
+  <NextImage ... />
+</button>
+
+// ✅ After
+<button className="relative isolate block h-24 w-full max-w-full overflow-hidden ...">
+  <span className="absolute left-1.5 top-1.5 z-10 ...">✓ 已生成</span>
+  <NextImage ... />
+</button>
+```
+
+Two changes:
+
+- **`isolate`** (CSS `isolation: isolate`) — creates a new stacking context, scoping the inner `z-10` so it can never raise the badge above sibling cells. This is the root fix.
+- **Replace `min-w-[Xpx]` with `max-w-full`** — keeps the wrapper inside its column. Column minimums belong on the column, not on cell content. (See `complex-cell-patterns.md` "Stacking Context Isolation".)
+
+**How to verify**: scroll the table fully right then fully left while watching the badges. They should always stay inside their own cell. If a badge ever crosses the column gridline, `isolate` is missing somewhere up the cell tree.
+
 ### 13. Fixed Header Microcopy Takes Space on Dense Tabs
 
 **Symptom**: Sticky/fixed top bar consumes too much vertical space for data-heavy tabs.

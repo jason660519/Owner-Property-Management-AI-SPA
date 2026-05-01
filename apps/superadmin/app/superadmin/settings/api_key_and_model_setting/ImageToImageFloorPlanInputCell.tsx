@@ -14,8 +14,15 @@ function stopTablePointerEvent(event: React.SyntheticEvent) {
   event.stopPropagation();
 }
 
+const IMAGE_EXT_RE = /\.(png|jpe?g|webp|gif)$/i;
+
 export function ImageToImageFloorPlanInputCell({ row, onUploadFile }: ImageToImageFloorPlanInputCellProps) {
-  const isImage = row.file?.type.toLowerCase().startsWith('image/') === true;
+  // File.type can be empty for files restored from IndexedDB or some upload paths;
+  // fall back to extension so we still render a thumbnail when the file is clearly an image.
+  const isImage =
+    row.file?.type.toLowerCase().startsWith('image/') === true ||
+    (row.file != null && IMAGE_EXT_RE.test(row.file.name)) ||
+    (row.file != null && IMAGE_EXT_RE.test(row.fileName));
   const previewUrl = useMemo(() => {
     if (!row.file || !isImage || typeof URL.createObjectURL !== 'function') return '';
     return URL.createObjectURL(row.file);

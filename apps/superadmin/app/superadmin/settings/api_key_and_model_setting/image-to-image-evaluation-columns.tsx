@@ -74,9 +74,9 @@ export const STYLE_OPTIONS: Array<{ id: ImageToImageStyle; label: string; prompt
 ];
 
 export const OUTPUT_MODE_OPTIONS: Array<{ id: ImageToImageOutputMode; label: string; prompt: string }> = [
-  { id: '2d', label: '2D 彩繪平面圖', prompt: '輸出 2D 彩繪平面圖，俯視視角，保留原始牆線比例，清楚標註客廳、臥室、廚房、衛浴、陽台與走道。' },
-  { id: '3d', label: '3D 鳥瞰彩繪圖', prompt: '輸出 3D 鳥瞰彩繪圖，以室內設計提案視角呈現空間、家具、採光與材質，但不得改變原始格局邊界。' },
-  { id: 'both', label: '2D + 3D 同時評估', prompt: '同時產出 2D 彩繪平面圖與 3D 鳥瞰彩繪圖；若模型只能回一張圖，優先產出 2D 彩繪平面圖，並用文字說明 3D 建議。' },
+  { id: '2d', label: '2D 彩繪平面圖', prompt: '輸出 2D 彩繪平面圖，正俯視（top-down / 90 度垂直俯視）視角，保留原始牆線比例，清楚標註客廳、臥室、廚房、衛浴、陽台與走道。' },
+  { id: '3d', label: '3D 立體彩繪圖', prompt: '輸出 3D 立體彩繪圖，採用 45 度斜角俯瞰視角（isometric / 三點透視，從房屋右前上方俯瞰），清楚呈現牆面厚度、家具高度、地板與屋頂層次，營造可看見家具立面與空間深度的立體感；不得改變原始格局邊界與房間配置。' },
+  { id: 'both', label: '2D + 3D 同時評估', prompt: '同時產出兩張圖：(1) 2D 彩繪平面圖，正俯視 90 度垂直俯視視角；(2) 3D 立體彩繪圖，45 度斜角俯瞰視角（isometric / 從右前上方俯瞰），需展現家具立面、牆面厚度與空間深度立體感。若模型只能回一張圖，優先產出 3D 立體彩繪圖（45 度斜角），並用文字說明 2D 平面配置。' },
 ];
 
 export function buildImageToImagePrompt(style: ImageToImageStyle, outputMode: ImageToImageOutputMode): string {
@@ -291,7 +291,7 @@ export function createImageToImageColumns(deps: CreateColumnsDeps): ColumnDef<Im
           }} className="h-8 w-full min-w-[220px] rounded-md border border-border-default bg-bg-secondary px-2 text-xs text-text-primary outline-none focus:border-emerald-500">
             {modelOptions.map((option) => (
               <option key={option.key} value={option.key}>
-                {option.providerName} / {option.modelName}
+                {option.modelName}
               </option>
             ))}
           </select>

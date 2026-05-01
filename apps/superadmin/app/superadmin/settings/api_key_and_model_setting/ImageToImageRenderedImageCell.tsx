@@ -19,7 +19,7 @@ export function ImageToImageRenderedImageCell({
 }: ImageToImageRenderedImageCellProps) {
   if (url) {
     return (
-      <button type="button" onClick={(event) => { event.stopPropagation(); event.preventDefault(); onOpenDetail(row); }} className="relative block h-24 w-full min-w-[180px] overflow-hidden rounded-md border border-emerald-300 bg-bg-secondary">
+      <button type="button" onClick={(event) => { event.stopPropagation(); event.preventDefault(); onOpenDetail(row); }} className="relative isolate block h-24 w-full max-w-full overflow-hidden rounded-md border border-emerald-300 bg-bg-secondary">
         <span className="absolute left-1.5 top-1.5 z-10 inline-flex items-center gap-1 rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
           <ImageIcon className="h-3 w-3" />
           {label} 已生成
@@ -30,9 +30,9 @@ export function ImageToImageRenderedImageCell({
   }
 
   return (
-    <button type="button" onClick={(event) => { event.stopPropagation(); event.preventDefault(); onOpenDetail(row); }} className="flex h-24 w-full min-w-[220px] items-center gap-2 overflow-auto rounded-md border border-emerald-200 bg-emerald-50/40 p-2 text-left text-[11px] text-emerald-900">
+    <button type="button" onClick={(event) => { event.stopPropagation(); event.preventDefault(); onOpenDetail(row); }} className="isolate flex h-24 w-full max-w-full items-center gap-2 overflow-hidden rounded-md border border-emerald-200 bg-emerald-50/40 p-2 text-left text-[11px] text-emerald-900">
       <ImageIcon className="h-4 w-4 shrink-0 text-emerald-700" />
-      <span>{row.runStatus === 'running' ? `${label} 生成中...` : emptyText}</span>
+      <span className="truncate">{row.runStatus === 'running' ? `${label} 生成中...` : emptyText}</span>
     </button>
   );
 }

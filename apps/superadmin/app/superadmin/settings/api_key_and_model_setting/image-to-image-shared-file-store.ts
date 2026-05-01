@@ -73,10 +73,21 @@ export async function loadSharedFloorPlanFile(): Promise<File | null> {
   );
   if (!record) return null;
 
+  const type = record.mimeType || record.blob.type || inferMimeFromName(record.fileName);
   return new File([record.blob], record.fileName, {
-    type: record.mimeType || record.blob.type,
+    type,
     lastModified: new Date(record.updatedAt).getTime(),
   });
+}
+
+function inferMimeFromName(fileName: string): string {
+  const lower = fileName.toLowerCase();
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.gif')) return 'image/gif';
+  if (lower.endsWith('.pdf')) return 'application/pdf';
+  return '';
 }
 
 export async function clearSharedFloorPlanFile(): Promise<void> {

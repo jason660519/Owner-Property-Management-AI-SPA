@@ -49,9 +49,14 @@ function isImageMime(mime: string): boolean {
 return IMAGE_MIMES.has(mime.toLowerCase());
 }
 
-/** AbortSignal with 55-second timeout for all external AI provider calls. */
+/** AbortSignal with 55-second timeout for standard AI provider calls. */
 function providerSignal(): AbortSignal {
   return AbortSignal.timeout(55_000);
+}
+
+/** AbortSignal with 120-second timeout for image generation calls (editing/generation is slower). */
+function imageProviderSignal(): AbortSignal {
+  return AbortSignal.timeout(120_000);
 }
 
 function isOpenAIImageModel(modelId: string): boolean {
@@ -107,7 +112,7 @@ async function testOpenAI(
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}` },
         body: form,
-        signal: providerSignal(),
+        signal: imageProviderSignal(),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
@@ -207,9 +212,18 @@ async function testAnthropic(
   }
 }
 
-type GeminiPart =
-  | { text: string }
-  | { inlineData: { mimeType: string; data: string } };
+// Gemini REST API may return image parts as either `inlineData` (camelCase) or
+// `inline_data` (snake_case) depending on model/version. Same for `mimeType`/`mime_type`.
+type GeminiInlineData = {
+  mimeType?: string;
+  mime_type?: string;
+  data?: string;
+};
+type GeminiPart = {
+  text?: string;
+  inlineData?: GeminiInlineData;
+  inline_data?: GeminiInlineData;
+};
 
 function extractGeminiResult(data: unknown): { output: string; imageDataUrl?: string } {
   const parts = (data as { candidates?: { content?: { parts?: GeminiPart[] } }[] })
@@ -220,12 +234,16 @@ function extractGeminiResult(data: unknown): { output: string; imageDataUrl?: st
   let imageDataUrl: string | undefined;
 
   for (const part of parts) {
-    if ('text' in part && typeof part.text === 'string') {
+    if (typeof part.text === 'string') {
       output += part.text;
-    } else if ('inlineData' in part && typeof part.inlineData === 'object' && part.inlineData) {
-      const { mimeType, data } = part.inlineData;
-      if (typeof mimeType === 'string' && typeof data === 'string' && !imageDataUrl) {
-        imageDataUrl = `data:${mimeType};base64,${data}`;
+      continue;
+    }
+    const inline = part.inlineData ?? part.inline_data;
+    if (inline && typeof inline === 'object') {
+      const mime = inline.mimeType ?? inline.mime_type;
+      const blob = inline.data;
+      if (typeof mime === 'string' && typeof blob === 'string' && !imageDataUrl) {
+        imageDataUrl = `data:${mime};base64,${blob}`;
       }
     }
   }
@@ -245,8 +263,13 @@ async function testGemini(
     parts.push({ inlineData: { mimeType: file.mimeType, data: file.fileBase64 } });
   }
   parts.push({ text: prompt });
-  // Request image output modality when a file is attached (image editing/generation context)
-  const responseModalities = file && isImageMime(file.mimeType) ? ['TEXT', 'IMAGE'] : undefined;
+
+  const isImageRequest = file != null && isImageMime(file.mimeType);
+  // IMAGE modality: do not set maxOutputTokens (applies to text tokens only and may suppress image output)
+  const generationConfig: Record<string, unknown> = isImageRequest
+    ? { responseModalities: ['TEXT', 'IMAGE'] }
+    : { maxOutputTokens: max_tokens };
+
   try {
     const name = modelId.startsWith('models/') ? modelId : `models/${modelId}`;
     const res = await fetch(
@@ -256,17 +279,17 @@ async function testGemini(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts }],
-          generationConfig: {
-            maxOutputTokens: max_tokens,
-            ...(responseModalities ? { responseModalities } : {}),
-          },
+          generationConfig,
         }),
-        signal: providerSignal(),
+        signal: isImageRequest ? imageProviderSignal() : providerSignal(),
       }
     );
     const data = await res.json().catch(() => ({}));
     if (res.ok) {
       const { output, imageDataUrl } = extractGeminiResult(data);
+      if (isImageRequest && !imageDataUrl) {
+        return { success: false, message: '未產圖：Gemini 回傳文字但無圖片，請確認模型支援圖片輸出。' };
+      }
       return {
         success: true,
         message: '連線成功',
