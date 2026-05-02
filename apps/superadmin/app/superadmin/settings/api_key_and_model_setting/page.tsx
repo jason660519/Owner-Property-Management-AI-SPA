@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Key, FlaskConical, ScanText, BookMarked, Trophy, Bot,
   Images, Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download, Play, Route, X,
+  Terminal,
 } from 'lucide-react';
 import {
   PromptManagerModal,
@@ -11,6 +12,7 @@ import {
 } from '@/components/ai-settings/PromptManagerModal';
 
 import { BottomSheetTabs, type SheetTabDef } from '@/components/ui/BottomSheetTabs';
+import { CliCapabilityEvaluationPanel } from './CliCapabilityEvaluationPanel';
 import EnhancedTable from '@/components/ui/EnhancedTable';
 import {
   createAdapterConfigColumns,
@@ -57,6 +59,7 @@ import { evaluateAdapterRun } from './adapter-evaluation';
 
 type SettingsTab =
   | 'keys'
+  | 'cli-capability-evaluation'
   | 'llm-leaderboard'
   | 'evaluations-global'
   | 'evaluations-visual'
@@ -67,6 +70,7 @@ type SettingsTab =
 
 const TAB_IDS: SettingsTab[] = [
   'keys',
+  'cli-capability-evaluation',
   'llm-leaderboard',
   'evaluations-global',
   'evaluations-visual',
@@ -187,6 +191,12 @@ function getTabFromHash(): SettingsTab | null {
 const TABS: { id: SettingsTab; label: string; icon: React.ElementType; description: string }[] = [
   { id: 'keys', label: 'API 金鑰管理', icon: Key, description: '管理各 AI 服務提供商的 API 金鑰' },
   {
+    id: 'cli-capability-evaluation',
+    label: '各家 CLI 能力評測',
+    icon: Terminal,
+    description: '透過本機 CLI（claude / codex / gemini / kilo / opencode / ollama）直接執行 prompt 並比較輸出',
+  },
+  {
     id: 'llm-leaderboard',
     label: 'LLM Leader Board',
     icon: Trophy,
@@ -245,6 +255,14 @@ const EVALUATOR_TAB_CONFIG: Record<string, { hiddenModuleKeys: string[]; statusL
 /** Bottom sheet tab definitions for Excel-style navigation */
 const SHEET_TABS: SheetTabDef[] = [
   { id: 'keys', label: 'API Keys', zhLabel: 'API 金鑰管理', icon: Key, color: 'text-amber-600', activeColor: 'bg-amber-600 text-white' },
+  {
+    id: 'cli-capability-evaluation',
+    label: 'CLI Eval',
+    zhLabel: '各家 CLI 能力評測',
+    icon: Terminal,
+    color: 'text-emerald-700',
+    activeColor: 'bg-emerald-700 text-white',
+  },
   {
     id: 'llm-leaderboard',
     label: 'Leaderboard',
@@ -1920,6 +1938,10 @@ export default function AIServiceSettingsPage() {
       );
     }
 
+    if (activeTab === 'cli-capability-evaluation') {
+      return <CliCapabilityEvaluationPanel />;
+    }
+
     if (activeTab === 'http-adapter-config') {
       const { cli, http } = adapterCompareSummary;
       return (
@@ -2279,6 +2301,7 @@ export default function AIServiceSettingsPage() {
             activeTab !== 'evaluations-global' &&
             activeTab !== 'evaluations-visual' &&
             activeTab !== 'image-to-image-evaluation' &&
+            activeTab !== 'cli-capability-evaluation' &&
             activeTab !== 'http-adapter-config' &&
             activeTab !== 'model-router' && (
             <div className="flex items-center gap-2 shrink-0">
