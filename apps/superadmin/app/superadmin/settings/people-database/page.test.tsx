@@ -3,11 +3,6 @@ import '@testing-library/jest-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import PeopleDatabasePage from './page';
 
-const mockPush = jest.fn();
-jest.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockPush, replace: jest.fn(), prefetch: jest.fn() }),
-}));
-
 // Strip DashboardLayout chrome so the test only sees the workspace shell.
 jest.mock('@/components/dashboard', () => ({
   DashboardLayout: ({
@@ -33,10 +28,6 @@ jest.mock('next/dynamic', () => ({
       const src = loader.toString();
       if (src.includes('./search/page')) return <div data-testid="search-workspace">search workspace</div>;
       if (src.includes('./import/page')) return <div data-testid="import-workspace">import workspace</div>;
-      if (src.includes('./merge-candidates/page'))
-        return <div data-testid="merge-workspace">merge workspace</div>;
-      if (src.includes('./ingest/page'))
-        return <div data-testid="ingest-workspace">ingest workspace</div>;
       if (src.includes('./sources/page'))
         return <div data-testid="sources-workspace">sources workspace</div>;
       return <div data-testid="unknown-workspace" />;
@@ -57,7 +48,6 @@ async function renderAndSettle() {
 
 describe('PeopleDatabasePage (Row 146 — 5-tab consolidation)', () => {
   beforeEach(() => {
-    mockPush.mockClear();
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -71,11 +61,22 @@ describe('PeopleDatabasePage (Row 146 — 5-tab consolidation)', () => {
 
   it('renders primary navigation controls', async () => {
     await renderAndSettle();
-    expect(screen.getAllByRole('button', { name: '搜尋' })[0]).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: '匯入' })[0]).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: '資料來源' })[0]).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '合併審核' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Ingest 監控' })).toBeInTheDocument();
+    const primaryNavButtons = screen
+      .getAllByRole('button')
+      .slice(0, 2)
+      .map((button) => button.textContent?.trim());
+
+    expect(primaryNavButtons).toEqual(['匯入', '搜尋']);
+  });
+
+  it('places import before search in the workspace navigation', async () => {
+    await renderAndSettle();
+    const navButtons = screen
+      .getAllByRole('button')
+      .map((button) => button.textContent?.trim())
+      .filter(Boolean);
+
+    expect(navButtons.indexOf('匯入')).toBeLessThan(navButtons.indexOf('搜尋'));
   });
 
   it('defaults to the search workspace expanded', async () => {
@@ -83,20 +84,12 @@ describe('PeopleDatabasePage (Row 146 — 5-tab consolidation)', () => {
     expect(screen.getByTestId('search-workspace')).toBeInTheDocument();
   });
 
-  it('switches expanded workspace when a nav button is clicked', async () => {
+  it('switches expanded workspace when a section control is clicked', async () => {
     await renderAndSettle();
     fireEvent.click(screen.getAllByRole('button', { name: '匯入' })[0]);
     await waitFor(() => expect(screen.getByTestId('import-workspace')).toBeInTheDocument());
     fireEvent.click(screen.getAllByRole('button', { name: '資料來源' })[0]);
     await waitFor(() => expect(screen.getByTestId('sources-workspace')).toBeInTheDocument());
-  });
-
-  it('navigates to merge candidates and ingest pages', async () => {
-    await renderAndSettle();
-    fireEvent.click(screen.getByRole('button', { name: '合併審核' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Ingest 監控' }));
-    expect(mockPush).toHaveBeenCalledWith('/superadmin/settings/people-database/merge-candidates');
-    expect(mockPush).toHaveBeenCalledWith('/superadmin/settings/people-database/ingest');
   });
 
   it('renders stats summary cards once /api/people-db/stats resolves', async () => {

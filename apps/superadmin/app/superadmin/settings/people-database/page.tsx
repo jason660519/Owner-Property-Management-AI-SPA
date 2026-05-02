@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Users,
@@ -15,7 +14,6 @@ import {
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 
 // ---------------------------------------------------------------------------
 // Lazy-loaded workspaces — each ships only when its tab becomes active.
@@ -76,7 +74,6 @@ function formatQualityScore(score: number | null): string {
 // ---------------------------------------------------------------------------
 
 export default function PeopleDatabasePage() {
-  const router = useRouter();
   const [stats, setStats] = useState<Stats | null>(null);
   const [expandedSection, setExpandedSection] = useState<SectionId | null>('search');
 
@@ -150,18 +147,6 @@ export default function PeopleDatabasePage() {
         <div className="flex flex-wrap gap-2 border-b border-border-default pb-3">
           <button
             type="button"
-            onClick={() => setExpandedSection('search')}
-            className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition-colors ${
-              expandedSection === 'search'
-                ? 'border-accent bg-accent/10 text-accent'
-                : 'border-border-default text-text-secondary hover:bg-bg-secondary hover:text-text-primary'
-            }`}
-          >
-            <SearchIcon className="h-4 w-4" />
-            搜尋
-          </button>
-          <button
-            type="button"
             onClick={() => setExpandedSection('import')}
             className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition-colors ${
               expandedSection === 'import'
@@ -174,34 +159,16 @@ export default function PeopleDatabasePage() {
           </button>
           <button
             type="button"
-            onClick={() => setExpandedSection('sources')}
+            onClick={() => setExpandedSection('search')}
             className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition-colors ${
-              expandedSection === 'sources'
+              expandedSection === 'search'
                 ? 'border-accent bg-accent/10 text-accent'
                 : 'border-border-default text-text-secondary hover:bg-bg-secondary hover:text-text-primary'
             }`}
           >
-            <FolderTree className="h-4 w-4" />
-            資料來源
+            <SearchIcon className="h-4 w-4" />
+            搜尋
           </button>
-          <div className="ml-auto flex items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => router.push('/superadmin/settings/people-database/merge-candidates')}
-            >
-              合併審核
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => router.push('/superadmin/settings/people-database/ingest')}
-            >
-              Ingest 監控
-            </Button>
-          </div>
         </div>
 
         {/* ---- Merged sections ---- */}
