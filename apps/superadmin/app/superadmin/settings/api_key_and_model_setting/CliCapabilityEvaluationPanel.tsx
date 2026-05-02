@@ -337,7 +337,7 @@ function CliCapabilityDetailSheet({
         <div className="border-b border-border-default px-4 py-3">
           <p className="text-[11px] font-semibold text-text-muted">啟動命令（headless）</p>
           <pre className="mt-1 max-h-[120px] overflow-auto rounded bg-bg-tertiary p-2 font-mono text-[11px] leading-4 text-text-primary">
-            {detail.command || `${tool?.cliBinary ?? detail.codingTool} ...`}
+            {detail.command || tool?.commandPreview || `${detail.codingTool} ...`}
           </pre>
         </div>
 
