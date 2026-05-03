@@ -72,7 +72,7 @@
 **每次完成工作後**，將成果更新至 `apps/superadmin/app/data/roadmap.ts`（`RAW_FEATURES` 陣列末端新增或修改對應項目）。
 
 - Feature ID 一律以 `apps/superadmin/app/data/roadmap.ts` 內每個 feature 物件的固定 `id` 欄位為準；**不要**用 `RAW_FEATURES` index、table row 順序、或依賴可選欄位（如 `devLogDocPath`、`testScriptPath`）的 regex / parser 估算，否則會把文件掛到錯列。
-- 若 user 已提供 Feature ID / 截圖，先信任該 ID，再核對 `id`、`name`、`testScriptPath`、`devLogDocPath`、`ROADMAP_DATA.lastUpdated` 是否一致。
+- 若 user 已提供 Feature ID / 截圖，先信任該 ID，再核對 `id`、`name`、`testScriptPath`、`devLogDocPath` 是否一致。
 
 ### 必填欄位
 

@@ -145,8 +145,8 @@ export function createDevColumns(deps: CreateDevColumnsDeps): ColumnDef<Progress
               aria-label={isHidden ? '顯示 Row' : '隱藏 Row'}
             >
               {isHidden
-                ? <Eye className="w-3.5 h-3.5" />
-                : <EyeOff className="w-3.5 h-3.5" />}
+                ? <EyeOff className="w-3.5 h-3.5" />
+                : <Eye className="w-3.5 h-3.5" />}
             </button>
             {r.__source === 'custom' && (
               <button

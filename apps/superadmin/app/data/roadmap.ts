@@ -86,7 +86,6 @@ export interface RoadmapFeature {
 }
 
 export interface RoadmapData {
-  lastUpdated: string;
   features: RoadmapFeature[];
 }
 
@@ -2859,7 +2858,6 @@ const RAW_FEATURES: RoadmapFeature[] = [
 ];
 
 export const ROADMAP_DATA: RoadmapData = {
-  lastUpdated: "2026/04/29 Feature ID 084 daily progress report and AI report standardization",
   features: RAW_FEATURES.map((f, index) => ({
     ...f,
     id: normalizeRoadmapFeatureId(f.id) || formatGeneratedRoadmapFeatureId(index),

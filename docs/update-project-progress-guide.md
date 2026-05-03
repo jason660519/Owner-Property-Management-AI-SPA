@@ -81,7 +81,6 @@ http://localhost:3001/superadmin/dashboard/project-progress#testing
    - `tddSpecDocPath`
    - `docPath`
    - `testScriptPath`
-   - `ROADMAP_DATA.lastUpdated`
    - 以上欄位都不得殘留錯的 Feature ID。
 
 ### 常見錯誤示例
@@ -255,7 +254,7 @@ NODE
 4. **新增或更新項目**
 
    - **更新**：找到對應的 `name` 進行修改
-   - **新增**：在 `RAW_FEATURES` 陣列末尾加入新物件；請同時更新 `ROADMAP_DATA.lastUpdated`（檔案底部）為當日日期
+   - **新增**：在 `RAW_FEATURES` 陣列末尾加入新物件
 5. **必填欄位**：`name`、`category`、`percentage`、`lastModifiedBy`、`lastModifiedDate`
 6. **選填但建議填寫**：`locatedPage`、`featureSpecDocPath`、`tddSpecDocPath`、`docPath`、`e2eTestCoverage`、`devLog`
 7. **建立配套文件與目錄**（每次更新進度時必須檢查）：
@@ -279,7 +278,7 @@ NODE
    2. 建立上述 3 個 `.md` 文件（若已存在則更新內容）
    3. 建立 `unit_test/{Feature-ID}/` 和 `e2e/{Feature-ID}/` 目錄（若已存在則跳過）
    4. 在 roadmap.ts 中填入 `featureSpecDocPath`、`tddSpecDocPath`、`docPath`、`testScriptPath`
-   5. 回讀檢查 `id`、`devLogDocPath`、`testScriptPath`、`ROADMAP_DATA.lastUpdated`，確認沒有掛到別的 Feature ID
+   5. 回讀檢查 `id`、`devLogDocPath`、`testScriptPath`，確認沒有掛到別的 Feature ID
 
    **範例**（Feature ID = 027，備份系統）：
 
