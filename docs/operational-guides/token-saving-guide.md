@@ -151,7 +151,47 @@ bash tools/testing/playwright-cli.sh fill e2 "password" --submit
 
 ---
 
-## 7. 實用小技巧
+## 7. CodeGraphContext MCP（Codebase 結構查詢）
+
+CodeGraphContext 已建立本 repo 的程式碼關係圖（869 files、14,359 functions、1,656 classes），並透過 MCP 連線至 Claude Code。
+
+### 何時用 CGC 取代 grep / Read
+
+| 問題類型 | ❌ 舊方式 | ✅ CGC 方式 |
+|:---------|:---------|:-----------|
+| 誰呼叫了某個 function？ | `grep -r "funcName" --include="*.ts"` 多次往返 | MCP query → 直接回傳 caller list |
+| 某 class 被哪些地方繼承？ | Read 多個可能的檔案逐一確認 | MCP query → 繼承關係圖 |
+| 某模組依賴哪些東西？ | 逐一展開 import 追蹤 | `cgc analyze callees <module>` |
+| 有沒有死碼？ | 無法快速判斷 | `cgc analyze dead-code` |
+
+**省 token 原理**：圖資料庫預先解析整個 codebase，一次 MCP call 取代多次 grep + Read 往返，節省 3–10x token。
+
+### 使用方式
+
+**在 Claude Code session 內直接問**（最常用，Claude 自動透過 MCP 查詢）：
+```
+「哪些地方呼叫了 useAuth？」
+「adapter-config.ts 被哪些檔案 import？」
+「找出所有繼承 BaseAdapter 的 class」
+```
+
+**CLI 查詢**（需要精確輸出時）：
+```bash
+cgc analyze callers <functionName>    # 找呼叫者
+cgc analyze callees <functionName>    # 找被呼叫者
+cgc find pattern "useAuth"            # 搜尋 pattern
+cgc analyze dead-code                 # 死碼掃描
+cgc-viz                               # 開啟 http://localhost:18781 互動式圖表
+```
+
+### 限制
+
+- Paperclip worktree 內的異動需重新索引（`cgc index .`）才納入
+- 僅查詢單一 repo，不跨 repo
+
+---
+
+## 8. 實用小技巧
 
 | 技巧 | 說明 |
 |:-----|:-----|
@@ -164,7 +204,7 @@ bash tools/testing/playwright-cli.sh fill e2 "password" --submit
 
 ---
 
-## 8. 總結：省 Token 效果排序
+## 9. 總結：省 Token 效果排序
 
 ```
 🥇 Custom Commands（/daily-report, /commit-push-pr）
@@ -185,6 +225,9 @@ bash tools/testing/playwright-cli.sh fill e2 "password" --submit
 6️⃣ Context7 > Web Search
    → 精準文件片段 > 整頁 HTML
 
-7️⃣ 工具使用小技巧
+7️⃣ CodeGraphContext MCP > grep / Read 全 repo
+   → 圖資料庫直接查關係，省 3–10x token
+
+8️⃣ 工具使用小技巧
    → Read 指定行、Grep 搜尋、批次 tool call
 ```

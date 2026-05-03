@@ -74,6 +74,7 @@
 - 瀏覽器優先序：專用 MCP → Preview → Playwright CLI → Playwright MCP → Chrome DevTools
 - Playwright CLI（`bash tools/testing/playwright-cli.sh <cmd>`）比 MCP 省 3-5x
 - library 文件用 Context7 MCP，不用 Web Search
+- **CodeGraphContext MCP 已安裝**：查「誰呼叫了 X」、「X 依賴哪些模組」時，優先透過 MCP 查詢圖資料庫，不要 grep 全 repo（省 3–10x token）
 - 完整指南：`docs/operational-guides/token-saving-guide.md`
 
 ## 其他
