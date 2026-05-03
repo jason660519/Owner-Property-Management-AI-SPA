@@ -95,7 +95,7 @@ export function createCliCapabilityBaselineRow(
     id: `baseline-${codingTool}`,
     no,
     isBaseline: true,
-    shouldTest: codingTool !== 'copilot',
+    shouldTest: true,
     codingTool,
     ollamaModel: ollamaModel ?? defaultModelForBaseline(no - 1),
     prompt: DEFAULT_ADAPTER_TEST_PROMPT,

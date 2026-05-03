@@ -91,6 +91,8 @@ export function CliCapabilityEvaluationPanel() {
     return fromStoredRows(stored);
   });
   const [detailRow, setDetailRow] = useState<CliCapabilityRow | null>(null);
+  const [isRunningAll, setIsRunningAll] = useState(false);
+  const [runAllHint, setRunAllHint] = useState<string | null>(null);
   const cancelledIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -216,13 +218,23 @@ export function CliCapabilityEvaluationPanel() {
 
   const runAll = useCallback(async () => {
     const runnable = rows.filter((row) => row.shouldTest && row.runStatus !== 'running');
-    if (runnable.length === 0) return;
-    // CLI calls hit local subprocesses + ollama daemon — limit concurrency so
-    // we don't oversubscribe both. 2 is a conservative starting point.
-    const concurrency = 2;
-    for (let i = 0; i < runnable.length; i += concurrency) {
-      const batch = runnable.slice(i, i + concurrency);
-      await Promise.allSettled(batch.map((row) => runRow(row)));
+    if (runnable.length === 0) {
+      setRunAllHint('沒有勾選「是否測試」的列可執行。');
+      setTimeout(() => setRunAllHint(null), 3000);
+      return;
+    }
+    setRunAllHint(null);
+    setIsRunningAll(true);
+    try {
+      // CLI calls hit local subprocesses + ollama daemon — limit concurrency so
+      // we don't oversubscribe both. 2 is a conservative starting point.
+      const concurrency = 2;
+      for (let i = 0; i < runnable.length; i += concurrency) {
+        const batch = runnable.slice(i, i + concurrency);
+        await Promise.allSettled(batch.map((row) => runRow(row)));
+      }
+    } finally {
+      setIsRunningAll(false);
     }
   }, [rows, runRow]);
 
@@ -265,15 +277,23 @@ export function CliCapabilityEvaluationPanel() {
                 <Dice5 size={14} aria-hidden />
                 全表隨機抽模型
               </button>
-              <button
-                type="button"
-                onClick={() => void runAll()}
-                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700"
-                title="依勾選列依序啟動 CLI 評測"
-              >
-                <Play size={14} aria-hidden />
-                全測（CLI）
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => void runAll()}
+                  disabled={isRunningAll}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  title="依勾選列依序啟動 CLI 評測"
+                >
+                  {isRunningAll
+                    ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" aria-hidden />
+                    : <Play size={14} aria-hidden />}
+                  {isRunningAll ? '執行中…' : '全測（CLI）'}
+                </button>
+                {runAllHint && (
+                  <span className="text-xs text-amber-600 dark:text-amber-400">{runAllHint}</span>
+                )}
+              </div>
             </div>
           }
         />
