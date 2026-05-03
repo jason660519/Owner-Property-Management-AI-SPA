@@ -294,7 +294,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     docPath: "",
     tddSpecDocPath:
       "/project-process/features/tdd-superadmin-platform-20260221.md",
-    category: "超級管理員 (Super Admin)",
+    category: "安全與合規 (Security & Compliance)",
     points: 5,
     lastModifiedBy: "Paperclip DevOps Engineer (VIS-96)",
     lastModifiedDate: "2026/04/14",
@@ -1816,7 +1816,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     developmentProgress: "100%",
     tddSpecDocPath:
       "/project-process/features/tdd-login-portal-iam-20260221.md",
-    category: "通用/系統 (General/System)",
+    category: "安全與合規 (Security & Compliance)",
     points: 5,
     docPath:
       "/project-process/dev-logs/dev-login-portal-iam-roles-2026-02-16.md",
@@ -1842,7 +1842,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     developmentProgress: "100%",
     tddSpecDocPath:
       "/project-process/features/tdd-project-management-20260221.md",
-    category: "通用/系統 (General/System)",
+    category: "安全與合規 (Security & Compliance)",
     points: 5,
     devLog:
       "### 今日完成項目\n- 修復 addUserRole Server Action：改用 admin 客戶端繞過 RLS 限制\n- 修復前端路由跳轉：router.push 改為 window.location.href 強制完整重新載入\n- 修復 IAM 角色映射缺失：ROLE_TO_GROUP_NAME 補齊 potential_tenant、potential_buyer、contracted_tenant、contracted_buyer、super_admin\n- 手動修復測試用戶的 IAM 群組成員資格（加入 Potential Buyers 和 Potential Tenants）\n- 驗證 get_user_roles RPC 正確返回所有 3 個角色\n\n### 技術難點與解決方案\n- **問題 1**: Server Action 一直 rendering，無法完成\n  **根因**: router.push() 在某些情況下不立即執行，導致頁面保持 loading 狀態\n  **解決**: 使用 window.location.href 強制完整頁面重新載入\n\n- **問題 2**: 角色成功添加到 users_profile.roles，但 Portal 不顯示\n  **根因**: ROLE_TO_GROUP_NAME 映射缺少 potential_tenant/potential_buyer，導致 addUserToIamGroupByRole 使用默認的 landlord 群組，IAM 系統未正確添加群組成員資格\n  **解決**: 補齊映射表，手動修復現有用戶的 IAM 群組成員資格\n\n- **問題 3**: addUserRole 使用普通客戶端可能受 RLS 限制\n  **根因**: createClient() 使用 anon key，雖然 RLS 允許更新，但使用 admin 客戶端更安全可靠\n  **解決**: 改用 createAdminClient() 進行角色更新操作\n\n### 重點心得\n- Portal 頁面通過 get_user_roles RPC 從 IAM 系統讀取角色，而非直接讀 users_profile.roles\n- IAM 系統是 Single Source of Truth，users_profile.roles 僅為緩存\n- 角色映射配置（ROLE_TO_GROUP_NAME）必須完整，否則會導致 IAM 同步失敗但不報錯\n- 數據庫層面的 UPDATE 成功不代表整個業務邏輯成功\n\n### 避坑指南\n⚠️ 新增角色類型時必須同步更新 ROLE_TO_GROUP_NAME 映射\n⚠️ Server Action 中處理敏感權限操作應使用 admin 客戶端\n⚠️ 路由跳轉問題可能不會拋錯，需要通過用戶反饋發現\n⚠️ 驗證功能時要檢查整個數據流：DB → IAM → RPC → Portal 顯示\n⚠️ 日誌中顯示「Success」不一定代表所有步驟都成功（IAM 添加被標記為 non-critical）\n\n### 下階段計畫\n- [ ] 考慮在 addUserRole 中添加 IAM 同步失敗時的回滾機制\n- [ ] 新增 E2E 測試覆蓋多角色添加流程\n- [ ] 監控生產環境用戶新增角色的成功率",
@@ -2311,7 +2311,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     acceptanceCriteria:
       "1. 建立 docs/ai-prompt-safety-guide.md 工程指導手冊（6 條核心原則 + 標準流程 + Checklist）。\n2. 建立 lib/ai/prompt-safety.ts 共用模組（resolveSystemPrompt / wrapUserInput / detectInjectionAttempt / validateUserSuppliedPrompt）。\n3. 修復 3 個 Injection 漏洞：test endpoint user prompt、transcript-parse customPrompt、property-description buildFacts。\n4. 遷移 4 組 hard-code prompt 到 saved_prompts.module_key（transcript.parse / transcript.judge / transcript.detect_building_count / transcript.detect_land_count / property.description.default）。\n5. 所有 LLM 呼叫點 fallback 到 hard-code 時必須 console.warn（消除靜默 fallback）。",
     docPath: "/docs/ai-prompt-safety-guide.md",
-    category: "超級管理員 (Super Admin)",
+    category: "安全與合規 (Security & Compliance)",
     points: 8,
     lastModifiedBy: "Claude Opus 4.6",
     lastModifiedDate: "2026/04/11",
