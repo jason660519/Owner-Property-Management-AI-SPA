@@ -79,6 +79,7 @@ elif docker ps -a --format '{{.Names}}' | grep -Eq '^(hermes-opm|hermes-dashboar
 fi
 kill_port 9119 "Hermes Dashboard"
 kill_port 9120 "Hermes Dashboard (Alt Port)"
+kill_port 18781 "CGC Visualizer"
 
 # 停止 Elasticsearch / Kibana Docker 服務
 if [ -f "$ELASTIC_COMPOSE_FILE" ]; then
@@ -103,6 +104,7 @@ rm -f \
     "$LOG_DIR/superadmin.log" \
     "$LOG_DIR/paperclip.log" \
     "$LOG_DIR/hermes-runtime.log" \
+    "$LOG_DIR/cgc-viz.log" \
     /tmp/nextjs.log \
     /tmp/nextjs-au.log \
     /tmp/superadmin.log 2>/dev/null

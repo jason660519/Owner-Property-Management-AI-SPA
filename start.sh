@@ -619,6 +619,28 @@ start_hermes_dashboard() {
 
 # --- 啟動函式 ---
 
+start_cgc_viz() {
+    echo -e "${BLUE}🗺️  啟動 CGC 程式碼視覺化 (Port 18781)...${NC}"
+    if ! command -v cgc &> /dev/null; then
+        echo -e "${RED}❌ 找不到 cgc 指令，請確認 CodeGraphContext 已安裝：pipx install codegraphcontext${NC}"
+        return 1
+    fi
+    if lsof -i :18781 > /dev/null 2>&1; then
+        echo -e "${YELLOW}⚠️  CGC Visualizer 已在運行: http://localhost:18781${NC}"
+        return 0
+    fi
+    ensure_log_dir
+    local log_target
+    log_target=$(dev_log_target "$LOG_DIR/cgc-viz.log")
+    nohup cgc visualize --port 18781 > "$log_target" 2>&1 &
+    disown
+    if [ "$log_target" = "/dev/null" ]; then
+        echo -e "${GREEN}✅ CGC Visualizer 啟動成功: http://localhost:18781${NC}"
+    else
+        echo -e "${GREEN}✅ CGC Visualizer 啟動成功: http://localhost:18781, log: $log_target${NC}"
+    fi
+}
+
 start_web() {
     echo -e "${BLUE}🌐 啟動 Web App (Port 3000)...${NC}"
     if lsof -i :3000 > /dev/null 2>&1; then
@@ -893,6 +915,7 @@ start_all() {
     start_paperclip
     start_hermes_dashboard
     start_openclaw "bg"
+    start_cgc_viz
 
     if [ -n "$ELASTIC_WAIT_PID" ]; then
         wait "$ELASTIC_WAIT_PID" 2>/dev/null || true
@@ -910,6 +933,7 @@ start_all() {
     echo -e "   • OpenClaw Dashboard: http://localhost:${openclaw_port}"
     echo -e "   • Supabase Studio:  http://localhost:54323"
     echo -e "   • Mailpit (Email):  http://localhost:54324"
+    echo -e "   • CGC Visualizer:   http://localhost:18781"
     echo -e "   • Logs:             $LOG_DIR/"
     echo -e "   • Hermes data:      $HERMES_HOME_DIR"
     echo -e "   • Paperclip data:   ${PAPERCLIP_DATA_DIR:-$HOME/.paperclip-data-owner-property-management}"
@@ -988,7 +1012,8 @@ show_menu() {
     echo "12) 📊 執行 Observability MVP 檢查"
     echo "13) 🕹️  啟動 OpenClaw"
     echo "14) 💾 備份 Hermes / Paperclip / OpenClaw 資料"
-    echo "15) 🛑 停止所有服務"
+    echo "15) 🗺️  啟動 CGC 程式碼視覺化 (Port 18781)"
+    echo "16) 🛑 停止所有服務"
     echo "0) 離開"
     echo ""
     read -p "請輸入選項: " choice
@@ -1008,7 +1033,8 @@ show_menu() {
         12) run_observability_checks ;;
         13) start_openclaw ;;
         14) backup_agent_data ;;
-        15) ./stop.sh ;;
+        15) start_cgc_viz ;;
+        16) ./stop.sh ;;
         0) exit 0 ;;
         *) echo "無效選項"; sleep 1; show_menu ;;
     esac
@@ -1023,6 +1049,7 @@ case "${1:-menu}" in
     elastic) check_dependencies; start_elasticsearch_stack ;;
     observability) check_dependencies; run_observability_checks ;;
     openclaw) start_openclaw ;;
+    cgc-viz) start_cgc_viz ;;
     backup-agent-data) backup_agent_data ;;
     paperclip) check_dependencies; start_paperclip ;;
     paperclip-update) check_dependencies; update_paperclip_image ;;
@@ -1031,5 +1058,5 @@ case "${1:-menu}" in
     test)   run_tests ;;
     clean)  clean_cache ;;
     menu)   show_menu ;;
-    *)      echo "用法: $0 [all|web|web-au|admin|elastic|observability|openclaw|backup-agent-data|paperclip|paperclip-update|hermes|hermes-update|test|clean|menu]" ;;
+    *)      echo "用法: $0 [all|web|web-au|admin|elastic|observability|openclaw|cgc-viz|backup-agent-data|paperclip|paperclip-update|hermes|hermes-update|test|clean|menu]" ;;
 esac
