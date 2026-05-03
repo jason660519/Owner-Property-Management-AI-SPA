@@ -81,17 +81,20 @@ export default function TableToolbar({
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [alignmentDropdownOpen, setAlignmentDropdownOpen] = useState(false);
   const [viewDropdownOpen, setViewDropdownOpen] = useState(false);
+  const [hiddenRowsPopoverOpen, setHiddenRowsPopoverOpen] = useState(false);
   const [saveWidthsOpen, setSaveWidthsOpen] = useState(false);
   const [alignmentTargetCol, setAlignmentTargetCol] = useState(0);
   const [savePresetName, setSavePresetName] = useState('');
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const alignmentDropdownRef = useRef<HTMLDivElement>(null);
   const viewDropdownRef = useRef<HTMLDivElement>(null);
+  const hiddenRowsPopoverRef = useRef<HTMLDivElement>(null);
   const saveWidthsRef = useRef<HTMLDivElement>(null);
   const closeAll = useCallback(() => {
     setCategoryDropdownOpen(false);
     setAlignmentDropdownOpen(false);
     setViewDropdownOpen(false);
+    setHiddenRowsPopoverOpen(false);
     setSaveWidthsOpen(false);
   }, []);
 
@@ -107,6 +110,9 @@ export default function TableToolbar({
       if (viewDropdownOpen && viewDropdownRef.current && !viewDropdownRef.current.contains(target)) {
         setViewDropdownOpen(false);
       }
+      if (hiddenRowsPopoverOpen && hiddenRowsPopoverRef.current && !hiddenRowsPopoverRef.current.contains(target)) {
+        setHiddenRowsPopoverOpen(false);
+      }
       if (saveWidthsOpen && saveWidthsRef.current && !saveWidthsRef.current.contains(target)) {
         setSaveWidthsOpen(false);
       }
@@ -120,7 +126,7 @@ export default function TableToolbar({
       document.removeEventListener('mousedown', handleClick);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [categoryDropdownOpen, alignmentDropdownOpen, viewDropdownOpen, saveWidthsOpen, closeAll]);
+  }, [categoryDropdownOpen, alignmentDropdownOpen, viewDropdownOpen, hiddenRowsPopoverOpen, saveWidthsOpen, closeAll]);
   const handleSavePreset = () => {
     if (!savePresetName.trim()) return;
     onSavePreset(savePresetName.trim());
@@ -279,47 +285,85 @@ export default function TableToolbar({
                     ))}
                   </div>
                 </div>
-                {/* Hidden rows */}
-                <div className="border-t border-border-light mt-1 pt-1">
-                  <div className="px-3 py-1 text-[10px] text-text-muted">Row</div>
-                  <label className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-bg-secondary text-sm text-text-primary">
-                    <input
-                      type="checkbox"
-                      checked={showHiddenRows}
-                      onChange={(e) => onShowHiddenRowsChange(e.target.checked)}
-                      className="rounded border-border-default text-emerald-600 focus:ring-emerald-500/20"
-                    />
-                    <span className="truncate">顯示隱藏列 {hiddenRowKeysSet.size > 0 ? `(${hiddenRowKeysSet.size})` : ''}</span>
-                  </label>
-                  {hiddenRowKeysSet.size > 0 && (
-                    <>
-                      <div className="px-3 pb-1">
-                        <button
-                          type="button"
-                          onClick={() => onPatchPrefs({ hiddenRowKeys: [] })}
-                          className="text-xs text-text-secondary hover:text-text-primary"
-                        >
-                          取消所有隱藏
-                        </button>
-                      </div>
-                      <div className="max-h-[240px] overflow-y-auto border-t border-border-light mt-1 pt-1">
-                        {hiddenRowsList.map(({ key, row }) => (
-                          <button
-                            key={key}
-                            type="button"
-                            onClick={() => {
-                              onPatchPrefs({ hiddenRowKeys: [...hiddenRowKeysSet].filter(k => k !== key) });
-                            }}
-                            className="w-full text-left px-3 py-2 text-sm transition-colors text-text-primary hover:bg-bg-secondary"
-                            title="取消隱藏"
-                          >
-                            <span className="block truncate text-xs text-text-muted">{key}</span>
-                            <span className="block truncate">{row ? `${row.__rowId} — ${row.name}` : '（Feature 已不存在）'}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
+              </div>
+            )}
+          </div>
+          {/* Hidden rows split-pill: left=toggle checkbox, right=chevron opens popover with list */}
+          <div className="relative" ref={hiddenRowsPopoverRef}>
+            <div
+              className={clsx(
+                'inline-flex items-stretch rounded-full text-xs font-medium border whitespace-nowrap transition-colors overflow-hidden',
+                showHiddenRows
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-700 dark:text-emerald-300'
+                  : 'bg-bg-primary border-border-default text-text-secondary'
+              )}
+            >
+              <label
+                className={clsx(
+                  'inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 cursor-pointer',
+                  !showHiddenRows && 'hover:bg-bg-secondary hover:text-text-primary'
+                )}
+                title="勾選後會顯示已隱藏的 row"
+              >
+                <input
+                  type="checkbox"
+                  checked={showHiddenRows}
+                  onChange={(e) => onShowHiddenRowsChange(e.target.checked)}
+                  className="rounded border-border-default text-emerald-600 focus:ring-emerald-500/20"
+                />
+                <span className="truncate">顯示隱藏列{hiddenRowKeysSet.size > 0 ? ` (${hiddenRowKeysSet.size})` : ''}</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setHiddenRowsPopoverOpen(open => !open)}
+                aria-expanded={hiddenRowsPopoverOpen}
+                aria-label="管理隱藏列"
+                title="查看 / 個別取消隱藏"
+                disabled={hiddenRowKeysSet.size === 0}
+                className={clsx(
+                  'inline-flex items-center px-2 border-l transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                  showHiddenRows
+                    ? 'border-emerald-200 dark:border-emerald-700 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/50'
+                    : 'border-border-default hover:bg-bg-secondary hover:text-text-primary'
+                )}
+              >
+                <ChevronDown className={clsx('w-3.5 h-3.5 transition-transform', hiddenRowsPopoverOpen && 'rotate-180')} />
+              </button>
+            </div>
+            {hiddenRowsPopoverOpen && hiddenRowKeysSet.size > 0 && (
+              <div className="absolute left-0 top-full mt-1 z-50 min-w-[260px] bg-bg-primary border border-border-default rounded-lg shadow-lg py-2" role="dialog" aria-label="已隱藏的 Row">
+                <div className="flex items-center justify-between px-3 py-1">
+                  <span className="text-[10px] font-medium text-text-muted uppercase tracking-wide">
+                    已隱藏的 Row ({hiddenRowKeysSet.size})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onPatchPrefs({ hiddenRowKeys: [] });
+                      setHiddenRowsPopoverOpen(false);
+                    }}
+                    className="text-xs text-text-secondary hover:text-text-primary"
+                  >
+                    取消所有隱藏
+                  </button>
+                </div>
+                <div className="max-h-[280px] overflow-y-auto border-t border-border-light mt-1 pt-1">
+                  {hiddenRowsList.map(({ key, row }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        const next = [...hiddenRowKeysSet].filter(k => k !== key);
+                        onPatchPrefs({ hiddenRowKeys: next });
+                        if (next.length === 0) setHiddenRowsPopoverOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm transition-colors text-text-primary hover:bg-bg-secondary"
+                      title="取消隱藏"
+                    >
+                      <span className="block truncate text-xs text-text-muted">{key}</span>
+                      <span className="block truncate">{row ? `${row.__rowId} — ${row.name}` : '（Feature 已不存在）'}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
             )}

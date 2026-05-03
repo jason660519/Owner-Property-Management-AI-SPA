@@ -177,12 +177,6 @@ export default function ProjectProgressPage() {
             <Activity className="text-emerald-600 w-6 h-6 flex-shrink-0" />
             Project Progress Dashboard (專案進度儀表板)
           </h1>
-          <p className="text-text-secondary text-sm">
-            Track development progress across all modules. Last updated:{' '}
-            <span className="font-mono font-medium text-text-primary">
-              {ROADMAP_DATA.lastUpdated}
-            </span>
-          </p>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
           <ExportToVISButton />
