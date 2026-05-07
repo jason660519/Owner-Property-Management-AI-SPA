@@ -383,16 +383,18 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     id: "013",
     name: "買家的繳費記錄",
-    locatedPage: "web (待建)",
-    percentage: 65,
+    locatedPage: "web/buyer/contracted/payments",
+    percentage: 90,
     acceptanceCriteria:
       "1. 顯示所有付款紀錄（日期、金額、類型、付款方式、狀態）。\n2. 支援下載單筆收據（PDF格式）。\n3. 可依日期範圍、金額、付款狀態篩選。\n4. 顯示未付款項目提醒與到期日。\n5. 年度付款總額統計與圖表。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-tenant-buyer-20260221.md",
     category: "買家 (Buyer)",
     points: 3,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
+    developmentProgress:
+      "2026/05/08：新建 /buyer/contracted/payments 頁面及 buyer-payments.ts server action；從 payment_transactions 表讀取用戶付款紀錄；支援依狀態/日期範圍/金額區間篩選；逾期項目自動紅色警示；年度付款統計面板；已完成款項可下載 HTML 格式收據。待完善：E2E 測試。",
   },
 
   // 公司首頁與產品
