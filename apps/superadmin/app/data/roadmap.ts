@@ -225,7 +225,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     id: "006",
     name: "超級管理員-資料庫Supabase管理功能",
     locatedPage: "superadmin/dashboard/supabase",
-    percentage: 60,
+    percentage: 88,
     acceptanceCriteria:
       "1. 顯示資料庫各資料表的記錄數量與最後更新時間。\n2. 可執行基本 SQL 查詢並顯示結果（僅 SELECT）。\n3. 顯示 Migration 歷史紀錄與執行狀態。\n4. 提供資料庫連線健康度監控（延遲、連線數）。\n5. 可觸發手動備份並下載備份文件。",
     docPath:
@@ -236,11 +236,11 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/dev-logs/dev-superadmin-features-2026-02-21.md",
     category: "超級管理員 (Super Admin)",
     points: 5,
-    lastModifiedBy: "GPT-5.4",
-    lastModifiedDate: "2026/04/09",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
     phase: "development",
     developmentProgress:
-      "靜態 mock 改為連接真實資料：admin client 查詢各資料表記錄數（Promise.allSettled 並發）、連線健康度檢測、RLs 政策（透過 rpc）；SupabaseDashboardClient + Supabase Dashboard 快速連結；頁面採 Server Component + Suspense 架構。\n\n### 2026-04-09 維護\n- 清理不符合專案 SQL 管理規則的 `supabase/seed.sql`。\n- 同步將 `supabase/config.toml` 的 `db.seed` 關閉，避免 `supabase db reset` 再引用空的 seed 檔。\n- 保持 migration 流程不變；本地 reset 仍會正常執行 migrations，只是不再額外執行空白 seed 步驟。",
+      "靜態 mock 改為連接真實資料：admin client 查詢各資料表記錄數（Promise.allSettled 並發）、連線健康度檢測、RLs 政策（透過 rpc）；SupabaseDashboardClient + Supabase Dashboard 快速連結；頁面採 Server Component + Suspense 架構。\n\n### 2026-04-09 維護\n- 清理不符合專案 SQL 管理規則的 `supabase/seed.sql`。\n- 同步將 `supabase/config.toml` 的 `db.seed` 關閉，避免 `supabase db reset` 再引用空的 seed 檔。\n\n### 2026-05-08\n- 新增 get_rls_policies() RPC（migration 20260508140000），修復頁面查詢 RLS 政策但 RPC 不存在的 silent failure。AC #1-5 全部實作完成。",
   },
   {
     id: "007",
