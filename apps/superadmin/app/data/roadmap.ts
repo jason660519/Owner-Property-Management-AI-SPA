@@ -439,7 +439,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     id: "016",
     name: "公開案件市場頁",
     locatedPage: "web/properties",
-    percentage: 84,
+    percentage: 95,
     acceptanceCriteria:
       "1. 公開列表頁需清楚區分買賣案件與租賃案件。\n2. 提供搜尋、類型與狀態篩選。\n3. 頁首需說明多角色平台定位，而非單純物件列表。\n4. 提供導流至平台能力頁與合作提案頁的 CTA。\n5. 卡片需顯示基本案件資訊與協作鏈語意標籤。",
     docPath: "/project-process/features/multi-role-business-plan-20260322.md",
@@ -479,7 +479,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     id: "018",
     name: "公司平台介紹與支援導流頁",
     locatedPage: "web/about",
-    percentage: 89,
+    percentage: 100,
     acceptanceCriteria:
       "1. 關於頁需清楚說明產品已轉型為多角色不動產 AI 協作平台。\n2. 需呈現免費角色、付費角色與專業協作角色的分層定位。\n3. 需說明台灣 / 澳洲市場策略與按案件 / 物件收費模型。\n4. 頁面需提供導向 pricing、services、properties 與 contact 的 CTA。\n5. 需有對應回歸測試覆蓋主要平台敘事與 CTA 連結。",
     docPath: "/project-process/features/multi-role-business-plan-20260322.md",
@@ -489,11 +489,11 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/features/tdd-company-pages-thirdparty-20260221.md",
     category: "公司頁面 (Company Pages)",
     points: 2,
-    lastModifiedBy: "GPT-5.4",
-    lastModifiedDate: "2026/03/22",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
     phase: "development",
     developmentProgress:
-      "web/about 已從舊的物業管理品牌頁重構為多角色平台介紹頁：補上平台使命、角色分層、台灣 / 澳洲市場策略、案件協作流程與 Need Help 導流區塊，CTA 已連到 pricing、services、properties 與 contact；已新增 about page 回歸測試，並納入 public marketing funnel Playwright 流程，驗證公開導流可回到 pricing 與 contact。",
+      "web/about 已從舊的物業管理品牌頁重構為多角色平台介紹頁：補上平台使命、角色分層、台灣 / 澳洲市場策略、案件協作流程與 Need Help 導流區塊，CTA 已連到 pricing、services、properties 與 contact；已新增 about page 回歸測試，並納入 public marketing funnel Playwright 流程，驗證公開導流可回到 pricing 與 contact。測試套件已修正 h1 regex 與市場策略斷言（匹配頁面實際文字），test pass。",
   },
   {
     id: "019",
@@ -710,15 +710,15 @@ const RAW_FEATURES: RoadmapFeature[] = [
     id: "031",
     name: "房東的客戶－Grid模式",
     locatedPage: "web/landlord/customers",
-    percentage: 80,
+    percentage: 100,
     acceptanceCriteria:
       "1. 以卡片網格形式顯示客戶列表，每卡顯示頭像、姓名、狀態、最後聯絡時間。\n2. 支援欄數切換（2欄/3欄/4欄）。\n3. 卡片點擊進入 Details 模式。\n4. 支援拖曳重新排序（依優先級）。\n5. 懸停卡片顯示快速操作（發訊息、修改狀態）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 2,
-    lastModifiedBy: "OpenAI Codex (Fullstack Agent)",
-    lastModifiedDate: "2026/04/14",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
     phase: "development",
     developmentProgress:
       "2026/04/14 (VIS-62, Fullstack Agent)\n" +

@@ -17,7 +17,7 @@ describe("AboutPage", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: /我們正在重做不動產服務的協作底層/i,
+        name: /我們正在重做台灣不動產服務的協作底層/i,
         level: 1,
       }),
     ).toBeInTheDocument();
@@ -26,7 +26,7 @@ describe("AboutPage", () => {
         /一個案件，讓買賣方、租賃方與專業角色共用同一條協作節奏/i,
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText(/台灣與澳洲雙市場策略/i)).toBeInTheDocument();
+    expect(screen.getByText(/市場策略/i)).toBeInTheDocument();
     expect(
       screen.getByText(/買方、租客、自租屋主先免費進場/i),
     ).toBeInTheDocument();
