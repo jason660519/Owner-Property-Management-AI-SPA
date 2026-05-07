@@ -16,12 +16,14 @@ import {
   createCustomCliCapabilityRow,
   duplicateCliCapabilityRow,
   fromStoredRows,
+  isCliCapabilityConfigLocked,
   normalizeCliCapabilityRows,
   rowToStored,
   type CliCapabilityRow,
   type StoredCliCapabilityRow,
 } from './cli-capability-row-state';
 import {
+  findInvocationPathConfig,
   findToolConfig,
   OLLAMA_CLOUD_MODELS,
   pickRandomOllamaModel,
@@ -42,6 +44,7 @@ type CliEvalRunResponse = {
   message?: string;
   envInjected?: Record<string, string>;
   codingTool?: string;
+  invocationPath?: string;
   ollamaModel?: string;
 };
 
@@ -51,6 +54,7 @@ async function runCliEval(row: CliCapabilityRow): Promise<CliEvalRunResponse> {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       codingTool: row.codingTool,
+      invocationPath: row.invocationPath,
       ollamaModel: row.ollamaModel,
       prompt: row.prompt,
     }),
@@ -100,7 +104,16 @@ export function CliCapabilityEvaluationPanel() {
   }, [rows]);
 
   const patchRow = useCallback((rowId: string, patch: Partial<CliCapabilityRow>) => {
-    setRows((prev) => prev.map((row) => row.id === rowId ? { ...row, ...patch } : row));
+    setRows((prev) => prev.map((row) => {
+      if (row.id !== rowId) return row;
+      if (!isCliCapabilityConfigLocked(row)) return { ...row, ...patch };
+      const { codingTool: _codingTool, invocationPath: _invocationPath, ollamaModel: _ollamaModel, prompt: _prompt, ...allowedPatch } = patch;
+      void _codingTool;
+      void _invocationPath;
+      void _ollamaModel;
+      void _prompt;
+      return { ...row, ...allowedPatch };
+    }));
   }, []);
 
   const addRow = useCallback(() => {
@@ -113,6 +126,7 @@ export function CliCapabilityEvaluationPanel() {
   const deleteRow = useCallback((rowId: string) => {
     cancelledIdsRef.current.add(rowId);
     setRows((prev) => {
+      if (prev.some((row) => row.id === rowId && isCliCapabilityConfigLocked(row))) return prev;
       const next = prev.filter((row) => row.id !== rowId);
       if (next.length > 0) return normalizeCliCapabilityRows(next);
       return [createCustomCliCapabilityRow(1)];
@@ -132,20 +146,22 @@ export function CliCapabilityEvaluationPanel() {
 
   const randomModel = useCallback((rowId: string) => {
     setRows((prev) => prev.map((row) => row.id === rowId
-      ? { ...row, ollamaModel: pickRandomOllamaModel(row.ollamaModel) }
+      ? isCliCapabilityConfigLocked(row)
+        ? row
+        : { ...row, ollamaModel: pickRandomOllamaModel(row.ollamaModel) }
       : row));
   }, []);
 
   const randomAllModels = useCallback(() => {
-    setRows((prev) => prev.map((row) => ({
-      ...row,
-      ollamaModel: pickRandomOllamaModel(row.ollamaModel),
-    })));
+    setRows((prev) => prev.map((row) => isCliCapabilityConfigLocked(row)
+      ? row
+      : { ...row, ollamaModel: pickRandomOllamaModel(row.ollamaModel) }));
   }, []);
 
   const runRow = useCallback(async (row: CliCapabilityRow) => {
     if (row.runStatus === 'running') return;
     const tool = findToolConfig(row.codingTool);
+    const invocationPath = findInvocationPathConfig(row.invocationPath);
     if (tool?.status === 'todo') {
       patchRow(row.id, {
         runStatus: 'failed',
@@ -162,7 +178,7 @@ export function CliCapabilityEvaluationPanel() {
     patchRow(row.id, {
       runStatus: 'running',
       runStartedAtMs: startedAtMs,
-      message: `啟動 ${tool?.label ?? row.codingTool}（model: ${row.ollamaModel}）…`,
+      message: `啟動 ${tool?.label ?? row.codingTool} / ${invocationPath?.label ?? row.invocationPath}（model: ${row.ollamaModel}）…`,
       resultText: '',
       rawLogs: [],
       command: '',
@@ -217,7 +233,7 @@ export function CliCapabilityEvaluationPanel() {
   );
 
   const runAll = useCallback(async () => {
-    const runnable = rows.filter((row) => row.shouldTest && row.runStatus !== 'running');
+    const runnable = rows.filter((row) => row.shouldTest && row.runStatus !== 'running' && row.runStatus !== 'done');
     if (runnable.length === 0) {
       setRunAllHint('沒有勾選「是否測試」的列可執行。');
       setTimeout(() => setRunAllHint(null), 3000);
@@ -242,17 +258,6 @@ export function CliCapabilityEvaluationPanel() {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
-      <div className="shrink-0 rounded-base border border-dashed border-border-default bg-bg-secondary px-3 py-2 text-[11px] text-text-secondary">
-        <p>
-          <span className="font-semibold text-text-primary">執行模式：</span>
-          每列實際 spawn{' '}
-          <code className="font-mono">ollama launch &lt;tool&gt; --model &lt;m&gt; --yes -- &lt;headless flags&gt;</code>
-          （由 ollama 0.21+ 自家 wrapper 注入 backend env / proxy）。
-          ✓claude / ✓codex（OSS 路徑）/ ✓copilot 已驗證可拿到 stdout；
-          opencode 在 headless 下尚未通，需先在 terminal 跑{' '}
-          <code className="font-mono">ollama launch opencode --config</code> 完成 ollama provider 設定。
-        </p>
-      </div>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <EnhancedTable<CliCapabilityRow>
           tableId={CLI_CAPABILITY_TABLE_ID}
@@ -272,7 +277,7 @@ export function CliCapabilityEvaluationPanel() {
                 type="button"
                 onClick={() => randomAllModels()}
                 className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border-default bg-bg-secondary px-3 text-xs font-semibold text-text-secondary transition hover:text-text-primary"
-                title="🎲 一鍵為所有列重抽 ollama cloud 模型"
+                title="🎲 一鍵為可編輯實驗列重抽 ollama cloud 模型"
               >
                 <Dice5 size={14} aria-hidden />
                 全表隨機抽模型
@@ -317,6 +322,7 @@ function CliCapabilityDetailSheet({
   onClose: () => void;
 }) {
   const tool = findToolConfig(detail.codingTool);
+  const invocationPath = findInvocationPathConfig(detail.invocationPath);
   const rawText = detail.rawLogs.length > 0 ? detail.rawLogs.join('\n') : '（尚無 log）';
   return (
     <div className="fixed inset-0 z-[80] flex justify-end bg-black/40" role="dialog" aria-modal>
@@ -328,7 +334,8 @@ function CliCapabilityDetailSheet({
               {tool?.label ?? detail.codingTool} · <span className="font-mono">{detail.ollamaModel}</span>
             </h3>
             <p className="mt-1 text-[11px] text-text-secondary">
-              指定 ollama model：<span className="font-mono">{detail.ollamaModel || '—'}</span>
+              觸發路徑：<span className="font-mono">{invocationPath?.label ?? detail.invocationPath}</span>
+              {' '}· 指定 model：<span className="font-mono">{detail.ollamaModel || '—'}</span>
               {' '}· 自介：<span className="font-mono">{detail.effectiveModel || '—'}</span>
             </p>
             {tool?.notes && (

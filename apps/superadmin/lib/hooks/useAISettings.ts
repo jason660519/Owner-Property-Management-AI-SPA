@@ -401,7 +401,7 @@ export function useAISettings() {
       modelId: string,
       prompt?: string,
       file?: File | null
-    ): Promise<{ success: boolean; message?: string; output?: string; output_image_url?: string }> => {
+    ): Promise<{ success: boolean; message?: string; output?: string; output_image_url?: string; http_status?: number }> => {
       let fileBase64: string | undefined;
       let mimeType: string | undefined;
       let fileName: string | undefined;
@@ -446,8 +446,20 @@ export function useAISettings() {
         return { success: false, message: msg };
       }
       clearTimeout(timeoutId);
-      const data = (await res.json()) as { success?: boolean; message?: string; output?: string; output_image_url?: string };
-      return { success: data.success ?? false, message: data.message, output: data.output, output_image_url: data.output_image_url };
+      const data = (await res.json()) as {
+        success?: boolean;
+        message?: string;
+        output?: string;
+        output_image_url?: string;
+        http_status?: number;
+      };
+      return {
+        success: data.success ?? false,
+        message: data.message,
+        output: data.output,
+        output_image_url: data.output_image_url,
+        http_status: data.http_status,
+      };
     },
     [userId]
   );

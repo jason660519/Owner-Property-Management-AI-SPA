@@ -35,7 +35,7 @@ type TestModelFn = (
   modelId: string,
   prompt?: string,
   file?: File | null,
-) => Promise<{ success: boolean; message?: string; output?: string; output_image_url?: string }>;
+) => Promise<{ success: boolean; message?: string; output?: string; output_image_url?: string; http_status?: number }>;
 
 type ImageToImageEvaluationPanelProps = {
   savedKeys: SavedKey[];
@@ -97,7 +97,7 @@ function requestedImageModes(outputMode: ImageToImageEvaluationRow['outputMode']
 }
 
 function promptForImageMode(row: ImageToImageEvaluationRow, mode: ImageOutputMode): string {
-  const modeLabel = mode === '2d' ? '2D 彩繪平面圖（正俯視）' : '3D 立體彩繪圖（45 度斜角俯瞰）';
+  const modeLabel = mode === '2d' ? '2D 彩繪平面圖（正俯視）' : '3D 鳥瞰彩繪圖（45 度斜角俯瞰）';
   const basePrompt = row.prompt.trim() || buildImageToImagePrompt(row.style, row.outputMode);
   return [
     basePrompt,
@@ -128,6 +128,7 @@ async function runImageOutputs(
   const missingImage = results.some(({ result }) => result.success === true && !result.output_image_url);
   const hasAllRequestedImages = modes.every((mode) => (mode === '2d' ? resultImage2dUrl : resultImage3dUrl));
   const success = hasAllRequestedImages && !failedMessage;
+  const firstHttpStatus = results.find(({ result }) => typeof result.http_status === 'number')?.result.http_status;
 
   return {
     runStatus: success ? 'done' : 'failed',
@@ -136,7 +137,7 @@ async function runImageOutputs(
     resultImage2dUrl,
     resultImage3dUrl,
     message: success ? '測試完成。' : failedMessage ?? (missingImage ? '未產圖：模型回傳文字但沒有圖片。' : '測試失敗。'),
-    httpStatus: success ? 200 : null,
+    httpStatus: firstHttpStatus ?? (success ? 200 : null),
   };
 }
 

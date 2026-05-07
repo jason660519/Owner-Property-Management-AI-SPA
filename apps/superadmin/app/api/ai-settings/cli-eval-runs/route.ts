@@ -2,7 +2,7 @@
 //
 // Headless CLI evaluation runner.
 //
-// Three tools (claude / codex / copilot) launch via:
+// Verified baseline tools (claude / codex / copilot) launch via:
 //   ollama launch <tool> --model <ollama-cloud-model> --yes -- <tool-flags...>
 //
 // OpenCode is special: its `ollama launch opencode` headless mode hangs
@@ -23,13 +23,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { spawn } from 'node:child_process';
 import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { OLLAMA_CLOUD_MODELS } from '@/app/superadmin/settings/api_key_and_model_setting/cli-eval-tool-config';
+import {
+  defaultInvocationPathForTool,
+  getInvocationPathAvailability,
+  isValidInvocationPath,
+  OLLAMA_CLOUD_MODELS,
+  type InvocationPath,
+  type ToolHeadlessStatus,
+} from '@/app/superadmin/settings/api_key_and_model_setting/cli-eval-tool-config';
 
 export const runtime = 'nodejs';
 
 const RUN_TIMEOUT_MS = 120_000;
 const MAX_OUTPUT_BYTES = 256 * 1024;
 const OLLAMA_BIN = process.env.OLLAMA_CLI_PATH || 'ollama';
+const CODEX_BIN = process.env.CODEX_CLI_PATH || 'codex';
 const OPENCODE_BIN = process.env.OPENCODE_CLI_PATH || 'opencode';
 const OLLAMA_OPENAI_BASE_URL = 'http://127.0.0.1:11434/v1';
 
@@ -42,7 +50,7 @@ type ToolPlan = {
   args: string[];
   /** Extra env merged on top of process.env. */
   extraEnv?: Record<string, string>;
-  status: 'verified' | 'unverified' | 'todo';
+  status: ToolHeadlessStatus;
   notes?: string;
 };
 
@@ -60,7 +68,47 @@ function buildOpencodeInlineConfig(): string {
   });
 }
 
-function planForTool(tool: CodingTool, prompt: string, model: string): ToolPlan {
+function todoPlan(notes: string): ToolPlan {
+  return { binary: '', args: [], status: 'todo', notes };
+}
+
+function opencodeDirectPlan(prompt: string, model: string): ToolPlan {
+  return {
+    binary: OPENCODE_BIN,
+    args: ['run', '-m', `ollama/${model}`, prompt],
+    extraEnv: { OPENCODE_CONFIG_CONTENT: buildOpencodeInlineConfig() },
+    status: 'verified',
+    notes: 'opencode 走「直接呼叫 + OPENCODE_CONFIG_CONTENT 注入 ollama provider」，未經 ollama launch wrapper。',
+  };
+}
+
+function planForTool(
+  tool: CodingTool,
+  invocationPath: InvocationPath,
+  prompt: string,
+  model: string,
+): ToolPlan {
+  const availability = getInvocationPathAvailability(tool, invocationPath);
+  if (availability.status === 'todo') {
+    return todoPlan(availability.notes ?? '此 CLI 尚未支援此觸發路徑。');
+  }
+  if (invocationPath === 'direct_tool_config' && tool === 'opencode') {
+    return opencodeDirectPlan(prompt, model);
+  }
+  if (invocationPath === 'openai_compatible') {
+    if (tool === 'codex') {
+      return {
+        binary: CODEX_BIN,
+        args: ['exec', '--oss', '--local-provider', 'ollama-chat', '-m', model, prompt],
+        status: 'verified',
+        notes: 'codex 直接走 --oss + --local-provider ollama-chat，不經 ollama launch wrapper。',
+      };
+    }
+    if (tool === 'opencode') return opencodeDirectPlan(prompt, model);
+  }
+  if (invocationPath !== 'ollama_launch') {
+    return todoPlan(availability.notes ?? '此觸發路徑尚未實作 headless 執行器。');
+  }
   switch (tool) {
     case 'claude':
       return {
@@ -90,15 +138,7 @@ function planForTool(tool: CodingTool, prompt: string, model: string): ToolPlan 
         notes: 'copilot 結尾會附 token / 時間統計。',
       };
     case 'opencode':
-      // Bypass `ollama launch opencode` entirely (it hangs in headless mode).
-      // Spawn opencode directly and inject the ollama provider via env.
-      return {
-        binary: OPENCODE_BIN,
-        args: ['run', '-m', `ollama/${model}`, prompt],
-        extraEnv: { OPENCODE_CONFIG_CONTENT: buildOpencodeInlineConfig() },
-        status: 'verified',
-        notes: 'opencode 走「直接呼叫 + OPENCODE_CONFIG_CONTENT 注入 ollama provider」，未經 ollama launch wrapper。',
-      };
+      return todoPlan('OpenCode CLI 的 ollama launch headless path 已知會 hang，請改用 Direct Tool Config。');
   }
 }
 
@@ -117,7 +157,6 @@ type RunResult = {
 
 /** Strip ANSI escape sequences (CSI, SGR, OSC, etc.). */
 function stripAnsi(s: string): string {
-  // eslint-disable-next-line no-control-regex
   return s.replace(/\[[0-9;?]*[a-zA-Z]/g, '').replace(/\][^]*/g, '');
 }
 
@@ -259,7 +298,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, message: auth.message }, { status: auth.status });
   }
 
-  let body: { codingTool?: string; ollamaModel?: string; prompt?: string };
+  let body: { codingTool?: string; invocationPath?: string; ollamaModel?: string; prompt?: string };
   try {
     body = await request.json();
   } catch {
@@ -267,12 +306,16 @@ export async function POST(request: NextRequest) {
   }
 
   const codingTool = (body.codingTool ?? '').trim() as CodingTool;
+  const invocationPathRaw = (body.invocationPath ?? '').trim();
   const ollamaModel = (body.ollamaModel ?? '').trim();
   const prompt = (body.prompt ?? '').trim();
 
   if (!['claude', 'codex', 'opencode', 'copilot'].includes(codingTool)) {
     return NextResponse.json({ success: false, message: `不支援的 codingTool: ${codingTool}` }, { status: 400 });
   }
+  const invocationPath = isValidInvocationPath(invocationPathRaw)
+    ? invocationPathRaw
+    : defaultInvocationPathForTool(codingTool);
   if (!ollamaModel) {
     return NextResponse.json({ success: false, message: '缺少 ollamaModel。' }, { status: 400 });
   }
@@ -280,7 +323,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, message: '缺少 prompt。' }, { status: 400 });
   }
 
-  const plan = planForTool(codingTool, prompt, ollamaModel);
+  const plan = planForTool(codingTool, invocationPath, prompt, ollamaModel);
 
   if (plan.status === 'todo') {
     return NextResponse.json({
@@ -295,6 +338,7 @@ export async function POST(request: NextRequest) {
       errorType: 'todo',
       message: plan.notes ?? '此 CLI 尚未支援 headless 模式。',
       codingTool,
+      invocationPath,
       ollamaModel,
     });
   }
@@ -304,6 +348,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     ...result,
     codingTool,
+    invocationPath,
     ollamaModel,
     notes: plan.notes,
     toolStatus: plan.status,

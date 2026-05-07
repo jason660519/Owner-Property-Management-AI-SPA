@@ -4,12 +4,21 @@ import React, { useEffect, useState } from 'react';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { Copy, Dice5, Eye, Loader2, Play, Trash2 } from 'lucide-react';
 import {
+  defaultInvocationPathForTool,
   findToolConfig,
+  findInvocationPathConfig,
+  getInvocationPathAvailability,
+  INVOCATION_PATH_OPTIONS,
   OLLAMA_CLOUD_MODELS,
   TOOL_CONFIGS,
   type CodingTool,
+  type InvocationPath,
 } from './cli-eval-tool-config';
-import type { CliCapabilityRow, CliCapabilityRunStatus } from './cli-capability-row-state';
+import {
+  isCliCapabilityConfigLocked,
+  type CliCapabilityRow,
+  type CliCapabilityRunStatus,
+} from './cli-capability-row-state';
 
 export const CLI_CAPABILITY_TABLE_ID = 'ai-settings-cli-capability-evaluation-v2';
 export const CLI_CAPABILITY_INITIAL_WIDTHS = [
@@ -35,8 +44,11 @@ function statusLabel(status: CliCapabilityRunStatus): string {
   return '尚未測試';
 }
 
-function executionPlaneLabel(_codingTool: CodingTool): string {
-  return '本機 CLI → ollama daemon';
+function executionPlaneLabel(invocationPath: InvocationPath): string {
+  if (invocationPath === 'ollama_launch') return '本機 CLI → ollama daemon';
+  if (invocationPath === 'openai_compatible') return '本機 CLI → OpenAI-compatible endpoint';
+  if (invocationPath === 'direct_tool_config') return '本機 CLI → tool config';
+  return '本機 CLI → vendor account';
 }
 
 function stopTablePointerEvent(event: React.SyntheticEvent) {
@@ -70,8 +82,10 @@ function ElapsedLabel({
 
 export function getCliCapabilitySearchValue(row: CliCapabilityRow): string {
   const tool = findToolConfig(row.codingTool);
+  const invocationPath = findInvocationPathConfig(row.invocationPath);
   return [
     tool?.label ?? row.codingTool,
+    invocationPath?.label ?? row.invocationPath,
     row.ollamaModel,
     row.prompt,
     row.resultText,
@@ -115,9 +129,10 @@ export function createCliCapabilityColumns(deps: CreateColumnsDeps): ColumnDef<C
       cell: ({ row }) => (
         <button
           type="button"
-          title="刪除此列"
+          title={isCliCapabilityConfigLocked(row.original) ? '已落地測試列不可刪除，請複製成新列調整' : '刪除此列'}
+          disabled={isCliCapabilityConfigLocked(row.original)}
           onClick={(event) => { event.stopPropagation(); onDeleteRow(row.original.id); }}
-          className="inline-flex h-7 w-7 items-center justify-center rounded border border-border-subtle bg-bg-primary text-rose-500 hover:bg-bg-tertiary"
+          className="inline-flex h-7 w-7 items-center justify-center rounded border border-border-subtle bg-bg-primary text-rose-500 hover:bg-bg-tertiary disabled:cursor-not-allowed disabled:opacity-35"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -128,23 +143,50 @@ export function createCliCapabilityColumns(deps: CreateColumnsDeps): ColumnDef<C
       header: 'Invoke',
       meta: { headerEn: 'Invocation path', headerZh: '觸發路徑' },
       cell: ({ row }) => {
-        const tool = findToolConfig(row.original.codingTool);
-        const isTodo = tool?.status === 'todo';
-        const isUnverified = tool?.status === 'unverified';
+        const r = row.original;
+        const locked = isCliCapabilityConfigLocked(r);
+        const path = findInvocationPathConfig(r.invocationPath);
+        const availability = getInvocationPathAvailability(r.codingTool, r.invocationPath);
+        const isTodo = availability.status === 'todo';
+        const isUnverified = availability.status === 'unverified';
         const className = isTodo
           ? 'bg-rose-50 text-rose-800 border-rose-200'
           : isUnverified
             ? 'bg-amber-50 text-amber-800 border-amber-200'
             : 'bg-emerald-50 text-emerald-800 border-emerald-200';
-        const label = isTodo
-          ? 'ollama launch（TODO）'
-          : isUnverified
-            ? 'ollama launch ⚠'
-            : 'ollama launch ✓';
+        const suffix = isTodo ? '（TODO）' : isUnverified ? ' ⚠' : ' ✓';
+        const label = `${path?.shortLabel ?? r.invocationPath}${suffix}`;
+        if (!locked) {
+          return (
+            <select
+              value={r.invocationPath}
+              onMouseDown={stopTablePointerEvent}
+              onPointerDown={stopTablePointerEvent}
+              onClick={stopTablePointerEvent}
+              onChange={(event) => onPatchRow(r.id, { invocationPath: event.target.value as InvocationPath })}
+              className="h-8 w-full min-w-[190px] rounded-md border border-border-default bg-bg-secondary px-2 text-xs text-text-primary outline-none focus:border-emerald-500"
+              title={path?.description}
+            >
+              {INVOCATION_PATH_OPTIONS.map((option) => {
+                const optionAvailability = getInvocationPathAvailability(r.codingTool, option.id);
+                return (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                    {optionAvailability.status === 'todo'
+                      ? '（尚未支援）'
+                      : optionAvailability.status === 'unverified'
+                        ? '（需驗證）'
+                        : ''}
+                  </option>
+                );
+              })}
+            </select>
+          );
+        }
         return (
           <span
             className={`inline-flex rounded-full px-2 py-0.5 text-[10px] border ${className}`}
-            title={tool?.notes ?? tool?.commandPreview}
+            title={availability.notes ?? path?.description}
           >
             {label}
           </span>
@@ -157,7 +199,7 @@ export function createCliCapabilityColumns(deps: CreateColumnsDeps): ColumnDef<C
       meta: { headerEn: 'Execution plane', headerZh: '運算面' },
       cell: ({ row }) => (
         <span className="inline-flex rounded-full bg-bg-tertiary px-2 py-0.5 text-[10px] text-text-primary">
-          {executionPlaneLabel(row.original.codingTool)}
+          {executionPlaneLabel(row.original.invocationPath)}
         </span>
       ),
     }),
@@ -167,13 +209,31 @@ export function createCliCapabilityColumns(deps: CreateColumnsDeps): ColumnDef<C
       meta: { headerEn: 'Coding tool wrapper', headerZh: 'Coding Tool（CLI 殼）' },
       cell: ({ row }) => {
         const r = row.original;
+        const locked = isCliCapabilityConfigLocked(r);
+        const tool = findToolConfig(r.codingTool);
+        if (locked) {
+          return (
+            <span
+              className="inline-flex rounded-md bg-bg-tertiary px-3 py-1.5 text-xs font-medium text-text-primary"
+              title="已落地測試列不可直接修改，請複製成新列調整"
+            >
+              {tool?.label ?? r.codingTool}
+            </span>
+          );
+        }
         return (
           <select
             value={r.codingTool}
             onMouseDown={stopTablePointerEvent}
             onPointerDown={stopTablePointerEvent}
             onClick={stopTablePointerEvent}
-            onChange={(event) => onPatchRow(r.id, { codingTool: event.target.value as CodingTool })}
+            onChange={(event) => {
+              const codingTool = event.target.value as CodingTool;
+              onPatchRow(r.id, {
+                codingTool,
+                invocationPath: defaultInvocationPathForTool(codingTool),
+              });
+            }}
             className="h-8 w-full min-w-[160px] rounded-md border border-border-default bg-bg-secondary px-2 text-xs text-text-primary outline-none focus:border-emerald-500"
           >
             {TOOL_CONFIGS.map((tool) => (
@@ -189,18 +249,21 @@ export function createCliCapabilityColumns(deps: CreateColumnsDeps): ColumnDef<C
     col.display({
       id: 'ollama-model',
       header: 'Ollama Model',
-      meta: { headerEn: 'Ollama cloud model', headerZh: 'Ollama Cloud 模型' },
+      meta: { headerEn: 'Clodu Model/Local Model', headerZh: '模型選擇' },
       cell: ({ row }) => {
         const r = row.original;
+        const locked = isCliCapabilityConfigLocked(r);
         return (
           <div className="flex items-center gap-1">
             <select
               value={r.ollamaModel}
+              disabled={locked}
               onMouseDown={stopTablePointerEvent}
               onPointerDown={stopTablePointerEvent}
               onClick={stopTablePointerEvent}
               onChange={(event) => onPatchRow(r.id, { ollamaModel: event.target.value })}
-              className="h-8 flex-1 min-w-[200px] rounded-md border border-border-default bg-bg-secondary px-2 text-xs text-text-primary outline-none focus:border-emerald-500"
+              className="h-8 flex-1 min-w-[200px] rounded-md border border-border-default bg-bg-secondary px-2 text-xs text-text-primary outline-none focus:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-70"
+              title={locked ? '已落地測試列不可直接修改，請複製成新列調整' : undefined}
             >
               {OLLAMA_CLOUD_MODELS.map((model) => (
                 <option key={model} value={model}>
@@ -213,9 +276,10 @@ export function createCliCapabilityColumns(deps: CreateColumnsDeps): ColumnDef<C
             </select>
             <button
               type="button"
-              title="🎲 隨機抽一個 ollama cloud 模型"
+              title={locked ? '已落地測試列不可直接修改，請複製成新列調整' : '🎲 隨機抽一個 ollama cloud 模型'}
+              disabled={locked}
               onClick={(event) => { event.stopPropagation(); event.preventDefault(); onRandomModel(r.id); }}
-              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-border-subtle bg-bg-primary text-text-secondary hover:bg-bg-tertiary hover:text-emerald-600"
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-border-subtle bg-bg-primary text-text-secondary hover:bg-bg-tertiary hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-35"
             >
               <Dice5 className="h-3.5 w-3.5" />
             </button>
@@ -227,16 +291,21 @@ export function createCliCapabilityColumns(deps: CreateColumnsDeps): ColumnDef<C
       id: 'test-prompt',
       header: 'Test prompt',
       meta: { headerEn: 'Test prompt', headerZh: '測試 Prompt' },
-      cell: ({ row }) => (
-        <textarea
-          value={row.original.prompt}
-          onMouseDown={stopTablePointerEvent}
-          onPointerDown={stopTablePointerEvent}
-          onClick={stopTablePointerEvent}
-          onChange={(event) => onPatchRow(row.original.id, { prompt: event.target.value })}
-          className="h-24 w-full min-w-[360px] resize-none rounded-md border border-border-default bg-bg-secondary p-2 font-mono text-[11px] leading-4 text-text-primary outline-none focus:border-emerald-500"
-        />
-      ),
+      cell: ({ row }) => {
+        const locked = isCliCapabilityConfigLocked(row.original);
+        return (
+          <textarea
+            value={row.original.prompt}
+            disabled={locked}
+            onMouseDown={stopTablePointerEvent}
+            onPointerDown={stopTablePointerEvent}
+            onClick={stopTablePointerEvent}
+            onChange={(event) => onPatchRow(row.original.id, { prompt: event.target.value })}
+            className="h-24 w-full min-w-[360px] resize-none rounded-md border border-border-default bg-bg-secondary p-2 font-mono text-[11px] leading-4 text-text-primary outline-none focus:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-70"
+            title={locked ? '已落地測試列不可直接修改，請複製成新列調整' : undefined}
+          />
+        );
+      },
     }),
     col.display({
       id: 'run-controls',
@@ -246,12 +315,17 @@ export function createCliCapabilityColumns(deps: CreateColumnsDeps): ColumnDef<C
         const r = row.original;
         const running = r.runStatus === 'running';
         const tool = findToolConfig(r.codingTool);
-        const disabled = running || tool?.status === 'todo';
+        const availability = getInvocationPathAvailability(r.codingTool, r.invocationPath);
+        const disabled = running || r.runStatus === 'done' || tool?.status === 'todo' || availability.status === 'todo';
         return (
           <div className="flex flex-wrap items-center gap-1">
             <button
               type="button"
-              title={tool?.status === 'todo' ? '此 CLI 尚未支援 headless 模式' : '開始 CLI 評測'}
+              title={r.runStatus === 'done'
+                ? '已完成的測試結果不可覆寫，請複製成新列再測'
+                : tool?.status === 'todo' || availability.status === 'todo'
+                  ? availability.notes ?? '此 CLI 尚未支援此觸發路徑'
+                  : '開始 CLI 評測'}
               disabled={disabled}
               onClick={(event) => { event.stopPropagation(); event.preventDefault(); onRunRow(r); }}
               className="inline-flex h-7 w-7 items-center justify-center rounded border border-border-subtle bg-bg-primary text-emerald-600 hover:bg-bg-tertiary disabled:opacity-40 disabled:cursor-not-allowed"

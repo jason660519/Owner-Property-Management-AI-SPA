@@ -1,8 +1,11 @@
 import { DEFAULT_ADAPTER_TEST_PROMPT } from '@/lib/adapter-config';
 import {
+  defaultInvocationPathForTool,
+  isValidInvocationPath,
   OLLAMA_CLOUD_MODELS,
   TOOL_CONFIGS,
   type CodingTool,
+  type InvocationPath,
 } from './cli-eval-tool-config';
 
 export type CliCapabilityRunStatus = 'idle' | 'running' | 'done' | 'failed';
@@ -14,6 +17,8 @@ export type CliCapabilityRow = {
   shouldTest: boolean;
   /** Which coding-tool wrapper to invoke (claude / codex / opencode / copilot). */
   codingTool: CodingTool;
+  /** Which launch path should execute the coding-tool wrapper. */
+  invocationPath: InvocationPath;
   /** Which ollama-cloud model the wrapper should be pointed at. */
   ollamaModel: string;
   prompt: string;
@@ -97,6 +102,7 @@ export function createCliCapabilityBaselineRow(
     isBaseline: true,
     shouldTest: true,
     codingTool,
+    invocationPath: defaultInvocationPathForTool(codingTool),
     ollamaModel: ollamaModel ?? defaultModelForBaseline(no - 1),
     prompt: DEFAULT_ADAPTER_TEST_PROMPT,
     ...emptyRunFields(),
@@ -105,14 +111,16 @@ export function createCliCapabilityBaselineRow(
 
 export function createCustomCliCapabilityRow(
   no: number,
-  init?: { codingTool?: CodingTool; ollamaModel?: string },
+  init?: { codingTool?: CodingTool; invocationPath?: InvocationPath; ollamaModel?: string },
 ): CliCapabilityRow {
+  const codingTool = init?.codingTool ?? TOOL_CONFIGS[0]?.id ?? 'claude';
   return {
     id: newId(),
     no,
     isBaseline: false,
     shouldTest: true,
-    codingTool: init?.codingTool ?? TOOL_CONFIGS[0]?.id ?? 'claude',
+    codingTool,
+    invocationPath: init?.invocationPath ?? defaultInvocationPathForTool(codingTool),
     ollamaModel: init?.ollamaModel ?? defaultModelForBaseline(no - 1),
     prompt: DEFAULT_ADAPTER_TEST_PROMPT,
     ...emptyRunFields(),
@@ -148,11 +156,15 @@ export function fromStoredRows(stored: StoredCliCapabilityRow[]): CliCapabilityR
   }
   return stored.map((row, index) => {
     const codingTool: CodingTool = isValidCodingTool(row.codingTool) ? row.codingTool : 'claude';
+    const invocationPath = isValidInvocationPath(row.invocationPath)
+      ? row.invocationPath
+      : defaultInvocationPathForTool(codingTool);
     const ollamaModel = row.ollamaModel || defaultModelForBaseline(index);
     return {
       ...row,
       no: index + 1,
       codingTool,
+      invocationPath,
       ollamaModel,
       isBaseline: row.id?.startsWith('baseline-') ?? false,
       shouldTest: row.shouldTest ?? true,
@@ -167,4 +179,8 @@ export function fromStoredRows(stored: StoredCliCapabilityRow[]): CliCapabilityR
 
 export function normalizeCliCapabilityRows(rows: CliCapabilityRow[]): CliCapabilityRow[] {
   return rows.map((row, index) => ({ ...row, no: index + 1 }));
+}
+
+export function isCliCapabilityConfigLocked(row: CliCapabilityRow): boolean {
+  return row.isBaseline || row.runStatus === 'done' || row.runStatus === 'running';
 }

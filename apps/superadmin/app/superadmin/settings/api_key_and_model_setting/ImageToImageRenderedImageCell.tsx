@@ -10,6 +10,12 @@ type ImageToImageRenderedImageCellProps = {
   onOpenDetail: (row: ImageToImageEvaluationRow) => void;
 };
 
+function isRenderableImageUrl(url: string): boolean {
+  if (/^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(url)) return true;
+  if (/^https?:\/\//i.test(url)) return true;
+  return url.startsWith('blob:');
+}
+
 export function ImageToImageRenderedImageCell({
   row,
   url,
@@ -17,7 +23,7 @@ export function ImageToImageRenderedImageCell({
   emptyText,
   onOpenDetail,
 }: ImageToImageRenderedImageCellProps) {
-  if (url) {
+  if (url && isRenderableImageUrl(url)) {
     return (
       <button type="button" onClick={(event) => { event.stopPropagation(); event.preventDefault(); onOpenDetail(row); }} className="relative isolate block h-24 w-full max-w-full overflow-hidden rounded-md border border-emerald-300 bg-bg-secondary">
         <span className="absolute left-1.5 top-1.5 z-10 inline-flex items-center gap-1 rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">

@@ -32,7 +32,13 @@ const OLLAMA_LOCAL_BASE_URL = process.env.OLLAMA_LOCAL_BASE_URL?.replace(/\/$/, 
  *  scenarios but bounded so the endpoint cannot be abused as a free LLM proxy. */
 const TEST_PROMPT_MAX_LEN = PROMPT_INPUT_LIMITS.userPromptMax * 5; // 10,000 chars
 
-type TestResult = { success: boolean; message: string; output?: string; output_image_url?: string };
+type TestResult = {
+  success: boolean;
+  message: string;
+  output?: string;
+  output_image_url?: string;
+  http_status?: number;
+};
 
 /** Optional file attachment (base64 + mime) for vision/PDF. */
 export type FileAttachment = { fileBase64: string; mimeType: string; fileName?: string };
@@ -68,9 +74,48 @@ function isQwenImageModel(modelId: string): boolean {
   return modelId.toLowerCase().startsWith('qwen-image');
 }
 
+function openAIRequestHeaders(apiKey: string, contentType?: string): Record<string, string> {
+  const organizationId =
+    process.env.MY_OPENAI_ORGANIZATION_ID?.trim()
+    || process.env.OPENAI_ORGANIZATION_ID?.trim()
+    || process.env.OPENAI_ORG_ID?.trim();
+  const projectId =
+    process.env.MY_OPENAI_PROJECT_ID?.trim()
+    || process.env.OPENAI_PROJECT_ID?.trim();
+  return {
+    ...(contentType ? { 'Content-Type': contentType } : {}),
+    Authorization: `Bearer ${apiKey}`,
+    ...(organizationId ? { 'OpenAI-Organization': organizationId } : {}),
+    ...(projectId ? { 'OpenAI-Project': projectId } : {}),
+  };
+}
+
+function hasOpenAIOrganizationHeader(): boolean {
+  return Boolean(
+    process.env.MY_OPENAI_ORGANIZATION_ID?.trim()
+    || process.env.OPENAI_ORGANIZATION_ID?.trim()
+    || process.env.OPENAI_ORG_ID?.trim(),
+  );
+}
+
 function attachmentBlob(file: FileAttachment): Blob {
   return new Blob([Buffer.from(file.fileBase64, 'base64')], { type: file.mimeType });
 }
+
+type OpenAIImageError = {
+  message?: string;
+  type?: string;
+  code?: string;
+};
+
+type OpenAIImageResponse = {
+  data?: Array<{
+    b64_json?: string;
+    url?: string;
+    revised_prompt?: string;
+  }>;
+  error?: OpenAIImageError;
+};
 
 function extractOpenAIImageUrl(data: unknown): string {
   const image = (data as { data?: Array<{ b64_json?: string; url?: string }> })?.data?.[0];
@@ -78,6 +123,26 @@ function extractOpenAIImageUrl(data: unknown): string {
     return `data:image/png;base64,${image.b64_json}`;
   }
   return typeof image?.url === 'string' ? image.url : '';
+}
+
+function normalizeOpenAIImageError(
+  status: number,
+  data: OpenAIImageResponse,
+  modelId: string,
+  organizationConfigured: boolean,
+): string {
+  const message = data.error?.message ?? `HTTP ${status}`;
+  const lower = message.toLowerCase();
+  if (lower.includes('organization must be verified')) {
+    if (!organizationConfigured) {
+      return `OpenAI ${modelId} 需要 organization 完成驗證後才能使用；目前 server process 沒讀到 MY_OPENAI_ORGANIZATION_ID / OPENAI_ORGANIZATION_ID，請確認 .env 變數名稱並重啟 superadmin dev server。原始錯誤：${message}`;
+    }
+    return `OpenAI ${modelId} 需要 organization 完成驗證後才能使用。請到 OpenAI Platform 的 Verify organization 完成驗證後再測試。原始錯誤：${message}`;
+  }
+  if (status === 429 || lower.includes('rate limit') || lower.includes('too many requests')) {
+    return `OpenAI ${modelId} 觸發速率限制，請稍後重試或減少同時全測列數。原始錯誤：${message}`;
+  }
+  return message;
 }
 
 function extractQwenImageUrl(data: unknown): string {
@@ -108,23 +173,31 @@ async function testOpenAI(
       form.append('prompt', prompt);
       form.append('image', attachmentBlob(file), file.fileName ?? 'floor-plan.png');
       form.append('size', '1536x1024');
+      form.append('quality', 'low');
+      form.append('output_format', 'png');
       const res = await fetch('https://api.openai.com/v1/images/edits', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}` },
+        headers: openAIRequestHeaders(apiKey),
         body: form,
         signal: imageProviderSignal(),
       });
-      const data = await res.json().catch(() => ({}));
+      const data = (await res.json().catch(() => ({}))) as OpenAIImageResponse;
       if (res.ok) {
         const imageUrl = extractOpenAIImageUrl(data);
         return {
           success: imageUrl.length > 0,
           message: imageUrl ? '圖生圖成功' : '模型回應成功但未回傳圖片',
-          output: (data as { data?: Array<{ revised_prompt?: string }> })?.data?.[0]?.revised_prompt ?? 'OpenAI image edit completed',
+          output: data.data?.[0]?.revised_prompt ?? 'OpenAI image edit completed',
+          http_status: res.status,
           ...(imageUrl ? { output_image_url: imageUrl } : {}),
         };
       }
-      return { success: false, message: (data as { error?: { message?: string } }).error?.message ?? `HTTP ${res.status}` };
+      return {
+        success: false,
+        message: normalizeOpenAIImageError(res.status, data, modelId, hasOpenAIOrganizationHeader()),
+        output: data.error?.message ?? '',
+        http_status: res.status,
+      };
     } catch (e) {
       return { success: false, message: `連線失敗: ${e instanceof Error ? e.message : 'Unknown'}` };
     }
@@ -140,7 +213,7 @@ async function testOpenAI(
   try {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      headers: openAIRequestHeaders(apiKey, 'application/json'),
       body: JSON.stringify({
         model: modelId,
         messages: [{ role: 'user', content }],

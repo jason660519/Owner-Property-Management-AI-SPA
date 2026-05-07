@@ -102,7 +102,7 @@ export const COLUMN_HEADERS: ColumnHeaderDef[] = [
   { en: 'Role/General', zh: '按Role或通用分類' },
   { en: 'Located Page', zh: '按所屬頁面分類' },
   { en: 'Feature', zh: '按功能需求分類' },
-  { en: 'DEV-SPEC (.md)', zh: '功能規格 .md' },
+  { en: 'Feture Dev Spec', zh: '功能開發規格書' },
   { en: 'TDD Spec (.md)', zh: 'TDD 規格說明書 .md' },
   { en: 'TDD Progress Report (.md)', zh: 'TDD 進度報告 .md' },
   { en: 'Unit and Integration Test Script Folder Name', zh: '單元與整合測試腳本資料夾名稱' },
