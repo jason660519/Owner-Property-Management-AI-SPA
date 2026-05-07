@@ -831,15 +831,15 @@ const RAW_FEATURES: RoadmapFeature[] = [
     id: "039",
     name: "一鍵生成物件銷售部落格",
     locatedPage: "superadmin/properties/[id]/edit?tab=blog",
-    percentage: 80,
+    percentage: 95,
     acceptanceCriteria:
       "1. 輸入物件 ID，AI 自動生成包含物件亮點的銷售文案（500-800字）。\n2. 生成文案可人工編輯後發布。\n3. 自動插入物件照片（最多5張）至文章內容。\n4. 生成時間 < 15 秒。\n5. 支援多語版本生成（繁體中文、英文）。",
     docPath: "",
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 5,
-    lastModifiedBy: "GPT-5.3-Codex",
-    lastModifiedDate: "2026/03/22",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
     devLog:
       "### 2026-03-19 全面優化部落格生成功能\n- 抽出 HTML 模板邏輯至 lib/utils/blogTemplate.ts（pure functions，保持 blog.ts 在 500 行以內）\n- 串接 Claude claude-sonnet-4-6 API（generateDescriptionWithAI）：依物件資料生成 150-250 字專業中文銷售文案\n- 修復 CTA 空 href：新增 getOwnerContact() 從 users_profile + auth.users 取得電話/email，寫入 tel:/mailto:\n- 新增重新生成確認機制：已發佈狀態點「重新生成」先顯示警告，5 秒自動取消\n- 新增 updatePropertyBlog() server action：支援手動修改 title / excerpt，同步更新 contentHtml hero title\n- 草稿狀態也顯示預覽連結（附「草稿，需登入」標註）\n- 新增 SEO 預覽面板：模擬 Google SERP 呈現 seoTitle / seoDescription / slug\n\n### 2026-03-22 模板可維護性強化\n- 完成 8 個獨立模板檔（local 4 + google_blogger 4）註解區塊細化，統一為 STYLE IDENTITY / LAYOUT RULES / COMPONENT RULES / EDITABLE GUIDANCE 結構\n- 補齊模板維護註記，降低後續人工調整 Prompt 時的修改風險與理解成本",
   },

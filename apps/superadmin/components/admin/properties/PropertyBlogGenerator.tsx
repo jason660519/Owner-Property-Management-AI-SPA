@@ -172,6 +172,7 @@ export function PropertyBlogGenerator({ propertyId, propertyType, ownerId, prope
   const [isBuilderHydrated, setIsBuilderHydrated] = useState(false);
   const [isGeneratingDraft, startGenerateDraftTransition] = useTransition();
   const [draftOperationStatus, setDraftOperationStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [language, setLanguage] = useState<'zh' | 'en'>('zh');
   const { elapsedSeconds: draftElapsedSeconds, lastDurationSeconds: draftDurationSeconds, reset: resetDraftTimer } = useOperationTimer(
     isGeneratingDraft,
     { precisionDecimals: 1, tickMs: 100 },
@@ -543,6 +544,7 @@ export function PropertyBlogGenerator({ propertyId, propertyType, ownerId, prope
         selectedSectionIds,
         stylePreset: effectiveStylePreset,
         targetPlatform: platformToTarget(platform),
+        language,
       });
 
       if (!result.success) {
@@ -793,6 +795,21 @@ export function PropertyBlogGenerator({ propertyId, propertyType, ownerId, prope
 
             <div className="flex flex-col items-stretch gap-3 lg:min-w-[280px]">
               <div className="rounded-lg bg-bg-secondary px-4 py-3 text-xs text-text-secondary">目前焦點：{selectedStyleLabel} / {platformLabel}</div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-text-muted shrink-0">文案語言</span>
+                <div className="inline-flex rounded-full border border-border-default bg-bg-secondary p-0.5">
+                  {(['zh', 'en'] as const).map((lang) => (
+                    <button
+                      key={lang}
+                      type="button"
+                      onClick={() => setLanguage(lang)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${language === lang ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary'}`}
+                    >
+                      {lang === 'zh' ? '繁體中文' : 'English'}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={handleGenerateDraft}

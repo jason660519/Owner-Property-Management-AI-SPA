@@ -94,21 +94,56 @@ async function getOwnerContact(ownerId: string): Promise<OwnerContact> {
   }
 }
 
-async function generateDescriptionWithAI(data: PropertyDataForBlog): Promise<string | null> {
+async function generateDescriptionWithAI(data: PropertyDataForBlog, language: 'zh' | 'en' = 'zh'): Promise<string | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
 
   const isSale = data.type === 'sale';
-  const typeLabel = isSale ? '出售' : '出租';
   const locationStr = [data.addressCity, data.addressDistrict].filter(Boolean).join('');
-  const areaDisplay = data.area ? `${(data.area * 0.3025).toFixed(1)} 坪` : '未提供';
-  const layoutParts = [
-    data.bedrooms && `${data.bedrooms}房`,
-    data.livingRooms && `${data.livingRooms}廳`,
-    data.bathrooms && `${data.bathrooms}衛`,
-  ].filter(Boolean).join('');
+  const areaM2 = data.area ? data.area.toFixed(1) : null;
+  const areaTsubo = data.area ? `${(data.area * 0.3025).toFixed(1)} tsubo` : null;
 
-  const prompt = `你是一位專業的台灣房地產銷售文案師。請根據以下物件資料，撰寫一篇分段的物件介紹（共 4 段，段落之間空一行）。
+  let prompt: string;
+
+  if (language === 'en') {
+    const typeLabel = isSale ? 'for sale' : 'for rent';
+    const layoutParts = [
+      data.bedrooms && `${data.bedrooms} bed`,
+      data.bathrooms && `${data.bathrooms} bath`,
+    ].filter(Boolean).join(', ');
+    const areaDisplay = areaM2 ? `${areaM2} m²${areaTsubo ? ` (${areaTsubo})` : ''}` : 'not specified';
+
+    prompt = `You are a professional real estate copywriter for properties in Taiwan. Based on the property details below, write a compelling 4-paragraph listing description in English.
+
+Property Details:
+- Transaction type: ${typeLabel}
+- Property type: ${data.propertyType || 'residential'}
+- Location: ${locationStr || data.address}
+- Layout: ${layoutParts || 'not specified'}
+- Floor area: ${areaDisplay}
+${data.description ? `- Additional notes: ${data.description}` : ''}
+
+Structure (4 paragraphs, separated by blank lines, no headings or numbering):
+
+Paragraph 1 (30–50 words): Open with a vivid, evocative sentence that helps the reader imagine living there.
+
+Paragraph 2 (60–80 words): Highlight 2–3 concrete selling points — location advantages, natural light, practical layout, or convenient transport. Be specific and honest.
+
+Paragraph 3 (40–60 words): Describe the surrounding neighborhood amenities (supermarkets, parks, MRT/bus, schools, cafés) to convey the lifestyle convenience.
+
+Paragraph 4 (25–40 words): Identify the ideal buyer or tenant profile (first-time buyer, upgrading family, investor, expat, retiree, etc.).
+
+Requirements: Natural, professional English tone. No hyperbole ("dream home", "once-in-a-lifetime", "luxury beyond compare"). No contact info, preambles, or closing remarks. Output only the four paragraphs.`;
+  } else {
+    const typeLabel = isSale ? '出售' : '出租';
+    const areaDisplay = data.area ? `${(data.area * 0.3025).toFixed(1)} 坪` : '未提供';
+    const layoutParts = [
+      data.bedrooms && `${data.bedrooms}房`,
+      data.livingRooms && `${data.livingRooms}廳`,
+      data.bathrooms && `${data.bathrooms}衛`,
+    ].filter(Boolean).join('');
+
+    prompt = `你是一位專業的台灣房地產銷售文案師。請根據以下物件資料，撰寫一篇分段的物件介紹（共 4 段，段落之間空一行）。
 
 【物件資料】
 - 交易類型：${typeLabel}
@@ -129,6 +164,7 @@ ${data.description ? `- 補充說明：${data.description}` : ''}
 第四段（25-40 字）：點出最適合這個物件的買家輪廓，例如首購族、換屋家庭、投資客或退休人士。
 
 【要求】使用流暢繁體中文，語氣真誠專業，嚴禁誇大不實用語（如「夢幻」「一生難得」「最頂級」），不要加聯絡資訊、前言或後記，只輸出四段正文本身。`;
+  }
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -611,6 +647,7 @@ export async function generatePropertyBlog(
     stylePreset?: StylePreset;
     targetPlatform?: BlogTargetPlatform;
     selectedSectionIds?: AdvertisementSectionId[];
+    language?: 'zh' | 'en';
   }
 ): Promise<ActionResult & { blog?: BlogPost; generationContext?: BlogGenerationContext }> {
   const adminClient = createAdminClient();
@@ -739,7 +776,7 @@ export async function generatePropertyBlog(
         return { success: false, message: 'AI 風格生成失敗，請確認 ANTHROPIC_API_KEY 設定正確後再試。' };
       }
     } else {
-      const aiDescription = await generateDescriptionWithAI(blogData);
+      const aiDescription = await generateDescriptionWithAI(blogData, options?.language ?? 'zh');
       blogData.aiDescription = aiDescription ?? undefined;
       generated = generateBlogContent(blogData);
     }
