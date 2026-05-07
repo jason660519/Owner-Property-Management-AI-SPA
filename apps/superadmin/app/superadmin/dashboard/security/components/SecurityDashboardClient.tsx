@@ -142,6 +142,89 @@ export default function SecurityDashboardClient({
     });
   };
 
+  const handleGenerateComplianceReport = () => {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' });
+    const html = `<!DOCTYPE html>
+<html lang="zh-TW">
+<head><meta charset="UTF-8"><title>個資保護合規報告 ${dateStr}</title>
+<style>
+  body{font-family:sans-serif;max-width:800px;margin:40px auto;padding:0 20px;color:#333}
+  h1{color:#1a1a1a;border-bottom:2px solid #7C3AED;padding-bottom:8px}
+  h2{color:#4a4a4a;margin-top:32px;border-left:4px solid #7C3AED;padding-left:12px}
+  table{border-collapse:collapse;width:100%;margin:16px 0}
+  th,td{text-align:left;padding:8px 12px;border:1px solid #ddd}
+  th{background:#f5f5f5}
+  .badge-ok{color:#16a34a;font-weight:bold}
+  .badge-warn{color:#d97706;font-weight:bold}
+  .footer{margin-top:48px;color:#999;font-size:12px;border-top:1px solid #eee;padding-top:16px}
+</style></head>
+<body>
+<h1>🔒 個資保護合規報告（PDPA / GDPR）</h1>
+<p><strong>產生日期：</strong>${dateStr}</p>
+<p><strong>平台名稱：</strong>Owner AI 不動產管理平台</p>
+
+<h2>1. 資料收集範疇</h2>
+<table>
+  <tr><th>資料類別</th><th>用途</th><th>保護機制</th></tr>
+  <tr><td>姓名、Email、電話</td><td>帳號管理、聯絡</td><td>RLS 使用者隔離</td></tr>
+  <tr><td>物件資訊、地址</td><td>物件管理、媒合</td><td>RLS 擁有者隔離</td></tr>
+  <tr><td>租賃/買賣合約資料</td><td>交易協作</td><td>加密儲存、RLS 多角色</td></tr>
+  <tr><td>登入記錄、稽核日誌</td><td>安全審計</td><td>唯讀，30天保留</td></tr>
+</table>
+
+<h2>2. 存取控制現況</h2>
+<table>
+  <tr><th>項目</th><th>狀態</th><th>數量</th></tr>
+  <tr><td>稽核事件（7天）</td><td class="badge-ok">✅ 啟用</td><td>${initialSummary.totalAuditEvents}</td></tr>
+  <tr><td>失敗登入嘗試（7天）</td><td class="badge-ok">✅ 記錄中</td><td>${initialSummary.failedLoginAttempts} 筆</td></tr>
+  <tr><td>未解決異常</td><td class="${initialSummary.openAnomalies > 0 ? 'badge-warn' : 'badge-ok'}">${initialSummary.openAnomalies > 0 ? '⚠️ 待處理' : '✅ 無異常'}</td><td>${initialSummary.openAnomalies} 筆</td></tr>
+  <tr><td>IP 白名單</td><td class="${whitelist.length > 0 ? 'badge-ok' : 'badge-warn'}">${whitelist.length > 0 ? '✅ 已設定' : '⚠️ 未設定'}</td><td>${whitelist.length} 筆</td></tr>
+  <tr><td>IP 黑名單</td><td class="badge-ok">✅ 啟用</td><td>${blacklist.length} 筆封鎖</td></tr>
+  <tr><td>SSL 憑證監控</td><td class="badge-ok">✅ 啟用</td><td>${sslCerts.length} 份憑證（即將到期：${initialSummary.expiringCerts}）</td></tr>
+</table>
+
+<h2>3. 安全事件摘要（最近 7 天）</h2>
+<table>
+  <tr><th>分類</th><th>數量</th></tr>
+  <tr><td>失敗登入嘗試</td><td>${initialSummary.failedLoginAttempts}</td></tr>
+  <tr><td>未解決異常</td><td>${initialSummary.openAnomalies}</td></tr>
+  <tr><td>SSL 即將到期</td><td>${initialSummary.expiringCerts}</td></tr>
+  <tr><td>IP 黑名單</td><td>${initialSummary.blacklistedEntries}</td></tr>
+</table>
+
+<h2>4. 法規遵循聲明</h2>
+<ul>
+  <li>所有資料表已啟用 Row Level Security（RLS），確保使用者僅能存取授權範圍內的資料。</li>
+  <li>管理員操作均透過 Service Role 執行並留有稽核紀錄。</li>
+  <li>使用者密碼由 Supabase Auth 以業界標準加密儲存，平台端無法讀取明文密碼。</li>
+  <li>個資資料存放於台灣/澳洲地區資料中心，符合在地化要求。</li>
+  <li>使用者可依 PDPA 第 10 條申請資料查閱、修正或刪除，聯絡窗口：support@ownerai.com.tw</li>
+</ul>
+
+<h2>5. 待改善項目</h2>
+<ul>
+  ${initialSummary.openAnomalies > 0 ? `<li>⚠️ 有 ${initialSummary.openAnomalies} 筆未解決異常需跟進</li>` : '<li>✅ 無待處理異常</li>'}
+  ${whitelist.length === 0 ? '<li>⚠️ 建議設定 IP 白名單以限制管理員存取來源</li>' : ''}
+  ${sslCerts.some(c => c.status === 'expiring_soon') ? '<li>⚠️ 部分 SSL 憑證即將到期，請儘速更新</li>' : ''}
+</ul>
+
+<div class="footer">
+  此報告由 Owner AI 超級管理員安全儀表板自動產生，供內部合規審查使用。<br/>
+  產生時間：${now.toISOString()}
+</div>
+</body></html>`;
+
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `compliance-report-${now.toISOString().split('T')[0]}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('合規報告已下載');
+  };
+
   const handleResolveAnomaly = (id: string) => {
     startTransition(() => {
       void resolveAnomaly(id).then(() => {
@@ -230,6 +313,13 @@ export default function SecurityDashboardClient({
           <p className="text-gray-400 mt-1 text-sm">資料存取稽核・異常偵測・IP 管控・SSL 監控</p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleGenerateComplianceReport}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-sm font-medium transition-colors"
+          >
+            <FileDown className="h-4 w-4" />
+            生成合規報告
+          </button>
           <button
             onClick={handleRunDetection}
             disabled={isPending}

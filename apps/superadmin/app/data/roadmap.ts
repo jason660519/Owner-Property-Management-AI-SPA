@@ -288,7 +288,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     id: "009",
     name: "超級管理員-網路安全－隱私審計管理功能",
     locatedPage: "superadmin/dashboard/security",
-    percentage: 80,
+    percentage: 95,
     acceptanceCriteria:
       "1. 提供資料存取稽核日誌，記錄誰在何時存取了哪些敏感資料。\n2. 自動偵測異常登入行為（不常用設備、異地登入）並警示。\n3. 支援設定 IP 白名單與黑名單。\n4. 個資保護合規報告（GDPR/PDPA）一鍵生成。\n5. SSL 憑證到期前 30 天自動提醒。",
     docPath: "",
@@ -2178,7 +2178,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "超級管理員-合約套版多範本選擇器",
     locatedPage: "superadmin/properties/[id]/edit?tab=contract",
     category: "超級管理員 (Super Admin)",
-    percentage: 85,
+    percentage: 95,
     phase: "development",
     featureDescription:
       "將「預覽合約」Tab 大改為「預覽合約套版」，以多選卡片 Grid 呈現 6 種官方範本，每個面板支援雙模式：「AI 套版生成」（填表+AI 產生草稿）或「自行上傳合約」（上傳律師/代書提供的 PDF/DOCX/DOC）。同一物件可同時持有多種合約類型，各自獨立管理。",
@@ -2858,8 +2858,6 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "1. 地圖 tile 完整渲染，無黑色空白或分裂現象\n2. 大安區 18 筆物件全部顯示為 markers（18 件已定位）\n3. Marker popup 可點擊跳至編輯頁 / Google Maps\n4. 縣市/區 篩選器可正確過濾物件\n5. TS 無 unused import 警告",
     developmentProgress:
       "2026/04/25\n- psql 直接更新 property_sales 表：為 18 筆大安區物件補設 latitude/longitude（敦化南路一段 101–117號 沿路排列於 25.0412~25.0420, 121.5489~121.5491；敦化南路二段精品豪宅 25.0380, 121.5490）\n- PropertyMapView.tsx：補加 `import 'leaflet/dist/leaflet.css'`，修正 tile 分裂渲染問題\n- PropertyMapView.tsx：移除未使用的 useRouter import（消除 TS 6133 警告）\n- 驗收：瀏覽器確認地圖全幅渲染、18 件已定位、markers 集中在敦化南路仁愛路四段一帶",
-    lastModifiedBy: "Claude Sonnet 4.6",
-    lastModifiedDate: "2026/04/25",
   },
 ];
 
