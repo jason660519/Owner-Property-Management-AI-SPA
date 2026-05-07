@@ -2734,7 +2734,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     id: "143",
     name: "Adapter CLI 文件自動更新流程（15 天排程）",
     category: "專案管理與工具 (Project Management)",
-    percentage: 80,
+    percentage: 90,
     phase: "development",
     points: 3,
     locatedPage: "docs/Adapter CLIs/",
@@ -2747,17 +2747,16 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "- 建立 `scripts/collect-cli-help.sh`：自動對 6 個 CLI（claude/codex/cursor/opencode/gemini/kilo）執行 --help，收集原始輸出到 /tmp/cli-help-raw/，含子指令深層 help、版本偵測、缺少 CLI 清單\n" +
       "- 建立 `.claude/commands/update-cli-docs.md`：Claude Command，讀取 help 輸出 + Context7 MCP 補齊未安裝 CLI，比對現有 7 份 Adapter CLI 文件並更新 6 欄表格，產生 changelog summary\n" +
       "- 設計半自動流程：cron 定時收集 → 通知 → 手動 `/update-cli-docs` 觸發更新\n" +
-      "- 格式規範直接嵌入 Command（不額外建 Skill），避免過度設計\n" +
-      "### 待完成\n" +
-      "- 首次實際執行 collect-cli-help.sh 驗證輸出\n" +
-      "- 首次執行 /update-cli-docs 端到端驗證\n" +
-      "- 設定 cron 排程（15 天）",
+      "- 格式規範直接嵌入 Command（不額外建 Skill），避免過度設計\n\n" +
+      "### 2026-05-08 完成項目\n" +
+      "- 建立 `.github/workflows/collect-cli-help.yml`：每月 1 日與 16 日（~15 天間隔）自動執行 collect-cli-help.sh，上傳 artifact，並在無開放 issue 時自動建立 reminder issue（標籤 cli-docs-update）\n" +
+      "- 待完成：首次執行 /update-cli-docs 端到端驗證（需 Adapter CLIs 可用）",
     developmentProgress:
       "2026/04/17：完成核心 shell script 與 Claude Command。\n" +
-      "交付物：scripts/collect-cli-help.sh、.claude/commands/update-cli-docs.md\n" +
-      "架構決策：Command 為主（流程編排）、不建獨立 Skill（格式規範嵌入 Command）、半自動排程（cron 收集 + 手動觸發更新）。",
-    lastModifiedBy: "Claude Opus 4.6",
-    lastModifiedDate: "2026/04/17",
+      "2026/05/08：新增 GitHub Actions 排程工作流（每 15 天自動收集 + reminder issue）。\n" +
+      "交付物：scripts/collect-cli-help.sh、.claude/commands/update-cli-docs.md、.github/workflows/collect-cli-help.yml",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
   },
   // --- Row 144: 尋人資料庫 — 樹狀資料來源管理 + 進階關聯分析 ---
   {

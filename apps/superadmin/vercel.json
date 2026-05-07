@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/model-research-refresh",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/webhooks/paperclip/process-queue",
+      "schedule": "* * * * *"
     }
   ]
 }
