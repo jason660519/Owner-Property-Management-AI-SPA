@@ -2558,7 +2558,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     id: "137",
     name: "VIS 同步基礎設施 — Engineer Profile V2 + Webhook 框架",
     category: "超級管理員 (Super Admin)",
-    percentage: 70,
+    percentage: 85,
     phase: "development",
     points: 8,
     locatedPage: "superadmin/engineers, api/webhooks/paperclip",
@@ -2572,8 +2572,8 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "3. POST /api/webhooks/paperclip 可接收並驗證 HMAC 事件，非同步加入背景 worker。\n" +
       "4. RoadmapFeature interface 新增 vis_issue_id / vis_issue_key / vis_sync_status / vis_last_synced_at 欄位。\n" +
       "5. 環境驗證腳本（PAPERCLIP_WEBHOOK_SECRET 等）執行無錯。",
-    lastModifiedBy: "OpenAI Codex (Architect Agent)",
-    lastModifiedDate: "2026/04/14",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
     developmentProgress:
       "2026/04/14 (VIS-66, Architect Agent)\n" +
       "- ✅ DB migration: create_vis_sync_tables（115 行，paperclip_webhook_logs + sync_conflicts + RLS）\n" +
@@ -2581,14 +2581,15 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "- ✅ Engineer 管理頁面 /superadmin/engineers（page.tsx 362 行 + actions.ts 105 行）\n" +
       "- ✅ ADR 文件：adr-137-vis-sync-infrastructure.md\n" +
       "- ✅ 環境驗證腳本：scripts/validate-vis-sync-env.sh\n" +
-      "- ✅ vis-roadmap-sync-dev-spec 更新\n" +
-      "- 待完成：HMAC 驗證整合測試、背景 worker 實作",
+      "- ✅ vis-roadmap-sync-dev-spec 更新\n\n" +
+      "2026/05/08 (Claude)\n" +
+      "- ✅ AC #3 背景 worker：POST /api/webhooks/paperclip/process-queue（BATCH_SIZE=20，CRON_SECRET 驗證，自動標記 processing→processed/skipped/failed，衝突寫入 sync_conflicts）",
   },
   {
     id: "138",
     name: "VIS 批量遷移工具 — 135 任務導出到 Paperclip VIS",
     category: "超級管理員 (Super Admin)",
-    percentage: 60,
+    percentage: 80,
     phase: "development",
     points: 5,
     locatedPage: "superadmin/dashboard/project-progress",
@@ -2602,13 +2603,15 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "3. roadmap.ts 每個已遷移 Feature 均有 vis_issue_id / vis_issue_key 回寫。\n" +
       "4. Superadmin 出現「導出到 VIS」按鈕，顯示實時進度日誌與完成摘要。\n" +
       "5. 增量模式：再次執行跳過已有 vis_issue_id 的 Feature，僅處理新增/變更項目。",
-    lastModifiedBy: "OpenAI Codex (Fullstack Agent)",
-    lastModifiedDate: "2026/04/14",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
     developmentProgress:
       "2026/04/14 (VIS-70, Fullstack Agent)\n" +
-      "- ✅ sync-roadmap-to-vis.ts 批量遷移腳本\n" +
+      "- ✅ sync-roadmap-to-vis.ts 批量遷移腳本（含 dry-run、batch/incremental 模式、vis_issue_id 回寫）\n" +
       "- ✅ Superadmin 導出 UI（ExportToVISButton + ExportProgressDialog）\n" +
-      "- 待完成：增量模式、vis_issue_id 回寫驗證",
+      "- ✅ AC #5 增量模式：--mode incremental 跳過已有 vis_issue_id 的 Feature\n" +
+      "- ✅ AC #3 vis_issue_id 回寫：patchVisFields() 直接修改 roadmap.ts 原始碼\n" +
+      "- 待完成：AC #2 實際 VIS 環境驗證（需 Paperclip API 連線）",
   },
   {
     id: "139",
