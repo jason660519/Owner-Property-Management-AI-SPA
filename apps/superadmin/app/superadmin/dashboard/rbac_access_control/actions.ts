@@ -326,3 +326,33 @@ export async function updateRole(
   revalidateRbacViews();
   return { success: true };
 }
+
+// Removes all custom permissions for a role, returning it to a "no permissions" baseline.
+export async function resetRolePermissions(
+  roleId: string,
+): Promise<{ success?: boolean; error?: string }> {
+  const admin = createAdminClient();
+  const supabase = await createClient();
+
+  const { data: prior } = await admin
+    .from('iam_role_permissions')
+    .select('resource, actions, scope')
+    .eq('role_id', roleId);
+
+  const { error } = await admin.from('iam_role_permissions').delete().eq('role_id', roleId);
+  if (error) return { error: error.message };
+
+  const { data: authData } = await supabase.auth.getUser();
+  const actorEmail = authData.user?.email ?? null;
+  const { data: roleRow } = await admin.from('iam_roles').select('name').eq('id', roleId).maybeSingle();
+  const roleName = roleRow?.name ?? 'unknown';
+
+  await writeAuditLog(roleId, roleName, 'UPDATE', actorEmail, {
+    kind: 'permissions_reset',
+    before: prior ?? [],
+    after: [],
+  });
+
+  revalidateRbacViews();
+  return { success: true };
+}

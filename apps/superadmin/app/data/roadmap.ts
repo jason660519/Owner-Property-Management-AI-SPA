@@ -205,7 +205,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     id: "005",
     name: "超級管理員針對 各種Roles的 Access Matrix管理平台",
     locatedPage: "superadmin/dashboard/role_access_matrix",
-    percentage: 60,
+    percentage: 80,
     acceptanceCriteria:
       "1. 以矩陣表格呈現所有角色與資源的權限設定（讀/寫/刪）。\n2. 可在矩陣中直接點擊修改單一權限格。\n3. 變更後即時保存，無需整頁刷新。\n4. 提供「重置為預設值」功能。\n5. 支援匯出 PDF/CSV 格式的權限矩陣報表。",
     docPath: "/project-process/features/iam-system.md",
@@ -214,8 +214,12 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/features/tdd-superadmin-platform-20260221.md",
     category: "超級管理員 (Super Admin)",
     points: 8,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
+    developmentProgress:
+      "AC #1-3 已完成：RolesTab 矩陣（EnhancedTable + PermCell）、即時保存（saveRolePermissions server action）。\n" +
+      "AC #4 新增：resetRolePermissions server action（刪除角色所有權限並寫入稽核日誌）+ iam-management/page.tsx 角色分頁工具列「重置為預設值」按鈕。\n" +
+      "AC #5 新增：「匯出 CSV（權限矩陣）」與「列印 / PDF」（window.print()）按鈕在 roles 分頁工具列。",
   },
   {
     id: "006",

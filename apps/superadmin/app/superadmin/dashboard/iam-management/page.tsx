@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useCallback, useState, useTransition } from 'react';
 import { useSyncExternalStore } from 'react';
-import { RefreshCw, Download, Shield, Users, ShieldCheck, Lock } from 'lucide-react';
+import { RefreshCw, Download, RotateCcw, FileText, Shield, Users, ShieldCheck, Lock } from 'lucide-react';
+import { getAllRolePermissions, resetRolePermissions } from '../rbac_access_control/actions';
 import { DashboardLayout } from '@/components/dashboard';
 import { OverviewTab } from './components/OverviewTab';
 import { UsersTab } from './components/UsersTab';
@@ -60,6 +61,41 @@ function getTabFromHash(): IAMTab {
 }
 
 export default function IAMManagementPage() {
+  const [rolesResetMsg, setRolesResetMsg] = useState<string | null>(null);
+  const [isResetting, startReset] = useTransition();
+
+  const handleRolesExportCsv = useCallback(async () => {
+    try {
+      const permissions = await getAllRolePermissions();
+      const headers = ['role_id', 'resource', 'actions', 'scope'];
+      const rows = permissions.map((p) =>
+        [p.role_id, p.resource, (p.actions as string[]).join('|'), p.scope ?? 'all'].join(','),
+      );
+      const csv = [headers.join(','), ...rows].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `iam_permission_matrix_${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+    } catch {
+      // Silent fail
+    }
+  }, []);
+
+  const handleRolesExportPdf = useCallback(() => {
+    window.print();
+  }, []);
+
+  const handleRolesReset = useCallback((roleId: string) => {
+    if (!confirm(`確定要重置角色「${roleId}」的所有權限嗎？此操作不可復原。`)) return;
+    setRolesResetMsg(null);
+    startReset(async () => {
+      const res = await resetRolePermissions(roleId);
+      setRolesResetMsg(res.success ? '已重置為無權限狀態。' : (res.error ?? '重置失敗'));
+      setTimeout(() => setRolesResetMsg(null), 4000);
+    });
+  }, []);
+
   const activeTab = useSyncExternalStore(
     (onStoreChange) => {
       window.addEventListener('hashchange', onStoreChange);
@@ -148,6 +184,34 @@ export default function IAMManagementPage() {
                 <Download className="h-4 w-4 mr-2" />
                 匯出 CSV
               </Button>
+            </div>
+          )}
+
+          {activeTab === 'roles' && (
+            <div className="flex items-center justify-between gap-3 pb-4 flex-none">
+              <div className="flex items-center gap-2 text-xs text-gray-400">
+                {rolesResetMsg && <span>{rolesResetMsg}</span>}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isResetting}
+                  onClick={() => handleRolesReset('super_admin')}
+                  title="重置所選角色為無權限"
+                >
+                  <RotateCcw className="h-4 w-4 mr-1.5" />
+                  重置為預設值
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleRolesExportCsv}>
+                  <Download className="h-4 w-4 mr-1.5" />
+                  匯出 CSV
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleRolesExportPdf}>
+                  <FileText className="h-4 w-4 mr-1.5" />
+                  列印 / PDF
+                </Button>
+              </div>
             </div>
           )}
 
