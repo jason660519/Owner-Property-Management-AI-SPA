@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { TutorialRole } from '@/lib/tutorial-data';
 import { getTotalSteps } from '@/lib/tutorial-data';
+import { createClient } from '@/lib/supabase/client';
 
 const STORAGE_KEY_PREFIX = 'ownerai_tutorial_progress';
 
@@ -16,7 +17,7 @@ function storageKey(role: TutorialRole): string {
   return `${STORAGE_KEY_PREFIX}_${role}`;
 }
 
-function loadProgress(role: TutorialRole): TutorialProgress {
+function loadLocalProgress(role: TutorialRole): TutorialProgress {
   if (typeof window === 'undefined') {
     return { completedStepIds: [], lastStepId: null, completedAt: null };
   }
@@ -29,7 +30,7 @@ function loadProgress(role: TutorialRole): TutorialProgress {
   }
 }
 
-function saveProgress(role: TutorialRole, progress: TutorialProgress): void {
+function saveLocalProgress(role: TutorialRole, progress: TutorialProgress): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(storageKey(role), JSON.stringify(progress));
@@ -38,12 +39,70 @@ function saveProgress(role: TutorialRole, progress: TutorialProgress): void {
   }
 }
 
+async function loadRemoteProgress(role: string): Promise<TutorialProgress | null> {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    const { data } = await supabase
+      .from('tutorial_progress')
+      .select('completed_step_ids, last_step_id, completed_at')
+      .eq('user_id', user.id)
+      .eq('role', role)
+      .maybeSingle();
+    if (!data) return null;
+    return {
+      completedStepIds: (data.completed_step_ids as string[]) || [],
+      lastStepId: (data.last_step_id as string | null) ?? null,
+      completedAt: (data.completed_at as string | null) ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function saveRemoteProgress(role: string, progress: TutorialProgress): Promise<void> {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase
+      .from('tutorial_progress')
+      .upsert(
+        {
+          user_id: user.id,
+          role,
+          completed_step_ids: progress.completedStepIds,
+          last_step_id: progress.lastStepId,
+          completed_at: progress.completedAt,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,role' }
+      );
+  } catch {
+    // Remote sync failure is non-critical — local state still valid
+  }
+}
+
 export function useTutorialProgress(role: TutorialRole) {
-  const [progress, setProgress] = useState<TutorialProgress>(() => loadProgress(role));
+  const [progress, setProgress] = useState<TutorialProgress>(() => loadLocalProgress(role));
 
   // Re-sync when role changes
   useEffect(() => {
-    setProgress(loadProgress(role));
+    setProgress(loadLocalProgress(role));
+  }, [role]);
+
+  // Hydrate from Supabase on mount (takes precedence over stale localStorage)
+  useEffect(() => {
+    loadRemoteProgress(role).then((remote) => {
+      if (!remote) return;
+      const local = loadLocalProgress(role);
+      // Merge: use whichever has more completed steps
+      if (remote.completedStepIds.length >= local.completedStepIds.length) {
+        saveLocalProgress(role, remote);
+        setProgress(remote);
+      }
+    });
   }, [role]);
 
   const markStepComplete = useCallback(
@@ -58,7 +117,8 @@ export function useTutorialProgress(role: TutorialRole) {
           lastStepId: stepId,
           completedAt: allDone ? new Date().toISOString() : null,
         };
-        saveProgress(role, updated);
+        saveLocalProgress(role, updated);
+        void saveRemoteProgress(role, updated);
         return updated;
       });
     },
@@ -67,7 +127,8 @@ export function useTutorialProgress(role: TutorialRole) {
 
   const resetProgress = useCallback(() => {
     const empty: TutorialProgress = { completedStepIds: [], lastStepId: null, completedAt: null };
-    saveProgress(role, empty);
+    saveLocalProgress(role, empty);
+    void saveRemoteProgress(role, empty);
     setProgress(empty);
   }, [role]);
 

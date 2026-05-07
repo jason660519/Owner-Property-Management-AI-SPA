@@ -23,11 +23,9 @@ ON storage.objects FOR SELECT
 TO authenticated
 USING (bucket_id = 'buyer-attachments' AND auth.uid()::text = (storage.foldername(name))[1]);
 
--- Recipients can read attachments sent to them (broader authenticated access for messages)
-CREATE POLICY "Authenticated users can read buyer attachments"
-ON storage.objects FOR SELECT
-TO authenticated
-USING (bucket_id = 'buyer-attachments');
+-- Recipient access must not use unrestricted SELECT here (PostgreSQL combines permissive
+-- policies with OR; a blanket bucket rule would negate folder-level controls). Prefer
+-- service_role signed URLs or a future SELECT policy keyed to verified message linkage.
 
 CREATE POLICY "Users can delete their own buyer attachments"
 ON storage.objects FOR DELETE

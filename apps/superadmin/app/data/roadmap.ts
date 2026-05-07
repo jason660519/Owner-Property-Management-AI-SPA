@@ -501,7 +501,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     id: "019",
     name: "公司產品教學",
     locatedPage: "web/tutorial",
-    percentage: 60,
+    percentage: 80,
     acceptanceCriteria:
       "1. 提供分角色教學（房東版、租客版、買家版）。\n2. 每個教學步驟附有截圖或短影片（< 2分鐘）。\n3. 教學進度可儲存，下次從中斷點繼續。\n4. 完成所有教學步驟後顯示完成徽章。\n5. 教學內容可連結至相關功能頁面（快速體驗）。",
     docPath: "/docs/technical-selection/adr-019-company-product-tutorial.md",
@@ -515,10 +515,10 @@ const RAW_FEATURES: RoadmapFeature[] = [
     unitTestCoverage: 80,
     e2eTestCoverage: 40,
     defectCount: 0,
-    lastModifiedBy: "Architect Agent",
-    lastModifiedDate: "2026/04/12",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
     developmentProgress:
-      "架構實作完成：tutorial 角色選擇頁（SSG Server Component）、[role] 教學步驟頁（Client Component + useTutorialProgress hook）、靜態 TypeScript 教學資料模組（lib/tutorial-data.ts）。進度以 localStorage 儲存，支援完成徽章。單元測試（web app + superadmin row tests）與 E2E 規格已建立。待完成：截圖資產製作、Supabase 進度同步（Phase 2）。ADR：/docs/technical-selection/adr-019-company-product-tutorial.md",
+      "架構實作完成：tutorial 角色選擇頁（SSG Server Component）、[role] 教學步驟頁（Client Component + useTutorialProgress hook）、靜態 TypeScript 教學資料模組（lib/tutorial-data.ts）。AC #3 Supabase 進度同步：新增 tutorial_progress 表（migration 20260508120000）、useTutorialProgress 加入 loadRemoteProgress / saveRemoteProgress，含跨裝置合併策略（取較多完成步驟數）。進度以 localStorage + Supabase 雙層儲存，支援完成徽章。待完成：截圖資產製作（AC #2）。",
   },
   {
     id: "020",
