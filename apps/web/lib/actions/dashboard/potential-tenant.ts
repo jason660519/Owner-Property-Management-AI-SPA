@@ -141,11 +141,18 @@ export async function getPotentialTenantDashboardStats(): Promise<PotentialTenan
       return d >= now && d <= nextWeek && v.status === 'confirmed'
     }).length || 0
 
-    const { count: matchingProperties } = await supabase
-      .from('Property_Rentals')
-      .select('*', { count: 'exact', head: true })
-      .in('owner_id', ownerIds)
-      .eq('status', 'vacant')
+    const [{ count: matchingProperties }, { count: applicationsInProgress }] = await Promise.all([
+      supabase
+        .from('Property_Rentals')
+        .select('*', { count: 'exact', head: true })
+        .in('owner_id', ownerIds)
+        .eq('status', 'vacant'),
+      supabase
+        .from('rental_applications')
+        .select('*', { count: 'exact', head: true })
+        .eq('applicant_id', user.id)
+        .in('status', ['submitted', 'under_review']),
+    ])
 
     return {
       favoritesCount: 0,
@@ -154,7 +161,7 @@ export async function getPotentialTenantDashboardStats(): Promise<PotentialTenan
       todayViewings,
       thisWeekViewings,
       matchingProperties: matchingProperties || 0,
-      applicationsInProgress: 0
+      applicationsInProgress: applicationsInProgress || 0,
     }
   } catch (error) {
     console.error('Error fetching potential tenant stats:', error)

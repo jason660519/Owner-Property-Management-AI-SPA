@@ -9,7 +9,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Home, DollarSign, TrendingUp, FileText, Plus, Calendar, CreditCard, Handshake } from 'lucide-react'
+import { Home, DollarSign, TrendingUp, FileText, Plus, Calendar, CreditCard, Handshake, Wrench, ClipboardList, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import Link from 'next/link'
@@ -94,6 +94,27 @@ export default function LandlordDashboardPage() {
           label: '客戶管理（已成交）',
           href: '/landlord/customers',
           query: { status: 'closed' },
+        },
+      ],
+    },
+    {
+      title: '待處理事項',
+      value: stats?.pendingTasks ?? 0,
+      icon: AlertCircle,
+      color: 'text-red-500',
+      trend: {
+        value: 0,
+        direction: 'up',
+        label: '需要關注',
+      },
+      progressLinks: [
+        {
+          label: '查看申請',
+          href: '/landlord/applications',
+        },
+        {
+          label: '查看維修',
+          href: '/landlord/maintenance',
         },
       ],
     },
@@ -249,50 +270,87 @@ export default function LandlordDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Recent Activity */}
+        {/* Pending Tasks */}
         <Card>
           <CardHeader>
-            <CardTitle>最近活動</CardTitle>
+            <CardTitle>待處理事項</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {[
-                {
-                  type: 'new_inquiry',
-                  message: '張先生對「台北市大安區公寓」發送詢問',
-                  time: '10 分鐘前',
-                  color: 'text-blue-500',
-                },
-                {
-                  type: 'payment_received',
-                  message: '收到林小姐的租金付款 NT$ 25,000',
-                  time: '2 小時前',
-                  color: 'text-green-500',
-                },
-                {
-                  type: 'appointment',
-                  message: '明天下午 2:00 看房預約',
-                  time: '5 小時前',
-                  color: 'text-orange-500',
-                },
-                {
-                  type: 'maintenance',
-                  message: '「新竹市東區套房」維修完成',
-                  time: '1 天前',
-                  color: 'text-purple-500',
-                },
-              ].map((activity, index) => (
-                <div key={index} className="flex items-start gap-3">
-                  <div
-                    className={`w-2 h-2 rounded-full mt-2 ${activity.color.replace('text-', 'bg-')}`}
-                  />
-                  <div className="flex-1">
-                    <p className="text-white text-sm">{activity.message}</p>
-                    <p className="text-xs text-[#666666] mt-1">{activity.time}</p>
+            {isLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="h-14 bg-[#262626] rounded-lg animate-pulse" />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <Link
+                  href="/landlord/applications"
+                  className="flex items-center gap-3 p-4 rounded-lg border border-[#333333] hover:border-[#7C3AED] hover:bg-[#7C3AED]/5 transition-colors group"
+                >
+                  <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center group-hover:bg-blue-500/20">
+                    <ClipboardList className="w-5 h-5 text-blue-500" />
                   </div>
-                </div>
-              ))}
-            </div>
+                  <div className="flex-1">
+                    <h4 className="text-white font-medium">待審核租賃申請</h4>
+                    <p className="text-sm text-[#999999]">
+                      {stats?.pendingApplications
+                        ? `${stats.pendingApplications} 件等待審核`
+                        : '目前無待審核申請'}
+                    </p>
+                  </div>
+                  {(stats?.pendingApplications ?? 0) > 0 && (
+                    <span className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                      {stats!.pendingApplications}
+                    </span>
+                  )}
+                </Link>
+
+                <Link
+                  href="/landlord/maintenance"
+                  className="flex items-center gap-3 p-4 rounded-lg border border-[#333333] hover:border-[#7C3AED] hover:bg-[#7C3AED]/5 transition-colors group"
+                >
+                  <div className="w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center group-hover:bg-orange-500/20">
+                    <Wrench className="w-5 h-5 text-orange-500" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-white font-medium">維修請求</h4>
+                    <p className="text-sm text-[#999999]">
+                      {stats?.openMaintenanceRequests
+                        ? `${stats.openMaintenanceRequests} 件未處理`
+                        : '目前無待處理維修'}
+                    </p>
+                  </div>
+                  {(stats?.openMaintenanceRequests ?? 0) > 0 && (
+                    <span className="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                      {stats!.openMaintenanceRequests}
+                    </span>
+                  )}
+                </Link>
+
+                <Link
+                  href="/landlord/contracts"
+                  className="flex items-center gap-3 p-4 rounded-lg border border-[#333333] hover:border-[#7C3AED] hover:bg-[#7C3AED]/5 transition-colors group"
+                >
+                  <div className="w-10 h-10 bg-yellow-500/10 rounded-lg flex items-center justify-center group-hover:bg-yellow-500/20">
+                    <AlertCircle className="w-5 h-5 text-yellow-500" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-white font-medium">合約即將到期</h4>
+                    <p className="text-sm text-[#999999]">
+                      {stats?.expiringLeasesCount
+                        ? `${stats.expiringLeasesCount} 份合約 30 天內到期`
+                        : '近 30 天內無到期合約'}
+                    </p>
+                  </div>
+                  {(stats?.expiringLeasesCount ?? 0) > 0 && (
+                    <span className="bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                      {stats!.expiringLeasesCount}
+                    </span>
+                  )}
+                </Link>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

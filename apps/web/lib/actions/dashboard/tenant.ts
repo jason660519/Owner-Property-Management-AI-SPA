@@ -43,37 +43,63 @@ export async function getTenantDashboardStats(): Promise<TenantStats | null> {
 
     if (!lease) return null
 
-    const { count: pendingMaintenance } = await supabase
-      .from('maintenance_requests')
-      .select('*', { count: 'exact', head: true })
-      .eq('requested_by', profile.id)
-      .eq('status', 'open')
+    const [
+      { count: pendingMaintenance },
+      { count: inProgressMaintenance },
+      { count: completedMaintenance },
+      { count: unreadNotifications },
+    ] = await Promise.all([
+      supabase
+        .from('maintenance_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('requested_by', profile.id)
+        .eq('status', 'open'),
+      supabase
+        .from('maintenance_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('requested_by', profile.id)
+        .eq('status', 'in_progress'),
+      supabase
+        .from('maintenance_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('requested_by', profile.id)
+        .eq('status', 'completed'),
+      supabase
+        .from('notification_queue')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', profile.id)
+        .eq('notification_type', 'in_app')
+        .eq('status', 'sent')
+        .is('read_at', null),
+    ])
 
-    const { count: inProgressMaintenance } = await supabase
-      .from('maintenance_requests')
-      .select('*', { count: 'exact', head: true })
-      .eq('requested_by', profile.id)
-      .eq('status', 'in_progress')
+    // Calculate next payment due date from lease payment_due_day
+    const now = new Date()
+    const dueDay = lease.payment_due_day as number
+    let nextPayment = new Date(now.getFullYear(), now.getMonth(), dueDay)
+    if (nextPayment <= now) {
+      nextPayment = new Date(now.getFullYear(), now.getMonth() + 1, dueDay)
+    }
 
-    const { count: completedMaintenance } = await supabase
-      .from('maintenance_requests')
-      .select('*', { count: 'exact', head: true })
-      .eq('requested_by', profile.id)
-      .eq('status', 'completed')
+    // Estimate months paid since lease start
+    const leaseStart = new Date(lease.start_date as string)
+    const leaseEnd = new Date(lease.end_date as string)
+    const totalMonths = Math.round((leaseEnd.getTime() - leaseStart.getTime()) / (1000 * 60 * 60 * 24 * 30))
+    const monthsPaid = Math.max(0, Math.floor((now.getTime() - leaseStart.getTime()) / (1000 * 60 * 60 * 24 * 30)))
 
     return {
-      leaseEndDate: lease.end_date,
-      monthlyRent: lease.monthly_rent,
+      leaseEndDate: lease.end_date as string,
+      monthlyRent: lease.monthly_rent as number,
       depositStatus: 'paid',
-      currentMonthDue: lease.monthly_rent,
-      paymentsMade: 0,
-      totalPayments: 12,
+      currentMonthDue: lease.monthly_rent as number,
+      paymentsMade: monthsPaid,
+      totalPayments: totalMonths,
       overdueCount: 0,
-      nextPaymentDate: new Date().toISOString(),
+      nextPaymentDate: nextPayment.toISOString(),
       maintenancePending: pendingMaintenance || 0,
       maintenanceInProgress: inProgressMaintenance || 0,
       maintenanceCompleted: completedMaintenance || 0,
-      unreadNotifications: 0
+      unreadNotifications: unreadNotifications || 0,
     }
   } catch (error) {
     console.error('Error fetching tenant stats:', error)

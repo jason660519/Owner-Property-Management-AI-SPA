@@ -14,6 +14,9 @@ export interface LandlordStats {
   occupancyRate: number
   /** 已成交且未封存的房東客戶數（Row 034） */
   closedCustomersCount: number
+  pendingApplications: number
+  openMaintenanceRequests: number
+  expiringLeasesCount: number
 }
 
 export async function getLandlordDashboardStats(): Promise<LandlordStats> {
@@ -60,15 +63,48 @@ export async function getLandlordDashboardStats(): Promise<LandlordStats> {
 
     const closedCustomersCount = (landlordCustomers ?? []).filter(isActiveClosedLandlordCustomer).length
 
+    // Pending rental applications awaiting review
+    const { count: pendingApplications } = await supabase
+      .from('rental_applications')
+      .select('*', { count: 'exact', head: true })
+      .eq('landlord_id', user.id)
+      .in('status', ['submitted', 'under_review'])
+
+    // Open maintenance requests on landlord's rental properties
+    const rentalIds = rentals.map(p => p.id)
+    let openMaintenanceRequests = 0
+    if (rentalIds.length > 0) {
+      const { count } = await supabase
+        .from('maintenance_requests')
+        .select('*', { count: 'exact', head: true })
+        .in('property_id', rentalIds)
+        .eq('status', 'open')
+      openMaintenanceRequests = count ?? 0
+    }
+
+    // Leases expiring within 30 days
+    const thirtyDaysOut = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    const { count: expiringLeasesCount } = await supabase
+      .from('lease_agreements')
+      .select('*', { count: 'exact', head: true })
+      .eq('landlord_id', user.id)
+      .eq('status', 'active')
+      .lte('end_date', thirtyDaysOut)
+
+    const pendingTasksTotal = (pendingApplications ?? 0) + openMaintenanceRequests + (expiringLeasesCount ?? 0)
+
     return {
       totalProperties,
       rentedProperties,
       vacantProperties,
       monthlyIncome,
       yearlyIncome: monthlyIncome * 12,
-      pendingTasks: 0,
+      pendingTasks: pendingTasksTotal,
       occupancyRate: totalProperties > 0 ? Math.round((rentedProperties / totalProperties) * 100) : 0,
       closedCustomersCount,
+      pendingApplications: pendingApplications ?? 0,
+      openMaintenanceRequests,
+      expiringLeasesCount: expiringLeasesCount ?? 0,
     }
   } catch (error) {
     console.error('Error fetching landlord stats:', error)
@@ -81,6 +117,9 @@ export async function getLandlordDashboardStats(): Promise<LandlordStats> {
       pendingTasks: 0,
       occupancyRate: 0,
       closedCustomersCount: 0,
+      pendingApplications: 0,
+      openMaintenanceRequests: 0,
+      expiringLeasesCount: 0,
     }
   }
 }
