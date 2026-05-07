@@ -161,7 +161,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     id: "003",
     name: "超級管理員的RBAC CRUD平台",
     locatedPage: "superadmin/dashboard/rbac_access_control",
-    percentage: 98,
+    percentage: 100,
     acceptanceCriteria:
       "1. 可建立、編輯、刪除角色（Role），角色名稱需唯一。\n2. 可對角色設定細粒度權限（讀取、寫入、刪除各資源）。\n3. 角色變更需有稽核紀錄（修改者、修改時間、異動內容）。\n4. 支援角色繼承功能，子角色可繼承父角色權限。\n5. 刪除角色前需確認沒有使用者被指派此角色。",
     docPath: "",
@@ -173,11 +173,11 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/dev-logs/dev-superadmin-features-2026-02-26.md",
     category: "超級管理員 (Super Admin)",
     points: 8,
-    lastModifiedBy: "Paperclip Agent",
-    lastModifiedDate: "2026/04/14",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
     phase: "development",
     developmentProgress:
-      "Permission Matrix 完整 DB 持久化：新增 iam_role_permissions 表（migration 20260226100000）、getRolePermissions / saveRolePermissions server actions；RolesTab 改為從 DB 載入/儲存角色權限，儲存前有 dirty 提示，儲存中 spinner；修復 iam_user_group_memberships view + parent_role_id 欄位未套用問題。",
+      "Permission Matrix 完整 DB 持久化：新增 iam_role_permissions 表（migration 20260226100000）、getRolePermissions / saveRolePermissions server actions；RolesTab 改為從 DB 載入/儲存角色權限，儲存前有 dirty 提示，儲存中 spinner；修復 iam_user_group_memberships view + parent_role_id 欄位未套用問題。\n刪除前確認用戶數：getAssignedUserCountForRole 改為 export，RolesTab handleDeleteRole 先查用戶數，有指派時顯示阻擋提示，無指派時才走 window.confirm 確認刪除。",
   },
   {
     id: "004",
@@ -1858,7 +1858,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     id: "100",
     name: "超級管理員-AI 服務設定（API 金鑰與模型費用）",
     locatedPage: "superadmin/settings/api_key_and_model_setting",
-    percentage: 98,
+    percentage: 100,
     acceptanceCriteria:
       "1. API 金鑰管理：從 .env 導入、單筆/全部刪除、金鑰驗證。\n2. 未登入時以 resolveUserId fallback 寫入/讀取 Supabase（keys/models/modules/prompts）。\n3. 側欄組態概況：已選總 models 數量即時反映各 provider 勾選加總。\n4. 儲存設定按鈕：將畫面上已選模型寫入 ai_model_selections。\n5. 分頁命名：模型費用說明；說明文案導向「模型費用說明」分頁。",
     docPath: "/project-process/test-logs/test-ai-settings-adapter-self-report-2026-04-19.md",
@@ -1874,8 +1874,8 @@ const RAW_FEATURES: RoadmapFeature[] = [
     testCoverage: 26,
     testScriptCount: 65,
     testScriptPassedCount: 65,
-    lastModifiedBy: "Claude Opus 4.7 (1M context)",
-    lastModifiedDate: "2026/04/21",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
   },
 
   // === 2026-02-21 新增任務 ===
@@ -2327,14 +2327,14 @@ const RAW_FEATURES: RoadmapFeature[] = [
     id: "129",
     name: "AI 設定 - 模型選擇與設定 Sheet（Agent 指派）",
     locatedPage: "superadmin/settings/api_key_and_model_setting#agent-config",
-    percentage: 99,
+    percentage: 100,
     acceptanceCriteria:
       "1. 在 LLM Leader Board 與 OCR 之間新增「模型選擇與設定」sheet tab，沿用 BottomSheetTabs（Bot icon、emerald 主色）。\n2. 左側為 Agent 清單（分 5 群：內容生成 / 謄本解析 / 媒體生成 / 開發與工具 / 客服 通用），寫死於 lib/ai/agent-registry.ts 共 14 個 agent；全 14 個 agent 皆有 suggestedTagKeys（新增 legal_contract / code_generation / general_assistant 三個 role_tag 以覆蓋先前 4 個空 agent）。\n3. 右側 Strategy Form：Primary (provider + model) / temperature / max_tokens / top_p / Fallbacks（依序嘗試，trigger: rate_limit / error / cost_over）/ guardrails (max_monthly_usd) / notes。\n4. 右下 Recommendations：依 agent.suggestedTagKeys 篩選 ai_model_role_tags catalog，顯示 provider / model / 狀態 / 最近測試 / 角色標籤；每列可點 pencil icon 開 TagEditorSheet 手動編輯標籤；toolbar 有「網路分類」「API 回應分類」「重新整理」按鈕連接既有的 ClassifyConfigSheet（解決 model-role-catalog 孤兒問題）。\n5. 全平台共用：寫入新建表 ai_agent_model_assignments（無 user_id、authenticated 可讀、service_role 寫）。\n6. 每個 agent 都有 factory default（lib/ai/agent-defaults.ts）：Primary + 3 Fallbacks（rate_limit / error / cost_over 各一）+ $5 USD 月上限。初始 DB 由 PUT 14 筆 seed，「還原為預設」按鈕呼叫 hook.reset() 會 upsert 該 agent 的 defaults（不再用 DELETE）。\n7. 匯出報告：AgentModelAssignmentPanel header 的「匯出報告」按鈕會生成全 14 個 agent 的 Markdown 快照（含 Primary / Fallbacks / Guardrails / 推薦模型表 / 最近測試欄 / 統計）；預設 top 10 per agent 上限避免報告過大（可用 maxRecommendationsPerAgent 選項覆寫），可直接下載為 `agent-config-YYYY-MM-DD.md` 供 dev-logs 存檔。\n8. Phase 2 Dispatcher 已上線：lib/ai/resolve-agent-model.ts 實作 resolveAgentModel() / resolveFirstAgentModel() helper，支援 InvalidAgentKeyError / AgentDisabledError / DB 錯誤自動 fallback 到 AGENT_DEFAULTS / 舊 module_key 別名（transcript.parse / online_ocr_parse / online_ocr_judge 等 8 筆 legacy key 一併映射到 canonical agent_key）。property-description/stream + lib/transcript-parse/run-transcript-parse-core.ts（parser + judge 兩個 callsite）皆已切換為先讀 ai_agent_model_assignments，per-user 舊表 ai_modules_assigned_function 降為第二 fallback。models/test 是使用者挑模型的診斷端點，不適用 dispatcher。\n9. UX 軟 fallback：當 agent 的 suggestedTagKeys 新增但對應 role_tag 還沒有 classification assignment 時，推薦面板會顯示「暫時顯示全部可用模型」按鈕，使用者可繞過 tag 篩選臨時瀏覽全部候選，不影響匯出報告的 strict filter 結果。\n10. Guardrails 真正生效：lib/ai/agent-cost-guard.ts 實作 computeCostUsd / getAgentMonthlySpendUsd / checkAgentBudget，讀 ai_prompt_audit_logs (input/output tokens × AI_PROVIDERS 靜態價格) 計算當月累計花費，超過 max_monthly_usd 時直接攔截 LLM 呼叫。property-description/stream 攔截後透過 SSE 送 monthly_cap_exceeded；transcript-parse parser 攔截後直接 fail 整個 job；judge 攔截後只跳過審核階段（parser 仍繼續，consensus layer 會使用未審核結果）。所有 3 個 Phase 2 callsite 都接入了 budget check。\n11. Audit log canonical agent_key：migration 20260412120000 為 ai_prompt_audit_logs 新增 agent_key 欄位；lib/ai/audit.ts 的 startPromptAudit() 接受 agentKey option；property-description/stream + transcript-parse (parser + judge) 3 個 Phase 2 callsite 都寫入 canonical agent_key。agent-cost-guard 查詢改用 PostgREST .or() 單次查 `agent_key=canonical OR module_key IN (legacy aliases)`，新舊 row 一次打包，無須 migration 既有資料。\n12. 靜態 guardrails filter：lib/ai/agent-guardrail-filters.ts 實作 applyForbidProviders / applyRequireTags / sanitizeChain（組合 filter，原始 chain index tracking）。forbid_providers 已接入 property-description/stream + transcript-parse resolver wrapper，dropped link 在 console.info 記錄；require_tags 為 pure helper，等未來 server-side 載入 role catalog 後再整合。\n13. Cost-aware chain walking：lib/ai/agent-cost-guard.ts 新增 selectAffordableLink / estimateChainCosts helpers，可在 runtime 走 chain 時跳過估算成本會超過剩餘預算的 link，選第一個 fits 的 fallback；純函式 + 7 個單元測試覆蓋邊界情境，helper 已可用，callsite 整合留給 Phase 3。\n14. 3 個新 role_tag 的 seed data：migration 20260412130000 為 legal_contract / code_generation / general_assistant 三個 tag 各 insert 4-5 筆 manual assignment，涵蓋 Anthropic / OpenAI / Gemini / DeepSeek 的常識性選擇。Agent Config 推薦面板對 contract_assistant / software_dev_engineer / ttd_engineer / web_assistant 不再需要 bypass button。",
     docPath: "",
     category: "超級管理員 (Super Admin)",
     points: 13,
-    lastModifiedBy: "Claude Opus 4.6",
-    lastModifiedDate: "2026/04/12",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
     phase: "testing",
     testStatus: "passed",
     unitTestCoverage: 96,

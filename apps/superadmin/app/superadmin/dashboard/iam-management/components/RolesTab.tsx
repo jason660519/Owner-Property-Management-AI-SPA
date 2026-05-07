@@ -23,6 +23,7 @@ import {
   getRbacAuditLogs,
   getAllRolePermissions,
   saveRolePermissions,
+  getAssignedUserCountForRole,
 } from '../../rbac_access_control/actions';
 import type { Role, RbacAuditLog } from '../../rbac_access_control/actions';
 import { RESOURCE_DEFINITIONS, RESOURCES } from '@/lib/rbac/resources';
@@ -236,7 +237,21 @@ export function RolesTab() {
 
   const handleDeleteRole = async (id: string, name: string) => {
     setDeleteError(null);
-    if (!window.confirm(`確定要刪除角色 "${name}"？此操作無法復原。`)) return;
+    const countResult = await getAssignedUserCountForRole(id);
+    if (!countResult.ok) {
+      setDeleteError('無法確認角色是否仍有用戶指派，請稍後重試。');
+      setTimeout(() => setDeleteError(null), 5000);
+      return;
+    }
+    const userCount = countResult.count;
+    const confirmMsg = userCount > 0
+      ? `角色 "${name}" 目前有 ${userCount} 位使用者指派。\n\n請先移除所有指派後再刪除此角色。`
+      : `確定要刪除角色 "${name}"？此操作無法復原。`;
+    if (userCount > 0) {
+      window.alert(confirmMsg);
+      return;
+    }
+    if (!window.confirm(confirmMsg)) return;
     const result = await deleteRole(id, name);
     if (result.error) {
       setDeleteError(result.error);

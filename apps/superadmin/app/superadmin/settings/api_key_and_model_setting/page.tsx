@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Key, FlaskConical, ScanText, BookMarked, Trophy, Bot,
   Images, Loader2, RefreshCw, Trash2, ShieldCheck, Upload, Download, Play, Route, X,
-  Terminal,
+  Terminal, DollarSign,
 } from 'lucide-react';
 import {
   PromptManagerModal,
@@ -37,6 +37,8 @@ import {
 } from '@/components/ai-settings';
 import { OcrSystemPromptPanel } from '@/components/ai-settings/OcrSystemPromptPanel';
 import { LlmLeaderboardPanel } from '@/components/ai-settings/LlmLeaderboardPanel';
+import { AgentModelAssignmentPanel } from '@/components/ai-settings/AgentModelAssignmentPanel';
+import { ModelPricingPanel } from '@/components/ai-settings/ModelPricingPanel';
 import { EvaluationsGlobalPanel } from './EvaluationsGlobalPanel';
 import { ImageToImageEvaluationPanel } from './ImageToImageEvaluationPanel';
 import { buildEvaluationsGlobalRowsFromAdapterTables } from './evaluations-global-from-adapters';
@@ -61,6 +63,8 @@ type SettingsTab =
   | 'keys'
   | 'cli-capability-evaluation'
   | 'llm-leaderboard'
+  | 'agent-config'
+  | 'model-pricing'
   | 'evaluations-global'
   | 'evaluations-visual'
   | 'image-to-image-evaluation'
@@ -72,6 +76,8 @@ const TAB_IDS: SettingsTab[] = [
   'keys',
   'cli-capability-evaluation',
   'llm-leaderboard',
+  'agent-config',
+  'model-pricing',
   'evaluations-global',
   'evaluations-visual',
   'image-to-image-evaluation',
@@ -203,6 +209,18 @@ const TABS: { id: SettingsTab; label: string; icon: React.ElementType; descripti
     description: 'Artificial Analysis LLM 排行榜（每日同步）',
   },
   {
+    id: 'agent-config',
+    label: '模型選擇與設定',
+    icon: Bot,
+    description: '為各 Agent 指派主要模型、備援策略與成本上限',
+  },
+  {
+    id: 'model-pricing',
+    label: '模型費用說明',
+    icon: DollarSign,
+    description: '各 AI 供應商模型定價一覽',
+  },
+  {
     id: 'evaluations-global',
     label: 'LLM能力評測',
     icon: FlaskConical,
@@ -272,6 +290,14 @@ const SHEET_TABS: SheetTabDef[] = [
     activeColor: 'bg-violet-600 text-white',
   },
   {
+    id: 'agent-config',
+    label: 'Agent Config',
+    zhLabel: '模型選擇與設定',
+    icon: Bot,
+    color: 'text-emerald-600',
+    activeColor: 'bg-emerald-600 text-white',
+  },
+  {
     id: 'evaluations-global',
     label: '',
     zhLabel: 'LLM能力評測',
@@ -312,6 +338,14 @@ const SHEET_TABS: SheetTabDef[] = [
     activeColor: 'bg-cyan-600 text-white',
   },
   { id: 'ocr', label: 'OCR', zhLabel: 'OCR解析設定', icon: ScanText, color: 'text-blue-600', activeColor: 'bg-blue-600 text-white' },
+  {
+    id: 'model-pricing',
+    label: 'Pricing',
+    zhLabel: '模型費用說明',
+    icon: DollarSign,
+    color: 'text-yellow-600',
+    activeColor: 'bg-yellow-600 text-white',
+  },
 ];
 
 const ADAPTER_PROVIDER_LABEL: Record<string, string> = {
@@ -1907,6 +1941,21 @@ export default function AIServiceSettingsPage() {
       return <LlmLeaderboardPanel />;
     }
 
+    if (activeTab === 'agent-config') {
+      return (
+        <AgentModelAssignmentPanel
+          savedKeys={settings.keys}
+          validateAllResultsByKeyId={validateAllResultsByKeyId}
+          evaluations={settings.evaluations}
+          userId={settings.userId ?? ''}
+        />
+      );
+    }
+
+    if (activeTab === 'model-pricing') {
+      return <ModelPricingPanel />;
+    }
+
     if (activeTab === 'evaluations-global' || activeTab === 'evaluations-visual') {
       return (
         <div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -2298,6 +2347,8 @@ export default function AIServiceSettingsPage() {
               </div>
             )}
             {activeTab !== 'llm-leaderboard' &&
+            activeTab !== 'agent-config' &&
+            activeTab !== 'model-pricing' &&
             activeTab !== 'evaluations-global' &&
             activeTab !== 'evaluations-visual' &&
             activeTab !== 'image-to-image-evaluation' &&

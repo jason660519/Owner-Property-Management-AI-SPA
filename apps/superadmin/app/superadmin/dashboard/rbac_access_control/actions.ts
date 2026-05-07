@@ -93,7 +93,7 @@ export async function getRbacAuditLogs(limit = 50): Promise<RbacAuditLog[]> {
 /**
  * Distinct users that hold this role directly or via a group that attaches the role.
  */
-async function getAssignedUserCountForRole(
+export async function getAssignedUserCountForRole(
   roleId: string
 ): Promise<{ ok: true; count: number } | { ok: false; message: string }> {
   const admin = createAdminClient();
