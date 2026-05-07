@@ -157,7 +157,13 @@ test.describe('新增物件 - 完整流程', () => {
     await page.fill('input[placeholder*="例：5"]', TEST_PROPERTY.floor.toString())
     await page.fill('input[placeholder*="例：12"]', TEST_PROPERTY.total_floors.toString())
     await page.fill('textarea[placeholder*="請描述物件的特色"]', TEST_PROPERTY.description)
-    
+
+    // 選取部分設備
+    await page.click('button:has-text("冷氣")')
+    await page.click('button:has-text("洗衣機")')
+    await page.click('button:has-text("網路")')
+    await expect(page.locator('text=已選 3 項')).toBeVisible()
+
     await page.click('button:has-text("下一步")')
     await page.waitForTimeout(500)
 

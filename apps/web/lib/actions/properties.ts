@@ -47,6 +47,7 @@ export interface CreatePropertyInput {
   floor?: number
   total_floors?: number
   description?: string
+  amenities?: string[]
 }
 
 export interface CreatePropertyResult {
@@ -363,6 +364,7 @@ export async function createProperty(
       floor: input.floor,
       total_floors: input.total_floors,
       description: input.description,
+      amenities: input.amenities || [],
     }
 
     // 4. 根據類型插入不同的表

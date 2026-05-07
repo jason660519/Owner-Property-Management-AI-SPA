@@ -636,7 +636,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     id: "027",
     name: "房東新增物件方式1－手動輸入",
     locatedPage: "web/landlord/properties/add",
-    percentage: 85,
+    percentage: 100,
     acceptanceCriteria:
       "1. 表單欄位涵蓋：物件名稱、地址、坪數、樓層、房型、月租金/售價、設備清單。\n2. 必填欄位驗證，地址需連結 Google Maps 確認。\n3. 支援一次上傳最多20張物件照片。\n4. 草稿自動儲存，可返回繼續填寫。\n5. 發布後物件立即顯示於可見清單中。",
     docPath: "/project-process/features/landlord-features.md",
@@ -644,8 +644,8 @@ const RAW_FEATURES: RoadmapFeature[] = [
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 5,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
   },
   {
     id: "028",

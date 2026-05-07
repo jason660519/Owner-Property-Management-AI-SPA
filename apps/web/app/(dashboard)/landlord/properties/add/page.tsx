@@ -53,6 +53,7 @@ const addPropertySchema = z.object({
   floor: z.number().optional(),
   total_floors: z.number().optional(),
   description: z.string().optional(),
+  amenities: z.array(z.string()).optional(),
 
   // Step 5: 照片上傳
   photos: z.array(z.object({
@@ -108,6 +109,28 @@ export default function AddPropertyPage() {
   const parkingSpaces = watch('parking_spaces') || []
   const commonAreaSqm = watch('common_area_sqm')
   const photos = watch('photos') || []
+  const amenities = watch('amenities') || []
+
+  const AMENITY_OPTIONS = [
+    '冷氣', '洗衣機', '冰箱', '熱水器', '瓦斯爐', '微波爐', '烘衣機',
+    '網路', '有線電視', '沙發', '床架', '衣櫃', '書桌', '電視',
+    '電梯', '停車位', '門禁系統', '監視器',
+  ]
+
+  const toggleAmenity = (item: string) => {
+    const current = amenities
+    const next = current.includes(item)
+      ? current.filter((a) => a !== item)
+      : [...current, item]
+    setValue('amenities', next)
+  }
+
+  const openGoogleMaps = () => {
+    const address = watch('address')
+    if (!address) return
+    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
 
   // Helper: 將 data URL 轉回 File（用於從草稿還原照片後上傳到 Supabase）
   const dataUrlToFile = (dataUrl: string, defaultFileName: string): File | null => {
@@ -241,6 +264,7 @@ export default function AddPropertyPage() {
         floor: data.floor,
         total_floors: data.total_floors,
         description: data.description,
+        amenities: data.amenities,
       })
 
       if (!result.success) {
@@ -542,13 +566,26 @@ export default function AddPropertyPage() {
                   {...register('title')}
                 />
 
-                <Input
-                  label="完整地址"
-                  placeholder="例：台北市大安區和平東路三段 123 號"
-                  error={errors.address?.message}
-                  required
-                  {...register('address')}
-                />
+                <div>
+                  <Input
+                    label="完整地址"
+                    placeholder="例：台北市大安區和平東路三段 123 號"
+                    error={errors.address?.message}
+                    required
+                    {...register('address')}
+                  />
+                  <button
+                    type="button"
+                    onClick={openGoogleMaps}
+                    disabled={!watch('address')}
+                    className="mt-1.5 flex items-center gap-1.5 text-xs text-[#7C3AED] hover:text-[#9D5CF6] disabled:text-[#555555] disabled:cursor-not-allowed transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                    </svg>
+                    在 Google Maps 上確認地址
+                  </button>
+                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-white mb-2">
@@ -762,6 +799,34 @@ export default function AddPropertyPage() {
                     placeholder="請描述物件的特色、周邊環境、交通狀況等..."
                     {...register('description')}
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    設備清單
+                    {amenities.length > 0 && (
+                      <span className="ml-2 text-xs text-[#7C3AED]">已選 {amenities.length} 項</span>
+                    )}
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {AMENITY_OPTIONS.map((item) => {
+                      const selected = amenities.includes(item)
+                      return (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => toggleAmenity(item)}
+                          className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                            selected
+                              ? 'bg-[#7C3AED] border-[#7C3AED] text-white'
+                              : 'bg-transparent border-[#444444] text-[#999999] hover:border-[#7C3AED]/60 hover:text-white'
+                          }`}
+                        >
+                          {item}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
               </>
             )}
