@@ -21,6 +21,7 @@ import {
   getReadReceiptText,
   validateBuyerAttachment,
 } from '@/lib/buyer-communication/utils'
+import { createClient } from '@/lib/supabase/client'
 
 const SYSTEM_NOTICES = [
   '系統通知：您剛上傳的合約附件已同步到成交流程。',
@@ -35,7 +36,7 @@ export default function BuyerCommunicationCenterPage() {
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [composeText, setComposeText] = useState('')
-  const [attachmentNames, setAttachmentNames] = useState<string[]>([])
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([])
   const [uploadError, setUploadError] = useState<string | null>(null)
 
   const { data: messages = [], isLoading } = useQuery({
@@ -68,21 +69,51 @@ export default function BuyerCommunicationCenterPage() {
       }
 
       const content = composeText.trim()
-      if (!content && attachmentNames.length === 0) {
+      if (!content && attachmentFiles.length === 0) {
         return null
       }
 
-      return messageService.sendMessage({
+      // Upload attachments to Supabase Storage
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      const attachmentUrls: string[] = []
+
+      for (const file of attachmentFiles) {
+        const ext = file.name.split('.').pop() ?? 'bin'
+        const path = `${user?.id ?? 'anon'}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+        const { error } = await supabase.storage
+          .from('buyer-attachments')
+          .upload(path, file, { upsert: false })
+        if (error) throw new Error(`附件上傳失敗：${error.message}`)
+        attachmentUrls.push(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/buyer-attachments/${path}`
+        )
+      }
+
+      const result = await messageService.sendMessage({
         to_user_id: selectedMessage.from_user_id,
         subject: `Re: ${selectedMessage.subject ?? '買家溝通中心'}`,
         content: content || '已傳送附件，請查收。',
-        message_type: attachmentNames.length > 0 ? 'file' : 'text',
-        attachment_urls: attachmentNames.map((name) => `mock://buyer-attachments/${name}`),
+        message_type: attachmentUrls.length > 0 ? 'file' : 'text',
+        attachment_urls: attachmentUrls,
       })
+
+      // Enqueue in-app notification for the recipient
+      await supabase.from('notification_queue').insert({
+        user_id: selectedMessage.from_user_id,
+        notification_type: 'in_app',
+        title: '新訊息',
+        message: content ? content.slice(0, 80) : '您有新的附件訊息，請查收。',
+        priority: 'normal',
+        status: 'pending',
+        metadata: { message_id: result?.id ?? null, event: 'new_message' },
+      })
+
+      return result
     },
     onSuccess: () => {
       setComposeText('')
-      setAttachmentNames([])
+      setAttachmentFiles([])
       setUploadError(null)
       queryClient.invalidateQueries({ queryKey: ['buyer-communication-messages'] })
     },
@@ -109,7 +140,7 @@ export default function BuyerCommunicationCenterPage() {
       return
     }
 
-    const nextNames: string[] = []
+    const nextFiles: File[] = []
     let nextError: string | null = null
 
     for (const file of Array.from(files)) {
@@ -122,7 +153,7 @@ export default function BuyerCommunicationCenterPage() {
         nextError = `${file.name}：${validation.reason ?? '附件驗證失敗'}`
         break
       }
-      nextNames.push(file.name)
+      nextFiles.push(file)
     }
 
     if (nextError) {
@@ -132,12 +163,12 @@ export default function BuyerCommunicationCenterPage() {
     }
 
     setUploadError(null)
-    setAttachmentNames((current) => [...current, ...nextNames])
+    setAttachmentFiles((current) => [...current, ...nextFiles])
     event.target.value = ''
   }
 
   const removeAttachment = (name: string) => {
-    setAttachmentNames((current) => current.filter((item) => item !== name))
+    setAttachmentFiles((current) => current.filter((f) => f.name !== name))
   }
 
   return (
@@ -276,15 +307,15 @@ export default function BuyerCommunicationCenterPage() {
               className="min-h-[110px] w-full resize-none bg-transparent text-sm text-text-primary focus:outline-none"
             />
 
-            {attachmentNames.length > 0 && (
+            {attachmentFiles.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-2">
-                {attachmentNames.map((name) => (
+                {attachmentFiles.map((file) => (
                   <span
-                    key={name}
+                    key={file.name}
                     className="inline-flex items-center gap-1 rounded-full border border-border-default bg-bg-secondary px-2 py-1 text-xs text-text-secondary"
                   >
-                    {name}
-                    <button type="button" onClick={() => removeAttachment(name)} aria-label={`remove-${name}`}>
+                    {file.name}
+                    <button type="button" onClick={() => removeAttachment(file.name)} aria-label={`remove-${file.name}`}>
                       <X className="h-3 w-3" />
                     </button>
                   </span>
@@ -318,7 +349,7 @@ export default function BuyerCommunicationCenterPage() {
               <button
                 type="button"
                 onClick={() => void sendMutation.mutateAsync()}
-                disabled={sendMutation.isPending || (!composeText.trim() && attachmentNames.length === 0)}
+                disabled={sendMutation.isPending || (!composeText.trim() && attachmentFiles.length === 0)}
                 className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {sendMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

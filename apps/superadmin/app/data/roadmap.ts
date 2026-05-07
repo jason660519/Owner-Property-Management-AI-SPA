@@ -357,7 +357,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     id: "012",
     name: "買家的溝通中心",
     locatedPage: "web/buyer/contracted/communication",
-    percentage: 72,
+    percentage: 88,
     acceptanceCriteria:
       "1. 可與房東、仲介進行即時文字訊息往來。\n2. 訊息需有已讀/未讀狀態標示。\n3. 支援發送附件（PDF、圖片）。\n4. 有新訊息時推送通知（系統通知）。\n5. 訊息歷史可按日期搜尋，最長保留2年。",
     docPath: "/project-process/test-logs/test-buyer-communication-center-2026-04-12.md",
@@ -374,11 +374,11 @@ const RAW_FEATURES: RoadmapFeature[] = [
     defectCount: 0,
     testScriptPath: "apps/superadmin/unit_test/012",
     developmentProgress:
-      "2026/04/12：完成買家溝通中心頁面 `/buyer/contracted/communication`，整合既有 messageService 輪詢，提供訊息列表、已讀回條、關鍵字與日期區間搜尋、PDF/圖片附件驗證（10MB）與系統通知區塊；並於已簽約買家儀表板新增導流入口。",
+      "2026/04/12：完成買家溝通中心頁面，整合 messageService 輪詢、已讀回條、關鍵字/日期搜尋、附件驗證。\n2026/05/08：升級附件上傳為真實 Supabase Storage（buyer-attachments bucket），移除 mock:// URL；送訊後自動 enqueue in-app 通知給收件方（notification_queue）。",
     testProgress:
       "2026/04/12：新增 `apps/web/lib/buyer-communication/__tests__/utils.test.ts`，覆蓋附件驗證、訊息過濾與已讀回條文案，`npm run test --workspace web -- buyer-communication` 通過；E2E 待在登入測試環境補齊。",
-    lastModifiedBy: "GPT-5 Codex (CTO)",
-    lastModifiedDate: "2026/04/12",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
   },
   {
     id: "013",
