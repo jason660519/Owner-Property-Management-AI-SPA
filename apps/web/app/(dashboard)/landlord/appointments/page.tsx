@@ -27,6 +27,7 @@ import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { useToast } from '@/components/ui/Toast'
 import { AppointmentCalendar } from '@/components/landlord/AppointmentCalendar'
+import AvailabilitySettingsPanel from './AvailabilitySettingsPanel'
 
 // --- Types ---
 
@@ -493,6 +494,8 @@ export default function AppointmentsPage() {
           onPrevMonth={() => setCalendarMonth((current) => subMonths(current, 1))}
           onNextMonth={() => setCalendarMonth((current) => addMonths(current, 1))}
         />
+
+        <AvailabilitySettingsPanel />
       </div>
 
       <AppointmentDetailModal 

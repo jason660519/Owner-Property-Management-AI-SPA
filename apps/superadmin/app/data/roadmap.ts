@@ -672,7 +672,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     id: "029",
     name: "房東的預約看房管理功能",
     locatedPage: "web/landlord/appointments",
-    percentage: 75,
+    percentage: 90,
     acceptanceCriteria:
       "1. 顯示所有待確認/已確認/已取消的看房預約清單。\n2. 房東可一鍵確認或拒絕（附拒絕原因）預約請求。\n3. 確認/拒絕後自動發送通知（Email 或系統通知）給租客/買家。\n4. 整合日曆視圖，顯示每日預約時段。\n5. 可設定每日可預約時段（開放時間與間隔）。",
     docPath: "/project-process/test-logs/test-landlord-viewing-appointments-2026-04-12.md",
@@ -685,10 +685,10 @@ const RAW_FEATURES: RoadmapFeature[] = [
     testStatus: "in_progress",
     phase: "testing",
     points: 3,
-    lastModifiedBy: "Paperclip CTO",
-    lastModifiedDate: "2026/04/12",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
     devLog:
-      "[2026/04/12] (Paperclip CTO)\n• 補齊房東預約 API 狀態變更通知：confirmed/cancelled/completed 會寄送訪客 Email（含取消原因）。\n• 新增房東預約月曆視圖，顯示每日時段與筆數。\n• 新增 Row 029 對應單元測試與 TDD Progress Report。",
+      "[2026/04/12] (Paperclip CTO)\n• 補齊房東預約 API 狀態變更通知：confirmed/cancelled/completed 會寄送訪客 Email（含取消原因）。\n• 新增房東預約月曆視圖，顯示每日時段與筆數。\n• 新增 Row 029 對應單元測試與 TDD Progress Report。\n\n[2026/05/08] (Claude)\n• 實作 AC #5：可設定每日可預約時段。新增 landlord_availability_settings 表（migration 20260508130000）、GET/PUT /api/landlord/availability API route、AvailabilitySettingsPanel 組件（開放時間、結束時間、間隔、開放星期）。",
   },
   {
     id: "030",
