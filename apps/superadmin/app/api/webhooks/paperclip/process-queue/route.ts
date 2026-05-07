@@ -5,6 +5,7 @@
 // Requires CRON_SECRET header to prevent unauthorized invocation.
 
 import { NextRequest, NextResponse } from 'next/server';
+import { findRoadmapFeatureByVisIssueKey } from '@/app/data/roadmap';
 import { createAdminClient } from '@/utils/supabase/admin';
 
 const CRON_SECRET = process.env.CRON_SECRET ?? '';
@@ -37,24 +38,75 @@ async function processEvent(
     }
 
     if (percentage !== null) {
-      // Detect conflict: if we can find a feature with this vis_issue_key but different local %,
-      // record a sync_conflict for human review. We don't auto-apply remote values.
-      const { data: conflict } = await supabase
-        .from('sync_conflicts')
-        .select('id')
-        .eq('vis_issue_key', issue_key)
-        .eq('resolved', false)
-        .maybeSingle();
+      // Detect conflict: local roadmap % must match VIS payload. We don't auto-apply remote values.
+      const localFeature = findRoadmapFeatureByVisIssueKey(issue_key);
 
-      if (!conflict) {
-        await supabase.from('sync_conflicts').insert({
-          feature_name: (issue.title ?? issue_key) as string,
-          vis_issue_key: issue_key,
-          conflict_type: 'percentage_mismatch',
-          local_value: null,
-          remote_value: { percentage, event_type },
-          webhook_log_id: row.id,
-        });
+      if (!localFeature) {
+        const remote_value = { percentage, event_type };
+        const { data: existingMissing } = await supabase
+          .from('sync_conflicts')
+          .select('id')
+          .eq('vis_issue_key', issue_key)
+          .eq('resolved', false)
+          .eq('conflict_type', 'missing_feature')
+          .maybeSingle();
+
+        const featureName = (issue.title ?? issue_key) as string;
+        if (existingMissing) {
+          await supabase
+            .from('sync_conflicts')
+            .update({
+              feature_name: featureName,
+              remote_value,
+              webhook_log_id: row.id,
+            })
+            .eq('id', existingMissing.id);
+        } else {
+          await supabase.from('sync_conflicts').insert({
+            feature_name: featureName,
+            vis_issue_key: issue_key,
+            conflict_type: 'missing_feature',
+            local_value: null,
+            remote_value,
+            webhook_log_id: row.id,
+          });
+        }
+      } else if (localFeature.percentage !== percentage) {
+        const { data: existingPct } = await supabase
+          .from('sync_conflicts')
+          .select('id')
+          .eq('vis_issue_key', issue_key)
+          .eq('resolved', false)
+          .eq('conflict_type', 'percentage_mismatch')
+          .maybeSingle();
+
+        const featureName = (issue.title ?? localFeature.name ?? issue_key) as string;
+        const local_value = {
+          percentage: localFeature.percentage,
+          feature_id: localFeature.id,
+        };
+        const remote_value = { percentage, event_type };
+
+        if (existingPct) {
+          await supabase
+            .from('sync_conflicts')
+            .update({
+              feature_name: featureName,
+              local_value,
+              remote_value,
+              webhook_log_id: row.id,
+            })
+            .eq('id', existingPct.id);
+        } else {
+          await supabase.from('sync_conflicts').insert({
+            feature_name: featureName,
+            vis_issue_key: issue_key,
+            conflict_type: 'percentage_mismatch',
+            local_value,
+            remote_value,
+            webhook_log_id: row.id,
+          });
+        }
       }
     }
     return { result: 'processed' };
