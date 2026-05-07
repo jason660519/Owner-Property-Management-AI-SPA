@@ -15,6 +15,7 @@ import {
   XCircle,
   ChevronDown,
   ChevronUp,
+  Camera,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -187,6 +188,23 @@ function RequestCard({
               <p className="text-xs text-[#666666] mb-1">問題描述</p>
               <p className="text-[#cccccc] text-sm">{request.description}</p>
             </div>
+            {request.photoUrls.length > 0 && (
+              <div>
+                <p className="text-xs text-[#666666] mb-2">照片</p>
+                <div className="flex flex-wrap gap-2">
+                  {request.photoUrls.map((url, i) => (
+                    <a key={i} href={url} target="_blank" rel="noreferrer" className="block w-20 h-20 shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={url}
+                        alt={`照片 ${i + 1}`}
+                        className="w-full h-full object-cover rounded-md border border-[#333333] hover:border-[#7C3AED] transition-colors"
+                      />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
             {request.notes && (
               <div>
                 <p className="text-xs text-[#666666] mb-1">房東備註</p>
@@ -236,6 +254,8 @@ export default function TenantMaintenancePage() {
   const [showForm, setShowForm] = useState(false)
   const [activePropertyId, setActivePropertyId] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [photoUrls, setPhotoUrls] = useState<string[]>([])
+  const [uploadingPhotos, setUploadingPhotos] = useState(false)
 
   const {
     register,
@@ -279,6 +299,41 @@ export default function TenantMaintenancePage() {
     load()
   }, [])
 
+  const handlePhotoUpload = async (files: FileList) => {
+    if (files.length === 0) return
+    if (photoUrls.length + files.length > 5) {
+      showToast({ type: 'error', message: '最多上傳 5 張照片' })
+      return
+    }
+    setUploadingPhotos(true)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('not authenticated')
+
+      const uploaded: string[] = []
+      for (const file of Array.from(files)) {
+        const ext = file.name.split('.').pop() ?? 'jpg'
+        const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+        const { error } = await supabase.storage
+          .from('maintenance-photos')
+          .upload(path, file, { upsert: false })
+        if (error) throw error
+        const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/maintenance-photos/${path}`
+        uploaded.push(publicUrl)
+      }
+      setPhotoUrls((prev) => [...prev, ...uploaded])
+    } catch {
+      showToast({ type: 'error', message: '照片上傳失敗，請重試' })
+    } finally {
+      setUploadingPhotos(false)
+    }
+  }
+
+  const removePhoto = (url: string) => {
+    setPhotoUrls((prev) => prev.filter((u) => u !== url))
+  }
+
   const onSubmit = async (data: FormData) => {
     if (!activePropertyId) {
       showToast({ type: 'error', message: '找不到您的租約物件，請聯絡房東' })
@@ -289,12 +344,14 @@ export default function TenantMaintenancePage() {
     const result = await createMaintenanceRequest({
       propertyId: activePropertyId,
       ...data,
+      photoUrls,
     })
     setSubmitting(false)
 
     if (result.success) {
       showToast({ type: 'success', message: '維修申請已送出', description: '房東將盡快回覆' })
       reset()
+      setPhotoUrls([])
       setShowForm(false)
       const updated = await getMyMaintenanceRequests()
       setRequests(updated)
@@ -395,6 +452,7 @@ export default function TenantMaintenancePage() {
               onClick={() => {
                 setShowForm(false)
                 reset()
+                setPhotoUrls([])
               }}
               className="text-[#666666] hover:text-white transition-colors"
             >
@@ -462,6 +520,59 @@ export default function TenantMaintenancePage() {
                 )}
               </div>
 
+              {/* Photo Upload */}
+              <div>
+                <Label className="text-[#cccccc] mb-1.5 block">附上照片（最多 5 張，選填）</Label>
+                <div className="space-y-3">
+                  {photoUrls.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {photoUrls.map((url) => (
+                        <div key={url} className="relative group w-20 h-20">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt="維修照片"
+                            className="w-full h-full object-cover rounded-md border border-[#333333]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removePhoto(url)}
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="w-3 h-3 text-white" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {photoUrls.length < 5 && (
+                    <label className="flex items-center gap-2 px-4 py-2.5 border border-dashed border-[#444444] rounded-md cursor-pointer hover:border-[#7C3AED] transition-colors w-fit">
+                      {uploadingPhotos ? (
+                        <Loader2 className="w-4 h-4 text-[#7C3AED] animate-spin" />
+                      ) : (
+                        <Camera className="w-4 h-4 text-[#999999]" />
+                      )}
+                      <span className="text-sm text-[#999999]">
+                        {uploadingPhotos ? '上傳中...' : '選擇照片'}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/jpg,image/png,image/webp"
+                        multiple
+                        className="hidden"
+                        disabled={uploadingPhotos}
+                        onChange={(e) => {
+                          if (e.target.files) {
+                            handlePhotoUpload(e.target.files)
+                            e.target.value = ''
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+
               {!activePropertyId && (
                 <div className="flex items-center gap-2 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-md">
                   <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0" />
@@ -476,13 +587,14 @@ export default function TenantMaintenancePage() {
                   onClick={() => {
                     setShowForm(false)
                     reset()
+                    setPhotoUrls([])
                   }}
                 >
                   取消
                 </Button>
                 <Button
                   type="submit"
-                  disabled={submitting || !activePropertyId}
+                  disabled={submitting || uploadingPhotos || !activePropertyId}
                   className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white"
                 >
                   {submitting ? (

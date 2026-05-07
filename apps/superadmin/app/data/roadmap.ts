@@ -2234,12 +2234,12 @@ const RAW_FEATURES: RoadmapFeature[] = [
     id: "122",
     name: "租客維修申請系統",
     category: "租客 (Tenant)",
-    percentage: 80,
+    percentage: 95,
     phase: "development",
-    lastModifiedBy: "Claude Sonnet 4.6",
-    lastModifiedDate: "2026/03/22",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
     developmentProgress:
-      "已完成：maintenance.ts server actions（getMyMaintenanceRequests、createMaintenanceRequest、cancelMaintenanceRequest、getLandlordMaintenanceRequests、updateMaintenanceRequest）、租客維修頁面（/tenant/maintenance）含提交表單與狀態追蹤、房東維修管理頁面（/landlord/maintenance）含列表/篩選/狀態推進/備註輸入、房東 Sidebar 加入維修管理導覽。待完善：照片上傳、廠商指派、費用結算。",
+      "已完成：maintenance.ts server actions（getMyMaintenanceRequests、createMaintenanceRequest、cancelMaintenanceRequest、getLandlordMaintenanceRequests、updateMaintenanceRequest、completeMaintenanceAsLandlord、confirmMaintenanceClosureByTenant、syncMaintenanceExpenseLedgerForLandlord）、租客維修頁面（/tenant/maintenance）含提交表單/狀態追蹤/照片上傳（Supabase Storage maintenance-photos bucket）、房東維修管理頁面（/landlord/maintenance）含廠商指派/費用填寫/租客結案確認流程/rental_ledger 費用自動寫入。待完善：E2E 測試。",
   },
   {
     id: "123",
