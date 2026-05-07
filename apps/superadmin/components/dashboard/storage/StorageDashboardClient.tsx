@@ -14,7 +14,7 @@ import {
   type OrphanedFile,
   type StorageQuota,
 } from '@/app/actions/storage';
-import { getQuotaUsagePercent } from '@/app/superadmin/dashboard/storage/storage-quota-utils';
+import { getQuotaUsagePercent, findQuotaAlerts } from '@/app/superadmin/dashboard/storage/storage-quota-utils';
 import { useRouter } from 'next/navigation';
 import { Loader2, CheckSquare, Square, Download, FolderInput } from 'lucide-react';
 
@@ -47,6 +47,9 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
   const GLOBAL_QUOTA_BYTES = 1024 * 1024 * 1024; // 1GB
   const globalUsagePercent = Math.min(100, (summary.totalSize / GLOBAL_QUOTA_BYTES) * 100);
   const isGlobalQuotaHigh = globalUsagePercent > 75;
+
+  // Users with quota usage >= 75% — auto-alert
+  const highQuotaUsers = findQuotaAlerts(quotas);
 
   const toggleSelectAll = () => {
     if (selectedOrphans.size === orphanedFiles.length) {
@@ -173,13 +176,38 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
 
       {activeTab === 'overview' && (
         <div className="space-y-6">
-            {/* Quota Alerts */}
+            {/* Global Quota Alert */}
             {isGlobalQuotaHigh && (
               <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 flex items-center gap-3 animate-pulse">
                 <AlertTriangle className="w-5 h-5" />
                 <div className="text-sm font-medium">
                   儲存空間警告：總體使用率已達 {globalUsagePercent.toFixed(1)}% ({formatBytes(summary.totalSize)} / {formatBytes(GLOBAL_QUOTA_BYTES)})
                 </div>
+              </div>
+            )}
+
+            {/* Per-user high-quota auto-alert */}
+            {highQuotaUsers.length > 0 && (
+              <div className="p-4 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="w-4 h-4 text-orange-500 shrink-0" />
+                  <p className="text-sm font-semibold text-orange-600">
+                    {highQuotaUsers.length} 位用戶儲存配額超過 75% — 需要管理員關注
+                  </p>
+                </div>
+                <ul className="space-y-1 pl-6">
+                  {highQuotaUsers.map((q) => (
+                    <li key={q.user_id} className="text-xs text-orange-700 font-mono">
+                      {q.user_id.slice(0, 8)}… — 使用 {formatBytes((q.used_bytes ?? 0))} / {formatBytes((q.quota_mb ?? 1024) * 1024 * 1024)} ({(getQuotaUsagePercent(q) * 100).toFixed(1)}%)
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={() => setActiveTab('quotas')}
+                  className="mt-2 ml-6 text-xs text-orange-600 underline hover:text-orange-500"
+                >
+                  前往配額管理頁面 →
+                </button>
               </div>
             )}
 
@@ -315,20 +343,35 @@ export default function StorageDashboardClient({ summary, fileTypes, initialOrph
                 </div>
                 <div className="flex items-center gap-2">
                     {selectedOrphans.size > 0 && (
-                        <Button
-                            variant="primary"
-                            size="sm"
-                            onClick={handleBatchDelete}
-                            disabled={isBatchDeleting}
-                            className="bg-red-600 hover:bg-red-700"
-                        >
-                            {isBatchDeleting ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                                <Trash2 className="w-4 h-4 mr-1.5" />
-                            )}
-                            刪除選取 ({selectedOrphans.size})
-                        </Button>
+                        <>
+                          <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                orphanedFiles
+                                  .filter(f => selectedOrphans.has(`${f.bucket_id}:${f.name}`))
+                                  .forEach(f => window.open(f.url, '_blank'));
+                              }}
+                              className="text-text-muted hover:text-accent"
+                          >
+                              <Download className="w-4 h-4 mr-1.5" />
+                              下載選取 ({selectedOrphans.size})
+                          </Button>
+                          <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={handleBatchDelete}
+                              disabled={isBatchDeleting}
+                              className="bg-red-600 hover:bg-red-700"
+                          >
+                              {isBatchDeleting ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                  <Trash2 className="w-4 h-4 mr-1.5" />
+                              )}
+                              刪除選取 ({selectedOrphans.size})
+                          </Button>
+                        </>
                     )}
                 </div>
             </CardHeader>

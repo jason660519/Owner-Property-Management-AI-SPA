@@ -183,7 +183,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     id: "004",
     name: "超級管理員-雲端空間管理平台",
     locatedPage: "superadmin/dashboard/storage",
-    percentage: 70,
+    percentage: 88,
     acceptanceCriteria:
       "1. 顯示總儲存空間與已用空間的視覺化圖表。\n2. 可瀏覽所有使用者上傳的檔案（圖片、文件、音訊）。\n3. 可對個別使用者設定儲存配額上限。\n4. 超過配額75%時自動警示管理員。\n5. 支援批次刪除、下載或移動檔案。",
     docPath: "",
@@ -195,11 +195,11 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/dev-logs/dev-superadmin-features-2026-02-21.md",
     category: "超級管理員 (Super Admin)",
     points: 5,
-    lastModifiedBy: "Claude Sonnet 4.6",
-    lastModifiedDate: "2026/02/21",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
     phase: "development",
     developmentProgress:
-      "storage_quotas migration (RLS + updated_at trigger)；actions.ts 補強 getStorageQuotas/setUserQuota/batchDeleteFiles（分塊批次刪除）；StorageDashboardClient 已有 quota tab + 孤兒檔案清理。",
+      "storage_quotas migration (RLS + updated_at trigger)；actions.ts 補強 getStorageQuotas/setUserQuota/batchDeleteFiles（分塊批次刪除）；StorageDashboardClient 已有 quota tab + 孤兒檔案清理；新增 per-user 超過 75% 配額自動警示 banner（使用 findQuotaAlerts util）；新增批次下載按鈕（開新分頁）。待完成：CDN 流量整合。",
   },
   {
     id: "005",
