@@ -163,8 +163,9 @@ export async function getAllProperties(): Promise<PropertiesResult> {
         if (!p.property_id) continue;
         photoCountMap[p.property_id] = (photoCountMap[p.property_id] ?? 0) + 1;
         if (p.is_primary && !primaryPhotoMap[p.property_id]) {
+          // Use Supabase render/image endpoint for auto-compressed thumbnail (400x300, quality 80)
           primaryPhotoMap[p.property_id] =
-            `${baseUrl}/storage/v1/object/public/property-photos/${p.storage_path}`;
+            `${baseUrl}/storage/v1/render/image/public/property-photos/${p.storage_path}?width=400&height=300&resize=cover&quality=80`;
         }
       }
     }
@@ -429,7 +430,7 @@ export async function getPropertyById(id: string): Promise<PropertyItem | null> 
     .maybeSingle();
   const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '');
   const mainPhotoUrl = primaryPhotoRow?.storage_path
-    ? `${baseUrl}/storage/v1/object/public/property-photos/${primaryPhotoRow.storage_path}`
+    ? `${baseUrl}/storage/v1/render/image/public/property-photos/${primaryPhotoRow.storage_path}?width=400&height=300&resize=cover&quality=80`
     : null;
 
   const details = (row.details || {}) as Record<string, unknown>;

@@ -459,7 +459,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     id: "017",
     name: "公開案件詳情頁",
     locatedPage: "web/properties/[id]",
-    percentage: 95,
+    percentage: 100,
     acceptanceCriteria:
       "1. 詳情頁需清楚呈現案件屬於買賣或租賃協作鏈。\n2. 顯示推薦接手角色與案件協作節點。\n3. 保留物件基本資訊、價格、地點與聯絡卡。\n4. 找不到案件時正確走 notFound 流程。\n5. 有對應回歸測試覆蓋主要協作內容與 notFound 行為。",
     docPath: "/project-process/features/multi-role-business-plan-20260322.md",
@@ -469,8 +469,8 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/features/tdd-company-pages-thirdparty-20260221.md",
     category: "公司頁面 (Company Pages)",
     points: 3,
-    lastModifiedBy: "GPT-5.4",
-    lastModifiedDate: "2026/03/22",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
     phase: "development",
     developmentProgress:
       "web/properties/[id] 已從單純物件詳情頁調整為案件協作視角：新增買賣 / 租賃協作鏈 badge、推薦接手角色、案件協作節點與案件說明，並保留原有價格、地圖與聯絡卡。PropertyContactCard 已把看房、法律諮詢、合作提案三種入口改為帶有 property context 的真實導流連結；另補上 detail page、contact card、notFound 測試，以及從公開案件列表進入 detail、再驗證登入後三種 CTA 都能把 inquiryType、entryPoint、property context 正確帶入 contact 的 Playwright E2E。這次也一併修正了 property detail SSR 使用舊版 Supabase helper 導致 header 已登入但 contact card 仍顯示 guest 狀態的 session 不一致問題。",
@@ -691,7 +691,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     id: "030",
     name: "房東的客戶－Details模式",
     locatedPage: "web/landlord/customers",
-    percentage: 95,
+    percentage: 100,
     acceptanceCriteria:
       "1. 顯示單一客戶的完整資料（個人基本資料、聯絡方式、租賃/購屋意向、看房紀錄）。\n2. 客戶狀態標籤（潛在/洽談中/已成交/已失效）可快速切換。\n3. 可記錄跟進備註，備註需有時間戳與操作者。\n4. 顯示與該客戶的溝通紀錄摘要（最新5條）。\n5. 提供「發送訊息」快捷按鈕直接進入溝通頁面。",
     docPath: "/project-process/test-logs/test-landlord-customers-details-2026-04-12.md",
@@ -700,8 +700,8 @@ const RAW_FEATURES: RoadmapFeature[] = [
     e2eTestCoverage: 0,
     category: "房東 (Landlord)",
     points: 2,
-    lastModifiedBy: "Paperclip CTO",
-    lastModifiedDate: "2026/04/13",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
     devLog:
       "2026/04/13 (VIS-26)\n- 依賴解除後複審 acceptance：`CustomerDetailsPanel` + `customer-details.ts` 符合 roadmap 五項驗收；TDD 報告見 `project-process/test-logs/test-landlord-customers-details-2026-04-12.md`。\n- 請 QA 在 `web/landlord/customers` 做 Details 側欄 smoke（可選）。\n\n2026/04/12\n- `apps/web/app/(dashboard)/landlord/customers/page.tsx` 新增 Details 側欄模式（完整資料、狀態快速切換、意向、看房紀錄區塊、跟進備註、最新 5 筆溝通摘要、發送訊息快捷按鈕）\n- `apps/web/app/(dashboard)/landlord/customers/customer-details.ts` 抽離 Details 資料解析與序列化工具，兼容舊 notes 純文字\n- `apps/web/app/(dashboard)/landlord/customers/__tests__/customer-details.test.ts` 新增 6 個單元測試；覆蓋 status 正規化、follow-up/communication append、payload parse/serialize",
   },
@@ -1486,7 +1486,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     id: "081",
     name: "使用者密碼重設頁面",
     locatedPage: "web/forgot-password, web/update-password",
-    percentage: 95,
+    percentage: 100,
     acceptanceCriteria:
       "1. 輸入 Email 後發送密碼重設連結，連結有效期1小時。\n2. 點擊連結後進入重設頁面，輸入新密碼（需輸入兩次確認）。\n3. 重設成功後前一個 Session 自動登出。\n4. 重設連結只能使用一次，使用後失效。\n5. 24小時內申請重設次數上限5次（防止暴力攻擊）。",
     docPath: "/project-process/features/auth-system.md",
@@ -1494,8 +1494,8 @@ const RAW_FEATURES: RoadmapFeature[] = [
     tddSpecDocPath: "/project-process/features/tdd-system-common-20260221.md",
     category: "通用/系統 (General/System)",
     points: 3,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
   },
   {
     id: "082",
@@ -1558,7 +1558,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     id: "085",
     name: "上傳物件照片功能",
     locatedPage: "web/landlord/properties/add",
-    percentage: 95,
+    percentage: 100,
     acceptanceCriteria:
       "1. 支援一次選擇並上傳最多20張照片。\n2. 上傳格式支援 JPG、PNG、WebP，單檔最大 10MB。\n3. 上傳時顯示進度條，支援斷點續傳。\n4. 上傳後可拖曳排序，設定封面照。\n5. 系統自動生成壓縮縮圖（Thumbnail），用於列表預覽。",
     docPath: "/project-process/features/photo-upload.md",
@@ -1566,8 +1566,9 @@ const RAW_FEATURES: RoadmapFeature[] = [
     tddSpecDocPath: "/project-process/features/tdd-system-common-20260221.md",
     category: "通用/系統 (General/System)",
     points: 3,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
+    developmentProgress: "PropertyMediaSection 已支援多張照片上傳、進度條、拖曳排序、封面照設定（is_primary）。縮圖改用 Supabase Storage render/image 端點（width=400&height=300&resize=cover&quality=80）自動壓縮，properties.ts getAllProperties + getPropertyById 的 mainPhotoUrl 均已更新。",
   },
 
   // 金流支付

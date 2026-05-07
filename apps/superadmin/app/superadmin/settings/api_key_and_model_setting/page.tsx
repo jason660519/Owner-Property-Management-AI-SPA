@@ -298,6 +298,14 @@ const SHEET_TABS: SheetTabDef[] = [
     activeColor: 'bg-emerald-600 text-white',
   },
   {
+    id: 'model-pricing',
+    label: 'Pricing',
+    zhLabel: '模型費用說明',
+    icon: DollarSign,
+    color: 'text-yellow-600',
+    activeColor: 'bg-yellow-600 text-white',
+  },
+  {
     id: 'evaluations-global',
     label: '',
     zhLabel: 'LLM能力評測',
@@ -338,14 +346,6 @@ const SHEET_TABS: SheetTabDef[] = [
     activeColor: 'bg-cyan-600 text-white',
   },
   { id: 'ocr', label: 'OCR', zhLabel: 'OCR解析設定', icon: ScanText, color: 'text-blue-600', activeColor: 'bg-blue-600 text-white' },
-  {
-    id: 'model-pricing',
-    label: 'Pricing',
-    zhLabel: '模型費用說明',
-    icon: DollarSign,
-    color: 'text-yellow-600',
-    activeColor: 'bg-yellow-600 text-white',
-  },
 ];
 
 const ADAPTER_PROVIDER_LABEL: Record<string, string> = {
