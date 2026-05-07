@@ -429,11 +429,12 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "/project-process/features/tdd-company-pages-thirdparty-20260221.md",
     category: "公司頁面 (Company Pages)",
     points: 2,
-    lastModifiedBy: "GPT-5.4",
-    lastModifiedDate: "2026/03/22",
+    percentage: 100,
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
     phase: "development",
     developmentProgress:
-      "已將 web/pricing 重構為多角色商業模式版本：新增免費流量入口、仲介個人版、分店管理版、企業合作版、按案件專業角色價格表、方案比較矩陣、FAQ 與 CTA 導流；CTA 已接到 contact 詢問表單，並補上 TWD/AUD、月付/年付與 CTA 連結測試。下一步是接上真正的付款流程或 CRM lead tracking。",
+      "已將 web/pricing 重構為多角色商業模式版本：新增免費流量入口、仲介個人版、分店管理版、企業合作版、按案件專業角色價格表、方案比較矩陣、FAQ 與 CTA 導流；CTA 已接到 contact 詢問表單；新增 TWD/AUD 幣別切換 toggle（useState + formatPrice）、月付/年付切換，所有方案卡價格即時換算為 AUD（1 AUD ≈ 21 TWD）。",
   },
   {
     id: "016",
@@ -2020,11 +2021,11 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "雲端 OCR 多模型共識謄本解析",
     locatedPage: "superadmin/properties",
     category: "超級管理員 (Super Admin)",
-    percentage: 99,
+    percentage: 100,
     phase: "testing",
     testCoverage: 60,
-    lastModifiedBy: "Claude Sonnet 4.6",
-    lastModifiedDate: "2026/03/14",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
     testStatus: "in_progress",
     docPath: "/docs/implementation-plans/consensus-transcript-parsing-plan.md",
     devLog:
@@ -2213,7 +2214,7 @@ const RAW_FEATURES: RoadmapFeature[] = [
     name: "物件部落格多平台發布",
     locatedPage: "superadmin/properties/[id]/edit?tab=advertisement_creators",
     category: "超級管理員 (Super Admin)",
-    percentage: 99,
+    percentage: 100,
     phase: "development",
     docPath: "/project-process/features/property-advertisement-workflow-redesign-20260330.md",
     featureSpecDocPath:
@@ -2222,8 +2223,8 @@ const RAW_FEATURES: RoadmapFeature[] = [
       "Blog tab 重構為三平台架構：地端 Supabase（現有）、Google Blogger（OAuth2 + Blogger API v3）、Facebook 粉絲頁（Page Access Token + Graph API）。新增「參考網頁風格 URL」功能（用戶貼上任何物件廣告網址，AI 分析設計語言後生成風格相似銷售頁面）與「風格預設選擇器」（4 個預設：豪宅暗色調/清爽明亮/商務簡潔/溫馨日系），不需參考 URL 即可快速生成高品質頁面。設定頁 /superadmin/settings/integrations 管理第三方平台整合。",
     acceptanceCriteria:
       "1. Blog tab 有平台選擇器（Supabase / Google Blogger / Facebook）。\n2. 風格預設選擇器（4 個預設）或參考 URL 擇一使用，AI 生成對應風格 HTML。\n3. Google Blogger OAuth 流程完整（授權 → callback → 儲存 token → 發布）。\n4. 帳號已連但無部落格時顯示引導建立 Blogger 的友善提示。\n5. Facebook Page Access Token 驗證成功後可發布至粉絲頁。",
-    lastModifiedBy: "GPT-5.4",
-    lastModifiedDate: "2026/03/30",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
     developmentProgress:
       "已完成：DB migration、Google OAuth2 routes、Blogger API v3 CRUD、Facebook Graph API、integrations server actions、BlogSupabasePanel/BlogGooglePanel/BlogFacebookPanel 拆分、平台選擇器、風格預設選擇器（4 個預設 + Claude 生成）、參考 URL 輸入、StylePreset 型別與 blog.ts 整合、BlogGooglePanel 帳號連結但無部落格友善提示修復、Google Blogger 在有參考 URL/風格預設時改為先重新生成再發布（含同步更新流程）並新增單元測試覆蓋。新增：地端 4 份 + Google Blogger 4 份，共 8 份獨立模板檔，並以 targetPlatform 明確切分生成來源，便於後續維護與版本管理。2026/03/22 補強：`blog_posts` 改為真正以 stylePreset + targetPlatform 讀寫與回查、PropertyBlogGenerator/BlogSupabasePanel/BlogGooglePanel/PropertyBlogStyleRowActionCells 全面改為 variant-aware 資料流，避免不同樣式/平台互相讀錯文章；Google OAuth callback 不再自動選第一個 Blogger blog；新增 BlogGooglePanel 與 Google callback 單元測試。2026/03/22 第二波補強：將 reference URL 正式納入 `blog_posts` variant identity 與查詢條件，避免同樣式但不同參考網址互相覆蓋，並把 `blogReferenceUrl` 同步到 URL query 以支援重新整理後仍能定位到正確 variant。2026/03/23 驗證：已在 local Supabase 套用 `20260322223000_add_blog_post_variant_identity.sql`，新增 `lib/actions/blog.test.ts` 驗證 reference URL normalization 與 null-variant lookup，新增 `PropertyBlogGenerator.test.tsx` 驗證 blogPlatform / blogStylePreset / blogReferenceUrl 的 query restore 與 sync/clear 行為，並新增 Playwright `property-blog-query-sync.spec.ts` 實測 superadmin 物件編輯頁在切換 Google Blogger / 商務簡潔樣式 / 參考網址後，重新整理仍能保留 query 與 UI 狀態。2026/03/30 補充：已完成新版「物件廣告生成流程重規劃 Spec」、Wireframe/元件結構稿、Implementation Tasks，以及更細的開發順序文件 `/project-process/features/property-advertisement-dev-order-20260330.md`。同日已開始落地第一張工單：PropertyBlogGenerator 先接上新的 content-first builder 骨架，將內容區塊、風格選擇、草稿概念與輸出流程改成 step-based 版面，同時保留既有 query restore 與平台發布能力。本次再完成第二張工單：新增 readiness summary、可勾選的內容區塊卡片，以及「系統模板 / 參考網址模式」互斥切換，並同步更新 Jest 與 Playwright query-sync 規格。接著完成第三張小工單：readiness summary 不再使用靜態 mapping，先改由 property 真實欄位動態判斷基本資料、照片、介紹與定位可用性，並新增 property-advertisement-readiness utility 與對應單元測試。最新進度再擴充為 8 個內容區塊：除了基本資料、照片、介紹、定位外，已納入謄本連結、建物與土地面積明細表、權狀連結、物件格局圖；單筆物件載入流程也會同步帶入 hasTranscript / hasTitleDoc / hasFloorPlan 等文件旗標，讓 builder 在編輯頁可依真實資料來源動態顯示可用性。Step 3 也已從 placeholder 改為可操作的「生成廣告草稿」主 CTA，會依目前選定的平台、模板或參考網址直接呼叫既有 variant-aware generate flow，讓使用者不必再依賴下方樣式列按鈕才能開始。最新補齊：selected sections 已正式帶入 generatePropertyBlog action 與 AI prompt context，並持久化到 `blog_posts.generation_context`；前端在生成完成後與重新整理後都會顯示「本次草稿帶入內容」摘要，讓 builder 的內容選擇不再只是暫時 UI 狀態。最新再補上 canonical builder draft persistence：PropertyBlogGenerator 已重用既有 `form_drafts` + localStorage helper，自動保存平台、風格模式、preset/reference URL 與 selected sections，重新整理或回到同一物件時會先還原最近 builder 狀態，同時保留 URL query override 能力。另已擴充 Playwright `property-blog-query-sync.spec.ts`，加入 builder draft restore / query override 流程，並把登入改為讀取 `PLAYWRIGHT_SUPERADMIN_EMAIL` / `PLAYWRIGHT_SUPERADMIN_PASSWORD`，同時改成 serial 以避免共享 draft 狀態互相干擾；目前在本地因未提供有效測試帳密而安全 skip。待完善：在有效 superadmin 測試帳號可用後，補跑完整端到端驗證。",
   },

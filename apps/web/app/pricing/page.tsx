@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/Card";
 
 type BillingCycle = "monthly" | "yearly";
+type Currency = "TWD" | "AUD";
+const TWD_TO_AUD = 0.048; // approx 1 AUD = 21 TWD
 
 const freeRoles = ["自租房東", "租客", "買家"];
 
@@ -189,13 +191,18 @@ const faqs = [
   },
 ];
 
-function formatPrice(amount: number, cycle: BillingCycle) {
-  if (amount === 0) return "NT$0";
+function formatPrice(amount: number, cycle: BillingCycle, currency: Currency) {
+  if (amount === 0) return currency === "TWD" ? "NT$0" : "A$0";
+  if (currency === "AUD") {
+    const aud = Math.ceil(amount * TWD_TO_AUD);
+    return `A$${new Intl.NumberFormat("en-AU").format(aud)}`;
+  }
   return `NT$${new Intl.NumberFormat("zh-TW").format(amount)}`;
 }
 
 export default function PricingPage() {
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
+  const [currency, setCurrency] = useState<Currency>("TWD");
 
   return (
     <div className="min-h-screen bg-[#141414] text-white font-urbanist">
@@ -233,6 +240,23 @@ export default function PricingPage() {
                   className={`px-4 py-2 rounded-full text-sm transition-colors ${billingCycle === "yearly" ? "bg-[#7C3AED] text-white" : "text-[#999999]"}`}
                 >
                   年付（省 2 個月）
+                </button>
+              </div>
+
+              <div className="inline-flex rounded-full border border-[#262626] bg-[#1A1A1A] p-1">
+                <button
+                  type="button"
+                  onClick={() => setCurrency("TWD")}
+                  className={`px-4 py-2 rounded-full text-sm transition-colors ${currency === "TWD" ? "bg-[#7C3AED] text-white" : "text-[#999999]"}`}
+                >
+                  TWD
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrency("AUD")}
+                  className={`px-4 py-2 rounded-full text-sm transition-colors ${currency === "AUD" ? "bg-[#7C3AED] text-white" : "text-[#999999]"}`}
+                >
+                  AUD
                 </button>
               </div>
             </div>
@@ -293,7 +317,7 @@ export default function PricingPage() {
                       <>
                         <div className="flex items-baseline mb-3">
                           <span className="text-4xl md:text-5xl font-bold">
-                            {formatPrice((plan as { prices: Record<BillingCycle, number> }).prices[billingCycle], billingCycle)}
+                            {formatPrice((plan as { prices: Record<BillingCycle, number> }).prices[billingCycle], billingCycle, currency)}
                           </span>
                           <span className="text-[#999999] ml-2">
                             {billingCycle === "monthly" ? "/ 月" : "/ 年"}
