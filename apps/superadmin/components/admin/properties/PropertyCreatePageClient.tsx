@@ -11,10 +11,18 @@ export function PropertyCreatePageClient() {
     router.push('/superadmin/properties');
   };
 
+  const onCreated = (propertyId?: string) => {
+    if (propertyId) {
+      router.push(`/superadmin/properties/${propertyId}/edit?tab=photos`);
+    } else {
+      backToList();
+    }
+  };
+
   return (
     <PropertyCreateModal
       onClose={backToList}
-      onCreated={backToList}
+      onCreated={onCreated}
     />
   );
 }

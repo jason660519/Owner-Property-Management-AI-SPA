@@ -139,14 +139,15 @@ export async function getAdminDashboardStats(): Promise<AdminStats> {
       console.error('[Dashboard Stats] Error counting overdue sales (pending):', overdueSalesError);
     }
 
-    const { count: soldSalesCount, error: soldSalesError } = await adminClient
+    const { data: soldSalesRows, count: soldSalesCount, error: soldSalesError } = await adminClient
       .from('property_sales')
-      .select('*', { count: 'exact', head: true })
+      .select('price', { count: 'exact' })
       .eq('status', 'sold');
 
     if (soldSalesError) {
       console.error('[Dashboard Stats] Error counting sold sales:', soldSalesError);
     }
+    const totalRevenue = (soldSalesRows ?? []).reduce((sum, r) => sum + (Number(r.price) || 0), 0);
 
     const { count: overdueRentalsCount, error: overdueRentalsError } = await adminClient
       .from('property_rentals')
@@ -265,7 +266,7 @@ export async function getAdminDashboardStats(): Promise<AdminStats> {
       rentalsWithoutBlogCount,
       activeRentals: activeRentals || 0,
       activeListings: activeListings || 0,
-      totalRevenue: 0,
+      totalRevenue,
       pendingVerifications: 0,
     };
 

@@ -71,12 +71,17 @@ export default function SuperadminDashboardClient({
     { label: '總部落格數', value: stats.totalBlogs },
   ] as const;
 
+  const revenueLabel = stats.totalRevenue > 0
+    ? `NT$ ${stats.totalRevenue.toLocaleString('zh-TW')}`
+    : '—';
+
   const salesOverviewRows = [
     { label: '在售物件調查報告書數 / 在售物件數', num: stats.surveyReportCountForSales, denom: stats.totalSales },
     { label: '預覽買賣合約數 / 在售物件數', num: stats.salesContractsCount, denom: stats.totalSales },
     { label: '在售物件部落格數 / 在售物件數', num: stats.salesBlogCount, denom: stats.totalSales },
     { label: '逾期案出售物件數', value: stats.overdueSalesCount },
     { label: '成交出售物件數', value: stats.soldSalesCount },
+    { label: '成交金額合計', value: revenueLabel },
   ] as const;
 
   const rentalOverviewRows = [
