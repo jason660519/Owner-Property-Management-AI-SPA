@@ -627,8 +627,8 @@ const RAW_FEATURES: RoadmapFeature[] = [
   {
     id: "026",
     name: "房東的Access Matrix管理平台",
-    locatedPage: "web/landlord (待建)",
-    percentage: 60,
+    locatedPage: "web/landlord/team",
+    percentage: 85,
     acceptanceCriteria:
       "1. 房東可查看並設定名下成員（助理、會計）的功能存取權限。\n2. 支援角色指派（助理角色可查看但不可刪除物件）。\n3. 權限矩陣以表格呈現，直觀易讀。\n4. 權限變更需記錄稽核日誌。\n5. 自訂角色功能：可創建「只可查看財務」等客製角色。",
     docPath: "/project-process/features/iam-system.md",
@@ -636,8 +636,14 @@ const RAW_FEATURES: RoadmapFeature[] = [
     tddSpecDocPath: "/project-process/features/tdd-landlord-20260221.md",
     category: "房東 (Landlord)",
     points: 8,
-    lastModifiedBy: "",
-    lastModifiedDate: "",
+    lastModifiedBy: "Claude",
+    lastModifiedDate: "2026/05/08",
+    developmentProgress:
+      "2026/05/08（Claude）：全新實作。\n" +
+      "- DB migration 20260508150000：landlord_team_members（邀請清單）、landlord_member_permissions（每成員每資源 read/write/delete）、landlord_permission_audit（稽核日誌），含 RLS\n" +
+      "- lib/actions/landlord-team.ts server actions：getTeamMembers / inviteTeamMember（含預設權限種子）/ updateMemberPermissions / revokeMember\n" +
+      "- /landlord/team page：成員清單 + 可展開的矩陣格子（點擊切換 read/write/delete）+ 邀請表單（assistant/accountant/custom 角色）\n" +
+      "- AC #1-5 全部實作，待補：Email 邀請通知、接受邀請流程",
   },
   {
     id: "027",
@@ -2881,4 +2887,13 @@ export function findRoadmapFeatureById(id: string): RoadmapFeature | undefined {
   const normalized = normalizeRoadmapFeatureId(id);
   if (!normalized) return undefined;
   return ROADMAP_DATA.features.find((feature) => feature.id === normalized);
+}
+
+/** Resolve a VIS issue key or human-readable issue id (e.g. VIS-42) to a roadmap feature. */
+export function findRoadmapFeatureByVisIssueKey(issueKey: string): RoadmapFeature | undefined {
+  const k = (issueKey ?? '').trim();
+  if (!k) return undefined;
+  return ROADMAP_DATA.features.find(
+    (feature) => feature.vis_issue_key === k || feature.vis_issue_id === k,
+  );
 }
