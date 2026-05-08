@@ -1,4 +1,4 @@
-import { ROADMAP_DATA, findRoadmapFeatureById } from './roadmap';
+import { ROADMAP_DATA, findRoadmapFeatureById, findRoadmapFeatureByVisIssueKey } from './roadmap';
 
 describe('roadmap stable feature IDs', () => {
   it('keeps every feature ID unique', () => {
@@ -12,5 +12,10 @@ describe('roadmap stable feature IDs', () => {
     expect(feature?.name).toBe('統一謄本解析工作台');
     expect(feature?.testScriptPath).toBe('apps/superadmin/unit_test/084');
     expect(feature?.devLogDocPath).toBe('/project-process/dev-logs/084-development-log-summary.md');
+  });
+
+  it('findRoadmapFeatureByVisIssueKey returns undefined for empty or unknown keys', () => {
+    expect(findRoadmapFeatureByVisIssueKey('')).toBeUndefined();
+    expect(findRoadmapFeatureByVisIssueKey('not-a-real-vis-key')).toBeUndefined();
   });
 });

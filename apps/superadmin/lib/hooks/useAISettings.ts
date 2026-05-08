@@ -400,32 +400,38 @@ export function useAISettings() {
       provider: string,
       modelId: string,
       prompt?: string,
-      file?: File | null
+      file?: File | File[] | null
     ): Promise<{ success: boolean; message?: string; output?: string; output_image_url?: string; http_status?: number }> => {
-      let fileBase64: string | undefined;
-      let mimeType: string | undefined;
-      let fileName: string | undefined;
-      if (file && file.size > 0) {
+      const files = Array.isArray(file) ? file : file ? [file] : [];
+      const attachments: Array<{ fileBase64: string; mimeType: string; fileName?: string }> = [];
+      for (const item of files) {
+        if (item.size <= 0) continue;
         const dataUrl = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve(reader.result as string);
           reader.onerror = () => reject(reader.error);
-          reader.readAsDataURL(file);
+          reader.readAsDataURL(item);
         });
         const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
         if (match) {
-          mimeType = match[1];
-          fileBase64 = match[2];
-          fileName = file.name;
+          attachments.push({
+            mimeType: match[1],
+            fileBase64: match[2],
+            fileName: item.name,
+          });
         }
       }
       const body: Record<string, unknown> = { provider, modelId, prompt: prompt ?? undefined };
-      if (fileBase64 && mimeType) {
-        body.fileBase64 = fileBase64;
-        body.mimeType = mimeType;
-        if (fileName) body.fileName = fileName;
+      const firstAttachment = attachments[0];
+      if (firstAttachment) {
+        body.fileBase64 = firstAttachment.fileBase64;
+        body.mimeType = firstAttachment.mimeType;
+        if (firstAttachment.fileName) body.fileName = firstAttachment.fileName;
       }
-      const isImageRequest = !!(fileBase64 && mimeType);
+      if (attachments.length > 1) {
+        body.files = attachments;
+      }
+      const isImageRequest = attachments.length > 0;
       // Image generation can take up to 120s server-side; give client a wider window.
       const clientTimeoutMs = isImageRequest ? 135_000 : 65_000;
       const controller = new AbortController();

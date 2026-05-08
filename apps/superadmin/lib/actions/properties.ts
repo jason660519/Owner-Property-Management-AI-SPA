@@ -1119,7 +1119,7 @@ export async function getPropertyDocuments(
   const adminClient = createAdminClient();
   const { data: rows, error } = await adminClient
     .from('property_documents')
-    .select('id, document_type, document_name, file_path, tags, created_at')
+    .select('id, document_type, document_name, file_path, tags, metadata, created_at')
     .eq('property_id', propertyId)
     .eq('is_active', true)
     .order('created_at', { ascending: false });
@@ -1135,6 +1135,7 @@ export async function getPropertyDocuments(
     documentName: r.document_name,
     filePath: r.file_path,
     tags: (r.tags as string[] | null) ?? null,
+    metadata: (r.metadata as Record<string, unknown> | null) ?? null,
     createdAt: r.created_at,
     url: `/api/documents/${r.id}/view`,
   }));
@@ -1431,6 +1432,115 @@ export async function uploadPropertyDocument(
 
   revalidatePath('/superadmin/properties');
   return { success: true, message: '文件已上傳' };
+}
+
+export type SaveGeneratedFloorPlanReferenceInput = {
+  propertyId: string;
+  propertyType: 'sale' | 'rental';
+  ownerId: string;
+  imageUrl: string;
+  outputMode: '2d' | '3d';
+  styleId: string;
+  styleLabel: string;
+  provider: string;
+  modelId: string;
+  prompt: string;
+  sourceDocumentId?: string;
+  styleReferenceFileName?: string;
+  fallbackAttempts?: string[];
+};
+
+function extensionFromMimeType(mimeType: string): string {
+  if (mimeType === 'image/jpeg') return 'jpg';
+  if (mimeType === 'image/webp') return 'webp';
+  return 'png';
+}
+
+async function imageBytesFromGeneratedUrl(imageUrl: string): Promise<{ bytes: Buffer; mimeType: string } | null> {
+  const dataUrlMatch = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (dataUrlMatch) {
+    const mimeType = dataUrlMatch[1];
+    if (!mimeType.startsWith('image/')) return null;
+    return { bytes: Buffer.from(dataUrlMatch[2], 'base64'), mimeType };
+  }
+
+  if (!/^https?:\/\//i.test(imageUrl)) return null;
+  const response = await fetch(imageUrl);
+  if (!response.ok) return null;
+  const mimeType = response.headers.get('content-type')?.split(';')[0]?.trim() || 'image/png';
+  if (!mimeType.startsWith('image/')) return null;
+  return { bytes: Buffer.from(await response.arrayBuffer()), mimeType };
+}
+
+/** Save an AI-generated floor-plan reference image without replacing the source floor plan. */
+export async function saveGeneratedFloorPlanReferenceDocument(
+  input: SaveGeneratedFloorPlanReferenceInput,
+): Promise<ActionResult> {
+  const generated = await imageBytesFromGeneratedUrl(input.imageUrl);
+  if (!generated) {
+    return { success: false, message: 'AI 產圖結果不是可儲存的圖片格式' };
+  }
+  if (generated.bytes.length > 20 * 1024 * 1024) {
+    return { success: false, message: 'AI 產圖結果超過 20MB，請降低輸出尺寸或品質後再試' };
+  }
+
+  const adminClient = createAdminClient();
+  const ext = extensionFromMimeType(generated.mimeType);
+  const storagePath = `${input.propertyId}/ai-floor-plan/${Date.now()}-${Math.random().toString(36).slice(2, 9)}-${input.outputMode}.${ext}`;
+
+  const { error: uploadError } = await adminClient.storage
+    .from('property-documents')
+    .upload(storagePath, generated.bytes, {
+      cacheControl: '3600',
+      contentType: generated.mimeType,
+      upsert: false,
+    });
+  if (uploadError) {
+    return { success: false, message: `AI 圖片儲存失敗：${uploadError.message}` };
+  }
+
+  const documentName = `AI參考圖-${input.styleLabel}-${input.outputMode.toUpperCase()}-${new Date().toISOString().slice(0, 10)}`;
+  const { error: insertError } = await adminClient.from('property_documents').insert({
+    property_id: input.propertyId,
+    property_type: input.propertyType === 'sale' ? 'sales' : 'rentals',
+    owner_id: input.ownerId,
+    document_type: 'floor_plan',
+    document_name: documentName,
+    file_path: storagePath,
+    file_size_bytes: generated.bytes.length,
+    mime_type: generated.mimeType,
+    original_filename: `${documentName}.${ext}`,
+    uploaded_by: input.ownerId,
+    tags: [
+      'ai_generated',
+      'floor_plan_reference',
+      `floor_plan_${input.outputMode}`,
+      `style:${input.styleId}`,
+      `model:${input.provider}:${input.modelId}`.slice(0, 120),
+      ...(input.sourceDocumentId ? [`source:${input.sourceDocumentId}`] : []),
+    ],
+    metadata: {
+      ai_generated: true,
+      source_document_id: input.sourceDocumentId ?? null,
+      output_mode: input.outputMode,
+      style_id: input.styleId,
+      style_label: input.styleLabel,
+      provider: input.provider,
+      model_id: input.modelId,
+      prompt: input.prompt,
+      style_reference_file_name: input.styleReferenceFileName ?? null,
+      fallback_attempts: input.fallbackAttempts ?? [],
+      generated_at: new Date().toISOString(),
+    },
+  });
+
+  if (insertError) {
+    await adminClient.storage.from('property-documents').remove([storagePath]);
+    return { success: false, message: `寫入 AI 格局圖記錄失敗：${insertError.message}` };
+  }
+
+  revalidatePath('/superadmin/properties');
+  return { success: true, message: 'AI 格局圖已儲存' };
 }
 
 // ── Delete Photo / Document ───────────────────────────────────────────────────

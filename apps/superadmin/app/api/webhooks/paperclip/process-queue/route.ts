@@ -28,95 +28,138 @@ async function processEvent(
 ): Promise<{ result: ProcessResult; note?: string }> {
   const { event_type, issue_key, payload } = row;
 
-  // Events we recognise and act on
-  if (event_type === 'issue.completed' || event_type === 'issue.percentage_updated') {
-    const issue = (payload.issue ?? {}) as Record<string, unknown>;
-    const percentage = typeof issue.percentage === 'number' ? issue.percentage : null;
+  try {
+    // Events we recognise and act on
+    if (event_type === 'issue.completed' || event_type === 'issue.percentage_updated') {
+      const issue = (payload.issue ?? {}) as Record<string, unknown>;
+      const percentage = typeof issue.percentage === 'number' ? issue.percentage : null;
 
-    if (!issue_key) {
-      return { result: 'skipped', note: 'no issue_key — cannot correlate to roadmap feature' };
-    }
+      if (!issue_key) {
+        return { result: 'skipped', note: 'no issue_key — cannot correlate to roadmap feature' };
+      }
 
-    if (percentage !== null) {
-      // Detect conflict: local roadmap % must match VIS payload. We don't auto-apply remote values.
-      const localFeature = findRoadmapFeatureByVisIssueKey(issue_key);
+      if (percentage !== null) {
+        // Detect conflict: local roadmap % must match VIS payload. We don't auto-apply remote values.
+        const localFeature = findRoadmapFeatureByVisIssueKey(issue_key);
 
-      if (!localFeature) {
-        const remote_value = { percentage, event_type };
-        const { data: existingMissing } = await supabase
-          .from('sync_conflicts')
-          .select('id')
-          .eq('vis_issue_key', issue_key)
-          .eq('resolved', false)
-          .eq('conflict_type', 'missing_feature')
-          .maybeSingle();
-
-        const featureName = (issue.title ?? issue_key) as string;
-        if (existingMissing) {
-          await supabase
+        if (!localFeature) {
+          const remote_value = { percentage, event_type };
+          const { data: existingMissing, error: selMissingErr } = await supabase
             .from('sync_conflicts')
-            .update({
+            .select('id')
+            .eq('vis_issue_key', issue_key)
+            .eq('resolved', false)
+            .eq('conflict_type', 'missing_feature')
+            .maybeSingle();
+
+          if (selMissingErr) {
+            return {
+              result: 'failed',
+              note: `sync_conflicts select (missing_feature): ${selMissingErr.message}`,
+            };
+          }
+
+          const featureName = (issue.title ?? issue_key) as string;
+          if (existingMissing) {
+            const { error: updErr } = await supabase
+              .from('sync_conflicts')
+              .update({
+                feature_name: featureName,
+                remote_value,
+                webhook_log_id: row.id,
+              })
+              .eq('id', existingMissing.id);
+            if (updErr) {
+              return {
+                result: 'failed',
+                note: `sync_conflicts update (missing_feature): ${updErr.message}`,
+              };
+            }
+          } else {
+            const { error: insErr } = await supabase.from('sync_conflicts').insert({
               feature_name: featureName,
+              vis_issue_key: issue_key,
+              conflict_type: 'missing_feature',
+              local_value: null,
               remote_value,
               webhook_log_id: row.id,
-            })
-            .eq('id', existingMissing.id);
-        } else {
-          await supabase.from('sync_conflicts').insert({
-            feature_name: featureName,
-            vis_issue_key: issue_key,
-            conflict_type: 'missing_feature',
-            local_value: null,
-            remote_value,
-            webhook_log_id: row.id,
-          });
-        }
-      } else if (localFeature.percentage !== percentage) {
-        const { data: existingPct } = await supabase
-          .from('sync_conflicts')
-          .select('id')
-          .eq('vis_issue_key', issue_key)
-          .eq('resolved', false)
-          .eq('conflict_type', 'percentage_mismatch')
-          .maybeSingle();
-
-        const featureName = (issue.title ?? localFeature.name ?? issue_key) as string;
-        const local_value = {
-          percentage: localFeature.percentage,
-          feature_id: localFeature.id,
-        };
-        const remote_value = { percentage, event_type };
-
-        if (existingPct) {
-          await supabase
+            });
+            if (insErr) {
+              return {
+                result: 'failed',
+                note: `sync_conflicts insert (missing_feature): ${insErr.message}`,
+              };
+            }
+          }
+        } else if (localFeature.percentage !== percentage) {
+          const { data: existingPct, error: selPctErr } = await supabase
             .from('sync_conflicts')
-            .update({
+            .select('id')
+            .eq('vis_issue_key', issue_key)
+            .eq('resolved', false)
+            .eq('conflict_type', 'percentage_mismatch')
+            .maybeSingle();
+
+          if (selPctErr) {
+            return {
+              result: 'failed',
+              note: `sync_conflicts select (percentage_mismatch): ${selPctErr.message}`,
+            };
+          }
+
+          const featureName = (issue.title ?? localFeature.name ?? issue_key) as string;
+          const local_value = {
+            percentage: localFeature.percentage,
+            feature_id: localFeature.id,
+          };
+          const remote_value = { percentage, event_type };
+
+          if (existingPct) {
+            const { error: updErr } = await supabase
+              .from('sync_conflicts')
+              .update({
+                feature_name: featureName,
+                local_value,
+                remote_value,
+                webhook_log_id: row.id,
+              })
+              .eq('id', existingPct.id);
+            if (updErr) {
+              return {
+                result: 'failed',
+                note: `sync_conflicts update (percentage_mismatch): ${updErr.message}`,
+              };
+            }
+          } else {
+            const { error: insErr } = await supabase.from('sync_conflicts').insert({
               feature_name: featureName,
+              vis_issue_key: issue_key,
+              conflict_type: 'percentage_mismatch',
               local_value,
               remote_value,
               webhook_log_id: row.id,
-            })
-            .eq('id', existingPct.id);
-        } else {
-          await supabase.from('sync_conflicts').insert({
-            feature_name: featureName,
-            vis_issue_key: issue_key,
-            conflict_type: 'percentage_mismatch',
-            local_value,
-            remote_value,
-            webhook_log_id: row.id,
-          });
+            });
+            if (insErr) {
+              return {
+                result: 'failed',
+                note: `sync_conflicts insert (percentage_mismatch): ${insErr.message}`,
+              };
+            }
+          }
         }
       }
+      return { result: 'processed' };
     }
-    return { result: 'processed' };
-  }
 
-  if (event_type === 'issue.created') {
-    return { result: 'processed' };
-  }
+    if (event_type === 'issue.created') {
+      return { result: 'processed' };
+    }
 
-  return { result: 'skipped', note: `unhandled event_type: ${event_type}` };
+    return { result: 'skipped', note: `unhandled event_type: ${event_type}` };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { result: 'failed', note: `unexpected: ${msg}` };
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -147,18 +190,26 @@ export async function POST(request: NextRequest) {
   }
 
   const ids = (rows as WebhookLogRow[]).map((r) => r.id);
-  await supabase
+  const { error: claimError } = await supabase
     .from('paperclip_webhook_logs')
     .update({ status: 'processing' })
     .in('id', ids);
 
+  if (claimError) {
+    return NextResponse.json(
+      { ok: false, error: `claim batch failed: ${claimError.message}` },
+      { status: 500 },
+    );
+  }
+
   const summary = { processed: 0, skipped: 0, failed: 0 };
+  let finalizeFailures = 0;
 
   for (const row of rows as WebhookLogRow[]) {
     const { result, note } = await processEvent(supabase, row);
     summary[result]++;
 
-    await supabase
+    const { error: finalizeErr } = await supabase
       .from('paperclip_webhook_logs')
       .update({
         status: result,
@@ -167,7 +218,37 @@ export async function POST(request: NextRequest) {
         attempt_count: row.attempt_count + 1,
       })
       .eq('id', row.id);
+
+    if (finalizeErr) {
+      finalizeFailures++;
+      console.error(
+        '[process-queue] failed to finalize webhook log row',
+        row.id,
+        finalizeErr.message,
+      );
+      const fallbackNote = `${note ?? '(no note)'} | finalize_error: ${finalizeErr.message}`;
+      const { error: fallbackErr } = await supabase
+        .from('paperclip_webhook_logs')
+        .update({
+          status: 'failed',
+          error_message: fallbackNote.slice(0, 2000),
+          processed_at: new Date().toISOString(),
+          attempt_count: row.attempt_count + 1,
+        })
+        .eq('id', row.id);
+      if (fallbackErr) {
+        console.error(
+          '[process-queue] fallback finalize also failed',
+          row.id,
+          fallbackErr.message,
+        );
+      }
+    }
   }
 
-  return NextResponse.json({ ok: true, ...summary });
+  return NextResponse.json({
+    ok: true,
+    ...summary,
+    ...(finalizeFailures > 0 ? { finalizeFailures } : {}),
+  });
 }

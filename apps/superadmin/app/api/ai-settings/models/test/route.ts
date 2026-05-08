@@ -102,6 +102,14 @@ function attachmentBlob(file: FileAttachment): Blob {
   return new Blob([Buffer.from(file.fileBase64, 'base64')], { type: file.mimeType });
 }
 
+function imageAttachments(files: FileAttachment[]): FileAttachment[] {
+  return files.filter((file) => isImageMime(file.mimeType));
+}
+
+function imageDataUrl(file: FileAttachment): string {
+  return `data:${file.mimeType};base64,${file.fileBase64}`;
+}
+
 type OpenAIImageError = {
   message?: string;
   type?: string;
@@ -163,15 +171,19 @@ async function testOpenAI(
   apiKey: string,
   modelId: string,
   userPrompt?: string,
-  file?: FileAttachment
+  file?: FileAttachment,
+  files: FileAttachment[] = file ? [file] : [],
 ): Promise<TestResult> {
   const { prompt, max_tokens } = getPromptAndMaxTokens(userPrompt);
-  if (file && isImageMime(file.mimeType) && isOpenAIImageModel(modelId)) {
+  const images = imageAttachments(files.length > 0 ? files : file ? [file] : []);
+  if (images.length > 0 && isOpenAIImageModel(modelId)) {
     try {
       const form = new FormData();
       form.append('model', modelId);
       form.append('prompt', prompt);
-      form.append('image', attachmentBlob(file), file.fileName ?? 'floor-plan.png');
+      images.forEach((image, index) => {
+        form.append(images.length === 1 ? 'image' : 'image[]', attachmentBlob(image), image.fileName ?? `reference-${index + 1}.png`);
+      });
       form.append('size', '1536x1024');
       form.append('quality', 'low');
       form.append('output_format', 'png');
@@ -204,7 +216,7 @@ async function testOpenAI(
   }
   let content: string | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> = prompt;
   if (file && isImageMime(file.mimeType)) {
-    const dataUrl = `data:${file.mimeType};base64,${file.fileBase64}`;
+    const dataUrl = imageDataUrl(file);
     content = [
       { type: 'image_url' as const, image_url: { url: dataUrl } },
       { type: 'text' as const, text: prompt },
@@ -328,16 +340,18 @@ async function testGemini(
   apiKey: string,
   modelId: string,
   userPrompt?: string,
-  file?: FileAttachment
+  file?: FileAttachment,
+  files: FileAttachment[] = file ? [file] : [],
 ): Promise<TestResult> {
   const { prompt, max_tokens } = getPromptAndMaxTokens(userPrompt);
   const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [];
-  if (file) {
-    parts.push({ inlineData: { mimeType: file.mimeType, data: file.fileBase64 } });
+  const attachments = files.length > 0 ? files : file ? [file] : [];
+  for (const attachment of attachments) {
+    parts.push({ inlineData: { mimeType: attachment.mimeType, data: attachment.fileBase64 } });
   }
   parts.push({ text: prompt });
 
-  const isImageRequest = file != null && isImageMime(file.mimeType);
+  const isImageRequest = attachments.some((attachment) => isImageMime(attachment.mimeType));
   // IMAGE modality: do not set maxOutputTokens (applies to text tokens only and may suppress image output)
   const generationConfig: Record<string, unknown> = isImageRequest
     ? { responseModalities: ['TEXT', 'IMAGE'] }
@@ -610,13 +624,14 @@ async function testQwen(
   apiKey: string,
   modelId: string,
   userPrompt?: string,
-  file?: FileAttachment
+  file?: FileAttachment,
+  files: FileAttachment[] = file ? [file] : [],
 ): Promise<TestResult> {
   // Qwen (Alibaba DashScope) — OpenAI-compatible endpoint. VL models accept
   // inline image_url like any other OpenAI-style chat completions API.
   const { prompt, max_tokens } = getPromptAndMaxTokens(userPrompt);
-  if (file && isImageMime(file.mimeType) && isQwenImageModel(modelId)) {
-    const dataUrl = `data:${file.mimeType};base64,${file.fileBase64}`;
+  const images = imageAttachments(files.length > 0 ? files : file ? [file] : []);
+  if (images.length > 0 && isQwenImageModel(modelId)) {
     try {
       const res = await fetch('https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation', {
         method: 'POST',
@@ -626,7 +641,10 @@ async function testQwen(
           input: {
             messages: [{
               role: 'user',
-              content: [{ image: dataUrl }, { text: prompt }],
+              content: [
+                ...images.map((image) => ({ image: imageDataUrl(image) })),
+                { text: prompt },
+              ],
             }],
           },
           parameters: {
@@ -654,7 +672,7 @@ async function testQwen(
   }
   let content: string | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> = prompt;
   if (file && isImageMime(file.mimeType)) {
-    const dataUrl = `data:${file.mimeType};base64,${file.fileBase64}`;
+    const dataUrl = imageDataUrl(file);
     content = [
       { type: 'image_url' as const, image_url: { url: dataUrl } },
       { type: 'text' as const, text: prompt },
@@ -855,7 +873,7 @@ async function testOpenCode(
   }
 }
 
-type TesterFn = (key: string, modelId: string, userPrompt?: string, file?: FileAttachment) => Promise<TestResult>;
+type TesterFn = (key: string, modelId: string, userPrompt?: string, file?: FileAttachment, files?: FileAttachment[]) => Promise<TestResult>;
 const testers: Record<AIProvider, TesterFn> = {
   openai: testOpenAI,
   anthropic: testAnthropic,
@@ -913,6 +931,7 @@ export async function POST(request: NextRequest) {
       fileBase64,
       mimeType,
       fileName,
+      files,
     } = body as {
       provider?: string;
       modelId?: string;
@@ -920,6 +939,7 @@ export async function POST(request: NextRequest) {
       fileBase64?: string;
       mimeType?: string;
       fileName?: string;
+      files?: unknown;
     };
     if (!provider || !modelId) {
       return NextResponse.json({ success: false, message: '缺少 provider 或 modelId' }, { status: 400 });
@@ -941,6 +961,16 @@ export async function POST(request: NextRequest) {
       typeof fileBase64 === 'string' && fileBase64.length > 0 && typeof mimeType === 'string' && mimeType.length > 0
         ? { fileBase64, mimeType, fileName: typeof fileName === 'string' ? fileName : undefined }
         : undefined;
+    const fileAttachments: FileAttachment[] = Array.isArray(files)
+      ? files.filter((item): item is FileAttachment => (
+        item !== null &&
+        typeof item === 'object' &&
+        typeof (item as FileAttachment).fileBase64 === 'string' &&
+        (item as FileAttachment).fileBase64.length > 0 &&
+        typeof (item as FileAttachment).mimeType === 'string' &&
+        (item as FileAttachment).mimeType.length > 0
+      ))
+      : fileAttachment ? [fileAttachment] : [];
     const test = testers[provider as AIProvider];
     if (!test) {
       return NextResponse.json({ success: false, message: '不支援的 provider' }, { status: 400 });
@@ -977,7 +1007,7 @@ export async function POST(request: NextRequest) {
     const callStart = Date.now();
     let result: TestResult;
     try {
-      result = await test(apiKey, modelId, userPrompt, fileAttachment);
+      result = await test(apiKey, modelId, userPrompt, fileAttachment, fileAttachments);
     } catch (callErr) {
       await audit.complete('api_error', {
         errorMessage: callErr instanceof Error ? callErr.message : 'Unknown',

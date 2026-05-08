@@ -18,6 +18,7 @@ import {
 import { generateManualTransactionComparableDocument } from '@/lib/actions/transaction-comparables';
 import type { PropertyPhotoItem, PropertyDocumentItem } from '@/lib/types/properties';
 import { TranscriptParseSection } from './TranscriptParseSection';
+import { FloorPlanAIStudio } from './FloorPlanAIStudio';
 import {
   clearPendingComparable,
   clearTransactionComparablesFeedback,
@@ -171,6 +172,27 @@ function isPdfPreviewable(value: string) {
   return /\.pdf$/i.test(value);
 }
 
+function isAiGeneratedDocument(doc: PropertyDocumentItem): boolean {
+  return doc.tags?.includes('ai_generated') === true;
+}
+
+function metadataString(doc: PropertyDocumentItem, key: string): string | null {
+  const value = doc.metadata?.[key];
+  return typeof value === 'string' && value.trim() ? value : null;
+}
+
+function aiGeneratedModelLabel(doc: PropertyDocumentItem): string | null {
+  const provider = metadataString(doc, 'provider');
+  const modelId = metadataString(doc, 'model_id');
+  if (provider && modelId) return `${provider} / ${modelId}`;
+
+  const modelTag = doc.tags?.find((tag) => tag.startsWith('model:'));
+  if (!modelTag) return null;
+  const [, tagProvider, ...modelParts] = modelTag.split(':');
+  if (!tagProvider || modelParts.length === 0) return null;
+  return `${tagProvider} / ${modelParts.join(':')}`;
+}
+
 const DEFAULT_DOC_TYPE_BY_MODE: Record<Exclude<DocumentSectionMode, 'photos'>, DocType> = {
   transcript: 'land_registry_transcript',
   title: 'building_title',
@@ -184,18 +206,7 @@ const DEFAULT_DOC_TYPE_BY_MODE: Record<Exclude<DocumentSectionMode, 'photos'>, D
 export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }: Props) {
   const [activeTab, setActiveTab] = useState<'photos' | 'documents'>(mode === 'photos' || !mode ? 'photos' : 'documents');
   const isPhotoMode = mode === 'photos' || (!mode && activeTab === 'photos');
-  const isDocMode =
-    mode === 'documents' ||
-    mode === 'transcript' ||
-    mode === 'title' ||
-    mode === 'contract' ||
-    mode === 'blog' ||
-    mode === 'floor_plan' ||
-    mode === 'building_measurement_survey' ||
-    mode === 'transaction_comparables' ||
-    (!mode && activeTab === 'documents');
   const docSectionMode: Exclude<DocumentSectionMode, 'photos'> | null = mode && mode !== 'photos' && mode !== 'documents' ? mode : null;
-  const effectiveTab = mode === 'photos' ? 'photos' : isDocMode ? 'documents' : (mode ?? activeTab);
 
   const [photos, setPhotos] = useState<PropertyPhotoItem[]>([]);
   const [documents, setDocuments] = useState<PropertyDocumentItem[]>([]);
@@ -203,7 +214,6 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null
   );
-  const [isGeneratingComparables, setIsGeneratingComparables] = useState(false);
 
   // Document types allowed in current section (when docSectionMode is set)
   const filteredDocuments = useMemo(() => {
@@ -299,16 +309,17 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
     };
   }, [docFile, docSectionMode]);
   const displayDocuments = docSectionMode ? filteredDocuments : documents;
+  const displayAiGeneratedDocuments = docSectionMode === 'floor_plan'
+    ? displayDocuments.filter(isAiGeneratedDocument)
+    : [];
+  const displayPreviewDocuments = docSectionMode === 'floor_plan'
+    ? displayDocuments.filter((doc) => !isAiGeneratedDocument(doc))
+    : displayDocuments;
   const visualUploadCopy = docSectionMode && isVisualPlanSection(docSectionMode as unknown as DocumentSectionMode) ? visualPlanCopy(docSectionMode as unknown as VisualPlanSectionMode) : null;
-  const pendingComparableKey = pendingComparableKinds.join('|');
-  const nearbyComparableElapsed = useMemo(
-    () => elapsedSecondsForComparable(propertyId, 'nearby'),
-    [propertyId, comparableElapsedTick, pendingComparableKey],
-  );
-  const streetComparableElapsed = useMemo(
-    () => elapsedSecondsForComparable(propertyId, 'street_section'),
-    [propertyId, comparableElapsedTick, pendingComparableKey],
-  );
+  const comparableElapsedRefreshKey = `${propertyId}:${comparableElapsedTick}:${pendingComparableKinds.join('|')}`;
+  const nearbyComparableElapsed = elapsedSecondsForComparable(propertyId, 'nearby');
+  const streetComparableElapsed = elapsedSecondsForComparable(propertyId, 'street_section');
+  void comparableElapsedRefreshKey;
   const maxComparableElapsed = Math.max(nearbyComparableElapsed, streetComparableElapsed);
   const isNearbyComparablePending = isGeneratingNearby || pendingComparableKinds.includes('nearby');
   const isStreetComparablePending = isGeneratingStreet || pendingComparableKinds.includes('street_section');
@@ -762,6 +773,11 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
     }
   }
 
+  async function refreshDocuments() {
+    const updated = await getPropertyDocuments(propertyId);
+    setDocuments(updated);
+  }
+
   async function handleDocDelete(doc: PropertyDocumentItem) {
     const result = await deletePropertyDocument(doc.id, doc.filePath);
     if (result.success) {
@@ -771,6 +787,245 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
       showFeedback('error', result.message);
     }
   }
+
+  const documentUploadPanel = docSectionMode !== 'transaction_comparables' ? (
+    <div className="border border-dashed border-border-default rounded-md p-3 space-y-2.5">
+      <p className="text-xs font-medium text-text-secondary">
+        {visualUploadCopy ? (
+          <>
+            {visualUploadCopy.uploadLead}{' '}
+            <span className="text-text-muted font-normal">(PDF / JPG / PNG / WebP，最大 20 MB)</span>
+          </>
+        ) : (
+          <>
+            新增文件{' '}
+            <span className="text-text-muted font-normal">(PDF / JPG / PNG / WebP，最大 20 MB)</span>
+          </>
+        )}
+      </p>
+      <div>
+        <label className="block text-xs text-text-muted mb-1">
+          {visualUploadCopy ? visualUploadCopy.fileTypeLabel : '文件類型'}
+        </label>
+        <select
+          value={docType}
+          onChange={(e) => setDocType(e.target.value as DocType)}
+          className="w-full border border-border-default rounded-md px-2 py-1.5 bg-bg-primary text-text-primary text-xs focus:outline-none focus:border-accent"
+        >
+          {uploadDocTypeOptions.map((t) => (
+            <option key={t} value={t}>
+              {DOC_TYPE_LABELS[t] ?? t}
+            </option>
+          ))}
+        </select>
+      </div>
+      <input
+        ref={docInputRef}
+        type="file"
+        accept="application/pdf,image/jpeg,image/png,image/webp"
+        onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
+        className="w-full text-xs text-text-secondary file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-bg-tertiary file:text-text-secondary hover:file:bg-border-default cursor-pointer"
+      />
+      {visualUploadCopy && docFile && docPreviewUrl && (
+        <div className="overflow-hidden rounded-lg border border-border-default bg-bg-tertiary">
+          <div className="flex items-center justify-between border-b border-border-default px-3 py-2">
+            <div>
+              <div className="text-xs font-medium text-text-primary">待上傳預覽</div>
+              <div className="text-[11px] text-text-muted">{docFile.name}</div>
+            </div>
+          </div>
+
+          <div className="aspect-[4/3] bg-bg-secondary">
+            {docFile.type.startsWith('image/') || isImagePreviewable(docFile.name) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={docPreviewUrl}
+                alt={visualUploadCopy.pendingImageAlt}
+                className="h-full w-full object-contain"
+              />
+            ) : docFile.type === 'application/pdf' || isPdfPreviewable(docFile.name) ? (
+              <iframe
+                src={docPreviewUrl}
+                title={visualUploadCopy.pendingPdfTitle}
+                className="h-full w-full border-0"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center px-4 text-center text-xs text-text-muted">
+                此檔案格式暫不支援 inline 預覽。
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={handleDocUpload}
+        disabled={!docFile || isDocUploading}
+        className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-xs rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40"
+      >
+        {isDocUploading ? (
+          <Loader2 size={12} className="animate-spin" />
+        ) : (
+          <Upload size={12} />
+        )}
+        {isDocUploading ? '上傳中…' : visualUploadCopy ? visualUploadCopy.uploadBtn : '上傳文件'}
+      </button>
+    </div>
+  ) : null;
+
+  const floorPlanSourcePanel = (
+    <section className="space-y-2 rounded-lg border border-border-default bg-bg-tertiary p-3">
+      <div className="text-xs font-semibold text-text-primary">來源格局圖</div>
+      {displayPreviewDocuments.length === 0 ? (
+        <div className="rounded-md border border-dashed border-border-default px-3 py-4 text-center text-xs text-text-muted">
+          尚未上傳可供 AI 生成使用的格局圖。
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {displayPreviewDocuments.map((doc) => {
+            const vc = visualPlanCopy('floor_plan');
+            const isImage = isImagePreviewable(doc.filePath);
+            const isPdf = isPdfPreviewable(doc.filePath);
+            const isLatestUploaded = doc.id === latestUploadedDocId;
+
+            return (
+              <article
+                key={doc.id}
+                className={`overflow-hidden rounded-lg border bg-bg-primary transition-colors ${
+                  isLatestUploaded
+                    ? 'border-green-500 shadow-[0_0_0_1px_rgba(34,197,94,0.18)]'
+                    : 'border-border-default'
+                }`}
+              >
+                <div className="aspect-[4/3] bg-bg-secondary">
+                  {isImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={doc.url} alt={vc.docImageAlt(doc.documentName)} className="h-full w-full object-contain" />
+                  ) : isPdf ? (
+                    <iframe src={doc.url} title={vc.docPdfTitle(doc.documentName)} className="h-full w-full border-0" />
+                  ) : (
+                    <div className="flex h-full items-center justify-center px-4 text-center text-xs text-text-muted">
+                      此檔案格式暫不支援 inline 預覽，請改用右下角開啟檢查。
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-text-muted">Floor Plan</div>
+                    {isLatestUploaded && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-green-500/25 bg-green-500/12 px-2 py-1 text-[11px] font-medium text-green-600">
+                        <Star size={11} className="fill-current" />
+                        上傳成功
+                      </span>
+                    )}
+                  </div>
+                  <div className="truncate text-xs font-medium text-text-primary">{doc.documentName}</div>
+                  {isLatestUploaded && (
+                    <div className="rounded-md bg-green-500/8 px-2 py-1.5 text-[11px] text-green-700">
+                      {vc.latestNote}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-end gap-1">
+                    <a
+                      href={doc.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 rounded-md border border-border-default px-2 py-1 text-xs text-text-secondary transition-colors hover:text-accent"
+                      title="開啟文件"
+                    >
+                      <ExternalLink size={12} /> 開啟
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => handleDocDelete(doc)}
+                      className="inline-flex items-center gap-1 rounded-md border border-border-default px-2 py-1 text-xs text-text-secondary transition-colors hover:text-red-500"
+                      title="刪除文件"
+                    >
+                      <Trash2 size={12} /> 刪除
+                    </button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+
+  const floorPlanAiHistoryPanel = displayAiGeneratedDocuments.length > 0 ? (
+    <section className="overflow-hidden rounded-lg border border-border-default bg-bg-tertiary">
+      <div className="border-b border-border-default px-3 py-2 text-xs font-semibold text-text-primary">
+        已儲存 AI 參考圖
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-[760px] w-full text-left text-xs">
+          <thead className="bg-bg-secondary text-[11px] text-text-muted">
+            <tr>
+              <th className="w-20 px-2 py-2 font-medium">縮圖</th>
+              <th className="px-2 py-2 font-medium">名稱</th>
+              <th className="w-44 px-2 py-2 font-medium">生成模型</th>
+              <th className="w-36 px-2 py-2 font-medium">產生時間</th>
+              <th className="w-24 px-2 py-2 text-right font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border-default">
+            {displayAiGeneratedDocuments.map((doc) => {
+              const generatedModelLabel = aiGeneratedModelLabel(doc);
+              return (
+                <tr key={doc.id} className="align-middle">
+                  <td className="px-2 py-2">
+                    <a
+                      href={doc.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex h-12 w-16 items-center justify-center rounded border border-border-default bg-bg-secondary"
+                      aria-label={`開啟完整 AI 參考圖：${doc.documentName}`}
+                    >
+                      {isImagePreviewable(doc.filePath) ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={doc.url} alt={`AI 參考圖縮圖：${doc.documentName}`} className="h-full w-full object-contain" />
+                      ) : (
+                        <FileText size={16} className="text-text-muted" />
+                      )}
+                    </a>
+                  </td>
+                  <td className="max-w-[260px] px-2 py-2 font-medium text-text-primary">
+                    <span className="block truncate" title={doc.documentName}>{doc.documentName}</span>
+                  </td>
+                  <td className="max-w-[180px] px-2 py-2 text-text-secondary">
+                    <span className="block truncate" title={generatedModelLabel ?? undefined}>{generatedModelLabel ?? '—'}</span>
+                  </td>
+                  <td className="px-2 py-2 text-text-muted">{doc.createdAt ? new Date(doc.createdAt).toLocaleDateString('zh-TW') : '—'}</td>
+                  <td className="px-2 py-2">
+                    <div className="flex justify-end gap-1">
+                      <a
+                        href={doc.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-md border border-border-default px-2 py-1 text-[11px] text-text-secondary transition-colors hover:text-accent"
+                        title="開啟文件"
+                      >
+                        <ExternalLink size={11} /> 開啟
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleDocDelete(doc)}
+                        className="inline-flex items-center gap-1 rounded-md border border-border-default px-2 py-1 text-[11px] text-text-secondary transition-colors hover:text-red-500"
+                        title="刪除文件"
+                      >
+                        <Trash2 size={11} /> 刪除
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  ) : null;
 
   return (
     <div className="space-y-3">
@@ -985,6 +1240,24 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
       ) : (
         /* ── Documents (謄本／權狀／合約／部落格／格局圖／建物測量成果圖) ── */
         <div className="space-y-4">
+          {docSectionMode === 'floor_plan' ? (
+            <>
+              <section className="space-y-2 rounded-lg border border-border-default bg-bg-tertiary p-3">
+                <div className="text-xs font-semibold text-text-primary">上傳來源格局圖</div>
+                {documentUploadPanel}
+              </section>
+              {floorPlanSourcePanel}
+              <FloorPlanAIStudio
+                propertyId={propertyId}
+                propertyType={propertyType}
+                ownerId={ownerId}
+                documents={displayDocuments}
+                onDocumentsChanged={refreshDocuments}
+              />
+              {floorPlanAiHistoryPanel}
+            </>
+          ) : (
+            <>
           {displayDocuments.length === 0 ? (
             <p className="text-text-muted text-xs">
               {docSectionMode && isVisualPlanSection(docSectionMode as unknown as DocumentSectionMode)
@@ -992,8 +1265,10 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
                 : '尚無文件'}
             </p>
           ) : docSectionMode && isVisualPlanSection(docSectionMode as unknown as DocumentSectionMode) ? (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {displayDocuments.map((doc) => {
+            <div className="space-y-3">
+              {displayPreviewDocuments.length > 0 && (
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {displayPreviewDocuments.map((doc) => {
                 const vc = visualPlanCopy(docSectionMode as unknown as VisualPlanSectionMode);
                 const isImage = isImagePreviewable(doc.filePath);
                 const isPdf = isPdfPreviewable(doc.filePath);
@@ -1074,7 +1349,83 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
                     </div>
                   </article>
                 );
-              })}
+                  })}
+                </div>
+              )}
+
+              {displayAiGeneratedDocuments.length > 0 && (
+                <div className="overflow-hidden rounded-lg border border-border-default bg-bg-tertiary">
+                  <div className="border-b border-border-default px-3 py-2 text-xs font-semibold text-text-primary">
+                    AI 參考圖
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-[760px] w-full text-left text-xs">
+                      <thead className="bg-bg-secondary text-[11px] text-text-muted">
+                        <tr>
+                          <th className="w-20 px-2 py-2 font-medium">縮圖</th>
+                          <th className="px-2 py-2 font-medium">名稱</th>
+                          <th className="w-44 px-2 py-2 font-medium">生成模型</th>
+                          <th className="w-36 px-2 py-2 font-medium">產生時間</th>
+                          <th className="w-24 px-2 py-2 text-right font-medium">操作</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border-default">
+                        {displayAiGeneratedDocuments.map((doc) => {
+                          const generatedModelLabel = aiGeneratedModelLabel(doc);
+                          return (
+                            <tr key={doc.id} className="align-middle">
+                              <td className="px-2 py-2">
+                                <a
+                                  href={doc.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex h-12 w-16 items-center justify-center rounded border border-border-default bg-bg-secondary"
+                                  aria-label={`開啟完整 AI 參考圖：${doc.documentName}`}
+                                >
+                                  {isImagePreviewable(doc.filePath) ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={doc.url} alt={`AI 參考圖縮圖：${doc.documentName}`} className="h-full w-full object-contain" />
+                                  ) : (
+                                    <FileText size={16} className="text-text-muted" />
+                                  )}
+                                </a>
+                              </td>
+                              <td className="max-w-[260px] px-2 py-2 font-medium text-text-primary">
+                                <span className="block truncate" title={doc.documentName}>{doc.documentName}</span>
+                              </td>
+                              <td className="max-w-[180px] px-2 py-2 text-text-secondary">
+                                <span className="block truncate" title={generatedModelLabel ?? undefined}>{generatedModelLabel ?? '—'}</span>
+                              </td>
+                              <td className="px-2 py-2 text-text-muted">{doc.createdAt ? new Date(doc.createdAt).toLocaleDateString('zh-TW') : '—'}</td>
+                              <td className="px-2 py-2">
+                                <div className="flex justify-end gap-1">
+                                  <a
+                                    href={doc.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 rounded-md border border-border-default px-2 py-1 text-[11px] text-text-secondary transition-colors hover:text-accent"
+                                    title="開啟文件"
+                                  >
+                                    <ExternalLink size={11} /> 開啟
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDocDelete(doc)}
+                                    className="inline-flex items-center gap-1 rounded-md border border-border-default px-2 py-1 text-[11px] text-text-secondary transition-colors hover:text-red-500"
+                                    title="刪除文件"
+                                  >
+                                    <Trash2 size={11} /> 刪除
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <ul className="space-y-1.5">
@@ -1203,6 +1554,8 @@ export function PropertyMediaSection({ propertyId, propertyType, ownerId, mode }
           {/* AI 解析謄本（目前僅土地謄本） — extracted to TranscriptParseSection */}
           {transcriptDocs.length > 0 && (
             <TranscriptParseSection transcriptDocs={transcriptDocs} kind="land" />
+          )}
+            </>
           )}
         </div>
       )}

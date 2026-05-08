@@ -13,6 +13,7 @@ import {
   deletePropertyPhoto,
   savePhotoMetadata,
   updatePhotoSortOrder,
+  saveGeneratedFloorPlanReferenceDocument,
 } from '@/lib/actions/properties';
 import {
   generateManualTransactionComparableDocument,
@@ -31,6 +32,7 @@ jest.mock('@/lib/actions/properties', () => ({
   uploadPropertyDocument: jest.fn(),
   deletePropertyPhoto: jest.fn(),
   deletePropertyDocument: jest.fn(),
+  saveGeneratedFloorPlanReferenceDocument: jest.fn(),
 }));
 
 jest.mock('@/lib/actions/transaction-comparables', () => ({
@@ -41,6 +43,10 @@ jest.mock('../TranscriptParseSection', () => ({
   TranscriptParseSection: () => <div data-testid="transcript-parse-section" />,
 }));
 
+jest.mock('../FloorPlanAIStudio', () => ({
+  FloorPlanAIStudio: () => <div data-testid="floor-plan-ai-studio" />,
+}));
+
 const mockGetPropertyPhotos = getPropertyPhotos as jest.MockedFunction<typeof getPropertyPhotos>;
 const mockGetPropertyDocuments = getPropertyDocuments as jest.MockedFunction<typeof getPropertyDocuments>;
 const mockUploadPropertyDocument = uploadPropertyDocument as jest.MockedFunction<typeof uploadPropertyDocument>;
@@ -49,6 +55,8 @@ const mockCreatePhotoUploadUrl = createPhotoUploadUrl as jest.MockedFunction<typ
 const mockDeletePropertyPhoto = deletePropertyPhoto as jest.MockedFunction<typeof deletePropertyPhoto>;
 const mockSavePhotoMetadata = savePhotoMetadata as jest.MockedFunction<typeof savePhotoMetadata>;
 const mockUpdatePhotoSortOrder = updatePhotoSortOrder as jest.MockedFunction<typeof updatePhotoSortOrder>;
+const mockSaveGeneratedFloorPlanReferenceDocument =
+  saveGeneratedFloorPlanReferenceDocument as jest.MockedFunction<typeof saveGeneratedFloorPlanReferenceDocument>;
 const mockGenerateManualTransactionComparableDocument =
   generateManualTransactionComparableDocument as jest.MockedFunction<typeof generateManualTransactionComparableDocument>;
 
@@ -64,6 +72,7 @@ describe('PropertyMediaSection', () => {
     mockDeletePropertyPhoto.mockResolvedValue({ success: true, message: '照片已刪除' });
     mockSavePhotoMetadata.mockResolvedValue({ success: true, message: '照片已儲存' });
     mockUpdatePhotoSortOrder.mockResolvedValue({ success: true, message: '排序已更新' });
+    mockSaveGeneratedFloorPlanReferenceDocument.mockResolvedValue({ success: true, message: 'AI 格局圖已儲存' });
     mockGenerateManualTransactionComparableDocument.mockResolvedValue({ success: true, message: '手動查詢附近成交價產出成功' });
 
     URL.createObjectURL = jest.fn().mockReturnValue('blob:floor-plan-preview');
@@ -97,6 +106,77 @@ describe('PropertyMediaSection', () => {
     expect(await screen.findByAltText(/格局圖預覽：格局圖-平面圖\.png/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /開啟/i })).toHaveAttribute('href', '/api/documents/doc-1/view');
     expect(screen.queryByText('上傳成功')).not.toBeInTheDocument();
+  });
+
+  it('renders ai generated floor plans as openable compact thumbnails', async () => {
+    mockGetPropertyDocuments.mockResolvedValue([
+      {
+        id: 'doc-ai',
+        documentType: 'floor_plan',
+        documentName: 'AI參考圖-現代清爽-2D',
+        filePath: 'property-1/ai-floor-plan/reference.png',
+        url: '/api/documents/doc-ai/view',
+        tags: ['ai_generated', 'model:gemini:gemini-3.1-flash-image-preview'],
+        metadata: {
+          provider: 'gemini',
+          model_id: 'gemini-3.1-flash-image-preview',
+        },
+      },
+    ]);
+
+    render(
+      <PropertyMediaSection
+        propertyId="property-1"
+        propertyType="sale"
+        ownerId="owner-1"
+        mode="floor_plan"
+      />,
+    );
+
+    const imageLink = await screen.findByRole('link', { name: '開啟完整 AI 參考圖：AI參考圖-現代清爽-2D' });
+    expect(imageLink).toHaveAttribute('href', '/api/documents/doc-ai/view');
+    expect(screen.getByText('已儲存 AI 參考圖')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: '生成模型' })).toBeInTheDocument();
+    expect(screen.getByText('gemini / gemini-3.1-flash-image-preview')).toBeInTheDocument();
+  });
+
+  it('orders floor plan work from source upload to ai generation to saved history', async () => {
+    mockGetPropertyDocuments.mockResolvedValue([
+      {
+        id: 'doc-source',
+        documentType: 'floor_plan',
+        documentName: '格局圖-source.png',
+        filePath: 'property-1/source.png',
+        url: '/api/documents/doc-source/view',
+        tags: null,
+      },
+      {
+        id: 'doc-ai',
+        documentType: 'floor_plan',
+        documentName: 'AI參考圖-現代清爽-2D',
+        filePath: 'property-1/ai-floor-plan/reference.png',
+        url: '/api/documents/doc-ai/view',
+        tags: ['ai_generated'],
+      },
+    ]);
+
+    render(
+      <PropertyMediaSection
+        propertyId="property-1"
+        propertyType="sale"
+        ownerId="owner-1"
+        mode="floor_plan"
+      />,
+    );
+
+    const upload = await screen.findByText('上傳來源格局圖');
+    const source = screen.getByText('來源格局圖');
+    const aiStudio = screen.getByTestId('floor-plan-ai-studio');
+    const history = screen.getByText('已儲存 AI 參考圖');
+
+    expect(upload.compareDocumentPosition(source) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(source.compareDocumentPosition(aiStudio) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(aiStudio.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('shows a selected floor plan preview and refreshes to the uploaded preview after upload', async () => {

@@ -433,6 +433,7 @@ export interface PropertyDocumentItem {
   createdAt?: string;
   /** 多建號分筆：如 mbi:1、mbi:2 */
   tags?: string[] | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 /** User-uploaded contract file (from lawyer / conveyancer), stored under property-documents bucket */
