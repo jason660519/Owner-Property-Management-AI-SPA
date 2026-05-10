@@ -4,7 +4,8 @@ Repository instructions for OpenAI-compatible coding agents (Codex, Cursor, etc.
 
 **本檔刻意精簡。** 專案規則與 `CLAUDE.md` 相同，請直接讀 `CLAUDE.md`：
 
-- 硬性規定、Paperclip 派工規則、三層自動化、測試路徑規範 → `CLAUDE.md`
+- 硬性規定、Paperclip 派工規則、測試路徑規範 → `CLAUDE.md`
+- 三層自動化端點 → `.claude/skills/dispatch-agents/SKILL.md`
 - 架構、Supabase client、Next.js 慣例、已知陷阱、禁止降級套件 → `.claude/rules/`
 - 進度資料 → `apps/superadmin/app/data/roadmap.ts`
 

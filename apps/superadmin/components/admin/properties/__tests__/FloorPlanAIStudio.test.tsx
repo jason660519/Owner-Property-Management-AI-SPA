@@ -130,6 +130,8 @@ describe('FloorPlanAIStudio', () => {
     await waitFor(() => {
       expect(testModel).toHaveBeenCalledTimes(6);
     });
+    expect(screen.getByRole('button', { name: '生成 3 風格 2D+3D' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '生成風格參考 2D+3D' })).not.toBeDisabled();
     expect(mockSaveGeneratedFloorPlanReferenceDocument).not.toHaveBeenCalled();
 
     resolvers.forEach((resolve) => resolve({

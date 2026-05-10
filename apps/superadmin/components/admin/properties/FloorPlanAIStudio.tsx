@@ -37,6 +37,8 @@ export type GeneratedTile = {
   modelLabel: string;
   fallbackTrail: string[];
 };
+type GeneratedFlow = GeneratedTile['flow'];
+type RunningFlows = Record<GeneratedFlow, boolean>;
 
 const PRESET_STYLES: ImageToImageStyle[] = ['modern', 'nordic', 'minimal'];
 const OUTPUT_MODES: OutputMode[] = ['2d', '3d'];
@@ -71,7 +73,23 @@ function fallbackModelChain(modelOptions: ImageModelOption[], primaryKey: string
   return [primary, ...fallbackOptions].slice(0, MAX_MODEL_ATTEMPTS);
 }
 
+const MAX_STYLE_REF_SIZE = 10 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+function isValidImageUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'data:';
+  } catch {
+    return false;
+  }
+}
+
 async function documentToFile(doc: PropertyDocumentItem): Promise<File> {
+  const url = new URL(doc.url, window.location.origin);
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    throw new Error('不合法的文件 URL。');
+  }
   const response = await fetch(doc.url, { cache: 'no-store' });
   if (!response.ok) throw new Error('格局圖讀取失敗，請重新開啟或重新上傳來源圖。');
   const blob = await response.blob();
@@ -117,8 +135,11 @@ export function FloorPlanAIStudio({
   const [styleReferencePrompt, setStyleReferencePrompt] = useState(STYLE_REFERENCE_PROMPT_SEED);
   const [styleReferenceFile, setStyleReferenceFile] = useState<File | null>(null);
   const [tiles, setTiles] = useState<GeneratedTile[]>([]);
-  const [isRunning, setIsRunning] = useState(false);
+  const [runningFlows, setRunningFlows] = useState<RunningFlows>({ basic: false, style_reference: false });
   const [feedback, setFeedback] = useState<string | null>(null);
+  const isBasicRunning = runningFlows.basic;
+  const isStyleReferenceRunning = runningFlows.style_reference;
+  const isAnyFlowRunning = isBasicRunning || isStyleReferenceRunning;
 
   useEffect(() => {
     void refreshSilent?.();
@@ -191,6 +212,11 @@ export function FloorPlanAIStudio({
         continue;
       }
 
+      if (!isValidImageUrl(result.output_image_url)) {
+        attemptFailures.push(`${currentModelLabel}：模型回傳無效圖片 URL`);
+        continue;
+      }
+
       const saveResult = await saveGeneratedFloorPlanReferenceDocument({
         propertyId,
         propertyType,
@@ -227,14 +253,22 @@ export function FloorPlanAIStudio({
     });
   }, [ownerId, patchTile, propertyId, propertyType, sourceDocument?.id, testModel]);
 
-  const runTiles = useCallback(async (nextTiles: GeneratedTile[], styleRef: File | null, editablePrompt: string) => {
+  const runTiles = useCallback(async (
+    flow: GeneratedFlow,
+    nextTiles: GeneratedTile[],
+    styleRef: File | null,
+    editablePrompt: string,
+  ) => {
     if (!sourceDocument || modelChain.length === 0) {
       setFeedback('請先上傳 JPG / PNG / WebP 格局圖，並確認已有可用的圖生圖模型。');
       return;
     }
     setFeedback(null);
-    setTiles(nextTiles);
-    setIsRunning(true);
+    setTiles((prev) => [
+      ...prev.filter((tile) => tile.flow !== flow),
+      ...nextTiles,
+    ]);
+    setRunningFlows((prev) => ({ ...prev, [flow]: true }));
     try {
       const sourceFile = await documentToFile(sourceDocument);
       await Promise.all(nextTiles.map((tile) => (
@@ -244,10 +278,10 @@ export function FloorPlanAIStudio({
     } catch (err) {
       setFeedback(err instanceof Error ? err.message : 'AI 格局圖生成失敗。');
       setTiles((prev) => prev.map((tile) => tile.status === 'running' || tile.status === 'idle'
-        ? { ...tile, status: 'failed', message: '未完成生成。' }
+        ? tile.flow === flow ? { ...tile, status: 'failed', message: '未完成生成。' } : tile
         : tile));
     } finally {
-      setIsRunning(false);
+      setRunningFlows((prev) => ({ ...prev, [flow]: false }));
     }
   }, [modelChain, onDocumentsChanged, runOne, sourceDocument]);
 
@@ -264,7 +298,7 @@ export function FloorPlanAIStudio({
       modelLabel: '',
       fallbackTrail: [],
     })));
-    void runTiles(nextTiles, null, basicPrompt);
+    void runTiles('basic', nextTiles, null, basicPrompt);
   }, [basicPrompt, runTiles]);
 
   const runStyleReference = useCallback(() => {
@@ -284,7 +318,7 @@ export function FloorPlanAIStudio({
       modelLabel: '',
       fallbackTrail: [],
     }));
-    void runTiles(nextTiles, styleReferenceFile, styleReferencePrompt);
+    void runTiles('style_reference', nextTiles, styleReferenceFile, styleReferencePrompt);
   }, [runTiles, styleReferenceFile, styleReferencePrompt]);
 
   const latestBasicTiles = useMemo(() => tiles.filter((tile) => tile.flow === 'basic'), [tiles]);
@@ -309,7 +343,7 @@ export function FloorPlanAIStudio({
           <select
             value={sourceDocument?.id ?? ''}
             onChange={(event) => setSourceDocumentId(event.target.value)}
-            disabled={isRunning || sourceDocuments.length === 0}
+            disabled={isAnyFlowRunning || sourceDocuments.length === 0}
             className="w-full rounded-md border border-border-default bg-bg-primary px-2 py-1.5 text-xs text-text-primary focus:border-accent focus:outline-none disabled:opacity-50"
           >
             {sourceDocuments.length === 0 ? (
@@ -325,7 +359,7 @@ export function FloorPlanAIStudio({
           <select
             value={activeModel?.key ?? ''}
             onChange={(event) => setModelKey(event.target.value)}
-            disabled={isRunning || modelOptions.length === 0}
+            disabled={isAnyFlowRunning || modelOptions.length === 0}
             className="w-full rounded-md border border-border-default bg-bg-primary px-2 py-1.5 text-xs text-text-primary focus:border-accent focus:outline-none disabled:opacity-50"
           >
             {modelOptions.length === 0 ? (
@@ -355,10 +389,10 @@ export function FloorPlanAIStudio({
             <button
               type="button"
               onClick={runBasic}
-              disabled={isRunning || !sourceDocument || !activeModel}
+              disabled={isBasicRunning || !sourceDocument || !activeModel}
               className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
             >
-              {isRunning ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
+              {isBasicRunning ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
               生成 3 風格 2D+3D
             </button>
           </div>
@@ -368,7 +402,7 @@ export function FloorPlanAIStudio({
             <textarea
               value={basicPrompt}
               onChange={(event) => setBasicPrompt(event.target.value)}
-              disabled={isRunning}
+              disabled={isBasicRunning}
               rows={5}
               className="w-full resize-y rounded-md border border-border-default bg-bg-secondary px-2 py-2 text-xs leading-relaxed text-text-primary focus:border-accent focus:outline-none disabled:opacity-50"
             />
@@ -392,10 +426,10 @@ export function FloorPlanAIStudio({
             <button
               type="button"
               onClick={runStyleReference}
-              disabled={isRunning || !sourceDocument || !activeModel}
+              disabled={isStyleReferenceRunning || !sourceDocument || !activeModel}
               className="inline-flex items-center gap-1.5 rounded-md border border-accent bg-accent/12 px-3 py-1.5 text-xs font-semibold text-accent transition-colors hover:bg-accent/20 disabled:opacity-40"
             >
-              {isRunning ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
+              {isStyleReferenceRunning ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
               生成風格參考 2D+3D
             </button>
           </div>
@@ -408,9 +442,25 @@ export function FloorPlanAIStudio({
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
-                disabled={isRunning}
+                disabled={isStyleReferenceRunning}
                 aria-label="上傳風格參考圖"
-                onChange={(event) => setStyleReferenceFile(event.target.files?.[0] ?? null)}
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  if (file) {
+                    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+                      setFeedback('風格參考圖只支援 JPG / PNG / WebP 格式。');
+                      event.target.value = '';
+                      return;
+                    }
+                    if (file.size > MAX_STYLE_REF_SIZE) {
+                      setFeedback('風格參考圖不得超過 10 MB。');
+                      event.target.value = '';
+                      return;
+                    }
+                  }
+                  setFeedback(null);
+                  setStyleReferenceFile(file);
+                }}
                 className="max-w-[118px] text-[11px] text-text-muted file:mr-1 file:rounded file:border-0 file:bg-bg-tertiary file:px-1.5 file:py-0.5 file:text-[11px] file:text-text-secondary"
               />
             </span>
@@ -421,7 +471,7 @@ export function FloorPlanAIStudio({
             <textarea
               value={styleReferencePrompt}
               onChange={(event) => setStyleReferencePrompt(event.target.value)}
-              disabled={isRunning}
+              disabled={isStyleReferenceRunning}
               rows={5}
               className="w-full resize-y rounded-md border border-border-default bg-bg-secondary px-2 py-2 text-xs leading-relaxed text-text-primary focus:border-accent focus:outline-none disabled:opacity-50"
             />

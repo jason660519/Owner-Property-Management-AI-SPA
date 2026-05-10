@@ -3,5 +3,18 @@
     "document-skills@anthropic-agent-skills": true,
     "everything-claude-code@everything-claude-code": true,
     "claude-hud@claude-hud": true
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/block-background-devserver.sh"
+          }
+        ]
+      }
+    ]
   }
 }

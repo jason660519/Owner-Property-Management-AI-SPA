@@ -4,6 +4,12 @@
 架構、Supabase client、Next.js 慣例、踩坑細節 → 見 `.claude/rules/`。
 進度資料 → `apps/superadmin/app/data/roadmap.ts` 或 `http://localhost:3001/superadmin/dashboard/project-progress`。
 
+## 邊界
+
+**絕對不做**（hooks / pre-commit 攔截）：降級 React/Next、引入 `any`、background 起 dev server  
+**必須先問**：force push、刪 `supabase/migrations/` 任何檔、直接 merge 到 main  
+**自主決定**：重構路徑、測試策略、命名細節
+
 ## 硬性規定
 
 - TypeScript strict，禁 `any`
@@ -46,18 +52,7 @@
 | `opencode_local` | `google/gemini-2.5-flash` | Google | `opencode` |
 | `cursor` | `auto` | Cursor | `agent` |
 
-完整流程：`.claude/skills/dispatch-agents/SKILL.md`
-
-## 三層自動化
-
-| Layer | 端點 / Skill | 用途 |
-|---|---|---|
-| 監控 | `GET /api/paperclip/work-summary` | 掃描 worktree，回報完成狀態 |
-| Review | `/review-agent-work` | 檢查 → 修復 → merge → 更新 roadmap |
-| 派工 | `POST /api/paperclip/auto-dispatch` | 自動為 idle agents 派任務 |
-| 健康 | `GET /api/paperclip/agent-health` | 偵測 adapter 失敗並自動 fallback |
-
-**日常流程**：Agent 完成 → work-summary 通知 → `/review-agent-work` merge → auto-dispatch 派新任務。
+完整流程與三層自動化端點：`.claude/skills/dispatch-agents/SKILL.md`
 
 ## 測試路徑規範
 
@@ -68,16 +63,10 @@
 - 編排來源：`apps/superadmin/test-manifest.json`；`tier=nightly` 必填 `nightlyLayer` / `nightlyOrder`
 - 合併前執行：`tools/testing/validate-test-manifest.sh`
 
-## 省 Token
+## 工具優先序
 
-- **Custom Commands**（最省）：`/daily-report`、`/commit-push-pr`、`/roadmap-update`、`/test-coverage`、`/dispatch-agents`、`/review-agent-work`
-- 瀏覽器優先序：專用 MCP → Preview → Playwright CLI → Playwright MCP → Chrome DevTools
-- Playwright CLI（`bash tools/testing/playwright-cli.sh <cmd>`）比 MCP 省 3-5x
-- library 文件用 Context7 MCP，不用 Web Search
-- **CodeGraphContext MCP 已安裝**：查「誰呼叫了 X」、「X 依賴哪些模組」時，優先透過 MCP 查詢圖資料庫，不要 grep 全 repo（省 3–10x token）
-- 完整指南：`docs/operational-guides/token-saving-guide.md`
+查函式關係 → CodeGraphContext MCP（勿 grep 全 repo）；library 文件 → Context7 MCP；瀏覽器測試 → `bash tools/testing/playwright-cli.sh`；完整 token 指南 → `docs/operational-guides/token-saving-guide.md`
 
 ## 其他
 
 - 角色 Prompt 目錄給人看：`docs/prompts/agent_roles_index.md`
-- 若本檔與 `AGENTS.md` 衝突，以較精簡且較不易誤導模型的版本為準，並盡快對齊
