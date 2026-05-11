@@ -7,6 +7,8 @@
 | 檔案／目錄 | 說明 |
 |------------|------|
 | [agent-production-checklist.md](./agent-production-checklist.md) | Agent 上線前必備的 7 個檢查點（model control、guardrails、budget、evals 等） |
+| [hermes-project-operations.md](./hermes-project-operations.md) | Hermes 專案隔離、Docker runtime、啟動、更新、備份與防污染規則 |
+| [hermes-docker-update.md](./hermes-docker-update.md) | Hermes Docker image 更新方式與 Dashboard 內建 update 限制 |
 | [update-project-progress-guide.md](../update-project-progress-guide.md) | 專案進度儀表板與工作日誌更新（roadmap、devLog、docPath） |
 | [iam/](./iam/) | IAM 權限架構、SOP、Option A 實作計畫、回歸測試檢查表 |
 | [VLM/](../VLM/README.md) | VLM 文件掃描功能文檔中心（含快速啟動、測試就緒、實作總結等） |
