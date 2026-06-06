@@ -233,7 +233,7 @@ export function CliCapabilityEvaluationPanel() {
   );
 
   const runAll = useCallback(async () => {
-    const runnable = rows.filter((row) => row.shouldTest && row.runStatus !== 'running' && row.runStatus !== 'done');
+    const runnable = rows.filter((row) => row.shouldTest && row.runStatus !== 'running');
     if (runnable.length === 0) {
       setRunAllHint('沒有勾選「是否測試」的列可執行。');
       setTimeout(() => setRunAllHint(null), 3000);
