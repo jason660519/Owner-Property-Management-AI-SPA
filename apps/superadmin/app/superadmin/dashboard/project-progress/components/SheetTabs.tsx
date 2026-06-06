@@ -3,10 +3,8 @@
 
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
 import { clsx } from 'clsx';
-import { Code2, FlaskConical, Rocket, Activity, Workflow } from 'lucide-react';
+import { Code2, FlaskConical, Rocket, Activity } from 'lucide-react';
 import type { PhaseType } from '@/app/data/roadmap';
 
 interface SheetTab {
@@ -61,8 +59,6 @@ interface SheetTabsProps {
 }
 
 export function SheetTabs({ activePhase, onPhaseChange, phaseCounts }: SheetTabsProps) {
-  const [activeShortcut, setActiveShortcut] = useState<'paperclip' | null>(null);
-
   return (
     <div className="flex items-end gap-0 border-t border-border-default bg-bg-secondary/50 rounded-b-lg overflow-x-auto flex-none">
       {SHEETS.map(sheet => {
@@ -104,21 +100,6 @@ export function SheetTabs({ activePhase, onPhaseChange, phaseCounts }: SheetTabs
           </button>
         );
       })}
-      <Link
-        href="/superadmin/dashboard/paperclip-worktrees"
-        onClick={() => setActiveShortcut('paperclip')}
-        className={clsx(
-          'relative flex items-center gap-2 px-5 py-2.5 text-sm font-medium transition-all border-r border-border-default whitespace-nowrap',
-          activeShortcut === 'paperclip'
-            ? 'bg-fuchsia-600 text-white shadow-sm'
-            : 'text-text-secondary hover:text-text-primary hover:bg-bg-secondary',
-        )}
-        title="Open Paperclip Dashboard"
-      >
-        <Workflow className={clsx('w-4 h-4', activeShortcut === 'paperclip' ? 'text-current' : 'text-fuchsia-600')} />
-        <span>paperclip dashboard</span>
-        {activeShortcut === 'paperclip' && <span className="absolute top-0 left-0 right-0 h-0.5 bg-white/50" />}
-      </Link>
       {/* Fill remaining space */}
       <div className="flex-1 min-w-[20px]" />
     </div>

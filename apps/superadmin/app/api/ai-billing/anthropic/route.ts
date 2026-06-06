@@ -3,14 +3,14 @@
 //                                  tracking_start_at, reset_circuit_breaker)
 //
 // Used by the superadmin dashboard and by operators after topping up credits.
-// Only accessible server-side (PAPERCLIP_API_KEY gated in middleware).
+// Only accessible server-side (superadmin session required).
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { requireSuperadmin } from '@/lib/auth/require-superadmin';
 import {
   loadCreditGuardConfig,
-  getPaperclipSpendUsd,
+  getAnthropicSpendUsd,
   evaluateCreditStatus,
   type CreditGuardReader,
 } from '@/lib/ai/anthropic-credit-guard';
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const spentUsd = await getPaperclipSpendUsd(supabase, config.tracking_start_at);
+  const spentUsd = await getAnthropicSpendUsd(supabase, config.tracking_start_at);
   const status = evaluateCreditStatus(config, spentUsd);
 
   return NextResponse.json({ ok: true, config, status });

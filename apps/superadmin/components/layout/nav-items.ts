@@ -14,7 +14,6 @@ import {
   Settings,
   BookMarked,
   Mail,
-  GitBranch,
   Wrench,
   ShieldAlert,
   Users,
@@ -39,7 +38,6 @@ export const navItems: NavItem[] = [
   { name: 'Performance Monitor', href: '/superadmin/dashboard/performance', icon: Gauge },
   { name: 'AI LLM Monitor', href: '/superadmin/dashboard/llm-monitor', icon: Brain },
   { name: 'Project Progress Dashboard', href: '/superadmin/dashboard/project-progress', icon: FileText },
-  { name: 'Paperclip Worktrees', href: '/superadmin/dashboard/paperclip-worktrees', icon: GitBranch },
   { name: 'Project Docs', href: '/superadmin/docs', icon: BookOpen },
   { name: 'Project Files', href: '/superadmin/project-file', icon: BookOpen },
   // Row 146: collapsed three people-database entries into a single hub.

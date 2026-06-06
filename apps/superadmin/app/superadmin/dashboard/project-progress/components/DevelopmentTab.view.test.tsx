@@ -28,10 +28,6 @@ jest.mock('@/lib/hooks/useAISettings', () => ({
   useAISettings: () => ({ userId: 'test-user' }),
 }));
 
-jest.mock('@/lib/hooks/usePaperclipTasks', () => ({
-  usePaperclipTasks: () => ({ tasksByRowId: {} }),
-}));
-
 jest.mock('@/lib/actions/table-settings', () => ({
   getTableSettings: async () => ({ data: null }),
   setTableSettings: async () => ({}),

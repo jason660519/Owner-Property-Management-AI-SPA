@@ -186,17 +186,6 @@
       "linkedToolScripts": []
     },
     {
-      "id": "130",
-      "name": "Paperclip development loop",
-      "tier": "pr",
-      "status": "active",
-      "unitPaths": [],
-      "e2ePaths": [
-        "apps/superadmin/e2e/130/paperclip-development-loop.spec.ts"
-      ],
-      "linkedToolScripts": []
-    },
-    {
       "id": "131",
       "name": "People database single-page workspace",
       "tier": "pr",
@@ -214,41 +203,12 @@
       ]
     },
     {
-      "id": "132",
-      "name": "Prompt and IDE auto loop",
-      "tier": "pr",
-      "status": "active",
-      "unitPaths": [
-        "apps/superadmin/app/superadmin/dashboard/project-progress/components/development-table/prompt-auto-loop.test.ts",
-        "apps/superadmin/app/superadmin/dashboard/project-progress/components/development-table/PromptEngineerModal.auto-mode.test.tsx"
-      ],
-      "e2ePaths": [
-        "apps/superadmin/e2e/132/prompt-ide-auto-loop.spec.ts"
-      ],
-      "linkedToolScripts": []
-    },
-    {
-      "id": "133",
-      "name": "Paperclip automation optimization (cost / retry / 24h)",
-      "tier": "pr",
-      "status": "active",
-      "unitPaths": [
-        "apps/superadmin/lib/paperclip/__tests__/polling.test.ts",
-        "apps/superadmin/lib/paperclip/__tests__/api-error-meta.test.ts"
-      ],
-      "e2ePaths": [],
-      "linkedToolScripts": [
-        "tools/paperclip/health-check.sh"
-      ]
-    },
-    {
       "id": "135",
       "name": "PromptEngineer rebuild — multi-engineer task dispatch",
       "tier": "pr",
       "status": "active",
       "unitPaths": [
-        "apps/superadmin/unit_test/135/prompt-templates.test.ts",
-        "apps/superadmin/unit_test/135/status-styles.test.ts"
+        "apps/superadmin/unit_test/135/prompt-templates.test.ts"
       ],
       "e2ePaths": [],
       "linkedToolScripts": []

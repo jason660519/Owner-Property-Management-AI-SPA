@@ -2,7 +2,7 @@
 // TanStack Table column definitions for the project progress table (16 columns)
 
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
-import { ExternalLink, Settings, EyeOff, Eye, X } from 'lucide-react';
+import { ExternalLink, EyeOff, Eye, X } from 'lucide-react';
 
 import type { ProgressRow } from './types';
 import {
@@ -109,7 +109,6 @@ function meta(idx: number) {
 
 // -- Factory --
 export interface CreateDevColumnsDeps {
-  onOpenPromptConfig: (row: ProgressRow) => void;
   hiddenRowKeysSet: Set<string>;
   onToggleHideRow: (rowKey: string) => void;
   onDeleteCustomRow: (rowId: string) => void;
@@ -117,7 +116,6 @@ export interface CreateDevColumnsDeps {
 
 export function createDevColumns(deps: CreateDevColumnsDeps): ColumnDef<ProgressRow, unknown>[] {
   const {
-    onOpenPromptConfig,
     hiddenRowKeysSet,
     onToggleHideRow,
     onDeleteCustomRow,
@@ -273,26 +271,10 @@ export function createDevColumns(deps: CreateDevColumnsDeps): ColumnDef<Progress
       },
     ),
 
-    // 12. Prompt & IDE Setting
-    col.display({
-      id: 'col-prompt',
-      meta: meta(11),
-      cell: ({ row }) => (
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onOpenPromptConfig(row.original); }}
-          className="inline-flex items-center gap-1 rounded-md border border-border-default bg-bg-secondary/60 px-2 py-1 text-[11px] text-text-secondary hover:bg-bg-secondary hover:text-text-primary transition-colors"
-        >
-          <Settings className="w-3.5 h-3.5" />
-          <span className="truncate">設定 Prompt / 執行</span>
-        </button>
-      ),
-    }),
-
-    // 13. Development log summary
+    // 12. Development log summary
     col.display({
       id: 'col-dev-log-summary',
-      meta: meta(12),
+      meta: meta(11),
       cell: ({ row }) => {
         const r = row.original;
         const summaryHref = buildDevLogSummaryRoute(r.__rowId);
@@ -340,10 +322,10 @@ export function createDevColumns(deps: CreateDevColumnsDeps): ColumnDef<Progress
       },
     }),
 
-    // 14. Notes (placeholder)
+    // 13. Notes (placeholder)
     col.display({
       id: 'col-notes',
-      meta: meta(13),
+      meta: meta(12),
       cell: () => (
         <span className="text-sm text-text-muted truncate max-w-full block">&mdash;</span>
       ),

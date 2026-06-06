@@ -27,7 +27,7 @@ describe('isPublicApiPath', () => {
   });
 
   it('matches webhook paths', () => {
-    expect(isPublicApiPath('/api/webhooks/paperclip')).toBe(true);
+    expect(isPublicApiPath('/api/webhooks/stripe')).toBe(true);
     expect(isPublicApiPath('/api/webhooks/anything/subpath')).toBe(true);
   });
 
@@ -48,7 +48,7 @@ describe('isPublicApiPath', () => {
   it('rejects arbitrary paths that look like auth but are not', () => {
     expect(isPublicApiPath('/api/ai-settings/keys')).toBe(false);
     expect(isPublicApiPath('/api/iam/audit')).toBe(false);
-    expect(isPublicApiPath('/api/paperclip/issues')).toBe(false);
+    expect(isPublicApiPath('/api/internal/test')).toBe(false);
     expect(isPublicApiPath('/api/supabase/sql')).toBe(false);
   });
 

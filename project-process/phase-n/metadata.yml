@@ -44,7 +44,7 @@ fields:
     description: Agent or human who created the record
   - name: issue_ref
     type: string
-    description: Paperclip issue that introduced this record
+    description: Issue reference that introduced this record
   - name: description
     type: string
     description: Narrative description of the phase

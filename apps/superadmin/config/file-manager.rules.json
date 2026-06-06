@@ -13,7 +13,6 @@
       ".venv_temp",
       ".ruff_cache",
       ".vscode",
-      ".paperclip-worktrees",
       ".playwright-mcp",
       "logs",
       "test-results",

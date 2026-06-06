@@ -26,7 +26,7 @@
 
 ### 關鍵架構發現（Sprint 1 啟動後才確認）
 
-- `backend/ocr_service`（FastAPI）已在 OpenClaw migration 過程中**被刪除**，僅剩 paperclip worktree 內的舊版本。
+- `backend/ocr_service`（FastAPI）已在 OpenClaw migration 過程中**被刪除**，僅剩 worktree 內的舊版本。
 - 舊 proxy `/api/people-db/[...slug]/route.ts` 仍在，但轉發目標（`BACKEND_PEOPLE_DB_URL`）不存在。
 - ES Docker container 仍運行（`people_database` index 有 5 筆測試資料）。
 - 處置：**放棄 proxy 模式**，新 API route 直接從 Next.js server 連 ES（沿用既有 `apps/superadmin/app/api/elasticsearch/route.ts` 的架構）。

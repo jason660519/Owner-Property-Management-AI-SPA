@@ -143,7 +143,7 @@
 - DB 與 agent 預設更新：完成度 100%。
   - 交付物：新增並套用 `20260428110000_replace_transcript_audit_gpt55.sql`，`transcript_audit` 預設移除 `openai/gpt-5.5`，改由 Claude / Gemini / Grok 為前三順位，OpenAI GPT-5.3 作補位。
 - Project Progress Feature ID SSoT：完成度 100%。
-  - 交付物：`roadmap.ts` 每個 feature 補固定 `id`；Development Tab、phase tabs、dev-log API、roadmap context API、Paperclip auto-dispatch 改讀 Feature ID；統一謄本解析工作台校正為 Feature ID 084。
+-  - 交付物：`roadmap.ts` 每個 feature 補固定 `id`；Development Tab、phase tabs、dev-log API、roadmap context API、auto-dispatch 改讀 Feature ID；統一謄本解析工作台校正為 Feature ID 084。
 
 ### 遭遇之技術或流程困難
 

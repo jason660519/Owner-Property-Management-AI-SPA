@@ -2,7 +2,6 @@
 // Shared types, constants, and utilities for the DevelopmentTab table
 
 import type { RoadmapFeature } from '@/app/data/roadmap';
-import type { PaperclipIssueStatus } from '@/lib/paperclip/types';
 import type { CustomProjectProgressRowPayload } from '../../types';
 import { canUseProjectFilePath } from './path-utils';
 
@@ -25,8 +24,7 @@ export interface WidthPreset {
 export type SelectionType = 'cell' | 'column' | 'row' | 'all' | null;
 
 // --- IDE & Status ---
-/** Execution environment — human IDEs + AI coding agents.
- *  Values with a matching Paperclip adapter can be auto-dispatched. */
+/** Execution environment — human IDEs + AI coding agents. */
 export type IDEOption =
   | ''
   // Human IDEs
@@ -45,17 +43,15 @@ export interface RuntimeOptionMeta {
   id: IDEOption;
   label: string;
   group: 'agent' | 'ide';
-  /** Paperclip adapter type, if this option maps to one. */
-  adapterType?: string;
 }
 
 export const RUNTIME_OPTIONS: RuntimeOptionMeta[] = [
-  // AI Coding Agents (ordered by fallback chain priority)
-  { id: 'Claude Code',   label: 'Claude Code (Agent)',   group: 'agent', adapterType: 'claude_local' },
-  { id: 'Codex',         label: 'Codex (Agent)',         group: 'agent', adapterType: 'codex_local' },
-  { id: 'Cursor',        label: 'Cursor (IDE + Agent)',  group: 'agent', adapterType: 'cursor' },
-  { id: 'OpenCode',      label: 'OpenCode (Agent)',      group: 'agent', adapterType: 'opencode_local' },
-  { id: 'Pi',            label: 'Pi (Agent)',            group: 'agent', adapterType: 'pi_local' },
+  // AI Coding Agents
+  { id: 'Claude Code',   label: 'Claude Code (Agent)',   group: 'agent' },
+  { id: 'Codex',         label: 'Codex (Agent)',         group: 'agent' },
+  { id: 'Cursor',        label: 'Cursor (IDE + Agent)',  group: 'agent' },
+  { id: 'OpenCode',      label: 'OpenCode (Agent)',      group: 'agent' },
+  { id: 'Pi',            label: 'Pi (Agent)',            group: 'agent' },
   // Human IDEs (manual mode only)
   { id: 'VSCode',        label: 'VSCode',                group: 'ide' },
   { id: 'Antigravity',   label: 'Antigravity',           group: 'ide' },
@@ -71,14 +67,6 @@ export type ProgressRow = RoadmapFeature & {
 };
 
 // --- Persisted settings ---
-export interface TaskDispatchConfig {
-  ide: IDEOption;
-  workCategory: string;
-  promptText: string;
-  adapterType: string;
-  model: string;
-}
-
 export interface DevTabSettings extends Record<string, unknown> {
   colWidths: number[];
   headerHeight: number;
@@ -88,7 +76,6 @@ export interface DevTabSettings extends Record<string, unknown> {
   widthPresets: WidthPreset[];
   customRows: CustomProjectProgressRowPayload[];
   hiddenRowKeys: string[];
-  taskDispatchConfigs: Record<string, TaskDispatchConfig>;
 }
 
 // --- Column header definition ---
@@ -109,7 +96,6 @@ export const COLUMN_HEADERS: ColumnHeaderDef[] = [
   { en: 'E2E Acceptance Test Script Folder Name', zh: '端到端測試腳本目錄名稱' },
   { en: 'TDD Progress', zh: 'TDD進度' },
   { en: 'E2E Test Progress', zh: 'E2E測試進度' },
-  { en: 'Prompt and IDE Setting', zh: 'Prompt 與 IDE 設定' },
   { en: 'Development Log Summary', zh: '開發日誌匯總' },
   { en: 'Notes', zh: '備註' },
 ];
@@ -120,8 +106,7 @@ export const COLUMN_LETTERS = COLUMN_HEADERS.map((_, i) => String.fromCharCode(6
 export const IDE_OPTIONS: IDEOption[] = ['', ...RUNTIME_OPTIONS.map(o => o.id)];
 
 // --- Layout constants ---
-// 14 columns: Status + Notes after removing Assignee column
-export const INITIAL_WIDTHS = [3, 3, 4, 4, 16, 13, 7, 6, 7, 6, 5, 9, 8, 5];
+export const INITIAL_WIDTHS = [3, 3, 4, 4, 16, 13, 7, 6, 7, 6, 5, 8, 5];
 export const TABLE_SCROLL_MIN_WIDTH_PX = 2600;
 export const DEFAULT_HEADER_HEIGHT = 56;
 export const MIN_HEADER_HEIGHT = 40;
@@ -129,7 +114,7 @@ export const MAX_HEADER_HEIGHT = 120;
 export const DEFAULT_COLUMN_ALIGNMENT: ColumnAlignment = { h: 'left', v: 'middle' };
 
 export const DEV_TAB_PAGE_KEY = 'project_progress';
-export const DEV_TAB_STORAGE_KEY = 'project_progress_settings_v3';
+export const DEV_TAB_STORAGE_KEY = 'project_progress_settings_v4';
 
 export const DEV_TAB_DEFAULTS: DevTabSettings = {
   colWidths: INITIAL_WIDTHS,
@@ -140,7 +125,6 @@ export const DEV_TAB_DEFAULTS: DevTabSettings = {
   widthPresets: [],
   customRows: [],
   hiddenRowKeys: [],
-  taskDispatchConfigs: {},
 };
 
 // --- Frozen column styling ---
@@ -171,35 +155,6 @@ export function deriveRowStatus(feature: RoadmapFeature): RowStatus {
   if (feature.phase === 'testing' || feature.testStatus === 'in_progress') return 'in_progress';
 
   return 'not_started';
-}
-
-/** Map Paperclip issue status → local RowStatus for auto-sync. */
-const PAPERCLIP_TO_ROW_STATUS: Record<PaperclipIssueStatus, RowStatus> = {
-  backlog: 'not_started',
-  todo: 'not_started',
-  in_progress: 'in_progress',
-  in_review: 'in_progress',
-  blocked: 'on_hold',
-  done: 'completed',
-  cancelled: 'on_hold',
-};
-
-export function paperclipStatusToRowStatus(status: PaperclipIssueStatus): RowStatus {
-  return PAPERCLIP_TO_ROW_STATUS[status] ?? 'not_started';
-}
-
-/** Map local DB task status (from paperclip_tasks table) → RowStatus. */
-const LOCAL_TASK_STATUS_MAP: Record<string, RowStatus> = {
-  submitted: 'not_started',
-  running: 'in_progress',
-  succeeded: 'completed',
-  failed: 'on_hold',
-  tripped: 'on_hold',
-  cancelled: 'on_hold',
-};
-
-export function localTaskStatusToRowStatus(dbStatus: string): RowStatus {
-  return LOCAL_TASK_STATUS_MAP[dbStatus] ?? 'not_started';
 }
 
 export function getEffectiveRowStatus(

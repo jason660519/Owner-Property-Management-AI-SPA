@@ -1,5 +1,4 @@
 // Barrel export for development-table sub-components
-export { default as PromptEngineerModal } from './PromptEngineerModal';
 export { default as AddRowModal } from './AddRowModal';
 export { default as TableCore } from './TableCore';
 export { default as TableToolbar } from './TableToolbar';

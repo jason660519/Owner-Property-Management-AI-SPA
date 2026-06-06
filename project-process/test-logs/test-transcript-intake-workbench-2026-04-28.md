@@ -43,7 +43,7 @@ Feature ID：084
   - 驗收重點：新的 run 不再先呼叫持續輸出不完整 JSON 的 `openai/gpt-5.5` reviewer。
 
 - Project Progress Feature ID SSoT：完成度 100%
-  - 交付物：`roadmap.ts` 每個 feature 補固定 `id`；Development Tab、phase tabs、dev-log API、roadmap context API、Paperclip auto-dispatch 改讀 Feature ID；統一謄本解析工作台校正為 Feature ID 084。
+-  - 交付物：`roadmap.ts` 每個 feature 補固定 `id`；Development Tab、phase tabs、dev-log API、roadmap context API、auto-dispatch 改讀 Feature ID；統一謄本解析工作台校正為 Feature ID 084。
   - 驗收重點：Feature ID 不再依賴 `RAW_FEATURES` index、table row 順序或 phase filter，避免 084/085 差一號。
 
 ## 遭遇之技術或流程困難

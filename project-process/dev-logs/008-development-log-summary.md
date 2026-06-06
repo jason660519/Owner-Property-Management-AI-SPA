@@ -33,7 +33,7 @@
 
 ### 遭遇困難與根因分析
 
-- **Paperclip CLI 生產 agent runs 仍無法直接追蹤**：Paperclip 在 Docker worktrees 中跑 `claude -p`/`codex exec` 等 CLI 指令，屬於完全外部的子程序。沒有 HTTP hook 可以攔截，token usage 不透明。根因：CLI adapter 的 token 資訊只存在於 CLI 程序的 stdout，而程序結束後 stdout 只有最終回應文字，不含 usage JSON（除非 CLI 支援 `--output-format json` 旗標）。
+- **CLI 生產 agent runs 仍無法直接追蹤**：在 Docker worktrees 中跑 `claude -p`/`codex exec` 等 CLI 指令時，屬於完全外部的子程序。沒有 HTTP hook 可以攔截，token usage 不透明。根因：CLI adapter 的 token 資訊只存在於 CLI 程序的 stdout，而程序結束後 stdout 只有最終回應文字，不含 usage JSON（除非 CLI 支援 `--output-format json` 旗標）。
 - **`buildMockResult` 型別問題**：型別從 `{ text, urls }` 改成 `EvaluatorResult` 後 `tokensInput` 存取正確，需同步更新 mock 函式回傳型別。已修正。
 
 ### 踩雷事件與預防指標
@@ -50,7 +50,7 @@
 
 - 補 `lib/ai/llm-price-map.ts` 單元測試（`calculateCostUsd` / `normalizeModelId` / `inferProvider`）：1 小時。
 - 補 `lib/ai/instrumented-llm-call.ts` 單元測試（mock `logLLMObservabilityInvocation`，驗證 best-effort 不拋出）：1 小時。
-- 評估 Claude CLI `--output-format json` 選項：若可行，可以在 `adapter-runs/route.ts` 的 `runCliAttempt` 中提取真實 token usage，補足 Paperclip 的最後一塊盲點：2 小時。
+- 評估 Claude CLI `--output-format json` 選項：若可行，可以在 `adapter-runs/route.ts` 的 `runCliAttempt` 中提取真實 token usage，補足最後一塊盲點：2 小時。
 - Sprint 3 規劃：LiteLLM Proxy Docker sidecar（for HTTP calls only），virtual key budget enforcement。
 ## 2026-04-24 — Sprint 1: Trace/Eval Console MVP
 

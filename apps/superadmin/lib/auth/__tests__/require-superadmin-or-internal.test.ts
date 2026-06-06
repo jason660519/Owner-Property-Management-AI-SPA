@@ -1,5 +1,5 @@
 // Unit tests for requireSuperadminOrInternal — dual-track auth (session OR
-// INTERNAL_API_KEY bearer token) used by server-callable paperclip routes.
+// INTERNAL_API_KEY bearer token) used by server-callable internal routes.
 
 import { NextRequest } from 'next/server';
 
@@ -15,7 +15,7 @@ import { requireSuperadminOrInternal } from '../require-superadmin-or-internal';
 const TEST_KEY = 'test-internal-key-2026';
 
 function mkReq(headers: Record<string, string> = {}): NextRequest {
-  return new NextRequest('http://localhost:3001/api/paperclip/test', {
+  return new NextRequest('http://localhost:3001/api/internal/test', {
     method: 'POST',
     headers,
   });

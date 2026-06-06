@@ -19,14 +19,12 @@ import {
   DEFAULT_HEADER_HEIGHT,
   deriveRowStatus,
   getRowKey,
-  localTaskStatusToRowStatus,
   summarizeRowStatuses,
 } from './development-table/types';
 import { useDevTableData } from './development-table/useDevTableData';
 import { createDevColumns } from './development-table/columns';
 import TableCore from './development-table/TableCore';
 import TableToolbar from './development-table/TableToolbar';
-import { usePaperclipTasks } from '@/lib/hooks/usePaperclipTasks';
 import AddRowModal from './development-table/AddRowModal';
 import type { CustomProjectProgressRowPayload } from '../types';
 
@@ -37,8 +35,6 @@ interface DevelopmentTabProps {
 }
 
 export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
-  const { tasksByRowId } = usePaperclipTasks();
-
   // --- Persisted preferences ---
   const { settings: tablePrefs, patch: patchTablePrefs } = useTablePreferences<DevTabSettings>({
     pageKey: DEV_TAB_PAGE_KEY,
@@ -75,19 +71,10 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
   const statusSelections = useMemo(() => {
     const derived: Record<string, RowStatus> = {};
     for (const row of filteredRows) {
-      const task = tasksByRowId[row.__rowId];
-      derived[getRowKey(row.__source, row.__rowId)] = task
-        ? localTaskStatusToRowStatus(task.status)
-        : deriveRowStatus(row);
+      derived[getRowKey(row.__source, row.__rowId)] = deriveRowStatus(row);
     }
     return derived;
-  }, [filteredRows, tasksByRowId]);
-
-  // --- Prompt settings page ---
-  const openPromptConfig = useCallback((row: ProgressRow) => {
-    const url = `/superadmin/dashboard/project-progress/task/${encodeURIComponent(row.__rowId)}`;
-    window.open(url, '_blank', 'noopener,noreferrer');
-  }, []);
+  }, [filteredRows]);
 
   // --- Add row modal ---
   const [addRowOpen, setAddRowOpen] = useState(false);
@@ -110,11 +97,10 @@ export const DevelopmentTab = ({ features }: DevelopmentTabProps) => {
 
   // --- Column definitions (memoized) ---
   const columns = useMemo(() => createDevColumns({
-    onOpenPromptConfig: openPromptConfig,
     hiddenRowKeysSet,
     onToggleHideRow: handleToggleHideRow,
     onDeleteCustomRow: handleDeleteCustomRow,
-  }), [openPromptConfig, hiddenRowKeysSet, handleToggleHideRow, handleDeleteCustomRow]);
+  }), [hiddenRowKeysSet, handleToggleHideRow, handleDeleteCustomRow]);
 
   const statusSummary = useMemo(
     () => summarizeRowStatuses(filteredRows, statusSelections),

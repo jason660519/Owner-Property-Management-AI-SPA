@@ -31,7 +31,6 @@ const SKIP_DIRS = new Set([
   'dist',
   'build',
   'out',
-  '.paperclip-worktrees',
   'playwright-report',
   'test-results',
 ]);

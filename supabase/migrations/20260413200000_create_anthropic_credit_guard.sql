@@ -1,9 +1,9 @@
 -- Anthropic credit guard: low-balance alert + circuit breaker.
 --
--- Tracks configured Anthropic credit budget vs. actual Paperclip task spend.
--- When remaining balance drops below alert_threshold_usd a Paperclip board
--- notification is fired. When it drops below circuit_breaker_threshold_usd,
--- new task dispatch is paused until credits are replenished.
+-- Tracks configured Anthropic credit budget vs. spend recorded in the app.
+-- When remaining balance drops below alert_threshold_usd an alert can be fired.
+-- When it drops below circuit_breaker_threshold_usd, new automated task
+-- dispatch can be paused until credits are replenished.
 --
 -- Background: the 2026-04-13 outage (VIS-48) showed that Anthropic credit
 -- exhaustion fails silently for hours. This table stores the guard state so
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS anthropic_credit_guard (
   -- Update this value after each credit top-up via POST /api/ai-billing/anthropic.
   total_credits_usd               NUMERIC(10,4) NOT NULL DEFAULT 50,
 
-  -- Track Paperclip task spend from this timestamp onwards.
+-- Track spend from this timestamp onwards.
   -- Reset alongside total_credits_usd when topping up.
   tracking_start_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 

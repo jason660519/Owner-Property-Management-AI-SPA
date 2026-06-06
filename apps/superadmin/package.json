@@ -9,7 +9,6 @@
     "lint": "eslint .",
     "test": "jest",
     "test:lvr-integration": "bash scripts/run-lvr-integration-test.sh",
-    "paperclip:patch-issue": "node scripts/paperclip-patch-and-verify.mjs",
     "file-manager:scan": "node node_modules/ts-node/dist/bin.js --transpile-only --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"Node\\\"}\" scripts/file-manager-scan.ts",
     "file-manager:plan": "node node_modules/ts-node/dist/bin.js --transpile-only --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"Node\\\"}\" scripts/file-manager-scan.ts --mode plan",
     "file-manager:apply": "node node_modules/ts-node/dist/bin.js --transpile-only --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"Node\\\"}\" scripts/file-manager-apply.ts",

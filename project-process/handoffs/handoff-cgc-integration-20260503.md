@@ -53,7 +53,7 @@ cgc-viz   # 開啟 http://localhost:18781
 
 ## 已知限制
 
-- Paperclip worktree 內的新異動需手動 `cgc index .` 才納入（worktree 彼此隔離）
+- Worktree 內的新異動需手動 `cgc index .` 才納入（worktree 彼此隔離）
 - `cgc doctor` 顯示 tree-sitter-language-pack 未安裝屬於誤報（doctor 檢查舊模組名），實際解析正常
 
 ---

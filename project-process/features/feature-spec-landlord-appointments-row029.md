@@ -110,4 +110,4 @@ Row 029 is **done** when:
 2. Unit tests for `appointment-notifications.ts` and `appointment-calendar.ts` pass
 3. E2E test for calendar view passes
 4. TDD Progress Report written at `project-process/test-logs/test-landlord-viewing-appointments-*.md`
-5. All changes committed on `feature/paperclip-row-029` branch
+5. All changes committed on `feature/row-029` branch

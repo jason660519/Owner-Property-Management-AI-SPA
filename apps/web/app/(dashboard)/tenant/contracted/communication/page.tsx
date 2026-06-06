@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, type SVGProps } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Bell,
@@ -8,7 +8,6 @@ import {
   Image as ImageIcon,
   Loader2,
   MessageSquare,
-  Paperclip,
   Search,
   Send,
   X,
@@ -21,6 +20,20 @@ import {
   getReadReceiptText,
   validateBuyerAttachment,
 } from '@/lib/buyer-communication/utils'
+
+function AttachmentIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <path
+        d="M8.5 12.5l6.9-6.9a3 3 0 114.2 4.2l-8.5 8.5a5 5 0 01-7.1-7.1l8.5-8.5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
 
 const SYSTEM_NOTICES = [
   '系統通知：新訊息將同步顯示於此，並可透過帳號設定開啟 Email 通知。',
@@ -309,7 +322,7 @@ export default function TenantCommunicationCenterPage() {
                   onClick={handleChooseAttachment}
                   className="inline-flex items-center gap-1 rounded-lg border border-border-default px-3 py-2 text-xs text-text-secondary hover:border-accent"
                 >
-                  <Paperclip className="h-4 w-4" />
+                  <AttachmentIcon className="h-4 w-4" />
                   上傳附件
                 </button>
                 <span className="text-xs text-text-muted">支援 PDF / 圖片，單檔上限 10MB</span>

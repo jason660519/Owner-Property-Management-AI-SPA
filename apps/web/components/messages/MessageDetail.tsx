@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, type SVGProps } from 'react'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import { Message } from '../../types/message'
-import { Send, ArrowLeft, MoreVertical, Paperclip } from 'lucide-react'
+import { Send, ArrowLeft, MoreVertical } from 'lucide-react'
 import { messageService } from '../../services/messageService'
 import clsx from 'clsx'
 
@@ -10,6 +10,20 @@ interface MessageDetailProps {
   message: Message | null
   onBack: () => void
   onReply: (content: string) => Promise<void>
+}
+
+function AttachmentIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <path
+        d="M8.5 12.5l6.9-6.9a3 3 0 114.2 4.2l-8.5 8.5a5 5 0 01-7.1-7.1l8.5-8.5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
 }
 
 export function MessageDetail({ message, onBack, onReply }: MessageDetailProps) {
@@ -106,7 +120,7 @@ export function MessageDetail({ message, onBack, onReply }: MessageDetailProps) 
           <div className="flex items-center justify-between p-2 bg-bg-secondary border-t border-border-default">
             <div className="flex gap-1">
               <button className="p-2 hover:bg-bg-tertiary rounded-full text-text-secondary">
-                <Paperclip className="w-5 h-5" />
+                <AttachmentIcon className="w-5 h-5" />
               </button>
             </div>
             <button

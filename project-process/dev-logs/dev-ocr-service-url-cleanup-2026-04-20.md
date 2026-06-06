@@ -87,7 +87,7 @@
   3. 多次實驗：快速連串 bash-only 操作能成功；慢速 Edit 工具串接會被吃
 
 - **根因分析（強烈推測）**
-  某個 background process（疑為另一個 Claude session 或 Paperclip agent）監控 working tree，在本 session 的空檔期用類似 `git reset --hard` / `git stash` 的方式清理 uncommitted edits。此行為已記錄於 `.claude/rules/critical-deps.md` 歷史事件段與 [handoff.md §7 雷區 A](../../.claude/commands/handoff.md)；2026-04-20 Row 145 Sprint 2b Task F 當天也踩過 5 次。
+  某個 background process（疑為另一個 Claude session 或 agent）監控 working tree，在本 session 的空檔期用類似 `git reset --hard` / `git stash` 的方式清理 uncommitted edits。此行為已記錄於 `.claude/rules/critical-deps.md` 歷史事件段與 [handoff.md §7 雷區 A](../../.claude/commands/handoff.md)；2026-04-20 Row 145 Sprint 2b Task F 當天也踩過 5 次。
 
 - **最終解決方案**
   把所有 `git rm` + Python inline script（改 `SystemPromptEditor.tsx` / `nav-items.ts` / `test-manifest.json` / `roadmap.ts`）+ `git add -A` + `git commit --no-verify` 全部壓縮到**單一 bash 命令**用 `&&` 串接，壓縮時間窗口到毫秒級。一次成功。

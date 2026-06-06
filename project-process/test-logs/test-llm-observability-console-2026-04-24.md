@@ -74,5 +74,5 @@
 ### 待辦（Sprint 2 後續）
 
 - 補 `llm-price-map.ts` 與 `instrumented-llm-call.ts` 單元測試。
-- 評估 Claude CLI `--output-format json`，補足 Paperclip CLI 生產 agent token tracking。
+- 評估 Claude CLI `--output-format json`，補足 CLI 生產 agent token tracking。
 - Sprint 3：LiteLLM Proxy Docker sidecar。

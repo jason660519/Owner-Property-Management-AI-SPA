@@ -1,6 +1,6 @@
 -- Row 135 P2: Multi-engineer collaboration
 -- 1) engineer_profiles — each engineer's display name, preferred IDE, default role
--- 2) paperclip_tasks gains claimed_by / claimed_at for task locking
+-- 2) task locking columns removed (no longer used)
 
 -- ── 1. Engineer profiles ──────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS engineer_profiles (
@@ -41,8 +41,3 @@ CREATE TRIGGER trg_engineer_profiles_updated_at
   BEFORE UPDATE ON engineer_profiles
   FOR EACH ROW
   EXECUTE FUNCTION update_dev_tasks_updated_at();
-
--- ── 2. Add claim columns to paperclip_tasks ───────────────────────────
-ALTER TABLE paperclip_tasks
-  ADD COLUMN IF NOT EXISTS claimed_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMPTZ;

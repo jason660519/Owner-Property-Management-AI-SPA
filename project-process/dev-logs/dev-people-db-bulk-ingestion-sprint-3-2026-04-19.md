@@ -37,9 +37,9 @@ Sprint 3 收斂為兩條並行軸：
 - `pdf-transposed.ts`（`detectTransposedTable` + `transposeTable`）對真正的轉置表（mock 測試 pattern）仍有效，保留作為工具函式；里長 PDF 由於 layout 本質不匹配，不會觸發
 - acceptanceCriteria #3 重新定義：「當 OCR 流程接上 OpenClaw 後，闕貴卿→南港路 212 號 2 樓」，真正驗收移至 Sprint 6+
 
-### 2. OCR callback 用 HMAC-SHA256 對 Paperclip webhook 對齊
+### 2. OCR callback 用 HMAC-SHA256 對 webhook 驗證模式對齊
 
-Header 格式 `x-ocr-signature: sha256=<hex-digest>`，body 是 raw text；與 [paperclip/route.ts](../../apps/superadmin/app/api/webhooks/paperclip/route.ts) 同 pattern。secret 從 env `OCR_CALLBACK_SECRET` 讀取，unset 時 webhook 回 500（hard-fail 而非靜默接受 unsigned callback）。
+Header 格式 `x-ocr-signature: sha256=<hex-digest>`，body 是 raw text；secret 從 env `OCR_CALLBACK_SECRET` 讀取，unset 時 webhook 回 500（hard-fail 而非靜默接受 unsigned callback）。
 
 `MockOcrClient` 的 `simulateCallback(jobId, pages)` 是 test helper，生產 webhook 呼叫者是真實 OpenClaw（Sprint 6+）。
 

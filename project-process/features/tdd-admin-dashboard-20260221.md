@@ -58,7 +58,7 @@ Trae AI / Claude Sonnet 4.6
 • page.tsx 從 1,478 行縮減至 87 行（重構率 94%）
 • npm run build 零 TypeScript 錯誤
 
-[2026/04/11] Claude Sonnet 4.6 (VIS-12 / feature/paperclip-row-001)
+[2026/04/11] Claude Sonnet 4.6 (VIS-12 / feature/row-001)
 • 實作 T-08：待處理審核事項通知徽章（`pendingVerifications` 來自 AdminStats）
 • 實作 T-09：SystemGrowthChart 日期篩選（30天/90天/180天），點選後圖表即時更新
 • 建立自動化測試：`unit_and_integration_test/001/` (17 tests, 2 suites — 全部通過)

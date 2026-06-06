@@ -134,7 +134,7 @@ CREATE TABLE public.llm_price_map_cache (
 - **不引入 LiteLLM Python SDK** — 避免 Python/Node 混用複雜度
 - **不建立 LiteLLM Proxy Docker sidecar** — P3，需另立 Sprint
 - **不替換 Supabase tables** — 現有 schema 保持不變
-- **不追蹤 Paperclip CLI 生產 agent runs** — 這些在 Docker 外部無法直接攔截；Sprint 3 評估透過 worktree 完成 webhook 補追
+- **不追蹤 CLI 生產 agent runs** — 這些在 Docker 外部無法直接攔截；Sprint 3 評估透過 worktree 完成 webhook 補追
 - **不追蹤 `models/test` 的診斷 call** — 這是 1-token 連線測試，成本極低，低優先
 
 ---
@@ -154,5 +154,5 @@ CREATE TABLE public.llm_price_map_cache (
 | Sprint | 目標 |
 |---|---|
 | Sprint 3 | LiteLLM Proxy Docker sidecar（for HTTP calls only），virtual key budget enforcement |
-| Sprint 4 | Paperclip agent 完成 webhook → 補 token/cost 欄位 |
+| Sprint 4 | agent 完成 webhook → 補 token/cost 欄位 |
 | Sprint 5 | cost_usd 欄位整合到 llm-monitor 總覽統計、月度預算警示 |

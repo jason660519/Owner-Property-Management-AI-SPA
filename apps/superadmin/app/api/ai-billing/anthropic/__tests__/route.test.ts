@@ -1,6 +1,6 @@
 // Issue #34 PR B — /api/ai-billing/anthropic (GET + POST) must require a
 // real superadmin session. Previously this endpoint had NO auth at all
-// (the comment claimed PAPERCLIP_API_KEY middleware, but it was never wired).
+// (a previous comment incorrectly claimed an internal-key middleware gate).
 
 import { NextRequest } from 'next/server';
 
@@ -34,15 +34,11 @@ jest.mock('@/lib/ai/anthropic-credit-guard', () => ({
       circuit_breaker_active: false,
     });
   },
-  getPaperclipSpendUsd: (...args: unknown[]) => {
+  getAnthropicSpendUsd: (...args: unknown[]) => {
     spendSpy(...args);
     return Promise.resolve(25);
   },
-  evaluateCreditStatus: () => ({
-    remaining_usd: 75,
-    alert_triggered: false,
-    circuit_breaker_triggered: false,
-  }),
+  evaluateCreditStatus: () => ({ remainingUsd: 75 }),
 }));
 
 const fromSpy = jest.fn();

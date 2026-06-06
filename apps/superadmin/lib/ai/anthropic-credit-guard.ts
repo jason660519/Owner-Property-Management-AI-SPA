@@ -1,10 +1,11 @@
 /**
  * Anthropic credit guard: low-balance alert + circuit breaker.
  *
- * Tracks Paperclip task spend (paperclip_tasks.cost_usd) against an
+ * Tracks Anthropic spend (derived from `ai_prompt_audit_logs`) against an
  * operator-configured credit budget. When remaining balance drops below
- * alert_threshold_usd a Paperclip board notification is created. When it
- * drops below circuit_breaker_threshold_usd, new task dispatch is blocked.
+ * alert_threshold_usd an alert event is recorded (best-effort). When it
+ * drops below circuit_breaker_threshold_usd, callers can treat the guard as
+ * "paused" and stop non-essential Anthropic usage.
  *
  * Background: the 2026-04-13 outage (VIS-48) showed that Anthropic credit
  * exhaustion fails silently for hours. This module adds proactive detection.
@@ -19,6 +20,8 @@
  *   rate-limited internally to every 5 minutes and is safe to call on every
  *   poll tick.
  */
+
+import { computeCostUsd } from '@/lib/ai/agent-cost-guard';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -47,13 +50,6 @@ export interface CreditGuardStatus {
   lastCheckedAt: string;
 }
 
-export interface PaperclipAlertConfig {
-  baseUrl: string;
-  companyId: string;
-  apiKey: string;
-  projectId?: string;
-}
-
 // Minimal Supabase query interface (testable without the real client).
 // Mirrors the pattern in agent-cost-guard.ts (AuditLogReader).
 interface TerminalQuery {
@@ -61,7 +57,6 @@ interface TerminalQuery {
 }
 interface FilterBuilder extends TerminalQuery {
   gte(col: string, val: string): FilterBuilder;
-  in(col: string, vals: string[]): FilterBuilder;
   eq(col: string, val: string): FilterBuilder;
   maybeSingle(): PromiseLike<{ data: unknown; error: unknown }>;
 }
@@ -100,33 +95,44 @@ export async function loadCreditGuardConfig(
 }
 
 /**
- * Sum cost_usd from completed Paperclip tasks since tracking_start_at.
- * Only counts rows with status='succeeded' (terminal success).
+ * Sum USD spend for Anthropic calls since tracking_start_at using audit logs.
  * Returns 0 on DB error so the guard degrades gracefully.
  */
-export async function getPaperclipSpendUsd(
+export async function getAnthropicSpendUsd(
   db: CreditGuardReader,
   trackingStartAt: string,
 ): Promise<number> {
   try {
     const { data, error } = await db
-      .from('paperclip_tasks')
-      .select('cost_usd')
+      .from('ai_prompt_audit_logs')
+      .select('provider, model_id, input_tokens, output_tokens')
       .gte('created_at', trackingStartAt)
-      .in('status', ['succeeded']);
+      .eq('provider', 'anthropic')
+      .eq('status', 'success');
 
     if (error) {
-      console.warn('[credit-guard] failed to query task spend:', error);
+      console.warn('[credit-guard] failed to query audit log spend:', error);
       return 0;
     }
     if (!Array.isArray(data)) return 0;
 
-    return (data as Array<{ cost_usd: number | null }>).reduce(
-      (sum, row) => sum + (row.cost_usd ?? 0),
-      0,
-    );
+    let total = 0;
+    for (const row of data as Array<{
+      provider: string;
+      model_id: string;
+      input_tokens: number | null;
+      output_tokens: number | null;
+    }>) {
+      total += computeCostUsd(
+        row.provider,
+        row.model_id,
+        row.input_tokens ?? 0,
+        row.output_tokens ?? 0,
+      );
+    }
+    return total;
   } catch (err) {
-    console.warn('[credit-guard] exception querying task spend:', err);
+    console.warn('[credit-guard] exception querying audit log spend:', err);
     return 0;
   }
 }
@@ -193,87 +199,23 @@ export function shouldRunCreditCheck(
   return now.getTime() - new Date(config.last_balance_check_at).getTime() >= CHECK_INTERVAL_MS;
 }
 
-// ── Alert (Paperclip board notification) ──────────────────────────────────
-
-/**
- * Create a high-priority Paperclip issue as a board alert.
- * Failures are swallowed — the alert is best-effort, the guard still runs.
- */
-export async function firePaperclipAlert(
-  paperclip: PaperclipAlertConfig,
-  creditStatus: CreditGuardStatus,
-): Promise<void> {
-  const urgency = creditStatus.status === 'critical' ? 'CRITICAL' : 'WARNING';
-  const title = `[${urgency}] Anthropic credit low-balance detected`;
-
-  const rows = [
-    `| Configured total | $${creditStatus.configuredCreditsUsd.toFixed(2)} |`,
-    `| Spent (tracked period) | $${creditStatus.spentUsd.toFixed(2)} |`,
-    `| **Remaining** | **$${creditStatus.remainingUsd.toFixed(2)}** |`,
-    `| Alert threshold | $${creditStatus.alertThresholdUsd.toFixed(2)} |`,
-    `| Circuit breaker threshold | $${creditStatus.circuitBreakerThresholdUsd.toFixed(2)} |`,
-  ].join('\n');
-
-  const actionNote =
-    creditStatus.status === 'critical'
-      ? '**Circuit breaker has been activated — new Paperclip task dispatch is paused.**\n\n'
-        + 'To restore: top up Anthropic credits, then call `POST /api/ai-billing/anthropic` '
-        + 'with `{ "total_credits_usd": <new_total>, "reset_circuit_breaker": true }`.'
-      : 'Please top up Anthropic credits soon to avoid service interruption.\n\n'
-        + 'After topping up, call `POST /api/ai-billing/anthropic` '
-        + 'with `{ "total_credits_usd": <new_total> }` to update the budget.';
-
-  const description =
-    `## Anthropic Credit Alert\n\n`
-    + `**Status:** ${creditStatus.status.toUpperCase()}\n\n`
-    + `| Metric | Value |\n| :--- | :--- |\n`
-    + rows
-    + `\n\n`
-    + actionNote;
-
-  try {
-    const base = paperclip.baseUrl.replace(/\/+$/, '');
-    const res = await fetch(`${base}/api/companies/${encodeURIComponent(paperclip.companyId)}/issues`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${paperclip.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        title,
-        description,
-        priority: creditStatus.status === 'critical' ? 'critical' : 'high',
-        ...(paperclip.projectId ? { projectId: paperclip.projectId } : {}),
-      }),
-    });
-    if (!res.ok) {
-      console.warn(`[credit-guard] alert issue creation failed (${res.status})`);
-    } else {
-      console.log(`[credit-guard] alert issued: ${urgency} — $${creditStatus.remainingUsd.toFixed(2)} remaining`);
-    }
-  } catch (err) {
-    console.warn('[credit-guard] failed to fire Paperclip alert:', err instanceof Error ? err.message : err);
-  }
-}
-
 // ── Main orchestration ─────────────────────────────────────────────────────
 
 /**
  * Run one credit guard cycle:
  *   1. Load config from DB (returns null if missing).
  *   2. Rate-limit: skip if last check was < 5 minutes ago.
- *   3. Compute spend from paperclip_tasks since tracking_start_at.
+ *   3. Compute spend from ai_prompt_audit_logs since tracking_start_at.
  *   4. Evaluate alert / circuit-breaker thresholds.
  *   5. Update circuit breaker state (trip or restore).
- *   6. Fire a Paperclip alert if balance is low/critical and cooldown passed.
- *   7. Persist updated state to DB.
+ *   6. Record an alert event (best-effort) if balance is low/critical and cooldown passed.
+ *   7. Persist updated state back to DB.
  *
  * Safe to call on every poll tick — internally rate-limited.
  * Returns null if config is missing or the check was skipped.
  */
 export async function runCreditGuardCycle(
   db: CreditGuardReader,
-  paperclip: PaperclipAlertConfig,
 ): Promise<CreditGuardStatus | null> {
   const config = await loadCreditGuardConfig(db);
   if (!config) return null;
@@ -281,7 +223,7 @@ export async function runCreditGuardCycle(
   const now = new Date();
   if (!shouldRunCreditCheck(config, now)) return null;
 
-  const spentUsd = await getPaperclipSpendUsd(db, config.tracking_start_at);
+  const spentUsd = await getAnthropicSpendUsd(db, config.tracking_start_at);
   const creditStatus = evaluateCreditStatus(config, spentUsd);
 
   const updates: Record<string, unknown> = {
@@ -313,7 +255,9 @@ export async function runCreditGuardCycle(
     (creditStatus.status === 'low' || creditStatus.status === 'critical') &&
     shouldFireAlert(config, now)
   ) {
-    await firePaperclipAlert(paperclip, creditStatus);
+    console.warn(
+      `[credit-guard] low balance: status=${creditStatus.status} remaining=$${creditStatus.remainingUsd.toFixed(2)}`,
+    );
     updates.last_alert_fired_at = now.toISOString();
   }
 
