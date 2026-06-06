@@ -52,7 +52,6 @@
 - 補 `lib/ai/instrumented-llm-call.ts` 單元測試（mock `logLLMObservabilityInvocation`，驗證 best-effort 不拋出）：1 小時。
 - 評估 Claude CLI `--output-format json` 選項：若可行，可以在 `adapter-runs/route.ts` 的 `runCliAttempt` 中提取真實 token usage，補足 Paperclip 的最後一塊盲點：2 小時。
 - Sprint 3 規劃：LiteLLM Proxy Docker sidecar（for HTTP calls only），virtual key budget enforcement。
-
 ## 2026-04-24 — Sprint 1: Trace/Eval Console MVP
 
 ### 本日完成任務清單
