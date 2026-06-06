@@ -10,18 +10,8 @@ set -e
 # --- 配置 ---
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$PROJECT_ROOT/logs/dev"
-PAPERCLIP_ENV_FILE="$PROJECT_ROOT/docker/paperclip/.env.paperclip"
-PAPERCLIP_COMPOSE_FILE="$PROJECT_ROOT/docker/paperclip/docker-compose.paperclip.yml"
 ELASTIC_COMPOSE_FILE="$PROJECT_ROOT/backend/elasticsearch/docker-compose.yml"
 HERMES_RUNTIME_COMPOSE_FILE="$PROJECT_ROOT/tools/hermes-runtime/docker-compose.yml"
-PAPERCLIP_PORT="3187"
-
-if [ -f "$PAPERCLIP_ENV_FILE" ]; then
-    PAPERCLIP_PORT_FROM_ENV=$(grep '^PAPERCLIP_PORT=' "$PAPERCLIP_ENV_FILE" | head -n1 | cut -d= -f2-)
-    if [ -n "$PAPERCLIP_PORT_FROM_ENV" ]; then
-        PAPERCLIP_PORT="$PAPERCLIP_PORT_FROM_ENV"
-    fi
-fi
 
 # --- 顏色定義 ---
 RED='\033[0;31m'
@@ -49,18 +39,6 @@ kill_port 3000 "Web App"
 kill_port 3002 "Web App AU"
 kill_port 3001 "Superadmin"
 kill_port 8081 "Expo/Metro"
-
-# 停止 Paperclip Docker 服務
-if [ -f "$PAPERCLIP_COMPOSE_FILE" ] && [ -f "$PAPERCLIP_ENV_FILE" ]; then
-    echo -e "${YELLOW}Stopping Paperclip (Docker)...${NC}"
-    docker compose --env-file "$PAPERCLIP_ENV_FILE" -f "$PAPERCLIP_COMPOSE_FILE" down > /dev/null 2>&1 || true
-    echo -e "${GREEN}✅ Paperclip stopped${NC}"
-elif docker ps -a --format '{{.Names}}' | grep -q '^paperclip-paperclip-1$'; then
-    echo -e "${YELLOW}Stopping Paperclip container directly...${NC}"
-    docker rm -f paperclip-paperclip-1 > /dev/null 2>&1 || true
-    echo -e "${GREEN}✅ Paperclip stopped${NC}"
-fi
-kill_port "$PAPERCLIP_PORT" "Paperclip"
 
 # 停止 Hermes Docker 服務
 if [ -f "$HERMES_RUNTIME_COMPOSE_FILE" ]; then
@@ -102,7 +80,6 @@ rm -f \
     "$LOG_DIR/nextjs.log" \
     "$LOG_DIR/nextjs-au.log" \
     "$LOG_DIR/superadmin.log" \
-    "$LOG_DIR/paperclip.log" \
     "$LOG_DIR/hermes-runtime.log" \
     "$LOG_DIR/cgc-viz.log" \
     /tmp/nextjs.log \
@@ -143,7 +120,7 @@ if command -v supabase &> /dev/null; then
                 echo -e "${YELLOW}⚠️  備份失敗（DB 可能未運行），繼續停止服務${NC}"
             fi
             echo -e "${YELLOW}Stopping Supabase...${NC}"
-            supabase stop
+            SUPABASE_TELEMETRY_DISABLED=1 supabase stop
             echo -e "${GREEN}✅ Supabase stopped${NC}"
         else
             echo -e "${BLUE}⚪ Supabase kept running${NC}"

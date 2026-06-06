@@ -45,12 +45,430 @@ check_command() {
     fi
 }
 
+print_install_hint() {
+    local cmd="$1"
+    echo -e "${YELLOW}────────────────────────────────────────${NC}"
+    case "$cmd" in
+        docker)
+            echo -e "${YELLOW}建議安裝：Docker Desktop (macOS)${NC}"
+            echo -e "${YELLOW}下載：https://www.docker.com/products/docker-desktop/${NC}"
+            ;;
+        node|npm)
+            echo -e "${YELLOW}建議安裝：Node.js 20+ (含 npm 10+)${NC}"
+            echo -e "${YELLOW}下載：https://nodejs.org/${NC}"
+            echo -e "${YELLOW}或用本腳本自動安裝（macOS）：./start.sh bootstrap-node${NC}"
+            echo -e "${YELLOW}安裝後請重新開啟 Terminal，再執行 ./start.sh all${NC}"
+            ;;
+        supabase)
+            echo -e "${YELLOW}建議安裝：Supabase CLI${NC}"
+            echo -e "${YELLOW}說明：https://supabase.com/docs/guides/local-development/cli/getting-started${NC}"
+            echo -e "${YELLOW}若已安裝 Node，也可直接用 npx：npx --yes supabase --version${NC}"
+            echo -e "${YELLOW}或用本腳本安裝 Supabase CLI binary：./start.sh bootstrap-supabase${NC}"
+            ;;
+        python3)
+            echo -e "${YELLOW}建議安裝：Python 3.11+${NC}"
+            echo -e "${YELLOW}下載：https://www.python.org/downloads/${NC}"
+            ;;
+        openclaw)
+            echo -e "${YELLOW}建議安裝：OpenClaw (需先有 Node)${NC}"
+            echo -e "${YELLOW}指令：npm install -g openclaw${NC}"
+            ;;
+    esac
+    echo -e "${YELLOW}────────────────────────────────────────${NC}"
+}
+
+require_command() {
+    local cmd="$1"
+    if ! command -v "$cmd" &> /dev/null; then
+        echo -e "${RED}❌ 錯誤: 未安裝 $cmd${NC}"
+        print_install_hint "$cmd"
+        return 1
+    fi
+    return 0
+}
+
+is_interactive_shell() {
+    [ -t 0 ] && [ -t 1 ]
+}
+
+prompt_yes_no() {
+    local prompt="$1"
+    local answer=""
+    if ! is_interactive_shell; then
+        return 1
+    fi
+    read -r -p "$prompt" answer
+    case "$answer" in
+        y|Y|yes|YES) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+supabase_exec() {
+    if command -v supabase > /dev/null 2>&1; then
+        SUPABASE_TELEMETRY_DISABLED=1 supabase "$@"
+        return $?
+    fi
+
+    if [ -x "$HOME/.local/bin/supabase" ]; then
+        SUPABASE_TELEMETRY_DISABLED=1 "$HOME/.local/bin/supabase" "$@"
+        return $?
+    fi
+    if command -v npx > /dev/null 2>&1; then
+        SUPABASE_TELEMETRY_DISABLED=1 npx --yes supabase "$@"
+        return $?
+    fi
+    echo -e "${RED}❌ 錯誤: 未安裝 supabase（且找不到 npx 可作為替代）${NC}"
+    print_install_hint supabase
+    return 1
+}
+
+ensure_local_bin_on_path() {
+    local bin_dir="$HOME/.local/bin"
+    mkdir -p "$bin_dir"
+    case ":$PATH:" in
+        *":$bin_dir:"*) return 0 ;;
+    esac
+    export PATH="$bin_dir:$PATH"
+    echo -e "${YELLOW}ℹ️  已將 $bin_dir 暫時加入 PATH（僅本次 Terminal 有效）${NC}"
+    echo -e "${YELLOW}   若要永久生效，請把以下加入 ~/.zshrc：${NC}"
+    echo -e "${YELLOW}   export PATH=\"$bin_dir:\$PATH\"${NC}"
+    return 0
+}
+
+bootstrap_node() {
+    if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+        check_node_version || return 1
+        echo -e "${GREEN}✅ Node.js 已就緒${NC}"
+        return 0
+    fi
+
+    if [[ "$OSTYPE" != "darwin"* ]]; then
+        echo -e "${RED}❌ 目前只提供 macOS 的自動安裝流程（請自行安裝 Node.js 20+）${NC}"
+        print_install_hint node
+        return 1
+    fi
+
+    require_command curl || return 1
+
+    echo -e "${BLUE}⬇️  安裝 nvm（用於安裝 Node.js）...${NC}"
+    if [ ! -s "$HOME/.nvm/nvm.sh" ]; then
+        curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash || {
+            echo -e "${RED}❌ nvm 安裝失敗${NC}"
+            return 1
+        }
+    fi
+
+    export NVM_DIR="$HOME/.nvm"
+    if [ -s "$NVM_DIR/nvm.sh" ]; then
+        . "$NVM_DIR/nvm.sh"
+    fi
+
+    if ! command -v nvm >/dev/null 2>&1; then
+        echo -e "${RED}❌ 找不到 nvm（請重新開啟 Terminal 後重試：./start.sh bootstrap-node）${NC}"
+        return 1
+    fi
+
+    if [ -n "${npm_config_prefix:-}" ]; then
+        unset npm_config_prefix
+    fi
+
+    echo -e "${BLUE}⬇️  安裝 Node.js 20（含 npm）...${NC}"
+    nvm install 20
+    nvm use 20
+    nvm alias default 20
+
+    if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
+        echo -e "${RED}❌ Node.js 安裝後仍無法使用，請重新開啟 Terminal${NC}"
+        return 1
+    fi
+
+    check_node_version || return 1
+    echo -e "${GREEN}✅ Node.js 已安裝完成（建議重新開啟 Terminal 讓環境變數完整生效）${NC}"
+    return 0
+}
+
+bootstrap_supabase() {
+    ensure_local_bin_on_path || return 1
+    if command -v supabase >/dev/null 2>&1; then
+        local existing_dir
+        existing_dir="$(dirname "$(command -v supabase)" 2>/dev/null || echo "")"
+        if [ -n "$existing_dir" ] && [ -x "$existing_dir/supabase-go" ]; then
+            echo -e "${GREEN}✅ Supabase CLI 已就緒${NC}"
+            return 0
+        fi
+    fi
+
+    require_command curl || return 1
+    require_command tar || return 1
+
+    local arch platform version download_base tmpdir archive archive_url version_display
+    arch="$(uname -m)"
+    case "$arch" in
+        arm64*) platform="darwin_arm64" ;;
+        x86_64*) platform="darwin_amd64" ;;
+        *) echo -e "${RED}❌ 不支援的 CPU 架構: $arch${NC}"; return 1 ;;
+    esac
+    tmpdir="$(mktemp -d)"
+    archive="$tmpdir/supabase.tar.gz"
+    archive_url="https://github.com/supabase/cli/releases/latest/download/supabase_${platform}.tar.gz"
+    version_display="latest"
+
+    echo -e "${BLUE}⬇️  下載 Supabase CLI: ${version_display} (${platform})...${NC}"
+    if ! curl -fL -o "$archive" "$archive_url" >/dev/null 2>&1; then
+        echo -e "${YELLOW}⚠️  無法從 releases/latest 下載，改用 GitHub API 查詢版本...${NC}"
+        echo -e "${BLUE}⬇️  取得 Supabase CLI 最新版本資訊...${NC}"
+        version="$(curl -fsSL https://api.github.com/repos/supabase/cli/releases/latest | grep '"tag_name":' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')"
+        if [ -z "$version" ]; then
+            echo -e "${RED}❌ 無法取得 Supabase CLI 版本（GitHub API 失敗）${NC}"
+            rm -rf "$tmpdir"
+            return 1
+        fi
+        version_display="$version"
+        download_base="https://github.com/supabase/cli/releases/download/${version}"
+
+        echo -e "${BLUE}⬇️  下載 Supabase CLI: ${version_display} (${platform})...${NC}"
+        local version_no_v
+        version_no_v="${version#v}"
+        if ! curl -fL -o "$archive" "${download_base}/supabase_${version_no_v}_${platform}.tar.gz" >/dev/null 2>&1; then
+            if ! curl -fL -o "$archive" "${download_base}/supabase_${version}_${platform}.tar.gz" >/dev/null 2>&1; then
+                curl -fL -o "$archive" "${download_base}/supabase_${platform}.tar.gz" >/dev/null 2>&1 || {
+                echo -e "${RED}❌ 下載 Supabase CLI 失敗（請檢查網路或公司代理）${NC}"
+                rm -rf "$tmpdir"
+                return 1
+                }
+            fi
+        fi
+    fi
+
+    mkdir -p "$tmpdir/extracted"
+    tar -xzf "$archive" -C "$tmpdir/extracted"
+
+    if [ ! -f "$tmpdir/extracted/supabase" ]; then
+        echo -e "${RED}❌ Supabase CLI 解壓失敗：找不到 supabase binary${NC}"
+        rm -rf "$tmpdir"
+        return 1
+    fi
+
+    mkdir -p "$HOME/.local/bin"
+    mv "$tmpdir/extracted/supabase" "$HOME/.local/bin/supabase"
+    if [ -f "$tmpdir/extracted/supabase-go" ]; then
+        mv "$tmpdir/extracted/supabase-go" "$HOME/.local/bin/supabase-go"
+    fi
+    chmod +x "$HOME/.local/bin/supabase"
+    [ -f "$HOME/.local/bin/supabase-go" ] && chmod +x "$HOME/.local/bin/supabase-go"
+    if command -v xattr >/dev/null 2>&1; then
+        xattr -dr com.apple.quarantine "$HOME/.local/bin/supabase" 2>/dev/null || true
+        xattr -dr com.apple.quarantine "$HOME/.local/bin/supabase-go" 2>/dev/null || true
+    fi
+    rm -rf "$tmpdir"
+
+    if [ ! -x "$HOME/.local/bin/supabase" ]; then
+        echo -e "${RED}❌ Supabase CLI 已下載但目前 Shell 找不到（請重新開啟 Terminal）${NC}"
+        return 1
+    fi
+
+    if [ ! -x "$HOME/.local/bin/supabase-go" ]; then
+        echo -e "${YELLOW}⚠️  Supabase CLI 已下載，但缺少 supabase-go（或無法執行）${NC}"
+        echo -e "${YELLOW}   建議改用 npm 安裝：npm i -g supabase${NC}"
+        return 1
+    fi
+
+    echo -e "${GREEN}✅ Supabase CLI 已安裝完成: $("$HOME/.local/bin/supabase" --version 2>/dev/null || echo 'ok')${NC}"
+    return 0
+}
+
+bootstrap_all_deps() {
+    bootstrap_node || true
+    bootstrap_supabase || true
+    echo -e "${GREEN}✅ bootstrap 流程已完成（若仍顯示找不到指令，請重新開啟 Terminal）${NC}"
+}
+
+check_node_version() {
+    local v major
+    v="$(node -v 2>/dev/null || true)"
+    v="${v#v}"
+    major="${v%%.*}"
+    if [ -z "$major" ]; then
+        echo -e "${RED}❌ 錯誤: 無法判斷 Node 版本 (node -v = $v)${NC}"
+        print_install_hint node
+        return 1
+    fi
+    if [ "$major" -lt 20 ]; then
+        echo -e "${RED}❌ 錯誤: Node 版本過舊 (目前: v${v})，需要 Node.js 20+${NC}"
+        print_install_hint node
+        return 1
+    fi
+    return 0
+}
+
+check_docker_dependencies() {
+    echo -e "${BLUE}🐳 檢查 Docker 狀態...${NC}"
+    require_command docker || return 1
+    ensure_docker_running
+    if ! docker compose version > /dev/null 2>&1; then
+        echo -e "${RED}❌ 錯誤: 找不到 docker compose (Compose v2)${NC}"
+        echo -e "${YELLOW}請確認已安裝/啟用 Docker Desktop 的 Compose plugin${NC}"
+        return 1
+    fi
+    local image_count
+    image_count="$(docker image ls -q 2>/dev/null | wc -l | tr -d ' ')"
+    if [ "${image_count:-0}" -eq 0 ]; then
+        echo -e "${YELLOW}ℹ️  偵測到 Docker 目前是空的（沒有任何 images）${NC}"
+        echo -e "${YELLOW}   第一次執行會需要下載/建立多個 images（Supabase / Kibana / Hermes 等）${NC}"
+        echo -e "${YELLOW}   這可能需要一些時間與網路流量。${NC}"
+        if prompt_yes_no "要現在開始下載/建立必要的 Docker images 嗎？(y/N) "; then
+            echo -e "${GREEN}✅ 已確認，繼續執行${NC}"
+        else
+            echo -e "${YELLOW}↪ 已取消。你可以稍後再執行：./start.sh all${NC}"
+            return 1
+        fi
+    fi
+    return 0
+}
+
+check_supabase_dependencies() {
+    if command -v supabase > /dev/null 2>&1; then
+        return 0
+    fi
+    if [ -x "$HOME/.local/bin/supabase" ]; then
+        return 0
+    fi
+    if command -v npx > /dev/null 2>&1; then
+        echo -e "${YELLOW}ℹ️  未找到全域 supabase，將改用 npx supabase（首次執行可能需要下載）${NC}"
+        return 0
+    fi
+    echo -e "${RED}❌ 錯誤: 未安裝 supabase（且找不到 npx 可作為替代）${NC}"
+    print_install_hint node
+    print_install_hint supabase
+    echo -e "${YELLOW}或直接執行：./start.sh bootstrap（自動安裝 Node + Supabase CLI）${NC}"
+    if prompt_yes_no "要現在自動安裝 Node + Supabase CLI 嗎？(y/N) "; then
+        bootstrap_all_deps || return 1
+        if command -v supabase > /dev/null 2>&1 || [ -x "$HOME/.local/bin/supabase" ] || command -v npx > /dev/null 2>&1; then
+            return 0
+        fi
+        echo -e "${RED}❌ 安裝完成但仍找不到 supabase/npx，請重新開啟 Terminal 後重試${NC}"
+        return 1
+    fi
+    return 1
+}
+
+load_nvm_if_available() {
+    if [ -n "${npm_config_prefix:-}" ]; then
+        unset npm_config_prefix
+    fi
+
+    if [ -n "${NVM_DIR:-}" ] && [ -s "$NVM_DIR/nvm.sh" ]; then
+        . "$NVM_DIR/nvm.sh"
+    elif [ -s "$HOME/.nvm/nvm.sh" ]; then
+        export NVM_DIR="$HOME/.nvm"
+        . "$HOME/.nvm/nvm.sh"
+    fi
+
+    if command -v nvm >/dev/null 2>&1; then
+        nvm use default >/dev/null 2>&1 || nvm use 20 >/dev/null 2>&1 || true
+    fi
+}
+
+check_node_dependencies() {
+    load_nvm_if_available
+    if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
+        echo -e "${RED}❌ 錯誤: 未安裝 node/npm${NC}"
+        print_install_hint node
+        if prompt_yes_no "要現在自動安裝 Node.js 20（nvm）嗎？(y/N) "; then
+            bootstrap_node || return 1
+            load_nvm_if_available
+        else
+            return 1
+        fi
+    fi
+    check_node_version || {
+        if prompt_yes_no "要改用自動安裝/切換到 Node.js 20（nvm）嗎？(y/N) "; then
+            bootstrap_node || return 1
+            load_nvm_if_available
+        else
+            return 1
+        fi
+    }
+    return 0
+}
+
+check_python_dependencies() {
+    require_command python3 || return 1
+    return 0
+}
+
+ensure_node_modules() {
+    load_nvm_if_available
+    if [ -d "$PROJECT_ROOT/node_modules" ]; then
+        return 0
+    fi
+    echo -e "${BLUE}📦 安裝 npm 依賴 (workspaces)...${NC}"
+    (
+        cd "$PROJECT_ROOT"
+        if [ -f "$PROJECT_ROOT/package-lock.json" ]; then
+            npm ci
+        else
+            npm install
+        fi
+    ) || {
+        echo -e "${RED}❌ npm 依賴安裝失敗，請先修正後重試${NC}"
+        return 1
+    }
+    echo -e "${GREEN}✅ npm 依賴已安裝${NC}"
+    return 0
+}
+
+ensure_docker_running() {
+    if ! docker info > /dev/null 2>&1; then
+        echo -e "${YELLOW}🔄 Docker 未啟動，正在嘗試自動開啟 Docker Desktop...${NC}"
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            open -a "Docker"
+            echo -e "${YELLOW}⏳ 等待 Docker 準備就緒 (約需 30-60 秒)...${NC}"
+            local timeout=60
+            local count=0
+            while ! docker info > /dev/null 2>&1; do
+                if [ $count -ge $timeout ]; then
+                    echo -e "${RED}❌ Docker 啟動超時，請手動確認 Docker Desktop 狀態。${NC}"
+                    exit 1
+                fi
+                sleep 2
+                ((count+=2))
+                echo -n "."
+            done
+            echo -e "\n${GREEN}✅ Docker 已就緒${NC}"
+        else
+            echo -e "${RED}❌ 非 macOS 環境，請手動啟動 Docker Daemon。${NC}"
+            exit 1
+        fi
+    else
+        echo -e "${GREEN}✅ Docker 已在運行${NC}"
+        list_running_containers
+    fi
+}
+
+list_running_containers() {
+    local running_containers
+    running_containers=$(docker ps --format "{{.Names}}\t{{.Ports}}" 2>/dev/null)
+    if [ -n "$running_containers" ]; then
+        echo -e "${BLUE}📦 目前運行中的容器與 Port：${NC}"
+        echo "$running_containers" | while read -r name ports; do
+            # 格式化輸出，只顯示具體的 port 映射部分
+            local clean_ports
+            clean_ports=$(echo "$ports" | sed 's/0.0.0.0://g' | sed 's/->/ -> /g')
+            echo -e "   • ${GREEN}${name}${NC} [${clean_ports}]"
+        done
+    else
+        echo -e "${YELLOW}ℹ️  目前沒有運行中的 Docker 容器${NC}"
+    fi
+}
+
 check_dependencies() {
     echo -e "${BLUE}🔍 檢查環境依賴...${NC}"
-    check_command docker || exit 1
-    check_command node || exit 1
-    check_command supabase || exit 1
-    check_command python3 || exit 1
+    check_docker_dependencies || exit 1
+    check_node_dependencies || exit 1
+    check_supabase_dependencies || exit 1
+    check_python_dependencies || exit 1
 }
 
 ensure_log_dir() {
@@ -154,11 +572,14 @@ ensure_supabase_running() {
         echo -e "${GREEN}✅ Supabase 已在運行${NC}"
     else
         echo -e "${YELLOW}🔄 正在啟動 Supabase...${NC}"
-        supabase start > /dev/null 2>&1
+        if ! supabase_exec start; then
+            echo -e "${RED}❌ Supabase 啟動失敗。請確認 Docker 是否正常且無埠號衝突。${NC}"
+            exit 1
+        fi
         echo -e "${GREEN}✅ Supabase 啟動成功${NC}"
     fi
     # 更新 SUPABASE_URL (以防萬一)
-    export SUPABASE_URL=$(supabase status 2>/dev/null | grep "API URL" | awk '{print $3}')
+    export SUPABASE_URL=$(supabase_exec status 2>/dev/null | grep "API URL" | awk '{print $3}')
     # 自動寫入/更新 apps/web 與 apps/superadmin 的 .env.local 中的 Supabase 變數
     ensure_web_env_supabase
     # 資料完整性檢查：storage volume 有檔案但 DB metadata 不一致時提示還原
@@ -168,7 +589,7 @@ ensure_supabase_running() {
 # 從 supabase status -o env 取得 API_URL / ANON_KEY / SERVICE_ROLE_KEY，寫入或合併到 apps/web 與 apps/superadmin 的 .env.local
 ensure_web_env_supabase() {
     local status_env
-    status_env=$(supabase status -o env 2>/dev/null) || return 0
+    status_env=$(supabase_exec status -o env 2>/dev/null) || return 0
     local api_url anon_key service_role_key
     api_url=$(echo "$status_env" | grep '^API_URL=' | sed 's/^API_URL=//' | tr -d '"')
     anon_key=$(echo "$status_env" | grep '^ANON_KEY=' | sed 's/^ANON_KEY=//' | tr -d '"')
@@ -237,82 +658,6 @@ check_python_venv() {
     fi
 }
 
-ensure_paperclip_env() {
-    local paperclip_env_file="$PROJECT_ROOT/docker/paperclip/.env.paperclip"
-    local default_port="3187"
-    local selected_port="${PAPERCLIP_PORT:-$default_port}"
-    local selected_url="${PAPERCLIP_PUBLIC_URL:-http://localhost:$selected_port}"
-    local selected_image="${PAPERCLIP_IMAGE:-ghcr.io/paperclipai/paperclip:latest}"
-    local selected_auto_pull="${PAPERCLIP_AUTO_PULL:-0}"
-    local selected_auto_open_browser="${PAPERCLIP_AUTO_OPEN_BROWSER:-1}"
-    local selected_data_dir="${PAPERCLIP_DATA_DIR:-$HOME/.paperclip-data-owner-property-management}"
-    local selected_claude_oauth_token="${CLAUDE_CODE_OAUTH_TOKEN:-}"
-
-    if [ ! -f "$paperclip_env_file" ]; then
-        mkdir -p "$selected_data_dir"
-        local generated_secret
-        generated_secret=$(openssl rand -hex 32)
-        cat > "$paperclip_env_file" << EOF
-PAPERCLIP_PORT=$selected_port
-PAPERCLIP_PUBLIC_URL=$selected_url
-PAPERCLIP_IMAGE=$selected_image
-PAPERCLIP_AUTO_PULL=$selected_auto_pull
-PAPERCLIP_AUTO_OPEN_BROWSER=$selected_auto_open_browser
-PAPERCLIP_DATA_DIR=$selected_data_dir
-BETTER_AUTH_SECRET=$generated_secret
-CLAUDE_CODE_OAUTH_TOKEN=$selected_claude_oauth_token
-EOF
-        echo -e "${GREEN}✅ 已建立 docker/paperclip/.env.paperclip${NC}"
-    fi
-
-    if ! grep -q '^CLAUDE_CODE_OAUTH_TOKEN=' "$paperclip_env_file" 2>/dev/null; then
-        echo "CLAUDE_CODE_OAUTH_TOKEN=$selected_claude_oauth_token" >> "$paperclip_env_file"
-    fi
-
-    PAPERCLIP_PORT=$(grep '^PAPERCLIP_PORT=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
-    PAPERCLIP_PUBLIC_URL=$(grep '^PAPERCLIP_PUBLIC_URL=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
-    PAPERCLIP_IMAGE=$(grep '^PAPERCLIP_IMAGE=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
-    PAPERCLIP_AUTO_PULL=$(grep '^PAPERCLIP_AUTO_PULL=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
-    PAPERCLIP_AUTO_OPEN_BROWSER=$(grep '^PAPERCLIP_AUTO_OPEN_BROWSER=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
-    PAPERCLIP_DATA_DIR=$(grep '^PAPERCLIP_DATA_DIR=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
-    BETTER_AUTH_SECRET=$(grep '^BETTER_AUTH_SECRET=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
-    CLAUDE_CODE_OAUTH_TOKEN=$(grep '^CLAUDE_CODE_OAUTH_TOKEN=' "$paperclip_env_file" | head -n1 | cut -d= -f2-)
-
-    PAPERCLIP_PORT="${PAPERCLIP_PORT:-3187}"
-    PAPERCLIP_PUBLIC_URL="${PAPERCLIP_PUBLIC_URL:-http://localhost:$PAPERCLIP_PORT}"
-    PAPERCLIP_DASHBOARD_URL="${PAPERCLIP_DASHBOARD_URL:-${PAPERCLIP_PUBLIC_URL}/VIS/agents/ceo/dashboard}"
-    PAPERCLIP_IMAGE="${PAPERCLIP_IMAGE:-ghcr.io/paperclipai/paperclip:latest}"
-    PAPERCLIP_AUTO_PULL="${PAPERCLIP_AUTO_PULL:-0}"
-    PAPERCLIP_AUTO_OPEN_BROWSER="${PAPERCLIP_AUTO_OPEN_BROWSER:-1}"
-    PAPERCLIP_DATA_DIR="${PAPERCLIP_DATA_DIR:-$HOME/.paperclip-data-owner-property-management}"
-    CLAUDE_CODE_OAUTH_TOKEN="${CLAUDE_CODE_OAUTH_TOKEN:-}"
-
-    export PAPERCLIP_PORT PAPERCLIP_PUBLIC_URL PAPERCLIP_DASHBOARD_URL PAPERCLIP_IMAGE PAPERCLIP_AUTO_PULL PAPERCLIP_AUTO_OPEN_BROWSER PAPERCLIP_DATA_DIR BETTER_AUTH_SECRET CLAUDE_CODE_OAUTH_TOKEN
-}
-
-open_paperclip_dashboard() {
-    local health_url="${PAPERCLIP_PUBLIC_URL}/api/health"
-
-    if [ "$PAPERCLIP_AUTO_OPEN_BROWSER" != "1" ]; then
-        return 0
-    fi
-
-    if ! command -v open >/dev/null 2>&1; then
-        return 0
-    fi
-
-    for _ in $(seq 1 20); do
-        if curl -fsS "$health_url" >/dev/null 2>&1; then
-            echo -e "${BLUE}🌐 開啟 Paperclip Dashboard: ${PAPERCLIP_DASHBOARD_URL}${NC}"
-            open "$PAPERCLIP_DASHBOARD_URL" >/dev/null 2>&1 || true
-            return 0
-        fi
-        sleep 1
-    done
-
-    echo -e "${YELLOW}⚠️  Paperclip 尚未完成啟動，未自動開啟 Dashboard。可手動開啟：${PAPERCLIP_DASHBOARD_URL}${NC}"
-}
-
 # Check if any Chrome tab with the OpenClaw base URL is already open.
 # If not, open with the tokenized URL (via openclaw dashboard --no-open) so
 # the user does not have to manually enter a token.
@@ -373,94 +718,6 @@ open_all_service_pages() {
     fi
     open_url_once_in_chrome "http://localhost:54323/project/default"
     open_url_once_in_chrome "http://localhost:54324/"
-}
-
-start_paperclip() {
-    echo -e "${BLUE}📎 啟動 Paperclip (Docker-only)...${NC}"
-    local compose_file="$PROJECT_ROOT/docker/paperclip/docker-compose.paperclip.yml"
-    local env_file="$PROJECT_ROOT/docker/paperclip/.env.paperclip"
-    local paperclip_container_id=""
-
-    if [ ! -f "$compose_file" ]; then
-        echo -e "${RED}❌ 找不到 Paperclip compose 設定: $compose_file${NC}"
-        return 1
-    fi
-
-    ensure_paperclip_env
-
-    paperclip_container_id=$(docker compose --env-file "$env_file" -f "$compose_file" ps -q paperclip 2>/dev/null || true)
-
-    if [ -n "$paperclip_container_id" ] && [ "$(docker inspect -f '{{.State.Status}}' "$paperclip_container_id" 2>/dev/null || true)" = "running" ]; then
-        echo -e "${GREEN}✅ Paperclip 已在運行: ${PAPERCLIP_PUBLIC_URL:-http://localhost:${PAPERCLIP_PORT:-3187}}${NC}"
-        echo -e "${YELLOW}ℹ️  若要更新 Paperclip，請執行: ./start.sh paperclip-update${NC}"
-        return 0
-    fi
-
-    if [ "$PAPERCLIP_AUTO_PULL" = "1" ]; then
-        echo -e "${BLUE}📥 取得 Paperclip 映像檔: ${PAPERCLIP_IMAGE}${NC}"
-        docker pull "${PAPERCLIP_IMAGE}" > /dev/null 2>&1 || {
-            echo -e "${YELLOW}⚠️  無法預先拉取映像檔，改由 compose 直接啟動${NC}"
-        }
-    elif ! docker image inspect "$PAPERCLIP_IMAGE" > /dev/null 2>&1; then
-        echo -e "${BLUE}📥 首次啟動，下載 Paperclip 映像檔: ${PAPERCLIP_IMAGE}${NC}"
-        docker pull "$PAPERCLIP_IMAGE" > /dev/null 2>&1 || {
-            echo -e "${YELLOW}⚠️  無法預先拉取映像檔，改由 compose 直接啟動${NC}"
-        }
-    else
-        echo -e "${BLUE}⚡ 使用本機快取映像檔（可在 docker/paperclip/.env.paperclip 設 PAPERCLIP_AUTO_PULL=1 每次更新）${NC}"
-    fi
-
-    if lsof -i :"${PAPERCLIP_PORT:-3187}" > /dev/null 2>&1; then
-        echo -e "${YELLOW}⚠️  Port ${PAPERCLIP_PORT:-3187} 已被使用，若非 Paperclip 請調整 docker/paperclip/.env.paperclip 的 PAPERCLIP_PORT${NC}"
-    fi
-
-    docker compose --env-file "$env_file" -f "$compose_file" up -d
-    echo -e "${GREEN}✅ Paperclip 啟動成功: ${PAPERCLIP_PUBLIC_URL:-http://localhost:${PAPERCLIP_PORT:-3187}}${NC}"
-    echo -e "${YELLOW}ℹ️  Docker 模式更新請用: ./start.sh paperclip-update${NC}"
-    open_paperclip_dashboard
-}
-
-update_paperclip_image() {
-    echo -e "${BLUE}📦 更新 Paperclip 映像檔 (Docker-only)...${NC}"
-    echo -e "${YELLOW}ℹ️  Docker 模式請用這個指令更新；若 UI 內有內建 Update，請不要用它${NC}"
-    local compose_file="$PROJECT_ROOT/docker/paperclip/docker-compose.paperclip.yml"
-    local env_file="$PROJECT_ROOT/docker/paperclip/.env.paperclip"
-    local recreate_log=""
-
-    if [ ! -f "$compose_file" ]; then
-        echo -e "${RED}❌ 找不到 Paperclip compose 設定: $compose_file${NC}"
-        return 1
-    fi
-
-    ensure_paperclip_env
-    ensure_log_dir
-    recreate_log="$LOG_DIR/paperclip-update.log"
-    : > "$recreate_log"
-
-    echo -e "${BLUE}📥 拉取最新映像檔: ${PAPERCLIP_IMAGE}${NC}"
-    docker pull "$PAPERCLIP_IMAGE"
-
-    if docker compose --env-file "$env_file" -f "$compose_file" ps -q paperclip | grep -q .; then
-        echo -e "${YELLOW}🔄 重新建立 Paperclip 容器以套用新映像檔...${NC}"
-        if ! docker compose --env-file "$env_file" -f "$compose_file" up -d --force-recreate paperclip > "$recreate_log" 2>&1; then
-            if grep -q 'removal of container .* is already in progress' "$recreate_log"; then
-                echo -e "${YELLOW}⚠️  Docker 正在移除舊的 Paperclip 容器，等待後重試一次...${NC}"
-                sleep 2
-                docker compose --env-file "$env_file" -f "$compose_file" up -d --force-recreate paperclip >> "$recreate_log" 2>&1 || {
-                    echo -e "${RED}❌ Paperclip 容器重建失敗，詳見: $recreate_log${NC}"
-                    tail -n 20 "$recreate_log" || true
-                    return 1
-                }
-            else
-                echo -e "${RED}❌ Paperclip 容器重建失敗，詳見: $recreate_log${NC}"
-                tail -n 20 "$recreate_log" || true
-                return 1
-            fi
-        fi
-        echo -e "${GREEN}✅ Paperclip 已更新並重啟: ${PAPERCLIP_PUBLIC_URL:-http://localhost:${PAPERCLIP_PORT:-3187}}${NC}"
-    else
-        echo -e "${GREEN}✅ 映像檔已更新。尚未啟動容器，之後執行 start.sh paperclip 即可使用新版本。${NC}"
-    fi
 }
 
 update_hermes_image() {
@@ -619,30 +876,10 @@ start_hermes_dashboard() {
 
 # --- 啟動函式 ---
 
-start_cgc_viz() {
-    echo -e "${BLUE}🗺️  啟動 CGC 程式碼視覺化 (Port 18781)...${NC}"
-    if ! command -v cgc &> /dev/null; then
-        echo -e "${RED}❌ 找不到 cgc 指令，請確認 CodeGraphContext 已安裝：pipx install codegraphcontext${NC}"
-        return 1
-    fi
-    if lsof -i :18781 > /dev/null 2>&1; then
-        echo -e "${YELLOW}⚠️  CGC Visualizer 已在運行: http://localhost:18781${NC}"
-        return 0
-    fi
-    ensure_log_dir
-    local log_target
-    log_target=$(dev_log_target "$LOG_DIR/cgc-viz.log")
-    nohup cgc visualize --port 18781 > "$log_target" 2>&1 &
-    disown
-    if [ "$log_target" = "/dev/null" ]; then
-        echo -e "${GREEN}✅ CGC Visualizer 啟動成功: http://localhost:18781${NC}"
-    else
-        echo -e "${GREEN}✅ CGC Visualizer 啟動成功: http://localhost:18781, log: $log_target${NC}"
-    fi
-}
 
 start_web() {
     echo -e "${BLUE}🌐 啟動 Web App (Port 3000)...${NC}"
+    ensure_node_modules || return 1
     if lsof -i :3000 > /dev/null 2>&1; then
         echo -e "${YELLOW}⚠️  Web App 已在運行${NC}"
     else
@@ -670,6 +907,7 @@ start_web() {
 
 start_web_au() {
     echo -e "${BLUE}🦘 啟動 Web App AU (Port 3002)...${NC}"
+    ensure_node_modules || return 1
     if lsof -i :3002 > /dev/null 2>&1; then
         echo -e "${YELLOW}⚠️  Web App AU 已在運行${NC}"
     else
@@ -695,6 +933,7 @@ start_web_au() {
 
 start_admin() {
     echo -e "${BLUE}🔐 啟動 Superadmin (Port 3001)...${NC}"
+    ensure_node_modules || return 1
     if lsof -i :3001 > /dev/null 2>&1; then
         echo -e "${YELLOW}⚠️  Superadmin 已在運行${NC}"
     else
@@ -721,8 +960,25 @@ start_admin() {
 start_openclaw() {
     echo -e "${BLUE}🕹️  啟動 OpenClaw...${NC}"
     if ! command -v openclaw > /dev/null 2>&1; then
-        echo -e "${RED}❌ 找不到 openclaw 指令，請先安裝：npm install -g openclaw${NC}"
-        return 1
+        echo -e "${YELLOW}⚠️  找不到 openclaw 指令${NC}"
+        if prompt_yes_no "要現在用 npm 全域安裝 openclaw 嗎？(y/N) "; then
+            if command -v npm >/dev/null 2>&1; then
+                npm install -g openclaw || {
+                    echo -e "${RED}❌ openclaw 安裝失敗${NC}"
+                    return 1
+                }
+            else
+                echo -e "${RED}❌ 找不到 npm，請先安裝 Node.js${NC}"
+                return 1
+            fi
+        else
+            echo -e "${RED}❌ 找不到 openclaw 指令，請先安裝：npm install -g openclaw${NC}"
+            return 1
+        fi
+        if ! command -v openclaw > /dev/null 2>&1; then
+            echo -e "${RED}❌ openclaw 安裝完成但仍找不到指令，請重新開啟 Terminal 後重試${NC}"
+            return 1
+        fi
     fi
 
     local gateway_port
@@ -829,18 +1085,15 @@ run_observability_checks() {
 }
 
 backup_agent_data() {
-    echo -e "${BLUE}💾 備份 Hermes / Paperclip / OpenClaw 本機資料...${NC}"
+    echo -e "${BLUE}💾 備份 Hermes / OpenClaw 本機資料...${NC}"
 
     local backup_dir="$PROJECT_ROOT/backups/agent-data"
     local timestamp
     local archive_path
-    local paperclip_env_file="$PROJECT_ROOT/docker/paperclip/.env.paperclip"
     local manifest_file=""
     local tar_list_file=""
     local tar_sources=()
     local source_path=""
-
-    ensure_paperclip_env
 
     mkdir -p "$backup_dir"
     timestamp=$(date '+%Y%m%d-%H%M%S')
@@ -852,23 +1105,13 @@ backup_agent_data() {
 Created at: $timestamp
 Project root: $PROJECT_ROOT
 Hermes data: $HERMES_HOME_DIR
-Paperclip env: $paperclip_env_file
-Paperclip data: $PAPERCLIP_DATA_DIR
 OpenClaw data: $OPENCLAW_HOME_DIR
 EOF
 
     tar_sources+=("$manifest_file")
 
-    if [ -f "$paperclip_env_file" ]; then
-        tar_sources+=("$paperclip_env_file")
-    fi
-
     if [ -d "$HERMES_HOME_DIR" ]; then
         tar_sources+=("$HERMES_HOME_DIR")
-    fi
-
-    if [ -d "$PAPERCLIP_DATA_DIR" ]; then
-        tar_sources+=("$PAPERCLIP_DATA_DIR")
     fi
 
     if [ -d "$OPENCLAW_HOME_DIR" ]; then
@@ -902,20 +1145,28 @@ EOF
 
 start_all() {
     echo -e "${BLUE}🚀 正在啟動所有服務 (背景模式)...${NC}"
-    check_dependencies
+    check_docker_dependencies || exit 1
+    check_supabase_dependencies || exit 1
     local openclaw_port
     openclaw_port="$(get_openclaw_gateway_port)"
     openclaw_port="${openclaw_port:-18789}"
     ensure_log_dir
     ensure_supabase_running
     start_elasticsearch_stack
-    start_web "bg"
-    start_web_au "bg"
-    start_admin "bg"
-    start_paperclip
-    start_hermes_dashboard
-    start_openclaw "bg"
-    start_cgc_viz
+    if check_node_dependencies; then
+        start_web "bg"
+        start_web_au "bg"
+        start_admin "bg"
+    else
+        echo -e "${YELLOW}⚠️  Node.js 未就緒，已跳過 Web/Superadmin 啟動。安裝完成後再執行：./start.sh web / admin / all${NC}"
+    fi
+
+    if ! start_hermes_dashboard; then
+        echo -e "${YELLOW}⚠️  Hermes Dashboard 啟動失敗，先略過（可稍後執行：./start.sh hermes）${NC}"
+    fi
+    if ! start_openclaw "bg"; then
+        echo -e "${YELLOW}⚠️  OpenClaw 啟動失敗，先略過（可稍後執行：./start.sh openclaw）${NC}"
+    fi
 
     if [ -n "$ELASTIC_WAIT_PID" ]; then
         wait "$ELASTIC_WAIT_PID" 2>/dev/null || true
@@ -928,15 +1179,12 @@ start_all() {
     echo -e "   • Superadmin:       http://localhost:3001/superadmin/dashboard"
     echo -e "   • Elasticsearch:    http://localhost:9200"
     echo -e "   • Kibana:           http://localhost:5601"
-    echo -e "   • Paperclip (Docker-only): ${PAPERCLIP_PUBLIC_URL:-http://localhost:${PAPERCLIP_PORT:-3187}}"
     echo -e "   • $(get_hermes_status_summary)"
     echo -e "   • OpenClaw Dashboard: http://localhost:${openclaw_port}"
     echo -e "   • Supabase Studio:  http://localhost:54323"
     echo -e "   • Mailpit (Email):  http://localhost:54324"
-    echo -e "   • CGC Visualizer:   http://localhost:18781"
     echo -e "   • Logs:             $LOG_DIR/"
     echo -e "   • Hermes data:      $HERMES_HOME_DIR"
-    echo -e "   • Paperclip data:   ${PAPERCLIP_DATA_DIR:-$HOME/.paperclip-data-owner-property-management}"
     echo -e "   • OpenClaw data:    $OPENCLAW_HOME_DIR"
     echo ""
     echo -e "${YELLOW}📝 測試帳號資訊${NC}"
@@ -1004,37 +1252,37 @@ show_menu() {
     echo "4) 🔐 啟動 Superadmin (Port 3001)"
     echo "5) 🧪 執行 Superadmin 測試 (含截圖)"
     echo "6) 🧹 清除快取 (TW + AU + Superadmin)"
-    echo "7) 📎 啟動 Paperclip (Docker-only)"
-    echo "8) 📦 更新 Paperclip 映像檔 (Docker-only)"
-    echo "9) 🤖 啟動 Hermes Dashboard (Docker-only)"
-    echo "10) 📦 更新 Hermes Docker image"
-    echo "11) 🔎 啟動 Elasticsearch + Kibana (Docker)"
-    echo "12) 📊 執行 Observability MVP 檢查"
-    echo "13) 🕹️  啟動 OpenClaw"
-    echo "14) 💾 備份 Hermes / Paperclip / OpenClaw 資料"
-    echo "15) 🗺️  啟動 CGC 程式碼視覺化 (Port 18781)"
-    echo "16) 🛑 停止所有服務"
+    echo "7) 🤖 啟動 Hermes Dashboard (Docker-only)"
+    echo "8) 📦 更新 Hermes Docker image"
+    echo "9) 🔎 啟動 Elasticsearch + Kibana (Docker)"
+    echo "10) 📊 執行 Observability MVP 檢查"
+    echo "11) 🕹️  啟動 OpenClaw"
+    echo "12) 💾 備份 Hermes / OpenClaw 資料"
+    echo "13) 🛑 停止所有服務"
+    echo "14) 🧰 安裝開發依賴（Node + Supabase CLI）"
+    echo "15) 🧰 安裝 Node.js（nvm）"
+    echo "16) 🧰 安裝 Supabase CLI"
     echo "0) 離開"
     echo ""
     read -p "請輸入選項: " choice
 
     case $choice in
         1) start_all ;;
-        2) check_dependencies; ensure_supabase_running; start_web ;;
-        3) check_dependencies; ensure_supabase_running; start_web_au ;;
-        4) check_dependencies; ensure_supabase_running; start_admin ;;
+        2) check_docker_dependencies && check_supabase_dependencies && check_node_dependencies && ensure_supabase_running && start_web ;;
+        3) check_docker_dependencies && check_supabase_dependencies && check_node_dependencies && ensure_supabase_running && start_web_au ;;
+        4) check_docker_dependencies && check_supabase_dependencies && check_node_dependencies && ensure_supabase_running && start_admin ;;
         5) run_tests ;;
         6) clean_cache ;;
-        7) start_paperclip ;;
-        8) update_paperclip_image ;;
-        9) start_hermes_dashboard ;;
-        10) update_hermes_image ;;
-        11) start_elasticsearch_stack ;;
-        12) run_observability_checks ;;
-        13) start_openclaw ;;
-        14) backup_agent_data ;;
-        15) start_cgc_viz ;;
-        16) ./stop.sh ;;
+        7) start_hermes_dashboard ;;
+        8) update_hermes_image ;;
+        9) start_elasticsearch_stack ;;
+        10) run_observability_checks ;;
+        11) start_openclaw ;;
+        12) backup_agent_data ;;
+        13) ./stop.sh ;;
+        14) bootstrap_all_deps ;;
+        15) bootstrap_node ;;
+        16) bootstrap_supabase ;;
         0) exit 0 ;;
         *) echo "無效選項"; sleep 1; show_menu ;;
     esac
@@ -1043,20 +1291,20 @@ show_menu() {
 # --- 主邏輯 ---
 case "${1:-menu}" in
     all)    start_all ;;
-    web)    check_dependencies; ensure_supabase_running; start_web ;;
-    web-au) check_dependencies; ensure_supabase_running; start_web_au ;;
-    admin)  check_dependencies; ensure_supabase_running; start_admin ;;
-    elastic) check_dependencies; start_elasticsearch_stack ;;
-    observability) check_dependencies; run_observability_checks ;;
+    bootstrap) bootstrap_all_deps ;;
+    bootstrap-node) bootstrap_node ;;
+    bootstrap-supabase) bootstrap_supabase ;;
+    web)    check_docker_dependencies && check_supabase_dependencies && check_node_dependencies && ensure_supabase_running && start_web ;;
+    web-au) check_docker_dependencies && check_supabase_dependencies && check_node_dependencies && ensure_supabase_running && start_web_au ;;
+    admin)  check_docker_dependencies && check_supabase_dependencies && check_node_dependencies && ensure_supabase_running && start_admin ;;
+    elastic) check_docker_dependencies && start_elasticsearch_stack ;;
+    observability) check_docker_dependencies && run_observability_checks ;;
     openclaw) start_openclaw ;;
-    cgc-viz) start_cgc_viz ;;
     backup-agent-data) backup_agent_data ;;
-    paperclip) check_dependencies; start_paperclip ;;
-    paperclip-update) check_dependencies; update_paperclip_image ;;
-    hermes-update) check_command docker || exit 1; update_hermes_image ;;
-    hermes) check_command docker || exit 1; start_hermes_dashboard ;;
+    hermes-update) check_docker_dependencies && update_hermes_image ;;
+    hermes) check_docker_dependencies && start_hermes_dashboard ;;
     test)   run_tests ;;
     clean)  clean_cache ;;
     menu)   show_menu ;;
-    *)      echo "用法: $0 [all|web|web-au|admin|elastic|observability|openclaw|cgc-viz|backup-agent-data|paperclip|paperclip-update|hermes|hermes-update|test|clean|menu]" ;;
+    *)      echo "用法: $0 [all|bootstrap|bootstrap-node|bootstrap-supabase|web|web-au|admin|elastic|observability|openclaw|backup-agent-data|hermes|hermes-update|test|clean|menu]" ;;
 esac
