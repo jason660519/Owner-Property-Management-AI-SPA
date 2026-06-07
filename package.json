@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "postinstall": "patch-package",
-    "build": "npm run build --workspaces",
+    "build": "npm run build --workspaces --if-present",
     "dev": "./start.sh menu",
     "dev:web": "npm run dev --workspace web",
     "dev:web-au": "npm run dev --workspace web-au",
